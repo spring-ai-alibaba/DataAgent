@@ -1,0 +1,77 @@
+target/
+
+### IntelliJ IDEA ###
+.idea/*
+**/.idea/*
+.idea/modules.xml
+.idea/jarRepositories.xml
+.idea/compiler.xml
+.idea/libraries/
+*.iws
+*.iml
+*.ipr
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+
+### .env files contain local environment variables ###
+.env
+
+# Maven ignore
+.flattened-pom.xml
+
+# node_modules
+**/node_modules
+
+# Generated Files
+spring-ai-alibaba-examples/playground-flight-booking/frontend/generated/
+spring-ai-alibaba-examples/playground-flight-booking/src/main/bundles/
+/spring-ai-alibaba-examples/playground-flight-booking-example/
+**/spring-ai-alibaba-jmanus/extensions/*
+**/venv/*
+**/spring-ai-alibaba-jmanus/h2-data/*
+**/playwright/*
+spring-ai-alibaba-jmanus/ui-vue3/pnpm-lock.yaml
+
+
+# windows os
+/extensions/
+/h2-data/
+
+# checkstyle report files
+**/checkstyle-report.xml
+**/logs/*
+
+# SpecStory files - ignore entire .specstory directory
+.specstory/
+.specstory/.what-is-this.md
+.specstory/history/*
+
+# MCP configuration files
+modified_mcp_config.json
+.cursorindexingignore
+
+# ignore code copilot local index
+.idea/LocalCodeIndex/
+
+
+/spring-ai-alibaba-studio/spring-ai-alibaba-studio-server/docker/middleware/elasticsearch/*
+!/spring-ai-alibaba-studio/spring-ai-alibaba-studio-server/docker/middleware/elasticsearch/data/
+!/spring-ai-alibaba-studio/spring-ai-alibaba-studio-server/docker/middleware/elasticsearch/data/.gitkeep
+
+/spring-ai-alibaba-studio/spring-ai-alibaba-studio-server/docker/middleware/kibana/*
+!/spring-ai-alibaba-studio/spring-ai-alibaba-studio-server/docker/middleware/kibana/data/
+!/spring-ai-alibaba-studio/spring-ai-alibaba-studio-server/docker/middleware/kibana/data/.gitkeep
+/spring-ai-alibaba-studio/ui/
