@@ -16,7 +16,7 @@ services:
   # MySQL 服务
   mysql-data:
     image: mysql:8.0
-    container_name: nl2sql-mysql-datasource
+    container_name: data-agent-mysql-datasource
     restart: always
     ports:
       - "13306:3306"
@@ -34,7 +34,7 @@ services:
   # PostgreSQL 服务
   postgres-data:
     image: postgres:15
-    container_name: nl2sql-postgres-datasource
+    container_name: data-agent-postgres-datasource
     restart: always
     ports:
       - "15432:5432"

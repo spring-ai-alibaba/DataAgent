@@ -17,12 +17,16 @@ FROM openjdk:17-jdk-slim
 
 WORKDIR /app
 
-# 从构建阶段复制jar文件（版本号需要根据构建结果进行更新）
-# TODO: 更新为从git仓库获取源代码并构建jar文件
-COPY spring-ai-alibaba-nl2sql-management/target/spring-ai-alibaba-nl2sql-management-1.0.0.4-SNAPSHOT.jar app.jar
+# 安装所需的软件
+RUN apt update && apt install -y maven git python3
 
-# 安装python3，用于运行python脚本
-RUN apt update && apt install -y python3
+# 下载Spring AI Alibaba和DataAgent源码，用于构建
+RUN git clone https://github.com/alibaba/spring-ai-alibaba.git \
+    && cd spring-ai-alibaba && mvn install -DskipTests && cd ..
+RUN git clone https://github.com/spring-ai-alibaba/DataAgent.git \
+    && cd DataAgent && mvn install -DskipTests \
+    && cp ./spring-ai-alibaba-data-agent-management/target/spring-ai-alibaba-data-agent-management-0.1.0-SNAPSHOT.jar /app/app.jar \
+    && cd ..
 
 # 创建配置文件目录
 RUN mkdir -p /app/config
