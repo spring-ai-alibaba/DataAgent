@@ -24,7 +24,7 @@ import com.alibaba.cloud.ai.constant.Constant;
 
 import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
-import com.alibaba.cloud.ai.model.execution.ExecutionStep;
+import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.service.DatasourceService;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.Datasource;

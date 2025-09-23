@@ -15,8 +15,11 @@
  */
 package com.alibaba.cloud.ai.controller;
 
+import com.alibaba.cloud.ai.dto.ChatRequest;
 import com.alibaba.cloud.ai.entity.*;
 import com.alibaba.cloud.ai.service.*;
+import com.alibaba.cloud.ai.vo.ApiResponse;
+import com.alibaba.cloud.ai.vo.ChatResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

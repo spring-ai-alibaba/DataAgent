@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.service;
 
 import com.alibaba.cloud.ai.entity.BusinessKnowledge;
-import com.alibaba.cloud.ai.entity.BusinessKnowledgeDTO;
+import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.mapper.BusinessKnowledgeMapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;

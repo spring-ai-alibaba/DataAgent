@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.annotation;
+package com.alibaba.cloud.ai.config;
 
 import com.alibaba.cloud.ai.service.simple.AgentVectorStoreManager;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -26,7 +26,7 @@ import org.springframework.context.annotation.Configuration;
  * management module
  */
 @Configuration
-public class VectorStoreConfig {
+public class VectorStoreConfiguration {
 
 	/**
 	 * Create AgentVectorStoreManager Bean Will not be created repeatedly if it already
