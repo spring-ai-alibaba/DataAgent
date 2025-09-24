@@ -16,7 +16,7 @@ services:
   # MySQL数据库
   mysql:
     image: mysql:8.0
-    container_name: nl2sql-mysql-inner
+    container_name: data-agent-mysql-inner
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: nl2sql_db
@@ -37,8 +37,8 @@ services:
       context: ..
       dockerfile: ./docker-file/Dockerfile-backend
       tags:
-        - saa-nl2sql-backend:1.0.0.4-SNAPSHOT
-    container_name: nl2sql-backend
+        - saa-data-agent-backend:1.0.0.4-SNAPSHOT
+    container_name: data-agent-backend
     environment:
       - NL2SQL_DATASOURCE_URL=jdbc:mysql://mysql:3306/nl2sql_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       - NL2SQL_DATASOURCE_USERNAME=root
@@ -63,8 +63,8 @@ services:
       context: ..
       dockerfile: ./docker-file/Dockerfile-frontend
       tags:
-        - saa-nl2sql-frontend:1.0.0.4-SNAPSHOT
-    container_name: nl2sql-frontend
+        - saa-data-agent-frontend:1.0.0.4-SNAPSHOT
+    container_name: data-agent-frontend
     ports:
       - "3000:3000"  # 只暴露前端端口
     depends_on:
@@ -78,7 +78,7 @@ services:
   # MySQL 模拟数据源
   mysql-data:
     image: mysql:8.0
-    container_name: nl2sql-mysql-datasource
+    container_name: data-agent-mysql-datasource
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root
@@ -96,7 +96,7 @@ services:
   # PostgreSQL 模拟数据源
   postgres-data:
     image: postgres:15
-    container_name: nl2sql-postgres-datasource
+    container_name: data-agent-postgres-datasource
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -112,9 +112,9 @@ services:
       retries: 3
 
 volumes:
-  nl2sql-mysql-inner-data:
+  data-agent-mysql-inner-data:
 
 networks:
   app-network:
     driver: bridge
-    name: "nl2sql-network"
+    name: "data-agent-network"
