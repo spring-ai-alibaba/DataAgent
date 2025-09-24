@@ -104,8 +104,6 @@ public class Nl2sqlConfiguration {
 			HashMap<String, KeyStrategy> keyStrategyHashMap = new HashMap<>();
 			// User input
 			keyStrategyHashMap.put(INPUT_KEY, new ReplaceStrategy());
-			// Dataset ID
-			keyStrategyHashMap.put(Constant.AGENT_ID, new ReplaceStrategy());
 			// Agent ID
 			keyStrategyHashMap.put(AGENT_ID, new ReplaceStrategy());
 			// Business knowledge
