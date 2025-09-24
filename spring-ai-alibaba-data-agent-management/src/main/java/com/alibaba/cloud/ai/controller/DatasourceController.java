@@ -180,7 +180,7 @@ public class DatasourceController {
 	 * Add data source for agent
 	 */
 	@PostMapping("/agent/{agentId}")
-	public ResponseEntity<Map<String, Object>> addDatasourceToAgent(@PathVariable Integer agentId,
+	public ResponseEntity<Map<String, Object>> addDatasourceToAgent(@PathVariable(value = "agentId") Integer agentId,
 			@RequestBody Map<String, Integer> request) {
 		try {
 			Integer datasourceId = request.get("datasourceId");
@@ -210,8 +210,8 @@ public class DatasourceController {
 	 * Remove data source association from agent
 	 */
 	@DeleteMapping("/agent/{agentId}/{datasourceId}")
-	public ResponseEntity<Map<String, Object>> removeDatasourceFromAgent(@PathVariable Integer agentId,
-			@PathVariable Integer datasourceId) {
+	public ResponseEntity<Map<String, Object>> removeDatasourceFromAgent(@PathVariable("agentId") Integer agentId,
+			@PathVariable("datasourceId") Integer datasourceId) {
 		try {
 			datasourceService.removeDatasourceFromAgent(agentId, datasourceId);
 			Map<String, Object> response = new HashMap<>();
@@ -231,8 +231,8 @@ public class DatasourceController {
 	 * 启用/禁用智能体的数据源
 	 */
 	@PutMapping("/agent/{agentId}/{datasourceId}/toggle")
-	public ResponseEntity<Map<String, Object>> toggleDatasourceForAgent(@PathVariable Integer agentId,
-			@PathVariable Integer datasourceId, @RequestBody Map<String, Boolean> request) {
+	public ResponseEntity<Map<String, Object>> toggleDatasourceForAgent(@PathVariable("agentId") Integer agentId,
+			@PathVariable("datasourceId") Integer datasourceId, @RequestBody Map<String, Boolean> request) {
 		try {
 			Boolean isActive = request.get("isActive");
 			if (isActive == null) {

@@ -92,7 +92,7 @@ public class AgentKnowledgeController {
 	 * Query knowledge details by ID
 	 */
 	@GetMapping("/{id}")
-	public ResponseEntity<Map<String, Object>> getKnowledgeById(@PathVariable Integer id) {
+	public ResponseEntity<Map<String, Object>> getKnowledgeById(@PathVariable("id") Integer id) {
 		Map<String, Object> response = new HashMap<>();
 
 		try {
@@ -175,7 +175,7 @@ public class AgentKnowledgeController {
 	 * Update knowledge
 	 */
 	@PutMapping("/{id}")
-	public ResponseEntity<Map<String, Object>> updateKnowledge(@PathVariable Integer id,
+	public ResponseEntity<Map<String, Object>> updateKnowledge(@PathVariable("id") Integer id,
 			@RequestBody AgentKnowledge knowledge) {
 
 		Map<String, Object> response = new HashMap<>();
@@ -261,7 +261,7 @@ public class AgentKnowledgeController {
 	 * Delete knowledge
 	 */
 	@DeleteMapping("/{id}")
-	public ResponseEntity<Map<String, Object>> deleteKnowledge(@PathVariable Integer id) {
+	public ResponseEntity<Map<String, Object>> deleteKnowledge(@PathVariable("id") Integer id) {
 		Map<String, Object> response = new HashMap<>();
 
 		try {
@@ -346,7 +346,7 @@ public class AgentKnowledgeController {
 	 * Get agent knowledge statistics
 	 */
 	@GetMapping("/statistics/{agentId}")
-	public ResponseEntity<Map<String, Object>> getKnowledgeStatistics(@PathVariable Integer agentId) {
+	public ResponseEntity<Map<String, Object>> getKnowledgeStatistics(@PathVariable("agentId") Integer agentId) {
 		Map<String, Object> response = new HashMap<>();
 
 		try {

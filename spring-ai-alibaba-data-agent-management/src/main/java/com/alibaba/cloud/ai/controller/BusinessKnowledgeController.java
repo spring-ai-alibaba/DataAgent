@@ -41,7 +41,7 @@ public class BusinessKnowledgeController {
 	@ResponseBody
 	public ResponseEntity<List<BusinessKnowledge>> list(
 			@RequestParam(value = "datasetId", required = false) String datasetId,
-			@RequestParam(required = false) String keyword) {
+			@RequestParam(value = "keyword", required = false) String keyword) {
 		List<BusinessKnowledge> result;
 		if (keyword != null && !keyword.trim().isEmpty()) {
 			result = businessKnowledgeService.search(keyword);
