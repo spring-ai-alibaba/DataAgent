@@ -18,7 +18,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # 复制源代码
-COPY spring-ai-alibaba-nl2sql-web-ui .
+COPY spring-ai-alibaba-data-agent-frontend .
 
 # 安装依赖
 RUN npm install
@@ -32,9 +32,6 @@ FROM nginx:alpine
 
 # 复制构建结果到nginx目录
 COPY --from=builder /app/dist /usr/share/nginx/html
-
-# 复制nginx配置
-# COPY docker-file/config/nginx.conf /etc/nginx/nginx.conf
 
 # 暴露端口
 EXPOSE 3000
