@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.entity;
+package com.alibaba.cloud.ai.vo;
 
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,7 +25,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * @author vlsmb
  * @since 2025/8/14
  */
-public class Nl2SqlProcess {
+public class Nl2SqlProcessVO {
 
 	/**
 	 * 标识过程是否结束
@@ -57,12 +57,12 @@ public class Nl2SqlProcess {
 	@JsonProperty("current_node_output")
 	String currentNodeOutput;
 
-	public Nl2SqlProcess() {
+	public Nl2SqlProcessVO() {
 
 	}
 
-	public Nl2SqlProcess(Boolean finished, Boolean succeed, String result, String currentNodeName,
-			String currentNodeOutput) {
+	public Nl2SqlProcessVO(Boolean finished, Boolean succeed, String result, String currentNodeName,
+                           String currentNodeOutput) {
 		this.finished = finished;
 		this.succeed = succeed;
 		this.result = result;
@@ -70,24 +70,24 @@ public class Nl2SqlProcess {
 		this.currentNodeOutput = currentNodeOutput;
 	}
 
-	public static Nl2SqlProcess success(String result, String currentNodeName, String currentNodeOutput) {
-		return new Nl2SqlProcess(true, true, result, currentNodeName, currentNodeOutput);
+	public static Nl2SqlProcessVO success(String result, String currentNodeName, String currentNodeOutput) {
+		return new Nl2SqlProcessVO(true, true, result, currentNodeName, currentNodeOutput);
 	}
 
-	public static Nl2SqlProcess success(String result) {
+	public static Nl2SqlProcessVO success(String result) {
 		return success(result, StateGraph.END, "");
 	}
 
-	public static Nl2SqlProcess fail(String reason, String currentNodeName, String currentNodeOutput) {
-		return new Nl2SqlProcess(true, false, reason, currentNodeName, currentNodeOutput);
+	public static Nl2SqlProcessVO fail(String reason, String currentNodeName, String currentNodeOutput) {
+		return new Nl2SqlProcessVO(true, false, reason, currentNodeName, currentNodeOutput);
 	}
 
-	public static Nl2SqlProcess fail(String reason) {
+	public static Nl2SqlProcessVO fail(String reason) {
 		return fail(reason, StateGraph.END, "");
 	}
 
-	public static Nl2SqlProcess processing(String currentNodeName, String currentNodeOutput) {
-		return new Nl2SqlProcess(false, false, "", currentNodeName, currentNodeOutput);
+	public static Nl2SqlProcessVO processing(String currentNodeName, String currentNodeOutput) {
+		return new Nl2SqlProcessVO(false, false, "", currentNodeName, currentNodeOutput);
 	}
 
 	public Boolean getFinished() {

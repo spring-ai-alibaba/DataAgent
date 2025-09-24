@@ -33,7 +33,7 @@ import java.time.LocalDateTime;
  */
 @Configuration
 @MapperScan("com.alibaba.cloud.ai.mapper")
-public class MyBatisPlusConfig {
+public class MyBatisPlusConfiguration {
 
 	/**
 	 * MyBatis Plus Interceptor Configuration. Add pagination plugin, optimistic locking

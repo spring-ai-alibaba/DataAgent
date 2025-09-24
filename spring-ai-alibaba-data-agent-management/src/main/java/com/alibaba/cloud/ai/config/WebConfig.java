@@ -15,7 +15,6 @@
  */
 package com.alibaba.cloud.ai.config;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -30,8 +29,11 @@ import java.nio.file.Paths;
 @EnableConfigurationProperties(FileUploadProperties.class)
 public class WebConfig implements WebMvcConfigurer {
 
-    @Autowired
-    private FileUploadProperties fileUploadProperties;
+    private final FileUploadProperties fileUploadProperties;
+
+    public WebConfig(FileUploadProperties fileUploadProperties) {
+        this.fileUploadProperties = fileUploadProperties;
+    }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {

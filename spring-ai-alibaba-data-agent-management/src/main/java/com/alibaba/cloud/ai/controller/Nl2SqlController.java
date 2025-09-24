@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.controller;
 
-import com.alibaba.cloud.ai.entity.Nl2SqlProcess;
+import com.alibaba.cloud.ai.vo.Nl2SqlProcessVO;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.service.Nl2SqlService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -81,9 +81,9 @@ public class Nl2SqlController {
 	 * @return NL2SQL执行过程
 	 */
 	@GetMapping(value = "/stream/nl2sql", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-	public Flux<ServerSentEvent<Nl2SqlProcess>> nl2sqlWithProcess(@RequestParam(value = "query") String query,
-			@RequestParam(value = "agentId", required = false, defaultValue = "") String agentId,
-			HttpServletResponse response) {
+	public Flux<ServerSentEvent<Nl2SqlProcessVO>> nl2sqlWithProcess(@RequestParam(value = "query") String query,
+                                                                    @RequestParam(value = "agentId", required = false, defaultValue = "") String agentId,
+                                                                    HttpServletResponse response) {
 		// Set SSE-related HTTP headers
 		response.setCharacterEncoding("UTF-8");
 		response.setContentType("text/event-stream");
@@ -94,8 +94,8 @@ public class Nl2SqlController {
 
 		logger.info("Starting nl2sql for query: {} with agentId: {}", query, agentId);
 
-		Sinks.Many<ServerSentEvent<Nl2SqlProcess>> sink = Sinks.many().unicast().onBackpressureBuffer();
-		Consumer<Nl2SqlProcess> consumer = (process) -> {
+		Sinks.Many<ServerSentEvent<Nl2SqlProcessVO>> sink = Sinks.many().unicast().onBackpressureBuffer();
+		Consumer<Nl2SqlProcessVO> consumer = (process) -> {
 			sink.tryEmitNext(ServerSentEvent.builder(process).build());
 			if (process.getFinished()) {
 				sink.tryEmitComplete();
@@ -109,7 +109,7 @@ public class Nl2SqlController {
 			catch (Exception e) {
 				logger.error("nl2sql Exception: {}", e.getMessage(), e);
 				sink.tryEmitNext(
-						ServerSentEvent.builder(Nl2SqlProcess.fail(e.getMessage(), StateGraph.END, e.getMessage()))
+						ServerSentEvent.builder(Nl2SqlProcessVO.fail(e.getMessage(), StateGraph.END, e.getMessage()))
 							.build());
 				sink.tryEmitError(e);
 			}

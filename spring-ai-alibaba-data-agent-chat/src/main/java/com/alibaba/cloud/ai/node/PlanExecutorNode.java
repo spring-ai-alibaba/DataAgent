@@ -18,8 +18,8 @@ package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.StateGraph;
-import com.alibaba.cloud.ai.model.execution.ExecutionStep;
-import com.alibaba.cloud.ai.model.execution.Plan;
+import com.alibaba.cloud.ai.pojo.ExecutionStep;
+import com.alibaba.cloud.ai.pojo.Plan;
 import com.alibaba.cloud.ai.util.StateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

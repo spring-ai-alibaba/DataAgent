@@ -30,7 +30,7 @@ import java.nio.file.Paths;
 import java.util.UUID;
 
 import com.alibaba.cloud.ai.config.FileUploadProperties;
-import com.alibaba.cloud.ai.controller.dto.UploadResponse;
+import com.alibaba.cloud.ai.vo.UploadResponse;
 
 /**
  * 文件上传控制器

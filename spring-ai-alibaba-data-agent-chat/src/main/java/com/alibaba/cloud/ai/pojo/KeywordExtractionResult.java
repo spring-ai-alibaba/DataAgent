@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.dto;
+package com.alibaba.cloud.ai.pojo;
 
 import java.util.List;
 

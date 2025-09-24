@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.service;
 
 import com.alibaba.cloud.ai.entity.SemanticModel;
-import com.alibaba.cloud.ai.entity.SemanticModelDTO;
+import com.alibaba.cloud.ai.dto.SemanticModelDTO;
 import com.alibaba.cloud.ai.mapper.SemanticModelMapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;

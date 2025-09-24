@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.service;
 
-import com.alibaba.cloud.ai.entity.Nl2SqlProcess;
+import com.alibaba.cloud.ai.vo.Nl2SqlProcessVO;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -96,11 +96,11 @@ public class Nl2SqlService {
 	 * @return CompletableFuture
 	 * @throws GraphRunnerException 图运行异常
 	 */
-	public CompletableFuture<Void> nl2sqlWithProcess(Consumer<Nl2SqlProcess> nl2SqlProcessConsumer, String naturalQuery,
-			String agentId, RunnableConfig runnableConfig) throws GraphRunnerException {
+	public CompletableFuture<Void> nl2sqlWithProcess(Consumer<Nl2SqlProcessVO> nl2SqlProcessConsumer, String naturalQuery,
+                                                     String agentId, RunnableConfig runnableConfig) throws GraphRunnerException {
 		Map<String, Object> stateMap = Map.of(IS_ONLY_NL2SQL, true, INPUT_KEY, naturalQuery, AGENT_ID, agentId);
 		Consumer<NodeOutput> consumer = (output) -> {
-			Nl2SqlProcess sqlProcess = this.nodeOutputToNl2sqlProcess(output);
+			Nl2SqlProcessVO sqlProcess = this.nodeOutputToNl2sqlProcess(output);
 			nl2SqlProcessConsumer.accept(sqlProcess);
 		};
 		return this.nl2sqlGraph.fluxStream(stateMap, runnableConfig).doOnNext(consumer::accept).then().toFuture();
@@ -114,8 +114,8 @@ public class Nl2SqlService {
 	 * @return CompletableFuture
 	 * @throws GraphRunnerException 图运行异常
 	 */
-	public CompletableFuture<Void> nl2sqlWithProcess(Consumer<Nl2SqlProcess> nl2SqlProcessConsumer, String naturalQuery,
-			String agentId) throws GraphRunnerException {
+	public CompletableFuture<Void> nl2sqlWithProcess(Consumer<Nl2SqlProcessVO> nl2SqlProcessConsumer, String naturalQuery,
+                                                     String agentId) throws GraphRunnerException {
 		return this.nl2sqlWithProcess(nl2SqlProcessConsumer, naturalQuery, agentId, RunnableConfig.builder().build());
 	}
 
@@ -126,7 +126,7 @@ public class Nl2SqlService {
 	 * @return CompletableFuture
 	 * @throws GraphRunnerException 图运行异常
 	 */
-	public CompletableFuture<Void> nl2sqlWithProcess(Consumer<Nl2SqlProcess> nl2SqlProcessConsumer, String naturalQuery)
+	public CompletableFuture<Void> nl2sqlWithProcess(Consumer<Nl2SqlProcessVO> nl2SqlProcessConsumer, String naturalQuery)
 			throws GraphRunnerException {
 		return this.nl2sqlWithProcess(nl2SqlProcessConsumer, naturalQuery, "");
 	}
@@ -136,7 +136,7 @@ public class Nl2SqlService {
 	 * @param output NodeOutput
 	 * @return NlSqlProcess
 	 */
-	private Nl2SqlProcess nodeOutputToNl2sqlProcess(NodeOutput output) {
+	private Nl2SqlProcessVO nodeOutputToNl2sqlProcess(NodeOutput output) {
 		// 将节点运行结果进行包装
 		String nodeRes = "";
 		if (output instanceof StreamingOutput streamingOutput) {
@@ -149,9 +149,9 @@ public class Nl2SqlService {
 		// 如果是结束节点，取出最终生成结果
 		if (StateGraph.END.equals(output.node())) {
 			String result = output.state().value(ONLY_NL2SQL_OUTPUT, "");
-			return Nl2SqlProcess.success(result, output.node(), nodeRes);
+			return Nl2SqlProcessVO.success(result, output.node(), nodeRes);
 		}
-		return Nl2SqlProcess.processing(output.node(), nodeRes);
+		return Nl2SqlProcessVO.processing(output.node(), nodeRes);
 	}
 
 }

@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.node;
 
-import com.alibaba.cloud.ai.dto.KeywordExtractionResult;
+import com.alibaba.cloud.ai.pojo.KeywordExtractionResult;
 import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
