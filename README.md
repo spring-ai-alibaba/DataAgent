@@ -1,9 +1,8 @@
-# Spring AI Alibaba DataAgent
+# Spring AI Alibaba DataAgent（ “DataAgent用户1群”群的钉钉群号： 154405001431）
 
 ## 项目简介
 
 这是一个基于Spring AI Alibaba的自然语言转SQL项目，能让你用自然语言直接查询数据库，不需要写复杂的SQL。
- *“DataAgent用户1群”群的钉钉群号： 154405001431*
 
 ## 项目结构
 
