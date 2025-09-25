@@ -22,7 +22,7 @@
 
     <properties>
         <!-- Spring AI Alibaba Version -->
-        <spring-ai-alibaba.version>1.0.0.4-SNAPSHOT</spring-ai-alibaba.version>
+        <spring-ai-alibaba.version>1.0.0.4</spring-ai-alibaba.version>
         <!-- Spring AI Alibaba DataAgent Version -->
         <revision>0.1.0-SNAPSHOT</revision>
         <!-- DashScope SDK Version -->
