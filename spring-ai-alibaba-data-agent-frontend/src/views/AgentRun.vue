@@ -130,7 +130,8 @@
       <!-- 右侧聊天区域 -->
       <div class="chat-main">
         <!-- 消息列表 -->
-        <div class="messages-container" ref="messagesContainer">
+        <div class="messages-container" ref="messagesContainer" @scroll="handleScroll">
+          
           <div v-if="currentMessages.length === 0" class="welcome-message">
             <div class="welcome-content">
               <div class="welcome-icon">
@@ -239,6 +240,11 @@
               </button>
             </div>
           </div>
+          <!-- 滚动到底部按钮 -->
+          <div v-if="showScrollToBottomBtn" class="scroll-to-bottom-btn-bottom" @click="scrollToBottomManually">
+            <i class="bi bi-arrow-down"></i>
+            <span>回到底部</span>
+          </div>
         </div>
       </div>
     </div>
@@ -343,6 +349,11 @@ export default {
     const messageInput = ref(null)
     const renameInput = ref(null)
     
+    // 滚动控制相关状态
+    const isUserScrolling = ref(false)
+    const isAtBottom = ref(true)
+    const showScrollToBottomBtn = ref(false)
+    
     // 预设问题（快捷操作）
     const quickActions = ref([])
     
@@ -435,7 +446,6 @@ export default {
             return message
           }) || []
           await nextTick()
-          scrollToBottom()
         }
       } catch (error) {
         console.error('加载消息失败:', error)
@@ -599,9 +609,9 @@ export default {
         fullContent += '</div>'
         currentMessages.value[agentMessageIndex].content = fullContent
 
-        // 使用 nextTick 确保 DOM 更新后再滚动
+        // DOM 更新完成
         nextTick(() => {
-          scrollToBottom()
+          // 不再自动滚动，让用户手动控制
         })
       }
 
@@ -731,9 +741,8 @@ export default {
           }
         }
 
-        // 确保DOM更新后滚动到底部
+        // 确保DOM更新完成
         await nextTick()
-        scrollToBottom()
       })
 
       eventSource.onerror = (error) => {
@@ -754,7 +763,6 @@ export default {
         }
 
         eventSource.close()
-        scrollToBottom()
       }
     }
     
@@ -791,7 +799,6 @@ export default {
       })
       
       await nextTick()
-      scrollToBottom()
       
       // 开始流式处理
       isLoading.value = true
@@ -817,7 +824,6 @@ export default {
         
         currentMessages.value.push(errorMessage)
         await nextTick()
-        scrollToBottom()
       }
     }
 
@@ -860,13 +866,53 @@ export default {
       }
     }
     
+    // 检测用户是否在底部
+    const checkIfAtBottom = () => {
+      if (!messagesContainer.value) return false
+      
+      const container = messagesContainer.value
+      const threshold = 50 // 允许50px的误差
+      const isAtBottomNow = container.scrollTop + container.clientHeight >= container.scrollHeight - threshold
+      
+      isAtBottom.value = isAtBottomNow
+      // 当用户不在底部时显示按钮
+      showScrollToBottomBtn.value = !isAtBottomNow
+      
+      return isAtBottomNow
+    }
+    
+    // 处理滚动事件
+    const handleScroll = () => {
+      isUserScrolling.value = true
+      checkIfAtBottom()
+      
+      // 清除之前的定时器
+      clearTimeout(scrollTimeout.value)
+      // 设置新的定时器，500ms后认为用户停止滚动
+      scrollTimeout.value = setTimeout(() => {
+        isUserScrolling.value = false
+      }, 500)
+    }
+    
+    // 滚动定时器
+    const scrollTimeout = ref(null)
+    
     const scrollToBottom = () => {
       if (messagesContainer.value) {
         console.log('滚动到底部 - 当前scrollTop:', messagesContainer.value.scrollTop, '目标scrollHeight:', messagesContainer.value.scrollHeight)
         messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+        
+        // 更新状态
+        isAtBottom.value = true
+        showScrollToBottomBtn.value = false
       } else {
         console.log('messagesContainer 未找到')
       }
+    }
+    
+    // 手动滚动到底部
+    const scrollToBottomManually = () => {
+      scrollToBottom()
     }
     
     const formatMessage = (content) => {
@@ -2682,6 +2728,12 @@ export default {
       messageInput,
       renameInput,
       activeDropdown,
+      // 滚动控制相关
+      isUserScrolling,
+      isAtBottom,
+      showScrollToBottomBtn,
+      handleScroll,
+      scrollToBottomManually,
       showRenameModal,
       renameTitle,
       currentRenameSession,
@@ -3355,6 +3407,7 @@ export default {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  position: relative;
   padding: var(--space-xl);
   box-sizing: border-box;
 }
@@ -4451,6 +4504,7 @@ export default {
   background: var(--bg-primary);
   display: flex;
   justify-content: center;
+  position: relative;
 }
 
 .input-wrapper {
@@ -4664,6 +4718,49 @@ export default {
 
 .messages-container::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
+}
+
+/* 滚动到底部按钮 - 右下角版本 */
+.scroll-to-bottom-btn-bottom {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  z-index: 1000;
+  animation: slideInUp 0.3s ease-out;
+}
+
+.scroll-to-bottom-btn-bottom:hover {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.scroll-to-bottom-btn-bottom i {
+  font-size: 16px;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* 人工复核模态框样式 */

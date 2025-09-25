@@ -88,7 +88,12 @@
           </div>
           <div v-if="status" v-html="status"></div>
         </div>
-        <div class="result-content" ref="resultsDiv">
+        <div class="result-content" ref="resultsDiv" @scroll="handleScroll">
+          <!-- 滚动到底部按钮 -->
+          <div v-if="showScrollToBottomBtn" class="scroll-to-bottom-btn-bottom" @click="scrollToBottomManually">
+            <i class="bi bi-arrow-down"></i>
+            <span>回到底部</span>
+          </div>
           <!-- 空状态 -->
           <div v-if="showEmptyState" class="empty-state">
             <div class="empty-icon">
@@ -172,6 +177,11 @@ export default {
     const showEmptyState = ref(true)
     const resultsDiv = ref(null)
     const resultSections = ref([])
+    
+    // 滚动控制相关状态
+    const isUserScrolling = ref(false)
+    const isAtBottom = ref(true)
+    const showScrollToBottomBtn = ref(false)
     
     const exampleQueries = [
       '查询销售额最高的5个产品',
@@ -457,9 +467,7 @@ export default {
       resultSections.value.push(section)
 
       nextTick(() => {
-        if (resultsDiv.value) {
-          resultsDiv.value.scrollTop = resultsDiv.value.scrollHeight
-        }
+        // 不再自动滚动，让用户手动控制
       })
 
       return section
@@ -477,6 +485,53 @@ export default {
       query.value = example
       performSearch()
     }
+    
+    // 检测用户是否在底部
+    const checkIfAtBottom = () => {
+      if (!resultsDiv.value) return false;
+      
+      const container = resultsDiv.value;
+      const threshold = 50; // 允许50px的误差
+      const isAtBottomNow = container.scrollTop + container.clientHeight >= container.scrollHeight - threshold;
+      
+      isAtBottom.value = isAtBottomNow;
+      showScrollToBottomBtn.value = !isAtBottomNow;
+      
+      return isAtBottomNow;
+    };
+    
+    // 处理滚动事件
+    const handleScroll = () => {
+      isUserScrolling.value = true;
+      checkIfAtBottom();
+      
+      // 清除之前的定时器
+      clearTimeout(scrollTimeout.value);
+      // 设置新的定时器，500ms后认为用户停止滚动
+      scrollTimeout.value = setTimeout(() => {
+        isUserScrolling.value = false;
+      }, 500);
+    };
+    
+    // 滚动定时器
+    const scrollTimeout = ref(null);
+    
+    const scrollToBottom = () => {
+      nextTick(() => {
+        if (resultsDiv.value) {
+          resultsDiv.value.scrollTop = resultsDiv.value.scrollHeight;
+          
+          // 更新状态
+          isAtBottom.value = true;
+          showScrollToBottomBtn.value = false;
+        }
+      });
+    };
+    
+    // 手动滚动到底部
+    const scrollToBottomManually = () => {
+      scrollToBottom();
+    };
 
     const showInitTip = (success, message) => {
       initTip.show = true
@@ -643,9 +698,7 @@ export default {
           }
 
           nextTick(() => {
-            if (resultsDiv.value) {
-              resultsDiv.value.scrollTop = resultsDiv.value.scrollHeight
-            }
+            // 不再自动滚动，让用户手动控制
           })
         }
       }
@@ -687,6 +740,12 @@ export default {
       resultsDiv,
       resultSections,
       exampleQueries,
+      // 滚动控制相关
+      isUserScrolling,
+      isAtBottom,
+      showScrollToBottomBtn,
+      handleScroll,
+      scrollToBottomManually,
       initTip,
       useExampleQuery,
       copyToClipboard,
@@ -831,6 +890,50 @@ export default {
   max-height: 600px;
   overflow-y: auto;
   line-height: 1.7;
+  position: relative;
+}
+
+/* 滚动到底部按钮 - 右下角版本 */
+.scroll-to-bottom-btn-bottom {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: #1890ff;
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  z-index: 1000;
+  animation: slideInUp 0.3s ease-out;
+}
+
+.scroll-to-bottom-btn-bottom:hover {
+  background: #40a9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.scroll-to-bottom-btn-bottom i {
+  font-size: 16px;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .result-section {

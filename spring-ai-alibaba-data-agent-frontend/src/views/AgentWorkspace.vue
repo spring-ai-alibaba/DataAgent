@@ -116,7 +116,7 @@
             </div>
 
             <!-- 对话内容区域 -->
-            <div class="chat-content" ref="chatContainer">
+            <div class="chat-content" ref="chatContainer" @scroll="handleScroll">
               <div v-if="chatMessages.length === 0" class="welcome-message">
                 <div class="welcome-avatar">
                   <div class="avatar-icon" :style="{ backgroundColor: getRandomColor(selectedAgent.id) }">
@@ -142,7 +142,12 @@
               <!-- 聊天消息 -->
               <div v-for="(message, index) in chatMessages" :key="index" class="message-group">
                 <div v-if="message.type === 'user'" class="message user-message">
-                  <div class="message-content">{{ message.content }}</div>
+                  <div class="message-content">
+                    <div class="user-message-header">
+                      <span class="user-label">用户</span>
+                    </div>
+                    <div class="message-text">{{ message.content }}</div>
+                  </div>
                   <div class="message-avatar">
                     <i class="bi bi-person-circle"></i>
                   </div>
@@ -182,6 +187,11 @@
                   <div class="spinner" v-else></div>
                 </button>
               </div>
+              <!-- 滚动到底部按钮 -->
+              <div v-if="showScrollToBottomBtn" class="scroll-to-bottom-btn-bottom" @click="scrollToBottomManually">
+                <i class="bi bi-arrow-down"></i>
+                <span>回到底部</span>
+              </div>
             </div>
           </div>
         </div>
@@ -216,6 +226,11 @@ export default {
     const isTyping = ref(false);
     const chatContainer = ref(null);
     const chatInput = ref(null);
+    
+    // 滚动控制相关状态
+    const isUserScrolling = ref(false);
+    const isAtBottom = ref(true);
+    const showScrollToBottomBtn = ref(false);
 
     const exampleQueries = ref([]);
 
@@ -266,7 +281,6 @@ export default {
 
       currentMessage.value = '';
       isTyping.value = true;
-      scrollToBottom();
 
       try {
         const eventSource = new EventSource(`/nl2sql/stream/search?query=${encodeURIComponent(messageText)}&agentId=${selectedAgent.value.id}`);
@@ -319,7 +333,6 @@ export default {
             }
             fullContent += '</div>';
             chatMessages.value[agentMessageIndex].content = fullContent;
-            scrollToBottom();
         };
 
         eventSource.onmessage = (event) => {
@@ -637,12 +650,51 @@ export default {
       chatMessages.value = [];
     };
 
+    // 检测用户是否在底部
+    const checkIfAtBottom = () => {
+      if (!chatContainer.value) return false;
+      
+      const container = chatContainer.value;
+      const threshold = 50; // 允许50px的误差
+      const isAtBottomNow = container.scrollTop + container.clientHeight >= container.scrollHeight - threshold;
+      
+      isAtBottom.value = isAtBottomNow;
+      showScrollToBottomBtn.value = !isAtBottomNow;
+      
+      return isAtBottomNow;
+    };
+    
+    // 处理滚动事件
+    const handleScroll = () => {
+      isUserScrolling.value = true;
+      checkIfAtBottom();
+      
+      // 清除之前的定时器
+      clearTimeout(scrollTimeout.value);
+      // 设置新的定时器，500ms后认为用户停止滚动
+      scrollTimeout.value = setTimeout(() => {
+        isUserScrolling.value = false;
+      }, 500);
+    };
+    
+    // 滚动定时器
+    const scrollTimeout = ref(null);
+    
     const scrollToBottom = () => {
       nextTick(() => {
         if (chatContainer.value) {
           chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+          
+          // 更新状态
+          isAtBottom.value = true;
+          showScrollToBottomBtn.value = false;
         }
       });
+    };
+    
+    // 手动滚动到底部
+    const scrollToBottomManually = () => {
+      scrollToBottom();
     };
 
     const goToAgentList = () => {
@@ -692,7 +744,13 @@ export default {
       openHelp,
       goToHome,
       getRandomColor,
-      getRandomIcon
+      getRandomIcon,
+      // 滚动控制相关
+      isUserScrolling,
+      isAtBottom,
+      showScrollToBottomBtn,
+      handleScroll,
+      scrollToBottomManually
     };
   }
 };
@@ -1015,6 +1073,7 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  position: relative;
 }
 
 .welcome-message {
@@ -1587,6 +1646,7 @@ export default {
   padding: var(--space-lg) var(--space-xl);
   background: var(--bg-primary);
   border-top: 1px solid var(--border-secondary);
+  position: relative;
 }
 
 .input-container {
@@ -1686,6 +1746,80 @@ export default {
   border-radius: var(--radius-full);
   border-top-color: var(--bg-primary);
   animation: spin 1s linear infinite;
+}
+
+/* 用户消息头部 */
+.user-message-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.user-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+.message-text {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* 滚动到底部按钮 - 右下角版本 */
+.scroll-to-bottom-btn-bottom {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: #1890ff;
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  z-index: 1000;
+  animation: slideInUp 0.3s ease-out;
+}
+
+.scroll-to-bottom-btn-bottom:hover {
+  background: #40a9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.scroll-to-bottom-btn-bottom i {
+  font-size: 16px;
+}
+
+.scroll-to-bottom-btn:hover {
+  background: #40a9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.scroll-to-bottom-btn i {
+  font-size: 16px;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* 移动端智能体消息优化 */
