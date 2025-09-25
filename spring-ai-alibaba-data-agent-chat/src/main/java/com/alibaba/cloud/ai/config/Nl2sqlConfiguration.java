@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.config;
 
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
+import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.dispatcher.*;
 import com.alibaba.cloud.ai.graph.GraphRepresentation;
 import com.alibaba.cloud.ai.graph.KeyStrategy;
@@ -103,6 +104,8 @@ public class Nl2sqlConfiguration {
 			HashMap<String, KeyStrategy> keyStrategyHashMap = new HashMap<>();
 			// User input
 			keyStrategyHashMap.put(INPUT_KEY, new ReplaceStrategy());
+			// Dataset ID
+			keyStrategyHashMap.put(Constant.AGENT_ID, new ReplaceStrategy());
 			// Agent ID
 			keyStrategyHashMap.put(AGENT_ID, new ReplaceStrategy());
 			// Business knowledge

@@ -17,13 +17,12 @@ package com.alibaba.cloud.ai.dto;
 
 /**
  * Semantic model configuration entity class
- * @author jast
  */
 public class SemanticModelDTO {
 
 	private Long id; // Unique identifier
 
-	private Long agentId; // Agent ID
+	private String agentId; // Agent ID
 
 	private String originalFieldName; // Original field name
 
@@ -44,7 +43,7 @@ public class SemanticModelDTO {
 	public SemanticModelDTO() {
 	}
 
-	public SemanticModelDTO(Long agentId, String originalFieldName, String agentFieldName, String fieldSynonyms,
+	public SemanticModelDTO(String agentId, String originalFieldName, String agentFieldName, String fieldSynonyms,
 			String fieldDescription, Boolean defaultRecall, Boolean enabled, String fieldType,
 			String originalDescription) {
 		this.agentId = agentId;
@@ -72,11 +71,11 @@ public class SemanticModelDTO {
 	}
 
 	// Getters and Setters
-	public Long getAgentId() {
+	public String getAgentId() {
 		return agentId;
 	}
 
-	public void setAgentId(Long agentId) {
+	public void setAgentId(String agentId) {
 		this.agentId = agentId;
 	}
 
