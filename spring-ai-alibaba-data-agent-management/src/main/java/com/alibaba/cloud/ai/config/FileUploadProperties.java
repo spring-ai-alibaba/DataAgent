@@ -23,44 +23,43 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "spring.ai.alibaba.nl2sql.file.upload")
 public class FileUploadProperties {
 
-    /**
-     * 本地上传目录路径。
-     */
-    private String path = "./uploads";
+	/**
+	 * 本地上传目录路径。
+	 */
+	private String path = "./uploads";
 
-    /**
-     * 对外暴露的访问前缀。
-     */
-    private String urlPrefix = "/uploads";
+	/**
+	 * 对外暴露的访问前缀。
+	 */
+	private String urlPrefix = "/uploads";
 
-    /**
-     * 头像图片大小上限（字节）。默认 2MB。
-     */
-    private long imageSize = 2L * 1024 * 1024;
+	/**
+	 * 头像图片大小上限（字节）。默认 2MB。
+	 */
+	private long imageSize = 2L * 1024 * 1024;
 
-    public String getPath() {
-        return path;
-    }
+	public String getPath() {
+		return path;
+	}
 
-    public void setPath(String path) {
-        this.path = path;
-    }
+	public void setPath(String path) {
+		this.path = path;
+	}
 
-    public String getUrlPrefix() {
-        return urlPrefix;
-    }
+	public String getUrlPrefix() {
+		return urlPrefix;
+	}
 
-    public void setUrlPrefix(String urlPrefix) {
-        this.urlPrefix = urlPrefix;
-    }
+	public void setUrlPrefix(String urlPrefix) {
+		this.urlPrefix = urlPrefix;
+	}
 
-    public long getImageSize() {
-        return imageSize;
-    }
+	public long getImageSize() {
+		return imageSize;
+	}
 
-    public void setImageSize(long imageSize) {
-        this.imageSize = imageSize;
-    }
+	public void setImageSize(long imageSize) {
+		this.imageSize = imageSize;
+	}
+
 }
-
-

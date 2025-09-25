@@ -36,40 +36,40 @@ public class AgentKnowledgeService {
 	/**
 	 * Query knowledge list by agent ID
 	 */
-    public List<AgentKnowledge> getKnowledgeByAgentId(Integer agentId) {
-        return agentKnowledgeMapper.selectByAgentId(agentId);
-    }
+	public List<AgentKnowledge> getKnowledgeByAgentId(Integer agentId) {
+		return agentKnowledgeMapper.selectByAgentId(agentId);
+	}
 
 	/**
 	 * Query knowledge details by ID
 	 */
-    public AgentKnowledge getKnowledgeById(Integer id) {
-        return agentKnowledgeMapper.selectById(id);
-    }
+	public AgentKnowledge getKnowledgeById(Integer id) {
+		return agentKnowledgeMapper.selectById(id);
+	}
 
 	/**
 	 * Create knowledge
 	 */
 	public AgentKnowledge createKnowledge(AgentKnowledge knowledge) {
-	    LocalDateTime now = LocalDateTime.now();
+		LocalDateTime now = LocalDateTime.now();
 
-        // Set default values
-        if (knowledge.getType() == null) {
-            knowledge.setType("document");
-        }
-        if (knowledge.getStatus() == null) {
-            knowledge.setStatus("active");
-        }
-        if (knowledge.getEmbeddingStatus() == null) {
-            knowledge.setEmbeddingStatus("pending");
-        }
+		// Set default values
+		if (knowledge.getType() == null) {
+			knowledge.setType("document");
+		}
+		if (knowledge.getStatus() == null) {
+			knowledge.setStatus("active");
+		}
+		if (knowledge.getEmbeddingStatus() == null) {
+			knowledge.setEmbeddingStatus("pending");
+		}
 
-        // Set creation and update time
-        knowledge.setCreateTime(now);
-        knowledge.setUpdateTime(now);
+		// Set creation and update time
+		knowledge.setCreateTime(now);
+		knowledge.setUpdateTime(now);
 
-        // Insert into database, the ID will be auto-filled by MyBatis
-        agentKnowledgeMapper.insert(knowledge);
+		// Insert into database, the ID will be auto-filled by MyBatis
+		agentKnowledgeMapper.insert(knowledge);
 
 		return knowledge;
 	}
@@ -78,26 +78,27 @@ public class AgentKnowledgeService {
 	 * Update knowledge
 	 */
 	public AgentKnowledge updateKnowledge(Integer id, AgentKnowledge knowledge) {
-        LocalDateTime now = LocalDateTime.now();
+		LocalDateTime now = LocalDateTime.now();
 
-        // Ensure the knowledge object has the correct ID
-        knowledge.setId(id);
-        knowledge.setUpdateTime(now);
+		// Ensure the knowledge object has the correct ID
+		knowledge.setId(id);
+		knowledge.setUpdateTime(now);
 
-        int updatedRows = agentKnowledgeMapper.update(knowledge);
-        if (updatedRows > 0) {
-            return knowledge;
-        } else {
-            return null; // No matching record found
-        }
+		int updatedRows = agentKnowledgeMapper.update(knowledge);
+		if (updatedRows > 0) {
+			return knowledge;
+		}
+		else {
+			return null; // No matching record found
+		}
 	}
 
 	/**
 	 * Delete knowledge
 	 */
 	public boolean deleteKnowledge(Integer id) {
-        int deletedRows = agentKnowledgeMapper.deleteById(id);
-        return deletedRows > 0;
+		int deletedRows = agentKnowledgeMapper.deleteById(id);
+		return deletedRows > 0;
 	}
 
 	/**
@@ -118,7 +119,7 @@ public class AgentKnowledgeService {
 	 * Search knowledge
 	 */
 	public List<AgentKnowledge> searchKnowledge(Integer agentId, String keyword) {
-		 return agentKnowledgeMapper.searchByAgentIdAndKeyword(agentId, keyword);
+		return agentKnowledgeMapper.searchByAgentIdAndKeyword(agentId, keyword);
 	}
 
 	/**

@@ -20,61 +20,63 @@ package com.alibaba.cloud.ai.vo;
  */
 public class UploadResponse {
 
-    private boolean success;
-    private String message;
-    private String url;
-    private String filename;
+	private boolean success;
 
-    public UploadResponse() {
-    }
+	private String message;
 
-    public static UploadResponse ok(String message, String url, String filename) {
-        UploadResponse r = new UploadResponse();
-        r.setSuccess(true);
-        r.setMessage(message);
-        r.setUrl(url);
-        r.setFilename(filename);
-        return r;
-    }
+	private String url;
 
-    public static UploadResponse error(String message) {
-        UploadResponse r = new UploadResponse();
-        r.setSuccess(false);
-        r.setMessage(message);
-        return r;
-    }
+	private String filename;
 
-    public boolean isSuccess() {
-        return success;
-    }
+	public UploadResponse() {
+	}
 
-    public void setSuccess(boolean success) {
-        this.success = success;
-    }
+	public static UploadResponse ok(String message, String url, String filename) {
+		UploadResponse r = new UploadResponse();
+		r.setSuccess(true);
+		r.setMessage(message);
+		r.setUrl(url);
+		r.setFilename(filename);
+		return r;
+	}
 
-    public String getMessage() {
-        return message;
-    }
+	public static UploadResponse error(String message) {
+		UploadResponse r = new UploadResponse();
+		r.setSuccess(false);
+		r.setMessage(message);
+		return r;
+	}
 
-    public void setMessage(String message) {
-        this.message = message;
-    }
+	public boolean isSuccess() {
+		return success;
+	}
 
-    public String getUrl() {
-        return url;
-    }
+	public void setSuccess(boolean success) {
+		this.success = success;
+	}
 
-    public void setUrl(String url) {
-        this.url = url;
-    }
+	public String getMessage() {
+		return message;
+	}
 
-    public String getFilename() {
-        return filename;
-    }
+	public void setMessage(String message) {
+		this.message = message;
+	}
 
-    public void setFilename(String filename) {
-        this.filename = filename;
-    }
+	public String getUrl() {
+		return url;
+	}
+
+	public void setUrl(String url) {
+		this.url = url;
+	}
+
+	public String getFilename() {
+		return filename;
+	}
+
+	public void setFilename(String filename) {
+		this.filename = filename;
+	}
+
 }
-
-
