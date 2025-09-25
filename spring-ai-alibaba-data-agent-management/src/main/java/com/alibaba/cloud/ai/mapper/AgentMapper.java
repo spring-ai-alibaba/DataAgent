@@ -47,8 +47,8 @@ public interface AgentMapper extends BaseMapper<Agent> {
 
 	@Select("""
 			SELECT * FROM agent
-			WHERE (name LIKE CONCAT('%', #{keyword}, '%') 
-				   OR description LIKE CONCAT('%', #{keyword}, '%') 
+			WHERE (name LIKE CONCAT('%', #{keyword}, '%')
+				   OR description LIKE CONCAT('%', #{keyword}, '%')
 				   OR tags LIKE CONCAT('%', #{keyword}, '%'))
 			ORDER BY create_time DESC
 			""")
@@ -62,17 +62,17 @@ public interface AgentMapper extends BaseMapper<Agent> {
 	int insert(Agent agent);
 
 	@Update("""
-			UPDATE agent SET 
-				name = #{name}, 
-				description = #{description}, 
-				avatar = #{avatar}, 
-				status = #{status}, 
+			UPDATE agent SET
+				name = #{name},
+				description = #{description},
+				avatar = #{avatar},
+				status = #{status},
 				prompt = #{prompt},
-				category = #{category}, 
-				admin_id = #{adminId}, 
-				tags = #{tags}, 
-				update_time = #{updateTime}, 
-				human_review_enabled = #{humanReviewEnabled} 
+				category = #{category},
+				admin_id = #{adminId},
+				tags = #{tags},
+				update_time = #{updateTime},
+				human_review_enabled = #{humanReviewEnabled}
 			WHERE id = #{id}
 			""")
 	int update(Agent agent);
@@ -81,4 +81,5 @@ public interface AgentMapper extends BaseMapper<Agent> {
 			DELETE FROM agent WHERE id = #{id}
 			""")
 	int deleteById(Long id);
+
 }

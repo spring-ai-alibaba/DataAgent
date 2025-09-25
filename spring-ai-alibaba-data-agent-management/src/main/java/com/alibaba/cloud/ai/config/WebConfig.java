@@ -29,18 +29,19 @@ import java.nio.file.Paths;
 @EnableConfigurationProperties(FileUploadProperties.class)
 public class WebConfig implements WebMvcConfigurer {
 
-    private final FileUploadProperties fileUploadProperties;
+	private final FileUploadProperties fileUploadProperties;
 
-    public WebConfig(FileUploadProperties fileUploadProperties) {
-        this.fileUploadProperties = fileUploadProperties;
-    }
+	public WebConfig(FileUploadProperties fileUploadProperties) {
+		this.fileUploadProperties = fileUploadProperties;
+	}
 
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String uploadDir = Paths.get(fileUploadProperties.getPath()).toAbsolutePath().toString();
-        
-        registry.addResourceHandler(fileUploadProperties.getUrlPrefix() + "/**")
-                .addResourceLocations("file:" + uploadDir + "/")
-                .setCachePeriod(3600);
-    }
+	@Override
+	public void addResourceHandlers(ResourceHandlerRegistry registry) {
+		String uploadDir = Paths.get(fileUploadProperties.getPath()).toAbsolutePath().toString();
+
+		registry.addResourceHandler(fileUploadProperties.getUrlPrefix() + "/**")
+			.addResourceLocations("file:" + uploadDir + "/")
+			.setCachePeriod(3600);
+	}
+
 }

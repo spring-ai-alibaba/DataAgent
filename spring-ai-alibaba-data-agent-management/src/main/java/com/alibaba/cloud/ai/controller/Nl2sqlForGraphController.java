@@ -82,7 +82,8 @@ public class Nl2sqlForGraphController {
 
 	@GetMapping("/search")
 	public String search(
-			@RequestParam(value = "query", required = false, defaultValue = "查询每个分类下已经成交且销量最高的商品及其销售总量，每个分类只返回销量最高的商品。") String query,
+			@RequestParam(value = "query", required = false,
+					defaultValue = "查询每个分类下已经成交且销量最高的商品及其销售总量，每个分类只返回销量最高的商品。") String query,
 			@RequestParam(value = "dataSetId", required = false, defaultValue = "1") String dataSetId,
 			@RequestParam(value = "agentId", required = false, defaultValue = "1") String agentId) throws Exception {
 		// Get the data source configuration for an agent for vector initialization
@@ -103,8 +104,8 @@ public class Nl2sqlForGraphController {
 		catch (Exception ignore) {
 		}
 
-		Optional<OverAllState> invoke = compiledGraph.call(
-				Map.of(INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled));
+		Optional<OverAllState> invoke = compiledGraph
+			.call(Map.of(INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled));
 		OverAllState overAllState = invoke.get();
 		// 注意：在新的人类反馈实现中，计划内容通过流式处理发送给前端
 		// 这里不再需要单独获取计划内容
@@ -112,7 +113,8 @@ public class Nl2sqlForGraphController {
 	}
 
 	@GetMapping("/init")
-	public void init(@RequestParam(value = "agentId", required = false, defaultValue = "1") Integer agentId) throws Exception {
+	public void init(@RequestParam(value = "agentId", required = false, defaultValue = "1") Integer agentId)
+			throws Exception {
 		// Get the data source configuration for an agent for vector initialization
 		DbConfig dbConfig = getDbConfigForAgent(agentId);
 
@@ -179,8 +181,10 @@ public class Nl2sqlForGraphController {
 	}
 
 	@GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-	public Flux<ServerSentEvent<String>> streamSearch(@RequestParam(value = "query") String query, @RequestParam(value = "agentId") String agentId,
-			@RequestParam(value = "threadId", required = false) String threadId, HttpServletResponse response) throws Exception {
+	public Flux<ServerSentEvent<String>> streamSearch(@RequestParam(value = "query") String query,
+			@RequestParam(value = "agentId") String agentId,
+			@RequestParam(value = "threadId", required = false) String threadId, HttpServletResponse response)
+			throws Exception {
 		// Set SSE-related HTTP headers
 		response.setCharacterEncoding("UTF-8");
 		response.setContentType("text/event-stream");
@@ -518,7 +522,8 @@ public class Nl2sqlForGraphController {
 	@GetMapping(value = "/human-feedback", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<ServerSentEvent<String>> handleHumanFeedback(@RequestParam(value = "sessionId") String sessionId,
 			@RequestParam(value = "threadId") String threadId, @RequestParam(value = "feedback") boolean feedback,
-			@RequestParam(value = "feedbackContent", required = false, defaultValue = "") String feedbackContent) throws GraphStateException {
+			@RequestParam(value = "feedbackContent", required = false, defaultValue = "") String feedbackContent)
+			throws GraphStateException {
 		logger.info("Processing feedback: {} ({})", feedback ? "approved" : "rejected",
 				feedback ? "continue" : feedbackContent);
 

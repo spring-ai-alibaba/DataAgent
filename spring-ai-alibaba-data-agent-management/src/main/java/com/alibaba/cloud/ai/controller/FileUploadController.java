@@ -43,54 +43,55 @@ import com.alibaba.cloud.ai.vo.UploadResponse;
 @CrossOrigin(origins = "*")
 public class FileUploadController {
 
-    private static final Logger log = LoggerFactory.getLogger(FileUploadController.class);
+	private static final Logger log = LoggerFactory.getLogger(FileUploadController.class);
 
-    @Autowired
-    private FileUploadProperties fileUploadProperties;
+	@Autowired
+	private FileUploadProperties fileUploadProperties;
 
-    /**
-     * 上传头像图片
-     */
-    @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<UploadResponse> uploadAvatar(@RequestParam("file") MultipartFile file) {
-        try {
+	/**
+	 * 上传头像图片
+	 */
+	@PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public ResponseEntity<UploadResponse> uploadAvatar(@RequestParam("file") MultipartFile file) {
+		try {
 
-            // 验证文件类型
-            String contentType = file.getContentType();
-            if (contentType == null || !contentType.startsWith("image/")) {
-                return ResponseEntity.badRequest().body(UploadResponse.error("只支持图片文件"));
-            }
-            // 创建上传目录
-            Path uploadDir = Paths.get(fileUploadProperties.getPath(), "avatars");
-            if (!Files.exists(uploadDir)) {
-                Files.createDirectories(uploadDir);
-            }
+			// 验证文件类型
+			String contentType = file.getContentType();
+			if (contentType == null || !contentType.startsWith("image/")) {
+				return ResponseEntity.badRequest().body(UploadResponse.error("只支持图片文件"));
+			}
+			// 创建上传目录
+			Path uploadDir = Paths.get(fileUploadProperties.getPath(), "avatars");
+			if (!Files.exists(uploadDir)) {
+				Files.createDirectories(uploadDir);
+			}
 
-            // 校验文件大小
-            long maxImageSize = fileUploadProperties.getImageSize();
-            if (file.getSize() > maxImageSize) {
-                return ResponseEntity.badRequest().body(UploadResponse.error("图片大小超限，最大允许：" + maxImageSize + " 字节"));
-            }
+			// 校验文件大小
+			long maxImageSize = fileUploadProperties.getImageSize();
+			if (file.getSize() > maxImageSize) {
+				return ResponseEntity.badRequest().body(UploadResponse.error("图片大小超限，最大允许：" + maxImageSize + " 字节"));
+			}
 
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-            String filename = UUID.randomUUID().toString() + extension;
+			String originalFilename = file.getOriginalFilename();
+			String extension = "";
+			if (originalFilename != null && originalFilename.contains(".")) {
+				extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+			}
+			String filename = UUID.randomUUID().toString() + extension;
 
-            Path filePath = uploadDir.resolve(filename);
-            Files.copy(file.getInputStream(), filePath);
+			Path filePath = uploadDir.resolve(filename);
+			Files.copy(file.getInputStream(), filePath);
 
-            // 生成访问URL
-            String fileUrl = "http://localhost:8065" + fileUploadProperties.getUrlPrefix() + "/avatars/" + filename;
+			// 生成访问URL
+			String fileUrl = "http://localhost:8065" + fileUploadProperties.getUrlPrefix() + "/avatars/" + filename;
 
-            return ResponseEntity.ok(UploadResponse.ok("上传成功", fileUrl, filename));
+			return ResponseEntity.ok(UploadResponse.ok("上传成功", fileUrl, filename));
 
-        } catch (IOException e) {
-            log.error("头像上传失败", e);
-            return ResponseEntity.internalServerError().body(UploadResponse.error("上传失败: " + e.getMessage()));
-        }
-    }
+		}
+		catch (IOException e) {
+			log.error("头像上传失败", e);
+			return ResponseEntity.internalServerError().body(UploadResponse.error("上传失败: " + e.getMessage()));
+		}
+	}
 
 }
