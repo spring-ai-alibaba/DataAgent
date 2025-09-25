@@ -62,7 +62,7 @@ public class Nl2SqlProcessVO {
 	}
 
 	public Nl2SqlProcessVO(Boolean finished, Boolean succeed, String result, String currentNodeName,
-                           String currentNodeOutput) {
+			String currentNodeOutput) {
 		this.finished = finished;
 		this.succeed = succeed;
 		this.result = result;

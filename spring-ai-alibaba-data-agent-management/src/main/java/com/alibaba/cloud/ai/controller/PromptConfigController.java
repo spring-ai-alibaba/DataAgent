@@ -288,7 +288,7 @@ public class PromptConfigController {
 	 * @return 操作结果
 	 */
 	@PostMapping("/{id}/priority")
-	public ResponseEntity<Map<String, Object>> updatePriority(@PathVariable(value = "id") String id, 
+	public ResponseEntity<Map<String, Object>> updatePriority(@PathVariable(value = "id") String id,
 			@RequestBody Map<String, Object> requestBody) {
 		Integer priority = (Integer) requestBody.get("priority");
 		boolean success = promptConfigService.updatePriority(id, priority);
@@ -313,7 +313,7 @@ public class PromptConfigController {
 	 * @return 操作结果
 	 */
 	@PostMapping("/{id}/display-order")
-	public ResponseEntity<Map<String, Object>> updateDisplayOrder(@PathVariable(value = "id") String id, 
+	public ResponseEntity<Map<String, Object>> updateDisplayOrder(@PathVariable(value = "id") String id,
 			@RequestBody Map<String, Object> requestBody) {
 		Integer displayOrder = (Integer) requestBody.get("displayOrder");
 		boolean success = promptConfigService.updateDisplayOrder(id, displayOrder);

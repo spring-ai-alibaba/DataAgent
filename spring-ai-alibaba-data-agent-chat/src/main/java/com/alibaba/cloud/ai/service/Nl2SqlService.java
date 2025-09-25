@@ -96,8 +96,8 @@ public class Nl2SqlService {
 	 * @return CompletableFuture
 	 * @throws GraphRunnerException 图运行异常
 	 */
-	public CompletableFuture<Void> nl2sqlWithProcess(Consumer<Nl2SqlProcessVO> nl2SqlProcessConsumer, String naturalQuery,
-                                                     String agentId, RunnableConfig runnableConfig) throws GraphRunnerException {
+	public CompletableFuture<Void> nl2sqlWithProcess(Consumer<Nl2SqlProcessVO> nl2SqlProcessConsumer,
+			String naturalQuery, String agentId, RunnableConfig runnableConfig) throws GraphRunnerException {
 		Map<String, Object> stateMap = Map.of(IS_ONLY_NL2SQL, true, INPUT_KEY, naturalQuery, AGENT_ID, agentId);
 		Consumer<NodeOutput> consumer = (output) -> {
 			Nl2SqlProcessVO sqlProcess = this.nodeOutputToNl2sqlProcess(output);
@@ -114,8 +114,8 @@ public class Nl2SqlService {
 	 * @return CompletableFuture
 	 * @throws GraphRunnerException 图运行异常
 	 */
-	public CompletableFuture<Void> nl2sqlWithProcess(Consumer<Nl2SqlProcessVO> nl2SqlProcessConsumer, String naturalQuery,
-                                                     String agentId) throws GraphRunnerException {
+	public CompletableFuture<Void> nl2sqlWithProcess(Consumer<Nl2SqlProcessVO> nl2SqlProcessConsumer,
+			String naturalQuery, String agentId) throws GraphRunnerException {
 		return this.nl2sqlWithProcess(nl2SqlProcessConsumer, naturalQuery, agentId, RunnableConfig.builder().build());
 	}
 
@@ -126,8 +126,8 @@ public class Nl2SqlService {
 	 * @return CompletableFuture
 	 * @throws GraphRunnerException 图运行异常
 	 */
-	public CompletableFuture<Void> nl2sqlWithProcess(Consumer<Nl2SqlProcessVO> nl2SqlProcessConsumer, String naturalQuery)
-			throws GraphRunnerException {
+	public CompletableFuture<Void> nl2sqlWithProcess(Consumer<Nl2SqlProcessVO> nl2SqlProcessConsumer,
+			String naturalQuery) throws GraphRunnerException {
 		return this.nl2sqlWithProcess(nl2SqlProcessConsumer, naturalQuery, "");
 	}
 

@@ -29,68 +29,71 @@ import java.util.List;
 @Service
 public class AgentPresetQuestionService {
 
-    @Autowired
-    private AgentPresetQuestionMapper agentPresetQuestionMapper;
+	@Autowired
+	private AgentPresetQuestionMapper agentPresetQuestionMapper;
 
-    /**
-     * Get the list of preset questions by agent ID (only active ones, ordered by sort_order and id)
-     */
-    public List<AgentPresetQuestion> findByAgentId(Long agentId) {
-        return agentPresetQuestionMapper.selectByAgentId(agentId);
-    }
+	/**
+	 * Get the list of preset questions by agent ID (only active ones, ordered by
+	 * sort_order and id)
+	 */
+	public List<AgentPresetQuestion> findByAgentId(Long agentId) {
+		return agentPresetQuestionMapper.selectByAgentId(agentId);
+	}
 
-    /**
-     * Create a new preset question
-     */
-    public AgentPresetQuestion create(AgentPresetQuestion question) {
-        // Ensure default values
-        if (question.getSortOrder() == null) {
-            question.setSortOrder(0);
-        }
-        if (question.getIsActive() == null) {
-            question.setIsActive(true);
-        }
+	/**
+	 * Create a new preset question
+	 */
+	public AgentPresetQuestion create(AgentPresetQuestion question) {
+		// Ensure default values
+		if (question.getSortOrder() == null) {
+			question.setSortOrder(0);
+		}
+		if (question.getIsActive() == null) {
+			question.setIsActive(true);
+		}
 
-        agentPresetQuestionMapper.insert(question);
-        return question; // ID will be auto-filled by MyBatis
-    }
+		agentPresetQuestionMapper.insert(question);
+		return question; // ID will be auto-filled by MyBatis
+	}
 
-    /**
-     * Update an existing preset question
-     */
-    public void update(Long id, AgentPresetQuestion question) {
-        question.setId(id); // Ensure the ID is set
-        agentPresetQuestionMapper.update(question);
-    }
+	/**
+	 * Update an existing preset question
+	 */
+	public void update(Long id, AgentPresetQuestion question) {
+		question.setId(id); // Ensure the ID is set
+		agentPresetQuestionMapper.update(question);
+	}
 
-    /**
-     * Delete a preset question by ID
-     */
-    public void deleteById(Long id) {
-        agentPresetQuestionMapper.deleteById(id);
-    }
+	/**
+	 * Delete a preset question by ID
+	 */
+	public void deleteById(Long id) {
+		agentPresetQuestionMapper.deleteById(id);
+	}
 
-    /**
-     * Delete all preset questions for a given agent
-     */
-    public void deleteByAgentId(Long agentId) {
-        agentPresetQuestionMapper.deleteByAgentId(agentId);
-    }
+	/**
+	 * Delete all preset questions for a given agent
+	 */
+	public void deleteByAgentId(Long agentId) {
+		agentPresetQuestionMapper.deleteByAgentId(agentId);
+	}
 
-    /**
-     * Batch save preset questions: delete all existing ones for the agent, then insert the new list
-     */
-    public void batchSave(Long agentId, List<AgentPresetQuestion> questions) {
-        // Step 1: Delete all existing preset questions for the agent
-        deleteByAgentId(agentId);
+	/**
+	 * Batch save preset questions: delete all existing ones for the agent, then insert
+	 * the new list
+	 */
+	public void batchSave(Long agentId, List<AgentPresetQuestion> questions) {
+		// Step 1: Delete all existing preset questions for the agent
+		deleteByAgentId(agentId);
 
-        // Step 2: Insert new questions with proper order and active status
-        for (int i = 0; i < questions.size(); i++) {
-            AgentPresetQuestion question = questions.get(i);
-            question.setAgentId(agentId);
-            question.setSortOrder(i);
-            question.setIsActive(true);
-            create(question); // Reuses create() which sets defaults and inserts
-        }
-    }
+		// Step 2: Insert new questions with proper order and active status
+		for (int i = 0; i < questions.size(); i++) {
+			AgentPresetQuestion question = questions.get(i);
+			question.setAgentId(agentId);
+			question.setSortOrder(i);
+			question.setIsActive(true);
+			create(question); // Reuses create() which sets defaults and inserts
+		}
+	}
+
 }

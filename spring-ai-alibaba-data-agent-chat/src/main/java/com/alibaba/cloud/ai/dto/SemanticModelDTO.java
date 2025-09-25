@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dto;
 
 /**
  * Semantic model configuration entity class
+ *
  * @author jast
  */
 public class SemanticModelDTO {
