@@ -49,10 +49,18 @@ public class SemanticModelRecallService {
 	// Get agent fields by data_set_id
 	public List<SemanticModelDTO> getFieldByDataSetId(String dataSetId) {
 		return this.jdbcTemplate.query(FIELD_GET_BY_DATASET_IDS, new Object[] { dataSetId }, (rs, rowNum) -> {
-			return new SemanticModelDTO(rs.getString("agent_id"), rs.getString("origin_name"),
-					rs.getString("field_name"), rs.getString("synonyms"), rs.getString("description"),
-					rs.getObject("is_recall", Boolean.class), rs.getObject("status", Boolean.class),
-					rs.getString("type"), rs.getString("origin_description"));
+			SemanticModelDTO dto = new SemanticModelDTO();
+			Long agentIdLong = rs.getObject("agent_id", Long.class);
+			dto.setAgentId(agentIdLong);
+			dto.setOriginalFieldName(rs.getString("origin_name"));
+			dto.setAgentFieldName(rs.getString("field_name"));
+			dto.setFieldSynonyms(rs.getString("synonyms"));
+			dto.setFieldDescription(rs.getString("description"));
+			dto.setOriginalDescription(rs.getString("origin_description"));
+			dto.setFieldType(rs.getString("type"));
+			dto.setDefaultRecall(rs.getObject("is_recall", Boolean.class));
+			dto.setEnabled(rs.getObject("status", Boolean.class));
+			return dto;
 		});
 	}
 
