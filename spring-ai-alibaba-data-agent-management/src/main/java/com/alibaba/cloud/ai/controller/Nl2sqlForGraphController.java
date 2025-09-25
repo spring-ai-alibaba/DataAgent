@@ -103,8 +103,8 @@ public class Nl2sqlForGraphController {
 		catch (Exception ignore) {
 		}
 
-		Optional<OverAllState> invoke = compiledGraph.call(
-				Map.of(INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled));
+		Optional<OverAllState> invoke = compiledGraph.call(Map.of(INPUT_KEY, query, Constant.AGENT_ID, dataSetId,
+				AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled));
 		OverAllState overAllState = invoke.get();
 		// 注意：在新的人类反馈实现中，计划内容通过流式处理发送给前端
 		// 这里不再需要单独获取计划内容
