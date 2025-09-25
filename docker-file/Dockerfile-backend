@@ -20,9 +20,7 @@ WORKDIR /app
 # 安装所需的软件
 RUN apt update && apt install -y maven git python3
 
-# 下载Spring AI Alibaba和DataAgent源码，用于构建
-RUN git clone https://github.com/alibaba/spring-ai-alibaba.git \
-    && cd spring-ai-alibaba && mvn install -DskipTests && cd ..
+# 下载DataAgent源码，用于构建
 RUN git clone https://github.com/spring-ai-alibaba/DataAgent.git \
     && cd DataAgent && mvn install -DskipTests \
     && cp ./spring-ai-alibaba-data-agent-management/target/spring-ai-alibaba-data-agent-management-0.1.0-SNAPSHOT.jar /app/app.jar \
