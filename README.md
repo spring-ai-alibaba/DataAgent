@@ -84,12 +84,14 @@ spring:
       model: qwen-max
       embedding:
         model: text-embedding-v4
+    dashscope:
+      api-key: ${AI_DASHSCOPE_API_KEY}
 ```
 
 
 ### 4. 启动管理端
 
-在`spring-ai-alibaba-nl2sql-management`目录下，运行 `spring-ai-alibaba-nl2sql/spring-ai-alibaba-nl2sql-management/src/main/java/com/alibaba/cloud/ai/Application.java` 类。
+在`spring-ai-alibaba-nl2sql-management`目录下，运行 `spring-ai-alibaba-nl2sql/spring-ai-alibaba-nl2sql-management/src/main/java/com/alibaba/cloud/ai/DataAgentApplication.java` 类。
 
 ### 5. 启动WEB页面
 

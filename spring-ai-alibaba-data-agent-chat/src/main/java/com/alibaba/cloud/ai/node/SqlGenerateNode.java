@@ -100,7 +100,8 @@ public class SqlGenerateNode implements NodeAction {
 		else if (isSemanticConsistencyFailed(state)) {
 			displayMessage = "语义一致性校验未通过，开始重新生成SQL...";
 			String newSql = handleSemanticConsistencyFailure(state, toolParameters);
-			result = Map.of(SQL_GENERATE_OUTPUT, newSql, RESULT, newSql);
+			toolParameters.setSqlQuery(newSql);
+			result = Map.of(SQL_GENERATE_OUTPUT, SQL_EXECUTE_NODE, PLANNER_NODE_OUTPUT, plan.toJsonStr());
 			logger.info("[{}] Regenerated SQL due to semantic consistency failure: {}", this.getClass().getSimpleName(),
 					newSql);
 		}

@@ -31,6 +31,8 @@ spring:
       model: qwen-max
       embedding:
         model: text-embedding-v4
+    dashscope:
+      api-key: ${AI_DASHSCOPE_API_KEY}
     mcp:
       server:
         name: xiyan-server    # MCP服务器名称
