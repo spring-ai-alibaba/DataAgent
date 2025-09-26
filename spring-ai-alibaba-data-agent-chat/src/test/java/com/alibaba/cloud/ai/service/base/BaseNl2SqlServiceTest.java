@@ -320,8 +320,8 @@ class BaseNl2SqlServiceTest {
 		log.info("SemanticConsistencyStream test passed");
 	}
 
-    @Test
-    void testExpandQuestion() throws Exception {
+	@Test
+	void testExpandQuestion() throws Exception {
 		log.info("Testing expandQuestion method");
 
 		String query = "查询用户信息";
@@ -388,8 +388,8 @@ class BaseNl2SqlServiceTest {
 		log.info("ExtractEvidences test passed with {} evidences", result.size());
 	}
 
-    @Test
-    void testExtractKeywords() throws Exception {
+	@Test
+	void testExtractKeywords() throws Exception {
 		log.info("Testing extractKeywords method");
 
 		String query = "查询用户信息";
