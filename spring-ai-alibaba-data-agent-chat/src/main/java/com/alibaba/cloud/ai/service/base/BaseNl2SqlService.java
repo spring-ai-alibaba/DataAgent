@@ -27,8 +27,9 @@ import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.LlmService;
 
 import com.alibaba.cloud.ai.util.MarkdownParser;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -227,8 +228,8 @@ public class BaseNl2SqlService {
 			String content = aiService.call(prompt);
 
 			// Parse JSON response
-			List<String> expandedQuestions = new Gson().fromJson(content, new TypeToken<List<String>>() {
-			}.getType());
+			List<String> expandedQuestions = new ObjectMapper().readValue(content, new TypeReference<List<String>>() {
+			});
 
 			if (expandedQuestions == null || expandedQuestions.isEmpty()) {
 				logger.warn("No expanded questions generated, returning original query");
@@ -269,7 +270,7 @@ public class BaseNl2SqlService {
 		return evidences;
 	}
 
-	public List<String> extractKeywords(String query, List<String> evidenceList) {
+	public List<String> extractKeywords(String query, List<String> evidenceList) throws JsonProcessingException {
 		logger.debug("Extracting keywords from query: {} with {} evidences", query, evidenceList.size());
 		StringBuilder queryBuilder = new StringBuilder(query);
 		for (String evidence : evidenceList) {
@@ -281,8 +282,8 @@ public class BaseNl2SqlService {
 		logger.debug("Calling LLM for keyword extraction");
 		String content = aiService.call(prompt);
 
-		List<String> keywords = new Gson().fromJson(content, new TypeToken<List<String>>() {
-		}.getType());
+		List<String> keywords = new ObjectMapper().readValue(content, new TypeReference<List<String>>() {
+		});
 		logger.debug("Extracted {} keywords: {}", keywords != null ? keywords.size() : 0, keywords);
 		return keywords;
 	}
@@ -363,8 +364,8 @@ public class BaseNl2SqlService {
 			String jsonContent = MarkdownParser.extractText(content);
 			List<String> tableList;
 			try {
-				tableList = new Gson().fromJson(jsonContent, new TypeToken<List<String>>() {
-				}.getType());
+				tableList = new ObjectMapper().readValue(jsonContent, new TypeReference<List<String>>() {
+				});
 			}
 			catch (Exception e) {
 				logger.error("Failed to parse table selection response: {}", jsonContent, e);
@@ -413,8 +414,8 @@ public class BaseNl2SqlService {
 			String jsonContent = MarkdownParser.extractText(content);
 			List<String> tableList;
 			try {
-				tableList = new Gson().fromJson(jsonContent, new TypeToken<List<String>>() {
-				}.getType());
+				tableList = new ObjectMapper().readValue(jsonContent, new TypeReference<List<String>>() {
+				});
 			}
 			catch (Exception e) {
 				// Some scenarios may prompt exceptions, such as:

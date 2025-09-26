@@ -28,7 +28,7 @@ import com.alibaba.cloud.ai.service.simple.SimpleVectorStoreService;
 import com.alibaba.cloud.ai.service.DatasourceService;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.service.AgentService;
-import com.alibaba.fastjson.JSON;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,6 +69,8 @@ public class Nl2sqlForGraphController {
 	private final DatasourceService datasourceService;
 
 	private final AgentService agentService;
+
+	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	public Nl2sqlForGraphController(@Qualifier("nl2sqlGraph") StateGraph stateGraph,
 			SimpleVectorStoreService simpleVectorStoreService, DatasourceService datasourceService,
@@ -274,8 +276,14 @@ public class Nl2sqlForGraphController {
 		}
 
 		// 发送流式数据
-		ServerSentEvent<String> event = ServerSentEvent.builder(JSON.toJSONString(chunk)).build();
-		sink.tryEmitNext(event);
+		try {
+			String json = objectMapper.writeValueAsString(chunk);
+			ServerSentEvent<String> event = ServerSentEvent.builder(json).build();
+			sink.tryEmitNext(event);
+		}
+		catch (Exception e) {
+			sink.tryEmitNext(ServerSentEvent.builder(chunk).build());
+		}
 	}
 
 	/**
@@ -295,8 +303,14 @@ public class Nl2sqlForGraphController {
 				logger.debug("Found plan for human review");
 
 				Map<String, Object> humanReviewData = Map.of("type", "human_feedback", "data", extractedPlanContent);
-				ServerSentEvent<String> event = ServerSentEvent.builder(JSON.toJSONString(humanReviewData)).build();
-				sink.tryEmitNext(event);
+				try {
+					String json = objectMapper.writeValueAsString(humanReviewData);
+					ServerSentEvent<String> event = ServerSentEvent.builder(json).build();
+					sink.tryEmitNext(event);
+				}
+				catch (Exception e) {
+					sink.tryEmitNext(ServerSentEvent.builder(extractedPlanContent).build());
+				}
 				sink.tryEmitComplete();
 				return;
 			}
@@ -337,8 +351,13 @@ public class Nl2sqlForGraphController {
 				// 发送完整的人工复核计划并结束流
 				logger.info("Sending complete human review plan");
 				Map<String, Object> humanReviewData = Map.of("type", "human_feedback", "data", accumulatedContent);
-				ServerSentEvent<String> event = ServerSentEvent.builder(JSON.toJSONString(humanReviewData)).build();
-				sink.tryEmitNext(event);
+				try {
+					String json = objectMapper.writeValueAsString(humanReviewData);
+					sink.tryEmitNext(ServerSentEvent.builder(json).build());
+				}
+				catch (Exception e) {
+					sink.tryEmitNext(ServerSentEvent.builder(accumulatedContent).build());
+				}
 				sink.tryEmitComplete();
 				return true;
 			}
@@ -405,9 +424,13 @@ public class Nl2sqlForGraphController {
 			if (extractedPlanContent.contains("thought_process") && extractedPlanContent.contains("execution_plan")) {
 				humanReviewDetected[0] = true;
 				Map<String, Object> humanReviewData = Map.of("type", "human_feedback", "data", extractedPlanContent);
-				ServerSentEvent<String> reviewEvent = ServerSentEvent.builder(JSON.toJSONString(humanReviewData))
-					.build();
-				sink.tryEmitNext(reviewEvent);
+				try {
+					String json = objectMapper.writeValueAsString(humanReviewData);
+					sink.tryEmitNext(ServerSentEvent.builder(json).build());
+				}
+				catch (Exception e) {
+					sink.tryEmitNext(ServerSentEvent.builder(extractedPlanContent).build());
+				}
 				sink.tryEmitComplete();
 				return;
 			}
@@ -431,9 +454,13 @@ public class Nl2sqlForGraphController {
 				if (currentPlanContent != null && currentPlanContent.contains("thought_process")
 						&& currentPlanContent.contains("execution_plan")) {
 					Map<String, Object> humanReviewData = Map.of("type", "human_feedback", "data", currentPlanContent);
-					ServerSentEvent<String> reviewEvent = ServerSentEvent.builder(JSON.toJSONString(humanReviewData))
-						.build();
-					sink.tryEmitNext(reviewEvent);
+					try {
+						String json = objectMapper.writeValueAsString(humanReviewData);
+						sink.tryEmitNext(ServerSentEvent.builder(json).build());
+					}
+					catch (Exception e) {
+						sink.tryEmitNext(ServerSentEvent.builder(currentPlanContent).build());
+					}
 					sink.tryEmitComplete();
 					return;
 				}
@@ -443,8 +470,13 @@ public class Nl2sqlForGraphController {
 		if (!humanReviewDetected[0]) {
 			Optional<String> resultValue = currentState.value(RESULT);
 			if (resultValue.isPresent()) {
-				ServerSentEvent<String> event = ServerSentEvent.builder(JSON.toJSONString(resultValue.get())).build();
-				sink.tryEmitNext(event);
+				try {
+					String json = objectMapper.writeValueAsString(resultValue.get());
+					sink.tryEmitNext(ServerSentEvent.builder(json).build());
+				}
+				catch (Exception e) {
+					sink.tryEmitNext(ServerSentEvent.builder(resultValue.get()).build());
+				}
 			}
 		}
 	}
@@ -474,8 +506,13 @@ public class Nl2sqlForGraphController {
 		else if (output instanceof NodeOutput) {
 			Optional<String> resultValue = ((NodeOutput) output).state().value(RESULT);
 			if (resultValue.isPresent()) {
-				ServerSentEvent<String> event = ServerSentEvent.builder(JSON.toJSONString(resultValue.get())).build();
-				sink.tryEmitNext(event);
+				try {
+					String json = objectMapper.writeValueAsString(resultValue.get());
+					sink.tryEmitNext(ServerSentEvent.builder(json).build());
+				}
+				catch (Exception e) {
+					sink.tryEmitNext(ServerSentEvent.builder(resultValue.get()).build());
+				}
 			}
 		}
 	}
@@ -495,7 +532,7 @@ public class Nl2sqlForGraphController {
 				String jsonChunk = matcher.group();
 				try {
 					@SuppressWarnings("unchecked")
-					Map<String, Object> chunk = JSON.parseObject(jsonChunk, Map.class);
+					Map<String, Object> chunk = objectMapper.readValue(jsonChunk, Map.class);
 					String data = (String) chunk.get("data");
 					if (data != null && !data.trim().isEmpty()) {
 						planBuilder.append(data);

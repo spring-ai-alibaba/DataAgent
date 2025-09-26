@@ -23,7 +23,7 @@ import com.alibaba.cloud.ai.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.service.LlmService;
-import com.google.gson.Gson;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -85,12 +85,12 @@ class BaseNl2SqlServiceTest {
 
 	private BaseNl2SqlService baseNl2SqlService;
 
-	private Gson gson;
+	private ObjectMapper objectMapper;
 
 	@BeforeEach
 	void setUp() {
 		log.info("Setting up BaseNl2SqlServiceTest");
-		gson = new Gson();
+		objectMapper = new ObjectMapper();
 		baseNl2SqlService = new BaseNl2SqlService(vectorStoreService, schemaService, aiService, dbAccessor, dbConfig);
 	}
 
@@ -328,7 +328,7 @@ class BaseNl2SqlServiceTest {
 		List<String> expectedExpansions = Arrays.asList("查询用户信息", "获取用户数据", "显示用户详情");
 
 		// Mock LLM 返回的 JSON 响应
-		when(aiService.call(anyString())).thenReturn(gson.toJson(expectedExpansions));
+		when(aiService.call(anyString())).thenReturn(objectMapper.writeValueAsString(expectedExpansions));
 
 		// Execute test
 		List<String> result = baseNl2SqlService.expandQuestion(query);
@@ -396,7 +396,7 @@ class BaseNl2SqlServiceTest {
 		List<String> evidenceList = Arrays.asList("用户表", "信息字段");
 		List<String> expectedKeywords = Arrays.asList("用户", "信息", "查询");
 
-		when(aiService.call(anyString())).thenReturn(gson.toJson(expectedKeywords));
+		when(aiService.call(anyString())).thenReturn(objectMapper.writeValueAsString(expectedKeywords));
 
 		// Execute test
 		List<String> result = baseNl2SqlService.extractKeywords(query, evidenceList);

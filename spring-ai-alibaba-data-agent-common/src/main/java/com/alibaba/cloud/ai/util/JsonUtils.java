@@ -17,16 +17,22 @@
 package com.alibaba.cloud.ai.util;
 
 import com.alibaba.cloud.ai.enums.StreamResponseType;
-import com.google.gson.Gson;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Map;
 
 public class JsonUtils {
 
-	private static final Gson gson = new Gson();
+	private static final ObjectMapper objectMapper = new ObjectMapper();
 
 	public static String toJson(StreamResponseType type, String data) {
-		return gson.toJson(Map.of("type", type.getValue(), "data", data));
+		try {
+			return objectMapper.writeValueAsString(Map.of("type", type.getValue(), "data", data));
+		}
+		catch (JsonProcessingException e) {
+			return "{\"type\":\"" + type.getValue() + "\",\"data\":\"" + data.replace("\"", "\\\"") + "\"}";
+		}
 	}
 
 }
