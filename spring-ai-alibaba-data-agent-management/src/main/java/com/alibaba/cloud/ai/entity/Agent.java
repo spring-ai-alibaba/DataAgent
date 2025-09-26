@@ -56,6 +56,7 @@ public class Agent {
 	private LocalDateTime updateTime;
 
 	// Whether human review is enabled for this agent
+	@Builder.Default
 	private Integer humanReviewEnabled = 0; // 0/1 for JDBC compatibility
 
 }

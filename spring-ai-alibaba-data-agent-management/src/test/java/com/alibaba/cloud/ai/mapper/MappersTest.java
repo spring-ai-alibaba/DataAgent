@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.context.ImportTestcontainers;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,7 +35,8 @@ import java.util.List;
  * @author vlsmb
  * @since 2025/9/26
  */
-@SpringBootTest(properties = { "spring.sql.init.mode=never" })
+@SpringBootTest
+@TestPropertySource(properties = { "spring.sql.init.mode=never" })
 @ImportTestcontainers(MySqlContainerConfiguration.class)
 @ImportAutoConfiguration(MySqlContainerConfiguration.class)
 public class MappersTest {
@@ -45,6 +47,9 @@ public class MappersTest {
 	@Test
 	public void testAgentMapper() {
 		Assertions.assertNotNull(agentMapper);
+
+		agentMapper.findAll().stream().map(Agent::getId).forEach(id -> agentMapper.deleteById(id));
+
 		List<Agent> all = agentMapper.findAll();
 		Assertions.assertEquals(List.of(), all);
 		Agent agent = Agent.builder()
