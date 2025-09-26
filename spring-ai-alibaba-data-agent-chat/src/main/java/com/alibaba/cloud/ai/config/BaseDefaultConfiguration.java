@@ -24,7 +24,7 @@ import com.alibaba.cloud.ai.service.base.BaseSchemaService;
 import com.alibaba.cloud.ai.service.base.BaseVectorStoreService;
 import com.alibaba.cloud.ai.service.simple.SimpleNl2SqlService;
 import com.alibaba.cloud.ai.service.simple.SimpleSchemaService;
-import com.google.gson.Gson;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -73,10 +73,10 @@ public class BaseDefaultConfiguration {
 	@ConditionalOnMissingBean(name = "schemaServiceImpl")
 	public BaseSchemaService defaultSchemaService(
 			@Qualifier("simpleVectorStoreService") BaseVectorStoreService vectorStoreService, DbConfig dbConfig,
-			Gson gson) {
+			ObjectMapper objectMapper) {
 
 		logger.info("Creating default BaseSchemaService implementation");
-		return new SimpleSchemaService(dbConfig, gson, vectorStoreService);
+		return new SimpleSchemaService(dbConfig, objectMapper, vectorStoreService);
 	}
 
 	@Bean("dbAccessor")

@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.connector.bo;
 
+import com.alibaba.cloud.ai.util.JsonUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -115,7 +116,7 @@ public final class ResultSetBO extends DdlBaseBO implements Cloneable {
 	 * @return JSON string
 	 */
 	public String toJsonStr() {
-		ObjectMapper objectMapper = new ObjectMapper();
+		ObjectMapper objectMapper = JsonUtils.getObjectMapper();
 		try {
 			return objectMapper.writeValueAsString(this);
 		}

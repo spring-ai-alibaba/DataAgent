@@ -21,8 +21,8 @@ import com.alibaba.cloud.ai.request.SearchRequest;
 import com.alibaba.cloud.ai.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dto.schema.TableDTO;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
@@ -48,16 +48,16 @@ public abstract class BaseSchemaService {
 
 	protected final DbConfig dbConfig;
 
-	protected final Gson gson;
+	protected final ObjectMapper objectMapper;
 
 	/**
 	 * Vector storage service
 	 */
 	protected final BaseVectorStoreService vectorStoreService;
 
-	public BaseSchemaService(DbConfig dbConfig, Gson gson, BaseVectorStoreService vectorStoreService) {
+	public BaseSchemaService(DbConfig dbConfig, ObjectMapper objectMapper, BaseVectorStoreService vectorStoreService) {
 		this.dbConfig = dbConfig;
-		this.gson = gson;
+		this.objectMapper = objectMapper;
 		this.vectorStoreService = vectorStoreService;
 	}
 
@@ -361,9 +361,13 @@ public abstract class BaseSchemaService {
 
 			String samplesStr = (String) meta.get("samples");
 			if (StringUtils.isNotBlank(samplesStr)) {
-				List<String> samples = gson.fromJson(samplesStr, new TypeToken<List<String>>() {
-				}.getType());
-				columnDTO.setData(samples);
+				try {
+					List<String> samples = objectMapper.readValue(samplesStr, new TypeReference<List<String>>() {
+					});
+					columnDTO.setData(samples);
+				}
+				catch (Exception ignore) {
+				}
 			}
 
 			String tableName = (String) meta.get("tableName");

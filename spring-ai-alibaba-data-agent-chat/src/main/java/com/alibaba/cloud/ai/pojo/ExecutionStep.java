@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.pojo;
 
+import com.alibaba.cloud.ai.util.JsonUtils;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -89,7 +90,7 @@ public class ExecutionStep {
 		}
 
 		public String toJsonStr() {
-			ObjectMapper objectMapper = new ObjectMapper();
+			ObjectMapper objectMapper = JsonUtils.getObjectMapper();
 			try {
 				return objectMapper.writeValueAsString(this);
 			}

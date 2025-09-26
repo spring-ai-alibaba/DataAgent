@@ -27,7 +27,9 @@ import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.request.DeleteRequest;
 import com.alibaba.cloud.ai.request.EvidenceRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.google.gson.Gson;
+import com.alibaba.cloud.ai.util.JsonUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.document.MetadataMode;
@@ -48,7 +50,7 @@ public class SimpleVectorStoreManagementService implements VectorStoreManagement
 
 	private final SimpleVectorStore vectorStore;
 
-	private final Gson gson;
+	private final ObjectMapper objectMapper = JsonUtils.getObjectMapper();
 
 	private final Accessor dbAccessor;
 
@@ -56,8 +58,7 @@ public class SimpleVectorStoreManagementService implements VectorStoreManagement
 
 	@Autowired
 	public SimpleVectorStoreManagementService(@Value("${spring.ai.dashscope.api-key:default_api_key}") String apiKey,
-			Gson gson, @Qualifier("dbAccessor") Accessor dbAccessor, DbConfig dbConfig) {
-		this.gson = gson;
+			@Qualifier("dbAccessor") Accessor dbAccessor, DbConfig dbConfig) {
 		this.dbAccessor = dbAccessor;
 		this.dbConfig = dbConfig;
 
@@ -148,7 +149,12 @@ public class SimpleVectorStoreManagementService implements VectorStoreManagement
 				.toList();
 
 			columnInfoBO.setTableName(tableInfoBO.getName());
-			columnInfoBO.setSamples(gson.toJson(sampleColumn));
+			try {
+				columnInfoBO.setSamples(objectMapper.writeValueAsString(sampleColumn));
+			}
+			catch (JsonProcessingException e) {
+				columnInfoBO.setSamples("[]");
+			}
 		}
 
 		List<ColumnInfoBO> targetPrimaryList = columnInfoBOS.stream()

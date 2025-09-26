@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.controller;
 import com.alibaba.cloud.ai.dto.ChatRequest;
 import com.alibaba.cloud.ai.entity.*;
 import com.alibaba.cloud.ai.service.*;
+import com.alibaba.cloud.ai.util.JsonUtils;
 import com.alibaba.cloud.ai.vo.ApiResponse;
 import com.alibaba.cloud.ai.vo.ChatResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,7 +54,7 @@ public class ChatController {
 	@Autowired(required = false)
 	private Nl2SqlService nl2SqlService;
 
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper objectMapper = JsonUtils.getObjectMapper();
 
 	/**
 	 * Get session list for an agent

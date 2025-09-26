@@ -25,7 +25,8 @@ import com.alibaba.cloud.ai.request.DeleteRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.request.SearchRequest;
 import com.alibaba.cloud.ai.service.base.BaseVectorStoreService;
-import com.google.gson.Gson;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +61,7 @@ public class SimpleVectorStoreService extends BaseVectorStoreService {
 	private final AgentVectorStoreManager agentVectorStoreManager; // New agent vector
 																	// storage manager
 
-	private final Gson gson;
+	private final ObjectMapper objectMapper;
 
 	private final Accessor dbAccessor;
 
@@ -69,12 +70,12 @@ public class SimpleVectorStoreService extends BaseVectorStoreService {
 	private final EmbeddingModel embeddingModel;
 
 	@Autowired
-	public SimpleVectorStoreService(EmbeddingModel embeddingModel, Gson gson,
+	public SimpleVectorStoreService(EmbeddingModel embeddingModel, ObjectMapper objectMapper,
 			@Qualifier("dbAccessor") Accessor dbAccessor, DbConfig dbConfig,
 			AgentVectorStoreManager agentVectorStoreManager) {
 		log.info("Initializing SimpleVectorStoreService with EmbeddingModel: {}",
 				embeddingModel.getClass().getSimpleName());
-		this.gson = gson;
+		this.objectMapper = objectMapper;
 		this.dbAccessor = dbAccessor;
 		this.dbConfig = dbConfig;
 		this.embeddingModel = embeddingModel;
@@ -172,7 +173,12 @@ public class SimpleVectorStoreService extends BaseVectorStoreService {
 				.toList();
 
 			columnInfoBO.setTableName(tableInfoBO.getName());
-			columnInfoBO.setSamples(gson.toJson(sampleColumn));
+			try {
+				columnInfoBO.setSamples(objectMapper.writeValueAsString(sampleColumn));
+			}
+			catch (JsonProcessingException e) {
+				columnInfoBO.setSamples("[]");
+			}
 		}
 
 		List<ColumnInfoBO> targetPrimaryList = columnInfoBOS.stream()

@@ -24,8 +24,9 @@ import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.request.DeleteRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.request.SearchRequest;
-import com.google.common.collect.Lists;
-import com.google.gson.Gson;
+import com.alibaba.cloud.ai.util.JsonUtils;
+import java.util.Collections;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -66,15 +67,15 @@ class SimpleVectorStoreServiceTest {
 	@Mock
 	private DbConfig dbConfig;
 
-	private Gson gson;
+	private ObjectMapper objectMapper;
 
 	private SimpleVectorStoreService vectorStoreService;
 
 	@BeforeEach
-	void setUp() {
-		gson = new Gson();
+	void setUp() throws Exception {
+		objectMapper = JsonUtils.getObjectMapper();
 		// Create service instance to be tested
-		vectorStoreService = new SimpleVectorStoreService(embeddingModel, gson, dbAccessor, dbConfig, null);
+		vectorStoreService = new SimpleVectorStoreService(embeddingModel, objectMapper, dbAccessor, dbConfig, null);
 	}
 
 	@Test
@@ -110,7 +111,7 @@ class SimpleVectorStoreServiceTest {
 	}
 
 	@Test
-	void testConvertToDocument() {
+	void testConvertToDocument() throws Exception {
 		// Prepare test data
 		TableInfoBO tableInfo = createMockTableInfo();
 		ColumnInfoBO columnInfo = createMockColumnInfo();
@@ -135,7 +136,7 @@ class SimpleVectorStoreServiceTest {
 	}
 
 	@Test
-	void testConvertTableToDocument() {
+	void testConvertTableToDocument() throws Exception {
 		// Prepare test data
 		TableInfoBO tableInfo = createMockTableInfo();
 
@@ -413,7 +414,7 @@ class SimpleVectorStoreServiceTest {
 	}
 
 	// Create mock column information
-	private List<ColumnInfoBO> createMockColumns() {
+	private List<ColumnInfoBO> createMockColumns() throws Exception {
 		List<ColumnInfoBO> columns = new ArrayList<>();
 
 		ColumnInfoBO column = ColumnInfoBO.builder()
@@ -423,7 +424,7 @@ class SimpleVectorStoreServiceTest {
 			.primary(true)
 			.notnull(true)
 			.tableName("test_table")
-			.samples(gson.toJson(Arrays.asList("sample1", "sample2")))
+			.samples(objectMapper.writeValueAsString(Arrays.asList("sample1", "sample2")))
 			.build();
 
 		columns.add(column);
@@ -436,13 +437,13 @@ class SimpleVectorStoreServiceTest {
 			.name("test_table")
 			.description("Test table")
 			.schema("test_schema")
-			.primaryKeys(Lists.newArrayList("id"))
+			.primaryKeys(Collections.singletonList("id"))
 			.foreignKey("foreign_key_info")
 			.build();
 	}
 
 	// Create mock column information对象
-	private ColumnInfoBO createMockColumnInfo() {
+	private ColumnInfoBO createMockColumnInfo() throws Exception {
 		return ColumnInfoBO.builder()
 			.name("test_column")
 			.description("Test column description")
@@ -450,7 +451,7 @@ class SimpleVectorStoreServiceTest {
 			.primary(true)
 			.notnull(true)
 			.tableName("test_table")
-			.samples(gson.toJson(Arrays.asList("sample1", "sample2")))
+			.samples(objectMapper.writeValueAsString(Arrays.asList("sample1", "sample2")))
 			.build();
 	}
 

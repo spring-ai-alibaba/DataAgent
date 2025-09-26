@@ -20,7 +20,7 @@ import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.request.SearchRequest;
 import com.alibaba.cloud.ai.service.base.BaseSchemaService;
 import com.alibaba.cloud.ai.service.base.BaseVectorStoreService;
-import com.google.gson.Gson;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.document.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -38,9 +38,9 @@ import java.util.Map;
 public class AnalyticSchemaService extends BaseSchemaService {
 
 	@Autowired
-	public AnalyticSchemaService(DbConfig dbConfig, Gson gson,
+	public AnalyticSchemaService(DbConfig dbConfig, ObjectMapper objectMapper,
 			@Qualifier("analyticVectorStoreService") BaseVectorStoreService vectorStoreService) {
-		super(dbConfig, gson, vectorStoreService);
+		super(dbConfig, objectMapper, vectorStoreService);
 	}
 
 	@Override

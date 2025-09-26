@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dto.schema;
 
+import com.alibaba.cloud.ai.util.JsonUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -105,7 +106,7 @@ public class ColumnDTO {
 
 	@Override
 	public String toString() {
-		ObjectMapper objectMapper = new ObjectMapper();
+		ObjectMapper objectMapper = JsonUtils.getObjectMapper();
 		try {
 			return objectMapper.writeValueAsString(this);
 		}
