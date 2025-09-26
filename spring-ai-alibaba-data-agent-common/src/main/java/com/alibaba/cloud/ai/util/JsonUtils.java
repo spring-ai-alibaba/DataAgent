@@ -26,6 +26,10 @@ public class JsonUtils {
 
 	private static final ObjectMapper objectMapper = new ObjectMapper();
 
+	public static ObjectMapper getObjectMapper() {
+		return objectMapper;
+	}
+
 	public static String toJson(StreamResponseType type, String data) {
 		try {
 			return objectMapper.writeValueAsString(Map.of("type", type.getValue(), "data", data));

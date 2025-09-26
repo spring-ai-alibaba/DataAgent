@@ -26,6 +26,7 @@ import com.alibaba.cloud.ai.request.DeleteRequest;
 import com.alibaba.cloud.ai.request.EvidenceRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.request.SearchRequest;
+import com.alibaba.cloud.ai.util.JsonUtils;
 import com.alibaba.cloud.ai.vectorstore.analyticdb.AnalyticDbVectorStoreProperties;
 import com.aliyun.gpdb20160503.Client;
 import com.aliyun.gpdb20160503.models.DeleteCollectionDataRequest;
@@ -83,7 +84,7 @@ public class AnalyticDbVectorStoreManagementService implements VectorStoreManage
 	@Autowired
 	private Client client;
 
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper objectMapper = JsonUtils.getObjectMapper();
 
 	/**
 	 * Add evidence content to vector store
@@ -150,9 +151,9 @@ public class AnalyticDbVectorStoreManagementService implements VectorStoreManage
 					if (match.getScore() != null && match.getScore() > 0.2) {
 						Map<String, String> metadata = match.getMetadata();
 						String pageContent = metadata.get(CONTENT_FIELD_NAME);
-						Map<String, Object> metadataJson = new ObjectMapper()
-							.readValue(metadata.get(METADATA_FIELD_NAME), new TypeReference<HashMap<String, Object>>() {
-							});
+						Map<String, Object> metadataJson = objectMapper.readValue(metadata.get(METADATA_FIELD_NAME),
+								new TypeReference<HashMap<String, Object>>() {
+								});
 
 						Document doc = new Document(match.getId(), pageContent, metadataJson);
 						documents.add(doc);

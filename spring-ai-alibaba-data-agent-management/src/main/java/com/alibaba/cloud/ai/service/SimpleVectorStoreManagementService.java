@@ -27,6 +27,7 @@ import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.request.DeleteRequest;
 import com.alibaba.cloud.ai.request.EvidenceRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
+import com.alibaba.cloud.ai.util.JsonUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
@@ -49,7 +50,7 @@ public class SimpleVectorStoreManagementService implements VectorStoreManagement
 
 	private final SimpleVectorStore vectorStore;
 
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper objectMapper = JsonUtils.getObjectMapper();
 
 	private final Accessor dbAccessor;
 

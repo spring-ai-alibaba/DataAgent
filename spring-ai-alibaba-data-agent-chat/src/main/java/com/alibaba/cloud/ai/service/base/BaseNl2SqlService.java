@@ -29,7 +29,7 @@ import com.alibaba.cloud.ai.service.LlmService;
 import com.alibaba.cloud.ai.util.MarkdownParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.cloud.ai.util.JsonUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -228,8 +228,9 @@ public class BaseNl2SqlService {
 			String content = aiService.call(prompt);
 
 			// Parse JSON response
-			List<String> expandedQuestions = new ObjectMapper().readValue(content, new TypeReference<List<String>>() {
-			});
+			List<String> expandedQuestions = JsonUtils.getObjectMapper()
+				.readValue(content, new TypeReference<List<String>>() {
+				});
 
 			if (expandedQuestions == null || expandedQuestions.isEmpty()) {
 				logger.warn("No expanded questions generated, returning original query");
@@ -282,7 +283,7 @@ public class BaseNl2SqlService {
 		logger.debug("Calling LLM for keyword extraction");
 		String content = aiService.call(prompt);
 
-		List<String> keywords = new ObjectMapper().readValue(content, new TypeReference<List<String>>() {
+		List<String> keywords = JsonUtils.getObjectMapper().readValue(content, new TypeReference<List<String>>() {
 		});
 		logger.debug("Extracted {} keywords: {}", keywords != null ? keywords.size() : 0, keywords);
 		return keywords;
@@ -364,7 +365,7 @@ public class BaseNl2SqlService {
 			String jsonContent = MarkdownParser.extractText(content);
 			List<String> tableList;
 			try {
-				tableList = new ObjectMapper().readValue(jsonContent, new TypeReference<List<String>>() {
+				tableList = JsonUtils.getObjectMapper().readValue(jsonContent, new TypeReference<List<String>>() {
 				});
 			}
 			catch (Exception e) {
@@ -414,7 +415,7 @@ public class BaseNl2SqlService {
 			String jsonContent = MarkdownParser.extractText(content);
 			List<String> tableList;
 			try {
-				tableList = new ObjectMapper().readValue(jsonContent, new TypeReference<List<String>>() {
+				tableList = JsonUtils.getObjectMapper().readValue(jsonContent, new TypeReference<List<String>>() {
 				});
 			}
 			catch (Exception e) {
