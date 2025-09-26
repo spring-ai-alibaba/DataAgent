@@ -72,7 +72,7 @@ public interface AgentMapper {
 				human_review_enabled = #{humanReviewEnabled}
 			WHERE id = #{id}
 			""")
-	void updateById(Agent agent);
+	int updateById(Agent agent);
 
 	@Delete("""
 			DELETE FROM agent WHERE id = #{id}
