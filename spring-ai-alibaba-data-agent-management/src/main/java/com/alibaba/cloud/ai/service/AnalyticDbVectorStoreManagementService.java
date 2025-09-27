@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.service;
 
 import com.alibaba.cloud.ai.annotation.ConditionalOnADBEnabled;
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.ForeignKeyInfoBO;
@@ -74,9 +75,7 @@ public class AnalyticDbVectorStoreManagementService implements VectorStoreManage
 	@Autowired
 	private VectorStore vectorStore;
 
-	@Autowired
-	@Qualifier("dbAccessor")
-	private Accessor dbAccessor;
+	private final Accessor dbAccessor;
 
 	@Autowired
 	private AnalyticDbVectorStoreProperties analyticDbVectorStoreProperties;
@@ -85,6 +84,10 @@ public class AnalyticDbVectorStoreManagementService implements VectorStoreManage
 	private Client client;
 
 	private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
+
+	public AnalyticDbVectorStoreManagementService(AccessorFactory accessorFactory, DbConfig dbConfig) {
+		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
+	}
 
 	/**
 	 * Add evidence content to vector store

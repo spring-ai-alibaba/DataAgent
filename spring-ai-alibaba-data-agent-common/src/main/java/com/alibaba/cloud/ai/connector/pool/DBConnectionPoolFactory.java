@@ -16,29 +16,30 @@
 
 package com.alibaba.cloud.ai.connector.pool;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * DB connection pool context
+ * DB connection pool factory
  */
 @Component
 public class DBConnectionPoolFactory {
 
-	private final Map<String, DBConnectionPool> poolMap = new HashMap<>();
+	private final Map<String, DBConnectionPool> poolMap = new ConcurrentHashMap<>();
 
-	@Autowired
 	public DBConnectionPoolFactory(List<DBConnectionPool> pools) {
-		for (DBConnectionPool pool : pools) {
-			// Get bean name from @Service("xxx") annotation on class
-			String beanName = pool.getClass().getAnnotation(Service.class).value();
-			poolMap.put(beanName, pool);
-		}
+		pools.forEach(this::register);
+	}
+
+	public void register(DBConnectionPool pool) {
+		poolMap.put(pool.getConnectionPoolType(), pool);
+	}
+
+	public boolean isRegistered(String type) {
+		return poolMap.containsKey(type);
 	}
 
 	/**
@@ -47,16 +48,27 @@ public class DBConnectionPoolFactory {
 	 * @return DB connection pool
 	 */
 	public DBConnectionPool getPoolByType(String type) {
-		if (type == null || type.trim().isEmpty()) {
-			return null;
-		}
-		return switch (type.toLowerCase()) {
-			case "mysql", "mysqljdbcconnectionpool" -> poolMap.get("mysqlJdbcConnectionPool");
-			case "postgresql", "postgres", "postgresqljdbcconnectionpool" ->
-				poolMap.get("postgreSqlJdbcConnectionPool");
-			case "h2", "h2jdbcconnectionpool" -> poolMap.get("h2JdbcConnectionPool");
-			default -> null;
-		};
+		// if (type == null || type.trim().isEmpty()) {
+		// return null;
+		// }
+		// return switch (type.toLowerCase()) {
+		// case "mysql", "mysqljdbcconnectionpool" ->
+		// poolMap.get("mysqlJdbcConnectionPool");
+		// case "postgresql", "postgres", "postgresqljdbcconnectionpool" ->
+		// poolMap.get("postgreSqlJdbcConnectionPool");
+		// case "h2", "h2jdbcconnectionpool" -> poolMap.get("h2JdbcConnectionPool");
+		// default -> null;
+		// };
+		return poolMap.get(type);
+	}
+
+	// todo: 写一层缓存
+	public DBConnectionPool getPoolByDbType(String type) {
+		return poolMap.values()
+			.stream()
+			.filter(p -> p.supportedDataSourceType(type))
+			.findFirst()
+			.orElseThrow(() -> new IllegalStateException("No DB connection pool found for type: " + type));
 	}
 
 }

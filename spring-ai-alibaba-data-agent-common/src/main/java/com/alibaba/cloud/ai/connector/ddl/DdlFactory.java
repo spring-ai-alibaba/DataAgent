@@ -19,32 +19,46 @@ import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class DdlFactory {
 
-	private static final Map<String, Ddl> ddlExecutorSet = new ConcurrentHashMap<>();
+	private final Map<String, Ddl> ddlExecutorSet = new ConcurrentHashMap<>();
 
-	public static void registry(Ddl ddlExecutor) {
-		ddlExecutorSet.put(getConstraint(ddlExecutor.getType()), ddlExecutor);
+	public DdlFactory(List<Ddl> ddls) {
+		ddls.forEach(this::registry);
 	}
 
-	public Ddl getDdlExecutor(DbConfig dbConfig) {
+	public void registry(Ddl ddlExecutor) {
+		ddlExecutorSet.put(ddlExecutor.getDdlType(), ddlExecutor);
+	}
+
+	public boolean isRegistered(String type) {
+		return ddlExecutorSet.containsKey(type);
+	}
+
+	public Ddl getDdlExecutorByDbConfig(DbConfig dbConfig) {
 		BizDataSourceTypeEnum type = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType());
 		if (type == null) {
 			throw new RuntimeException("unknown db type");
 		}
-		return getDdlExecutor(type);
+		return getDdlExecutorByDbType(type);
 	}
 
-	public Ddl getDdlExecutor(BizDataSourceTypeEnum type) {
-		return ddlExecutorSet.get(getConstraint(type));
+	// todo: 写一层缓存
+	public Ddl getDdlExecutorByDbType(BizDataSourceTypeEnum type) {
+		return ddlExecutorSet.values()
+			.stream()
+			.filter(d -> d.supportedDataSourceType(type))
+			.findFirst()
+			.orElseThrow(() -> new IllegalStateException("no ddl executor found for " + type));
 	}
 
-	private static String getConstraint(BizDataSourceTypeEnum type) {
-		return type.getProtocol() + "@" + type.getDialect();
+	public Ddl getDdlExecutorByType(String type) {
+		return ddlExecutorSet.get(type);
 	}
 
 }

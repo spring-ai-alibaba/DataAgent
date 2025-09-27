@@ -285,7 +285,7 @@ public class PostgreJdbcDdl extends AbstractJdbcDdl {
 	}
 
 	@Override
-	public BizDataSourceTypeEnum getType() {
+	public BizDataSourceTypeEnum getDataSourceType() {
 		return BizDataSourceTypeEnum.POSTGRESQL;
 	}
 

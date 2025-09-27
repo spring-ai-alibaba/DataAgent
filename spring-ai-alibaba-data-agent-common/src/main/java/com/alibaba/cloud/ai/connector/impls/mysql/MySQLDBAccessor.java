@@ -16,11 +16,10 @@
 
 package com.alibaba.cloud.ai.connector.impls.mysql;
 
-import com.alibaba.cloud.ai.connector.pool.DBConnectionPool;
-import com.alibaba.cloud.ai.connector.accessor.AbstractAccessor;
 import com.alibaba.cloud.ai.connector.ddl.DdlFactory;
-import com.alibaba.cloud.ai.enums.DatabaseDialectEnum;
-import org.springframework.beans.factory.annotation.Qualifier;
+import com.alibaba.cloud.ai.connector.accessor.AbstractAccessor;
+import com.alibaba.cloud.ai.connector.pool.DBConnectionPoolFactory;
+import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 import org.springframework.stereotype.Service;
 
 /**
@@ -33,20 +32,19 @@ public class MySQLDBAccessor extends AbstractAccessor {
 
 	private final static String ACCESSOR_TYPE = "MySQL_Accessor";
 
-	protected MySQLDBAccessor(DdlFactory ddlFactory,
-			@Qualifier("mysqlJdbcConnectionPool") DBConnectionPool dbConnectionPool) {
+	protected MySQLDBAccessor(DdlFactory ddlFactory, DBConnectionPoolFactory poolFactory) {
 
-		super(ddlFactory, dbConnectionPool);
+		super(ddlFactory, poolFactory.getPoolByDbType(BizDataSourceTypeEnum.MYSQL.getTypeName()));
 	}
 
 	@Override
-	public String getDbAccessorType() {
-
+	public String getAccessorType() {
 		return ACCESSOR_TYPE;
 	}
 
-    @Override
-    public boolean supportedDialect(DatabaseDialectEnum dialect) {
-        return DatabaseDialectEnum.MYSQL.equals(dialect);
-    }
+	@Override
+	public boolean supportedDataSourceType(String type) {
+		return BizDataSourceTypeEnum.MYSQL.getTypeName().equalsIgnoreCase(type);
+	}
+
 }

@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.connector.impls.h2;
 
 import com.alibaba.cloud.ai.connector.pool.AbstractDBConnectionPool;
-import com.alibaba.cloud.ai.enums.DatabaseDialectEnum;
+import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.enums.ErrorCodeEnum;
 import org.springframework.stereotype.Service;
 
@@ -27,11 +27,6 @@ import static com.alibaba.cloud.ai.enums.ErrorCodeEnum.PASSWORD_ERROR_28000;
 
 @Service("h2JdbcConnectionPool")
 public class H2JdbcConnectionPool extends AbstractDBConnectionPool {
-
-	@Override
-	public DatabaseDialectEnum getDialect() {
-		return DatabaseDialectEnum.H2;
-	}
 
 	@Override
 	public String getDriver() {
@@ -50,6 +45,16 @@ public class H2JdbcConnectionPool extends AbstractDBConnectionPool {
 			case "42000" -> DATABASE_NOT_EXIST_42000;
 			default -> OTHERS;
 		};
+	}
+
+	@Override
+	public boolean supportedDataSourceType(String type) {
+		return BizDataSourceTypeEnum.H2.getTypeName().equals(type);
+	}
+
+	@Override
+	public String getConnectionPoolType() {
+		return BizDataSourceTypeEnum.H2.getTypeName();
 	}
 
 }

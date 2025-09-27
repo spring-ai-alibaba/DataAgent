@@ -17,9 +17,11 @@
 package com.alibaba.cloud.ai.connector.accessor;
 
 import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.alibaba.cloud.ai.enums.DatabaseDialectEnum;
+import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -30,31 +32,40 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class AccessorFactory {
 
-	private static final Map<String, Accessor> accessorMap = new ConcurrentHashMap<>();
-
-	public static void register(Accessor accessor) {
-		accessorMap.put(accessor.getDbAccessorType(), accessor);
+	public AccessorFactory(List<Accessor> accessors) {
+		accessors.forEach(this::register);
 	}
 
-	public static boolean isRegistered(String type) {
+	private final Map<String, Accessor> accessorMap = new ConcurrentHashMap<>();
+
+	public void register(Accessor accessor) {
+		accessorMap.put(accessor.getAccessorType(), accessor);
+	}
+
+	public boolean isRegistered(String type) {
 		return accessorMap.containsKey(type);
 	}
 
-	public Accessor getAccessor(DbConfig dbConfig) {
-		DatabaseDialectEnum dialectEnum = DatabaseDialectEnum.getByCode(dbConfig.getDialectType())
-			.orElseThrow(() -> new IllegalStateException("unknown db dialect type: " + dbConfig.getDialectType()));
-		return getAccessor(dialectEnum);
+	public Accessor getAccessorByDbConfig(DbConfig dbConfig) {
+		// FIXME: 目前默认使用mysql，因为用户配置中暂时没有dbConfig的配置
+		BizDataSourceTypeEnum typeEnum = Arrays.stream(BizDataSourceTypeEnum.values())
+			.filter(e -> e.getDialect().equals(dbConfig.getDialectType()))
+			.filter(e -> e.getProtocol().equals(dbConfig.getConnectionType()))
+			.findFirst()
+			.orElse(BizDataSourceTypeEnum.MYSQL);
+		return getAccessorByDbTypeEnum(typeEnum);
 	}
 
-	public Accessor getAccessor(DatabaseDialectEnum dialectEnum) {
+	// todo: 写一层缓存
+	public Accessor getAccessorByDbTypeEnum(BizDataSourceTypeEnum typeEnum) {
 		return accessorMap.values()
 			.stream()
-			.filter(a -> a.supportedDialect(dialectEnum))
+			.filter(a -> a.supportedDataSourceType(typeEnum.getTypeName()))
 			.findFirst()
-			.orElseThrow(() -> new IllegalStateException("no accessor registered for dialect: " + dialectEnum));
+			.orElseThrow(() -> new IllegalStateException("no accessor registered for dialect: " + typeEnum));
 	}
 
-	public Accessor getAccessor(String type) {
+	public Accessor getAccessorByType(String type) {
 		return accessorMap.get(type);
 	}
 

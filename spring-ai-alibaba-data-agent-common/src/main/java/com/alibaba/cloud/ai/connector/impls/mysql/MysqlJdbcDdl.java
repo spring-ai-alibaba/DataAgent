@@ -242,7 +242,7 @@ public class MysqlJdbcDdl extends AbstractJdbcDdl {
 	}
 
 	@Override
-	public BizDataSourceTypeEnum getType() {
+	public BizDataSourceTypeEnum getDataSourceType() {
 		return BizDataSourceTypeEnum.MYSQL;
 	}
 

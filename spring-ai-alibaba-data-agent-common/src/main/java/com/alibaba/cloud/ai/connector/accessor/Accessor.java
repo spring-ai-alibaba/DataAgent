@@ -24,7 +24,7 @@ import com.alibaba.cloud.ai.connector.bo.ResultSetBO;
 import com.alibaba.cloud.ai.connector.bo.SchemaInfoBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.alibaba.cloud.ai.enums.DatabaseDialectEnum;
+import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 
 import java.util.List;
 
@@ -37,9 +37,13 @@ import java.util.List;
 
 public interface Accessor {
 
-	String getDbAccessorType();
+	String getAccessorType();
 
-	boolean supportedDialect(DatabaseDialectEnum dialect);
+	boolean supportedDataSourceType(String type);
+
+	default boolean supportedDataSourceType(BizDataSourceTypeEnum typeEnum) {
+		return supportedDataSourceType(typeEnum.getTypeName());
+	}
 
 	/**
 	 * Access the database and execute the specified method with the given parameters.

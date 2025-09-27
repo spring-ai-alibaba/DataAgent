@@ -263,7 +263,7 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 	}
 
 	@Override
-	public BizDataSourceTypeEnum getType() {
+	public BizDataSourceTypeEnum getDataSourceType() {
 		return BizDataSourceTypeEnum.H2;
 	}
 

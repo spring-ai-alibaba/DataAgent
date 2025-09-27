@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.connector.impls.mysql;
 
 import com.alibaba.cloud.ai.connector.pool.AbstractDBConnectionPool;
-import com.alibaba.cloud.ai.enums.DatabaseDialectEnum;
+import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.enums.ErrorCodeEnum;
 import org.springframework.stereotype.Service;
 
@@ -29,11 +29,6 @@ import static com.alibaba.cloud.ai.enums.ErrorCodeEnum.OTHERS;
 public class MysqlJdbcConnectionPool extends AbstractDBConnectionPool {
 
 	private final static String DRIVER = "com.mysql.cj.jdbc.Driver";
-
-	@Override
-	public DatabaseDialectEnum getDialect() {
-		return DatabaseDialectEnum.MYSQL;
-	}
 
 	@Override
 	public String getDriver() {
@@ -54,6 +49,16 @@ public class MysqlJdbcConnectionPool extends AbstractDBConnectionPool {
 			case "42000" -> DATABASE_NOT_EXIST_42000;
 			default -> OTHERS;
 		};
+	}
+
+	@Override
+	public boolean supportedDataSourceType(String type) {
+		return BizDataSourceTypeEnum.MYSQL.getTypeName().equals(type);
+	}
+
+	@Override
+	public String getConnectionPoolType() {
+		return BizDataSourceTypeEnum.MYSQL.getTypeName();
 	}
 
 }

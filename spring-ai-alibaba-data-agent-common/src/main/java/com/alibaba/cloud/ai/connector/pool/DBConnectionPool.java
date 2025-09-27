@@ -41,4 +41,8 @@ public interface DBConnectionPool extends AutoCloseable {
 	 */
 	Connection getConnection(DbConfig config);
 
+	boolean supportedDataSourceType(String type);
+
+	String getConnectionPoolType();
+
 }

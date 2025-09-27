@@ -30,7 +30,6 @@ import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.InitializingBean;
 
 import java.sql.Connection;
 import java.util.List;
@@ -40,7 +39,7 @@ import java.util.List;
  * @author <a href="mailto:yuluo08290126@gmail.com">yuluo</a>
  */
 
-public abstract class AbstractAccessor implements Accessor, InitializingBean {
+public abstract class AbstractAccessor implements Accessor {
 
 	private static final Logger logger = LoggerFactory.getLogger(AbstractAccessor.class);
 
@@ -49,20 +48,15 @@ public abstract class AbstractAccessor implements Accessor, InitializingBean {
 	private final DBConnectionPool dbConnectionPool;
 
 	protected AbstractAccessor(DdlFactory ddlFactory, DBConnectionPool dbConnectionPool) {
-		this.dbConnectionPool = dbConnectionPool;
 		this.ddlFactory = ddlFactory;
-	}
-
-	@Override
-	public void afterPropertiesSet() {
-		AccessorFactory.register(this);
+		this.dbConnectionPool = dbConnectionPool;
 	}
 
 	public <T> T accessDb(DbConfig dbConfig, String method, DbQueryParameter param) throws Exception {
 
 		try (Connection connection = getConnection(dbConfig)) {
 
-			AbstractJdbcDdl ddlExecutor = (AbstractJdbcDdl) ddlFactory.getDdlExecutor(dbConfig);
+			AbstractJdbcDdl ddlExecutor = (AbstractJdbcDdl) ddlFactory.getDdlExecutorByDbConfig(dbConfig);
 
 			switch (method) {
 				case "showDatabases":

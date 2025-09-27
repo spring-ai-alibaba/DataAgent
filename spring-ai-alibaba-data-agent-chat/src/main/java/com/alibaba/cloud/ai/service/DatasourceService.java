@@ -53,7 +53,7 @@ public class DatasourceService {
 	private AgentDatasourceMapper agentDatasourceMapper;
 
 	@Autowired
-	private DBConnectionPoolFactory dbConnectionPoolFactory;
+	private DBConnectionPoolFactory poolFactory;
 
 	/**
 	 * Get all data source list
@@ -196,7 +196,7 @@ public class DatasourceService {
 		config.setUsername(datasource.getUsername());
 		config.setPassword(datasource.getPassword());
 
-		DBConnectionPool pool = dbConnectionPoolFactory.getPoolByType(datasource.getType());
+		DBConnectionPool pool = poolFactory.getPoolByType(datasource.getType());
 		if (pool == null) {
 			return false;
 		}

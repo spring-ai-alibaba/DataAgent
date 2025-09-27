@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.service.simple;
 
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.ForeignKeyInfoBO;
@@ -36,7 +37,6 @@ import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
@@ -71,12 +71,11 @@ public class SimpleVectorStoreService extends BaseVectorStoreService {
 
 	@Autowired
 	public SimpleVectorStoreService(EmbeddingModel embeddingModel, ObjectMapper objectMapper,
-			@Qualifier("dbAccessor") Accessor dbAccessor, DbConfig dbConfig,
-			AgentVectorStoreManager agentVectorStoreManager) {
+			AccessorFactory accessorFactory, DbConfig dbConfig, AgentVectorStoreManager agentVectorStoreManager) {
 		log.info("Initializing SimpleVectorStoreService with EmbeddingModel: {}",
 				embeddingModel.getClass().getSimpleName());
 		this.objectMapper = objectMapper;
-		this.dbAccessor = dbAccessor;
+		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 		this.dbConfig = dbConfig;
 		this.embeddingModel = embeddingModel;
 		this.agentVectorStoreManager = agentVectorStoreManager;

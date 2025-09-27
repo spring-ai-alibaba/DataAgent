@@ -25,7 +25,7 @@ import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import java.sql.Connection;
 import java.util.List;
 
-public abstract class AbstractJdbcDdl extends AbstractDdl implements Ddl {
+public abstract class AbstractJdbcDdl implements Ddl {
 
 	@Deprecated
 	public abstract List<DatabaseInfoBO> showDatabases(Connection connection);

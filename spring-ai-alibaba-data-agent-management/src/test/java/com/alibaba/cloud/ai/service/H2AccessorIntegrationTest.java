@@ -15,13 +15,13 @@
  */
 package com.alibaba.cloud.ai.service;
 
-import com.alibaba.cloud.ai.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.connector.bo.ResultSetBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
+import com.alibaba.cloud.ai.connector.impls.h2.H2DBAccessor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class H2AccessorIntegrationTest {
 
 	@Autowired
-	private Accessor dbAccessor;
+	private H2DBAccessor dbAccessor;
 
 	@Autowired
 	private DbConfig dbConfig;
