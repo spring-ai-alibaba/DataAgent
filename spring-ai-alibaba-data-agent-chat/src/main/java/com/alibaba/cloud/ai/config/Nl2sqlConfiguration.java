@@ -117,9 +117,6 @@ public class Nl2sqlConfiguration {
 			// schema recall节点输出
 			keyStrategyHashMap.put(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
 			keyStrategyHashMap.put(COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT, new ReplaceStrategy());
-			// sql validate节点输出
-			keyStrategyHashMap.put(SQL_VALIDATE_NODE_OUTPUT, new ReplaceStrategy());
-			keyStrategyHashMap.put(SQL_VALIDATE_EXCEPTION_OUTPUT, new ReplaceStrategy());
 			// table relation节点输出
 			keyStrategyHashMap.put(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
 			keyStrategyHashMap.put(TABLE_RELATION_EXCEPTION_OUTPUT, new ReplaceStrategy());
@@ -176,7 +173,7 @@ public class Nl2sqlConfiguration {
 			.addNode(PYTHON_ANALYZE_NODE, node_async(new PythonAnalyzeNode(chatClientBuilder)))
 			.addNode(REPORT_GENERATOR_NODE, node_async(new ReportGeneratorNode(chatClientBuilder, promptConfigService)))
 			.addNode(SEMANTIC_CONSISTENCY_NODE, node_async(new SemanticConsistencyNode(nl2SqlService)))
-			.addNode("human_feedback", node_async(new HumanFeedbackNode()));
+			.addNode(HUMAN_FEEDBACK_NODE, node_async(new HumanFeedbackNode()));
 
 		stateGraph.addEdge(START, QUERY_REWRITE_NODE)
 			.addConditionalEdges(QUERY_REWRITE_NODE, edge_async(new QueryRewriteDispatcher()),
@@ -184,9 +181,7 @@ public class Nl2sqlConfiguration {
 			.addEdge(KEYWORD_EXTRACT_NODE, SCHEMA_RECALL_NODE)
 			.addEdge(SCHEMA_RECALL_NODE, TABLE_RELATION_NODE)
 			.addConditionalEdges(TABLE_RELATION_NODE, edge_async(new TableRelationDispatcher()),
-					Map.of(PLANNER_NODE, PLANNER_NODE, END, END, TABLE_RELATION_NODE, TABLE_RELATION_NODE))// retry
-																											// table
-																											// relation
+					Map.of(PLANNER_NODE, PLANNER_NODE, END, END, TABLE_RELATION_NODE, TABLE_RELATION_NODE)) // retry
 			// The edge from PlannerNode now goes to PlanExecutorNode for validation and
 			// execution
 			.addEdge(PLANNER_NODE, PLAN_EXECUTOR_NODE)
@@ -204,11 +199,11 @@ public class Nl2sqlConfiguration {
 					SQL_EXECUTE_NODE, SQL_EXECUTE_NODE, PYTHON_GENERATE_NODE, PYTHON_GENERATE_NODE,
 					REPORT_GENERATOR_NODE, REPORT_GENERATOR_NODE,
 					// If human review is enabled, go to human_feedback node
-					"human_feedback", "human_feedback",
+					HUMAN_FEEDBACK_NODE, HUMAN_FEEDBACK_NODE,
 					// If max repair attempts are reached, end the process
 					END, END))
 			// Human feedback node routing
-			.addConditionalEdges("human_feedback", edge_async(new HumanFeedbackDispatcher()), Map.of(
+			.addConditionalEdges(HUMAN_FEEDBACK_NODE, edge_async(new HumanFeedbackDispatcher()), Map.of(
 					// If plan is rejected, go back to PlannerNode
 					PLANNER_NODE, PLANNER_NODE,
 					// If plan is approved, continue with execution

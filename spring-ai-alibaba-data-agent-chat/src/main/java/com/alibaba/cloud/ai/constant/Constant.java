@@ -63,10 +63,6 @@ public final class Constant {
 
 	public static final String SQL_GENERATE_COUNT = "SQL_GENERATE_COUNT";
 
-	public static final String SQL_VALIDATE_NODE_OUTPUT = "SQL_VALIDATE_NODE_OUTPUT";
-
-	public static final String SQL_VALIDATE_EXCEPTION_OUTPUT = "SQL_VALIDATE_EXCEPTION_OUTPUT";
-
 	public static final String SEMANTIC_CONSISTENCY_NODE_OUTPUT = "SEMANTIC_CONSISTENCY_NODE_OUTPUT";
 
 	public static final String SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT = "SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT";
@@ -107,11 +103,11 @@ public final class Constant {
 
 	public static final String SQL_GENERATE_NODE = "SQL_GENERATE_NODE";
 
-	public static final String SQL_VALIDATE_NODE = "SQL_VALIDATE_NODE";
-
 	public static final String SQL_EXECUTE_NODE = "SQL_EXECUTE_NODE";
 
 	public static final String SEMANTIC_CONSISTENCY_NODE = "SEMANTIC_CONSISTENCY_NODE";
+
+	public static final String HUMAN_FEEDBACK_NODE = "HUMAN_FEEDBACK_NODE";
 
 	public static final String SMALL_TALK_REJECT = "闲聊拒识";
 
