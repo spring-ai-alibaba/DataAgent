@@ -15,11 +15,20 @@
  */
 package com.alibaba.cloud.ai.entity;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 
 /**
  * Agent Entity Class
  */
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
 public class Agent {
 
 	private Long id;
@@ -30,6 +39,7 @@ public class Agent {
 
 	private String avatar; // Avatar URL
 
+	// todo: 改为枚举
 	private String status; // Status: draft-pending publication, published-published,
 							// offline-offline
 
@@ -46,130 +56,7 @@ public class Agent {
 	private LocalDateTime updateTime;
 
 	// Whether human review is enabled for this agent
-	private Integer humanReviewEnabled; // 0/1 for JDBC compatibility
-
-	public Agent() {
-		this.humanReviewEnabled = 0; // 默认禁用人工复核
-	}
-
-	public Agent(String name, String description, String avatar, String status, String prompt, String category,
-			Long adminId, String tags) {
-		this.name = name;
-		this.description = description;
-		this.avatar = avatar;
-		this.status = status;
-		this.prompt = prompt;
-		this.category = category;
-		this.adminId = adminId;
-		this.tags = tags;
-		this.createTime = LocalDateTime.now();
-		this.updateTime = LocalDateTime.now();
-		this.humanReviewEnabled = 0; // 默认禁用人工复核
-	}
-
-	// Getters and Setters
-	public Long getId() {
-		return id;
-	}
-
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
-	}
-
-	public String getAvatar() {
-		return avatar;
-	}
-
-	public void setAvatar(String avatar) {
-		this.avatar = avatar;
-	}
-
-	public String getStatus() {
-		return status;
-	}
-
-	public void setStatus(String status) {
-		this.status = status;
-	}
-
-	public String getPrompt() {
-		return prompt;
-	}
-
-	public void setPrompt(String prompt) {
-		this.prompt = prompt;
-	}
-
-	public String getCategory() {
-		return category;
-	}
-
-	public void setCategory(String category) {
-		this.category = category;
-	}
-
-	public Long getAdminId() {
-		return adminId;
-	}
-
-	public void setAdminId(Long adminId) {
-		this.adminId = adminId;
-	}
-
-	public String getTags() {
-		return tags;
-	}
-
-	public void setTags(String tags) {
-		this.tags = tags;
-	}
-
-	public LocalDateTime getCreateTime() {
-		return createTime;
-	}
-
-	public void setCreateTime(LocalDateTime createTime) {
-		this.createTime = createTime;
-	}
-
-	public LocalDateTime getUpdateTime() {
-		return updateTime;
-	}
-
-	public void setUpdateTime(LocalDateTime updateTime) {
-		this.updateTime = updateTime;
-	}
-
-	public Integer getHumanReviewEnabled() {
-		return humanReviewEnabled;
-	}
-
-	public void setHumanReviewEnabled(Integer humanReviewEnabled) {
-		this.humanReviewEnabled = humanReviewEnabled;
-	}
-
-	@Override
-	public String toString() {
-		return "Agent{" + "id=" + id + ", name='" + name + '\'' + ", description='" + description + '\'' + ", avatar='"
-				+ avatar + '\'' + ", status='" + status + '\'' + ", prompt='" + prompt + '\'' + ", category='"
-				+ category + '\'' + ", adminId=" + adminId + ", tags='" + tags + '\'' + ", createTime=" + createTime
-				+ ", updateTime=" + updateTime + '}';
-	}
+	@Builder.Default
+	private Integer humanReviewEnabled = 0; // 0/1 for JDBC compatibility
 
 }

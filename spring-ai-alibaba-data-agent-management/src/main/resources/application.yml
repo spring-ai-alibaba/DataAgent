@@ -67,6 +67,10 @@ spring:
       max-request-size: 10MB
       enabled: true
 
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+
 # MyBatis Plus 配置
 mybatis-plus:
   configuration:

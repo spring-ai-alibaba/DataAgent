@@ -17,18 +17,15 @@
 package com.alibaba.cloud.ai.mapper;
 
 import com.alibaba.cloud.ai.entity.Agent;
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
 
 /**
  * Agent Mapper Interface
- *
- * @author Alibaba Cloud AI
  */
 @Mapper
-public interface AgentMapper extends BaseMapper<Agent> {
+public interface AgentMapper {
 
 	@Select("""
 			SELECT * FROM agent ORDER BY create_time DESC
@@ -75,7 +72,7 @@ public interface AgentMapper extends BaseMapper<Agent> {
 				human_review_enabled = #{humanReviewEnabled}
 			WHERE id = #{id}
 			""")
-	int update(Agent agent);
+	int updateById(Agent agent);
 
 	@Delete("""
 			DELETE FROM agent WHERE id = #{id}

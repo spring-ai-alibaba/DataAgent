@@ -17,7 +17,6 @@ package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.Agent;
 import com.alibaba.cloud.ai.service.AgentService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,7 +32,6 @@ public class AgentController {
 
 	private final AgentService agentService;
 
-	@Autowired(required = false)
 	public AgentController(AgentService agentService) {
 		this.agentService = agentService;
 	}
