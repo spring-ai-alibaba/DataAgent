@@ -24,7 +24,7 @@ import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.request.DeleteRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.request.SearchRequest;
-import com.alibaba.cloud.ai.util.JsonUtils;
+import com.alibaba.cloud.ai.util.JsonUtil;
 import java.util.Collections;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,7 +73,7 @@ class SimpleVectorStoreServiceTest {
 
 	@BeforeEach
 	void setUp() throws Exception {
-		objectMapper = JsonUtils.getObjectMapper();
+		objectMapper = JsonUtil.getObjectMapper();
 		// Create service instance to be tested
 		vectorStoreService = new SimpleVectorStoreService(embeddingModel, objectMapper, dbAccessor, dbConfig, null);
 	}

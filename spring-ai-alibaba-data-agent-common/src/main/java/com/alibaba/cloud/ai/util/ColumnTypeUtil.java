@@ -13,37 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.enums;
+package com.alibaba.cloud.ai.util;
 
-import java.util.Optional;
+public class ColumnTypeUtil {
 
-public enum DatabaseDialectEnum {
-
-	MYSQL("MySQL"),
-
-	SQLite("SQLite"),
-
-	POSTGRESQL("PostgreSQL"),
-
-	H2("H2");
-
-	public final String code;
-
-	DatabaseDialectEnum(String code) {
-		this.code = code;
-	}
-
-	public String getCode() {
-		return code;
-	}
-
-	public static Optional<DatabaseDialectEnum> getByCode(String code) {
-		for (DatabaseDialectEnum value : values()) {
-			if (value.code.equals(code)) {
-				return Optional.of(value);
-			}
+	public static String wrapType(String s) {
+		if (s.equalsIgnoreCase("decimal") || s.equalsIgnoreCase("int") || s.equalsIgnoreCase("bigint")
+				|| s.equalsIgnoreCase("bool") || s.equalsIgnoreCase("bit") || s.equalsIgnoreCase("boolean")
+				|| s.equalsIgnoreCase("double")) {
+			return "number";
 		}
-		return Optional.empty();
+		else if (s.startsWith("varchar") || s.startsWith("char")) {
+			return "text";
+		}
+		return s;
 	}
 
 }

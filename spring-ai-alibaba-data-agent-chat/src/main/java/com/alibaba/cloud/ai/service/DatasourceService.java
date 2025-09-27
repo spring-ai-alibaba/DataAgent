@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.service;
 
-import com.alibaba.cloud.ai.connector.DBConnectionPool;
-import com.alibaba.cloud.ai.connector.DBConnectionPoolContext;
+import com.alibaba.cloud.ai.connector.pool.DBConnectionPool;
+import com.alibaba.cloud.ai.connector.pool.DBConnectionPoolFactory;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
@@ -53,7 +53,7 @@ public class DatasourceService {
 	private AgentDatasourceMapper agentDatasourceMapper;
 
 	@Autowired
-	private DBConnectionPoolContext dbConnectionPoolContext;
+	private DBConnectionPoolFactory dbConnectionPoolFactory;
 
 	/**
 	 * Get all data source list
@@ -196,7 +196,7 @@ public class DatasourceService {
 		config.setUsername(datasource.getUsername());
 		config.setPassword(datasource.getPassword());
 
-		DBConnectionPool pool = dbConnectionPoolContext.getPoolByType(datasource.getType());
+		DBConnectionPool pool = dbConnectionPoolFactory.getPoolByType(datasource.getType());
 		if (pool == null) {
 			return false;
 		}

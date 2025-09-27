@@ -43,13 +43,13 @@ public class ChatResponseUtil {
 	 * @return ChatResponse status response object
 	 */
 	public static ChatResponse createCustomStatusResponse(String statusMessage, StreamResponseType type) {
-		AssistantMessage assistantMessage = new AssistantMessage(JsonUtils.toJson(type, statusMessage + "\n"));
+		AssistantMessage assistantMessage = new AssistantMessage(JsonUtil.toJson(type, statusMessage + "\n"));
 		Generation generation = new Generation(assistantMessage);
 		return new ChatResponse(List.of(generation));
 	}
 
 	public static ChatResponse createStatusResponse(String statusMessage, StreamResponseType type) {
-		AssistantMessage assistantMessage = new AssistantMessage(JsonUtils.toJson(type, statusMessage));
+		AssistantMessage assistantMessage = new AssistantMessage(JsonUtil.toJson(type, statusMessage));
 		Generation generation = new Generation(assistantMessage);
 		return new ChatResponse(List.of(generation));
 	}

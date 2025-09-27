@@ -19,7 +19,11 @@ package com.alibaba.cloud.ai.constant;
 /**
  * @author zhangshenghang
  */
-public class Constant {
+public final class Constant {
+
+	private Constant() {
+
+	}
 
 	public static final String INPUT_KEY = "input";
 

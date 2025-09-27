@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2024-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,8 +19,18 @@ package com.alibaba.cloud.ai.controller;
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.service.AgentKnowledgeService;
 import com.alibaba.cloud.ai.service.AgentVectorService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +39,7 @@ import java.util.Map;
 /**
  * Agent Knowledge Management Controller
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/agent-knowledge")
 @CrossOrigin(origins = "*")
@@ -109,6 +120,7 @@ public class AgentKnowledgeController {
 			}
 		}
 		catch (Exception e) {
+			log.error("查询知识详情失败：{}", e.getMessage());
 			response.put("success", false);
 			response.put("message", "查询知识详情失败：" + e.getMessage());
 			return ResponseEntity.badRequest().body(response);
@@ -165,6 +177,7 @@ public class AgentKnowledgeController {
 
 		}
 		catch (Exception e) {
+			log.error("创建知识失败：{}", e.getMessage());
 			response.put("success", false);
 			response.put("message", "创建知识失败：" + e.getMessage());
 			return ResponseEntity.badRequest().body(response);
@@ -251,6 +264,7 @@ public class AgentKnowledgeController {
 			}
 		}
 		catch (Exception e) {
+			log.error("更新知识失败：{}", e.getMessage());
 			response.put("success", false);
 			response.put("message", "更新知识失败：" + e.getMessage());
 			return ResponseEntity.badRequest().body(response);
@@ -336,6 +350,7 @@ public class AgentKnowledgeController {
 
 		}
 		catch (Exception e) {
+			log.error("批量更新知识失败：{}", e.getMessage());
 			response.put("success", false);
 			response.put("message", "批量更新失败：" + e.getMessage());
 			return ResponseEntity.badRequest().body(response);
@@ -363,6 +378,7 @@ public class AgentKnowledgeController {
 
 		}
 		catch (Exception e) {
+			log.error("获取统计信息失败：{}", e.getMessage());
 			response.put("success", false);
 			response.put("message", "获取统计信息失败：" + e.getMessage());
 			return ResponseEntity.badRequest().body(response);

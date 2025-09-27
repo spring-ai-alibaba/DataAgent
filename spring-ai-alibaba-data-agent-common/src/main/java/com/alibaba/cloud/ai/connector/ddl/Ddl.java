@@ -13,37 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.enums;
+package com.alibaba.cloud.ai.connector.ddl;
 
-import java.util.Optional;
+import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 
-public enum DatabaseDialectEnum {
+public interface Ddl {
 
-	MYSQL("MySQL"),
-
-	SQLite("SQLite"),
-
-	POSTGRESQL("PostgreSQL"),
-
-	H2("H2");
-
-	public final String code;
-
-	DatabaseDialectEnum(String code) {
-		this.code = code;
-	}
-
-	public String getCode() {
-		return code;
-	}
-
-	public static Optional<DatabaseDialectEnum> getByCode(String code) {
-		for (DatabaseDialectEnum value : values()) {
-			if (value.code.equals(code)) {
-				return Optional.of(value);
-			}
-		}
-		return Optional.empty();
-	}
+	BizDataSourceTypeEnum getType();
 
 }

@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.service.base;
 
-import com.alibaba.cloud.ai.connector.MdTableGenerator;
+import com.alibaba.cloud.ai.util.MdTableGeneratorUtil;
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.ResultSetBO;
@@ -29,7 +29,7 @@ import com.alibaba.cloud.ai.service.LlmService;
 import com.alibaba.cloud.ai.util.MarkdownParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.alibaba.cloud.ai.util.JsonUtils;
+import com.alibaba.cloud.ai.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -186,7 +186,7 @@ public class BaseNl2SqlService {
 			logger.debug("Created DbQueryParameter for SQL execution");
 			ResultSetBO resultSet = dbAccessor.executeSqlAndReturnObject(dbConfig, param);
 			logger.debug("SQL executed successfully, generating table format");
-			String result = MdTableGenerator.generateTable(resultSet);
+			String result = MdTableGeneratorUtil.generateTable(resultSet);
 			logger.info("SQL execution completed successfully, result rows: {}",
 					resultSet.getData() != null ? resultSet.getData().size() : 0);
 			return result;
@@ -228,7 +228,7 @@ public class BaseNl2SqlService {
 			String content = aiService.call(prompt);
 
 			// Parse JSON response
-			List<String> expandedQuestions = JsonUtils.getObjectMapper()
+			List<String> expandedQuestions = JsonUtil.getObjectMapper()
 				.readValue(content, new TypeReference<List<String>>() {
 				});
 
@@ -283,7 +283,7 @@ public class BaseNl2SqlService {
 		logger.debug("Calling LLM for keyword extraction");
 		String content = aiService.call(prompt);
 
-		List<String> keywords = JsonUtils.getObjectMapper().readValue(content, new TypeReference<List<String>>() {
+		List<String> keywords = JsonUtil.getObjectMapper().readValue(content, new TypeReference<List<String>>() {
 		});
 		logger.debug("Extracted {} keywords: {}", keywords != null ? keywords.size() : 0, keywords);
 		return keywords;
@@ -365,7 +365,7 @@ public class BaseNl2SqlService {
 			String jsonContent = MarkdownParser.extractText(content);
 			List<String> tableList;
 			try {
-				tableList = JsonUtils.getObjectMapper().readValue(jsonContent, new TypeReference<List<String>>() {
+				tableList = JsonUtil.getObjectMapper().readValue(jsonContent, new TypeReference<List<String>>() {
 				});
 			}
 			catch (Exception e) {
@@ -415,7 +415,7 @@ public class BaseNl2SqlService {
 			String jsonContent = MarkdownParser.extractText(content);
 			List<String> tableList;
 			try {
-				tableList = JsonUtils.getObjectMapper().readValue(jsonContent, new TypeReference<List<String>>() {
+				tableList = JsonUtil.getObjectMapper().readValue(jsonContent, new TypeReference<List<String>>() {
 				});
 			}
 			catch (Exception e) {

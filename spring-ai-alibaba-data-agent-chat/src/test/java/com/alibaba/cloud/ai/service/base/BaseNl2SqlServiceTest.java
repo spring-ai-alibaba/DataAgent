@@ -23,7 +23,7 @@ import com.alibaba.cloud.ai.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.service.LlmService;
-import com.alibaba.cloud.ai.util.JsonUtils;
+import com.alibaba.cloud.ai.util.JsonUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,7 +91,7 @@ class BaseNl2SqlServiceTest {
 	@BeforeEach
 	void setUp() {
 		log.info("Setting up BaseNl2SqlServiceTest");
-		objectMapper = JsonUtils.getObjectMapper();
+		objectMapper = JsonUtil.getObjectMapper();
 		baseNl2SqlService = new BaseNl2SqlService(vectorStoreService, schemaService, aiService, dbAccessor, dbConfig);
 	}
 

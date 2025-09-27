@@ -55,8 +55,18 @@ public enum StreamResponseType {
 
 	EXECUTE_SQL("execute_sql"),
 
-	VALIDATION("validation"), OUTPUT_REPORT("output_report"), SCHEMA_DEEP_RECALL("schema_deep_recall"),
-	PYTHON_ANALYSIS("python_analysis"), PYTHON_GENERATE("python_generate"), PYTHON_EXECUTE("python_execute"),
+	VALIDATION("validation"),
+
+	OUTPUT_REPORT("output_report"),
+
+	SCHEMA_DEEP_RECALL("schema_deep_recall"),
+
+	PYTHON_ANALYSIS("python_analysis"),
+
+	PYTHON_GENERATE("python_generate"),
+
+	PYTHON_EXECUTE("python_execute"),
+
 	/**
 	 * Represents the generated execution plan.
 	 */

@@ -28,7 +28,7 @@ import com.alibaba.cloud.ai.service.simple.SimpleVectorStoreService;
 import com.alibaba.cloud.ai.service.DatasourceService;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.service.AgentService;
-import com.alibaba.cloud.ai.util.JsonUtils;
+import com.alibaba.cloud.ai.util.JsonUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -71,7 +71,7 @@ public class Nl2sqlForGraphController {
 
 	private final AgentService agentService;
 
-	private final ObjectMapper objectMapper = JsonUtils.getObjectMapper();
+	private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 
 	public Nl2sqlForGraphController(@Qualifier("nl2sqlGraph") StateGraph stateGraph,
 			SimpleVectorStoreService simpleVectorStoreService, DatasourceService datasourceService,
