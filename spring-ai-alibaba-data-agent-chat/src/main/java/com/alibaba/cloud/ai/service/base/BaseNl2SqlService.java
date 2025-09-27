@@ -26,7 +26,7 @@ import com.alibaba.cloud.ai.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.LlmService;
 
-import com.alibaba.cloud.ai.util.MarkdownParser;
+import com.alibaba.cloud.ai.util.MarkdownParserUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.alibaba.cloud.ai.util.JsonUtil;
@@ -345,7 +345,7 @@ public class BaseNl2SqlService {
 			logger.info("New SQL generation completed");
 		}
 
-		String result = MarkdownParser.extractRawText(newSql).trim();
+		String result = MarkdownParserUtil.extractRawText(newSql).trim();
 		logger.info("Final generated SQL: {}", result);
 		return result;
 	}
@@ -362,7 +362,7 @@ public class BaseNl2SqlService {
 		logger.debug("Calling LLM for table selection with advice");
 		String content = aiService.call(prompt);
 		if (content != null && !content.trim().isEmpty()) {
-			String jsonContent = MarkdownParser.extractText(content);
+			String jsonContent = MarkdownParserUtil.extractText(content);
 			List<String> tableList;
 			try {
 				tableList = JsonUtil.getObjectMapper().readValue(jsonContent, new TypeReference<List<String>>() {
@@ -412,7 +412,7 @@ public class BaseNl2SqlService {
 		}
 
 		if (content != null && !content.trim().isEmpty()) {
-			String jsonContent = MarkdownParser.extractText(content);
+			String jsonContent = MarkdownParserUtil.extractText(content);
 			List<String> tableList;
 			try {
 				tableList = JsonUtil.getObjectMapper().readValue(jsonContent, new TypeReference<List<String>>() {

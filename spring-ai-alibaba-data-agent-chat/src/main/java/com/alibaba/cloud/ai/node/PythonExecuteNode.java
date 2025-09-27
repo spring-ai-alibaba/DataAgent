@@ -21,7 +21,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.service.code.CodePoolExecutorService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -63,8 +63,8 @@ public class PythonExecuteNode extends AbstractPlanBasedNode implements NodeActi
 
 		try {
 			// Get context
-			String pythonCode = StateUtils.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT);
-			List<Map<String, String>> sqlResults = StateUtils.getListValue(state, SQL_RESULT_LIST_MEMORY);
+			String pythonCode = StateUtil.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT);
+			List<Map<String, String>> sqlResults = StateUtil.getListValue(state, SQL_RESULT_LIST_MEMORY);
 			CodePoolExecutorService.TaskRequest taskRequest = new CodePoolExecutorService.TaskRequest(pythonCode,
 					objectMapper.writeValueAsString(sqlResults), null);
 

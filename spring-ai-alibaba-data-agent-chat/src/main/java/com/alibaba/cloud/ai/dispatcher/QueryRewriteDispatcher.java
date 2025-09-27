@@ -36,15 +36,16 @@ public class QueryRewriteDispatcher implements EdgeAction {
 		String value = state.value(QUERY_REWRITE_NODE_OUTPUT, END);
 		logger.debug("[QueryRewriteDispatcher]apply方法被调用，参数value: {}", value);
 
-		switch (value) {
-			case INTENT_UNCLEAR:
-			case SMALL_TALK_REJECT:
-				logger.info("[QueryRewriteDispatcher]意图不明确或闲聊被拒绝，返回END节点");
-				return END;
-			default:
-				logger.info("[QueryRewriteDispatcher]进入KEYWORD_EXTRACT_NODE节点");
-				return KEYWORD_EXTRACT_NODE;
-		}
+        return switch (value) {
+            case INTENT_UNCLEAR, SMALL_TALK_REJECT -> {
+                logger.info("[QueryRewriteDispatcher]意图不明确或闲聊被拒绝，返回END节点");
+                yield END;
+            }
+            default -> {
+                logger.info("[QueryRewriteDispatcher]进入KEYWORD_EXTRACT_NODE节点");
+                yield KEYWORD_EXTRACT_NODE;
+            }
+        };
 	}
 
 }

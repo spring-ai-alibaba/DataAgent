@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class MarkdownParserTest {
+public class MarkdownParserUtilTest {
 
 	// Constant definitions to improve test maintainability
 	private static final String SIMPLE_CODE_BLOCK = "```\nHello World\nSecond Line\n```";
@@ -58,7 +58,7 @@ public class MarkdownParserTest {
 		@Test
 		@DisplayName("提取简单代码块")
 		void extractSimpleCodeBlock() {
-			String result = MarkdownParser.extractText(SIMPLE_CODE_BLOCK);
+			String result = MarkdownParserUtil.extractText(SIMPLE_CODE_BLOCK);
 
 			assertAll("简单代码块提取验证", () -> assertNotNull(result, "结果不应为null"),
 					() -> assertFalse(result.trim().isEmpty(), "结果不应为空"),
@@ -70,7 +70,7 @@ public class MarkdownParserTest {
 		@Test
 		@DisplayName("提取带语言标识的代码块")
 		void extractCodeBlockWithLanguage() {
-			String result = MarkdownParser.extractText(JAVA_CODE_BLOCK);
+			String result = MarkdownParserUtil.extractText(JAVA_CODE_BLOCK);
 
 			assertAll("带语言标识的代码块提取验证", () -> assertNotNull(result, "结果不应为null"),
 					() -> assertTrue(result.contains("public class Test"), "应包含类声明"),
@@ -83,7 +83,7 @@ public class MarkdownParserTest {
 		@Test
 		@DisplayName("提取SQL代码块")
 		void extractSqlCodeBlock() {
-			String result = MarkdownParser.extractText(SQL_CODE_BLOCK);
+			String result = MarkdownParserUtil.extractText(SQL_CODE_BLOCK);
 
 			assertAll("SQL代码块提取验证", () -> assertNotNull(result, "结果不应为null"),
 					() -> assertEquals("SELECT * FROM users WHERE age > 18 ORDER BY name;", result.trim(),
@@ -97,7 +97,7 @@ public class MarkdownParserTest {
 		@Test
 		@DisplayName("多个代码块时只提取第一个")
 		void extractFirstCodeBlockOnly() {
-			String result = MarkdownParser.extractText(MULTIPLE_CODE_BLOCKS);
+			String result = MarkdownParserUtil.extractText(MULTIPLE_CODE_BLOCKS);
 
 			assertAll("多代码块处理验证", () -> assertNotNull(result, "结果不应为null"),
 					() -> assertEquals("First Block", result.trim(), "应只提取第一个代码块"),
@@ -109,7 +109,7 @@ public class MarkdownParserTest {
 		@DisplayName("无代码块的普通文本")
 		void handlePlainText() {
 			String plainText = "This is just plain text without code blocks.";
-			String result = MarkdownParser.extractText(plainText);
+			String result = MarkdownParserUtil.extractText(plainText);
 
 			assertAll("普通文本处理验证", () -> assertNotNull(result, "结果不应为null"),
 					() -> assertEquals(plainText, result, "普通文本应原样返回"),
@@ -128,14 +128,14 @@ public class MarkdownParserTest {
 		void handleNullAndEmptyInput(String input) {
 			if (input == null) {
 				assertAll("null输入处理",
-						() -> assertThrows(NullPointerException.class, () -> MarkdownParser.extractText(input),
+						() -> assertThrows(NullPointerException.class, () -> MarkdownParserUtil.extractText(input),
 								"extractText对null输入应抛出NullPointerException"),
-						() -> assertThrows(NullPointerException.class, () -> MarkdownParser.extractRawText(input),
+						() -> assertThrows(NullPointerException.class, () -> MarkdownParserUtil.extractRawText(input),
 								"extractRawText对null输入应抛出NullPointerException"));
 			}
 			else {
-				String result = MarkdownParser.extractText(input);
-				String rawResult = MarkdownParser.extractRawText(input);
+				String result = MarkdownParserUtil.extractText(input);
+				String rawResult = MarkdownParserUtil.extractRawText(input);
 				assertAll("空字符串处理验证", () -> assertNotNull(result, "结果不应为null"),
 						() -> assertEquals("", result, "空字符串应返回空字符串"), () -> assertNotNull(rawResult, "原始结果不应为null"),
 						() -> assertEquals("", rawResult, "原始空字符串应返回空字符串"));
@@ -150,18 +150,18 @@ public class MarkdownParserTest {
 			String emptyBlock = "```\n```";
 			String langOnlyBlock = "```java\n```";
 			assertAll("不完整代码块处理", () -> {
-				String result1 = MarkdownParser.extractText(incompleteStart);
+				String result1 = MarkdownParserUtil.extractText(incompleteStart);
 				assertEquals("Some code without closing", result1, "不完整开始的代码块应提取代码内容");
 				assertFalse(result1.contains("\n"), "结果不应包含换行符");
 			}, () -> {
-				String result2 = MarkdownParser.extractText(onlyEnd);
+				String result2 = MarkdownParserUtil.extractText(onlyEnd);
 				assertEquals("", result2, "只有结束标记应返回空字符串");
 				assertFalse(result2.contains("\n"), "结果不应包含换行符");
 			}, () -> {
-				String result3 = MarkdownParser.extractText(emptyBlock);
+				String result3 = MarkdownParserUtil.extractText(emptyBlock);
 				assertTrue(result3.trim().isEmpty(), "空代码块应返回空内容");
 			}, () -> {
-				String result4 = MarkdownParser.extractText(langOnlyBlock);
+				String result4 = MarkdownParserUtil.extractText(langOnlyBlock);
 				assertTrue(result4.trim().isEmpty(), "只有语言标识的空代码块应返回空内容");
 			});
 		}
@@ -175,20 +175,20 @@ public class MarkdownParserTest {
 			String malformedDelimiters = "``\nNot a code block\n``";
 
 			assertAll("特殊标记符号处理", () -> {
-				String result1 = MarkdownParser.extractText(singleQuotes);
+				String result1 = MarkdownParserUtil.extractText(singleQuotes);
 				assertEquals("'''python print('hello') '''", result1, "单引号不应被识别为代码块");
 				assertTrue(result1.contains("'''"), "应保留单引号");
 				assertFalse(result1.contains("\n"), "换行符应被替换");
 			}, () -> {
-				String result2 = MarkdownParser.extractText(mixedQuotes);
+				String result2 = MarkdownParserUtil.extractText(mixedQuotes);
 				assertTrue(result2.contains("Code with ''' inside"), "应正确处理嵌套的引号");
 				assertFalse(result2.contains("\n"), "换行符应被替换");
 			}, () -> {
-				String result3 = MarkdownParser.extractText(consecutiveBlocks);
+				String result3 = MarkdownParserUtil.extractText(consecutiveBlocks);
 				assertEquals("First", result3.trim(), "连续代码块应只提取第一个");
 				assertFalse(result3.contains("Second"), "不应包含第二个代码块");
 			}, () -> {
-				String result4 = MarkdownParser.extractText(malformedDelimiters);
+				String result4 = MarkdownParserUtil.extractText(malformedDelimiters);
 				assertEquals("`` Not a code block ``", result4, "不正确的标记符不应被识别为代码块");
 				assertTrue(result4.contains("``"), "应保留不正确的标记符");
 			});
@@ -202,15 +202,15 @@ public class MarkdownParserTest {
 			String codeInMiddle = "Before\n```\nMiddle code\n```\nAfter";
 
 			assertAll("代码块位置边界验证", () -> {
-				String result1 = MarkdownParser.extractText(codeAtStart);
+				String result1 = MarkdownParserUtil.extractText(codeAtStart);
 				assertEquals("Start code", result1.trim(), "开头的代码块应正确提取");
 				assertFalse(result1.contains("Text after"), "不应包含代码块后的文本");
 			}, () -> {
-				String result2 = MarkdownParser.extractText(codeAtEnd);
+				String result2 = MarkdownParserUtil.extractText(codeAtEnd);
 				assertEquals("End code", result2.trim(), "末尾的代码块应正确提取");
 				assertFalse(result2.contains("Text before"), "不应包含代码块前的文本");
 			}, () -> {
-				String result3 = MarkdownParser.extractText(codeInMiddle);
+				String result3 = MarkdownParserUtil.extractText(codeInMiddle);
 				assertEquals("Middle code", result3.trim(), "中间的代码块应正确提取");
 				assertFalse(result3.contains("Before"), "不应包含代码块前的文本");
 				assertFalse(result3.contains("After"), "不应包含代码块后的文本");
@@ -222,7 +222,7 @@ public class MarkdownParserTest {
 		void handleExtremeLengthContent() {
 			// Test very short content
 			String veryShort = "```\na\n```";
-			String shortResult = MarkdownParser.extractText(veryShort);
+			String shortResult = MarkdownParserUtil.extractText(veryShort);
 			assertEquals("a", shortResult.trim(), "单字符代码块应正确处理");
 
 			// Test long content
@@ -233,7 +233,7 @@ public class MarkdownParserTest {
 			}
 			longContent.append("```");
 
-			String longResult = MarkdownParser.extractText(longContent.toString());
+			String longResult = MarkdownParserUtil.extractText(longContent.toString());
 			assertAll("长内容处理验证", () -> assertNotNull(longResult, "长内容结果不应为null"),
 					() -> assertFalse(longResult.isEmpty(), "长内容结果不应为空"),
 					() -> assertTrue(longResult.contains("Line 0:"), "应包含第一行"),
@@ -255,7 +255,7 @@ public class MarkdownParserTest {
 				"```csharp\nConsole.WriteLine(\"Hello\");\n```" })
 		@DisplayName("不同语言代码块提取")
 		void extractDifferentLanguageCodeBlocks(String markdownCode) {
-			String result = MarkdownParser.extractText(markdownCode);
+			String result = MarkdownParserUtil.extractText(markdownCode);
 
 			assertAll("不同语言代码块验证", () -> assertNotNull(result, "结果不应为null"),
 					() -> assertFalse(result.isEmpty(), "结果不应为空"),
@@ -269,7 +269,7 @@ public class MarkdownParserTest {
 		@DisplayName("UTF-8和Unicode字符处理")
 		void handleUtf8AndUnicodeCharacters() {
 			String unicodeContent = "```\n中文测试\n🚀 Emoji测试\nSpecial chars: ñáéíóú\n日本語テスト\n한국어 테스트\n```";
-			String result = MarkdownParser.extractText(unicodeContent);
+			String result = MarkdownParserUtil.extractText(unicodeContent);
 
 			assertAll("Unicode字符处理验证", () -> assertNotNull(result, "结果不应为null"),
 					() -> assertTrue(result.contains("中文测试"), "应包含中文字符"),
@@ -290,19 +290,19 @@ public class MarkdownParserTest {
 			String macLineEndings = "```\rLine 1\rLine 2\r```";
 			String mixedLineEndings = "```\nLine 1\r\nLine 2\rLine 3\n```";
 			assertAll("不同换行符处理验证", () -> {
-				String unixResult = MarkdownParser.extractText(unixLineEndings);
+				String unixResult = MarkdownParserUtil.extractText(unixLineEndings);
 				assertEquals("Line 1 Line 2", unixResult.trim(), "Unix换行符应正确处理");
 				assertFalse(unixResult.contains("\n"), "不应包含\\n");
 			}, () -> {
-				String windowsResult = MarkdownParser.extractText(windowsLineEndings);
+				String windowsResult = MarkdownParserUtil.extractText(windowsLineEndings);
 				assertEquals("Line 1 Line 2", windowsResult.trim(), "Windows换行符应正确处理");
 				assertFalse(windowsResult.contains("\n"), "不应包含\\n");
 			}, () -> {
-				String macResult = MarkdownParser.extractText(macLineEndings);
+				String macResult = MarkdownParserUtil.extractText(macLineEndings);
 				// Mac换行符(\r)在当前实现中不会被NewLineParser处理，所以可能返回空字符串
 				assertNotNull(macResult, "Mac换行符结果不应为null");
 			}, () -> {
-				String mixedResult = MarkdownParser.extractText(mixedLineEndings);
+				String mixedResult = MarkdownParserUtil.extractText(mixedLineEndings);
 				assertTrue(mixedResult.contains("Line 1"), "应包含第一行");
 				assertTrue(mixedResult.contains("Line 2"), "应包含第二行");
 				assertTrue(mixedResult.contains("Line 3"), "应包含第三行");
@@ -323,13 +323,13 @@ public class MarkdownParserTest {
 					"```\nLine 1\nLine 2\nLine 3\n```", "```python\ndef test():\n    return 'hello'\n```" };
 
 			for (String testCase : testCases) {
-				String rawResult = MarkdownParser.extractRawText(testCase);
-				String formattedResult = MarkdownParser.extractText(testCase);
+				String rawResult = MarkdownParserUtil.extractRawText(testCase);
+				String formattedResult = MarkdownParserUtil.extractText(testCase);
 
 				assertAll("方法一致性验证 - " + testCase.substring(0, Math.min(20, testCase.length())),
 						() -> assertNotNull(rawResult, "原始结果不应为null"),
 						() -> assertNotNull(formattedResult, "格式化结果不应为null"),
-						() -> assertEquals(NewLineParser.format(rawResult), formattedResult,
+						() -> assertEquals(rawResult.replaceAll("\n", " "), formattedResult,
 								"extractText应等于NewLineParser.format(extractRawText(...))"),
 						() -> {
 							if (testCase.contains("```") && testCase.lastIndexOf("```") > testCase.indexOf("```")) {
@@ -369,7 +369,7 @@ public class MarkdownParserTest {
 					```
 					""";
 
-			String result = MarkdownParser.extractText(complexMarkdown);
+			String result = MarkdownParserUtil.extractText(complexMarkdown);
 
 			assertAll("复杂Markdown结构处理验证", () -> assertNotNull(result, "结果不应为null"),
 					() -> assertTrue(result.contains("SELECT"), "应包含SQL SELECT"),
@@ -400,8 +400,8 @@ public class MarkdownParserTest {
 					The above shows how to write a code block.
 					""";
 
-			String result = MarkdownParser.extractText(nestedMarkdown);
-			String rawResult = MarkdownParser.extractRawText(nestedMarkdown);
+			String result = MarkdownParserUtil.extractText(nestedMarkdown);
+			String rawResult = MarkdownParserUtil.extractRawText(nestedMarkdown);
 
 			// Verify based on actual behavior, not expected behavior
 			assertAll("嵌套代码块结构处理验证", () -> assertNotNull(result, "结果不应为null"),
@@ -438,7 +438,7 @@ public class MarkdownParserTest {
 			largeContent.append("```");
 
 			long startTime = System.currentTimeMillis();
-			String result = MarkdownParser.extractText(largeContent.toString());
+			String result = MarkdownParserUtil.extractText(largeContent.toString());
 			long endTime = System.currentTimeMillis();
 			long processingTime = endTime - startTime;
 
@@ -475,7 +475,7 @@ public class MarkdownParserTest {
 
 						for (int j = 0; j < iterationsPerThread; j++) {
 							String input = testInputs[j % testInputs.length];
-							String result = MarkdownParser.extractText(input);
+							String result = MarkdownParserUtil.extractText(input);
 							allResults.add(result);
 							successCount.incrementAndGet();
 						}
@@ -505,7 +505,7 @@ public class MarkdownParserTest {
 						// Verify result consistency - same input should produce same
 						// output
 						for (String input : testInputs) {
-							String expectedResult = MarkdownParser.extractText(input);
+							String expectedResult = MarkdownParserUtil.extractText(input);
 							long matchingCount = allResults.stream()
 								.filter(result -> result.equals(expectedResult))
 								.count();
@@ -522,7 +522,7 @@ public class MarkdownParserTest {
 
 			// Execute multiple operations
 			for (int i = 0; i < 1000; i++) {
-				String result = MarkdownParser.extractText(JAVA_CODE_BLOCK);
+				String result = MarkdownParserUtil.extractText(JAVA_CODE_BLOCK);
 				assertNotNull(result); // Ensure operation succeeded
 			}
 
@@ -547,7 +547,7 @@ public class MarkdownParserTest {
 		@DisplayName("空格和制表符处理")
 		void handleWhitespaceAndTabs() {
 			String spacesAndTabs = "```\n    function test() {\n\t\treturn 'hello';\n    }\n```";
-			String result = MarkdownParser.extractText(spacesAndTabs);
+			String result = MarkdownParserUtil.extractText(spacesAndTabs);
 
 			assertAll("空格和制表符处理验证", () -> assertNotNull(result, "结果不应为null"),
 					() -> assertTrue(result.contains("function test()"), "应包含函数声明"),
@@ -563,14 +563,14 @@ public class MarkdownParserTest {
 			String mixedDelimiters = "```\nStart with three\n````";
 
 			assertAll("代码块标识符变种处理", () -> {
-				String result1 = MarkdownParser.extractText(fourBackticks);
+				String result1 = MarkdownParserUtil.extractText(fourBackticks);
 				// Verify based on actual implementation behavior
 				assertNotNull(result1, "四个反引号的结果不应为null");
 			}, () -> {
-				String result2 = MarkdownParser.extractText(moreBackticks);
+				String result2 = MarkdownParserUtil.extractText(moreBackticks);
 				assertNotNull(result2, "多个反引号的结果不应为null");
 			}, () -> {
-				String result3 = MarkdownParser.extractText(mixedDelimiters);
+				String result3 = MarkdownParserUtil.extractText(mixedDelimiters);
 				assertNotNull(result3, "混合分隔符的结果不应为null");
 			});
 		}
@@ -589,7 +589,7 @@ public class MarkdownParserTest {
 					"```json\n{\"key\": \"value\"}\n```" };
 
 			for (String testCase : specialCases) {
-				String result = MarkdownParser.extractText(testCase);
+				String result = MarkdownParserUtil.extractText(testCase);
 				assertAll("特殊内容回归测试 - " + testCase.substring(0, Math.min(15, testCase.length())),
 						() -> assertNotNull(result, "结果不应为null"), () -> assertFalse(result.contains("\n"), "不应包含换行符"));
 			}

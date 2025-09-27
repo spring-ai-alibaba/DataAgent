@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.dispatcher;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,11 +40,11 @@ public class PythonExecutorDispatcher implements EdgeAction {
 	@Override
 	public String apply(OverAllState state) throws Exception {
 		// Determine if failed
-		boolean isSuccess = StateUtils.getObjectValue(state, PYTHON_IS_SUCCESS, Boolean.class, false);
+		boolean isSuccess = StateUtil.getObjectValue(state, PYTHON_IS_SUCCESS, Boolean.class, false);
 		if (!isSuccess) {
-			String message = StateUtils.getStringValue(state, PYTHON_EXECUTE_NODE_OUTPUT);
+			String message = StateUtil.getStringValue(state, PYTHON_EXECUTE_NODE_OUTPUT);
 			log.error("Python Executor Node Error: {}", message);
-			int tries = StateUtils.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
+			int tries = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
 			if (tries <= 0) {
 				log.warn("Python Executor Node Error: Exceeding the maximum number of iterations");
 				return END;

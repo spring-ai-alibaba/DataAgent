@@ -95,7 +95,7 @@ public class AiConfiguration {
 	}
 
 	@Bean
-	public ChatClient chatClient(@Qualifier("chatModel") ChatModel chatModel) {
+	public ChatClient chatClient(ChatModel chatModel) {
 		return ChatClient.create(chatModel);
 	}
 

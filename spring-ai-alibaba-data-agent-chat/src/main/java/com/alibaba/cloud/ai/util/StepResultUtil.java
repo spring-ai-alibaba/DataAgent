@@ -24,7 +24,7 @@ import java.util.Map;
  *
  * @author zhangshenghang
  */
-public class StepResultUtils {
+public class StepResultUtil {
 
 	private static final String STEP_PREFIX = "step_";
 

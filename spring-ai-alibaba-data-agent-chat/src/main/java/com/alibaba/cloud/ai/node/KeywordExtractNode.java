@@ -22,7 +22,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.service.base.BaseNl2SqlService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -131,8 +131,8 @@ public class KeywordExtractNode implements NodeAction {
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 		logger.info("Entering {} node", this.getClass().getSimpleName());
 
-		String input = StateUtils.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT,
-				StateUtils.getStringValue(state, INPUT_KEY));
+		String input = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT,
+				StateUtil.getStringValue(state, INPUT_KEY));
 
 		try {
 			logger.info("开始增强关键词提取处理...");

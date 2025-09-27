@@ -32,7 +32,7 @@ import com.alibaba.cloud.ai.service.base.BaseSchemaService;
 import com.alibaba.cloud.ai.service.business.BusinessKnowledgeRecallService;
 import com.alibaba.cloud.ai.service.semantic.SemanticModelRecallService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,16 +86,16 @@ public class TableRelationNode implements NodeAction {
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 		logger.info("Entering {} node", this.getClass().getSimpleName());
 
-		int retryCount = StateUtils.getObjectValue(state, TABLE_RELATION_RETRY_COUNT, Integer.class, 0);
+		int retryCount = StateUtil.getObjectValue(state, TABLE_RELATION_RETRY_COUNT, Integer.class, 0);
 
 		// Get necessary input parameters
-		String input = StateUtils.getStringValue(state, INPUT_KEY);
-		List<String> evidenceList = StateUtils.getListValue(state, EVIDENCES);
-		List<Document> tableDocuments = StateUtils.getDocumentList(state, TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT);
-		List<List<Document>> columnDocumentsByKeywords = StateUtils.getDocumentListList(state,
+		String input = StateUtil.getStringValue(state, INPUT_KEY);
+		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);
+		List<Document> tableDocuments = StateUtil.getDocumentList(state, TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT);
+		List<List<Document>> columnDocumentsByKeywords = StateUtil.getDocumentListList(state,
 				COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT);
-		String dataSetId = StateUtils.getStringValue(state, Constant.AGENT_ID);
-		String agentIdStr = StateUtils.getStringValue(state, AGENT_ID);
+		String dataSetId = StateUtil.getStringValue(state, Constant.AGENT_ID);
+		String agentIdStr = StateUtil.getStringValue(state, AGENT_ID);
 		long agentId = -1L;
 		if (!agentIdStr.isEmpty()) {
 			agentId = Long.parseLong(agentIdStr);
@@ -178,7 +178,7 @@ public class TableRelationNode implements NodeAction {
 	private DbConfig getAgentDbConfig(OverAllState state) {
 		try {
 			// Get the agent ID from the state
-			String agentIdStr = StateUtils.getStringValue(state, Constant.AGENT_ID, null);
+			String agentIdStr = StateUtil.getStringValue(state, Constant.AGENT_ID, null);
 			if (agentIdStr == null || agentIdStr.trim().isEmpty()) {
 				logger.debug("AgentId is null or empty, will use default dbConfig");
 				return null;
@@ -254,7 +254,7 @@ public class TableRelationNode implements NodeAction {
 	 */
 	private SchemaDTO processSchemaSelection(SchemaDTO schemaDTO, String input, List<String> evidenceList,
 			OverAllState state) {
-		String schemaAdvice = StateUtils.getStringValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE, null);
+		String schemaAdvice = StateUtil.getStringValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE, null);
 
 		// 动态获取Agent对应的数据库配置
 		DbConfig agentDbConfig = getAgentDbConfig(state);

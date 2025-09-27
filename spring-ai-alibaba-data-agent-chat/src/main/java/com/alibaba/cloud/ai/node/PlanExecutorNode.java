@@ -20,7 +20,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.converter.BeanOutputConverter;
@@ -69,7 +69,7 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 		logNodeEntry();
 
 		// 1. Validate the Plan
-		String plannerOutput = StateUtils.getStringValue(state, PLANNER_NODE_OUTPUT);
+		String plannerOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);
 		try {
 			Plan plan = converter.convert(plannerOutput);
 
@@ -164,7 +164,7 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 		}
 		else {
 			// When validation fails, increment the repair count here.
-			int repairCount = StateUtils.getObjectValue(state, PLAN_REPAIR_COUNT, Integer.class, 0);
+			int repairCount = StateUtil.getObjectValue(state, PLAN_REPAIR_COUNT, Integer.class, 0);
 			return Map.of(PLAN_VALIDATION_STATUS, false, PLAN_VALIDATION_ERROR, errorMessage, PLAN_REPAIR_COUNT,
 					repairCount + 1);
 		}

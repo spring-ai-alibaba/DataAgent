@@ -21,7 +21,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.service.base.BaseSchemaService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,9 +63,9 @@ public class SchemaRecallNode implements NodeAction {
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 		logger.info("Entering {} node", this.getClass().getSimpleName());
 
-		String input = StateUtils.getStringValue(state, INPUT_KEY);
-		List<String> keywords = StateUtils.getListValue(state, KEYWORD_EXTRACT_NODE_OUTPUT);
-		String agentId = StateUtils.getStringValue(state, AGENT_ID);
+		String input = StateUtil.getStringValue(state, INPUT_KEY);
+		List<String> keywords = StateUtil.getListValue(state, KEYWORD_EXTRACT_NODE_OUTPUT);
+		String agentId = StateUtil.getStringValue(state, AGENT_ID);
 
 		// Execute business logic first - recall schema information immediately
 		List<Document> tableDocuments;

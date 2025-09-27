@@ -20,7 +20,7 @@ import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.service.base.BaseNl2SqlService;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,8 +55,8 @@ public class QueryRewriteNode implements NodeAction {
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 		logger.info("Entering {} node", this.getClass().getSimpleName());
 
-		String input = StateUtils.getStringValue(state, INPUT_KEY);
-		String agentId = StateUtils.getStringValue(state, AGENT_ID); // Get agent ID
+		String input = StateUtil.getStringValue(state, INPUT_KEY);
+		String agentId = StateUtil.getStringValue(state, AGENT_ID); // Get agent ID
 		logger.info("[{}] Processing user input: {} for agentId: {}", this.getClass().getSimpleName(), input, agentId);
 
 		// Use streaming utility class for content collection and result mapping

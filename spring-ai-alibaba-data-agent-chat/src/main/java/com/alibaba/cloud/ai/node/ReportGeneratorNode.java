@@ -24,7 +24,7 @@ import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.UserPromptConfigService;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,11 +76,11 @@ public class ReportGeneratorNode implements NodeAction {
 		logger.info("Entering {} node", this.getClass().getSimpleName());
 
 		// Get necessary input parameters
-		String plannerNodeOutput = StateUtils.getStringValue(state, PLANNER_NODE_OUTPUT);
-		String userInput = StateUtils.getStringValue(state, INPUT_KEY);
-		Integer currentStep = StateUtils.getObjectValue(state, PLAN_CURRENT_STEP, Integer.class, 1);
+		String plannerNodeOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);
+		String userInput = StateUtil.getStringValue(state, INPUT_KEY);
+		Integer currentStep = StateUtil.getObjectValue(state, PLAN_CURRENT_STEP, Integer.class, 1);
 		@SuppressWarnings("unchecked")
-		HashMap<String, String> executionResults = StateUtils.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,
+		HashMap<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,
 				HashMap.class, new HashMap<>());
 
 		logger.info("Planner node output: {}", plannerNodeOutput);

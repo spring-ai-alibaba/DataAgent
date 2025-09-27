@@ -29,9 +29,9 @@ import java.util.function.Supplier;
  *
  * @author zhangshenghang
  */
-public class StateUtils {
+public class StateUtil {
 
-	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+	private static final ObjectMapper OBJECT_MAPPER = JsonUtil.getObjectMapper();
 
 	/**
 	 * Safely get string type state value
@@ -103,7 +103,7 @@ public class StateUtils {
 	 * Check if state value exists
 	 */
 	public static boolean hasValue(OverAllState state, String key) {
-		return state.value(key).isPresent() && !((String) state.value(key).get()).equals("");
+		return state.value(key).isPresent() && !((String) state.value(key).get()).isEmpty();
 	}
 
 	/**

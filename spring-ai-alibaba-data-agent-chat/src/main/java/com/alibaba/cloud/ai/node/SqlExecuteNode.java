@@ -29,8 +29,8 @@ import com.alibaba.cloud.ai.service.DatasourceService;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.util.StateUtils;
-import com.alibaba.cloud.ai.util.StepResultUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
+import com.alibaba.cloud.ai.util.StepResultUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,7 +98,7 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 	private DbConfig getAgentDbConfig(OverAllState state) {
 		try {
 			// Get the agent ID from the state
-			String agentIdStr = StateUtils.getStringValue(state, Constant.AGENT_ID);
+			String agentIdStr = StateUtil.getStringValue(state, Constant.AGENT_ID);
 			if (agentIdStr == null || agentIdStr.trim().isEmpty()) {
 				// 返回默认数据源
 				return dbConfig;
@@ -193,9 +193,9 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 			String jsonStr = resultSetBO.toJsonStr();
 
 			// Update step results with the query output
-			Map<String, String> existingResults = StateUtils.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
+			Map<String, String> existingResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
 					new HashMap<>());
-			Map<String, String> updatedResults = StepResultUtils.addStepResult(existingResults, currentStep, jsonStr);
+			Map<String, String> updatedResults = StepResultUtil.addStepResult(existingResults, currentStep, jsonStr);
 
 			logger.info("SQL execution successful, result count: {}",
 					resultSetBO.getData() != null ? resultSetBO.getData().size() : 0);

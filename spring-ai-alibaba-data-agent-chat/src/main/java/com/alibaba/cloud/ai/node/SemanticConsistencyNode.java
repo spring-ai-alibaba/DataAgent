@@ -22,7 +22,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.base.BaseNl2SqlService;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -64,8 +64,8 @@ public class SemanticConsistencyNode extends AbstractPlanBasedNode {
 		logNodeEntry();
 
 		// Get necessary input parameters
-		List<String> evidenceList = StateUtils.getListValue(state, EVIDENCES);
-		SchemaDTO schemaDTO = StateUtils.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
+		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);
+		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 
 		// Get current execution step and SQL query
 		ExecutionStep executionStep = getCurrentExecutionStep(state);

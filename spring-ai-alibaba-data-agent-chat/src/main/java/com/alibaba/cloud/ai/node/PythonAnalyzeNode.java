@@ -20,8 +20,8 @@ import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
-import com.alibaba.cloud.ai.util.StateUtils;
-import com.alibaba.cloud.ai.util.StepResultUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
+import com.alibaba.cloud.ai.util.StepResultUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,11 +60,11 @@ public class PythonAnalyzeNode extends AbstractPlanBasedNode implements NodeActi
 		this.logNodeEntry();
 
 		// Get context
-		String userQuery = StateUtils.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT);
-		String pythonOutput = StateUtils.getStringValue(state, PYTHON_EXECUTE_NODE_OUTPUT);
+		String userQuery = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT);
+		String pythonOutput = StateUtil.getStringValue(state, PYTHON_EXECUTE_NODE_OUTPUT);
 		int currentStep = this.getCurrentStepNumber(state);
 		@SuppressWarnings("unchecked")
-		Map<String, String> sqlExecuteResult = StateUtils.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
+		Map<String, String> sqlExecuteResult = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
 				new HashMap());
 
 		// Load Python code generation template
@@ -75,7 +75,7 @@ public class PythonAnalyzeNode extends AbstractPlanBasedNode implements NodeActi
 
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
 				"正在分析代码运行结果...\n", "\n结果分析完成。", aiResponse -> {
-					Map<String, String> updatedSqlResult = StepResultUtils.addStepResult(sqlExecuteResult, currentStep,
+					Map<String, String> updatedSqlResult = StepResultUtil.addStepResult(sqlExecuteResult, currentStep,
 							aiResponse);
 					this.logNodeOutput("python_analysis_result", aiResponse);
 					return Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedSqlResult, PLAN_CURRENT_STEP, currentStep + 1);

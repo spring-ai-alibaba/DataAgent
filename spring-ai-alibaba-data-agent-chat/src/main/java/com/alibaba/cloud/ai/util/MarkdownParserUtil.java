@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.util;
 
-public class MarkdownParser {
+public class MarkdownParserUtil {
 
 	public static String extractText(String markdownCode) {
 		String code = extractRawText(markdownCode);
