@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.connector.support;
+package com.alibaba.cloud.ai.connector;
 
-import com.alibaba.cloud.ai.connector.SqlExecutor;
 import com.alibaba.cloud.ai.connector.bo.ResultSetBO;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.commons.lang3.StringUtils;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.connector;
+package com.alibaba.cloud.ai.connector.ddl;
 
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.DatabaseInfoBO;
@@ -21,18 +21,11 @@ import com.alibaba.cloud.ai.connector.bo.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.connector.bo.ResultSetBO;
 import com.alibaba.cloud.ai.connector.bo.SchemaInfoBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
-import com.alibaba.cloud.ai.connector.support.DdlFactory;
-import org.springframework.beans.factory.InitializingBean;
 
 import java.sql.Connection;
 import java.util.List;
 
-public abstract class AbstractJdbcDdl extends AbstractDdl implements InitializingBean {
-
-	@Override
-	public void afterPropertiesSet() throws Exception {
-		DdlFactory.registry(this);
-	}
+public abstract class AbstractJdbcDdl implements Ddl {
 
 	@Deprecated
 	public abstract List<DatabaseInfoBO> showDatabases(Connection connection);

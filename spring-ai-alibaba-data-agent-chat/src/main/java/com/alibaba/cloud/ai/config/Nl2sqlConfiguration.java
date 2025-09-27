@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.config;
 
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dispatcher.*;
 import com.alibaba.cloud.ai.graph.GraphRepresentation;
@@ -78,15 +79,14 @@ public class Nl2sqlConfiguration {
 	private final DatasourceService datasourceService;
 
 	public Nl2sqlConfiguration(@Qualifier("nl2SqlServiceImpl") BaseNl2SqlService nl2SqlService,
-			@Qualifier("schemaServiceImpl") BaseSchemaService schemaService,
-			@Qualifier("dbAccessor") Accessor dbAccessor, DbConfig dbConfig,
-			CodeExecutorProperties codeExecutorProperties, CodePoolExecutorService codePoolExecutor,
+			@Qualifier("schemaServiceImpl") BaseSchemaService schemaService, AccessorFactory accessorFactory,
+			DbConfig dbConfig, CodeExecutorProperties codeExecutorProperties, CodePoolExecutorService codePoolExecutor,
 			SemanticModelRecallService semanticModelRecallService,
 			BusinessKnowledgeRecallService businessKnowledgeRecallService, UserPromptConfigService promptConfigService,
 			DatasourceService datasourceService) {
 		this.nl2SqlService = nl2SqlService;
 		this.schemaService = schemaService;
-		this.dbAccessor = dbAccessor;
+		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 		this.dbConfig = dbConfig;
 		this.codeExecutorProperties = codeExecutorProperties;
 		this.codePoolExecutor = codePoolExecutor;

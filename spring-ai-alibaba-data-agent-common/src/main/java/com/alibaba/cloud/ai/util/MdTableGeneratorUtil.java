@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.connector;
+package com.alibaba.cloud.ai.util;
 
 import com.alibaba.cloud.ai.connector.bo.ResultSetBO;
 
 import java.util.List;
 import java.util.Map;
 
-public class MdTableGenerator {
+public class MdTableGeneratorUtil {
 
 	/**
 	 * Convert two-dimensional array to Markdown table

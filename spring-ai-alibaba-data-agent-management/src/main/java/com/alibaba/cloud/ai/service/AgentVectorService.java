@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.service;
 
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.service.simple.SimpleVectorStoreService;
@@ -25,7 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -274,9 +274,11 @@ public class AgentVectorService {
 	@Autowired
 	private DatasourceService datasourceService;
 
-	@Autowired
-	@Qualifier("dbAccessor")
-	private com.alibaba.cloud.ai.connector.accessor.Accessor dbAccessor;
+	private final com.alibaba.cloud.ai.connector.accessor.Accessor dbAccessor;
+
+	public AgentVectorService(AccessorFactory accessorFactory, DbConfig dbConfig) {
+		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
+	}
 
 	/**
 	 * Get list of data sources configured for agent Query data source information

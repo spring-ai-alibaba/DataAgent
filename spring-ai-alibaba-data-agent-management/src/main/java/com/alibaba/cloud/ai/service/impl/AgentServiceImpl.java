@@ -43,22 +43,27 @@ public class AgentServiceImpl implements AgentService {
 		this.agentVectorService = agentVectorService;
 	}
 
+	@Override
 	public List<Agent> findAll() {
 		return agentMapper.findAll();
 	}
 
+	@Override
 	public Agent findById(Long id) {
 		return agentMapper.findById(id);
 	}
 
+	@Override
 	public List<Agent> findByStatus(String status) {
 		return agentMapper.findByStatus(status);
 	}
 
+	@Override
 	public List<Agent> search(String keyword) {
 		return agentMapper.searchByKeyword(keyword);
 	}
 
+	@Override
 	public Agent save(Agent agent) {
 		LocalDateTime now = LocalDateTime.now();
 
@@ -86,6 +91,7 @@ public class AgentServiceImpl implements AgentService {
 		return agent;
 	}
 
+	@Override
 	public void deleteById(Long id) {
 		try {
 			// Delete agent record from database

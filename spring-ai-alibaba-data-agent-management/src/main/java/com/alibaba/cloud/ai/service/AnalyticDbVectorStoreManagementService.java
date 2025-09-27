@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.service;
 
 import com.alibaba.cloud.ai.annotation.ConditionalOnADBEnabled;
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.ForeignKeyInfoBO;
@@ -26,7 +27,7 @@ import com.alibaba.cloud.ai.request.DeleteRequest;
 import com.alibaba.cloud.ai.request.EvidenceRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.request.SearchRequest;
-import com.alibaba.cloud.ai.util.JsonUtils;
+import com.alibaba.cloud.ai.util.JsonUtil;
 import com.alibaba.cloud.ai.vectorstore.analyticdb.AnalyticDbVectorStoreProperties;
 import com.aliyun.gpdb20160503.Client;
 import com.aliyun.gpdb20160503.models.DeleteCollectionDataRequest;
@@ -74,9 +75,7 @@ public class AnalyticDbVectorStoreManagementService implements VectorStoreManage
 	@Autowired
 	private VectorStore vectorStore;
 
-	@Autowired
-	@Qualifier("dbAccessor")
-	private Accessor dbAccessor;
+	private final Accessor dbAccessor;
 
 	@Autowired
 	private AnalyticDbVectorStoreProperties analyticDbVectorStoreProperties;
@@ -84,7 +83,11 @@ public class AnalyticDbVectorStoreManagementService implements VectorStoreManage
 	@Autowired
 	private Client client;
 
-	private final ObjectMapper objectMapper = JsonUtils.getObjectMapper();
+	private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
+
+	public AnalyticDbVectorStoreManagementService(AccessorFactory accessorFactory, DbConfig dbConfig) {
+		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
+	}
 
 	/**
 	 * Add evidence content to vector store

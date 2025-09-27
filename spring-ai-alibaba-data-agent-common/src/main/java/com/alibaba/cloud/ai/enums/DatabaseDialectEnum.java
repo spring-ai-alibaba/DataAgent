@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.enums;
 
+import java.util.Optional;
+
 public enum DatabaseDialectEnum {
 
 	MYSQL("MySQL"),
@@ -25,7 +27,7 @@ public enum DatabaseDialectEnum {
 
 	H2("H2");
 
-	public String code;
+	public final String code;
 
 	DatabaseDialectEnum(String code) {
 		this.code = code;
@@ -33,6 +35,15 @@ public enum DatabaseDialectEnum {
 
 	public String getCode() {
 		return code;
+	}
+
+	public static Optional<DatabaseDialectEnum> getByCode(String code) {
+		for (DatabaseDialectEnum value : values()) {
+			if (value.code.equals(code)) {
+				return Optional.of(value);
+			}
+		}
+		return Optional.empty();
 	}
 
 }

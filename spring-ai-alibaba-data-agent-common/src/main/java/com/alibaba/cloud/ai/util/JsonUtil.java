@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Map;
 
-public class JsonUtils {
+public class JsonUtil {
 
 	private static final ObjectMapper objectMapper = new ObjectMapper();
 

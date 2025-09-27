@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.connector.mysql;
+package com.alibaba.cloud.ai.connector.impls.mysql;
 
-import com.alibaba.cloud.ai.connector.AbstractJdbcDdl;
+import com.alibaba.cloud.ai.connector.ddl.AbstractJdbcDdl;
 import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.connector.SqlExecutor;
 import com.alibaba.cloud.ai.connector.bo.DatabaseInfoBO;
@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.alibaba.cloud.ai.connector.ColumnTypeParser.wrapType;
+import static com.alibaba.cloud.ai.util.ColumnTypeUtil.wrapType;
 
 @Service
 public class MysqlJdbcDdl extends AbstractJdbcDdl {
@@ -242,7 +242,7 @@ public class MysqlJdbcDdl extends AbstractJdbcDdl {
 	}
 
 	@Override
-	public BizDataSourceTypeEnum getType() {
+	public BizDataSourceTypeEnum getDataSourceType() {
 		return BizDataSourceTypeEnum.MYSQL;
 	}
 

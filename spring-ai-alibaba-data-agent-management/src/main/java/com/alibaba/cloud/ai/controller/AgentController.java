@@ -13,18 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.Agent;
 import com.alibaba.cloud.ai.service.AgentService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 /**
  * Agent Management Controller
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/agent")
 @CrossOrigin(origins = "*")
@@ -42,7 +54,7 @@ public class AgentController {
 	@GetMapping("/list")
 	public ResponseEntity<List<Agent>> list(@RequestParam(value = "status", required = false) String status,
 			@RequestParam(value = "keyword", required = false) String keyword) {
-		List<Agent> result = null;
+		List<Agent> result;
 		if (keyword != null && !keyword.trim().isEmpty()) {
 			result = agentService.search(keyword);
 		}

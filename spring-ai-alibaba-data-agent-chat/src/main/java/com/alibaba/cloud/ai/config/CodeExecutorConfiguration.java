@@ -19,6 +19,7 @@ package com.alibaba.cloud.ai.config;
 import com.alibaba.cloud.ai.service.code.CodePoolExecutorService;
 import com.alibaba.cloud.ai.service.code.CodePoolExecutorServiceFactory;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,6 +33,7 @@ import org.springframework.context.annotation.Configuration;
 public class CodeExecutorConfiguration {
 
 	@Bean
+	@ConditionalOnMissingBean(CodePoolExecutorService.class)
 	public CodePoolExecutorService containerPoolExecutor(CodeExecutorProperties properties,
 			ChatClient.Builder chatClientBuilder) {
 		return CodePoolExecutorServiceFactory.newInstance(properties, chatClientBuilder);

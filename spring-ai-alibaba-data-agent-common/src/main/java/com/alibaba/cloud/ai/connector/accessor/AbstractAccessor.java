@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.connector.accessor.defaults;
+package com.alibaba.cloud.ai.connector.accessor;
 
-import com.alibaba.cloud.ai.connector.AbstractJdbcDdl;
-import com.alibaba.cloud.ai.connector.DBConnectionPool;
-import com.alibaba.cloud.ai.connector.accessor.Accessor;
-import com.alibaba.cloud.ai.connector.support.DdlFactory;
+import com.alibaba.cloud.ai.connector.ddl.AbstractJdbcDdl;
+import com.alibaba.cloud.ai.connector.pool.DBConnectionPool;
+import com.alibaba.cloud.ai.connector.ddl.DdlFactory;
 import com.alibaba.cloud.ai.connector.SqlExecutor;
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.DatabaseInfoBO;
@@ -49,17 +48,15 @@ public abstract class AbstractAccessor implements Accessor {
 	private final DBConnectionPool dbConnectionPool;
 
 	protected AbstractAccessor(DdlFactory ddlFactory, DBConnectionPool dbConnectionPool) {
-		this.dbConnectionPool = dbConnectionPool;
 		this.ddlFactory = ddlFactory;
+		this.dbConnectionPool = dbConnectionPool;
 	}
-
-	protected abstract String getDbAccessorType();
 
 	public <T> T accessDb(DbConfig dbConfig, String method, DbQueryParameter param) throws Exception {
 
 		try (Connection connection = getConnection(dbConfig)) {
 
-			AbstractJdbcDdl ddlExecutor = (AbstractJdbcDdl) ddlFactory.getDdlExecutor(dbConfig);
+			AbstractJdbcDdl ddlExecutor = (AbstractJdbcDdl) ddlFactory.getDdlExecutorByDbConfig(dbConfig);
 
 			switch (method) {
 				case "showDatabases":

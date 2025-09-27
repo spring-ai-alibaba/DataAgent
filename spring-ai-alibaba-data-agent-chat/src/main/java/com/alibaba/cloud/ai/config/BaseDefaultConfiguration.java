@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.config;
 
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.service.LlmService;
 import com.alibaba.cloud.ai.service.base.BaseNl2SqlService;
@@ -41,21 +42,15 @@ public class BaseDefaultConfiguration {
 
 	private static final Logger logger = LoggerFactory.getLogger(BaseDefaultConfiguration.class);
 
+	private final AccessorFactory accessorFactory;
+
 	private final Accessor dbAccessor;
 
 	private final DbConfig dbConfig;
 
-	private BaseDefaultConfiguration(DbConfig dbConfig, @Qualifier("mysqlAccessor") Accessor mysqlDbAccessor,
-			@Qualifier("h2Accessor") Accessor h2DbAccessor, @Qualifier("postgreAccessor") Accessor postgreDbAccessor) {
-		if ("h2".equals(dbConfig.getDialectType())) {
-			dbAccessor = h2DbAccessor;
-		}
-		else if ("postgre".equals(dbConfig.getDialectType())) {
-			dbAccessor = postgreDbAccessor;
-		}
-		else {
-			dbAccessor = mysqlDbAccessor;
-		}
+	private BaseDefaultConfiguration(DbConfig dbConfig, AccessorFactory accessorFactory) {
+		this.accessorFactory = accessorFactory;
+		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 		this.dbConfig = dbConfig;
 	}
 
@@ -66,7 +61,7 @@ public class BaseDefaultConfiguration {
 			@Qualifier("simpleSchemaService") BaseSchemaService schemaService, LlmService aiService) {
 
 		logger.info("Creating default BaseNl2SqlService implementation");
-		return new SimpleNl2SqlService(vectorStoreService, schemaService, aiService, dbAccessor, dbConfig);
+		return new SimpleNl2SqlService(vectorStoreService, schemaService, aiService, accessorFactory, dbConfig);
 	}
 
 	@Bean("schemaServiceImpl")
@@ -77,12 +72,6 @@ public class BaseDefaultConfiguration {
 
 		logger.info("Creating default BaseSchemaService implementation");
 		return new SimpleSchemaService(dbConfig, objectMapper, vectorStoreService);
-	}
-
-	@Bean("dbAccessor")
-	@ConditionalOnMissingBean(name = "dbAccessor")
-	public Accessor dbAccessor() {
-		return dbAccessor;
 	}
 
 }

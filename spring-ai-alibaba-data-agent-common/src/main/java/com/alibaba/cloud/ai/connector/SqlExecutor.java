@@ -17,8 +17,8 @@
 package com.alibaba.cloud.ai.connector;
 
 import com.alibaba.cloud.ai.connector.bo.ResultSetBO;
-import com.alibaba.cloud.ai.connector.support.ResultSetBuilder;
 import com.alibaba.cloud.ai.enums.DatabaseDialectEnum;
+import com.alibaba.cloud.ai.util.ResultSetConvertUtil;
 import org.apache.commons.lang3.StringUtils;
 
 import java.sql.Connection;
@@ -91,7 +91,7 @@ public class SqlExecutor {
 	private static List<String[]> executeQuery(Connection connection, String sql) throws SQLException {
 		try (Statement statement = connection.createStatement(); ResultSet rs = statement.executeQuery(sql)) {
 
-			return ResultSetConverter.convert(rs);
+			return ResultSetConvertUtil.convert(rs);
 		}
 	}
 
@@ -116,7 +116,7 @@ public class SqlExecutor {
 
 			ResultSet rs = statement.executeQuery(sql);
 
-			List<String[]> result = ResultSetConverter.convert(rs);
+			List<String[]> result = ResultSetConvertUtil.convert(rs);
 
 			if (StringUtils.isNotEmpty(databaseOrSchema) && dialect.equals(DatabaseDialectEnum.MYSQL.code)) {
 				statement.execute("use `" + originalDb + "`;");

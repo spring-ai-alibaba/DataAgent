@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.connector.postgre;
+package com.alibaba.cloud.ai.connector.impls.postgre;
 
-import com.alibaba.cloud.ai.connector.DBConnectionPool;
-import com.alibaba.cloud.ai.connector.support.DdlFactory;
-import com.alibaba.cloud.ai.connector.accessor.defaults.AbstractAccessor;
-import org.springframework.beans.factory.annotation.Qualifier;
+import com.alibaba.cloud.ai.connector.ddl.DdlFactory;
+import com.alibaba.cloud.ai.connector.accessor.AbstractAccessor;
+import com.alibaba.cloud.ai.connector.pool.DBConnectionPoolFactory;
+import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 import org.springframework.stereotype.Service;
 
 /**
@@ -32,16 +32,19 @@ public class PostgreDBAccessor extends AbstractAccessor {
 
 	private final static String ACCESSOR_TYPE = "PostgreSQL_Accessor";
 
-	protected PostgreDBAccessor(DdlFactory ddlFactory,
-			@Qualifier("postgreSqlJdbcConnectionPool") DBConnectionPool dbConnectionPool) {
+	protected PostgreDBAccessor(DdlFactory ddlFactory, DBConnectionPoolFactory poolFactory) {
 
-		super(ddlFactory, dbConnectionPool);
+		super(ddlFactory, poolFactory.getPoolByDbType(BizDataSourceTypeEnum.POSTGRESQL.getTypeName()));
 	}
 
 	@Override
-	public String getDbAccessorType() {
-
+	public String getAccessorType() {
 		return ACCESSOR_TYPE;
+	}
+
+	@Override
+	public boolean supportedDataSourceType(String type) {
+		return BizDataSourceTypeEnum.POSTGRESQL.getTypeName().equalsIgnoreCase(type);
 	}
 
 }

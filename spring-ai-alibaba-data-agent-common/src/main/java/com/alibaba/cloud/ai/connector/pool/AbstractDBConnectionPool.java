@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.connector;
+package com.alibaba.cloud.ai.connector.pool;
 
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
-import com.alibaba.cloud.ai.enums.DatabaseDialectEnum;
 import com.alibaba.cloud.ai.enums.ErrorCodeEnum;
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.druid.pool.DruidDataSourceFactory;
@@ -43,11 +42,6 @@ public abstract class AbstractDBConnectionPool implements DBConnectionPool {
 	 * DataSource cache to ensure that each configuration creates DataSource only once.
 	 */
 	private static final ConcurrentHashMap<String, DataSource> DATA_SOURCE_CACHE = new ConcurrentHashMap<>();
-
-	/**
-	 * Dialect
-	 */
-	public abstract DatabaseDialectEnum getDialect();
 
 	/**
 	 * Driver

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.connector;
+package com.alibaba.cloud.ai.util;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * Convert JDBC ResultSet to structured data
  */
-public class ResultSetConverter {
+public class ResultSetConvertUtil {
 
 	public static List<String[]> convert(ResultSet rs) throws SQLException {
 		ResultSetMetaData data = rs.getMetaData();

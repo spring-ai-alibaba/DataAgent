@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.service;
 
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dashscope.api.DashScopeApi;
 import com.alibaba.cloud.ai.dashscope.embedding.DashScopeEmbeddingModel;
 import com.alibaba.cloud.ai.dashscope.embedding.DashScopeEmbeddingOptions;
@@ -27,7 +28,7 @@ import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.request.DeleteRequest;
 import com.alibaba.cloud.ai.request.EvidenceRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.util.JsonUtils;
+import com.alibaba.cloud.ai.util.JsonUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
@@ -38,7 +39,6 @@ import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -50,7 +50,7 @@ public class SimpleVectorStoreManagementService implements VectorStoreManagement
 
 	private final SimpleVectorStore vectorStore;
 
-	private final ObjectMapper objectMapper = JsonUtils.getObjectMapper();
+	private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 
 	private final Accessor dbAccessor;
 
@@ -58,8 +58,8 @@ public class SimpleVectorStoreManagementService implements VectorStoreManagement
 
 	@Autowired
 	public SimpleVectorStoreManagementService(@Value("${spring.ai.dashscope.api-key:default_api_key}") String apiKey,
-			@Qualifier("dbAccessor") Accessor dbAccessor, DbConfig dbConfig) {
-		this.dbAccessor = dbAccessor;
+			AccessorFactory accessorFactory, DbConfig dbConfig) {
+		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 		this.dbConfig = dbConfig;
 
 		DashScopeApi dashScopeApi = DashScopeApi.builder().apiKey(apiKey).build();

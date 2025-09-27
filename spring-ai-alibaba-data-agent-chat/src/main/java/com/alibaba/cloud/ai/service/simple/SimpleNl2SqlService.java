@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.service.simple;
 
-import com.alibaba.cloud.ai.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.service.LlmService;
 import com.alibaba.cloud.ai.service.base.BaseNl2SqlService;
@@ -31,9 +31,9 @@ public class SimpleNl2SqlService extends BaseNl2SqlService {
 	@Autowired
 	public SimpleNl2SqlService(@Qualifier("simpleVectorStoreService") BaseVectorStoreService vectorStoreService,
 			@Qualifier("simpleSchemaService") BaseSchemaService schemaService, LlmService aiService,
-			@Qualifier("dbAccessor") Accessor accessor, DbConfig dbConfig) {
+			AccessorFactory accessorFactory, DbConfig dbConfig) {
 
-		super(vectorStoreService, schemaService, aiService, accessor, dbConfig);
+		super(vectorStoreService, schemaService, aiService, accessorFactory.getAccessorByDbConfig(dbConfig), dbConfig);
 	}
 
 }

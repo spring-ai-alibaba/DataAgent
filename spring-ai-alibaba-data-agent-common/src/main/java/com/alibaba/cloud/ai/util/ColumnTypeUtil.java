@@ -13,7 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.alibaba.cloud.ai.util;
 
-package com.alibaba.cloud.ai.connector;
+public class ColumnTypeUtil {
 
-// DataAgent Data provider
+	public static String wrapType(String s) {
+		if (s.equalsIgnoreCase("decimal") || s.equalsIgnoreCase("int") || s.equalsIgnoreCase("bigint")
+				|| s.equalsIgnoreCase("bool") || s.equalsIgnoreCase("bit") || s.equalsIgnoreCase("boolean")
+				|| s.equalsIgnoreCase("double")) {
+			return "number";
+		}
+		else if (s.startsWith("varchar") || s.startsWith("char")) {
+			return "text";
+		}
+		return s;
+	}
+
+}

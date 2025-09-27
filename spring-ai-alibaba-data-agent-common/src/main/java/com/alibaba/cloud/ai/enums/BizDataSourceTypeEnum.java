@@ -42,13 +42,13 @@ public enum BizDataSourceTypeEnum {
 	POSTGRESQL_VIRTUAL(52, "postgresql-virtual", DatabaseDialectEnum.POSTGRESQL.getCode(),
 			DbAccessTypeEnum.MEMORY.getCode());
 
-	public Integer code;
+	public final Integer code;
 
-	public String typeName;
+	public final String typeName;
 
-	public String dialect;
+	public final String dialect;
 
-	public String protocol;
+	public final String protocol;
 
 	BizDataSourceTypeEnum(Integer code, String typeName, String dialect, String protocol) {
 		this.code = code;

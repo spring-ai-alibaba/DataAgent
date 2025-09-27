@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dto.schema;
 
-import com.alibaba.cloud.ai.util.JsonUtils;
+import com.alibaba.cloud.ai.util.JsonUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -66,7 +66,7 @@ public class TableDTO {
 
 	@Override
 	public String toString() {
-		ObjectMapper objectMapper = JsonUtils.getObjectMapper();
+		ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 		try {
 			return objectMapper.writeValueAsString(this);
 		}

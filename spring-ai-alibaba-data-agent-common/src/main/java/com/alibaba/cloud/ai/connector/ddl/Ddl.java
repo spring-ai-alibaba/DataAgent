@@ -13,7 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.alibaba.cloud.ai.connector.ddl;
 
-package com.alibaba.cloud.ai.connector.mysql;
+import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 
-// DataAgent MySQL Data provider
+public interface Ddl {
+
+	BizDataSourceTypeEnum getDataSourceType();
+
+	default boolean supportedDataSourceType(String type) {
+		return getDataSourceType().getTypeName().equals(type);
+	}
+
+	default boolean supportedDataSourceType(BizDataSourceTypeEnum type) {
+		return getDataSourceType().equals(type);
+	}
+
+	default String getDdlType() {
+		return getDataSourceType().getProtocol() + "@" + getDataSourceType().getDialect();
+	}
+
+}
