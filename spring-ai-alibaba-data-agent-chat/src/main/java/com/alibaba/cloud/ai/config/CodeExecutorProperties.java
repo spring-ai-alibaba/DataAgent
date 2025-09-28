@@ -19,6 +19,8 @@ package com.alibaba.cloud.ai.config;
 import com.alibaba.cloud.ai.service.code.CodePoolExecutorEnum;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import static com.alibaba.cloud.ai.constant.Constant.PROJECT_PROPERTIES_PREFIX;
+
 /**
  * @author vlsmb
  * @since 2025/7/12
@@ -26,7 +28,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = CodeExecutorProperties.CONFIG_PREFIX)
 public class CodeExecutorProperties {
 
-	public static final String CONFIG_PREFIX = "spring.ai.alibaba.nl2sql.code-executor";
+	public static final String CONFIG_PREFIX = PROJECT_PROPERTIES_PREFIX + ".code-executor";
 
 	/**
 	 * Specify implementation class of code container pool runtime service

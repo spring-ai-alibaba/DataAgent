@@ -18,9 +18,10 @@ package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
@@ -33,6 +34,7 @@ import static com.alibaba.cloud.ai.constant.Constant.*;
  *
  * @author Makoto
  */
+@Component
 public class HumanFeedbackNode implements NodeAction {
 
 	private static final Logger logger = LoggerFactory.getLogger(HumanFeedbackNode.class);
@@ -43,7 +45,7 @@ public class HumanFeedbackNode implements NodeAction {
 		Map<String, Object> updated = new HashMap<>();
 
 		// 检查最大修复次数
-		int repairCount = StateUtils.getObjectValue(state, PLAN_REPAIR_COUNT, Integer.class, 0);
+		int repairCount = StateUtil.getObjectValue(state, PLAN_REPAIR_COUNT, Integer.class, 0);
 		if (repairCount >= 3) {
 			logger.warn("Max repair attempts (3) exceeded, ending process");
 			updated.put("human_next_node", "END");

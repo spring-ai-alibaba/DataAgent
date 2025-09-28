@@ -22,12 +22,13 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.service.LlmService;
+import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.Map;
@@ -44,28 +45,29 @@ import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
 /**
  * @author zhangshenghang
  */
+@Component
 public class PlannerNode implements NodeAction {
 
 	private static final Logger logger = LoggerFactory.getLogger(PlannerNode.class);
 
-	private final ChatClient chatClient;
+	private final LlmService llmService;
 
-	public PlannerNode(ChatClient.Builder chatClientBuilder) {
-		this.chatClient = chatClientBuilder.build();
+	public PlannerNode(LlmService llmService) {
+		this.llmService = llmService;
 	}
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 		String input = (String) state.value(INPUT_KEY).orElseThrow();
 		// 使用经过时间表达式处理的重写查询，如果没有则回退到原始输入
-		String processedQuery = StateUtils.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT, input);
+		String processedQuery = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT, input);
 		logger.info("Using processed query for planning: {}", processedQuery);
 
 		// 是否为NL2SQL模式
 		Boolean onlyNl2sql = state.value(IS_ONLY_NL2SQL, false);
 
 		// 检查是否为修复模式
-		String validationError = StateUtils.getStringValue(state, PLAN_VALIDATION_ERROR, null);
+		String validationError = StateUtil.getStringValue(state, PLAN_VALIDATION_ERROR, null);
 		if (validationError != null) {
 			logger.info("Regenerating plan with user feedback: {}", validationError);
 		}
@@ -76,7 +78,7 @@ public class PlannerNode implements NodeAction {
 		// 构建提示参数
 		String businessKnowledge = (String) state.value(BUSINESS_KNOWLEDGE).orElse("");
 		String semanticModel = (String) state.value(SEMANTIC_MODEL).orElse("");
-		SchemaDTO schemaDTO = StateUtils.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
+		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 		String schemaStr = PromptHelper.buildMixMacSqlDbPrompt(schemaDTO, true);
 
 		// 构建用户提示
@@ -92,7 +94,7 @@ public class PlannerNode implements NodeAction {
 				: PromptConstant.getPlannerPromptTemplate())
 			.render(params);
 
-		Flux<ChatResponse> chatResponseFlux = chatClient.prompt().user(plannerPrompt).stream().chatResponse();
+		Flux<ChatResponse> chatResponseFlux = llmService.streamCall(plannerPrompt);
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
 				v -> Map.of(PLANNER_NODE_OUTPUT, v), chatResponseFlux, StreamResponseType.PLAN_GENERATION);
 
@@ -104,7 +106,7 @@ public class PlannerNode implements NodeAction {
 			return input;
 		}
 
-		String previousPlan = StateUtils.getStringValue(state, PLANNER_NODE_OUTPUT, "");
+		String previousPlan = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT, "");
 		return String.format(
 				"IMPORTANT: User rejected previous plan with feedback: \"%s\"\n\n" + "Original question: %s\n\n"
 						+ "Previous rejected plan:\n%s\n\n"

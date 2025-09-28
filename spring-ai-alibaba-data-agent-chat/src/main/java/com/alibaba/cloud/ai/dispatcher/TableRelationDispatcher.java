@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.dispatcher;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 
 import java.util.Optional;
 
@@ -32,8 +32,8 @@ public class TableRelationDispatcher implements EdgeAction {
 	@Override
 	public String apply(OverAllState state) throws Exception {
 
-		String errorFlag = StateUtils.getStringValue(state, TABLE_RELATION_EXCEPTION_OUTPUT, null);
-		Integer retryCount = StateUtils.getObjectValue(state, TABLE_RELATION_RETRY_COUNT, Integer.class, 0);
+		String errorFlag = StateUtil.getStringValue(state, TABLE_RELATION_EXCEPTION_OUTPUT, null);
+		Integer retryCount = StateUtil.getObjectValue(state, TABLE_RELATION_RETRY_COUNT, Integer.class, 0);
 
 		if (errorFlag != null && !errorFlag.isEmpty()) {
 			if (isRetryableError(errorFlag) && retryCount < MAX_RETRY_COUNT) {

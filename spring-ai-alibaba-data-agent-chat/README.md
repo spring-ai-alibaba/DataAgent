@@ -465,7 +465,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.service.simple.SimpleVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleVectorStoreService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

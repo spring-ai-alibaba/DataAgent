@@ -23,15 +23,16 @@ import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
+import com.alibaba.cloud.ai.service.LlmService;
 import com.alibaba.cloud.ai.service.UserPromptConfigService;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
@@ -54,19 +55,20 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
  *
  * @author zhangshenghang
  */
+@Component
 public class ReportGeneratorNode implements NodeAction {
 
 	private static final Logger logger = LoggerFactory.getLogger(ReportGeneratorNode.class);
 
-	private final ChatClient chatClient;
+	private final LlmService llmService;
 
 	private final BeanOutputConverter<Plan> converter;
 
 	private final UserPromptConfigService promptConfigService;
 
-	public ReportGeneratorNode(ChatClient.Builder chatClientBuilder, UserPromptConfigService promptConfigService) {
-		this.chatClient = chatClientBuilder.build();
-		this.converter = new BeanOutputConverter<>(new ParameterizedTypeReference<Plan>() {
+	public ReportGeneratorNode(LlmService llmService, UserPromptConfigService promptConfigService) {
+		this.llmService = llmService;
+		this.converter = new BeanOutputConverter<>(new ParameterizedTypeReference<>() {
 		});
 		this.promptConfigService = promptConfigService;
 	}
@@ -76,11 +78,11 @@ public class ReportGeneratorNode implements NodeAction {
 		logger.info("Entering {} node", this.getClass().getSimpleName());
 
 		// Get necessary input parameters
-		String plannerNodeOutput = StateUtils.getStringValue(state, PLANNER_NODE_OUTPUT);
-		String userInput = StateUtils.getStringValue(state, INPUT_KEY);
-		Integer currentStep = StateUtils.getObjectValue(state, PLAN_CURRENT_STEP, Integer.class, 1);
+		String plannerNodeOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);
+		String userInput = StateUtil.getStringValue(state, INPUT_KEY);
+		Integer currentStep = StateUtil.getObjectValue(state, PLAN_CURRENT_STEP, Integer.class, 1);
 		@SuppressWarnings("unchecked")
-		HashMap<String, String> executionResults = StateUtils.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,
+		HashMap<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,
 				HashMap.class, new HashMap<>());
 
 		logger.info("Planner node output: {}", plannerNodeOutput);
@@ -147,7 +149,7 @@ public class ReportGeneratorNode implements NodeAction {
 		logger.info("Using {} prompt for report generation",
 				!optimizationConfigs.isEmpty() ? "optimized (" + optimizationConfigs.size() + " configs)" : "default");
 
-		return chatClient.prompt().user(reportPrompt).stream().chatResponse();
+		return llmService.streamCall(reportPrompt);
 	}
 
 	/**

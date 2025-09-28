@@ -21,12 +21,13 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.service.code.CodePoolExecutorService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -43,6 +44,7 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_RESULT_LIST_MEMORY;
  * @author vlsmb
  * @since 2025/7/29
  */
+@Component
 public class PythonExecuteNode extends AbstractPlanBasedNode implements NodeAction {
 
 	private static final Logger log = LoggerFactory.getLogger(PythonExecuteNode.class);
@@ -63,8 +65,8 @@ public class PythonExecuteNode extends AbstractPlanBasedNode implements NodeActi
 
 		try {
 			// Get context
-			String pythonCode = StateUtils.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT);
-			List<Map<String, String>> sqlResults = StateUtils.getListValue(state, SQL_RESULT_LIST_MEMORY);
+			String pythonCode = StateUtil.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT);
+			List<Map<String, String>> sqlResults = StateUtil.getListValue(state, SQL_RESULT_LIST_MEMORY);
 			CodePoolExecutorService.TaskRequest taskRequest = new CodePoolExecutorService.TaskRequest(pythonCode,
 					objectMapper.writeValueAsString(sqlResults), null);
 

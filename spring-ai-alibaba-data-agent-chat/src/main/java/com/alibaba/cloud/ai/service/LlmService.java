@@ -46,6 +46,10 @@ public class LlmService {
 		return chatClient.prompt().user(prompt).stream().chatResponse();
 	}
 
+	public Flux<ChatResponse> streamCallSystem(String system) {
+		return chatClient.prompt().system(system).stream().chatResponse();
+	}
+
 	/**
 	 * Stream the response to the user's prompt with a system prompt
 	 * @param system The system prompt

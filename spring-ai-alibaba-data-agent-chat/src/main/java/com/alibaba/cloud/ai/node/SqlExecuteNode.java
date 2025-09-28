@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.ResultSetBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
@@ -29,12 +30,13 @@ import com.alibaba.cloud.ai.service.DatasourceService;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.util.StateUtils;
-import com.alibaba.cloud.ai.util.StepResultUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
+import com.alibaba.cloud.ai.util.StepResultUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
@@ -53,19 +55,21 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
  *
  * @author zhangshenghang
  */
+@Component
 public class SqlExecuteNode extends AbstractPlanBasedNode {
 
 	private static final Logger logger = LoggerFactory.getLogger(SqlExecuteNode.class);
 
+	// todo: 根据数据库配置动态获取Accessor
 	private final Accessor dbAccessor;
 
 	private final DatasourceService datasourceService;
 
 	private final DbConfig dbConfig;
 
-	public SqlExecuteNode(Accessor dbAccessor, DatasourceService datasourceService, DbConfig dbConfig) {
+	public SqlExecuteNode(AccessorFactory accessorFactory, DatasourceService datasourceService, DbConfig dbConfig) {
 		super();
-		this.dbAccessor = dbAccessor;
+		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 		this.datasourceService = datasourceService;
 		this.dbConfig = dbConfig;
 	}
@@ -98,7 +102,7 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 	private DbConfig getAgentDbConfig(OverAllState state) {
 		try {
 			// Get the agent ID from the state
-			String agentIdStr = StateUtils.getStringValue(state, Constant.AGENT_ID);
+			String agentIdStr = StateUtil.getStringValue(state, Constant.AGENT_ID);
 			if (agentIdStr == null || agentIdStr.trim().isEmpty()) {
 				// 返回默认数据源
 				return dbConfig;
@@ -193,9 +197,9 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 			String jsonStr = resultSetBO.toJsonStr();
 
 			// Update step results with the query output
-			Map<String, String> existingResults = StateUtils.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
+			Map<String, String> existingResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
 					new HashMap<>());
-			Map<String, String> updatedResults = StepResultUtils.addStepResult(existingResults, currentStep, jsonStr);
+			Map<String, String> updatedResults = StepResultUtil.addStepResult(existingResults, currentStep, jsonStr);
 
 			logger.info("SQL execution successful, result count: {}",
 					resultSetBO.getData() != null ? resultSetBO.getData().size() : 0);

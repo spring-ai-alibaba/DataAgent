@@ -20,16 +20,18 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.alibaba.cloud.ai.constant.Constant.HUMAN_FEEDBACK_NODE;
 import static com.alibaba.cloud.ai.constant.Constant.IS_ONLY_NL2SQL;
 import static com.alibaba.cloud.ai.constant.Constant.HUMAN_REVIEW_ENABLED;
 import static com.alibaba.cloud.ai.constant.Constant.ONLY_NL2SQL_OUTPUT;
@@ -49,6 +51,7 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE;
  *
  * @author zhangshenghang
  */
+@Component
 public class PlanExecutorNode extends AbstractPlanBasedNode {
 
 	private static final Logger logger = LoggerFactory.getLogger(PlanExecutorNode.class);
@@ -69,7 +72,7 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 		logNodeEntry();
 
 		// 1. Validate the Plan
-		String plannerOutput = StateUtils.getStringValue(state, PLANNER_NODE_OUTPUT);
+		String plannerOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);
 		try {
 			Plan plan = converter.convert(plannerOutput);
 
@@ -111,7 +114,7 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 		Boolean humanReviewEnabled = state.value(HUMAN_REVIEW_ENABLED, false);
 		if (Boolean.TRUE.equals(humanReviewEnabled)) {
 			logger.info("Human review enabled: routing to human_feedback node");
-			return Map.of(PLAN_VALIDATION_STATUS, true, PLAN_NEXT_NODE, "human_feedback");
+			return Map.of(PLAN_VALIDATION_STATUS, true, PLAN_NEXT_NODE, HUMAN_FEEDBACK_NODE);
 		}
 
 		Plan plan = getPlan(state);
@@ -147,7 +150,7 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 			logger.info("Determined next execution node: {}", toolToUse);
 			return Map.of(PLAN_NEXT_NODE, toolToUse, PLAN_VALIDATION_STATUS, true);
 		}
-		else if ("human_feedback".equals(toolToUse)) {
+		else if (HUMAN_FEEDBACK_NODE.equals(toolToUse)) {
 			logger.info("Determined next execution node: {}", toolToUse);
 			return Map.of(PLAN_NEXT_NODE, toolToUse, PLAN_VALIDATION_STATUS, true);
 		}
@@ -164,7 +167,7 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 		}
 		else {
 			// When validation fails, increment the repair count here.
-			int repairCount = StateUtils.getObjectValue(state, PLAN_REPAIR_COUNT, Integer.class, 0);
+			int repairCount = StateUtil.getObjectValue(state, PLAN_REPAIR_COUNT, Integer.class, 0);
 			return Map.of(PLAN_VALIDATION_STATUS, false, PLAN_VALIDATION_ERROR, errorMessage, PLAN_REPAIR_COUNT,
 					repairCount + 1);
 		}

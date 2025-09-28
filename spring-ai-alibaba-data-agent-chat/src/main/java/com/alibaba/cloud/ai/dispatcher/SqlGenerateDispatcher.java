@@ -35,17 +35,20 @@ public class SqlGenerateDispatcher implements EdgeAction {
 	public String apply(OverAllState state) {
 		String sqlGenerateOutput = (String) state.value(SQL_GENERATE_OUTPUT).orElseThrow();
 		logger.info("SQL 生成结果: {}", sqlGenerateOutput);
-		switch (sqlGenerateOutput) {
-			case END:
+		return switch (sqlGenerateOutput) {
+			case END -> {
 				logger.info("检测到流程结束标志: {}", END);
-				return END;
-			case SQL_GENERATE_SCHEMA_MISSING:
+				yield END;
+			}
+			case SQL_GENERATE_SCHEMA_MISSING -> {
 				logger.warn("SQL生成缺少Schema，跳转到{}节点", KEYWORD_EXTRACT_NODE);
-				return KEYWORD_EXTRACT_NODE;
-			default:
-				logger.info("SQL生成成功，进入SQL校验节点: {}", SQL_VALIDATE_NODE);
-				return SQL_EXECUTE_NODE;
-		}
+				yield KEYWORD_EXTRACT_NODE;
+			}
+			default -> {
+				logger.info("SQL生成成功，进入SQL执行节点: {}", SQL_EXECUTE_NODE);
+				yield SQL_EXECUTE_NODE;
+			}
+		};
 	}
 
 }

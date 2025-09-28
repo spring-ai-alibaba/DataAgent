@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.service;
 import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.service.simple.SimpleVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
@@ -44,8 +44,9 @@ public class AgentVectorService {
 
 	private static final Logger log = LoggerFactory.getLogger(AgentVectorService.class);
 
+	// todo: 提取实现类的方法到接口
 	@Autowired
-	private SimpleVectorStoreService vectorStoreService;
+	private VectorStoreService vectorStoreService;
 
 	/**
 	 * Initialize database Schema for agent

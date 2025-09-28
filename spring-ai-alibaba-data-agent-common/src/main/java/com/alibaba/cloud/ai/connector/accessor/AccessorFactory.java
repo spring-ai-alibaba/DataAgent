@@ -47,6 +47,9 @@ public class AccessorFactory {
 	}
 
 	public Accessor getAccessorByDbConfig(DbConfig dbConfig) {
+		if (dbConfig == null) {
+			return getAccessorByDbTypeEnum(BizDataSourceTypeEnum.MYSQL);
+		}
 		// FIXME: 目前默认使用mysql，因为用户配置中暂时没有dbConfig的配置
 		BizDataSourceTypeEnum typeEnum = Arrays.stream(BizDataSourceTypeEnum.values())
 			.filter(e -> e.getDialect().equals(dbConfig.getDialectType()))

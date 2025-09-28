@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.dispatcher;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.StateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +38,7 @@ public class PlanExecutorDispatcher implements EdgeAction {
 
 	@Override
 	public String apply(OverAllState state) {
-		boolean validationPassed = StateUtils.getObjectValue(state, PLAN_VALIDATION_STATUS, Boolean.class, false);
+		boolean validationPassed = StateUtil.getObjectValue(state, PLAN_VALIDATION_STATUS, Boolean.class, false);
 
 		if (validationPassed) {
 			logger.info("Plan validation passed. Proceeding to next step.");
@@ -52,7 +52,7 @@ public class PlanExecutorDispatcher implements EdgeAction {
 		else {
 			// Plan validation failed, check repair count and decide whether to retry or
 			// end.
-			int repairCount = StateUtils.getObjectValue(state, PLAN_REPAIR_COUNT, Integer.class, 0);
+			int repairCount = StateUtil.getObjectValue(state, PLAN_REPAIR_COUNT, Integer.class, 0);
 
 			if (repairCount > MAX_REPAIR_ATTEMPTS) {
 				logger.error("Plan repair attempts exceeded the limit of {}. Terminating execution.",

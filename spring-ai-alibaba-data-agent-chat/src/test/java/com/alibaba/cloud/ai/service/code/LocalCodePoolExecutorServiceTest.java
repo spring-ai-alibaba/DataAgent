@@ -17,7 +17,7 @@
 package com.alibaba.cloud.ai.service.code;
 
 import com.alibaba.cloud.ai.config.CodeExecutorProperties;
-import com.alibaba.cloud.ai.service.code.impl.LocalCodePoolExecutorService;
+import com.alibaba.cloud.ai.service.code.impls.LocalCodePoolExecutorService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

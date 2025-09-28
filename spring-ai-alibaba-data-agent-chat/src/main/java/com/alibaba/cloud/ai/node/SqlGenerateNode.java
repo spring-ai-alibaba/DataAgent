@@ -21,17 +21,18 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
-import com.alibaba.cloud.ai.service.base.BaseNl2SqlService;
+import com.alibaba.cloud.ai.service.LlmService;
+import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.util.MarkdownParser;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.util.MarkdownParserUtil;
+import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
@@ -52,6 +53,7 @@ import static com.alibaba.cloud.ai.graph.StateGraph.END;
  *
  * @author zhangshenghang
  */
+@Component
 public class SqlGenerateNode implements NodeAction {
 
 	private static final Logger logger = LoggerFactory.getLogger(SqlGenerateNode.class);
@@ -60,15 +62,15 @@ public class SqlGenerateNode implements NodeAction {
 
 	private static final int MAX_OPTIMIZATION_ROUNDS = 3;
 
-	private final BaseNl2SqlService baseNl2SqlService;
+	private final Nl2SqlService nl2SqlService;
 
 	private final BeanOutputConverter<Plan> converter;
 
-	private final ChatClient chatClient;
+	private final LlmService llmService;
 
-	public SqlGenerateNode(ChatClient.Builder chatClientBuilder, BaseNl2SqlService baseNl2SqlService) {
-		this.chatClient = chatClientBuilder.build();
-		this.baseNl2SqlService = baseNl2SqlService;
+	public SqlGenerateNode(LlmService llmService, Nl2SqlService nl2SqlService) {
+		this.llmService = llmService;
+		this.nl2SqlService = nl2SqlService;
 		this.converter = new BeanOutputConverter<>(new ParameterizedTypeReference<Plan>() {
 		});
 	}
@@ -78,9 +80,9 @@ public class SqlGenerateNode implements NodeAction {
 		logger.info("Entering {} node", this.getClass().getSimpleName());
 
 		// Get necessary input parameters
-		String plannerNodeOutput = StateUtils.getStringValue(state, PLANNER_NODE_OUTPUT);
+		String plannerNodeOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);
 		Plan plan = converter.convert(plannerNodeOutput);
-		Integer currentStep = StateUtils.getObjectValue(state, PLAN_CURRENT_STEP, Integer.class, 1);
+		Integer currentStep = StateUtil.getObjectValue(state, PLAN_CURRENT_STEP, Integer.class, 1);
 
 		List<ExecutionStep> executionPlan = plan.getExecutionPlan();
 		ExecutionStep executionStep = executionPlan.get(currentStep - 1);
@@ -90,7 +92,7 @@ public class SqlGenerateNode implements NodeAction {
 		Map<String, Object> result;
 		String displayMessage;
 
-		if (StateUtils.hasValue(state, SQL_EXECUTE_NODE_EXCEPTION_OUTPUT)) {
+		if (StateUtil.hasValue(state, SQL_EXECUTE_NODE_EXCEPTION_OUTPUT)) {
 			displayMessage = "检测到SQL执行异常，开始重新生成SQL...";
 			String newSql = handleSqlExecutionException(state, plan, toolParameters);
 			toolParameters.setSqlQuery(newSql);
@@ -133,11 +135,11 @@ public class SqlGenerateNode implements NodeAction {
 	 */
 	private String handleSqlExecutionException(OverAllState state, Plan plan,
 			ExecutionStep.ToolParameters toolParameters) throws Exception {
-		String sqlException = StateUtils.getStringValue(state, SQL_EXECUTE_NODE_EXCEPTION_OUTPUT);
+		String sqlException = StateUtil.getStringValue(state, SQL_EXECUTE_NODE_EXCEPTION_OUTPUT);
 		logger.info("Detected SQL execution exception, starting to regenerate SQL: {}", sqlException);
 
-		List<String> evidenceList = StateUtils.getListValue(state, EVIDENCES);
-		SchemaDTO schemaDTO = StateUtils.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
+		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);
+		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 
 		return regenerateSql(state, toolParameters.toJsonStr(), evidenceList, schemaDTO,
 				SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, toolParameters.getSqlQuery());
@@ -150,8 +152,8 @@ public class SqlGenerateNode implements NodeAction {
 			throws Exception {
 		logger.info("Semantic consistency validation failed, starting to regenerate SQL");
 
-		List<String> evidenceList = StateUtils.getListValue(state, EVIDENCES);
-		SchemaDTO schemaDTO = StateUtils.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
+		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);
+		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 
 		return regenerateSql(state, toolParameters.toJsonStr(), evidenceList, schemaDTO,
 				SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT, toolParameters.getSqlQuery());
@@ -161,7 +163,7 @@ public class SqlGenerateNode implements NodeAction {
 	 * Check if semantic consistency validation failed
 	 */
 	private boolean isSemanticConsistencyFailed(OverAllState state) {
-		return StateUtils.getObjectValue(state, SEMANTIC_CONSISTENCY_NODE_OUTPUT, Boolean.class, true) == false;
+		return StateUtil.getObjectValue(state, SEMANTIC_CONSISTENCY_NODE_OUTPUT, Boolean.class, true) == false;
 	}
 
 	/**
@@ -170,7 +172,7 @@ public class SqlGenerateNode implements NodeAction {
 	 */
 	private String regenerateSql(OverAllState state, String input, List<String> evidenceList, SchemaDTO schemaDTO,
 			String exceptionOutputKey, String originalSql) throws Exception {
-		String exceptionMessage = StateUtils.getStringValue(state, exceptionOutputKey);
+		String exceptionMessage = StateUtil.getStringValue(state, exceptionOutputKey);
 
 		logger.info("开始增强SQL生成流程 - 原始SQL: {}, 异常信息: {}", originalSql, exceptionMessage);
 
@@ -185,7 +187,7 @@ public class SqlGenerateNode implements NodeAction {
 				String currentSql;
 				if (round == 1) {
 					// First round: Use original service to generate basic SQL
-					currentSql = baseNl2SqlService.generateSql(evidenceList, input, schemaDTO, originalSql,
+					currentSql = nl2SqlService.generateSql(evidenceList, input, schemaDTO, originalSql,
 							exceptionMessage);
 				}
 				else {
@@ -249,9 +251,9 @@ public class SqlGenerateNode implements NodeAction {
 			prompt.append("4. 优化可读性\n\n");
 			prompt.append("请只返回优化后的SQL语句，不要包含其他说明。");
 
-			String response = chatClient.prompt().user(prompt.toString()).call().content();
+			String response = llmService.call(prompt.toString());
 
-			return MarkdownParser.extractRawText(response).trim();
+			return MarkdownParserUtil.extractRawText(response).trim();
 		}
 		catch (Exception e) {
 			logger.error("使用ChatClient优化SQL失败: {}", e.getMessage());
@@ -407,7 +409,7 @@ public class SqlGenerateNode implements NodeAction {
 	 * Handle unsatisfied recall information
 	 */
 	private Map<String, Object> handleUnsatisfiedRecallInfo(OverAllState state, String recallInfoSatisfyRequirement) {
-		int sqlGenerateCount = StateUtils.getObjectValue(state, SQL_GENERATE_COUNT, Integer.class, 0) + 1;
+		int sqlGenerateCount = StateUtil.getObjectValue(state, SQL_GENERATE_COUNT, Integer.class, 0) + 1;
 
 		logger.info(sqlGenerateCount == 1 ? "First time generating SQL" : "SQL generation count: {}", sqlGenerateCount);
 
@@ -431,13 +433,13 @@ public class SqlGenerateNode implements NodeAction {
 		result.put(SQL_GENERATE_COUNT, sqlGenerateCount);
 		result.put(SQL_GENERATE_OUTPUT, SQL_GENERATE_SCHEMA_MISSING);
 
-		String newAdvice = StateUtils.getStringValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE, "")
-				+ (StateUtils.hasValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE) ? "\n" : "")
+		String newAdvice = StateUtil.getStringValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE, "")
+				+ (StateUtil.hasValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE) ? "\n" : "")
 				+ recallInfoSatisfyRequirement;
 
 		result.put(SQL_GENERATE_SCHEMA_MISSING_ADVICE, newAdvice);
 
-		if (!StateUtils.hasValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE)) {
+		if (!StateUtil.hasValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE)) {
 			logger.info("Recall information doesn't satisfy requirements, need to supplement Schema information");
 		}
 

@@ -23,15 +23,16 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
-import com.alibaba.cloud.ai.util.MarkdownParser;
-import com.alibaba.cloud.ai.util.StateUtils;
+import com.alibaba.cloud.ai.service.LlmService;
+import com.alibaba.cloud.ai.util.MarkdownParserUtil;
+import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -51,6 +52,7 @@ import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
  * @author vlsmb
  * @since 2025/7/30
  */
+@Component
 public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAction {
 
 	private static final Logger log = LoggerFactory.getLogger(PythonGenerateNode.class);
@@ -63,12 +65,12 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 
 	private final CodeExecutorProperties codeExecutorProperties;
 
-	private final ChatClient chatClient;
+	private final LlmService llmService;
 
-	public PythonGenerateNode(CodeExecutorProperties codeExecutorProperties, ChatClient.Builder chatClientBuilder) {
+	public PythonGenerateNode(CodeExecutorProperties codeExecutorProperties, LlmService llmService) {
 		super();
 		this.codeExecutorProperties = codeExecutorProperties;
-		this.chatClient = chatClientBuilder.build();
+		this.llmService = llmService;
 		this.objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 	}
 
@@ -77,17 +79,17 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 		this.logNodeEntry();
 
 		// Get context
-		SchemaDTO schemaDTO = StateUtils.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
-		List<Map<String, String>> sqlResults = StateUtils.getListValue(state, SQL_RESULT_LIST_MEMORY);
-		boolean codeRunSuccess = StateUtils.getObjectValue(state, PYTHON_IS_SUCCESS, Boolean.class, true);
-		int triesCount = StateUtils.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, MAX_TRIES_COUNT);
+		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
+		List<Map<String, String>> sqlResults = StateUtil.getListValue(state, SQL_RESULT_LIST_MEMORY);
+		boolean codeRunSuccess = StateUtil.getObjectValue(state, PYTHON_IS_SUCCESS, Boolean.class, true);
+		int triesCount = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, MAX_TRIES_COUNT);
 
-		String userPrompt = StateUtils.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT);
+		String userPrompt = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT);
 		if (!codeRunSuccess) {
 			// Last generated Python code failed to run, inform AI model of this
 			// information
-			String lastCode = StateUtils.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT);
-			String lastError = StateUtils.getStringValue(state, PYTHON_EXECUTE_NODE_OUTPUT);
+			String lastCode = StateUtil.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT);
+			String lastError = StateUtil.getStringValue(state, PYTHON_EXECUTE_NODE_OUTPUT);
 			userPrompt += String.format("""
 					上次尝试生成的Python代码运行失败，请你重新生成符合要求的Python代码。
 					【上次生成代码】
@@ -113,17 +115,13 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 					objectMapper.writeValueAsString(sqlResults.stream().limit(SAMPLE_DATA_NUMBER).toList()),
 					"plan_description", objectMapper.writeValueAsString(toolParameters)));
 
-		Flux<ChatResponse> pythonGenerateFlux = chatClient.prompt()
-			.system(systemPrompt)
-			.user(userPrompt)
-			.stream()
-			.chatResponse();
+		Flux<ChatResponse> pythonGenerateFlux = llmService.streamCallWithSystemPrompt(systemPrompt, userPrompt);
 
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state, "", "",
 				aiResponse -> {
 					// Some AI models still output Markdown markup (even though Prompt has
 					// emphasized this)
-					aiResponse = MarkdownParser.extractRawText(aiResponse);
+					aiResponse = MarkdownParserUtil.extractRawText(aiResponse);
 					log.info("Python Generate Code: {}", aiResponse);
 					return Map.of(PYTHON_GENERATE_NODE_OUTPUT, aiResponse, PYTHON_TRIES_COUNT, triesCount - 1);
 				}, pythonGenerateFlux, StreamResponseType.PYTHON_GENERATE);
