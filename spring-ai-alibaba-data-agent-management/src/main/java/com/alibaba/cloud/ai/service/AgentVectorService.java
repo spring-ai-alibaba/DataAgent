@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.service;
 import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.service.simple.SimpleVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleVectorStoreService;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;

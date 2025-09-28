@@ -21,17 +21,18 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
-import com.alibaba.cloud.ai.service.base.BaseNl2SqlService;
+import com.alibaba.cloud.ai.service.LlmService;
+import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.MarkdownParserUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
@@ -52,6 +53,7 @@ import static com.alibaba.cloud.ai.graph.StateGraph.END;
  *
  * @author zhangshenghang
  */
+@Component
 public class SqlGenerateNode implements NodeAction {
 
 	private static final Logger logger = LoggerFactory.getLogger(SqlGenerateNode.class);
@@ -60,15 +62,15 @@ public class SqlGenerateNode implements NodeAction {
 
 	private static final int MAX_OPTIMIZATION_ROUNDS = 3;
 
-	private final BaseNl2SqlService baseNl2SqlService;
+	private final Nl2SqlService nl2SqlService;
 
 	private final BeanOutputConverter<Plan> converter;
 
-	private final ChatClient chatClient;
+	private final LlmService llmService;
 
-	public SqlGenerateNode(ChatClient.Builder chatClientBuilder, BaseNl2SqlService baseNl2SqlService) {
-		this.chatClient = chatClientBuilder.build();
-		this.baseNl2SqlService = baseNl2SqlService;
+	public SqlGenerateNode(LlmService llmService, Nl2SqlService nl2SqlService) {
+		this.llmService = llmService;
+		this.nl2SqlService = nl2SqlService;
 		this.converter = new BeanOutputConverter<>(new ParameterizedTypeReference<Plan>() {
 		});
 	}
@@ -185,7 +187,7 @@ public class SqlGenerateNode implements NodeAction {
 				String currentSql;
 				if (round == 1) {
 					// First round: Use original service to generate basic SQL
-					currentSql = baseNl2SqlService.generateSql(evidenceList, input, schemaDTO, originalSql,
+					currentSql = nl2SqlService.generateSql(evidenceList, input, schemaDTO, originalSql,
 							exceptionMessage);
 				}
 				else {
@@ -249,7 +251,7 @@ public class SqlGenerateNode implements NodeAction {
 			prompt.append("4. 优化可读性\n\n");
 			prompt.append("请只返回优化后的SQL语句，不要包含其他说明。");
 
-			String response = chatClient.prompt().user(prompt.toString()).call().content();
+			String response = llmService.call(prompt.toString());
 
 			return MarkdownParserUtil.extractRawText(response).trim();
 		}

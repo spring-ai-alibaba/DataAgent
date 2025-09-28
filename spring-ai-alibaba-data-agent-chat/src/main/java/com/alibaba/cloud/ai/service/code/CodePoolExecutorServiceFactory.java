@@ -17,32 +17,47 @@
 package com.alibaba.cloud.ai.service.code;
 
 import com.alibaba.cloud.ai.config.CodeExecutorProperties;
-import com.alibaba.cloud.ai.service.code.impl.AiSimulationCodeExecutorService;
-import com.alibaba.cloud.ai.service.code.impl.DockerCodePoolExecutorService;
-import com.alibaba.cloud.ai.service.code.impl.LocalCodePoolExecutorService;
+import com.alibaba.cloud.ai.service.code.impls.AiSimulationCodeExecutorService;
+import com.alibaba.cloud.ai.service.code.impls.DockerCodePoolExecutorService;
+import com.alibaba.cloud.ai.service.code.impls.LocalCodePoolExecutorService;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.FactoryBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.stereotype.Component;
 
 /**
- * 运行Python任务的容器池（工厂）
+ * 运行Python任务的容器池（工厂Bean）
  *
  * @author vlsmb
  * @since 2025/7/28
  */
-public final class CodePoolExecutorServiceFactory {
+@Component
+@ConditionalOnMissingBean(CodePoolExecutorService.class)
+public class CodePoolExecutorServiceFactory implements FactoryBean<CodePoolExecutorService> {
 
-	private CodePoolExecutorServiceFactory() {
+	private final CodeExecutorProperties properties;
 
+	private final ChatClient.Builder chatClientBuilder;
+
+	public CodePoolExecutorServiceFactory(CodeExecutorProperties properties, ChatClient.Builder chatClientBuilder) {
+		this.properties = properties;
+		this.chatClientBuilder = chatClientBuilder;
 	}
 
-	public static CodePoolExecutorService newInstance(CodeExecutorProperties properties,
-			ChatClient.Builder chatClientBuilder) {
+	@Override
+	public CodePoolExecutorService getObject() {
 		return switch (properties.getCodePoolExecutor()) {
 			case DOCKER -> new DockerCodePoolExecutorService(properties);
 			case LOCAL -> new LocalCodePoolExecutorService(properties);
 			case AI_SIMULATION -> new AiSimulationCodeExecutorService(chatClientBuilder);
-			default -> throw new UnsupportedOperationException(
-					"This option does not have a corresponding implementation class yet.");
+			default ->
+				throw new IllegalStateException("This option does not have a corresponding implementation class yet.");
 		};
+	}
+
+	@Override
+	public Class<?> getObjectType() {
+		return CodePoolExecutorService.class;
 	}
 
 }

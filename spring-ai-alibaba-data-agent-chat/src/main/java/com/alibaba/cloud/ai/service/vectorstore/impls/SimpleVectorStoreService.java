@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service.simple;
+package com.alibaba.cloud.ai.service.vectorstore.impls;
 
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
@@ -25,7 +25,9 @@ import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.request.DeleteRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.request.SearchRequest;
-import com.alibaba.cloud.ai.service.base.BaseVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreManager;
+import com.alibaba.cloud.ai.service.vectorstore.AbstractVectorStoreService;
+import com.alibaba.cloud.ai.util.JsonUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
@@ -36,9 +38,6 @@ import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,9 +48,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-@Service
-@Primary
-public class SimpleVectorStoreService extends BaseVectorStoreService {
+public class SimpleVectorStoreService extends AbstractVectorStoreService {
 
 	private static final Logger log = LoggerFactory.getLogger(SimpleVectorStoreService.class);
 
@@ -63,26 +60,18 @@ public class SimpleVectorStoreService extends BaseVectorStoreService {
 
 	private final ObjectMapper objectMapper;
 
+	// todo: 根据数据源动态获取Accessor
 	private final Accessor dbAccessor;
-
-	private final DbConfig dbConfig;
 
 	private final EmbeddingModel embeddingModel;
 
-	@Autowired
-	public SimpleVectorStoreService(EmbeddingModel embeddingModel, ObjectMapper objectMapper,
-			AccessorFactory accessorFactory, DbConfig dbConfig, AgentVectorStoreManager agentVectorStoreManager) {
-		log.info("Initializing SimpleVectorStoreService with EmbeddingModel: {}",
-				embeddingModel.getClass().getSimpleName());
-		this.objectMapper = objectMapper;
-		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
-		this.dbConfig = dbConfig;
+	public SimpleVectorStoreService(EmbeddingModel embeddingModel, AccessorFactory accessorFactory,
+			AgentVectorStoreManager agentVectorStoreManager) {
+		this.objectMapper = JsonUtil.getObjectMapper();
+		this.dbAccessor = accessorFactory.getAccessorByDbConfig(null);
 		this.embeddingModel = embeddingModel;
 		this.agentVectorStoreManager = agentVectorStoreManager;
-		this.vectorStore = SimpleVectorStore.builder(embeddingModel).build(); // Keep
-																				// original
-																				// implementation
-		log.info("SimpleVectorStoreService initialized successfully with AgentVectorStoreManager");
+		this.vectorStore = SimpleVectorStore.builder(embeddingModel).build();
 	}
 
 	@Override

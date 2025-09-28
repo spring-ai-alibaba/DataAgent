@@ -19,11 +19,12 @@ package com.alibaba.cloud.ai.node;
 import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
-import com.alibaba.cloud.ai.service.base.BaseNl2SqlService;
+import com.alibaba.cloud.ai.service.processing.QueryProcessingService;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
@@ -41,14 +42,15 @@ import static com.alibaba.cloud.ai.constant.Constant.RESULT;
  *
  * @author zhangshenghang
  */
+@Component
 public class QueryRewriteNode implements NodeAction {
 
 	private static final Logger logger = LoggerFactory.getLogger(QueryRewriteNode.class);
 
-	private final BaseNl2SqlService baseNl2SqlService;
+	private final QueryProcessingService queryProcessingService;
 
-	public QueryRewriteNode(BaseNl2SqlService baseNl2SqlService) {
-		this.baseNl2SqlService = baseNl2SqlService;
+	public QueryRewriteNode(QueryProcessingService queryProcessingService) {
+		this.queryProcessingService = queryProcessingService;
 	}
 
 	@Override
@@ -63,7 +65,7 @@ public class QueryRewriteNode implements NodeAction {
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
 				"开始进行问题重写...", "问题重写完成！",
 				finalResult -> Map.of(QUERY_REWRITE_NODE_OUTPUT, finalResult, RESULT, finalResult),
-				baseNl2SqlService.rewriteStream(input, agentId), StreamResponseType.REWRITE);
+				queryProcessingService.rewriteStream(input, agentId), StreamResponseType.REWRITE);
 
 		return Map.of(QUERY_REWRITE_NODE_OUTPUT, generator);
 	}

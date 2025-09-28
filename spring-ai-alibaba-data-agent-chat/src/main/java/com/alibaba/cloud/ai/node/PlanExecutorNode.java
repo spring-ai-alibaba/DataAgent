@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
@@ -49,6 +50,7 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE;
  *
  * @author zhangshenghang
  */
+@Component
 public class PlanExecutorNode extends AbstractPlanBasedNode {
 
 	private static final Logger logger = LoggerFactory.getLogger(PlanExecutorNode.class);

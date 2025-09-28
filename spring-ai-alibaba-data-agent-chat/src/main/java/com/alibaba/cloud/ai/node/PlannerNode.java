@@ -22,12 +22,13 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
+import com.alibaba.cloud.ai.service.LlmService;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.Map;
@@ -44,14 +45,15 @@ import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
 /**
  * @author zhangshenghang
  */
+@Component
 public class PlannerNode implements NodeAction {
 
 	private static final Logger logger = LoggerFactory.getLogger(PlannerNode.class);
 
-	private final ChatClient chatClient;
+	private final LlmService llmService;
 
-	public PlannerNode(ChatClient.Builder chatClientBuilder) {
-		this.chatClient = chatClientBuilder.build();
+	public PlannerNode(LlmService llmService) {
+		this.llmService = llmService;
 	}
 
 	@Override
@@ -92,7 +94,7 @@ public class PlannerNode implements NodeAction {
 				: PromptConstant.getPlannerPromptTemplate())
 			.render(params);
 
-		Flux<ChatResponse> chatResponseFlux = chatClient.prompt().user(plannerPrompt).stream().chatResponse();
+		Flux<ChatResponse> chatResponseFlux = llmService.streamCall(plannerPrompt);
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
 				v -> Map.of(PLANNER_NODE_OUTPUT, v), chatResponseFlux, StreamResponseType.PLAN_GENERATION);
 

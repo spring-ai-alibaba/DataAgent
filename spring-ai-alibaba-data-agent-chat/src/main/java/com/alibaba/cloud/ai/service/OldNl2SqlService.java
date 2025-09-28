@@ -46,13 +46,13 @@ import static com.alibaba.cloud.ai.constant.Constant.ONLY_NL2SQL_OUTPUT;
  * @since 2025/7/27
  */
 @Service
-public class Nl2SqlService {
+public class OldNl2SqlService {
 
-	private static final Logger logger = LoggerFactory.getLogger(Nl2SqlService.class);
+	private static final Logger logger = LoggerFactory.getLogger(OldNl2SqlService.class);
 
 	private final CompiledGraph nl2sqlGraph;
 
-	public Nl2SqlService(@Qualifier("nl2sqlGraph") StateGraph stateGraph) throws GraphStateException {
+	public OldNl2SqlService(@Qualifier("nl2sqlGraph") StateGraph stateGraph) throws GraphStateException {
 		this.nl2sqlGraph = stateGraph.compile();
 		this.nl2sqlGraph.setMaxIterations(100);
 	}

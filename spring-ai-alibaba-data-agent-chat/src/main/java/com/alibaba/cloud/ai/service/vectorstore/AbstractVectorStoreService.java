@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service.base;
+package com.alibaba.cloud.ai.service.vectorstore;
 
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.request.SearchRequest;
@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public abstract class BaseVectorStoreService {
+public abstract class AbstractVectorStoreService implements VectorStoreService {
 
 	/**
 	 * Get embedding model
@@ -53,37 +53,13 @@ public abstract class BaseVectorStoreService {
 	/**
 	 * Get documents from vector store
 	 */
+	@Override
 	public List<Document> getDocuments(String query, String vectorType) {
 		SearchRequest request = new SearchRequest();
 		request.setQuery(query);
 		request.setVectorType(vectorType);
 		request.setTopK(100);
 		return new ArrayList<>(searchWithVectorType(request));
-	}
-
-	/**
-	 * Get documents from vector store for specified agent
-	 */
-	public List<Document> getDocumentsForAgent(String agentId, String query, String vectorType) {
-		// Default implementation: if subclass doesn't override, use global search
-		return getDocuments(query, vectorType);
-	}
-
-	/**
-	 * Search interface with default filter
-	 */
-	public abstract List<Document> searchWithVectorType(SearchRequest searchRequestDTO);
-
-	/**
-	 * Search interface with custom filter
-	 */
-	public abstract List<Document> searchWithFilter(SearchRequest searchRequestDTO);
-
-	/**
-	 * Get documents for tables
-	 */
-	public List<Document> searchTableByNameAndVectorType(SearchRequest searchRequestDTO) {
-		throw new UnsupportedOperationException("Not implemented.");
 	}
 
 	/**

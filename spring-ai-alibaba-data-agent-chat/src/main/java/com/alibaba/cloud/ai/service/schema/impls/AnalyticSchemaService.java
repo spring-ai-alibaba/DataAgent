@@ -13,27 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service.simple;
+package com.alibaba.cloud.ai.service.schema.impls;
 
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.request.SearchRequest;
-import com.alibaba.cloud.ai.service.base.BaseSchemaService;
-import com.alibaba.cloud.ai.service.base.BaseVectorStoreService;
+import com.alibaba.cloud.ai.service.schema.AbstractSchemaService;
+import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.document.Document;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
 
-@Service
-public class SimpleSchemaService extends BaseSchemaService {
+/**
+ * Schema building service, supports RAG-based hybrid queries.
+ */
+public class AnalyticSchemaService extends AbstractSchemaService {
 
-	@Autowired
-	public SimpleSchemaService(DbConfig dbConfig, ObjectMapper objectMapper,
-			@Qualifier("simpleVectorStoreService") BaseVectorStoreService vectorStoreService) {
+	public AnalyticSchemaService(DbConfig dbConfig, ObjectMapper objectMapper, VectorStoreService vectorStoreService) {
 		super(dbConfig, objectMapper, vectorStoreService);
 	}
 
@@ -41,18 +38,22 @@ public class SimpleSchemaService extends BaseSchemaService {
 	protected void addTableDocument(List<Document> tableDocuments, String tableName, String vectorType) {
 		handleDocumentQuery(tableDocuments, tableName, vectorType, name -> {
 			SearchRequest req = new SearchRequest();
-			req.setName(name);
+			req.setQuery(null);
+			req.setFilterFormatted("jsonb_extract_path_text(metadata, 'vectorType') = '" + vectorType
+					+ "' and refdocid = '" + name + "'");
 			return req;
-		}, vectorStoreService::searchTableByNameAndVectorType);
+		}, vectorStoreService::searchWithFilter);
 	}
 
 	@Override
-	protected void addColumnsDocument(Map<String, Document> weightedColumns, String tableName, String vectorType) {
-		handleDocumentQuery(weightedColumns, tableName, vectorType, name -> {
+	protected void addColumnsDocument(Map<String, Document> weightedColumns, String columnName, String vectorType) {
+		handleDocumentQuery(weightedColumns, columnName, vectorType, name -> {
 			SearchRequest req = new SearchRequest();
-			req.setName(name);
+			req.setQuery(null);
+			req.setFilterFormatted("jsonb_extract_path_text(metadata, 'vectorType') = '" + vectorType
+					+ "' and refdocid = '" + name + "'");
 			return req;
-		}, vectorStoreService::searchTableByNameAndVectorType);
+		}, vectorStoreService::searchWithFilter);
 	}
 
 }

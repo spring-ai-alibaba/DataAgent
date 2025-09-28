@@ -21,13 +21,14 @@ import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
-import com.alibaba.cloud.ai.service.base.BaseNl2SqlService;
+import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -48,15 +49,16 @@ import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
  *
  * @author zhangshenghang
  */
+@Component
 public class SemanticConsistencyNode extends AbstractPlanBasedNode {
 
 	private static final Logger logger = LoggerFactory.getLogger(SemanticConsistencyNode.class);
 
-	private final BaseNl2SqlService baseNl2SqlService;
+	private final Nl2SqlService nl2SqlService;
 
-	public SemanticConsistencyNode(BaseNl2SqlService baseNl2SqlService) {
+	public SemanticConsistencyNode(Nl2SqlService nl2SqlService) {
 		super();
-		this.baseNl2SqlService = baseNl2SqlService;
+		this.nl2SqlService = nl2SqlService;
 	}
 
 	@Override
@@ -92,20 +94,6 @@ public class SemanticConsistencyNode extends AbstractPlanBasedNode {
 	}
 
 	/**
-	 * Perform semantic consistency validation
-	 */
-	private String performSemanticValidation(SchemaDTO schemaDTO, List<String> evidenceList,
-			ExecutionStep.ToolParameters toolParameters, String sqlQuery) throws Exception {
-		// Build validation context
-		String schema = PromptHelper.buildMixMacSqlDbPrompt(schemaDTO, true);
-		String evidence = StringUtils.join(evidenceList, ";\n");
-		String context = String.join("\n", schema, evidence, toolParameters.getDescription());
-
-		// Execute semantic consistency check
-		return baseNl2SqlService.semanticConsistency(sqlQuery, context);
-	}
-
-	/**
 	 * Perform streaming semantic consistency validation
 	 */
 	private Flux<ChatResponse> performSemanticValidationStream(SchemaDTO schemaDTO, List<String> evidenceList,
@@ -116,7 +104,7 @@ public class SemanticConsistencyNode extends AbstractPlanBasedNode {
 		String context = String.join("\n", schema, evidence, toolParameters.getDescription());
 
 		// Execute semantic consistency check
-		return baseNl2SqlService.semanticConsistencyStream(sqlQuery, context);
+		return nl2SqlService.semanticConsistencyStream(sqlQuery, context);
 	}
 
 	/**

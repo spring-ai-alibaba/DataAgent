@@ -27,9 +27,9 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.service.DatasourceService;
-import com.alibaba.cloud.ai.service.base.BaseNl2SqlService;
-import com.alibaba.cloud.ai.service.base.BaseSchemaService;
+import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.service.business.BusinessKnowledgeRecallService;
+import com.alibaba.cloud.ai.service.schema.SchemaService;
 import com.alibaba.cloud.ai.service.semantic.SemanticModelRecallService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.dao.DataAccessException;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -58,13 +59,14 @@ import static com.alibaba.cloud.ai.prompt.PromptHelper.buildSemanticModelPrompt;
  *
  * @author zhangshenghang
  */
+@Component
 public class TableRelationNode implements NodeAction {
 
 	private static final Logger logger = LoggerFactory.getLogger(TableRelationNode.class);
 
-	private final BaseSchemaService baseSchemaService;
+	private final SchemaService schemaService;
 
-	private final BaseNl2SqlService baseNl2SqlService;
+	private final Nl2SqlService nl2SqlService;
 
 	private final BusinessKnowledgeRecallService businessKnowledgeRecallService;
 
@@ -72,11 +74,11 @@ public class TableRelationNode implements NodeAction {
 
 	private final DatasourceService datasourceService;
 
-	public TableRelationNode(BaseSchemaService baseSchemaService, BaseNl2SqlService baseNl2SqlService,
+	public TableRelationNode(SchemaService schemaService, Nl2SqlService nl2SqlService,
 			BusinessKnowledgeRecallService businessKnowledgeRecallService,
 			SemanticModelRecallService semanticModelRecallService, DatasourceService datasourceService) {
-		this.baseSchemaService = baseSchemaService;
-		this.baseNl2SqlService = baseNl2SqlService;
+		this.schemaService = schemaService;
+		this.nl2SqlService = nl2SqlService;
 		this.businessKnowledgeRecallService = businessKnowledgeRecallService;
 		this.semanticModelRecallService = semanticModelRecallService;
 		this.datasourceService = datasourceService;
@@ -165,8 +167,8 @@ public class TableRelationNode implements NodeAction {
 	private SchemaDTO buildInitialSchema(List<List<Document>> columnDocumentsByKeywords,
 			List<Document> tableDocuments) {
 		SchemaDTO schemaDTO = new SchemaDTO();
-		baseSchemaService.extractDatabaseName(schemaDTO);
-		baseSchemaService.buildSchemaFromDocuments(columnDocumentsByKeywords, tableDocuments, schemaDTO);
+		schemaService.extractDatabaseName(schemaDTO);
+		schemaService.buildSchemaFromDocuments(columnDocumentsByKeywords, tableDocuments, schemaDTO);
 		return schemaDTO;
 	}
 
@@ -263,11 +265,11 @@ public class TableRelationNode implements NodeAction {
 		if (schemaAdvice != null) {
 			logger.info("[{}] Processing with schema supplement advice: {}", this.getClass().getSimpleName(),
 					schemaAdvice);
-			return baseNl2SqlService.fineSelect(schemaDTO, input, evidenceList, schemaAdvice, agentDbConfig);
+			return nl2SqlService.fineSelect(schemaDTO, input, evidenceList, schemaAdvice, agentDbConfig);
 		}
 		else {
 			logger.info("[{}] Executing regular schema selection", this.getClass().getSimpleName());
-			return baseNl2SqlService.fineSelect(schemaDTO, input, evidenceList, null, agentDbConfig);
+			return nl2SqlService.fineSelect(schemaDTO, input, evidenceList, null, agentDbConfig);
 		}
 	}
 

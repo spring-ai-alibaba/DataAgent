@@ -20,13 +20,14 @@ import com.alibaba.cloud.ai.pojo.KeywordExtractionResult;
 import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
-import com.alibaba.cloud.ai.service.base.BaseNl2SqlService;
+import com.alibaba.cloud.ai.service.processing.QueryProcessingService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
@@ -52,14 +53,15 @@ import static com.alibaba.cloud.ai.constant.Constant.RESULT;
  *
  * @author zhangshenghang
  */
+@Component
 public class KeywordExtractNode implements NodeAction {
 
 	private static final Logger logger = LoggerFactory.getLogger(KeywordExtractNode.class);
 
-	private final BaseNl2SqlService baseNl2SqlService;
+	private final QueryProcessingService queryProcessingService;
 
-	public KeywordExtractNode(BaseNl2SqlService baseNl2SqlService) {
-		this.baseNl2SqlService = baseNl2SqlService;
+	public KeywordExtractNode(QueryProcessingService queryProcessingService) {
+		this.queryProcessingService = queryProcessingService;
 	}
 
 	/**
@@ -72,8 +74,8 @@ public class KeywordExtractNode implements NodeAction {
 		return questions.parallelStream().map(question -> {
 			try {
 
-				List<String> evidences = baseNl2SqlService.extractEvidences(question);
-				List<String> keywords = baseNl2SqlService.extractKeywords(question, evidences);
+				List<String> evidences = queryProcessingService.extractEvidences(question);
+				List<String> keywords = queryProcessingService.extractKeywords(question, evidences);
 
 				logger.info("成功从问题变体提取关键词: 问题=\"{}\", 关键词={}", question, keywords);
 				return new KeywordExtractionResult(question, evidences, keywords);
@@ -137,7 +139,7 @@ public class KeywordExtractNode implements NodeAction {
 		try {
 			logger.info("开始增强关键词提取处理...");
 
-			List<String> expandedQuestions = baseNl2SqlService.expandQuestion(input);
+			List<String> expandedQuestions = queryProcessingService.expandQuestion(input);
 			logger.info("问题扩展结果: {}", expandedQuestions);
 
 			List<KeywordExtractionResult> extractionResults = processMultipleQuestions(expandedQuestions);
@@ -207,8 +209,8 @@ public class KeywordExtractNode implements NodeAction {
 	 */
 	private Map<String, Object> fallbackToOriginalProcessing(OverAllState state, String input) throws Exception {
 
-		List<String> evidences = baseNl2SqlService.extractEvidences(input);
-		List<String> keywords = baseNl2SqlService.extractKeywords(input, evidences);
+		List<String> evidences = queryProcessingService.extractEvidences(input);
+		List<String> keywords = queryProcessingService.extractKeywords(input, evidences);
 
 		logger.info("[{}] 原始提取结果 - 证据: {}, 关键词: {}", this.getClass().getSimpleName(), evidences, keywords);
 

@@ -24,7 +24,7 @@ import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.state.StateSnapshot;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.service.simple.SimpleVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleVectorStoreService;
 import com.alibaba.cloud.ai.service.DatasourceService;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.service.AgentService;

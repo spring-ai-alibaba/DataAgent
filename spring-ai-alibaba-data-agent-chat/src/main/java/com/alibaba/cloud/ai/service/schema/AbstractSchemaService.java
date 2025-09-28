@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service.base;
+package com.alibaba.cloud.ai.service.schema;
 
 import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
@@ -21,6 +21,7 @@ import com.alibaba.cloud.ai.request.SearchRequest;
 import com.alibaba.cloud.ai.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dto.schema.TableDTO;
+import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
@@ -44,7 +45,7 @@ import java.util.stream.Collectors;
 /**
  * Schema service base class, providing common method implementations
  */
-public abstract class BaseSchemaService {
+public abstract class AbstractSchemaService implements SchemaService {
 
 	protected final DbConfig dbConfig;
 
@@ -53,22 +54,12 @@ public abstract class BaseSchemaService {
 	/**
 	 * Vector storage service
 	 */
-	protected final BaseVectorStoreService vectorStoreService;
+	protected final VectorStoreService vectorStoreService;
 
-	public BaseSchemaService(DbConfig dbConfig, ObjectMapper objectMapper, BaseVectorStoreService vectorStoreService) {
+	public AbstractSchemaService(DbConfig dbConfig, ObjectMapper objectMapper, VectorStoreService vectorStoreService) {
 		this.dbConfig = dbConfig;
 		this.objectMapper = objectMapper;
 		this.vectorStoreService = vectorStoreService;
-	}
-
-	/**
-	 * Build schema based on RAG
-	 * @param query query
-	 * @param keywords keyword list
-	 * @return SchemaDTO
-	 */
-	public SchemaDTO mixRag(String query, List<String> keywords) {
-		return mixRagForAgent(null, query, keywords);
 	}
 
 	/**
@@ -78,6 +69,7 @@ public abstract class BaseSchemaService {
 	 * @param keywords keyword list
 	 * @return SchemaDTO
 	 */
+	@Override
 	public SchemaDTO mixRagForAgent(String agentId, String query, List<String> keywords) {
 		SchemaDTO schemaDTO = new SchemaDTO();
 		extractDatabaseName(schemaDTO); // Set database name or schema name
@@ -94,6 +86,7 @@ public abstract class BaseSchemaService {
 		return schemaDTO;
 	}
 
+	@Override
 	public void buildSchemaFromDocuments(List<List<Document>> columnDocumentList, List<Document> tableDocuments,
 			SchemaDTO schemaDTO) {
 		// Process column weights and sort by table association
@@ -126,13 +119,6 @@ public abstract class BaseSchemaService {
 	}
 
 	/**
-	 * Get all table documents by keywords
-	 */
-	public List<Document> getTableDocuments(String query) {
-		return getTableDocuments(query, null);
-	}
-
-	/**
 	 * Get all table documents by keywords - supports agent isolation
 	 */
 	public List<Document> getTableDocuments(String query, String agentId) {
@@ -147,15 +133,9 @@ public abstract class BaseSchemaService {
 	/**
 	 * Get all table documents by keywords for specified agent
 	 */
+	@Override
 	public List<Document> getTableDocumentsForAgent(String agentId, String query) {
 		return vectorStoreService.getDocumentsForAgent(agentId, query, "table");
-	}
-
-	/**
-	 * Get all column documents by keywords
-	 */
-	public List<List<Document>> getColumnDocumentsByKeywords(List<String> keywords) {
-		return getColumnDocumentsByKeywords(keywords, null);
 	}
 
 	/**
@@ -175,7 +155,13 @@ public abstract class BaseSchemaService {
 	/**
 	 * Get all column documents by keywords for specified agent
 	 */
+	@Override
 	public List<List<Document>> getColumnDocumentsByKeywordsForAgent(String agentId, List<String> keywords) {
+		if (agentId == null) {
+			return keywords.stream()
+				.map(kw -> vectorStoreService.getDocuments(kw, "column"))
+				.collect(Collectors.toList());
+		}
 		return keywords.stream()
 			.map(kw -> vectorStoreService.getDocumentsForAgent(agentId, kw, "column"))
 			.collect(Collectors.toList());
@@ -398,6 +384,7 @@ public abstract class BaseSchemaService {
 	 * Extract database name
 	 * @param schemaDTO SchemaDTO
 	 */
+	@Override
 	public void extractDatabaseName(SchemaDTO schemaDTO) {
 		String pattern = ":\\d+/([^/?&]+)";
 		if (BizDataSourceTypeEnum.isMysqlDialect(dbConfig.getDialectType())) {

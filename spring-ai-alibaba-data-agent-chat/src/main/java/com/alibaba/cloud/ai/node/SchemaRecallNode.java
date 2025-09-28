@@ -19,7 +19,7 @@ package com.alibaba.cloud.ai.node;
 import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
-import com.alibaba.cloud.ai.service.base.BaseSchemaService;
+import com.alibaba.cloud.ai.service.schema.SchemaService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -49,14 +50,15 @@ import static com.alibaba.cloud.ai.constant.Constant.TABLE_DOCUMENTS_FOR_SCHEMA_
  *
  * @author zhangshenghang
  */
+@Component
 public class SchemaRecallNode implements NodeAction {
 
 	private static final Logger logger = LoggerFactory.getLogger(SchemaRecallNode.class);
 
-	private final BaseSchemaService baseSchemaService;
+	private final SchemaService schemaService;
 
-	public SchemaRecallNode(BaseSchemaService baseSchemaService) {
-		this.baseSchemaService = baseSchemaService;
+	public SchemaRecallNode(SchemaService schemaService) {
+		this.schemaService = schemaService;
 	}
 
 	@Override
@@ -74,13 +76,13 @@ public class SchemaRecallNode implements NodeAction {
 		// If agentId exists, use agent-specific search, otherwise use global search
 		if (agentId != null && !agentId.trim().isEmpty()) {
 			logger.info("Using agent-specific schema recall for agent: {}", agentId);
-			tableDocuments = baseSchemaService.getTableDocumentsForAgent(agentId, input);
-			columnDocumentsByKeywords = baseSchemaService.getColumnDocumentsByKeywordsForAgent(agentId, keywords);
+			tableDocuments = schemaService.getTableDocumentsForAgent(agentId, input);
+			columnDocumentsByKeywords = schemaService.getColumnDocumentsByKeywordsForAgent(agentId, keywords);
 		}
 		else {
 			logger.info("Using global schema recall (no agentId provided)");
-			tableDocuments = baseSchemaService.getTableDocuments(input);
-			columnDocumentsByKeywords = baseSchemaService.getColumnDocumentsByKeywords(keywords);
+			tableDocuments = schemaService.getTableDocuments(input);
+			columnDocumentsByKeywords = schemaService.getColumnDocumentsByKeywords(keywords);
 		}
 
 		logger.info(

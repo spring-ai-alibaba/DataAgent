@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service.simple;
+package com.alibaba.cloud.ai.service.vectorstore;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +22,7 @@ import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Agent Vector Storage Manager Provides independent vector storage instances for each
  * agent, ensuring data isolation
  */
-@Component
+@Service
 public class AgentVectorStoreManager {
 
 	private static final Logger log = LoggerFactory.getLogger(AgentVectorStoreManager.class);

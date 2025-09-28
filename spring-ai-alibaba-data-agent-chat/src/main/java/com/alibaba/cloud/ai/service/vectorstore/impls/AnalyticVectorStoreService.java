@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service.analytic;
 
-import com.alibaba.cloud.ai.annotation.ConditionalOnADBEnabled;
+package com.alibaba.cloud.ai.service.vectorstore.impls;
+
 import com.alibaba.cloud.ai.request.SearchRequest;
-import com.alibaba.cloud.ai.service.base.BaseVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.AbstractVectorStoreService;
 import com.alibaba.cloud.ai.vectorstore.analyticdb.AnalyticDbVectorStoreProperties;
 import com.aliyun.gpdb20160503.Client;
 import com.aliyun.gpdb20160503.models.QueryCollectionDataRequest;
@@ -26,18 +26,13 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Service
-@ConditionalOnADBEnabled
-public class AnalyticVectorStoreService extends BaseVectorStoreService {
+public class AnalyticVectorStoreService extends AbstractVectorStoreService {
 
 	private static final String CONTENT_FIELD_NAME = "content";
 
@@ -45,15 +40,18 @@ public class AnalyticVectorStoreService extends BaseVectorStoreService {
 
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-	@Autowired
-	@Qualifier("dashscopeEmbeddingModel")
-	private EmbeddingModel embeddingModel;
+	private final EmbeddingModel embeddingModel;
 
-	@Autowired
-	private AnalyticDbVectorStoreProperties analyticDbVectorStoreProperties;
+	private final AnalyticDbVectorStoreProperties analyticDbVectorStoreProperties;
 
-	@Autowired
-	private Client client;
+	private final Client client;
+
+	public AnalyticVectorStoreService(AnalyticDbVectorStoreProperties analyticDbVectorStoreProperties,
+			EmbeddingModel embeddingModel, Client client) {
+		this.analyticDbVectorStoreProperties = analyticDbVectorStoreProperties;
+		this.embeddingModel = embeddingModel;
+		this.client = client;
+	}
 
 	@Override
 	protected EmbeddingModel getEmbeddingModel() {

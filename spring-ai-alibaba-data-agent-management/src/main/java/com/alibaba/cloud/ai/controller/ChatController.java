@@ -52,7 +52,7 @@ public class ChatController {
 	private ChatMessageService chatMessageService;
 
 	@Autowired(required = false)
-	private Nl2SqlService nl2SqlService;
+	private OldNl2SqlService nl2SqlService;
 
 	private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 

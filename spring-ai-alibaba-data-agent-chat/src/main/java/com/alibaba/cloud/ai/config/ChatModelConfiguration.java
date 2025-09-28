@@ -60,7 +60,7 @@ import org.springframework.util.StringUtils;
  * @author Spring AI Alibaba Team
  */
 @Configuration
-public class AiConfiguration {
+public class ChatModelConfiguration {
 
 	@Value("${spring.ai.openai.api-key}")
 	private String openAiApiKey;

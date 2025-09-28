@@ -36,6 +36,7 @@ import static com.alibaba.cloud.ai.constant.Constant.PLANNER_NODE_OUTPUT;
  *
  * @author zhangshenghang
  */
+// todo: 改为工具类，注入到Node实现类中
 public abstract class AbstractPlanBasedNode implements NodeAction {
 
 	private static final Logger logger = LoggerFactory.getLogger(AbstractPlanBasedNode.class);

@@ -21,6 +21,7 @@ import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.util.StateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
@@ -33,6 +34,7 @@ import static com.alibaba.cloud.ai.constant.Constant.*;
  *
  * @author Makoto
  */
+@Component
 public class HumanFeedbackNode implements NodeAction {
 
 	private static final Logger logger = LoggerFactory.getLogger(HumanFeedbackNode.class);

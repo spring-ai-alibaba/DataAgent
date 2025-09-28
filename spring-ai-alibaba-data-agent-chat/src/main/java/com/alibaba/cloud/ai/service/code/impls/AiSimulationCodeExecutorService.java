@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.service.code.impl;
+package com.alibaba.cloud.ai.service.code.impls;
 
 import com.alibaba.cloud.ai.service.code.CodePoolExecutorService;
 import org.slf4j.Logger;

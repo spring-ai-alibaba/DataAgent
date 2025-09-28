@@ -23,6 +23,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
+import com.alibaba.cloud.ai.service.LlmService;
 import com.alibaba.cloud.ai.util.MarkdownParserUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
@@ -30,8 +31,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -51,6 +52,7 @@ import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
  * @author vlsmb
  * @since 2025/7/30
  */
+@Component
 public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAction {
 
 	private static final Logger log = LoggerFactory.getLogger(PythonGenerateNode.class);
@@ -63,12 +65,12 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 
 	private final CodeExecutorProperties codeExecutorProperties;
 
-	private final ChatClient chatClient;
+	private final LlmService llmService;
 
-	public PythonGenerateNode(CodeExecutorProperties codeExecutorProperties, ChatClient.Builder chatClientBuilder) {
+	public PythonGenerateNode(CodeExecutorProperties codeExecutorProperties, LlmService llmService) {
 		super();
 		this.codeExecutorProperties = codeExecutorProperties;
-		this.chatClient = chatClientBuilder.build();
+		this.llmService = llmService;
 		this.objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 	}
 
@@ -113,11 +115,7 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 					objectMapper.writeValueAsString(sqlResults.stream().limit(SAMPLE_DATA_NUMBER).toList()),
 					"plan_description", objectMapper.writeValueAsString(toolParameters)));
 
-		Flux<ChatResponse> pythonGenerateFlux = chatClient.prompt()
-			.system(systemPrompt)
-			.user(userPrompt)
-			.stream()
-			.chatResponse();
+		Flux<ChatResponse> pythonGenerateFlux = llmService.streamCallWithSystemPrompt(systemPrompt, userPrompt);
 
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state, "", "",
 				aiResponse -> {

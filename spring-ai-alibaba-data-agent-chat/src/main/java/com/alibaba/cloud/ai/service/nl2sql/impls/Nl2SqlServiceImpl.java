@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service.base;
+package com.alibaba.cloud.ai.service.nl2sql.impls;
 
-import com.alibaba.cloud.ai.util.MdTableGeneratorUtil;
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.ResultSetBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
@@ -26,18 +26,17 @@ import com.alibaba.cloud.ai.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.LlmService;
 
+import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.util.MarkdownParserUtil;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.alibaba.cloud.ai.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.document.Document;
+import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -45,284 +44,37 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.alibaba.cloud.ai.constant.Constant.INTENT_UNCLEAR;
-import static com.alibaba.cloud.ai.constant.Constant.SMALL_TALK_REJECT;
-import static com.alibaba.cloud.ai.prompt.PromptConstant.getQuestionExpansionPromptTemplate;
 import static com.alibaba.cloud.ai.prompt.PromptHelper.buildMixMacSqlDbPrompt;
 import static com.alibaba.cloud.ai.prompt.PromptHelper.buildMixSelectorPrompt;
 
-public class BaseNl2SqlService {
+@Service
+public class Nl2SqlServiceImpl implements Nl2SqlService {
 
-	private static final Logger logger = LoggerFactory.getLogger(BaseNl2SqlService.class);
-
-	protected final BaseVectorStoreService vectorStoreService;
-
-	protected final BaseSchemaService schemaService;
+	private static final Logger logger = LoggerFactory.getLogger(Nl2SqlServiceImpl.class);
 
 	public final LlmService aiService;
 
+	// todo: Accessor应根据数据源动态获取
 	protected final Accessor dbAccessor;
 
 	protected final DbConfig dbConfig;
 
-	public BaseNl2SqlService(BaseVectorStoreService vectorStoreService, BaseSchemaService schemaService,
-			LlmService aiService, Accessor dbAccessor, DbConfig dbConfig) {
-		logger.info(
-				"Initializing BaseNl2SqlService with components: vectorStoreService={}, schemaService={}, aiService={}, dbAccessor={}, dbConfig={}",
-				vectorStoreService.getClass().getSimpleName(), schemaService.getClass().getSimpleName(),
-				aiService.getClass().getSimpleName(), dbAccessor.getClass().getSimpleName(),
-				dbConfig != null ? dbConfig.getClass().getSimpleName() : "null");
-		this.vectorStoreService = vectorStoreService;
-		this.schemaService = schemaService;
+	public Nl2SqlServiceImpl(LlmService aiService, AccessorFactory accessorFactory, DbConfig dbConfig) {
 		this.aiService = aiService;
-		this.dbAccessor = dbAccessor;
+		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 		this.dbConfig = dbConfig;
-		logger.info("BaseNl2SqlService initialized successfully");
 	}
 
-	public Flux<ChatResponse> rewriteStream(String query) throws Exception {
-		return rewriteStream(query, null);
-	}
-
-	public Flux<ChatResponse> rewriteStream(String query, String agentId) throws Exception {
-		logger.info("Starting rewriteStream for query: {} with agentId: {}", query, agentId);
-
-		// 处理时间表达式 - 将相对时间转换为具体时间
-		String timeRewrittenQuery = processTimeExpressions(query);
-		logger.debug("Time rewritten query: {} -> {}", query, timeRewrittenQuery);
-
-		List<String> evidences = extractEvidences(timeRewrittenQuery, agentId);
-		logger.debug("Extracted {} evidences for rewriteStream", evidences.size());
-		SchemaDTO schemaDTO = select(timeRewrittenQuery, evidences, agentId);
-		String prompt = PromptHelper.buildRewritePrompt(timeRewrittenQuery, schemaDTO, evidences);
-		logger.debug("Built rewrite prompt for streaming");
-		Flux<ChatResponse> result = aiService.streamCall(prompt);
-		logger.info("RewriteStream completed for query: {}", query);
-		return result;
-	}
-
-	public String rewrite(String query) throws Exception {
-		logger.info("Starting rewrite for query: {}", query);
-
-		// 处理时间表达式 - 将相对时间转换为具体时间
-		String timeRewrittenQuery = processTimeExpressions(query);
-		logger.debug("Time rewritten query: {} -> {}", query, timeRewrittenQuery);
-
-		List<String> evidences = extractEvidences(timeRewrittenQuery);
-		logger.debug("Extracted {} evidences for rewrite", evidences.size());
-		SchemaDTO schemaDTO = select(timeRewrittenQuery, evidences);
-		String prompt = PromptHelper.buildRewritePrompt(timeRewrittenQuery, schemaDTO, evidences);
-		logger.debug("Built rewrite prompt, calling LLM");
-		String responseContent = aiService.call(prompt);
-		String[] splits = responseContent.split("\n");
-		logger.debug("Processing LLM response with {} lines", splits.length);
-		for (String line : splits) {
-			if (line.startsWith("需求类型：")) {
-				String content = line.substring(5).trim();
-				logger.debug("Detected request type: {}", content);
-				if ("《自由闲聊》".equals(content)) {
-					logger.info("Rewrite result: SMALL_TALK_REJECT for query: {}", query);
-					return SMALL_TALK_REJECT;
-				}
-				else if ("《需要澄清》".equals(content)) {
-					logger.info("Rewrite result: INTENT_UNCLEAR for query: {}", query);
-					return INTENT_UNCLEAR;
-				}
-			}
-			else if (line.startsWith("需求内容：")) {
-				query = line.substring(5);
-				logger.debug("Extracted rewritten query: {}", query);
-			}
-		}
-		logger.info("Rewrite completed successfully for query: {}", query);
-		return query;
-	}
-
-	/**
-	 * 处理查询中的时间表达式，将相对时间转换为具体时间
-	 * @param query 原始查询
-	 * @return 处理后的查询
-	 */
-	public String processTimeExpressions(String query) {
-		try {
-			logger.debug("Processing time expressions in query: {}", query);
-
-			// 使用统一管理的提示词构建时间转换提示
-			String timeConversionPrompt = PromptHelper.buildTimeConversionPrompt(query);
-
-			// 调用模型进行时间转换
-			String convertedQuery = aiService.call(timeConversionPrompt);
-
-			if (!convertedQuery.equals(query)) {
-				logger.info("Time expression conversion: {} -> {}", query, convertedQuery);
-			}
-			else {
-				logger.debug("No time expressions found or converted in query: {}", query);
-			}
-
-			return convertedQuery;
-
-		}
-		catch (Exception e) {
-			logger.warn("Failed to process time expressions using AI, using original query: {}", e.getMessage());
-			return query;
-		}
-	}
-
-	public String nl2sql(String query) throws Exception {
-		logger.info("Starting nl2sql conversion for query: {}", query);
-		List<String> evidences = extractEvidences(query);
-		logger.debug("Extracted {} evidences for nl2sql", evidences.size());
-		SchemaDTO schemaDTO = select(query, evidences);
-		String sql = generateSql(evidences, query, schemaDTO);
-		logger.info("Nl2sql conversion completed. Generated SQL: {}", sql);
-		return sql;
-	}
-
-	public String executeSql(String sql) throws Exception {
-		logger.info("Executing SQL: {}", sql);
-		try {
-			DbQueryParameter param = DbQueryParameter.from(dbConfig).setSql(sql);
-			logger.debug("Created DbQueryParameter for SQL execution");
-			ResultSetBO resultSet = dbAccessor.executeSqlAndReturnObject(dbConfig, param);
-			logger.debug("SQL executed successfully, generating table format");
-			String result = MdTableGeneratorUtil.generateTable(resultSet);
-			logger.info("SQL execution completed successfully, result rows: {}",
-					resultSet.getData() != null ? resultSet.getData().size() : 0);
-			return result;
-		}
-		catch (Exception e) {
-			logger.error("Failed to execute SQL: {}", sql, e);
-			throw e;
-		}
-	}
-
-	@Deprecated
-	public String semanticConsistency(String sql, String queryPrompt) throws Exception {
-		String semanticConsistencyPrompt = PromptHelper.buildSemanticConsistenPrompt(queryPrompt, sql);
-		String call = aiService.call(semanticConsistencyPrompt);
-		return call;
-	}
-
-	public Flux<ChatResponse> semanticConsistencyStream(String sql, String queryPrompt) throws Exception {
+	@Override
+	public Flux<ChatResponse> semanticConsistencyStream(String sql, String queryPrompt) {
 		String semanticConsistencyPrompt = PromptHelper.buildSemanticConsistenPrompt(queryPrompt, sql);
 		logger.info("semanticConsistencyPrompt = {}", semanticConsistencyPrompt);
 		return aiService.streamCall(semanticConsistencyPrompt);
 	}
 
-	/**
-	 * Expand question into multiple differently expressed question variants
-	 * @param query original question
-	 * @return list containing original question and expanded questions
-	 */
-	public List<String> expandQuestion(String query) {
-		logger.info("Starting question expansion for query: {}", query);
-		try {
-			// Build question expansion prompt
-			Map<String, Object> params = new HashMap<>();
-			params.put("question", query);
-			String prompt = getQuestionExpansionPromptTemplate().render(params);
-
-			// Call LLM to get expanded questions
-			logger.debug("Calling LLM for question expansion");
-			String content = aiService.call(prompt);
-
-			// Parse JSON response
-			List<String> expandedQuestions = JsonUtil.getObjectMapper()
-				.readValue(content, new TypeReference<List<String>>() {
-				});
-
-			if (expandedQuestions == null || expandedQuestions.isEmpty()) {
-				logger.warn("No expanded questions generated, returning original query");
-				return Collections.singletonList(query);
-			}
-
-			logger.info("Question expansion completed successfully: {} questions generated", expandedQuestions.size());
-			logger.debug("Expanded questions: {}", expandedQuestions);
-			return expandedQuestions;
-		}
-		catch (Exception e) {
-			logger.warn("Question expansion failed, returning original query: {}", e.getMessage());
-			return Collections.singletonList(query);
-		}
-	}
-
-	/**
-	 * Extract evidence
-	 */
-	public List<String> extractEvidences(String query) {
-		return extractEvidences(query, null);
-	}
-
-	/**
-	 * Extract evidence - supports agent isolation
-	 */
-	public List<String> extractEvidences(String query, String agentId) {
-		logger.debug("Extracting evidences for query: {} with agentId: {}", query, agentId);
-		List<Document> evidenceDocuments;
-		if (agentId != null && !agentId.trim().isEmpty()) {
-			evidenceDocuments = vectorStoreService.getDocumentsForAgent(agentId, query, "evidence");
-		}
-		else {
-			evidenceDocuments = vectorStoreService.getDocuments(query, "evidence");
-		}
-		List<String> evidences = evidenceDocuments.stream().map(Document::getText).collect(Collectors.toList());
-		logger.debug("Extracted {} evidences: {}", evidences.size(), evidences);
-		return evidences;
-	}
-
-	public List<String> extractKeywords(String query, List<String> evidenceList) throws JsonProcessingException {
-		logger.debug("Extracting keywords from query: {} with {} evidences", query, evidenceList.size());
-		StringBuilder queryBuilder = new StringBuilder(query);
-		for (String evidence : evidenceList) {
-			queryBuilder.append(evidence).append("。");
-		}
-		query = queryBuilder.toString();
-
-		String prompt = PromptHelper.buildQueryToKeywordsPrompt(query);
-		logger.debug("Calling LLM for keyword extraction");
-		String content = aiService.call(prompt);
-
-		List<String> keywords = JsonUtil.getObjectMapper().readValue(content, new TypeReference<List<String>>() {
-		});
-		logger.debug("Extracted {} keywords: {}", keywords != null ? keywords.size() : 0, keywords);
-		return keywords;
-	}
-
-	public SchemaDTO select(String query, List<String> evidenceList) throws Exception {
-		return select(query, evidenceList, null);
-	}
-
-	public SchemaDTO select(String query, List<String> evidenceList, String agentId) throws Exception {
-		logger.debug("Starting schema selection for query: {} with {} evidences and agentId: {}", query,
-				evidenceList.size(), agentId);
-		List<String> keywords = extractKeywords(query, evidenceList);
-		logger.debug("Using {} keywords for schema selection", keywords != null ? keywords.size() : 0);
-		SchemaDTO schemaDTO;
-		if (agentId != null) {
-			schemaDTO = schemaService.mixRagForAgent(agentId, query, keywords);
-		}
-		else {
-			schemaDTO = schemaService.mixRag(query, keywords);
-		}
-		logger.debug("Retrieved schema with {} tables", schemaDTO.getTable() != null ? schemaDTO.getTable().size() : 0);
-		SchemaDTO result = fineSelect(schemaDTO, query, evidenceList);
-		logger.debug("Fine selection completed, final schema has {} tables",
-				result.getTable() != null ? result.getTable().size() : 0);
-		return result;
-	}
-
-	public String isRecallInfoSatisfyRequirement(String query, SchemaDTO schemaDTO, List<String> evidenceList) {
-		logger.debug("Checking if recall info satisfies requirement for query: {}", query);
-		String prompt = PromptHelper.mixSqlGeneratorSystemCheckPrompt(query, dbConfig, schemaDTO, evidenceList);
-		logger.debug("Calling LLM for requirement satisfaction check");
-		String result = aiService.call(prompt);
-		logger.debug("Requirement satisfaction check result: {}", result);
-		return result;
-	}
-
+	@Override
 	public String generateSql(List<String> evidenceList, String query, SchemaDTO schemaDTO, String sql,
-			String exceptionMessage) throws Exception {
+			String exceptionMessage) {
 		logger.info("Generating SQL for query: {}, hasExistingSql: {}", query, sql != null && !sql.isEmpty());
 
 		// 时间处理已经在查询重写阶段完成，这里不再需要处理
@@ -350,11 +102,7 @@ public class BaseNl2SqlService {
 		return result;
 	}
 
-	public String generateSql(List<String> evidenceList, String query, SchemaDTO schemaDTO) throws Exception {
-		return generateSql(evidenceList, query, schemaDTO, null, null);
-	}
-
-	public Set<String> fineSelect(SchemaDTO schemaDTO, String sqlGenerateSchemaMissingAdvice) {
+	private Set<String> fineSelect(SchemaDTO schemaDTO, String sqlGenerateSchemaMissingAdvice) {
 		logger.debug("Fine selecting tables based on advice: {}", sqlGenerateSchemaMissingAdvice);
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		String prompt = " 建议：" + sqlGenerateSchemaMissingAdvice
@@ -382,15 +130,7 @@ public class BaseNl2SqlService {
 		return new HashSet<>();
 	}
 
-	public SchemaDTO fineSelect(SchemaDTO schemaDTO, String query, List<String> evidenceList) {
-		return fineSelect(schemaDTO, query, evidenceList, null);
-	}
-
-	public SchemaDTO fineSelect(SchemaDTO schemaDTO, String query, List<String> evidenceList,
-			String sqlGenerateSchemaMissingAdvice) {
-		return fineSelect(schemaDTO, query, evidenceList, sqlGenerateSchemaMissingAdvice, null);
-	}
-
+	@Override
 	public SchemaDTO fineSelect(SchemaDTO schemaDTO, String query, List<String> evidenceList,
 			String sqlGenerateSchemaMissingAdvice, DbConfig specificDbConfig) {
 		logger.debug("Fine selecting schema for query: {} with {} evidences and specificDbConfig: {}", query,

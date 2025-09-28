@@ -35,6 +35,7 @@ import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
@@ -53,6 +54,7 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
  *
  * @author zhangshenghang
  */
+@Component
 public class SqlExecuteNode extends AbstractPlanBasedNode {
 
 	private static final Logger logger = LoggerFactory.getLogger(SqlExecuteNode.class);
