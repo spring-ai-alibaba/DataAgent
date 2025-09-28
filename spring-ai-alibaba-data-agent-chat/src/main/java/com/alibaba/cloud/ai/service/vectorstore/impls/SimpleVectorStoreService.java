@@ -369,6 +369,7 @@ public class SimpleVectorStoreService extends AbstractVectorStoreService {
 	 * @param schemaInitRequest schema initialization request
 	 * @throws Exception if an error occurs
 	 */
+	@Override
 	public Boolean schemaForAgent(String agentId, SchemaInitRequest schemaInitRequest) throws Exception {
 		log.info("Starting schema initialization for agent: {}, database: {}, schema: {}, tables: {}", agentId,
 				schemaInitRequest.getDbConfig().getUrl(), schemaInitRequest.getDbConfig().getSchema(),
@@ -526,6 +527,7 @@ public class SimpleVectorStoreService extends AbstractVectorStoreService {
 	/**
 	 * Get agent vector storage manager (for other services to use)
 	 */
+	@Override
 	public AgentVectorStoreManager getAgentVectorStoreManager() {
 		return agentVectorStoreManager;
 	}

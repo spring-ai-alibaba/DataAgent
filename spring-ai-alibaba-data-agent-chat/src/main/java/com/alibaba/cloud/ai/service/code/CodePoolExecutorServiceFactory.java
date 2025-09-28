@@ -22,7 +22,6 @@ import com.alibaba.cloud.ai.service.code.impls.DockerCodePoolExecutorService;
 import com.alibaba.cloud.ai.service.code.impls.LocalCodePoolExecutorService;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.FactoryBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 
 /**
@@ -32,7 +31,6 @@ import org.springframework.stereotype.Component;
  * @since 2025/7/28
  */
 @Component
-@ConditionalOnMissingBean(CodePoolExecutorService.class)
 public class CodePoolExecutorServiceFactory implements FactoryBean<CodePoolExecutorService> {
 
 	private final CodeExecutorProperties properties;

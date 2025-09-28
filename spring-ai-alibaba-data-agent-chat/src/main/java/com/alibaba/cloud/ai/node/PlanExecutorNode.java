@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.alibaba.cloud.ai.constant.Constant.HUMAN_FEEDBACK_NODE;
 import static com.alibaba.cloud.ai.constant.Constant.IS_ONLY_NL2SQL;
 import static com.alibaba.cloud.ai.constant.Constant.HUMAN_REVIEW_ENABLED;
 import static com.alibaba.cloud.ai.constant.Constant.ONLY_NL2SQL_OUTPUT;
@@ -113,7 +114,7 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 		Boolean humanReviewEnabled = state.value(HUMAN_REVIEW_ENABLED, false);
 		if (Boolean.TRUE.equals(humanReviewEnabled)) {
 			logger.info("Human review enabled: routing to human_feedback node");
-			return Map.of(PLAN_VALIDATION_STATUS, true, PLAN_NEXT_NODE, "human_feedback");
+			return Map.of(PLAN_VALIDATION_STATUS, true, PLAN_NEXT_NODE, HUMAN_FEEDBACK_NODE);
 		}
 
 		Plan plan = getPlan(state);
@@ -149,7 +150,7 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 			logger.info("Determined next execution node: {}", toolToUse);
 			return Map.of(PLAN_NEXT_NODE, toolToUse, PLAN_VALIDATION_STATUS, true);
 		}
-		else if ("human_feedback".equals(toolToUse)) {
+		else if (HUMAN_FEEDBACK_NODE.equals(toolToUse)) {
 			logger.info("Determined next execution node: {}", toolToUse);
 			return Map.of(PLAN_NEXT_NODE, toolToUse, PLAN_VALIDATION_STATUS, true);
 		}

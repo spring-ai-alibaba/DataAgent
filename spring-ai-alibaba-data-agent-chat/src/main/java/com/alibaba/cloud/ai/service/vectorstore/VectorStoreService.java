@@ -1,5 +1,6 @@
 package com.alibaba.cloud.ai.service.vectorstore;
 
+import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.request.SearchRequest;
 import org.springframework.ai.document.Document;
 
@@ -32,6 +33,18 @@ public interface VectorStoreService {
 	default List<Document> getDocumentsForAgent(String agentId, String query, String vectorType) {
 		// Default implementation: if subclass doesn't override, use global search
 		return getDocuments(query, vectorType);
+	}
+
+	default AgentVectorStoreManager getAgentVectorStoreManager() {
+		throw new UnsupportedOperationException("Not implemented.");
+	}
+
+	default Boolean schemaForAgent(String agentId, SchemaInitRequest schemaInitRequest) throws Exception {
+		throw new UnsupportedOperationException("Not implemented.");
+	}
+
+	default Boolean schema(SchemaInitRequest schemaInitRequest) throws Exception {
+		throw new UnsupportedOperationException("Not implemented.");
 	}
 
 }

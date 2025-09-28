@@ -87,6 +87,7 @@ public class ChatModelConfiguration {
 	private String openAiCompletionsPath;
 
 	@Bean
+	@Primary
 	public ChatModel chatModel() {
 		OpenAiApi openAiApi = OpenAiApi.builder().apiKey(openAiApiKey).baseUrl(baseUrl).build();
 		OpenAiChatOptions openAiChatOptions = OpenAiChatOptions.builder().model(model).temperature(0.7).build();

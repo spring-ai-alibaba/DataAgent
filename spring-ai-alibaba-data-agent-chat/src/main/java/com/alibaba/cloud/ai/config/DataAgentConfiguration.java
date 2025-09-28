@@ -29,6 +29,7 @@ import com.alibaba.cloud.ai.node.SqlExecuteNode;
 import com.alibaba.cloud.ai.node.SqlGenerateNode;
 import com.alibaba.cloud.ai.node.TableRelationNode;
 import com.alibaba.cloud.ai.util.NodeBeanUtil;
+import com.alibaba.cloud.ai.vectorstore.analyticdb.AnalyticDbVectorStoreProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -106,7 +107,7 @@ import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
  * @since 2025/9/28
  */
 @Configuration
-@EnableConfigurationProperties(CodeExecutorProperties.class)
+@EnableConfigurationProperties({ CodeExecutorProperties.class, AnalyticDbVectorStoreProperties.class })
 public class DataAgentConfiguration {
 
 	private static final Logger logger = LoggerFactory.getLogger(DataAgentConfiguration.class);

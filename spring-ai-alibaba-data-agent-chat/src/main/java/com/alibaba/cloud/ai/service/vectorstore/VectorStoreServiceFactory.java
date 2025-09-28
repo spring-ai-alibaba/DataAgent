@@ -9,11 +9,9 @@ import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnMissingBean(VectorStoreService.class)
 public class VectorStoreServiceFactory implements FactoryBean<VectorStoreService> {
 
 	// todo: 改为枚举，由用户配置决定实现类
@@ -23,10 +21,10 @@ public class VectorStoreServiceFactory implements FactoryBean<VectorStoreService
 	@Autowired
 	private EmbeddingModel embeddingModel;
 
-	@Autowired
+	@Autowired(required = false)
 	private AnalyticDbVectorStoreProperties analyticDbVectorStoreProperties;
 
-	@Autowired
+	@Autowired(required = false)
 	private Client client;
 
 	@Autowired

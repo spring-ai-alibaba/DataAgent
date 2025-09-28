@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2024-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +24,7 @@ import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.state.StateSnapshot;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
 import com.alibaba.cloud.ai.service.DatasourceService;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.service.AgentService;
@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.alibaba.cloud.ai.constant.Constant.AGENT_ID;
+import static com.alibaba.cloud.ai.constant.Constant.HUMAN_FEEDBACK_NODE;
 import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
 import static com.alibaba.cloud.ai.constant.Constant.RESULT;
 import static com.alibaba.cloud.ai.constant.Constant.HUMAN_REVIEW_ENABLED;
@@ -65,7 +66,7 @@ public class Nl2sqlForGraphController {
 
 	private final CompiledGraph compiledGraph;
 
-	private final SimpleVectorStoreService simpleVectorStoreService;
+	private final VectorStoreService vectorStoreService;
 
 	private final DatasourceService datasourceService;
 
@@ -74,11 +75,11 @@ public class Nl2sqlForGraphController {
 	private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 
 	public Nl2sqlForGraphController(@Qualifier("nl2sqlGraph") StateGraph stateGraph,
-			SimpleVectorStoreService simpleVectorStoreService, DatasourceService datasourceService,
-			AgentService agentService) throws GraphStateException {
-		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore("human_feedback").build());
+			VectorStoreService vectorStoreService, DatasourceService datasourceService, AgentService agentService)
+			throws GraphStateException {
+		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
 		this.compiledGraph.setMaxIterations(100);
-		this.simpleVectorStoreService = simpleVectorStoreService;
+		this.vectorStoreService = vectorStoreService;
 		this.datasourceService = datasourceService;
 		this.agentService = agentService;
 	}
@@ -96,7 +97,7 @@ public class Nl2sqlForGraphController {
 		schemaInitRequest.setDbConfig(dbConfig);
 		schemaInitRequest
 			.setTables(Arrays.asList("categories", "order_items", "orders", "products", "users", "product_categories"));
-		simpleVectorStoreService.schema(schemaInitRequest);
+		vectorStoreService.schema(schemaInitRequest);
 
 		boolean humanReviewEnabled = false;
 		try {
@@ -125,7 +126,7 @@ public class Nl2sqlForGraphController {
 		schemaInitRequest.setDbConfig(dbConfig);
 		schemaInitRequest
 			.setTables(Arrays.asList("categories", "order_items", "orders", "products", "users", "product_categories"));
-		simpleVectorStoreService.schema(schemaInitRequest);
+		vectorStoreService.schema(schemaInitRequest);
 	}
 
 	/**

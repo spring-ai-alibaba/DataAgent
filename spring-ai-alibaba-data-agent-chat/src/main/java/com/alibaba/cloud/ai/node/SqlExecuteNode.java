@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.ResultSetBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
@@ -59,15 +60,16 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 
 	private static final Logger logger = LoggerFactory.getLogger(SqlExecuteNode.class);
 
+	// todo: 根据数据库配置动态获取Accessor
 	private final Accessor dbAccessor;
 
 	private final DatasourceService datasourceService;
 
 	private final DbConfig dbConfig;
 
-	public SqlExecuteNode(Accessor dbAccessor, DatasourceService datasourceService, DbConfig dbConfig) {
+	public SqlExecuteNode(AccessorFactory accessorFactory, DatasourceService datasourceService, DbConfig dbConfig) {
 		super();
-		this.dbAccessor = dbAccessor;
+		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 		this.datasourceService = datasourceService;
 		this.dbConfig = dbConfig;
 	}

@@ -27,6 +27,7 @@ import java.util.List;
  *
  * @author Alibaba Cloud AI
  */
+@Mapper
 public interface AgentPresetQuestionMapper extends BaseMapper<AgentPresetQuestion> {
 
 	@Select("""

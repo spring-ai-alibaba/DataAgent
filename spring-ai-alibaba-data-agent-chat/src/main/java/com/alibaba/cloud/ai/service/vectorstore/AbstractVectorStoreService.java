@@ -15,7 +15,6 @@
  */
 package com.alibaba.cloud.ai.service.vectorstore;
 
-import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.request.SearchRequest;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -37,10 +36,6 @@ public abstract class AbstractVectorStoreService implements VectorStoreService {
 	 */
 	public List<Double> embedDouble(String text) {
 		return convertToDoubleList(getEmbeddingModel().embed(text));
-	}
-
-	public Boolean schema(SchemaInitRequest schemaInitRequest) throws Exception {
-		throw new UnsupportedOperationException("Not implemented.");
 	}
 
 	/**

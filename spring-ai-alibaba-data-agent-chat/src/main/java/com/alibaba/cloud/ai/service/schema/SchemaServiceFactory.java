@@ -8,11 +8,9 @@ import com.alibaba.cloud.ai.util.JsonUtil;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnMissingBean(SchemaService.class)
 public class SchemaServiceFactory implements FactoryBean<SchemaService> {
 
 	// todo: 改为枚举，由用户配置决定实现类

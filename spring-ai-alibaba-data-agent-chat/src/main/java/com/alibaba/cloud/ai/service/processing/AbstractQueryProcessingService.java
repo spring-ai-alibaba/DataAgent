@@ -28,12 +28,6 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 
 	private final LlmService aiService;
 
-	private final VectorStoreService vectorStoreService = getVectorStoreService();
-
-	private final SchemaService schemaService = getSchemaService();
-
-	private final Nl2SqlService nl2SqlService = getNl2SqlService();
-
 	public AbstractQueryProcessingService(LlmService aiService) {
 		this.aiService = aiService;
 	}
@@ -49,10 +43,10 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 		logger.debug("Extracting evidences for query: {} with agentId: {}", query, agentId);
 		List<Document> evidenceDocuments;
 		if (agentId != null && !agentId.trim().isEmpty()) {
-			evidenceDocuments = vectorStoreService.getDocumentsForAgent(agentId, query, "evidence");
+			evidenceDocuments = getVectorStoreService().getDocumentsForAgent(agentId, query, "evidence");
 		}
 		else {
-			evidenceDocuments = vectorStoreService.getDocuments(query, "evidence");
+			evidenceDocuments = getVectorStoreService().getDocuments(query, "evidence");
 		}
 		List<String> evidences = evidenceDocuments.stream().map(Document::getText).collect(Collectors.toList());
 		logger.debug("Extracted {} evidences: {}", evidences.size(), evidences);
@@ -172,10 +166,10 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 		logger.debug("Using {} keywords for schema selection", keywords != null ? keywords.size() : 0);
 		SchemaDTO schemaDTO;
 		if (agentId != null) {
-			schemaDTO = schemaService.mixRagForAgent(agentId, query, keywords);
+			schemaDTO = getSchemaService().mixRagForAgent(agentId, query, keywords);
 		}
 		else {
-			schemaDTO = schemaService.mixRag(query, keywords);
+			schemaDTO = getSchemaService().mixRag(query, keywords);
 		}
 		logger.debug("Retrieved schema with {} tables", schemaDTO.getTable() != null ? schemaDTO.getTable().size() : 0);
 		SchemaDTO result = fineSelect(schemaDTO, query, evidenceList);
@@ -185,7 +179,7 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 	}
 
 	private SchemaDTO fineSelect(SchemaDTO schemaDTO, String query, List<String> evidenceList) {
-		return nl2SqlService.fineSelect(schemaDTO, query, evidenceList, null, null);
+		return getNl2SqlService().fineSelect(schemaDTO, query, evidenceList, null, null);
 	}
 
 }

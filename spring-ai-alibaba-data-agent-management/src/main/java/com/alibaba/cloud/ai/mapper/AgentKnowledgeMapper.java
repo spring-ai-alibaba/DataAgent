@@ -28,6 +28,7 @@ import java.util.List;
  *
  * @author Alibaba Cloud AI
  */
+@Mapper
 public interface AgentKnowledgeMapper extends BaseMapper<AgentKnowledge> {
 
 	@Select("SELECT * FROM agent_knowledge WHERE agent_id = #{agentId} ORDER BY create_time DESC")
