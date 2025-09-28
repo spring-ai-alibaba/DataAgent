@@ -14,7 +14,8 @@
  * limitations under the License.
 -->
 <template>
-  <div class="agent-run-page" :class="{ 'with-preview': showReportPreview }">
+  <BaseLayout>
+    <div class="agent-run-page" :class="{ 'with-preview': showReportPreview }">
 
 
     <!-- 主要聊天区域 -->
@@ -307,12 +308,14 @@
       </div>
     </div>
   </div>
+  </BaseLayout>
 </template>
 
 <script>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { presetQuestionApi } from '../utils/api.js'
+import BaseLayout from '../layouts/BaseLayout.vue'
+import { presetQuestionApi } from '../services/api.js'
 
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
@@ -327,6 +330,9 @@ hljs.registerLanguage('json', json);
 
 export default {
   name: 'AgentRun',
+  components: {
+    BaseLayout
+  },
   setup() {
     const route = useRoute()
     const router = useRouter()

@@ -14,61 +14,51 @@
  * limitations under the License.
  */
 
-const PROFESSIONAL_STYLES = [
-  'avataaars',
-  'adventurer-neutral',
-  'big-ears-neutral',
-  'lorelei-neutral',
-  'personas',
-  'micah',
-  'initials'
-]
-
-// 现代配色方案
-const MODERN_COLORS = [
-  'blue', 'indigo', 'purple', 'teal', 'green', 
-  'amber', 'orange', 'red', 'pink', 'gray'
-]
+/**
+ * 头像生成工具
+ */
 
 /**
- * 生成随机专业头像
- * @param {string} seed - 种子值，用于确保相同输入产生相同头像
+ * 生成专业头像
+ * @param {string} seed 种子字符串
  * @returns {string} 头像URL
  */
 export function generateProfessionalAvatar(seed = null) {
-  const actualSeed = seed || Math.random().toString(36).substring(2, 15)
+  const seedStr = seed || Math.random().toString(36).substring(7)
+  const hash = hashString(seedStr)
   
-  // 基于种子选择风格和颜色，确保一致性
-  const styleIndex = hashString(actualSeed) % PROFESSIONAL_STYLES.length
-  const colorIndex = hashString(actualSeed + 'color') % MODERN_COLORS.length
+  // 使用hash生成一致的样式
+  const bgColors = [
+    '#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', 
+    '#f59e0b', '#ef4444', '#84cc16', '#f97316'
+  ]
+  const bgColor = bgColors[hash % bgColors.length]
   
-  const style = PROFESSIONAL_STYLES[styleIndex]
-  const color = MODERN_COLORS[colorIndex]
+  // 生成SVG头像
+  const svg = `
+    <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100" height="100" fill="${bgColor}" rx="50"/>
+      <text x="50" y="60" font-family="Arial, sans-serif" font-size="40" 
+            font-weight="bold" text-anchor="middle" fill="white">
+        ${seedStr.charAt(0).toUpperCase()}
+      </text>
+    </svg>
+  `
   
-  // 为不同风格设置不同的参数以确保专业外观
-  let styleParams = ''
-  if (style === 'avataaars') {
-    styleParams = '&accessories=prescription02,round,sunglasses,wayfarers&accessoriesColor=black,blue,brown,gray&clothingColor=blue,gray,heather,pastel&eyebrowType=default,raised&eyeType=default,happy,squint&facialHairType=blank,light&hairColor=auburn,black,blonde,brown,gray,red&hatColor=black,blue,gray,heather,pastel&mouthType=default,smile&skinColor=light,yellow,pale,dark'
-  } else if (style === 'initials') {
-    styleParams = `&backgroundColor=${color}&fontSize=50&fontWeight=600&textColor=white`
-  } else {
-    styleParams = `&backgroundColor=${color}`
-  }
-  
-  return `https://api.dicebear.com/7.x/${style}/svg?seed=${actualSeed}&size=200${styleParams}`
+  return `data:image/svg+xml;base64,${btoa(svg)}`
 }
 
 /**
- * 基于智能体ID生成一致的头像
- * @param {string} agentId - 智能体ID
+ * 获取智能体头像
+ * @param {string|number} agentId 智能体ID
  * @returns {string} 头像URL
  */
 export function getAgentAvatar(agentId) {
-  return generateProfessionalAvatar(agentId)
+  return generateProfessionalAvatar(`agent_${agentId}`)
 }
 
 /**
- * 生成新的随机头像
+ * 生成随机头像
  * @returns {string} 头像URL
  */
 export function generateRandomAvatar() {
@@ -76,46 +66,58 @@ export function generateRandomAvatar() {
 }
 
 /**
- * 简单的字符串哈希函数
- * @param {string} str - 输入字符串
+ * 字符串哈希函数
+ * @param {string} str 字符串
  * @returns {number} 哈希值
  */
 function hashString(str) {
   let hash = 0
+  if (str.length === 0) return hash
+  
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i)
     hash = ((hash << 5) - hash) + char
     hash = hash & hash // 转换为32位整数
   }
+  
   return Math.abs(hash)
 }
 
 /**
  * 验证头像URL是否有效
- * @param {string} url - 头像URL
+ * @param {string} url 头像URL
  * @returns {boolean} 是否有效
  */
 export function isValidAvatarUrl(url) {
-  if (!url || typeof url !== 'string') return false
+  if (!url) return false
   
-  // 检查是否是有效的URL格式
+  // 检查是否为有效的URL格式
   try {
     new URL(url)
     return true
   } catch {
-    return false
+    // 检查是否为data URL
+    return url.startsWith('data:image/')
   }
 }
 
 /**
- * 获取头像显示URL，如果自定义头像无效则使用默认头像
- * @param {string} customAvatar - 自定义头像URL
- * @param {string} agentId - 智能体ID（用于生成一致的默认头像）
- * @returns {string} 最终显示的头像URL
+ * 获取显示头像
+ * @param {string} customAvatar 自定义头像
+ * @param {string|number} agentId 智能体ID
+ * @returns {string} 显示头像URL
  */
 export function getDisplayAvatar(customAvatar, agentId) {
-  if (isValidAvatarUrl(customAvatar)) {
+  if (customAvatar && isValidAvatarUrl(customAvatar)) {
     return customAvatar
   }
   return getAgentAvatar(agentId)
+}
+
+export default {
+  generateProfessionalAvatar,
+  getAgentAvatar,
+  generateRandomAvatar,
+  isValidAvatarUrl,
+  getDisplayAvatar
 }

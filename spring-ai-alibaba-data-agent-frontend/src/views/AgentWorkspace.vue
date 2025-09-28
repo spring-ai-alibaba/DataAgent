@@ -14,38 +14,8 @@
  * limitations under the License.
 -->
 <template>
-  <div class="agent-workspace">
-    <!-- 现代化头部导航 -->
-    <header class="page-header">
-      <div class="header-content">
-        <div class="brand-section">
-          <div class="brand-logo" @click="goToHome">
-            <i class="bi bi-robot"></i>
-            <span class="brand-text">数据智能体</span>
-          </div>
-          <nav class="header-nav">
-            <div class="nav-item" @click="goToAgentList">
-              <i class="bi bi-grid-3x3-gap"></i>
-              <span>智能体列表</span>
-            </div>
-            <div class="nav-item active">
-              <i class="bi bi-chat-square-dots"></i>
-              <span>智能体工作台</span>
-            </div>
-          </nav>
-        </div>
-        <div class="header-actions">
-          <button class="btn btn-outline" @click="openHelp">
-            <i class="bi bi-question-circle"></i>
-            帮助
-          </button>
-          <button class="btn btn-primary" @click="createNewAgent">
-            <i class="bi bi-plus-lg"></i>
-            创建智能体
-          </button>
-        </div>
-      </div>
-    </header>
+  <BaseLayout>
+    <div class="agent-workspace">
 
     <!-- 主要内容区域 -->
     <div class="main-content">
@@ -198,12 +168,14 @@
       </div>
     </div>
   </div>
+  </BaseLayout>
 </template>
 
 <script>
 import { ref, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
-import { agentApi, presetQuestionApi } from '../utils/api.js';
+import BaseLayout from '../layouts/BaseLayout.vue';
+import { agentApi, presetQuestionApi } from '../services/api.js';
 
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
@@ -216,6 +188,9 @@ hljs.registerLanguage('sql', sql);
 
 export default {
   name: 'AgentWorkspace',
+  components: {
+    BaseLayout
+  },
   setup() {
     const router = useRouter();
     
@@ -697,21 +672,7 @@ export default {
       scrollToBottom();
     };
 
-    const goToAgentList = () => {
-      router.push('/agents');
-    };
-
-    const createNewAgent = () => {
-      router.push('/agent/create');
-    };
-
-    const openHelp = () => {
-      window.open('https://github.com/alibaba/spring-ai-alibaba/blob/main/spring-ai-alibaba-nl2sql/README.md', '_blank');
-    };
-
-    const goToHome = () => {
-      router.push('/');
-    };
+    // 导航方法已移至BaseLayout组件
 
     const getRandomColor = (id) => {
       const colors = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96'];
@@ -739,10 +700,7 @@ export default {
       selectAgent,
       sendMessage,
       clearChat,
-      goToAgentList,
-      createNewAgent,
-      openHelp,
-      goToHome,
+      // 导航方法已移至BaseLayout组件
       getRandomColor,
       getRandomIcon,
       // 滚动控制相关
@@ -763,57 +721,7 @@ export default {
   font-family: var(--font-family);
 }
 
-/* 现代化头部导航 */
-.page-header {
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-secondary);
-  box-shadow: var(--shadow-xs);
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
-}
-
-.header-content {
-  max-width: 100%;
-  margin: 0 auto;
-  padding: 0 var(--space-xl);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 64px;
-}
-
-.brand-section {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2xl);
-}
-
-.brand-logo {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--primary-color);
-  cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-}
-
-.brand-logo i {
-  font-size: var(--font-size-xl);
-  color: var(--accent-color);
-}
-
-.brand-text {
-  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+/* 头部导航样式已移至BaseLayout组件 */
 
 .header-nav {
   display: flex;

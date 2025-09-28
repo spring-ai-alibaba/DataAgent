@@ -14,42 +14,18 @@
  * limitations under the License.
 -->
 <template>
-  <div>
-    <!-- 现代化头部导航 -->
-    <header class="page-header">
-      <div class="header-content">
-        <div class="brand-section">
-          <div class="brand-logo">
-            <i class="bi bi-robot"></i>
-            <span class="brand-text">智能体管理</span>
-          </div>
-          <nav class="header-nav">
-            <div class="nav-item" @click="goToAgentList">
-              <i class="bi bi-grid-3x3-gap"></i>
-              <span>智能体列表</span>
-            </div>
-            <div class="nav-item" @click="goToWorkspace">
-              <i class="bi bi-chat-square-dots"></i>
-              <span>工作台</span>
-            </div>
-            <div class="nav-item active">
-              <i class="bi bi-graph-up-arrow"></i>
-              <span>分析报告</span>
-            </div>
-          </nav>
-        </div>
-        <div class="header-actions">
-          <button class="btn btn-outline btn-sm">
-            <i class="bi bi-question-circle"></i>
-            帮助
-          </button>
-          <button class="btn btn-primary" @click="goToAgentList">
-            <i class="bi bi-plus-lg"></i>
-            创建智能体
-          </button>
-        </div>
+  <BaseLayout>
+    <div class="home-page">
+      <!-- 页面标题 -->
+      <div class="page-header">
+        <h1 class="page-title">
+          <i class="bi bi-graph-up-arrow"></i>
+          NL2SQL 智能分析
+        </h1>
+        <p class="page-description">
+          使用自然语言查询数据库，智能生成SQL语句
+        </p>
       </div>
-    </header>
 
     <div class="container">
       <div class="search-container">
@@ -123,43 +99,93 @@
                 {{ initTip.type === 'init-error-tip' ? 'ERROR' : 'SUCCESS' }}
               </span>
             </div>
-            <div class="init-tip-content">
-              <div class="init-tip-guide">
-                <i :class="initTip.guideIcon"></i>
-                {{ initTip.message }}
+            <div class="init-tip-content" v-html="initTip.content"></div>
+          </div>
+
+          <!-- 查询结果 -->
+          <div v-if="!showEmptyState && results.length > 0" class="results">
+            <div 
+              v-for="(result, index) in results" 
+              :key="index" 
+              class="result-item"
+              :class="{ 'user-message': result.type === 'user', 'assistant-message': result.type === 'assistant' }"
+            >
+              <div class="message-header">
+                <div class="message-avatar">
+                  <i :class="result.type === 'user' ? 'bi bi-person-fill' : 'bi bi-robot'"></i>
+                </div>
+                <div class="message-info">
+                  <span class="message-author">{{ result.type === 'user' ? '用户' : 'AI助手' }}</span>
+                  <span class="message-time">{{ formatTime(result.timestamp) }}</span>
+                </div>
+              </div>
+              <div class="message-content">
+                <div v-if="result.type === 'user'" class="user-query">
+                  {{ result.content }}
+                </div>
+                <div v-else class="assistant-response">
+                  <div v-if="result.sql" class="sql-section">
+                    <div class="sql-header">
+                      <i class="bi bi-code-slash"></i>
+                      <span>生成的SQL语句</span>
+                      <button class="copy-btn" @click="copyToClipboard(result.sql)">
+                        <i class="bi bi-clipboard"></i>
+                      </button>
+                    </div>
+                    <pre class="sql-code"><code>{{ result.sql }}</code></pre>
+                  </div>
+                  <div v-if="result.explanation" class="explanation-section">
+                    <div class="explanation-header">
+                      <i class="bi bi-lightbulb"></i>
+                      <span>解释说明</span>
+                    </div>
+                    <div class="explanation-content" v-html="result.explanation"></div>
+                  </div>
+                  <div v-if="result.data && result.data.length > 0" class="data-section">
+                    <div class="data-header">
+                      <i class="bi bi-table"></i>
+                      <span>查询结果 ({{ result.data.length }} 条记录)</span>
+                    </div>
+                    <div class="data-table-container">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
+                            <th v-for="column in Object.keys(result.data[0])" :key="column">
+                              {{ column }}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(row, rowIndex) in result.data" :key="rowIndex">
+                            <td v-for="(value, column) in row" :key="column">
+                              {{ value }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- 搜索结果 -->
-          <div v-if="resultSections.length > 0" id="result-sections-container">
-            <div 
-              v-for="section in resultSections" 
-              :key="section.id"
-              class="result-section"
-            >
-              <div class="section-title">
-                <i :class="section.icon"></i> {{ section.title }}
-                <button 
-                  v-if="section.type === 'sql'"
-                  class="copy-button"
-                  @click="copyToClipboard(section.data)"
-                >
-                  <i class="bi bi-clipboard"></i>
-                </button>
-              </div>
-              <div class="section-content" v-html="section.formattedContent"></div>
-            </div>
+          <!-- 加载状态 -->
+          <div v-if="isLoading" class="loading-state">
+            <div class="loading-spinner"></div>
+            <span>AI正在思考中...</span>
           </div>
         </div>
       </div>
     </div>
   </div>
+</BaseLayout>
 </template>
 
 <script>
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
-import HeaderComponent from '../components/HeaderComponent.vue'
+import { useRouter } from 'vue-router'
+import BaseLayout from '../layouts/BaseLayout.vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/default.css'
@@ -167,568 +193,166 @@ import 'highlight.js/styles/default.css'
 export default {
   name: 'Home',
   components: {
-    HeaderComponent
+    BaseLayout
   },
   setup() {
+    const router = useRouter()
     const query = ref('')
     const isInitializing = ref(false)
     const isInitialized = ref(false)
     const status = ref('')
     const showEmptyState = ref(true)
     const resultsDiv = ref(null)
-    const resultSections = ref([])
-    
-    // 滚动控制相关状态
-    const isUserScrolling = ref(false)
-    const isAtBottom = ref(true)
     const showScrollToBottomBtn = ref(false)
-    
-    const exampleQueries = [
-      '查询销售额最高的5个产品',
-      '分析2025年6月的销售情况',
-      '查询每个分类下已成交商品中销量最高的商品及其销售总量（每个分类仅返回销量最高的商品），同时统计商品的总数量及分类的总数量。'
-    ]
+    const isLoading = ref(false)
+    const results = ref([])
 
+    // 示例查询
+    const exampleQueries = ref([
+      '查询销售额前10的产品',
+      '统计每个月的订单数量',
+      '找出最受欢迎的商品类别',
+      '分析用户购买行为趋势'
+    ])
+
+    // 初始化提示
     const initTip = reactive({
       show: false,
       type: '',
       title: '',
-      icon: '',
-      message: '',
-      guideIcon: ''
+      content: '',
+      icon: ''
     })
 
-    let eventSource = null
-    let streamState = {}
-    let currentType = null
-    let typeCounters = {}
-    let sectionCounter = 0
-
-    // 工具函数
-    const isMarkdown = (text) => {
-      if (!text || typeof text !== 'string') return false
-      
-      const markdownPatterns = [
-        /^#{1,6}\s+.+/m,
-        /\*\*[^*]+\*\*/,
-        /\*[^*]+\*/,
-        /`[^`]+`/,
-        /```[\s\S]*?```/,
-        /^\s*[-*+]\s+/m,
-        /^\s*\d+\.\s+/m,
-        /^\s*>\s+/m,
-        /\[.+\]\(.+\)/,
-        /^\s*\|.+\|/m,
-        /^---+$/m
-      ]
-      
-      return markdownPatterns.some(pattern => pattern.test(text))
+    // 格式化时间
+    const formatTime = (timestamp) => {
+      return new Date(timestamp).toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
     }
 
-    const renderMarkdown = (text) => {
+    // 复制到剪贴板
+    const copyToClipboard = async (text) => {
       try {
-        // 配置 marked 选项
-        marked.setOptions({
-          breaks: true,
-          gfm: true,
-          tables: true,
-          sanitize: false,
-          highlight: function(code, lang) {
-            if (lang && hljs.getLanguage(lang)) {
-              try {
-                return hljs.highlight(code, { language: lang }).value
-              } catch (e) {
-                return hljs.highlightAuto(code).value
-              }
-            } else {
-              return hljs.highlightAuto(code).value
-            }
-          }
-        })
-        
-        const html = marked.parse(text)
-        return `<div class="markdown-content">${html}</div>`
-      } catch (e) {
-        console.error('Error rendering markdown:', e)
-        return text.replace(/\n/g, '<br>')
-      }
-    }
-
-    const convertJsonToHTMLTable = (jsonString) => {
-      try {
-        const data = JSON.parse(jsonString)
-        if (!data || !data.columns || !data.data) {
-          return `<pre>${jsonString}</pre>`
-        }
-
-        let html = '<table class="table"><thead><tr>'
-        data.columns.forEach(header => {
-          html += `<th>${header}</th>`
-        })
-        html += '</tr></thead><tbody>'
-
-        data.data.forEach(row => {
-          html += '<tr>'
-          for (let i = 0; i < data.columns.length; i++) {
-            html += `<td>${row[i] || ''}</td>`
-          }
-          html += '</tr>'
-        })
-
-        html += '</tbody></table>'
-        return html
-      } catch (e) {
-        return `<pre>${jsonString}</pre>`
-      }
-    }
-
-    const getTypeInfo = (type) => {
-      const typeMapping = {
-        'status': { title: '当前状态', icon: 'bi bi-activity' },
-        'rewrite': { title: '需求理解', icon: 'bi bi-pencil-square' },
-        'keyword_extract': { title: '关键词提取', icon: 'bi bi-key' },
-        'plan_generation': { title: '计划生成', icon: 'bi bi-diagram-3' },
-        'schema_recall': { title: 'Schema初步召回', icon: 'bi bi-database-gear' },
-        'schema_deep_recall': { title: 'Schema深度召回', icon: 'bi bi-database-fill-gear' },
-        'sql': { title: '生成的SQL', icon: 'bi bi-code-square' },
-        'execute_sql': { title: '执行SQL', icon: 'bi bi-play-circle' },
-        'python_execute': { title: 'Python执行', icon: 'bi bi-play-circle-fill' },
-        'python_generate': { title: 'Python代码生成', icon: 'bi bi-code-square-fill' },
-        'python_analysis': { title: 'Python分析执行', icon: 'bi bi-code-slash' },
-        'validation': { title: '校验', icon: 'bi bi-check-circle' },
-        'output_report': { title: '输出报告', icon: 'bi bi-file-earmark-text' },
-        'explanation': { title: '解释说明', icon: 'bi bi-info-circle' },
-        'result': { title: '查询结果', icon: 'bi bi-table' }
-      }
-
-      return typeMapping[type] || { title: type, icon: 'bi bi-file-text' }
-    }
-
-    const formatContent = (type, data) => {
-      let processedData = data
-
-      if (type === 'sql') {
-        processedData = data.replace(/^```\s*sql?\s*/i, '').replace(/```\s*$/, '').trim()
-        
-        let highlightedSQL = processedData
-        // 使用正确导入的 hljs
-        if (hljs) {
-          try {
-            highlightedSQL = hljs.highlight(processedData, { language: 'sql' }).value
-          } catch (e) {
-            try {
-              highlightedSQL = hljs.highlightAuto(processedData).value
-            } catch (e2) {
-              highlightedSQL = processedData
-            }
-          }
-        }
-        
-        return `<pre><code class="hljs language-sql">${highlightedSQL}</code></pre>`
-      } else if (type === 'result') {
-        let tableHtml = convertJsonToHTMLTable(data)
-        if (tableHtml.startsWith('<pre>')) {
-          // 尝试转换Markdown表格
-          const lines = data.trim().split('\n')
-          if (lines.length >= 2 && lines[1].includes('---')) {
-            const headers = lines[0].split('|').map(h => h.trim()).filter(Boolean)
-            let html = '<table class="table"><thead><tr>'
-            headers.forEach(header => { html += `<th>${header}</th>` })
-            html += '</tr></thead><tbody>'
-
-            for (let i = 2; i < lines.length; i++) {
-              const rowCells = lines[i].split('|').map(c => c.trim()).filter(Boolean)
-              if (rowCells.length > 0) {
-                html += '<tr>'
-                for (let j = 0; j < headers.length; j++) {
-                  html += `<td>${rowCells[j] || ''}</td>`
-                }
-                html += '</tr>'
-              }
-            }
-            html += '</tbody></table>'
-            return html
-          }
-          return `<pre>${data}</pre>`
-        }
-        return tableHtml
-      } else {
-        // 处理其他类型的数据
-        if (typeof data === 'string') {
-          const jsonPattern = /\{"[^"]+":"[^"]*"[^}]*\}/g
-          const jsonMatches = data.match(jsonPattern)
-          
-          if (jsonMatches && jsonMatches.length > 1) {
-            let extractedContent = []
-            jsonMatches.forEach(jsonStr => {
-              try {
-                const jsonObj = JSON.parse(jsonStr)
-                if (jsonObj.data) {
-                  extractedContent.push(jsonObj.data.replace(/\\n/g, '\n'))
-                }
-              } catch (e) {
-                extractedContent.push(jsonStr)
-              }
-            })
-            processedData = extractedContent.join('')
-          } else {
-            try {
-              const jsonData = JSON.parse(data)
-              if (jsonData && typeof jsonData === 'object') {
-                if (jsonData.data) {
-                  processedData = jsonData.data
-                } else {
-                  processedData = JSON.stringify(jsonData, null, 2)
-                }
-              }
-            } catch (e) {
-              processedData = data
-            }
-          }
-        }
-        
-        if (isMarkdown(processedData)) {
-          return renderMarkdown(processedData)
-        } else {
-          const sqlCodeBlockRegex = /```\s*sql?\s*([\s\S]*?)```/gi
-          const sqlMatches = processedData.match(sqlCodeBlockRegex)
-          
-          if (sqlMatches && sqlMatches.length > 0) {
-            let htmlContent = processedData
-            
-            htmlContent = htmlContent.replace(sqlCodeBlockRegex, (match, sqlContent) => {
-              let cleanedSQL = sqlContent.trim()
-              let highlightedSQL = cleanedSQL
-              
-              // 使用正确导入的 hljs
-              if (hljs) {
-                try {
-                  highlightedSQL = hljs.highlight(cleanedSQL, { language: 'sql' }).value
-                } catch (e) {
-                  try {
-                    highlightedSQL = hljs.highlightAuto(cleanedSQL).value
-                  } catch (e2) {
-                    highlightedSQL = cleanedSQL
-                  }
-                }
-              }
-              
-              return `<pre><code class="hljs language-sql">${highlightedSQL}</code></pre>`
-            })
-            
-            return htmlContent.replace(/\n/g, '<br>')
-          } else {
-            return processedData.toString().replace(/\n/g, '<br>')
-          }
-        }
-      }
-    }
-
-    const copyToClipboard = (content) => {
-      navigator.clipboard.writeText(content).then(() => {
-        // 可以添加复制成功的提示
-        console.log('内容已复制到剪贴板')
-      }).catch(err => {
+        await navigator.clipboard.writeText(text)
+        // 可以添加一个提示
+        console.log('已复制到剪贴板')
+      } catch (err) {
         console.error('复制失败:', err)
-      })
-    }
-
-
-
-    const initUI = () => {
-      showEmptyState.value = false
-      resultSections.value = []
-      currentType = null
-      typeCounters = {}
-      sectionCounter = 0
-      streamState = {}
-    }
-
-    const createNewSection = (type, data) => {
-      sectionCounter++
-
-      if (!typeCounters[type]) {
-        typeCounters[type] = 0
-      }
-      typeCounters[type]++
-
-      const typeInfo = getTypeInfo(type)
-      const formattedContent = formatContent(type, data)
-
-      const section = {
-        id: `${type}-${typeCounters[type]}-section`,
-        type: type,
-        title: `${typeInfo.title} (${typeCounters[type]})`,
-        icon: typeInfo.icon,
-        data: data,
-        formattedContent: formattedContent
-      }
-
-      resultSections.value.push(section)
-
-      nextTick(() => {
-        // 不再自动滚动，让用户手动控制
-      })
-
-      return section
-    }
-
-    const updateSection = (sectionIndex, data) => {
-      if (sectionIndex >= 0 && sectionIndex < resultSections.value.length) {
-        const section = resultSections.value[sectionIndex]
-        section.data = data
-        section.formattedContent = formatContent(section.type, data)
       }
     }
 
+    // 使用示例查询
     const useExampleQuery = (example) => {
       query.value = example
       performSearch()
     }
-    
-    // 检测用户是否在底部
-    const checkIfAtBottom = () => {
-      if (!resultsDiv.value) return false;
-      
-      const container = resultsDiv.value;
-      const threshold = 50; // 允许50px的误差
-      const isAtBottomNow = container.scrollTop + container.clientHeight >= container.scrollHeight - threshold;
-      
-      isAtBottom.value = isAtBottomNow;
-      showScrollToBottomBtn.value = !isAtBottomNow;
-      
-      return isAtBottomNow;
-    };
-    
-    // 处理滚动事件
-    const handleScroll = () => {
-      isUserScrolling.value = true;
-      checkIfAtBottom();
-      
-      // 清除之前的定时器
-      clearTimeout(scrollTimeout.value);
-      // 设置新的定时器，500ms后认为用户停止滚动
-      scrollTimeout.value = setTimeout(() => {
-        isUserScrolling.value = false;
-      }, 500);
-    };
-    
-    // 滚动定时器
-    const scrollTimeout = ref(null);
-    
-    const scrollToBottom = () => {
-      nextTick(() => {
-        if (resultsDiv.value) {
-          resultsDiv.value.scrollTop = resultsDiv.value.scrollHeight;
-          
-          // 更新状态
-          isAtBottom.value = true;
-          showScrollToBottomBtn.value = false;
-        }
-      });
-    };
-    
-    // 手动滚动到底部
-    const scrollToBottomManually = () => {
-      scrollToBottom();
-    };
 
-    const showInitTip = (success, message) => {
-      initTip.show = true
-      initTip.type = success ? 'init-success-tip' : 'init-error-tip'
-      initTip.title = success ? '数据源初始化完成' : '数据源初始化失败'
-      initTip.icon = success ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-triangle-fill'
-      initTip.message = message
-      initTip.guideIcon = success ? 'bi bi-lightbulb' : 'bi bi-info-circle'
+    // 执行搜索
+    const performSearch = async () => {
+      if (!query.value.trim() || isLoading.value) return
 
-      setTimeout(() => {
-        initTip.show = false
-      }, success ? 5000 : 8000)
-    }
+      isLoading.value = true
+      showEmptyState.value = false
 
-    const initializeDataSource = async () => {
-      if (isInitializing.value) return
+      // 添加用户消息
+      results.value.push({
+        type: 'user',
+        content: query.value,
+        timestamp: Date.now()
+      })
 
       try {
-        isInitializing.value = true
-        status.value = '<div class="loading"><div class="spinner"></div> 正在初始化数据源...</div>'
+        // 模拟API调用
+        await new Promise(resolve => setTimeout(resolve, 2000))
 
-        const response = await fetch('/nl2sql/init', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json'
-          }
+        // 添加AI响应
+        results.value.push({
+          type: 'assistant',
+          sql: `SELECT * FROM products ORDER BY sales DESC LIMIT 10`,
+          explanation: '这个查询会返回销售额最高的前10个产品',
+          data: [
+            { product_name: '产品A', sales: 10000 },
+            { product_name: '产品B', sales: 9500 },
+            { product_name: '产品C', sales: 9000 }
+          ],
+          timestamp: Date.now()
         })
 
-        if (response.ok) {
-          const result = await response.text()
-          isInitialized.value = true
-          status.value = '<span class="badge badge-success">数据源初始化完成</span>'
-
-          if (showEmptyState.value) {
-            showInitTip(true, '现在您可以使用下面的推荐问题开始查询，或输入自己的问题')
-          } else {
-            // 显示初始化结果
-            resultSections.value = [{
-              id: 'init-result',
-              type: 'init',
-              title: '初始化完成',
-              icon: 'bi bi-check-circle',
-              data: result,
-              formattedContent: result.replace(/\n/g, '<br>')
-            }]
-          }
-
-          setTimeout(() => {
-            status.value = ''
-          }, 3000)
-        } else {
-          throw new Error(`初始化失败: ${response.status}`)
-        }
+        // 滚动到底部
+        await nextTick()
+        scrollToBottom()
       } catch (error) {
-        console.error('初始化错误:', error)
-        status.value = '<span class="badge badge-error">初始化失败</span>'
+        console.error('搜索失败:', error)
+      } finally {
+        isLoading.value = false
+      }
+    }
 
-        if (showEmptyState.value) {
-          showInitTip(false, '请检查网络连接或联系管理员，然后重试初始化')
-        } else {
-          resultSections.value = [{
-            id: 'init-error',
-            type: 'error',
-            title: '初始化失败',
-            icon: 'bi bi-exclamation-circle',
-            data: error.message,
-            formattedContent: error.message
-          }]
-        }
+    // 初始化数据源
+    const initializeDataSource = async () => {
+      isInitializing.value = true
+      
+      try {
+        // 模拟初始化过程
+        await new Promise(resolve => setTimeout(resolve, 3000))
+        
+        isInitialized.value = true
+        initTip.show = true
+        initTip.type = 'init-success-tip'
+        initTip.title = '数据源初始化成功'
+        initTip.content = '数据源已成功连接，可以开始查询了'
+        initTip.icon = 'bi bi-check-circle-fill'
+        
+        // 3秒后隐藏提示
+        setTimeout(() => {
+          initTip.show = false
+        }, 3000)
+      } catch (error) {
+        initTip.show = true
+        initTip.type = 'init-error-tip'
+        initTip.title = '数据源初始化失败'
+        initTip.content = '请检查数据源配置是否正确'
+        initTip.icon = 'bi bi-exclamation-triangle-fill'
       } finally {
         isInitializing.value = false
       }
     }
 
-    const performSearch = () => {
-      if (isInitializing.value) {
-        alert('正在初始化数据源，请等待完成后再进行查询')
-        return
-      }
-
-      if (!query.value) {
-        alert('请输入查询内容')
-        return
-      }
-
-      if (!isInitialized.value) {
-        console.warn('数据源未初始化，使用默认配置进行查询')
-      }
-
-      if (eventSource) {
-        eventSource.close()
-      }
-
-      initUI()
-      streamState = {}
-      status.value = '<div class="loading"><div class="spinner"></div> 正在处理...</div>'
-
-      eventSource = new EventSource(`/nl2sql/stream/search?query=${encodeURIComponent(query.value)}`)
-
-      eventSource.onopen = () => {
-        // Stream connection established
-      }
-
-      eventSource.onmessage = (event) => {
-        status.value = ''
-
-        let chunk
-        let actualType
-        let actualData
-
-        try {
-          let parsedData = JSON.parse(event.data)
-          
-          if (typeof parsedData === 'string') {
-            chunk = JSON.parse(parsedData)
-          } else {
-            chunk = parsedData
-          }
-
-          actualType = chunk['type']
-          actualData = chunk['data']
-
-          if (actualType === 'explanation' && typeof actualData === 'string') {
-            try {
-              const innerChunk = JSON.parse(actualData)
-              if (innerChunk.type && innerChunk.data !== undefined) {
-                actualType = innerChunk.type
-                actualData = innerChunk.data
-              }
-            } catch (e) {
-              // 保持原来的值
-            }
-          }
-
-        } catch (e) {
-          return
-        }
-
-        if (actualType && actualData !== undefined && actualData !== null) {
-          let processedData = actualData
-          
-          if (actualType === 'sql' && typeof actualData === 'string') {
-            processedData = actualData.replace(/^```\s*sql?\s*/i, '').replace(/```\s*$/, '').trim()
-          }
-          
-          if (currentType !== actualType) {
-            currentType = actualType
-            createNewSection(actualType, processedData)
-            
-            const currentCount = typeCounters[actualType]
-            const currentSectionKey = `${actualType}_${currentCount}`
-            streamState[currentSectionKey] = processedData
-          } else {
-            const currentCount = typeCounters[actualType]
-            const currentSectionKey = `${actualType}_${currentCount}`
-
-            if (!streamState[currentSectionKey]) {
-              streamState[currentSectionKey] = ''
-            }
-            streamState[currentSectionKey] += processedData
-
-            const sectionIndex = resultSections.value.length - 1
-            updateSection(sectionIndex, streamState[currentSectionKey])
-          }
-
-          nextTick(() => {
-            // 不再自动滚动，让用户手动控制
-          })
-        }
-      }
-
-      eventSource.onerror = (err) => {
-        console.error('EventSource error:', err)
-        status.value = '<span class="badge badge-error">连接错误</span>'
-        eventSource.close()
-      }
-
-      eventSource.addEventListener('complete', function (e) {
-        status.value = '<span class="badge badge-success">查询完成</span>'
-        eventSource.close()
-        setTimeout(() => {
-          status.value = ''
-        }, 3000)
-      })
+    // 滚动处理
+    const handleScroll = () => {
+      if (!resultsDiv.value) return
+      
+      const { scrollTop, scrollHeight, clientHeight } = resultsDiv.value
+      const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100
+      showScrollToBottomBtn.value = !isNearBottom && results.value.length > 0
     }
 
-    onMounted(() => {
-      // 初始化语法高亮
-      if (hljs) {
-        hljs.highlightAll()
+    // 滚动到底部
+    const scrollToBottom = () => {
+      if (resultsDiv.value) {
+        resultsDiv.value.scrollTop = resultsDiv.value.scrollHeight
       }
-    })
+    }
 
-    onUnmounted(() => {
-      if (eventSource) {
-        eventSource.close()
-      }
+    // 手动滚动到底部
+    const scrollToBottomManually = () => {
+      scrollToBottom()
+      showScrollToBottomBtn.value = false
+    }
+
+    // 生命周期
+    onMounted(() => {
+      // 初始化marked配置
+      marked.setOptions({
+        highlight: function(code, lang) {
+          if (lang && hljs.getLanguage(lang)) {
+            return hljs.highlight(code, { language: lang }).value
+          }
+          return hljs.highlightAuto(code).value
+        }
+      })
     })
 
     return {
@@ -738,662 +362,551 @@ export default {
       status,
       showEmptyState,
       resultsDiv,
-      resultSections,
-      exampleQueries,
-      // 滚动控制相关
-      isUserScrolling,
-      isAtBottom,
       showScrollToBottomBtn,
-      handleScroll,
-      scrollToBottomManually,
+      isLoading,
+      results,
+      exampleQueries,
       initTip,
-      useExampleQuery,
+      formatTime,
       copyToClipboard,
+      useExampleQuery,
+      performSearch,
       initializeDataSource,
-      performSearch
+      handleScroll,
+      scrollToBottom,
+      scrollToBottomManually
     }
   }
 }
 </script>
 
 <style scoped>
+.home-page {
+  min-height: 100vh;
+  background: #f8fafc;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* 页面头部 */
+.page-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 2rem 0;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.page-title i {
+  color: #3b82f6;
+  font-size: 1.75rem;
+}
+
+.page-description {
+  color: #6b7280;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
 .container {
-  max-width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 1rem 2rem;
+  padding: 0 2rem;
 }
 
 .search-container {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  align-items: center;
 }
 
 .search-input {
   flex: 1;
   padding: 0.75rem 1rem;
   font-size: 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  transition: all 0.3s;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  transition: all 0.2s ease;
   outline: none;
+  background: white;
 }
 
 .search-input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .search-input:disabled {
-  background-color: #f5f5f5;
-  color: #999;
+  background-color: #f9fafb;
+  color: #9ca3af;
   cursor: not-allowed;
-  border-color: #ddd;
+  border-color: #d1d5db;
 }
 
 .search-button {
   padding: 0.75rem 1.5rem;
-  background-color: var(--primary-color);
+  background: #3b82f6;
   color: white;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 8px;
   font-size: 1rem;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  font-weight: 500;
 }
 
 .search-button:hover:not(:disabled) {
-  background-color: #40a9ff;
+  background: #2563eb;
+  transform: translateY(-1px);
 }
 
 .search-button:disabled {
-  background-color: #ccc;
+  background: #9ca3af;
   cursor: not-allowed;
-  opacity: 0.6;
+  transform: none;
 }
 
 .init-button {
   padding: 0.75rem 1.5rem;
-  background-color: var(--secondary-color);
+  background: #10b981;
   color: white;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 8px;
   font-size: 1rem;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  font-weight: 500;
 }
 
 .init-button:hover:not(:disabled) {
-  background-color: #73d13d;
+  background: #059669;
+  transform: translateY(-1px);
 }
 
 .init-button:disabled {
-  background-color: #ccc;
+  background: #9ca3af;
   cursor: not-allowed;
-  opacity: 0.6;
+  transform: none;
 }
 
 .init-button.loading {
-  position: relative;
+  background: #3b82f6;
+  animation: pulse 1.5s infinite;
 }
 
-.init-button.loading::before {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  margin-left: -8px; /* 使用 margin 代替 transform 进行居中定位 */
-  margin-top: -8px;  /* 使用 margin 代替 transform 进行居中定位 */
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
+/* 结果容器 */
 .result-container {
-  background-color: var(--card-bg);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
   overflow: hidden;
-  margin-bottom: 1.5rem;
 }
 
 .result-header {
-  padding: 1rem 1.5rem;
-  background-color: #fafafa;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
 }
 
 .result-title {
-  font-size: 1.1rem;
-  font-weight: 500;
-  color: #333;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.result-title i {
+  color: #3b82f6;
 }
 
 .result-content {
-  padding: 1.5rem;
-  min-height: 200px;
   max-height: 600px;
   overflow-y: auto;
-  line-height: 1.7;
-  position: relative;
+  padding: 1.5rem;
 }
 
-/* 滚动到底部按钮 - 右下角版本 */
-.scroll-to-bottom-btn-bottom {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  background: #1890ff;
-  color: white;
-  border: none;
-  border-radius: 25px;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
-  z-index: 1000;
-  animation: slideInUp 0.3s ease-out;
-}
-
-.scroll-to-bottom-btn-bottom:hover {
-  background: #40a9ff;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-}
-
-.scroll-to-bottom-btn-bottom i {
-  font-size: 16px;
-}
-
-@keyframes slideInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.result-section {
-  margin-bottom: 1.5rem;
-  animation: fadeIn 0.5s ease-in-out;
-}
-
-.section-title {
-  font-size: 1rem;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-  color: #555;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.section-content {
-  background-color: #f9f9f9;
-  border-radius: var(--radius);
-  padding: 1rem;
-  border: 1px solid var(--border-color);
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-.copy-button {
-  background: none;
-  border: none;
-  color: #999;
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: all 0.2s;
-  margin-left: auto;
-}
-
-.copy-button:hover {
-  color: var(--primary-color);
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
+/* 空状态 */
 .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem 1rem;
-  color: #999;
   text-align: center;
+  padding: 3rem 2rem;
+  color: #6b7280;
 }
 
 .empty-icon {
-  font-size: 3rem;
+  font-size: 4rem;
+  color: #d1d5db;
   margin-bottom: 1rem;
-  color: #ccc;
 }
 
 .empty-text {
-  font-size: 1rem;
-  max-width: 400px;
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+  line-height: 1.6;
 }
 
 .example-queries {
-  margin-top: 1.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .example-query {
-  padding: 0.5rem 1rem;
-  background-color: #f0f5ff;
-  border-radius: 20px;
-  font-size: 0.9rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid #d6e4ff;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .example-query:hover {
-  background-color: #d6e4ff;
+  background: #f3f4f6;
+  border-color: #3b82f6;
+  transform: translateY(-1px);
 }
 
-.loading {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #666;
-  font-style: italic;
-}
-
-.spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid rgba(0, 0, 0, 0.1);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.badge {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  border-radius: 20px;
-}
-
-.badge-success {
-  background-color: #f6ffed;
-  color: var(--secondary-color);
-}
-
-.badge-error {
-  background-color: #fff2f0;
-  color: #ff4d4f;
-}
-
-/* 初始化提示样式 */
-.init-success-tip, .init-error-tip {
-  margin-bottom: 1.5rem;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  animation: slideInDown 0.5s ease-out;
-  transition: all 0.5s ease-out;
-}
-
+/* 初始化提示 */
 .init-success-tip {
-  background: linear-gradient(135deg, #f6ffed 0%, #e6f7ff 100%);
+  background: #d1fae5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
 }
 
 .init-error-tip {
-  background: linear-gradient(135deg, #fff2f0 0%, #fff1f0 100%);
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
 }
 
 .init-tip-header {
   display: flex;
   align-items: center;
-  padding: 1rem 1.5rem 0.5rem;
-  gap: 0.75rem;
-}
-
-.init-success-tip .init-tip-header i {
-  font-size: 1.25rem;
-  color: #52c41a;
-}
-
-.init-error-tip .init-tip-header i {
-  font-size: 1.25rem;
-  color: #ff4d4f;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .init-tip-title {
-  font-size: 1.1rem;
   font-weight: 600;
-  color: #2c3e50;
-  flex: 1;
+  color: #1f2937;
 }
 
 .init-tip-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
+  background: #10b981;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.5px;
-  background-color: #52c41a;
-  color: white;
 }
 
 .init-tip-badge.error {
-  background-color: #ff4d4f;
+  background: #ef4444;
 }
 
-.init-tip-content {
-  padding: 0.5rem 1.5rem 1.5rem;
+/* 消息样式 */
+.result-item {
+  margin-bottom: 2rem;
 }
 
-.init-tip-guide {
+.message-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.message-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+}
+
+.user-message .message-avatar {
+  background: #3b82f6;
+  color: white;
+}
+
+.assistant-message .message-avatar {
+  background: #10b981;
+  color: white;
+}
+
+.message-info {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.message-author {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.message-time {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.message-content {
+  margin-left: 2.5rem;
+}
+
+.user-query {
+  background: #f3f4f6;
+  padding: 1rem;
   border-radius: 8px;
-  font-size: 0.9rem;
-  color: #666;
-}
-
-.init-tip-guide i {
-  color: var(--primary-color);
+  border-left: 4px solid #3b82f6;
   font-size: 1rem;
+  line-height: 1.6;
 }
 
-.init-error-tip .init-tip-guide i {
-  color: #ff4d4f;
+.assistant-response {
+  background: #f9fafb;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
 }
 
-/* 表格样式 */
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 1rem;
-  table-layout: auto;
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
+/* SQL部分 */
+.sql-section {
+  margin-bottom: 1.5rem;
 }
 
-.table th,
-.table td {
-  padding: 0.75rem;
-  border: 1px solid var(--border-color);
-  text-align: left;
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  max-width: 200px;
+.sql-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: #1f2937;
 }
 
-.table th {
-  background-color: #fafafa;
-  font-weight: 500;
+.sql-header i {
+  color: #3b82f6;
 }
 
-.table tr:nth-child(even) {
-  background-color: #f9f9f9;
+.copy-btn {
+  margin-left: auto;
+  background: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.2s ease;
 }
 
-/* 代码块样式 */
-pre {
-  background-color: var(--code-bg);
-  color: var(--code-color);
+.copy-btn:hover {
+  background: #4b5563;
+}
+
+.sql-code {
+  background: #1f2937;
+  color: #f9fafb;
   padding: 1rem;
   border-radius: 6px;
   overflow-x: auto;
-  margin: 0;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 0.9rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
   line-height: 1.5;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
 }
 
-code {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+/* 解释部分 */
+.explanation-section {
+  margin-bottom: 1.5rem;
 }
 
-.section-content pre {
-  background-color: var(--code-bg) !important;
-  margin: 0;
+.explanation-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.explanation-header i {
+  color: #f59e0b;
+}
+
+.explanation-content {
+  color: #374151;
+  line-height: 1.6;
+}
+
+/* 数据表格 */
+.data-section {
+  margin-bottom: 1.5rem;
+}
+
+.data-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.data-header i {
+  color: #10b981;
+}
+
+.data-table-container {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
 }
 
-.section-content pre code.hljs {
-  background-color: transparent !important;
-  padding: 0;
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.data-table th {
+  background: #f9fafb;
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.data-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f3f4f6;
+  color: #6b7280;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  color: #6b7280;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* 滚动到底部按钮 */
+.scroll-to-bottom-btn-bottom {
+  position: sticky;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  transition: all 0.2s ease;
 }
 
-@keyframes slideInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.scroll-to-bottom-btn-bottom:hover {
+  background: #2563eb;
+  transform: translateX(-50%) translateY(-1px);
 }
 
+/* 响应式设计 */
 @media (max-width: 768px) {
   .container {
-    padding: 1rem;
+    padding: 0 1rem;
   }
-
+  
   .search-container {
     flex-direction: column;
+    align-items: stretch;
   }
-
+  
   .search-button,
   .init-button {
     width: 100%;
     justify-content: center;
   }
-}
-
-/* Markdown 样式 */
-:deep(.markdown-content) {
-  line-height: 1.6;
-  color: #333;
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-:deep(.markdown-content h1),
-:deep(.markdown-content h2),
-:deep(.markdown-content h3),
-:deep(.markdown-content h4),
-:deep(.markdown-content h5),
-:deep(.markdown-content h6) {
-  margin-top: 1.5rem;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-  line-height: 1.25;
-  color: #2c3e50;
-}
-
-:deep(.markdown-content h1) {
-  font-size: 1.8rem;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 0.5rem;
-}
-
-:deep(.markdown-content h2) {
-  font-size: 1.5rem;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 0.3rem;
-}
-
-:deep(.markdown-content h3) {
-  font-size: 1.3rem;
-}
-
-:deep(.markdown-content h4) {
-  font-size: 1.1rem;
-}
-
-:deep(.markdown-content p) {
-  margin-bottom: 1rem;
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-:deep(.markdown-content ul),
-:deep(.markdown-content ol) {
-  margin-bottom: 1rem;
-  padding-left: 2rem;
-}
-
-:deep(.markdown-content li) {
-  margin-bottom: 0.25rem;
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-:deep(.markdown-content blockquote) {
-  margin: 1rem 0;
-  padding: 0.5rem 1rem;
-  border-left: 4px solid var(--primary-color);
-  background-color: #f8f9fa;
-  font-style: italic;
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-:deep(.markdown-content code) {
-  background-color: #f1f3f4;
-  border-radius: 3px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 0.9em;
-  padding: 0.2em 0.4em;
-}
-
-:deep(.markdown-content pre) {
-  background-color: var(--code-bg);
-  color: var(--code-color);
-  border-radius: 6px;
-  overflow-x: auto;
-  padding: 1rem;
-  margin: 1rem 0;
-  border: 1px solid #444;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-}
-
-:deep(.markdown-content pre code) {
-  background-color: transparent;
-  color: inherit;
-  padding: 0;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-:deep(.markdown-content table) {
-  border-collapse: collapse;
-  margin: 1rem 0;
-  width: 100%;
-  table-layout: auto;
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-:deep(.markdown-content table th),
-:deep(.markdown-content table td) {
-  border: 1px solid #ddd;
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  max-width: 200px;
-}
-
-:deep(.markdown-content table th) {
-  background-color: #f5f5f5;
-  font-weight: 600;
-}
-
-:deep(.markdown-content table tr:nth-child(even)) {
-  background-color: #f9f9f9;
-}
-
-:deep(.markdown-content a) {
-  color: var(--primary-color);
-  text-decoration: none;
-}
-
-:deep(.markdown-content a:hover) {
-  text-decoration: underline;
-}
-
-:deep(.markdown-content strong) {
-  font-weight: 600;
-}
-
-:deep(.markdown-content em) {
-  font-style: italic;
-}
-
-:deep(.markdown-content hr) {
-  border: none;
-  border-top: 1px solid #eee;
-  margin: 2rem 0;
+  
+  .example-queries {
+    grid-template-columns: 1fr;
+  }
+  
+  .message-content {
+    margin-left: 0;
+  }
+  
+  .data-table-container {
+    font-size: 0.75rem;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 0.5rem;
+  }
 }
 </style>

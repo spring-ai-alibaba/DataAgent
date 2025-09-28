@@ -140,10 +140,10 @@ export default {
   align-items: center;
   justify-content: center;
   min-height: 400px;
-  padding: var(--space-2xl);
-  background: var(--bg-primary);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  padding: 2rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .error-content {
@@ -152,55 +152,55 @@ export default {
 }
 
 .error-icon {
-  margin-bottom: var(--space-lg);
+  margin-bottom: 1.5rem;
 }
 
 .error-icon i {
   font-size: 4rem;
-  color: var(--error-color);
+  color: #ff4d4f;
 }
 
 .error-info {
-  margin-bottom: var(--space-xl);
+  margin-bottom: 2rem;
 }
 
 .error-title {
-  margin: 0 0 var(--space-md) 0;
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #262626;
 }
 
 .error-message {
-  margin: 0 0 var(--space-lg) 0;
-  color: var(--text-secondary);
-  line-height: var(--line-height-relaxed);
+  margin: 0 0 1.5rem 0;
+  color: #8c8c8c;
+  line-height: 1.6;
 }
 
 .error-details {
-  margin: var(--space-lg) 0;
+  margin: 1.5rem 0;
   text-align: left;
 }
 
 .error-details summary {
   cursor: pointer;
-  color: var(--text-tertiary);
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--space-sm);
+  color: #8c8c8c;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
 }
 
 .error-details summary:hover {
-  color: var(--text-secondary);
+  color: #595959;
 }
 
 .error-stack {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
-  padding: var(--space-md);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
+  background: #f5f5f5;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  padding: 1rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.75rem;
+  color: #595959;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 200px;
@@ -209,7 +209,7 @@ export default {
 
 .error-actions {
   display: flex;
-  gap: var(--space-md);
+  gap: 1rem;
   justify-content: center;
   flex-wrap: wrap;
 }
@@ -217,47 +217,47 @@ export default {
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
   border: 1px solid transparent;
-  border-radius: var(--radius);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: all 0.2s ease;
   text-decoration: none;
   white-space: nowrap;
 }
 
 .btn-primary {
-  background: var(--primary-color);
+  background: #1890ff;
   color: white;
-  border-color: var(--primary-color);
+  border-color: #1890ff;
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
+  background: #40a9ff;
+  border-color: #40a9ff;
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
 }
 
 .btn-outline {
   background: transparent;
-  color: var(--text-secondary);
-  border-color: var(--border-color);
+  color: #8c8c8c;
+  border-color: #d9d9d9;
 }
 
 .btn-outline:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  border-color: var(--text-tertiary);
+  background: #f5f5f5;
+  color: #595959;
+  border-color: #8c8c8c;
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
   .error-fallback {
-    padding: var(--space-lg);
+    padding: 1.5rem;
     min-height: 300px;
   }
   
@@ -266,7 +266,7 @@ export default {
   }
   
   .error-title {
-    font-size: var(--font-size-lg);
+    font-size: 1.25rem;
   }
   
   .error-actions {

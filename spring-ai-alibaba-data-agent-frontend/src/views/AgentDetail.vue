@@ -14,47 +14,8 @@
  * limitations under the License.
 -->
 <template>
-  <div class="agent-detail-page">
-    <!-- 消息提示组件 -->
-    <div v-if="message.show" class="message-toast" :class="message.type">
-      <div class="message-content">
-        <i :class="getMessageIcon(message.type)"></i>
-        <span>{{ message.text }}</span>
-      </div>
-      <button class="message-close" @click="hideMessage">×</button>
-    </div>
-
-    <!-- 现代化头部导航 -->
-    <header class="page-header">
-      <div class="header-content">
-        <div class="brand-section">
-          <div class="brand-logo" @click="goToHome">
-            <i class="bi bi-robot"></i>
-            <span class="brand-text">数据智能体</span>
-          </div>
-          <nav class="header-nav">
-            <div class="nav-item" @click="goToAgentList">
-              <i class="bi bi-grid-3x3-gap"></i>
-              <span>智能体列表</span>
-            </div>
-            <div class="nav-item" @click="goToWorkspace">
-              <i class="bi bi-chat-square-dots"></i>
-              <span>智能体工作台</span>
-            </div>
-          </nav>
-        </div>
-        <div class="header-actions">
-          <button class="btn btn-outline" @click="openHelp">
-            <i class="bi bi-question-circle"></i>
-            帮助
-          </button>
-          <button class="btn btn-primary" @click="createNewAgent">
-            <i class="bi bi-plus-lg"></i>
-            创建智能体
-          </button>
-        </div>
-      </div>
-    </header>
+  <BaseLayout>
+    <div class="agent-detail-page">
 
     <!-- 智能体信息头部 -->
     <div class="agent-header">
@@ -1401,18 +1362,21 @@ print(result)</code></pre>
       </div>
     </div>
   </div>
+  </BaseLayout>
 </template>
 
 <script>
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { agentApi, businessKnowledgeApi, semanticModelApi, datasourceApi, presetQuestionApi } from '../utils/api.js'
-import AgentDebugPanel from '../components/AgentDebugPanel.vue'
+import BaseLayout from '../layouts/BaseLayout.vue'
+import { agentApi, businessKnowledgeApi, semanticModelApi, datasourceApi, presetQuestionApi } from '../services/api.js'
+import AgentDebugPanel from '../components/agent/AgentDebugPanel.vue'
 import PromptOptimizationConfig from '../components/PromptOptimizationConfig.vue'
 
 export default {
   name: 'AgentDetail',
   components: {
+    BaseLayout,
     AgentDebugPanel,
     PromptOptimizationConfig
   },
@@ -1549,25 +1513,7 @@ export default {
       router.push('/agents')
     }
     
-    const goToAgentList = () => {
-      router.push('/agents')
-    }
-
-    const goToWorkspace = () => {
-      router.push('/workspace')
-    }
-
-    const createNewAgent = () => {
-      router.push('/agent/create')
-    }
-
-    const openHelp = () => {
-      window.open('https://github.com/alibaba/spring-ai-alibaba/blob/main/spring-ai-alibaba-nl2sql/README.md', '_blank')
-    }
-
-    const goToHome = () => {
-      router.push('/')
-    }
+    // 导航方法已移至BaseLayout组件
 
     // 更新智能体信息
     const updateAgent = async () => {
@@ -1768,23 +1714,57 @@ export default {
     const loadDatasources = async () => {
       try {
         // 加载智能体关联的数据源
-        const agentDatasources = await datasourceApi.getAgentDatasources(agent.id)
+        const response = await datasourceApi.getAgentDatasources(agent.id)
+        console.log('API响应:', response)
+        
+        // DatasourceController返回的是直接的AgentDatasource数组
+        let agentDatasources = []
+        if (response && Array.isArray(response)) {
+          agentDatasources = response
+        } else if (response && typeof response === 'object') {
+          if (response.success && response.data) {
+            agentDatasources = response.data
+          } else if (response.data) {
+            agentDatasources = response.data
+          }
+        }
+        
         agentDatasourceList.value = agentDatasources
         console.log('智能体数据源加载成功:', agentDatasources)
       } catch (error) {
         console.error('加载智能体数据源失败:', error)
+        agentDatasourceList.value = []
       }
     }
 
     const loadAllDatasources = async () => {
       try {
         // 加载所有可用的数据源
-        const datasources = await datasourceApi.getList({ status: 'active' })
+        const response = await datasourceApi.getList({ status: 'active' })
+        console.log('所有数据源API响应:', response)
+        
+        // 处理不同的响应格式
+        let datasources = []
+        if (response && typeof response === 'object') {
+          if (response.success && response.data) {
+            // 标准响应格式: {success: true, data: [...]}
+            datasources = response.data
+          } else if (Array.isArray(response)) {
+            // 直接返回数组
+            datasources = response
+          } else if (response.data) {
+            // 只有data字段
+            datasources = response.data
+          }
+        }
+        
         allDatasourceList.value = datasources
         filteredDatasources.value = datasources
         console.log('所有数据源加载成功:', datasources)
       } catch (error) {
         console.error('加载数据源列表失败:', error)
+        allDatasourceList.value = []
+        filteredDatasources.value = []
       }
     }
 
@@ -1920,8 +1900,24 @@ export default {
         const newDatasource = await datasourceApi.create(datasourceData)
         console.log('数据源创建成功:', newDatasource)
         
+        // 处理响应格式，获取数据源ID
+        let datasourceId = null
+        if (newDatasource && typeof newDatasource === 'object') {
+          if (newDatasource.success && newDatasource.data && newDatasource.data.id) {
+            datasourceId = newDatasource.data.id
+          } else if (newDatasource.id) {
+            datasourceId = newDatasource.id
+          } else if (newDatasource.data && newDatasource.data.id) {
+            datasourceId = newDatasource.data.id
+          }
+        }
+        
+        if (!datasourceId) {
+          throw new Error('创建数据源失败：无法获取数据源ID')
+        }
+        
         // 将新数据源添加到智能体
-        await datasourceApi.addToAgent(agent.id, newDatasource.id)
+        await datasourceApi.addToAgent(agent.id, datasourceId)
         showMessage('数据源创建并添加成功', 'success')
         
         loadDatasources()
@@ -2827,11 +2823,7 @@ print(result)`
       getDatasourceTypeText,
       getTestStatusText,
       // 导航方法
-      goToAgentList,
-      goToWorkspace,
-      createNewAgent,
-      openHelp,
-      goToHome,
+      // 导航方法已移至BaseLayout组件
       // 工具方法
       getStatusText,
       formatDate,
@@ -2896,12 +2888,519 @@ print(result)`
 <style scoped>
 .agent-detail-page {
   min-height: 100vh;
-  background: var(--bg-layout);
-  font-family: var(--font-family);
+  background: #f8fafc;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   width: 100vw;
   max-width: 100vw;
   overflow-x: hidden;
   box-sizing: border-box;
+}
+
+/* 消息提示 */
+.message-toast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 400px;
+  animation: slideInRight 0.3s ease;
+}
+
+.message-toast.success {
+  background: #d1fae5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.message-toast.error {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.message-toast.info {
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+  color: #1e40af;
+}
+
+.message-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.message-close {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.message-close:hover {
+  opacity: 1;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* 头部导航样式已移至BaseLayout组件 */
+
+/* 智能体头部 */
+.agent-header {
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 2rem 0;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.back-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.agent-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+
+.agent-avatar {
+  display: flex;
+  align-items: center;
+}
+
+.avatar-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.75rem;
+}
+
+.agent-meta {
+  flex: 1;
+}
+
+.agent-name {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.agent-description {
+  color: #6b7280;
+  font-size: 1rem;
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.agent-tags {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.tag {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.status-tag.published {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-tag.draft {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-tag.offline {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.agent-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-publish {
+  background: #10b981;
+  color: white;
+  position: relative;
+}
+
+.btn-publish:hover {
+  background: #059669;
+}
+
+.dropdown-arrow {
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.publish-dropdown.active .dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+.publish-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 300px;
+  z-index: 10;
+  margin-top: 0.5rem;
+}
+
+.dropdown-header {
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.publish-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.publish-status i {
+  color: #10b981;
+  font-size: 1.25rem;
+}
+
+.status-info h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.status-info p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* 主要内容区域 */
+.main-content {
+  padding: 2rem 0;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 2rem;
+}
+
+.content-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.content-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* 卡片样式 */
+.card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.card-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.card-title i {
+  color: #3b82f6;
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+/* 表单样式 */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-control:disabled {
+  background: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* 按钮样式 */
+.btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-secondary {
+  background: #f9fafb;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn-secondary:hover {
+  background: #f3f4f6;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+.btn-success {
+  background: #10b981;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #059669;
+}
+
+/* 表格样式 */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table th {
+  background: #f9fafb;
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f3f4f6;
+  color: #6b7280;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+/* 模态框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.close-btn:hover {
+  color: #374151;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .content-sidebar {
+    order: -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 1rem;
+  }
+  
+  .header-content {
+    padding: 0 1rem;
+  }
+  
+  .agent-header .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .agent-info {
+    width: 100%;
+  }
+  
+  .agent-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+  
+  .modal-content {
+    width: 95%;
+    margin: 1rem;
+  }
 }
 
 /* 确保页面占满整个屏幕宽度 */

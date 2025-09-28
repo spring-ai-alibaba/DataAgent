@@ -14,7 +14,8 @@
  * limitations under the License.
 -->
 <template>
-  <div class="design-system-page">
+  <BaseLayout>
+    <div class="design-system-page">
     <div class="container">
       <div class="page-header">
         <h1>现代化设计系统展示</h1>
@@ -362,11 +363,17 @@
       </section>
     </div>
   </div>
+  </BaseLayout>
 </template>
 
 <script>
+import BaseLayout from '../layouts/BaseLayout.vue'
+
 export default {
-  name: 'DesignSystem'
+  name: 'DesignSystem',
+  components: {
+    BaseLayout
+  }
 }
 </script>
 
