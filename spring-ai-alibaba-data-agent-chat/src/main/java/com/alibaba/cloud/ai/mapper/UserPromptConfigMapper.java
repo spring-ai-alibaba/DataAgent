@@ -17,21 +17,18 @@
 package com.alibaba.cloud.ai.mapper;
 
 import com.alibaba.cloud.ai.entity.UserPromptConfig;
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
-/**
- * User Prompt Configuration Mapper Interface
- *
- * @author Alibaba Cloud AI
- */
 @Mapper
-public interface UserPromptConfigMapper extends BaseMapper<UserPromptConfig> {
+public interface UserPromptConfigMapper {
 
 	/**
 	 * Query configuration list by prompt type
@@ -62,5 +59,52 @@ public interface UserPromptConfigMapper extends BaseMapper<UserPromptConfig> {
 	 */
 	@Update("UPDATE user_prompt_config SET enabled = 0 WHERE id = #{id}")
 	int disableById(@Param("id") String id);
+
+	@Select("SELECT * FROM user_prompt_config WHERE id = #{id}")
+	UserPromptConfig selectById(String id);
+
+	@Update("""
+			<script>
+			UPDATE user_prompt_config
+			<set>
+			  <if test='name != null'>name = #{name},</if>
+			  <if test='promptType != null'>prompt_type = #{promptType},</if>
+			  <if test='systemPrompt != null'>system_prompt = #{systemPrompt},</if>
+			  <if test='enabled != null'>enabled = #{enabled},</if>
+			  <if test='description != null'>description = #{description},</if>
+			  <if test='priority != null'>priority = #{priority},</if>
+			  <if test='displayOrder != null'>display_order = #{displayOrder},</if>
+			  update_time = NOW()
+			</set>
+			WHERE id = #{id}
+			</script>
+			""")
+	int updateById(UserPromptConfig config);
+
+	@Insert("""
+			INSERT INTO user_prompt_config
+			(name, prompt_type, system_prompt, enabled, description, priority, display_order, create_time, update_time, creator)
+			VALUES (#{name}, #{promptType}, #{systemPrompt}, #{enabled}, #{description}, #{priority}, #{displayOrder}, NOW(), NOW(), #{creator})
+			""")
+	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
+	int insert(UserPromptConfig config);
+
+	@Select("""
+			SELECT * FROM user_prompt_config WHERE prompt_type = #{promptType} AND enabled = true
+			ORDER BY priority DESC, display_order, update_time DESC
+			""")
+	List<UserPromptConfig> getActiveConfigsByType(String promptType);
+
+	@Select("""
+			SELECT * FROM user_prompt_config WHERE prompt_type = #{promptType}
+			ORDER BY priority DESC, display_order, update_time DESC
+			""")
+	List<UserPromptConfig> getConfigsByType(String promptType);
+
+	@Select("SELECT * FROM user_prompt_config ORDER BY priority DESC, display_order, update_time DESC")
+	List<UserPromptConfig> selectAll();
+
+	@Delete("DELETE FROM user_prompt_config WHERE id = #{id}")
+	int deleteById(String id);
 
 }

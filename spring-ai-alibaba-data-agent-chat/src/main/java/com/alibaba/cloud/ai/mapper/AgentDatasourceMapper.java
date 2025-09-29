@@ -17,7 +17,7 @@
 package com.alibaba.cloud.ai.mapper;
 
 import com.alibaba.cloud.ai.entity.AgentDatasource;
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -25,13 +25,8 @@ import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
-/**
- * Agent Data Source Association Mapper Interface
- *
- * @author Alibaba Cloud AI
- */
 @Mapper
-public interface AgentDatasourceMapper extends BaseMapper<AgentDatasource> {
+public interface AgentDatasourceMapper {
 
 	/**
 	 * Query associated data sources by agent ID (including data source details)
@@ -68,5 +63,22 @@ public interface AgentDatasourceMapper extends BaseMapper<AgentDatasource> {
 	@Select("SELECT COUNT(*) FROM agent_datasource WHERE agent_id = #{agentId} AND is_active = 1 AND datasource_id != #{excludeDatasourceId}")
 	int countActiveByAgentIdExcluding(@Param("agentId") Integer agentId,
 			@Param("excludeDatasourceId") Integer excludeDatasourceId);
+
+	@Delete("DELETE FROM agent_datasource WHERE datasource_id = #{datasourceId}")
+	int deleteAllByDatasourceId(@Param("datasourceId") Integer datasourceId);
+
+	@Select("INSERT INTO agent_datasource (agent_id, datasource_id, is_active) VALUES (#{agentId}, #{datasourceId}, 1)")
+	int createNewRelationEnabled(@Param("agentId") Integer agentId, @Param("datasourceId") Integer datasourceId);
+
+	@Update("UPDATE agent_datasource SET is_active = #{isActive} WHERE agent_id = #{agentId} AND datasource_id = #{datasourceId}")
+	int updateRelation(@Param("agentId") Integer agentId, @Param("datasourceId") Integer datasourceId,
+			@Param("isActive") Integer isActive);
+
+	default int enableRelation(Integer agentId, Integer datasourceId) {
+		return updateRelation(agentId, datasourceId, 1);
+	}
+
+	@Delete("DELETE FROM agent_datasource WHERE agent_id = #{agentId} AND datasource_id = #{datasourceId}")
+	int removeRelation(@Param("agentId") Integer agentId, @Param("datasourceId") Integer datasourceId);
 
 }

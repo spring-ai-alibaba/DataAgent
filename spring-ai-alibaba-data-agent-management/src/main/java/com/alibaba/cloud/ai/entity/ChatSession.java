@@ -15,8 +15,8 @@
  */
 package com.alibaba.cloud.ai.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
@@ -24,34 +24,27 @@ import java.time.LocalDateTime;
 /**
  * Chat Session Entity Class
  */
-@TableName("chat_session")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class ChatSession {
 
-	@TableId(value = "id", type = IdType.ASSIGN_UUID)
 	private String id; // UUID
 
-	@TableField("agent_id")
 	private Integer agentId;
 
-	@TableField("title")
 	private String title;
 
-	@TableField("status")
 	private String status; // active, archived, deleted
 
-	@TableField("is_pinned")
-	private Boolean isPinned; // Whether pinned
+	@Builder.Default
+	private Boolean isPinned = false; // Whether pinned
 
-	@TableField("user_id")
 	private Long userId;
 
-	@TableField(value = "create_time", fill = FieldFill.INSERT)
 	private LocalDateTime createTime;
 
-	@TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
 	private LocalDateTime updateTime;
 
 	public ChatSession(String id, Integer agentId, String title, String status, Long userId) {

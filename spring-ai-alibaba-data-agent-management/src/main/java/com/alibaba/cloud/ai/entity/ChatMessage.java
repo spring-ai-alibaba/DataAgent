@@ -15,7 +15,6 @@
  */
 package com.alibaba.cloud.ai.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -24,31 +23,23 @@ import java.time.LocalDateTime;
 /**
  * Chat Message Entity Class
  */
-@TableName("chat_message")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChatMessage {
 
-	@TableId(value = "id", type = IdType.AUTO)
 	private Long id;
 
-	@TableField("session_id")
 	private String sessionId;
 
-	@TableField("role")
 	private String role; // user, assistant, system
 
-	@TableField("content")
 	private String content;
 
-	@TableField("message_type")
 	private String messageType; // text, sql, result, error
 
-	@TableField("metadata")
 	private String metadata; // JSON格式的元数据
 
-	@TableField(value = "create_time", fill = FieldFill.INSERT)
 	private LocalDateTime createTime;
 
 	public ChatMessage(String sessionId, String role, String content, String messageType) {

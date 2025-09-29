@@ -53,13 +53,13 @@ public class DatasourceController {
 		List<Datasource> datasources;
 
 		if (status != null && !status.isEmpty()) {
-			datasources = datasourceService.getDatasourcesByStatus(status);
+			datasources = datasourceService.getDatasourceByStatus(status);
 		}
 		else if (type != null && !type.isEmpty()) {
-			datasources = datasourceService.getDatasourcesByType(type);
+			datasources = datasourceService.getDatasourceByType(type);
 		}
 		else {
-			datasources = datasourceService.getAllDatasources();
+			datasources = datasourceService.getAllDatasource();
 		}
 
 		return ResponseEntity.ok(datasources);

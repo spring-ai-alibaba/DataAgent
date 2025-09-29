@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2024-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +24,6 @@ import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.enums.ErrorCodeEnum;
 import com.alibaba.cloud.ai.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.mapper.AgentDatasourceMapper;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,11 +35,7 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Data Source Service Class
- *
- * @author Alibaba Cloud AI
- */
+// todo: 检查Mapper的返回值，判断是否执行成功（或者对Mapper进行AOP）
 @Service
 public class DatasourceService {
 
@@ -58,21 +53,21 @@ public class DatasourceService {
 	/**
 	 * Get all data source list
 	 */
-	public List<Datasource> getAllDatasources() {
-		return datasourceMapper.selectList(Wrappers.<Datasource>lambdaQuery().orderByDesc(Datasource::getCreateTime));
+	public List<Datasource> getAllDatasource() {
+		return datasourceMapper.selectAll();
 	}
 
 	/**
 	 * Get data source list by status
 	 */
-	public List<Datasource> getDatasourcesByStatus(String status) {
+	public List<Datasource> getDatasourceByStatus(String status) {
 		return datasourceMapper.selectByStatus(status);
 	}
 
 	/**
 	 * Get data source list by type
 	 */
-	public List<Datasource> getDatasourcesByType(String type) {
+	public List<Datasource> getDatasourceByType(String type) {
 		return datasourceMapper.selectByType(type);
 	}
 
@@ -120,7 +115,7 @@ public class DatasourceService {
 	@Transactional
 	public void deleteDatasource(Integer id) {
 		// First, delete the associations
-		agentDatasourceMapper.delete(Wrappers.<AgentDatasource>lambdaQuery().eq(AgentDatasource::getDatasourceId, id));
+		agentDatasourceMapper.deleteAllByDatasourceId(id);
 
 		// Then, delete the data source
 		datasourceMapper.deleteById(id);
@@ -130,10 +125,7 @@ public class DatasourceService {
 	 * Update data source test status
 	 */
 	public void updateTestStatus(Integer id, String testStatus) {
-		datasourceMapper.update(null,
-				Wrappers.<Datasource>lambdaUpdate()
-					.eq(Datasource::getId, id)
-					.set(Datasource::getTestStatus, testStatus));
+		datasourceMapper.updateTestStatusById(id, testStatus);
 	}
 
 	/**
@@ -238,11 +230,7 @@ public class DatasourceService {
 
 		if (existing != null) {
 			// If it exists, activate the association
-			agentDatasourceMapper.update(null,
-					Wrappers.<AgentDatasource>lambdaUpdate()
-						.eq(AgentDatasource::getAgentId, agentId)
-						.eq(AgentDatasource::getDatasourceId, datasourceId)
-						.set(AgentDatasource::getIsActive, 1));
+			agentDatasourceMapper.enableRelation(agentId, datasourceId);
 
 			// Query and return the updated association
 			return agentDatasourceMapper.selectByAgentIdAndDatasourceId(agentId, datasourceId);
@@ -251,7 +239,7 @@ public class DatasourceService {
 			// If it does not exist, create a new association
 			AgentDatasource agentDatasource = new AgentDatasource(agentId, datasourceId);
 			agentDatasource.setIsActive(1);
-			agentDatasourceMapper.insert(agentDatasource);
+			agentDatasourceMapper.createNewRelationEnabled(agentId, datasourceId);
 			return agentDatasource;
 		}
 	}
@@ -260,9 +248,7 @@ public class DatasourceService {
 	 * Remove data source association from agent
 	 */
 	public void removeDatasourceFromAgent(Integer agentId, Integer datasourceId) {
-		agentDatasourceMapper.delete(Wrappers.<AgentDatasource>lambdaQuery()
-			.eq(AgentDatasource::getAgentId, agentId)
-			.eq(AgentDatasource::getDatasourceId, datasourceId));
+		agentDatasourceMapper.removeRelation(agentId, datasourceId);
 	}
 
 	/**
@@ -278,11 +264,7 @@ public class DatasourceService {
 		}
 
 		// Update data source status
-		int updated = agentDatasourceMapper.update(null,
-				Wrappers.<AgentDatasource>lambdaUpdate()
-					.eq(AgentDatasource::getAgentId, agentId)
-					.eq(AgentDatasource::getDatasourceId, datasourceId)
-					.set(AgentDatasource::getIsActive, isActive ? 1 : 0));
+		int updated = agentDatasourceMapper.updateRelation(agentId, datasourceId, isActive ? 1 : 0);
 
 		if (updated == 0) {
 			throw new RuntimeException("未找到相关的数据源关联记录");
@@ -299,7 +281,7 @@ public class DatasourceService {
 		Map<String, Object> stats = new HashMap<>();
 
 		// Total count statistics
-		Long total = datasourceMapper.selectCount(null);
+		Long total = datasourceMapper.selectCount();
 		stats.put("total", total);
 
 		// Statistics by status
