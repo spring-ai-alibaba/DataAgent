@@ -15,11 +15,18 @@
  */
 package com.alibaba.cloud.ai.dto;
 
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
 /**
  * Semantic model configuration entity class
  *
  * @author jast
  */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class SemanticModelDTO {
 
 	private Long id; // Unique identifier
@@ -41,9 +48,6 @@ public class SemanticModelDTO {
 	private String fieldType; // Field type
 
 	private String originalDescription; // Original field description
-
-	public SemanticModelDTO() {
-	}
 
 	public SemanticModelDTO(Long agentId, String originalFieldName, String agentFieldName, String fieldSynonyms,
 			String fieldDescription, Boolean defaultRecall, Boolean enabled, String fieldType,
@@ -70,88 +74,6 @@ public class SemanticModelDTO {
 		this.originalDescription = originalDescription;
 		this.defaultRecall = defaultRecall;
 		this.enabled = enabled;
-	}
-
-	// Getters and Setters
-	public Long getAgentId() {
-		return agentId;
-	}
-
-	public void setAgentId(Long agentId) {
-		this.agentId = agentId;
-	}
-
-	// Getters and Setters
-	public Long getId() {
-		return id;
-	}
-
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	public String getOriginalFieldName() {
-		return originalFieldName;
-	}
-
-	public void setOriginalFieldName(String originalFieldName) {
-		this.originalFieldName = originalFieldName;
-	}
-
-	public String getAgentFieldName() {
-		return agentFieldName;
-	}
-
-	public void setAgentFieldName(String agentFieldName) {
-		this.agentFieldName = agentFieldName;
-	}
-
-	public String getFieldSynonyms() {
-		return fieldSynonyms;
-	}
-
-	public void setFieldSynonyms(String fieldSynonyms) {
-		this.fieldSynonyms = fieldSynonyms;
-	}
-
-	public String getFieldDescription() {
-		return fieldDescription;
-	}
-
-	public void setFieldDescription(String fieldDescription) {
-		this.fieldDescription = fieldDescription;
-	}
-
-	public Boolean getDefaultRecall() {
-		return defaultRecall;
-	}
-
-	public void setDefaultRecall(Boolean defaultRecall) {
-		this.defaultRecall = defaultRecall;
-	}
-
-	public Boolean getEnabled() {
-		return enabled;
-	}
-
-	public void setEnabled(Boolean enabled) {
-		this.enabled = enabled;
-	}
-
-	public String getFieldType() {
-		return fieldType;
-	}
-
-	public void setFieldType(String fieldType) {
-		this.fieldType = fieldType;
-	}
-
-	public String getOriginalDescription() {
-		return originalDescription;
-	}
-
-	public void setOriginalDescription(String originalDescription) {
-		this.originalDescription = originalDescription;
 	}
 
 	@Override
