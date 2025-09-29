@@ -68,15 +68,15 @@ public interface BusinessKnowledgeMapper {
 	List<BusinessKnowledge> selectByDatasetIdAndDefaultRecall(@Param("datasetId") String datasetId,
 			@Param("defaultRecall") Boolean defaultRecall);
 
-	@Insert({ "INSERT INTO business_knowledge (business_term, description, synonyms, is_recall, data_set_id, agent_id, created_time, updated_time)",
+	@Insert({
+			"INSERT INTO business_knowledge (business_term, description, synonyms, is_recall, data_set_id, agent_id, created_time, updated_time)",
 			"VALUES (#{businessTerm}, #{description}, #{synonyms}, #{defaultRecall}, #{datasetId}, #{agentId}, NOW(), NOW())" })
 	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
 	int insert(BusinessKnowledge knowledge);
 
 	@Update({ "UPDATE business_knowledge SET",
 			"business_term = #{businessTerm}, description = #{description}, synonyms = #{synonyms}, is_recall = #{defaultRecall},",
-			"data_set_id = #{datasetId}, agent_id = #{agentId}, updated_time = NOW()",
-			"WHERE id = #{id}" })
+			"data_set_id = #{datasetId}, agent_id = #{agentId}, updated_time = NOW()", "WHERE id = #{id}" })
 	int updateById(BusinessKnowledge knowledge);
 
 	@Delete("DELETE FROM business_knowledge WHERE id = #{id}")

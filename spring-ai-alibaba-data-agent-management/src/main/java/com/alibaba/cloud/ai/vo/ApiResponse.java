@@ -31,16 +31,16 @@ public class ApiResponse {
 
 	private Object data;
 
-    public ApiResponse(boolean success, String message) {
-        this.success = success;
-        this.message = message;
-    }
+	public ApiResponse(boolean success, String message) {
+		this.success = success;
+		this.message = message;
+	}
 
-    public ApiResponse(boolean success, String message, Object data) {
-        this.success = success;
-        this.message = message;
-        this.data = data;
-    }
+	public ApiResponse(boolean success, String message, Object data) {
+		this.success = success;
+		this.message = message;
+		this.data = data;
+	}
 
 	public static ApiResponse success(String message) {
 		return new ApiResponse(true, message);

@@ -53,10 +53,8 @@ public interface ChatMessageMapper {
 	@Select("SELECT * FROM chat_message WHERE session_id = #{sessionId} AND role = #{role} ORDER BY create_time ASC")
 	List<ChatMessage> selectBySessionIdAndRole(@Param("sessionId") String sessionId, @Param("role") String role);
 
-	@Insert({
-			"INSERT INTO chat_message (session_id, role, content, message_type, metadata, create_time)",
-			"VALUES (#{sessionId}, #{role}, #{content}, #{messageType}, #{metadata}, NOW())"
-	})
+	@Insert({ "INSERT INTO chat_message (session_id, role, content, message_type, metadata, create_time)",
+			"VALUES (#{sessionId}, #{role}, #{content}, #{messageType}, #{metadata}, NOW())" })
 	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
 	int insert(ChatMessage message);
 

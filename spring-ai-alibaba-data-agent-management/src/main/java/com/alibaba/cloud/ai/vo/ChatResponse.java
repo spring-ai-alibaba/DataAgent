@@ -39,9 +39,10 @@ public class ChatResponse {
 
 	private String error; // Error message
 
-    public ChatResponse(String sessionId, String message, String messageType) {
+	public ChatResponse(String sessionId, String message, String messageType) {
 		this.sessionId = sessionId;
 		this.message = message;
 		this.messageType = messageType;
 	}
+
 }

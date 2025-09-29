@@ -67,7 +67,8 @@ public interface SemanticModelMapper {
 	@Select("SELECT * FROM semantic_model WHERE agent_id = #{agentId} AND status = #{enabled} ORDER BY created_time DESC")
 	List<SemanticModel> selectByAgentIdAndEnabled(@Param("agentId") Long agentId, @Param("enabled") Boolean enabled);
 
-	@Insert({ "INSERT INTO semantic_model (agent_id, origin_name, field_name, synonyms, description, type, origin_description, is_recall, status, created_time, updated_time)",
+	@Insert({
+			"INSERT INTO semantic_model (agent_id, origin_name, field_name, synonyms, description, type, origin_description, is_recall, status, created_time, updated_time)",
 			"VALUES (#{agentId}, #{originalFieldName}, #{agentFieldName}, #{fieldSynonyms}, #{fieldDescription}, #{fieldType}, #{originalDescription}, #{defaultRecall}, #{enabled}, NOW(), NOW())" })
 	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
 	int insert(SemanticModel model);
@@ -75,8 +76,7 @@ public interface SemanticModelMapper {
 	@Update({ "UPDATE semantic_model SET",
 			"origin_name = #{originalFieldName}, field_name = #{agentFieldName}, synonyms = #{fieldSynonyms},",
 			"description = #{fieldDescription}, type = #{fieldType}, origin_description = #{originalDescription},",
-			"is_recall = #{defaultRecall}, status = #{enabled}, updated_time = NOW()",
-			"WHERE id = #{id}" })
+			"is_recall = #{defaultRecall}, status = #{enabled}, updated_time = NOW()", "WHERE id = #{id}" })
 	int updateById(SemanticModel model);
 
 	@Delete("DELETE FROM semantic_model WHERE id = #{id}")
