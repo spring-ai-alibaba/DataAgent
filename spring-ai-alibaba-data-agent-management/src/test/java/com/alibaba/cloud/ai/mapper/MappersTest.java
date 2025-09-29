@@ -203,7 +203,23 @@ public class MappersTest {
 
 	@Test
 	public void testAgentPresetQuestionCrud() {
-		Long agentId = 9999L;
+		// 先创建一个合法的 Agent 以满足外键约束
+		Agent agent = Agent.builder()
+			.name("preset-holder")
+			.description("for preset question fk")
+			.avatar("a")
+			.status("draft")
+			.prompt("p")
+			.category("c")
+			.adminId(1L)
+			.tags("t")
+			.createTime(LocalDateTime.now().withNano(0))
+			.updateTime(LocalDateTime.now().withNano(0))
+			.humanReviewEnabled(0)
+			.build();
+		agentMapper.insert(agent);
+		Long agentId = agent.getId();
+
 		// clean existing
 		agentPresetQuestionMapper.deleteByAgentId(agentId);
 
@@ -224,6 +240,9 @@ public class MappersTest {
 
 		int del = agentPresetQuestionMapper.deleteById(qs.get(0).getId());
 		Assertions.assertEquals(1, del);
+
+		// 清理创建的 agent
+		agentMapper.deleteById(agentId);
 	}
 
 	@Test
