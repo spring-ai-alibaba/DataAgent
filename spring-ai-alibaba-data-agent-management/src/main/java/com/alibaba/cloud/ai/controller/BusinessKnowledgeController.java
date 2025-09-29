@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.BusinessKnowledge;
-import com.alibaba.cloud.ai.service.BusinessKnowledgeService;
+import com.alibaba.cloud.ai.service.impl.BusinessKnowledgeService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;

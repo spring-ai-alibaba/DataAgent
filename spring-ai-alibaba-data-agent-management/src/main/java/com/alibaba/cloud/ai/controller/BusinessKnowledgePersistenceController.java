@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.controller;
 import com.alibaba.cloud.ai.vo.ApiResponse;
 import com.alibaba.cloud.ai.entity.BusinessKnowledge;
 import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
-import com.alibaba.cloud.ai.service.BusinessKnowledgePersistenceService;
+import com.alibaba.cloud.ai.service.impl.BusinessKnowledgePersistenceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;

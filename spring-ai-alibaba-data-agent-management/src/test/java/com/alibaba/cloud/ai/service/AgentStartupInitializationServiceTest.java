@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.service;
 
+import com.alibaba.cloud.ai.service.impl.AgentStartupInitializationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

@@ -32,6 +32,8 @@ public class TableInfoBO extends DdlBaseBO {
 
 	private List<String> primaryKeys;
 
+	private List<ColumnInfoBO> columns;
+
 	public TableInfoBO() {
 	}
 
@@ -91,6 +93,14 @@ public class TableInfoBO extends DdlBaseBO {
 
 	public void setPrimaryKeys(List<String> primaryKeys) {
 		this.primaryKeys = primaryKeys;
+	}
+
+	public List<ColumnInfoBO> getColumns() {
+		return columns;
+	}
+
+	public void setColumns(List<ColumnInfoBO> columns) {
+		this.columns = columns;
 	}
 
 	@Override
