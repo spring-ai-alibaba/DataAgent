@@ -17,7 +17,6 @@
 package com.alibaba.cloud.ai.mapper;
 
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.*;
 
 import java.time.LocalDateTime;
@@ -29,7 +28,7 @@ import java.util.List;
  * @author Alibaba Cloud AI
  */
 @Mapper
-public interface AgentKnowledgeMapper extends BaseMapper<AgentKnowledge> {
+public interface AgentKnowledgeMapper {
 
 	@Select("SELECT * FROM agent_knowledge WHERE agent_id = #{agentId} ORDER BY create_time DESC")
 	List<AgentKnowledge> selectByAgentId(@Param("agentId") Integer agentId);

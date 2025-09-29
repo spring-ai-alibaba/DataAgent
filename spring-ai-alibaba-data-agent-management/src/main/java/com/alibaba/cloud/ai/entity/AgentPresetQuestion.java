@@ -17,10 +17,14 @@
 package com.alibaba.cloud.ai.entity;
 
 import java.time.LocalDateTime;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * Agent Preset Question Entity Class
  */
+@Data
+@NoArgsConstructor
 public class AgentPresetQuestion {
 
 	private Long id;
@@ -37,72 +41,10 @@ public class AgentPresetQuestion {
 
 	private LocalDateTime updateTime;
 
-	// Constructor
-	public AgentPresetQuestion() {
-	}
-
 	public AgentPresetQuestion(Long agentId, String question, Integer sortOrder) {
 		this.agentId = agentId;
 		this.question = question;
 		this.sortOrder = sortOrder;
 		this.isActive = true;
 	}
-
-	// Getter和Setter方法
-	public Long getId() {
-		return id;
-	}
-
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	public Long getAgentId() {
-		return agentId;
-	}
-
-	public void setAgentId(Long agentId) {
-		this.agentId = agentId;
-	}
-
-	public String getQuestion() {
-		return question;
-	}
-
-	public void setQuestion(String question) {
-		this.question = question;
-	}
-
-	public Integer getSortOrder() {
-		return sortOrder;
-	}
-
-	public void setSortOrder(Integer sortOrder) {
-		this.sortOrder = sortOrder;
-	}
-
-	public Boolean getIsActive() {
-		return isActive;
-	}
-
-	public void setIsActive(Boolean isActive) {
-		this.isActive = isActive;
-	}
-
-	public LocalDateTime getCreateTime() {
-		return createTime;
-	}
-
-	public void setCreateTime(LocalDateTime createTime) {
-		this.createTime = createTime;
-	}
-
-	public LocalDateTime getUpdateTime() {
-		return updateTime;
-	}
-
-	public void setUpdateTime(LocalDateTime updateTime) {
-		this.updateTime = updateTime;
-	}
-
 }

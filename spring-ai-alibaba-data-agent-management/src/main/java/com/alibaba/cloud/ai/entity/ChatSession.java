@@ -16,12 +16,18 @@
 package com.alibaba.cloud.ai.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
  * Chat Session Entity Class
  */
 @TableName("chat_session")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class ChatSession {
 
 	@TableId(value = "id", type = IdType.ASSIGN_UUID)
@@ -48,9 +54,6 @@ public class ChatSession {
 	@TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
 	private LocalDateTime updateTime;
 
-	public ChatSession() {
-	}
-
 	public ChatSession(String id, Integer agentId, String title, String status, Long userId) {
 		this.id = id;
 		this.agentId = agentId;
@@ -58,78 +61,6 @@ public class ChatSession {
 		this.status = status;
 		this.isPinned = false;
 		this.userId = userId;
-	}
-
-	// Getters and Setters
-	public String getId() {
-		return id;
-	}
-
-	public void setId(String id) {
-		this.id = id;
-	}
-
-	public Integer getAgentId() {
-		return agentId;
-	}
-
-	public void setAgentId(Integer agentId) {
-		this.agentId = agentId;
-	}
-
-	public String getTitle() {
-		return title;
-	}
-
-	public void setTitle(String title) {
-		this.title = title;
-	}
-
-	public String getStatus() {
-		return status;
-	}
-
-	public void setStatus(String status) {
-		this.status = status;
-	}
-
-	public Boolean getIsPinned() {
-		return isPinned;
-	}
-
-	public void setIsPinned(Boolean isPinned) {
-		this.isPinned = isPinned;
-	}
-
-	public Long getUserId() {
-		return userId;
-	}
-
-	public void setUserId(Long userId) {
-		this.userId = userId;
-	}
-
-	public LocalDateTime getCreateTime() {
-		return createTime;
-	}
-
-	public void setCreateTime(LocalDateTime createTime) {
-		this.createTime = createTime;
-	}
-
-	public LocalDateTime getUpdateTime() {
-		return updateTime;
-	}
-
-	public void setUpdateTime(LocalDateTime updateTime) {
-		this.updateTime = updateTime;
-	}
-
-	@Override
-	public String toString() {
-		return "ChatSession{" + "id='" + id + '\'' + ", agentId=" + agentId + ", title='" + title + '\'' + ", status='"
-				+ status + '\'' + ", isPinned=" + isPinned + ", userId=" + userId + ", createTime=" + createTime
-				+ ", updateTime=" + updateTime + '}';
 	}
 
 }

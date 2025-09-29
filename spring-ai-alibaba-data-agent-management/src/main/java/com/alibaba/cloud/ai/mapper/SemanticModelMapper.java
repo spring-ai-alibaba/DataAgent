@@ -17,11 +17,7 @@
 package com.alibaba.cloud.ai.mapper;
 
 import com.alibaba.cloud.ai.entity.SemanticModel;
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.*;
 
 import java.util.List;
 
@@ -31,13 +27,19 @@ import java.util.List;
  * @author Alibaba Cloud AI
  */
 @Mapper
-public interface SemanticModelMapper extends BaseMapper<SemanticModel> {
+public interface SemanticModelMapper {
 
 	/**
 	 * Query semantic model list by agent ID
 	 */
 	@Select("SELECT * FROM semantic_model WHERE agent_id = #{agentId} ORDER BY created_time DESC")
 	List<SemanticModel> selectByAgentId(@Param("agentId") Long agentId);
+
+	/**
+	 * Query by id
+	 */
+	@Select("SELECT * FROM semantic_model WHERE id = #{id}")
+	SemanticModel selectById(@Param("id") Long id);
 
 	/**
 	 * Search semantic models by keyword
@@ -64,5 +66,20 @@ public interface SemanticModelMapper extends BaseMapper<SemanticModel> {
 	 */
 	@Select("SELECT * FROM semantic_model WHERE agent_id = #{agentId} AND status = #{enabled} ORDER BY created_time DESC")
 	List<SemanticModel> selectByAgentIdAndEnabled(@Param("agentId") Long agentId, @Param("enabled") Boolean enabled);
+
+	@Insert({ "INSERT INTO semantic_model (agent_id, origin_name, field_name, synonyms, description, type, origin_description, is_recall, status, created_time, updated_time)",
+			"VALUES (#{agentId}, #{originalFieldName}, #{agentFieldName}, #{fieldSynonyms}, #{fieldDescription}, #{fieldType}, #{originalDescription}, #{defaultRecall}, #{enabled}, NOW(), NOW())" })
+	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
+	int insert(SemanticModel model);
+
+	@Update({ "UPDATE semantic_model SET",
+			"origin_name = #{originalFieldName}, field_name = #{agentFieldName}, synonyms = #{fieldSynonyms},",
+			"description = #{fieldDescription}, type = #{fieldType}, origin_description = #{originalDescription},",
+			"is_recall = #{defaultRecall}, status = #{enabled}, updated_time = NOW()",
+			"WHERE id = #{id}" })
+	int updateById(SemanticModel model);
+
+	@Delete("DELETE FROM semantic_model WHERE id = #{id}")
+	int deleteById(@Param("id") Long id);
 
 }

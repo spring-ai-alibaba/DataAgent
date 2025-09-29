@@ -81,22 +81,14 @@ public class BusinessKnowledgePersistenceService {
 
 	// Delete all business knowledge by agent ID
 	public void deleteKnowledgeByAgentId(String agentId) {
-		businessKnowledgeMapper.delete(com.baomidou.mybatisplus.core.toolkit.Wrappers.<BusinessKnowledge>lambdaQuery()
-			.eq(BusinessKnowledge::getAgentId, agentId));
+		businessKnowledgeMapper.deleteByAgentId(agentId);
 	}
 
 	// Search business knowledge within agent scope
 	public List<BusinessKnowledge> searchKnowledgeInAgent(String agentId, String keyword) {
 		Objects.requireNonNull(agentId, "agentId cannot be null");
 		Objects.requireNonNull(keyword, "searchKeyword cannot be null");
-		return businessKnowledgeMapper
-			.selectList(com.baomidou.mybatisplus.core.toolkit.Wrappers.<BusinessKnowledge>lambdaQuery()
-				.eq(BusinessKnowledge::getAgentId, agentId)
-				.and(wrapper -> wrapper.like(BusinessKnowledge::getBusinessTerm, keyword)
-					.or()
-					.like(BusinessKnowledge::getDescription, keyword)
-					.or()
-					.like(BusinessKnowledge::getSynonyms, keyword)));
+		return businessKnowledgeMapper.searchInAgent(agentId, keyword);
 	}
 
 }

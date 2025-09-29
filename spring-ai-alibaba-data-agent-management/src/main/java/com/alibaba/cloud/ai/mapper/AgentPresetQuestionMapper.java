@@ -17,7 +17,6 @@
 package com.alibaba.cloud.ai.mapper;
 
 import com.alibaba.cloud.ai.entity.AgentPresetQuestion;
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
@@ -28,7 +27,7 @@ import java.util.List;
  * @author Alibaba Cloud AI
  */
 @Mapper
-public interface AgentPresetQuestionMapper extends BaseMapper<AgentPresetQuestion> {
+public interface AgentPresetQuestionMapper {
 
 	@Select("""
 			SELECT * FROM agent_preset_question
@@ -36,6 +35,12 @@ public interface AgentPresetQuestionMapper extends BaseMapper<AgentPresetQuestio
 			ORDER BY sort_order ASC, id ASC
 			""")
 	List<AgentPresetQuestion> selectByAgentId(@Param("agentId") Long agentId);
+
+	/**
+	 * Query by id
+	 */
+	@Select("SELECT * FROM agent_preset_question WHERE id = #{id}")
+	AgentPresetQuestion selectById(@Param("id") Long id);
 
 	@Insert({ "INSERT INTO agent_preset_question (agent_id, question, sort_order, is_active, create_time, update_time)",
 			"VALUES (#{agentId}, #{question}, #{sortOrder}, #{isActive}, NOW(), NOW())" })

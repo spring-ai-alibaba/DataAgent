@@ -16,12 +16,18 @@
 package com.alibaba.cloud.ai.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
  * Semantic Model Configuration Entity Class
  */
 @TableName("semantic_model")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class SemanticModel {
 
 	@TableId(value = "id", type = IdType.AUTO)
@@ -60,9 +66,6 @@ public class SemanticModel {
 	@TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
 	private LocalDateTime updateTime;
 
-	public SemanticModel() {
-	}
-
 	public SemanticModel(Long agentId, String originalFieldName, String agentFieldName, String fieldSynonyms,
 			String fieldDescription, String fieldType, String originalDescription, Boolean defaultRecall,
 			Boolean enabled) {
@@ -75,118 +78,6 @@ public class SemanticModel {
 		this.originalDescription = originalDescription;
 		this.defaultRecall = defaultRecall;
 		this.enabled = enabled;
-	}
-
-	public SemanticModel(Long id, Long agentId, String originalFieldName, String agentFieldName, String fieldSynonyms,
-			String fieldDescription, String fieldType, String originalDescription, Boolean defaultRecall,
-			Boolean enabled) {
-		this.id = id;
-		this.agentId = agentId;
-		this.originalFieldName = originalFieldName;
-		this.agentFieldName = agentFieldName;
-		this.fieldSynonyms = fieldSynonyms;
-		this.fieldDescription = fieldDescription;
-		this.defaultRecall = defaultRecall;
-		this.enabled = enabled;
-		this.fieldType = fieldType;
-		this.originalDescription = originalDescription;
-	}
-
-	// Getters and Setters
-	public Long getId() {
-		return id;
-	}
-
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	public Long getAgentId() {
-		return agentId;
-	}
-
-	public void setAgentId(Long agentId) {
-		this.agentId = agentId;
-	}
-
-	public String getOriginalFieldName() {
-		return originalFieldName;
-	}
-
-	public void setOriginalFieldName(String originalFieldName) {
-		this.originalFieldName = originalFieldName;
-	}
-
-	public String getAgentFieldName() {
-		return agentFieldName;
-	}
-
-	public void setAgentFieldName(String agentFieldName) {
-		this.agentFieldName = agentFieldName;
-	}
-
-	public String getFieldSynonyms() {
-		return fieldSynonyms;
-	}
-
-	public void setFieldSynonyms(String fieldSynonyms) {
-		this.fieldSynonyms = fieldSynonyms;
-	}
-
-	public String getFieldDescription() {
-		return fieldDescription;
-	}
-
-	public void setFieldDescription(String fieldDescription) {
-		this.fieldDescription = fieldDescription;
-	}
-
-	public Boolean getDefaultRecall() {
-		return defaultRecall;
-	}
-
-	public void setDefaultRecall(Boolean defaultRecall) {
-		this.defaultRecall = defaultRecall;
-	}
-
-	public Boolean getEnabled() {
-		return enabled;
-	}
-
-	public void setEnabled(Boolean enabled) {
-		this.enabled = enabled;
-	}
-
-	public String getFieldType() {
-		return fieldType;
-	}
-
-	public void setFieldType(String fieldType) {
-		this.fieldType = fieldType;
-	}
-
-	public String getOriginalDescription() {
-		return originalDescription;
-	}
-
-	public void setOriginalDescription(String originalDescription) {
-		this.originalDescription = originalDescription;
-	}
-
-	public LocalDateTime getCreateTime() {
-		return createTime;
-	}
-
-	public void setCreateTime(LocalDateTime createTime) {
-		this.createTime = createTime;
-	}
-
-	public LocalDateTime getUpdateTime() {
-		return updateTime;
-	}
-
-	public void setUpdateTime(LocalDateTime updateTime) {
-		this.updateTime = updateTime;
 	}
 
 }

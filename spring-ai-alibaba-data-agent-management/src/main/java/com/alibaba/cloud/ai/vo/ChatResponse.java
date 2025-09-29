@@ -15,9 +15,16 @@
  */
 package com.alibaba.cloud.ai.vo;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 /**
  * Chat Response DTO
  */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class ChatResponse {
 
 	private String sessionId;
@@ -32,67 +39,9 @@ public class ChatResponse {
 
 	private String error; // Error message
 
-	public ChatResponse() {
-	}
-
-	public ChatResponse(String sessionId, String message, String messageType) {
+    public ChatResponse(String sessionId, String message, String messageType) {
 		this.sessionId = sessionId;
 		this.message = message;
 		this.messageType = messageType;
 	}
-
-	public String getSessionId() {
-		return sessionId;
-	}
-
-	public void setSessionId(String sessionId) {
-		this.sessionId = sessionId;
-	}
-
-	public String getMessage() {
-		return message;
-	}
-
-	public void setMessage(String message) {
-		this.message = message;
-	}
-
-	public String getMessageType() {
-		return messageType;
-	}
-
-	public void setMessageType(String messageType) {
-		this.messageType = messageType;
-	}
-
-	public String getSql() {
-		return sql;
-	}
-
-	public void setSql(String sql) {
-		this.sql = sql;
-	}
-
-	public Object getResult() {
-		return result;
-	}
-
-	public void setResult(Object result) {
-		this.result = result;
-	}
-
-	public String getError() {
-		return error;
-	}
-
-	public void setError(String error) {
-		this.error = error;
-	}
-
-	@Override
-	public String toString() {
-		return "ChatResponse{" + "sessionId='" + sessionId + '\'' + ", message='" + message + '\'' + ", messageType='"
-				+ messageType + '\'' + ", sql='" + sql + '\'' + ", result=" + result + ", error='" + error + '\'' + '}';
-	}
-
 }
