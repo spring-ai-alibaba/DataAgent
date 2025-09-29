@@ -16,94 +16,75 @@
 
 package com.alibaba.cloud.ai.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
-/**
- * User-defined prompt configuration entity class
- *
- * @author Makoto
- */
-@TableName("user_prompt_config")
 @Data
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class UserPromptConfig {
 
 	/**
 	 * Configuration ID
 	 */
-	@TableId(value = "id", type = IdType.ASSIGN_UUID)
 	private String id;
 
 	/**
 	 * Configuration name
 	 */
-	@TableField("name")
 	private String name;
 
 	/**
 	 * Prompt type (e.g., report-generator, planner, etc.)
 	 */
-	@TableField("prompt_type")
 	private String promptType;
 
 	/**
 	 * User-defined system prompt content
 	 */
-	@TableField("system_prompt")
 	private String systemPrompt;
 
 	/**
 	 * Whether to enable this configuration
 	 */
-	@TableField("enabled")
+	@Builder.Default
 	private Boolean enabled = true;
 
 	/**
 	 * Configuration description
 	 */
-	@TableField("description")
 	private String description;
 
 	/**
 	 * Configuration priority (higher number = higher priority)
 	 */
-	@TableField("priority")
+	@Builder.Default
 	private Integer priority = 0;
 
 	/**
 	 * Configuration order for display
 	 */
-	@TableField("display_order")
+	@Builder.Default
 	private Integer displayOrder = 0;
 
 	/**
 	 * Creation time
 	 */
-	@TableField(value = "create_time", fill = FieldFill.INSERT)
 	private LocalDateTime createTime;
 
 	/**
 	 * Update time
 	 */
-	@TableField(value = "update_time", fill = FieldFill.INSERT_UPDATE)
 	private LocalDateTime updateTime;
 
 	/**
 	 * Creator
 	 */
-	@TableField("creator")
 	private String creator;
-
-	// Constructors
-
-	public UserPromptConfig(String promptType, String systemPrompt) {
-		this();
-		this.promptType = promptType;
-		this.systemPrompt = systemPrompt;
-	}
 
 	public String getOptimizationPrompt() {
 		return this.systemPrompt;
