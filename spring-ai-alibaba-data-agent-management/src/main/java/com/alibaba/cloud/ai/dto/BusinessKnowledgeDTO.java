@@ -15,9 +15,14 @@
  */
 package com.alibaba.cloud.ai.dto;
 
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 /**
  * Business Knowledge Management Entity Class
  */
+@Data
+@NoArgsConstructor
 public class BusinessKnowledgeDTO {
 
 	private String businessTerm; // Business term
@@ -31,9 +36,6 @@ public class BusinessKnowledgeDTO {
 	private String datasetId; // Associated dataset ID
 
 	private String agentId; // Associated agent ID
-
-	public BusinessKnowledgeDTO() {
-	}
 
 	public BusinessKnowledgeDTO(String businessTerm, String description, String synonyms, Boolean defaultRecall,
 			String datasetId) {
@@ -52,56 +54,6 @@ public class BusinessKnowledgeDTO {
 		this.synonyms = synonyms;
 		this.defaultRecall = defaultRecall;
 		this.datasetId = datasetId;
-		this.agentId = agentId;
-	}
-
-	// Getters and Setters
-
-	public String getBusinessTerm() {
-		return businessTerm;
-	}
-
-	public void setBusinessTerm(String businessTerm) {
-		this.businessTerm = businessTerm;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
-	}
-
-	public String getSynonyms() {
-		return synonyms;
-	}
-
-	public void setSynonyms(String synonyms) {
-		this.synonyms = synonyms;
-	}
-
-	public Boolean getDefaultRecall() {
-		return defaultRecall;
-	}
-
-	public void setDefaultRecall(Boolean defaultRecall) {
-		this.defaultRecall = defaultRecall;
-	}
-
-	public String getDatasetId() {
-		return datasetId;
-	}
-
-	public void setDatasetId(String datasetId) {
-		this.datasetId = datasetId;
-	}
-
-	public String getAgentId() {
-		return agentId;
-	}
-
-	public void setAgentId(String agentId) {
 		this.agentId = agentId;
 	}
 

@@ -17,11 +17,7 @@
 package com.alibaba.cloud.ai.mapper;
 
 import com.alibaba.cloud.ai.entity.ChatSession;
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,7 +28,7 @@ import java.util.List;
  * @author Alibaba Cloud AI
  */
 @Mapper
-public interface ChatSessionMapper extends BaseMapper<ChatSession> {
+public interface ChatSessionMapper {
 
 	/**
 	 * Query session list by agent ID
@@ -45,6 +41,12 @@ public interface ChatSessionMapper extends BaseMapper<ChatSession> {
 	 */
 	@Select("SELECT * FROM chat_session WHERE id = #{sessionId} AND status != 'deleted'")
 	ChatSession selectBySessionId(@Param("sessionId") String sessionId);
+
+	/**
+	 * Update session
+	 */
+	@Update("UPDATE chat_session SET title = #{title}, status = #{status}, is_pinned = #{isPinned}, user_id = #{userId}, update_time = #{updateTime} WHERE id = #{sessionId}")
+	int updateById(ChatSession session);
 
 	/**
 	 * Soft delete all sessions for an agent
@@ -77,5 +79,11 @@ public interface ChatSessionMapper extends BaseMapper<ChatSession> {
 	 */
 	@Update("UPDATE chat_session SET status = 'deleted', update_time = #{updateTime} WHERE id = #{sessionId}")
 	int softDeleteById(@Param("sessionId") String sessionId, @Param("updateTime") LocalDateTime updateTime);
+
+	@Insert({
+			"INSERT INTO chat_session (id, agent_id, title, status, is_pinned, user_id, create_time, update_time)",
+			"VALUES (#{id}, #{agentId}, #{title}, #{status}, #{isPinned}, #{userId}, #{createTime}, #{updateTime})"
+	})
+	int insert(ChatSession session);
 
 }

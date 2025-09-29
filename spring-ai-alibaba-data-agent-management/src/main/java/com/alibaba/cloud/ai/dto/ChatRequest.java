@@ -15,42 +15,20 @@
  */
 package com.alibaba.cloud.ai.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 /**
  * Chat Request DTO
  */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class ChatRequest {
 
 	private String message;
 
 	private String sessionId;
-
-	public ChatRequest() {
-	}
-
-	public ChatRequest(String message, String sessionId) {
-		this.message = message;
-		this.sessionId = sessionId;
-	}
-
-	public String getMessage() {
-		return message;
-	}
-
-	public void setMessage(String message) {
-		this.message = message;
-	}
-
-	public String getSessionId() {
-		return sessionId;
-	}
-
-	public void setSessionId(String sessionId) {
-		this.sessionId = sessionId;
-	}
-
-	@Override
-	public String toString() {
-		return "ChatRequest{" + "message='" + message + '\'' + ", sessionId='" + sessionId + '\'' + '}';
-	}
 
 }
