@@ -68,6 +68,24 @@ public class MappersTest {
 	@Autowired
 	private BusinessKnowledgeMapper businessKnowledgeMapper;
 
+	private Long createAgent(String name) {
+		Agent agent = Agent.builder()
+			.name(name)
+			.description("for fk")
+			.avatar("a")
+			.status("draft")
+			.prompt("p")
+			.category("c")
+			.adminId(1L)
+			.tags("t")
+			.createTime(LocalDateTime.now().withNano(0))
+			.updateTime(LocalDateTime.now().withNano(0))
+			.humanReviewEnabled(0)
+			.build();
+		agentMapper.insert(agent);
+		return agent.getId();
+	}
+
 	@Test
 	public void testAgentMapper() {
 		Assertions.assertNotNull(agentMapper);
@@ -107,9 +125,10 @@ public class MappersTest {
 
 	@Test
 	public void testChatSessionAndMessageCrud() {
+		Long agentId = createAgent("session-holder");
 		String sessionId = java.util.UUID.randomUUID().toString();
 		// insert session
-		ChatSession session = new ChatSession(sessionId, 1, "tc_session", "active", 1L);
+		ChatSession session = new ChatSession(sessionId, agentId.intValue(), "tc_session", "active", 1L);
 		session.setCreateTime(LocalDateTime.now());
 		session.setUpdateTime(LocalDateTime.now());
 		int ins = chatSessionMapper.insert(session);
@@ -140,13 +159,16 @@ public class MappersTest {
 		Assertions.assertEquals(1, md);
 		int sd = chatSessionMapper.softDeleteById(sessionId, LocalDateTime.now());
 		Assertions.assertEquals(1, sd);
+
+		// cleanup agent
+		agentMapper.deleteById(agentId);
 	}
 
 	@Test
 	public void testSemanticModelCrud() {
-		// clean none (isolated by generated id)
+		Long agentId = createAgent("semantic-holder");
 		SemanticModel m = new SemanticModel();
-		m.setAgentId(1L);
+		m.setAgentId(agentId);
 		m.setOriginalFieldName("origin_tc");
 		m.setAgentFieldName("显示名");
 		m.setFieldSynonyms("别名A,别名B");
@@ -171,13 +193,15 @@ public class MappersTest {
 
 		int del = semanticModelMapper.deleteById(m.getId());
 		Assertions.assertEquals(1, del);
+
+		agentMapper.deleteById(agentId);
 	}
 
 	@Test
 	public void testAgentKnowledgeCrud() {
-		// insert
+		Long agentId = createAgent("ak-holder");
 		AgentKnowledge k = new AgentKnowledge();
-		k.setAgentId(1);
+		k.setAgentId(agentId.intValue());
 		k.setTitle("ak_title");
 		k.setContent("ak_content");
 		k.setType("document");
@@ -199,26 +223,14 @@ public class MappersTest {
 
 		int del = agentKnowledgeMapper.deleteById(k.getId());
 		Assertions.assertEquals(1, del);
+
+		agentMapper.deleteById(agentId);
 	}
 
 	@Test
 	public void testAgentPresetQuestionCrud() {
 		// 先创建一个合法的 Agent 以满足外键约束
-		Agent agent = Agent.builder()
-			.name("preset-holder")
-			.description("for preset question fk")
-			.avatar("a")
-			.status("draft")
-			.prompt("p")
-			.category("c")
-			.adminId(1L)
-			.tags("t")
-			.createTime(LocalDateTime.now().withNano(0))
-			.updateTime(LocalDateTime.now().withNano(0))
-			.humanReviewEnabled(0)
-			.build();
-		agentMapper.insert(agent);
-		Long agentId = agent.getId();
+		Long agentId = createAgent("preset-holder");
 
 		// clean existing
 		agentPresetQuestionMapper.deleteByAgentId(agentId);
@@ -247,6 +259,7 @@ public class MappersTest {
 
 	@Test
 	public void testBusinessKnowledgeMapperCrud() {
+		Long agentId = createAgent("bk-holder");
 		// clean
 		businessKnowledgeMapper.selectByDatasetId("ds_ut").forEach(b -> businessKnowledgeMapper.deleteById(b.getId()));
 
@@ -259,7 +272,7 @@ public class MappersTest {
 		k.setSynonyms("a,b");
 		k.setDefaultRecall(true);
 		k.setDatasetId("ds_ut");
-		k.setAgentId("1");
+		k.setAgentId(String.valueOf(agentId));
 		int ins = businessKnowledgeMapper.insert(k);
 		Assertions.assertEquals(1, ins);
 		Assertions.assertNotNull(k.getId());
@@ -276,6 +289,7 @@ public class MappersTest {
 
 		int del = businessKnowledgeMapper.deleteById(k.getId());
 		Assertions.assertEquals(1, del);
+		agentMapper.deleteById(agentId);
 	}
 
 }
