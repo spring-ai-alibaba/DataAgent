@@ -17,6 +17,8 @@
 package com.alibaba.cloud.ai.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
@@ -25,6 +27,8 @@ import java.time.LocalDateTime;
  * @author Makoto
  */
 @TableName("user_prompt_config")
+@Data
+@NoArgsConstructor
 public class UserPromptConfig {
 
 	/**
@@ -54,8 +58,8 @@ public class UserPromptConfig {
 	/**
 	 * Whether to enable this configuration
 	 */
-	@TableField("enabled")
-	private Boolean enabled;
+    @TableField("enabled")
+    private Boolean enabled = true;
 
 	/**
 	 * Configuration description
@@ -66,14 +70,14 @@ public class UserPromptConfig {
 	/**
 	 * Configuration priority (higher number = higher priority)
 	 */
-	@TableField("priority")
-	private Integer priority;
+    @TableField("priority")
+    private Integer priority = 0;
 
 	/**
 	 * Configuration order for display
 	 */
-	@TableField("display_order")
-	private Integer displayOrder;
+    @TableField("display_order")
+    private Integer displayOrder = 0;
 
 	/**
 	 * Creation time
@@ -93,12 +97,7 @@ public class UserPromptConfig {
 	@TableField("creator")
 	private String creator;
 
-	// Constructors
-	public UserPromptConfig() {
-		this.enabled = true;
-		this.priority = 0;
-		this.displayOrder = 0;
-	}
+    // Constructors
 
 	public UserPromptConfig(String promptType, String systemPrompt) {
 		this();
@@ -106,108 +105,12 @@ public class UserPromptConfig {
 		this.systemPrompt = systemPrompt;
 	}
 
-	// Getters and Setters
-	public String getId() {
-		return id;
-	}
+    public String getOptimizationPrompt() {
+        return this.systemPrompt;
+    }
 
-	public void setId(String id) {
-		this.id = id;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	public String getPromptType() {
-		return promptType;
-	}
-
-	public void setPromptType(String promptType) {
-		this.promptType = promptType;
-	}
-
-	public String getSystemPrompt() {
-		return systemPrompt;
-	}
-
-	public void setSystemPrompt(String systemPrompt) {
-		this.systemPrompt = systemPrompt;
-	}
-
-	public Boolean getEnabled() {
-		return enabled;
-	}
-
-	public void setEnabled(Boolean enabled) {
-		this.enabled = enabled;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
-	}
-
-	public LocalDateTime getCreateTime() {
-		return createTime;
-	}
-
-	public void setCreateTime(LocalDateTime createTime) {
-		this.createTime = createTime;
-	}
-
-	public LocalDateTime getUpdateTime() {
-		return updateTime;
-	}
-
-	public void setUpdateTime(LocalDateTime updateTime) {
-		this.updateTime = updateTime;
-	}
-
-	public String getCreator() {
-		return creator;
-	}
-
-	public void setCreator(String creator) {
-		this.creator = creator;
-	}
-
-	public Integer getPriority() {
-		return priority;
-	}
-
-	public void setPriority(Integer priority) {
-		this.priority = priority;
-	}
-
-	public Integer getDisplayOrder() {
-		return displayOrder;
-	}
-
-	public void setDisplayOrder(Integer displayOrder) {
-		this.displayOrder = displayOrder;
-	}
-
-	public String getOptimizationPrompt() {
-		return this.systemPrompt;
-	}
-
-	public void setOptimizationPrompt(String optimizationPrompt) {
-		this.systemPrompt = optimizationPrompt;
-	}
-
-	@Override
-	public String toString() {
-		return "UserPromptConfig{" + "id='" + id + '\'' + ", name='" + name + '\'' + ", promptType='" + promptType
-				+ '\'' + ", enabled=" + enabled + ", description='" + description + '\'' + ", createTime=" + createTime
-				+ ", updateTime=" + updateTime + ", creator='" + creator + '\'' + '}';
-	}
+    public void setOptimizationPrompt(String optimizationPrompt) {
+        this.systemPrompt = optimizationPrompt;
+    }
 
 }

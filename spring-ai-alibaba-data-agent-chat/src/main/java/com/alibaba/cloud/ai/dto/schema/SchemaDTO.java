@@ -16,7 +16,11 @@
 package com.alibaba.cloud.ai.dto.schema;
 
 import java.util.List;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+@Data
+@NoArgsConstructor
 public class SchemaDTO {
 
 	private String name;
@@ -28,46 +32,6 @@ public class SchemaDTO {
 	private List<TableDTO> table;
 
 	private List<List<String>> foreignKeys;
-
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
-	}
-
-	public Integer getTableCount() {
-		return tableCount;
-	}
-
-	public void setTableCount(Integer tableCount) {
-		this.tableCount = tableCount;
-	}
-
-	public List<TableDTO> getTable() {
-		return table;
-	}
-
-	public void setTable(List<TableDTO> table) {
-		this.table = table;
-	}
-
-	public List<List<String>> getForeignKeys() {
-		return foreignKeys;
-	}
-
-	public void setForeignKeys(List<List<String>> foreignKeys) {
-		this.foreignKeys = foreignKeys;
-	}
 
 	@Override
 	public String toString() {

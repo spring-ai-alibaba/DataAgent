@@ -21,6 +21,9 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 /**
  * Data Source Entity Class
@@ -28,6 +31,9 @@ import java.time.LocalDateTime;
  * @author Alibaba Cloud AI
  */
 @TableName("datasource")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Datasource {
 
 	@TableId(value = "id", type = IdType.AUTO)
@@ -79,10 +85,6 @@ public class Datasource {
 	@DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
 	private LocalDateTime updateTime;
 
-	// Constructor
-	public Datasource() {
-	}
-
 	public Datasource(String name, String type, String host, Integer port, String databaseName, String username,
 			String password) {
 		this.name = name;
@@ -94,127 +96,6 @@ public class Datasource {
 		this.password = password;
 		this.status = "active";
 		this.testStatus = "unknown";
-	}
-
-	// Getter 和 Setter 方法
-	public Integer getId() {
-		return id;
-	}
-
-	public void setId(Integer id) {
-		this.id = id;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	public String getType() {
-		return type;
-	}
-
-	public void setType(String type) {
-		this.type = type;
-	}
-
-	public String getHost() {
-		return host;
-	}
-
-	public void setHost(String host) {
-		this.host = host;
-	}
-
-	public Integer getPort() {
-		return port;
-	}
-
-	public void setPort(Integer port) {
-		this.port = port;
-	}
-
-	public String getDatabaseName() {
-		return databaseName;
-	}
-
-	public void setDatabaseName(String databaseName) {
-		this.databaseName = databaseName;
-	}
-
-	public String getUsername() {
-		return username;
-	}
-
-	public void setUsername(String username) {
-		this.username = username;
-	}
-
-	public String getPassword() {
-		return password;
-	}
-
-	public void setPassword(String password) {
-		this.password = password;
-	}
-
-	public String getConnectionUrl() {
-		return connectionUrl;
-	}
-
-	public void setConnectionUrl(String connectionUrl) {
-		this.connectionUrl = connectionUrl;
-	}
-
-	public String getStatus() {
-		return status;
-	}
-
-	public void setStatus(String status) {
-		this.status = status;
-	}
-
-	public String getTestStatus() {
-		return testStatus;
-	}
-
-	public void setTestStatus(String testStatus) {
-		this.testStatus = testStatus;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
-	}
-
-	public Long getCreatorId() {
-		return creatorId;
-	}
-
-	public void setCreatorId(Long creatorId) {
-		this.creatorId = creatorId;
-	}
-
-	public LocalDateTime getCreateTime() {
-		return createTime;
-	}
-
-	public void setCreateTime(LocalDateTime createTime) {
-		this.createTime = createTime;
-	}
-
-	public LocalDateTime getUpdateTime() {
-		return updateTime;
-	}
-
-	public void setUpdateTime(LocalDateTime updateTime) {
-		this.updateTime = updateTime;
 	}
 
 	/**
@@ -240,12 +121,12 @@ public class Datasource {
 		}
 	}
 
-	@Override
-	public String toString() {
-		return "Datasource{" + "id=" + id + ", name='" + name + '\'' + ", type='" + type + '\'' + ", host='" + host
-				+ '\'' + ", port=" + port + ", databaseName='" + databaseName + '\'' + ", status='" + status + '\''
-				+ ", testStatus='" + testStatus + '\'' + ", createTime=" + createTime + ", updateTime=" + updateTime
-				+ '}';
-	}
+    @Override
+    public String toString() {
+        return "Datasource{" + "id=" + id + ", name='" + name + '\'' + ", type='" + type + '\'' + ", host='" + host
+                + '\'' + ", port=" + port + ", databaseName='" + databaseName + '\'' + ", status='" + status + '\''
+                + ", testStatus='" + testStatus + '\'' + ", createTime=" + createTime + ", updateTime=" + updateTime
+                + '}';
+    }
 
 }
