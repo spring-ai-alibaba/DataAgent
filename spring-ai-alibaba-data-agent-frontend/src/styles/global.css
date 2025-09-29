@@ -217,24 +217,24 @@ body {
 
 /* 主要按钮 */
 .btn-primary {
-  background: linear-gradient(135deg, #1890ff, #40a9ff);
+  background: linear-gradient(135deg, #3b82f6, #1e40af);
   color: white;
-  border-color: #1890ff;
-  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #40a9ff, #69c0ff);
-  border-color: #40a9ff;
-  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   transform: translateY(-1px);
 }
 
 .btn-primary:active:not(:disabled) {
-  background: linear-gradient(135deg, #096dd9, #1890ff);
-  border-color: #096dd9;
+  background: linear-gradient(135deg, #1e40af, #1d4ed8);
+  border-color: #1e40af;
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.2);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 /* 次要按钮 */
@@ -545,26 +545,26 @@ body {
   border-radius: var(--radius-md);
 }
 
-/* 主要按钮 - 淡蓝科技感 */
+/* 主要按钮 - 蓝灰色主题 */
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-  color: var(--bg-primary);
-  border-color: var(--primary-color);
-  box-shadow: var(--shadow-sm);
+  background: linear-gradient(135deg, #3b82f6, #1e40af);
+  color: white;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--primary-hover), var(--primary-color));
-  border-color: var(--primary-hover);
-  box-shadow: var(--shadow-md);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   transform: translateY(-1px);
 }
 
 .btn-primary:active:not(:disabled) {
-  background: linear-gradient(135deg, var(--primary-active), var(--primary-color));
-  border-color: var(--primary-active);
+  background: linear-gradient(135deg, #1e40af, #1d4ed8);
+  border-color: #1e40af;
   transform: translateY(0);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 /* 次要按钮 */

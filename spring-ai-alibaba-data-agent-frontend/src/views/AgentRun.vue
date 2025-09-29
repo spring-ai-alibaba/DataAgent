@@ -3443,6 +3443,7 @@ export default {
   position: relative;
   padding: var(--space-xl);
   box-sizing: border-box;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
 /* 欢迎消息样式 */
@@ -3583,11 +3584,11 @@ export default {
 .assistant-message-body {
   width: 100%;
   max-width: 90%;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-tertiary);
+  background: white;
+  border: 1px solid #e2e8f0;
   border-radius: var(--radius-lg);
   padding: var(--space-md) var(--space-lg);
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   word-break: break-word;
   overflow-wrap: break-word;
   overflow-x: auto;
@@ -3889,13 +3890,14 @@ export default {
 }
 
 .user-message .message-body {
-  background: var(--primary-color);
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
   color: white;
   max-width: 70%;
   word-break: break-word;
   overflow-wrap: break-word;
   overflow-x: auto;
   box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
 }
 
 .user-message .message-content {
@@ -3909,8 +3911,9 @@ export default {
 }
 
 .assistant-message .message-body {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-tertiary);
+  background: white;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .text-message {
@@ -4371,9 +4374,9 @@ export default {
 
 /* 输入区域样式 */
 .input-container {
-  border-top: 1px solid var(--border-secondary);
+  border-top: 1px solid #e2e8f0;
   padding: var(--space-lg) var(--space-xl);
-  background: var(--bg-primary);
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   display: flex;
   justify-content: center;
   position: relative;
@@ -4383,20 +4386,20 @@ export default {
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  border: 1px solid var(--border-primary);
+  border: 1px solid #e2e8f0;
   border-radius: var(--radius-xl);
   padding: var(--space-xs) var(--space-lg);
   transition: all var(--transition-base);
-  background: var(--bg-primary);
-  box-shadow: var(--shadow-xs);
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   width: 100%;
   max-width: 800px;
   min-height: 32px;
 }
 
 .input-wrapper:focus-within {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px var(--primary-light);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .input-field {
@@ -4436,6 +4439,10 @@ export default {
   align-items: center;
   justify-content: center;
   font-size: 16px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
 }
 
 .send-btn:disabled {
@@ -4466,14 +4473,17 @@ export default {
 }
 
 .btn-primary {
-  background: var(--primary-color);
-  color: var(--bg-primary);
-  border-color: var(--primary-color);
+  background: linear-gradient(135deg, #3b82f6, #1e40af);
+  color: white;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
 }
 
 /* CSS变量定义 */
