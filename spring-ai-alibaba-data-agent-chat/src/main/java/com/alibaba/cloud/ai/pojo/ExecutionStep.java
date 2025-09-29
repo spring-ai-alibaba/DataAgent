@@ -38,10 +38,10 @@ public class ExecutionStep {
 	@JsonProperty("tool_parameters")
 	private ToolParameters toolParameters;
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class ToolParameters {
+	@Data
+	@NoArgsConstructor
+	@AllArgsConstructor
+	public static class ToolParameters {
 
 		private String description;
 
@@ -69,10 +69,10 @@ public class ExecutionStep {
 
 	}
 
-    @Override
-    public String toString() {
-        return "ExecutionStep{" + "step=" + step + ", toolToUse='" + toolToUse + '\'' + ", toolParameters="
-                + toolParameters + '}';
-    }
+	@Override
+	public String toString() {
+		return "ExecutionStep{" + "step=" + step + ", toolToUse='" + toolToUse + '\'' + ", toolParameters="
+				+ toolParameters + '}';
+	}
 
 }
