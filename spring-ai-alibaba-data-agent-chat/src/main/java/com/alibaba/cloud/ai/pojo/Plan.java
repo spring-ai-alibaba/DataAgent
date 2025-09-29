@@ -37,12 +37,12 @@ public class Plan {
 	@JsonProperty("execution_plan")
 	private List<ExecutionStep> executionPlan;
 
-    @Override
-    public String toString() {
-        return "Plan{" + "thoughtProcess='" + thoughtProcess + '\'' + ", executionPlan=" + executionPlan + '}';
-    }
+	@Override
+	public String toString() {
+		return "Plan{" + "thoughtProcess='" + thoughtProcess + '\'' + ", executionPlan=" + executionPlan + '}';
+	}
 
-    public String toJsonStr() {
+	public String toJsonStr() {
 		ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 		try {
 			return objectMapper.writeValueAsString(this);

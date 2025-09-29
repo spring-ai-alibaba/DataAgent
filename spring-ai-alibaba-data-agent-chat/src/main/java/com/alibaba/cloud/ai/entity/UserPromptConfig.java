@@ -58,8 +58,8 @@ public class UserPromptConfig {
 	/**
 	 * Whether to enable this configuration
 	 */
-    @TableField("enabled")
-    private Boolean enabled = true;
+	@TableField("enabled")
+	private Boolean enabled = true;
 
 	/**
 	 * Configuration description
@@ -70,14 +70,14 @@ public class UserPromptConfig {
 	/**
 	 * Configuration priority (higher number = higher priority)
 	 */
-    @TableField("priority")
-    private Integer priority = 0;
+	@TableField("priority")
+	private Integer priority = 0;
 
 	/**
 	 * Configuration order for display
 	 */
-    @TableField("display_order")
-    private Integer displayOrder = 0;
+	@TableField("display_order")
+	private Integer displayOrder = 0;
 
 	/**
 	 * Creation time
@@ -97,7 +97,7 @@ public class UserPromptConfig {
 	@TableField("creator")
 	private String creator;
 
-    // Constructors
+	// Constructors
 
 	public UserPromptConfig(String promptType, String systemPrompt) {
 		this();
@@ -105,12 +105,12 @@ public class UserPromptConfig {
 		this.systemPrompt = systemPrompt;
 	}
 
-    public String getOptimizationPrompt() {
-        return this.systemPrompt;
-    }
+	public String getOptimizationPrompt() {
+		return this.systemPrompt;
+	}
 
-    public void setOptimizationPrompt(String optimizationPrompt) {
-        this.systemPrompt = optimizationPrompt;
-    }
+	public void setOptimizationPrompt(String optimizationPrompt) {
+		this.systemPrompt = optimizationPrompt;
+	}
 
 }

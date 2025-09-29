@@ -58,15 +58,14 @@ public class AgentDatasource {
 	@DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
 	private LocalDateTime updateTime;
 
-    // Associated data source object (for joint query)
-    @TableField(exist = false)
-    private Datasource datasource;
+	// Associated data source object (for joint query)
+	@TableField(exist = false)
+	private Datasource datasource;
 
-    public AgentDatasource(Integer agentId, Integer datasourceId) {
+	public AgentDatasource(Integer agentId, Integer datasourceId) {
 		this.agentId = agentId;
 		this.datasourceId = datasourceId;
 		this.isActive = 1;
 	}
-
 
 }
