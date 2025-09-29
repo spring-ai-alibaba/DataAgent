@@ -21,7 +21,7 @@
         <div class="brand-section">
           <div class="brand-logo">
             <i class="bi bi-robot"></i>
-            <span class="brand-text">智能体管理</span>
+            <span class="brand-text">Spring AI Alibaba Data Agent</span>
           </div>
           <nav class="header-nav">
             <div 
@@ -32,25 +32,10 @@
               <i class="bi bi-grid-3x3-gap"></i>
               <span>智能体列表</span>
             </div>
-            <div 
-              class="nav-item" 
-              :class="{ active: $route.name === 'AgentWorkspace' }"
-              @click="goToWorkspace"
-            >
-              <i class="bi bi-chat-square-dots"></i>
-              <span>工作台</span>
-            </div>
-            <div 
-              class="nav-item" 
-              :class="{ active: isAnalysisPage }"
-            >
-              <i class="bi bi-graph-up-arrow"></i>
-              <span>分析报告</span>
-            </div>
           </nav>
         </div>
         <div class="header-actions">
-          <button class="btn btn-outline btn-sm">
+          <button class="btn btn-outline btn-sm" @click="showHelp">
             <i class="bi bi-question-circle"></i>
             帮助
           </button>
@@ -72,6 +57,7 @@
 <script>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 export default {
   name: 'BaseLayout',
@@ -89,19 +75,20 @@ export default {
       router.push('/agents')
     }
 
-    const goToWorkspace = () => {
-      router.push('/workspace')
-    }
-
     const goToCreateAgent = () => {
       router.push('/agent/create')
+    }
+
+    const showHelp = () => {
+      console.log('帮助')
+      ElMessage.primary('正在开发中...')
     }
 
     return {
       isAnalysisPage,
       goToAgentList,
-      goToWorkspace,
-      goToCreateAgent
+      goToCreateAgent,
+      showHelp
     }
   }
 }

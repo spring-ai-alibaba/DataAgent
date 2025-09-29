@@ -177,14 +177,6 @@
               </div>
 
               <div class="nav-section">
-                <div class="nav-section-title">调试工具</div>
-                <a href="#" class="nav-link" :class="{ active: activeTab === 'debug' }" @click="setActiveTab('debug')">
-                  <i class="bi bi-bug"></i>
-                  智能体调试
-                </a>
-              </div>
-
-              <div class="nav-section">
                 <div class="nav-section-title">应用入口</div>
                 <a href="#" class="nav-link" @click="goToWorkspace">
                   <i class="bi bi-chat-dots"></i>
@@ -588,11 +580,6 @@
                   <button class="btn btn-secondary" @click="loadPresetQuestions">重置</button>
                 </div>
               </div>
-            </div>
-
-            <!-- 智能体调试 -->
-            <div v-if="activeTab === 'debug'" class="tab-content">
-              <AgentDebugPanel :agent-id="agent.id" />
             </div>
 
           </div>
@@ -1379,16 +1366,14 @@ print(result)</code></pre>
 <script>
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import BaseLayout from '../layouts/BaseLayout.vue'
-import { agentApi, businessKnowledgeApi, semanticModelApi, datasourceApi, presetQuestionApi } from '../services/api.js'
-import AgentDebugPanel from '../components/agent/AgentDebugPanel.vue'
-import PromptOptimizationConfig from '../components/PromptOptimizationConfig.vue'
+import BaseLayout from '@/layouts/BaseLayout.vue'
+import { agentApi, businessKnowledgeApi, semanticModelApi, datasourceApi, presetQuestionApi } from '@/services/api'
+import PromptOptimizationConfig from '@/components/PromptOptimizationConfig.vue'
 
 export default {
   name: 'AgentDetail',
   components: {
     BaseLayout,
-    AgentDebugPanel,
     PromptOptimizationConfig
   },
   setup() {

@@ -15,7 +15,7 @@
  */
 
 import { createRouter, createWebHistory } from 'vue-router'
-import routes from './routes'
+import routes from '@/router/routes'
 
 // 创建路由实例
 const router = createRouter({
@@ -35,9 +35,9 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   // 设置页面标题
   if (to.meta?.title) {
-    document.title = `${to.meta.title} - Spring AI Alibaba NL2SQL`
+    document.title = `${to.meta.title} - Spring AI Alibaba Data Agent`
   } else {
-    document.title = 'Spring AI Alibaba NL2SQL'
+    document.title = 'Spring AI Alibaba Data Agent'
   }
 
   // 可以在这里添加权限验证、登录检查等逻辑

@@ -159,15 +159,3 @@ export function upload(url, file, onProgress) {
 export function stream(url, options = {}) {
   return new EventSource(url, options)
 }
-
-export default {
-  request,
-  get,
-  post,
-  put,
-  del,
-  upload,
-  stream,
-  addRequestInterceptor,
-  addResponseInterceptor
-}

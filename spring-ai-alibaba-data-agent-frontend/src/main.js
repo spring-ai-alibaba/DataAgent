@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 import { createApp } from 'vue'
-import App from './App.vue'
-import router from './router'
+import App from '@/App.vue'
+import router from '@/router'
 
 // 引入全局样式
-import './styles/global.css'
+import '@/styles/global.css'
+import 'element-plus/dist/index.css'
 
 // 引入样式系统
-import { initCompleteStyleSystem } from './styles/index.js'
+import { initCompleteStyleSystem } from '@/styles'
 
 // 初始化样式系统
 initCompleteStyleSystem()

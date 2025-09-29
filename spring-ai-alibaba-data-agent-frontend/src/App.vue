@@ -26,7 +26,6 @@ export default {
 </script>
 
 <style>
-/* App.vue 的样式现在由统一的样式系统管理 */
 #app {
   min-height: 100vh;
 }
