@@ -1362,6 +1362,17 @@ print(result)</code></pre>
       </div>
     </div>
   </div>
+
+  <!-- 消息提示 -->
+  <div v-if="message.show" class="message-toast" :class="message.type">
+    <div class="message-content">
+      <i :class="getMessageIcon(message.type)"></i>
+      {{ message.text }}
+    </div>
+    <button class="message-close" @click="hideMessage">
+      <i class="bi bi-x"></i>
+    </button>
+  </div>
   </BaseLayout>
 </template>
 
@@ -2311,6 +2322,22 @@ export default {
       message.show = false
     }
 
+    // 获取消息图标
+    const getMessageIcon = (type) => {
+      switch (type) {
+        case 'success':
+          return 'bi bi-check-circle'
+        case 'error':
+          return 'bi bi-exclamation-circle'
+        case 'warning':
+          return 'bi bi-exclamation-triangle'
+        case 'info':
+          return 'bi bi-info-circle'
+        default:
+          return 'bi bi-info-circle'
+      }
+    }
+
     // 发布弹出框相关方法
     const closePublishModal = () => {
       showPublishModal.value = false
@@ -2507,16 +2534,6 @@ print(result)`
 
     const openAPIDocumentation = () => {
       window.open('https://github.com/alibaba/spring-ai-alibaba/blob/main/spring-ai-alibaba-nl2sql/API.md', '_blank')
-    }
-    
-    const getMessageIcon = (type) => {
-      const iconMap = {
-        success: 'bi bi-check-circle-fill',
-        error: 'bi bi-exclamation-circle-fill',
-        warning: 'bi bi-exclamation-triangle-fill',
-        info: 'bi bi-info-circle-fill'
-      }
-      return iconMap[type] || iconMap.info
     }
     
     // 数据源相关的辅助方法
@@ -2793,6 +2810,7 @@ print(result)`
       setActiveTab,
       goBack,
       updateAgent,
+      getMessageIcon,
       editBusinessKnowledge,
       deleteBusinessKnowledge,
       editModel,
