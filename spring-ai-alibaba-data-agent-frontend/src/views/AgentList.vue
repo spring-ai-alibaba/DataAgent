@@ -72,15 +72,17 @@
                   type="text" 
                   v-model="searchKeyword" 
                   class="form-control"
-                  placeholder="搜索智能体名称、ID或描述..." 
-                  @input="searchAgents"
-                  @keyup.enter="refreshAgentList"
+                  placeholder="搜索智能体名称、ID或描述..."
                 >
               </div>
               <div class="action-buttons">
-                <button class="btn btn-outline" @click="refreshAgentList">
-                  <i class="bi bi-search"></i>
-                  搜索
+                <button class="btn btn-outline" @click="loadAgents">
+                  <i class="bi bi-arrow-counterclockwise"></i>
+                  刷新
+                </button>
+                <button class="btn btn-primary" @click="goToCreateAgent">
+                  <i class="bi bi-plus-lg"></i>
+                  创建智能体
                 </button>
               </div>
             </div>
@@ -88,6 +90,7 @@
         </div>
 
         <!-- 智能体网格 -->
+        <!-- todo: 支持分页（需后端支持）-->
         <div class="agents-grid" v-if="!loading">
           <div 
             v-for="agent in filteredAgents" 
@@ -114,14 +117,6 @@
             <div class="agent-status">
               <span class="status-badge" :class="agent.status">{{ getStatusText(agent.status) }}</span>
             </div>
-            <div class="agent-actions" @click.stop>
-              <button class="action-btn" @click="editAgent(agent)">
-                <i class="bi bi-pencil"></i>
-              </button>
-              <button class="action-btn" @click="deleteAgent(agent.id)">
-                <i class="bi bi-trash"></i>
-              </button>
-            </div>
           </div>
         </div>
 
@@ -136,57 +131,19 @@
           <i class="bi bi-robot"></i>
           <h3>暂无智能体</h3>
           <p>点击"创建智能体"开始创建您的第一个智能体</p>
-          <button class="create-first-btn" @click="createNewAgent">创建智能体</button>
+          <button class="create-first-btn" @click="goToCreateAgent">创建智能体</button>
         </div>
       </main>
-
-      <!-- 创建智能体模态框 -->
-      <div v-if="showCreateModal" class="modal-overlay" @click="closeCreateModal">
-        <div class="modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>创建智能体</h3>
-            <button class="close-btn" @click="closeCreateModal">
-              <i class="bi bi-x"></i>
-            </button>
-          </div>
-          <div class="modal-body">
-            <form @submit.prevent="createAgent">
-              <div class="form-group">
-                <label for="agentName">智能体名称 *</label>
-                <input 
-                  type="text" 
-                  id="agentName"
-                  v-model="newAgent.name" 
-                  placeholder="请输入智能体名称"
-                  required
-                >
-              </div>
-              <div class="form-group">
-                <label for="agentDescription">智能体描述</label>
-                <textarea 
-                  id="agentDescription"
-                  v-model="newAgent.description" 
-                  placeholder="请输入智能体描述"
-                  rows="3"
-                ></textarea>
-              </div>
-            </form>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeCreateModal">取消</button>
-            <button type="button" class="btn btn-primary" @click="createAgent">创建</button>
-          </div>
-        </div>
-      </div>
     </div>
   </BaseLayout>
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import BaseLayout from '../layouts/BaseLayout.vue'
-import { agentApi } from '../services/api.js'
+import BaseLayout from '@/layouts/BaseLayout.vue'
+import { agentApi } from '@/services/api'
+import { ElMessage } from 'element-plus'
 
 export default {
   name: 'AgentList',
@@ -198,54 +155,7 @@ export default {
     const loading = ref(true)
     const activeFilter = ref('all')
     const searchKeyword = ref('')
-    const showCreateModal = ref(false)
     const agents = ref([])
-    const newAgent = reactive({
-      name: '',
-      description: ''
-    })
-
-    // 模拟数据
-    const useMockData = ref(true) // 开发时使用模拟数据
-
-    const mockAgents = [
-      {
-        id: 1,
-        name: '中国人口GDP数据智能体',
-        description: '专门处理中国人口和GDP相关数据查询分析的智能体',
-        status: 'published',
-        avatar: '',
-        updateTime: '2025/9/22',
-        createTime: '2025/9/22'
-      },
-      {
-        id: 2,
-        name: '销售数据分析智能体',
-        description: '专注于销售数据分析和业务指标计算的智能体',
-        status: 'published',
-        avatar: '',
-        updateTime: '2025/9/25',
-        createTime: '2025/9/25'
-      },
-      {
-        id: 3,
-        name: '财务报表智能体',
-        description: '专门处理财务数据报表分析的智能体',
-        status: 'draft',
-        avatar: '',
-        updateTime: '2025/9/22',
-        createTime: '2025/9/22'
-      },
-      {
-        id: 4,
-        name: '库存管理智能体',
-        description: '专注于库存数据管理和供应链分析的智能体',
-        status: 'published',
-        avatar: '',
-        updateTime: '2025/9/22',
-        createTime: '2025/9/22'
-      }
-    ]
 
     // 计算属性
     const filteredAgents = computed(() => {
@@ -259,7 +169,7 @@ export default {
       // 按关键词搜索
       if (searchKeyword.value.trim()) {
         const keyword = searchKeyword.value.toLowerCase()
-        filtered = filtered.filter(agent => 
+        filtered = filtered.filter(agent =>
           agent.name.toLowerCase().includes(keyword) ||
           agent.description.toLowerCase().includes(keyword) ||
           agent.id.toString().includes(keyword)
@@ -274,111 +184,21 @@ export default {
       activeFilter.value = filter
     }
 
-    const refreshAgentList = async () => {
-      await loadAgents()
-    }
-
     const loadAgents = async () => {
       loading.value = true
       try {
-        if (useMockData.value) {
-          // 使用模拟数据
-          await new Promise(resolve => setTimeout(resolve, 1000)) // 模拟加载延迟
-          agents.value = mockAgents
-        } else {
-          // 使用真实 API
           const response = await agentApi.getList()
-          agents.value = response.data || []
-        }
+          agents.value = response || []
       } catch (error) {
-        console.error('加载智能体列表失败:', error)
+        ElMessage.error('获取智能体列表失败，请检查网络！')
         agents.value = []
       } finally {
         loading.value = false
       }
     }
 
-    const searchAgents = () => {
-      // 搜索逻辑已通过计算属性实现
-    }
-
     const enterAgent = (agentId) => {
       router.push(`/agent/${agentId}`)
-    }
-
-    const createNewAgent = () => {
-      showCreateModal.value = true
-    }
-
-    const editAgent = (agent) => {
-      // 编辑智能体逻辑
-      console.log('编辑智能体:', agent)
-    }
-
-    const deleteAgent = async (agentId) => {
-      if (!confirm('确定要删除这个智能体吗？')) {
-        return
-      }
-
-      try {
-        if (useMockData.value) {
-          // 使用模拟数据
-          const index = agents.value.findIndex(agent => agent.id === agentId)
-          if (index !== -1) {
-            agents.value.splice(index, 1)
-          }
-        } else {
-          // 使用真实 API
-          await agentApi.delete(agentId)
-          await loadAgents()
-        }
-        alert('删除成功')
-      } catch (error) {
-        console.error('删除失败:', error)
-        alert('删除失败，请重试')
-      }
-    }
-
-    const createAgent = async () => {
-      if (!newAgent.name.trim()) {
-        alert('请填写智能体名称')
-        return
-      }
-
-      try {
-        if (useMockData.value) {
-          // 使用模拟数据
-          const newId = Math.max(...agents.value.map(a => a.id)) + 1
-          agents.value.push({
-            id: newId,
-            name: newAgent.name,
-            description: newAgent.description || '暂无描述',
-            status: 'draft',
-            avatar: '',
-            updateTime: new Date().toLocaleDateString('zh-CN'),
-            createTime: new Date().toLocaleDateString('zh-CN')
-          })
-        } else {
-          // 使用真实 API
-          await agentApi.create(newAgent)
-          await loadAgents()
-        }
-        
-        // 重置表单
-        newAgent.name = ''
-        newAgent.description = ''
-        showCreateModal.value = false
-        alert('创建成功')
-      } catch (error) {
-        console.error('创建失败:', error)
-        alert('创建失败，请重试')
-      }
-    }
-
-    const closeCreateModal = () => {
-      showCreateModal.value = false
-      newAgent.name = ''
-      newAgent.description = ''
     }
 
     const getStatusText = (status) => {
@@ -422,6 +242,10 @@ export default {
       agent.avatar = ''
     }
 
+    const goToCreateAgent = () => {
+      router.push('/agent/create')
+    }
+
     // 生命周期
     onMounted(() => {
       loadAgents()
@@ -431,24 +255,17 @@ export default {
       loading,
       activeFilter,
       searchKeyword,
-      showCreateModal,
       agents,
-      newAgent,
       filteredAgents,
       setFilter,
-      searchAgents,
+      loadAgents,
       enterAgent,
-      createNewAgent,
-      editAgent,
-      deleteAgent,
-      createAgent,
-      closeCreateModal,
       getStatusText,
       formatTime,
       getRandomColor,
       getRandomIcon,
       handleAvatarError,
-      refreshAgentList
+      goToCreateAgent
     }
   }
 }
@@ -728,55 +545,6 @@ export default {
   font-weight: 500;
 }
 
-.status-badge.published {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.status-badge.draft {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.status-badge.offline {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.agent-actions {
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  display: flex;
-  gap: 0.5rem;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.agent-card:hover .agent-actions {
-  opacity: 1;
-}
-
-.action-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: none;
-  background: rgba(255, 255, 255, 0.9);
-  color: #6b7280;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.action-btn:hover {
-  background: white;
-  color: #374151;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
 /* 加载状态 */
 .loading-state {
   display: flex;
@@ -847,63 +615,11 @@ export default {
   background: #2563eb;
 }
 
-/* 模态框样式 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
 .modal-header h3 {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
   color: #1f2937;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: #6b7280;
-  cursor: pointer;
-  padding: 0.25rem;
-}
-
-.close-btn:hover {
-  color: #374151;
-}
-
-.modal-body {
-  padding: 1.5rem;
-}
-
-.form-group {
-  margin-bottom: 1rem;
 }
 
 .form-group label {
@@ -927,24 +643,6 @@ export default {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1.5rem;
-  border-top: 1px solid #e5e7eb;
-}
-
-.btn-secondary {
-  background: #f9fafb;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-
-.btn-secondary:hover {
-  background: #f3f4f6;
 }
 
 /* 响应式设计 */

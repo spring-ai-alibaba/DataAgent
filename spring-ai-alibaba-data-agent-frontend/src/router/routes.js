@@ -34,8 +34,8 @@ const routes = [
   },
   {
     path: '/agent/create',
-    name: 'CreateAgent',
-    component: () => import('@/views/CreateAgent.vue'),
+    name: 'AgentCreate',
+    component: () => import('@/views/AgentCreate.vue'),
     meta: {
       title: '创建智能体',
       module: 'agent'

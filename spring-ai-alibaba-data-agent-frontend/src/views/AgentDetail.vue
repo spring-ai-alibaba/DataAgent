@@ -14,6 +14,7 @@
  * limitations under the License.
 -->
 <template>
+  <!-- todo: 拆分组件 -->
   <BaseLayout>
     <div class="agent-detail-page">
 
@@ -40,86 +41,25 @@
             </div>
           </div>
           <div class="agent-actions">
-            <div class="publish-dropdown" :class="{ active: showPublishDropdown }">
-              <button 
-                class="btn btn-publish" 
-                @click="togglePublishDropdown"
-              >
-                <i class="bi bi-cloud-upload"></i>
-                发布
-                <i class="bi bi-chevron-down dropdown-arrow"></i>
-              </button>
-              
-              <!-- 下拉菜单 -->
-              <div v-if="showPublishDropdown" class="publish-dropdown-menu">
-                <div class="dropdown-header">
-                  <div class="publish-status">
-                    <i class="bi bi-clock-history"></i>
-                    <div class="status-info">
-                      <h4>最新发布</h4>
-                      <p>发布于 2 小时前</p>
-                    </div>
-                  </div>
+
+            <!-- 发布更新按钮 -->
+            <button
+                class="dropdown-item primary"
+                @click="publishUpdate"
+                :disabled="isPublishing"
+            >
+              <div class="item-content">
+                <div class="item-icon">
+                  <i class="bi bi-cloud-upload" v-if="!isPublishing"></i>
+                  <div class="spinner" v-if="isPublishing"></div>
                 </div>
-                
-                <div class="dropdown-body">
-                  <!-- 发布更新按钮 -->
-                  <button 
-                    class="dropdown-item primary" 
-                    @click="publishUpdate"
-                    :disabled="isPublishing"
-                  >
-                    <div class="item-content">
-                      <div class="item-icon">
-                        <i class="bi bi-cloud-upload" v-if="!isPublishing"></i>
-                        <div class="spinner" v-if="isPublishing"></div>
-                      </div>
-                      <div class="item-text">
-                        <span class="item-title">{{ isPublishing ? '发布中...' : '发布更新' }}</span>
-                        <span class="item-shortcut">⌘ ↑ P</span>
-                      </div>
-                    </div>
-                  </button>
-                  
-                  <!-- 其他操作 -->
-                  <button class="dropdown-item" @click="runAgent">
-                    <div class="item-content">
-                      <div class="item-icon">
-                        <i class="bi bi-play-circle"></i>
-                      </div>
-                      <div class="item-text">
-                        <span class="item-title">运行</span>
-                        <i class="bi bi-arrow-up-right item-arrow"></i>
-                      </div>
-                    </div>
-                  </button>
-                  
-                  <button class="dropdown-item" @click="embedWebsite">
-                    <div class="item-content">
-                      <div class="item-icon">
-                        <i class="bi bi-code-square"></i>
-                      </div>
-                      <div class="item-text">
-                        <span class="item-title">嵌入网站</span>
-                        <i class="bi bi-arrow-up-right item-arrow"></i>
-                      </div>
-                    </div>
-                  </button>
-                  
-                  <button class="dropdown-item" @click="accessAPI">
-                    <div class="item-content">
-                      <div class="item-icon">
-                        <i class="bi bi-terminal"></i>
-                      </div>
-                      <div class="item-text">
-                        <span class="item-title">访问 API</span>
-                        <i class="bi bi-arrow-up-right item-arrow"></i>
-                      </div>
-                    </div>
-                  </button>
+                <div class="item-text">
+                  <span class="item-title">{{ isPublishing ? '发布中...' : '发布更新' }}</span>
+                  <span class="item-shortcut">⌘ ↑ P</span>
                 </div>
               </div>
-            </div>
+            </button>
+
           </div>
         </div>
       </div>
@@ -176,13 +116,23 @@
                 </a>
               </div>
 
+              <!-- 运行与发布-->
               <div class="nav-section">
-                <div class="nav-section-title">应用入口</div>
-                <a href="#" class="nav-link" @click="goToWorkspace">
-                  <i class="bi bi-chat-dots"></i>
-                  智能体工作台
+                <div class="nav-section-title">运行与发布</div>
+                <a href="#" class="nav-link" :class="{ active: activeTab === 'go-run' }" @click="runAgent">
+                  <i class="bi bi-play-circle"></i>
+                  前往运行页面
+                </a>
+                <a href="#" class="nav-link" :class="{ active: activeTab === 'embed-website' }" @click="embedWebsite">
+                  <i class="bi bi-code-square"></i>
+                  嵌入网站
+                </a>
+                <a href="#" class="nav-link" :class="{ active: activeTab === 'access-api' }" @click="accessAPI">
+                  <i class="bi bi-terminal"></i>
+                  访问 API
                 </a>
               </div>
+
             </nav>
           </div>
 
@@ -1369,6 +1319,7 @@ import { useRouter, useRoute } from 'vue-router'
 import BaseLayout from '@/layouts/BaseLayout.vue'
 import { agentApi, businessKnowledgeApi, semanticModelApi, datasourceApi, presetQuestionApi } from '@/services/api'
 import PromptOptimizationConfig from '@/components/PromptOptimizationConfig.vue'
+import { ElMessage } from 'element-plus'
 
 export default {
   name: 'AgentDetail',
@@ -2360,35 +2311,36 @@ export default {
 
       try {
         isPublishing.value = true
-        showMessage('开始发布智能体...', 'info')
 
         // 1. 获取智能体配置的数据源
         const agentDatasources = await datasourceApi.getAgentDatasources(agent.id)
         if (!agentDatasources || agentDatasources.length === 0) {
-          throw new Error('智能体未配置数据源，请先配置数据源')
+          ElMessage.error('智能体未配置数据源，请先配置数据源')
+          return
         }
 
         // 2. 使用正常的 agentId 进行 schema 初始化
         const enabledDatasources = agentDatasources.filter(ds => ds.isActive === 1)
         if (enabledDatasources.length === 0) {
-          throw new Error('没有启用的数据源，请先启用至少一个数据源')
+          ElMessage.error('没有启用的数据源，请先启用至少一个数据源')
+          return
         }
 
         // 3. 为每个启用的数据源获取表列表并初始化
         for (const agentDatasource of enabledDatasources) {
           const datasource = agentDatasource.datasource
-          showMessage(`正在初始化数据源: ${datasource.name}...`, 'info')
+          ElMessage.primary(`正在初始化数据源: ${datasource.name}...`)
           
           // 获取数据源的所有表
           const tablesResponse = await fetch(`/api/agent/${agent.id}/schema/datasources/${datasource.id}/tables`)
           if (!tablesResponse.ok) {
-            console.warn(`获取数据源 ${datasource.name} 的表列表失败`)
+            ElMessage.warning(`获取数据源 ${datasource.name} 的表列表失败`)
             continue
           }
           
           const tablesResult = await tablesResponse.json()
           if (!tablesResult.success || !tablesResult.data) {
-            console.warn(`数据源 ${datasource.name} 没有可用的表`)
+            ElMessage.warning(`数据源 ${datasource.name} 没有可用的表`)
             continue
           }
 
@@ -2405,24 +2357,24 @@ export default {
           })
 
           if (!initResponse.ok) {
-            console.warn(`数据源 ${datasource.name} 初始化失败`)
+            ElMessage.warning(`数据源 ${datasource.name} 初始化失败`)
             continue
           }
 
           const initResult = await initResponse.json()
           if (!initResult.success) {
-            console.warn(`数据源 ${datasource.name} 初始化失败: ${initResult.message}`)
+            ElMessage.warning(`数据源 ${datasource.name} 初始化失败: ${initResult.message}`)
             continue
           }
         }
 
         // 4. 发布成功
-        showMessage('智能体发布成功！所有配置的数据源已完成初始化', 'success')
+        ElMessage.success('智能体发布成功！所有配置的数据源已完成初始化')
         closePublishModal()
         
       } catch (error) {
         console.error('发布智能体失败:', error)
-        showMessage(`发布失败: ${error.message}`, 'error')
+        ElMessage.error(`发布失败: ${error.message}`)
       } finally {
         isPublishing.value = false
       }
@@ -2435,16 +2387,18 @@ export default {
 
     const embedWebsite = () => {
       // TODO: 实现嵌入网站功能
-      showMessage('嵌入网站功能开发中...', 'info')
+      ElMessage.primary('嵌入网站功能开发中...')
     }
 
     const openInExplore = () => {
       // TODO: 实现在探索中打开功能
-      showMessage('在探索中打开功能开发中...', 'info')
+      ElMessage.primary('在探索中打开功能开发中...')
     }
 
     const accessAPI = () => {
       // 显示API访问信息模态框
+      // TODO: 实现访问API的功能
+      ElMessage.primary('访问API的功能正在开发中...')
       showAPIModal.value = true
     }
 

@@ -26,7 +26,7 @@
           <nav class="header-nav">
             <div 
               class="nav-item" 
-              :class="{ active: $route.name === 'AgentList' }"
+              :class="{ active: isAgentPage() }"
               @click="goToAgentList"
             >
               <i class="bi bi-grid-3x3-gap"></i>
@@ -38,10 +38,6 @@
           <button class="btn btn-outline btn-sm" @click="showHelp">
             <i class="bi bi-question-circle"></i>
             帮助
-          </button>
-          <button class="btn btn-primary" @click="goToCreateAgent">
-            <i class="bi bi-plus-lg"></i>
-            创建智能体
           </button>
         </div>
       </div>
@@ -55,7 +51,6 @@
 </template>
 
 <script>
-import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
@@ -64,31 +59,28 @@ export default {
   setup() {
     const router = useRouter()
 
-    // 判断是否为分析相关页面
-    const isAnalysisPage = computed(() => {
-      const analysisRoutes = ['Home', 'NL2SQL', 'BusinessKnowledge', 'SemanticModel']
-      return analysisRoutes.includes(router.currentRoute.value.name)
-    })
-
     // 导航方法
     const goToAgentList = () => {
       router.push('/agents')
     }
 
-    const goToCreateAgent = () => {
-      router.push('/agent/create')
-    }
-
     const showHelp = () => {
       console.log('帮助')
+      // todo: 显示帮助信息
       ElMessage.primary('正在开发中...')
     }
 
+    const isAgentPage = () => {
+      return router.currentRoute.value.name === 'AgentList'
+          || router.currentRoute.value.name === 'AgentDetail'
+          || router.currentRoute.value.name === 'AgentCreate'
+          || router.currentRoute.value.name === 'AgentRun'
+    }
+
     return {
-      isAnalysisPage,
       goToAgentList,
-      goToCreateAgent,
-      showHelp
+      showHelp,
+      isAgentPage
     }
   }
 }
