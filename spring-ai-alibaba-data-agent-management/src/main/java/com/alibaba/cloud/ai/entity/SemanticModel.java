@@ -15,7 +15,6 @@
  */
 package com.alibaba.cloud.ai.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -24,46 +23,33 @@ import java.time.LocalDateTime;
 /**
  * Semantic Model Configuration Entity Class
  */
-@TableName("semantic_model")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class SemanticModel {
 
-	@TableId(value = "id", type = IdType.AUTO)
 	private Long id;
 
-	@TableField("agent_id")
 	private Long agentId; // Agent ID
 
-	@TableField("origin_name")
 	private String originalFieldName; // Original field name
 
-	@TableField("field_name")
 	private String agentFieldName; // Agent field name
 
-	@TableField("synonyms")
 	private String fieldSynonyms; // Field name synonyms, comma-separated
 
-	@TableField("description")
 	private String fieldDescription; // Field description
 
-	@TableField("type")
 	private String fieldType; // Field type
 
-	@TableField("origin_description")
 	private String originalDescription; // Original field description
 
-	@TableField("is_recall")
 	private Boolean defaultRecall; // Default recall
 
-	@TableField("status")
 	private Boolean enabled; // Whether enabled
 
-	@TableField(value = "created_time", fill = FieldFill.INSERT)
 	private LocalDateTime createTime;
 
-	@TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
 	private LocalDateTime updateTime;
 
 	public SemanticModel(Long agentId, String originalFieldName, String agentFieldName, String fieldSynonyms,

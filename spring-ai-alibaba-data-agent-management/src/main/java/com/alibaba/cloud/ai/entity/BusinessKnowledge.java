@@ -15,7 +15,6 @@
  */
 package com.alibaba.cloud.ai.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -24,36 +23,26 @@ import java.time.LocalDateTime;
 /**
  * Business Knowledge Management Entity Class
  */
-@TableName("business_knowledge")
 @Data
 @NoArgsConstructor
 public class BusinessKnowledge {
 
-	@TableId(value = "id", type = IdType.AUTO)
 	private Long id;
 
-	@TableField("business_term")
 	private String businessTerm; // Business term
 
-	@TableField("description")
 	private String description; // Description
 
-	@TableField("synonyms")
 	private String synonyms; // Synonyms, comma-separated
 
-	@TableField("is_recall")
 	private Boolean defaultRecall; // Default recall
 
-	@TableField("data_set_id")
 	private String datasetId; // Associated dataset ID
 
-	@TableField("agent_id")
 	private String agentId; // Associated agent ID
 
-	@TableField(value = "created_time", fill = FieldFill.INSERT)
 	private LocalDateTime createTime;
 
-	@TableField(value = "updated_time", fill = FieldFill.INSERT_UPDATE)
 	private LocalDateTime updateTime;
 
 	public BusinessKnowledge(String businessTerm, String description, String synonyms, Boolean defaultRecall,
