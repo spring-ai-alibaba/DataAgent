@@ -14,7 +14,8 @@
  * limitations under the License.
 -->
 <template>
-  <div class="agent-run-page" :class="{ 'with-preview': showReportPreview }">
+  <BaseLayout>
+    <div class="agent-run-page" :class="{ 'with-preview': showReportPreview }">
 
 
     <!-- 主要聊天区域 -->
@@ -307,12 +308,14 @@
       </div>
     </div>
   </div>
+  </BaseLayout>
 </template>
 
 <script>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { presetQuestionApi } from '../utils/api.js'
+import BaseLayout from '../layouts/BaseLayout.vue'
+import { presetQuestionApi } from '../services/api.js'
 
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
@@ -327,6 +330,9 @@ hljs.registerLanguage('json', json);
 
 export default {
   name: 'AgentRun',
+  components: {
+    BaseLayout
+  },
   setup() {
     const route = useRoute()
     const router = useRouter()
@@ -1739,65 +1745,92 @@ export default {
         return message.content
       }
 
-      // 🔥 激进方案：对所有长内容的assistant消息都隐藏（除了简单的文本回复）
-      if (message.role === 'assistant' && message.type !== 'streaming') {
-        console.log('🔥 检查assistant消息是否需要隐藏')
-        console.log('内容长度:', message.content.length)
-        console.log('包含HTML标签:', message.content.includes('<'))
-        console.log('包含代码块:', message.content.includes('```'))
-        console.log('包含容器:', message.content.includes('agent-responses-container'))
-
-        // 只有很短且不包含HTML的消息才显示，其他都隐藏
-        const isSimpleTextReply = message.content.length < 500 &&
-                                 !message.content.includes('<') &&
-                                 !message.content.includes('```') &&
-                                 !message.content.includes('agent-responses-container')
-
-        console.log('是否为简单文本回复:', isSimpleTextReply)
-
-        if (!isSimpleTextReply) {
-          console.log('🔥 激进隐藏策略生效！即将返回隐藏状态')
-
-          const charCount = message.content.length
-          const hiddenContent = `
-            <div class="agent-responses-container" style="display: flex; flex-direction: column; width: 100%; gap: 0.75rem;">
-              <div class="agent-response-block" style="display: block !important; width: 100% !important;">
-                <div class="agent-response-title">
-                  <i class="bi bi-file-earmark-text"></i> 输出报告
-                </div>
-                <div class="agent-response-content">
-                  <div class="report-generation-complete" style="padding: 16px; border-radius: 8px; background: #f8f9fa; border: 1px solid #e9ecef; margin: 0; line-height: 1.4; white-space: normal;">
-                    <div class="generation-status" style="display: flex; align-items: center; margin-bottom: 8px; font-size: 15px; line-height: 1.2;">
-                      <i class="bi bi-check-circle-fill" style="color: #27ae60; margin-right: 8px;"></i>
-                      <span style="color: #27ae60; font-weight: 600;">报告生成完成</span>
-                    </div>
-                    <div class="generation-info" style="margin-left: 24px; margin-bottom: 0;">
-                      <span style="color: #6c757d; font-size: 14px;">
-                        已生成 ${charCount.toLocaleString()} 个字符的完整报告
-                      </span>
-                    </div>
-                    <div class="report-preview-section" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e9ecef; text-align: center;">
-                      <button class="preview-report-btn" onclick="window.openReportPreviewByType && window.openReportPreviewByType('output_report')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; padding: 12px 24px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); transition: all 0.3s ease;">
-                        <i class="bi bi-eye"></i>
-                        预览完整报告
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `
-
-          console.log('🔥 返回隐藏内容，长度:', hiddenContent.length)
-          return hiddenContent
-        } else {
-          console.log('简单文本回复，继续正常处理')
-        }
+      // 检查是否包含agent-responses-container结构，如果有则直接返回（保持样式）
+      if (message.content.includes('agent-responses-container')) {
+        console.log('🎯 检测到流式处理结构，直接返回保持样式')
+        return message.content
       }
 
       // 检查是否是报告消息
       if (!isReportMessage(message)) {
-        console.log('非报告消息，使用formatMessage处理')
+        console.log('非报告消息，检查是否需要结构化显示')
+        console.log('消息内容:', message.content)
+        console.log('包含需求理解:', message.content.includes('需求理解'))
+        console.log('包含关键词提取:', message.content.includes('关键词提取'))
+        console.log('包含Schema:', message.content.includes('Schema'))
+        console.log('包含开始进行:', message.content.includes('开始进行'))
+        console.log('包含提取的关键词:', message.content.includes('提取的关键词'))
+        
+        // 检查是否包含结构化内容（需求理解、关键词提取等）
+        if (message.content.includes('需求理解') || 
+            message.content.includes('关键词提取') || 
+            message.content.includes('Schema') ||
+            message.content.includes('开始进行') ||
+            message.content.includes('提取的关键词')) {
+          console.log('✅ 检测到结构化内容，使用formatContentByType处理')
+          
+          // 使用现有的typeMapping和formatContentByType逻辑
+          const typeMapping = {
+            'rewrite': { title: '需求理解', icon: 'bi bi-pencil-square' },
+            'keyword_extract': { title: '关键词提取', icon: 'bi bi-key' },
+            'schema_recall': { title: 'Schema初步召回', icon: 'bi bi-database-gear' }
+          }
+          
+          // 将内容按类型分割并格式化
+          let formattedContent = '<div class="agent-responses-container" style="display: flex; flex-direction: column; width: 100%; gap: 0.75rem;">'
+          
+          // 处理需求理解部分
+          if (message.content.includes('需求理解')) {
+            const requirementSection = message.content.split('关键词提取')[0] || message.content
+            const typeInfo = typeMapping['rewrite']
+            formattedContent += `
+              <div class="agent-response-block" style="display: block !important; width: 100% !important;">
+                <div class="agent-response-title">
+                  <i class="${typeInfo.icon}"></i> ${typeInfo.title}
+                </div>
+                <div class="agent-response-content">${formatContentByType('rewrite', requirementSection)}</div>
+              </div>
+            `
+          }
+          
+          // 处理关键词提取部分
+          if (message.content.includes('关键词提取')) {
+            const keywordSection = message.content.split('关键词提取')[1]?.split('Schema')[0] || 
+                                  message.content.split('关键词提取')[1] || ''
+            if (keywordSection.trim()) {
+              const typeInfo = typeMapping['keyword_extract']
+              formattedContent += `
+                <div class="agent-response-block" style="display: block !important; width: 100% !important;">
+                  <div class="agent-response-title">
+                    <i class="${typeInfo.icon}"></i> ${typeInfo.title}
+                  </div>
+                  <div class="agent-response-content">${formatContentByType('keyword_extract', keywordSection)}</div>
+                </div>
+              `
+            }
+          }
+          
+          // 处理Schema部分
+          if (message.content.includes('Schema')) {
+            const schemaSection = message.content.split('Schema')[1] || ''
+            if (schemaSection.trim()) {
+              const typeInfo = typeMapping['schema_recall']
+              formattedContent += `
+                <div class="agent-response-block" style="display: block !important; width: 100% !important;">
+                  <div class="agent-response-title">
+                    <i class="${typeInfo.icon}"></i> ${typeInfo.title}
+                  </div>
+                  <div class="agent-response-content">${formatContentByType('schema_recall', schemaSection)}</div>
+                </div>
+              `
+            }
+          }
+          
+          formattedContent += '</div>'
+          return formattedContent
+        }
+        
+        console.log('普通消息，使用formatMessage处理')
         return formatMessage(message.content)
       }
 
@@ -3410,6 +3443,7 @@ export default {
   position: relative;
   padding: var(--space-xl);
   box-sizing: border-box;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
 /* 欢迎消息样式 */
@@ -3550,11 +3584,11 @@ export default {
 .assistant-message-body {
   width: 100%;
   max-width: 90%;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-tertiary);
+  background: white;
+  border: 1px solid #e2e8f0;
   border-radius: var(--radius-lg);
   padding: var(--space-md) var(--space-lg);
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   word-break: break-word;
   overflow-wrap: break-word;
   overflow-x: auto;
@@ -3856,13 +3890,14 @@ export default {
 }
 
 .user-message .message-body {
-  background: var(--primary-color);
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
   color: white;
   max-width: 70%;
   word-break: break-word;
   overflow-wrap: break-word;
   overflow-x: auto;
   box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
 }
 
 .user-message .message-content {
@@ -3876,8 +3911,9 @@ export default {
 }
 
 .assistant-message .message-body {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-tertiary);
+  background: white;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .text-message {
@@ -3927,170 +3963,9 @@ export default {
   }
 }
 
-/* 流式响应样式 */
-.agent-responses-container {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 100%;
-  gap: 0.75rem;
-  box-sizing: border-box;
-}
+/* 流式响应样式已移至 global.css 以支持 v-html 渲染 */
 
-.agent-response-block {
-  display: block !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  border: 1px solid #e1e5e9;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #f8f9fa;
-  box-sizing: border-box;
-}
-
-.agent-response-title {
-  background: #e9ecef;
-  padding: 8px 12px;
-  font-weight: 600;
-  font-size: 14px;
-  color: #495057;
-  border-bottom: 1px solid #dee2e6;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-}
-
-.agent-response-title i {
-  font-size: 14px;
-  color: #6c757d;
-  flex-shrink: 0;
-  margin-right: 2px;
-}
-
-.agent-response-content {
-  padding: 12px;
-  background: white;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  max-width: 100%;
-  overflow-x: auto;
-  box-sizing: border-box;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  word-break: break-all;
-  hyphens: auto;
-}
-
-.agent-response-content pre {
-  margin: 0;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 4px;
-  overflow-x: auto;
-  border: 1px solid #e9ecef;
-  max-width: 100%;
-  word-wrap: break-word;
-  white-space: pre-wrap;
-  box-sizing: border-box;
-}
-
-.agent-response-content code {
-  background: #f8f9fa;
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 12px;
-}
-
-.agent-response-content .language-sql {
-  color: #0066cc;
-}
-
-.agent-response-content .language-json {
-  color: #0066cc;
-  white-space: pre-wrap !important;
-  word-break: break-all;
-  overflow-wrap: break-word;
-}
-
-/* HTML渲染内容样式 */
-.html-rendered-content {
-  background: white;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
-  padding: 16px;
-  margin: 8px 0;
-  max-width: 100%;
-  overflow-x: auto;
-  box-sizing: border-box;
-}
-
-.html-rendered-content * {
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.html-rendered-content table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 8px 0;
-}
-
-.html-rendered-content th,
-.html-rendered-content td {
-  border: 1px solid #dee2e6;
-  padding: 8px 12px;
-  text-align: left;
-}
-
-.html-rendered-content th {
-  background-color: #f8f9fa;
-  font-weight: 600;
-}
-
-.html-rendered-content h1,
-.html-rendered-content h2,
-.html-rendered-content h3,
-.html-rendered-content h4,
-.html-rendered-content h5,
-.html-rendered-content h6 {
-  margin: 16px 0 8px 0;
-  color: #2c3e50;
-}
-
-.html-rendered-content p {
-  margin: 8px 0;
-  line-height: 1.6;
-}
-
-.html-rendered-content ul,
-.html-rendered-content ol {
-  margin: 8px 0;
-  padding-left: 20px;
-}
-
-.html-rendered-content li {
-  margin: 4px 0;
-}
-
-.html-rendered-content pre {
-  background: #f8f9fa;
-  padding: 12px;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin: 8px 0;
-}
-
-.html-rendered-content code {
-  background: #f8f9fa;
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 12px;
-}
+/* HTML渲染内容样式已移至 global.css 以支持 v-html 渲染 */
 
 /* 报告预览按钮样式 */
 .report-preview-section {
@@ -4499,9 +4374,9 @@ export default {
 
 /* 输入区域样式 */
 .input-container {
-  border-top: 1px solid var(--border-secondary);
+  border-top: 1px solid #e2e8f0;
   padding: var(--space-lg) var(--space-xl);
-  background: var(--bg-primary);
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   display: flex;
   justify-content: center;
   position: relative;
@@ -4511,20 +4386,20 @@ export default {
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  border: 1px solid var(--border-primary);
+  border: 1px solid #e2e8f0;
   border-radius: var(--radius-xl);
   padding: var(--space-xs) var(--space-lg);
   transition: all var(--transition-base);
-  background: var(--bg-primary);
-  box-shadow: var(--shadow-xs);
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   width: 100%;
   max-width: 800px;
   min-height: 32px;
 }
 
 .input-wrapper:focus-within {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px var(--primary-light);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .input-field {
@@ -4564,6 +4439,10 @@ export default {
   align-items: center;
   justify-content: center;
   font-size: 16px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
 }
 
 .send-btn:disabled {
@@ -4594,14 +4473,17 @@ export default {
 }
 
 .btn-primary {
-  background: var(--primary-color);
-  color: var(--bg-primary);
-  border-color: var(--primary-color);
+  background: linear-gradient(135deg, #3b82f6, #1e40af);
+  color: white;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
 }
 
 /* CSS变量定义 */

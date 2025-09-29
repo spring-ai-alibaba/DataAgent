@@ -32,8 +32,8 @@ export default defineConfig({
         changeOrigin: true
       },
       '/nl2sql': {
-        target: 'http://localhost:8065',
-        changeOrigin: true
+          target: 'http://localhost:8065',
+          changeOrigin: true
       }
     },
     historyApiFallback: true

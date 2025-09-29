@@ -59,6 +59,7 @@
   --border-primary: #EAEAEA;
   --border-secondary: #F0F0F0;
   --border-tertiary: #F5F5F5;
+  --border-color: #EAEAEA;
   
   /* 字体系统 */
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -101,6 +102,7 @@
   --radius-xl: 16px;
   --radius-2xl: 20px;
   --radius-full: 50%;
+  --radius: 6px;
   
   /* 阴影系统 */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
@@ -215,24 +217,24 @@ body {
 
 /* 主要按钮 */
 .btn-primary {
-  background: linear-gradient(135deg, #1890ff, #40a9ff);
+  background: linear-gradient(135deg, #3b82f6, #1e40af);
   color: white;
-  border-color: #1890ff;
-  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #40a9ff, #69c0ff);
-  border-color: #40a9ff;
-  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   transform: translateY(-1px);
 }
 
 .btn-primary:active:not(:disabled) {
-  background: linear-gradient(135deg, #096dd9, #1890ff);
-  border-color: #096dd9;
+  background: linear-gradient(135deg, #1e40af, #1d4ed8);
+  border-color: #1e40af;
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.2);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 /* 次要按钮 */
@@ -543,26 +545,26 @@ body {
   border-radius: var(--radius-md);
 }
 
-/* 主要按钮 - 淡蓝科技感 */
+/* 主要按钮 - 蓝灰色主题 */
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-  color: var(--bg-primary);
-  border-color: var(--primary-color);
-  box-shadow: var(--shadow-sm);
+  background: linear-gradient(135deg, #3b82f6, #1e40af);
+  color: white;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--primary-hover), var(--primary-color));
-  border-color: var(--primary-hover);
-  box-shadow: var(--shadow-md);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   transform: translateY(-1px);
 }
 
 .btn-primary:active:not(:disabled) {
-  background: linear-gradient(135deg, var(--primary-active), var(--primary-color));
-  border-color: var(--primary-active);
+  background: linear-gradient(135deg, #1e40af, #1d4ed8);
+  border-color: #1e40af;
   transform: translateY(0);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 /* 次要按钮 */
@@ -1249,4 +1251,207 @@ body {
     --border-secondary: #2D2D2D;
     --border-tertiary: #1A1A1A;
   }
+}
+
+/* 对话节点样式 - 从 AgentRun.vue 移出以支持 v-html 渲染 */
+.agent-responses-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  gap: 0.75rem;
+  box-sizing: border-box;
+}
+
+.agent-response-block {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f8f9fa;
+  box-sizing: border-box;
+}
+
+.agent-response-title {
+  background: #e9ecef;
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #495057;
+  border-bottom: 1px solid #dee2e6;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.agent-response-title i {
+  font-size: 14px;
+  color: #6c757d;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
+.agent-response-content {
+  padding: 12px;
+  background: white;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 100%;
+  overflow-x: auto;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-all;
+  hyphens: auto;
+}
+
+.agent-response-content pre {
+  margin: 0;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  overflow-x: auto;
+  border: 1px solid #e9ecef;
+  max-width: 100%;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  box-sizing: border-box;
+}
+
+.agent-response-content code {
+  background: #f8f9fa;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+}
+
+.agent-response-content .language-sql {
+  color: #0066cc;
+}
+
+.agent-response-content .language-json {
+  color: #0066cc;
+  white-space: pre-wrap !important;
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
+/* 保护报告预览样式 - 确保报告内容不受对话节点样式影响 */
+.html-rendered-content {
+  background: white !important;
+  border: 1px solid #e9ecef !important;
+  border-radius: 6px !important;
+  padding: 16px !important;
+  margin: 8px 0 !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  box-sizing: border-box !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  white-space: normal !important;
+  word-wrap: normal !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  hyphens: none !important;
+  color: #333 !important;
+}
+
+.html-rendered-content * {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.html-rendered-content table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 8px 0 !important;
+}
+
+.html-rendered-content th,
+.html-rendered-content td {
+  border: 1px solid #dee2e6 !important;
+  padding: 8px 12px !important;
+  text-align: left !important;
+  color: #333 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+
+.html-rendered-content th {
+  background-color: #f8f9fa !important;
+  font-weight: 600 !important;
+}
+
+.html-rendered-content h1,
+.html-rendered-content h2,
+.html-rendered-content h3,
+.html-rendered-content h4,
+.html-rendered-content h5,
+.html-rendered-content h6 {
+  margin: 16px 0 8px 0 !important;
+  color: #2c3e50 !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+}
+
+.html-rendered-content h1 {
+  font-size: 24px !important;
+  margin: 24px 0 16px 0 !important;
+}
+
+.html-rendered-content h2 {
+  font-size: 20px !important;
+  margin: 20px 0 12px 0 !important;
+}
+
+.html-rendered-content h3 {
+  font-size: 18px !important;
+  margin: 16px 0 8px 0 !important;
+}
+
+.html-rendered-content p {
+  margin: 8px 0 !important;
+  line-height: 1.6 !important;
+  color: #333 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+}
+
+.html-rendered-content ul,
+.html-rendered-content ol {
+  margin: 8px 0 !important;
+  padding-left: 20px !important;
+}
+
+.html-rendered-content li {
+  margin: 4px 0 !important;
+  color: #333 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+
+.html-rendered-content pre {
+  background: #f8f9fa !important;
+  padding: 12px !important;
+  border-radius: 4px !important;
+  overflow-x: auto !important;
+  margin: 8px 0 !important;
+  white-space: pre-wrap !important;
+}
+
+.html-rendered-content code {
+  background: #f8f9fa !important;
+  padding: 2px 4px !important;
+  border-radius: 3px !important;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+  font-size: 12px !important;
 }
