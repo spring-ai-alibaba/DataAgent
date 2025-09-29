@@ -80,10 +80,8 @@ public interface ChatSessionMapper {
 	@Update("UPDATE chat_session SET status = 'deleted', update_time = #{updateTime} WHERE id = #{sessionId}")
 	int softDeleteById(@Param("sessionId") String sessionId, @Param("updateTime") LocalDateTime updateTime);
 
-	@Insert({
-			"INSERT INTO chat_session (id, agent_id, title, status, is_pinned, user_id, create_time, update_time)",
-			"VALUES (#{id}, #{agentId}, #{title}, #{status}, #{isPinned}, #{userId}, #{createTime}, #{updateTime})"
-	})
+	@Insert({ "INSERT INTO chat_session (id, agent_id, title, status, is_pinned, user_id, create_time, update_time)",
+			"VALUES (#{id}, #{agentId}, #{title}, #{status}, #{isPinned}, #{userId}, #{createTime}, #{updateTime})" })
 	int insert(ChatSession session);
 
 }
