@@ -19,6 +19,7 @@ package com.alibaba.cloud.ai.mapper;
 import com.alibaba.cloud.ai.entity.Datasource;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
@@ -46,6 +47,7 @@ public interface DatasourceMapper {
 			    (name, type, host, port, database_name, username, password, connection_url, status, test_status, description, creator_id, create_time, update_time)
 			VALUES (#{name}, #{type}, #{host}, #{port}, #{databaseName}, #{username}, #{password}, #{connectionUrl}, #{status}, #{testStatus}, #{description}, #{creatorId}, NOW(), NOW())
 			""")
+	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
 	int insert(Datasource datasource);
 
 	/**

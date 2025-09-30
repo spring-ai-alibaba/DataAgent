@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.mapper;
 
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -67,7 +68,7 @@ public interface AgentDatasourceMapper {
 	@Delete("DELETE FROM agent_datasource WHERE datasource_id = #{datasourceId}")
 	int deleteAllByDatasourceId(@Param("datasourceId") Integer datasourceId);
 
-	@Select("INSERT INTO agent_datasource (agent_id, datasource_id, is_active) VALUES (#{agentId}, #{datasourceId}, 1)")
+	@Insert("INSERT INTO agent_datasource (agent_id, datasource_id, is_active) VALUES (#{agentId}, #{datasourceId}, 1)")
 	int createNewRelationEnabled(@Param("agentId") Integer agentId, @Param("datasourceId") Integer datasourceId);
 
 	@Update("UPDATE agent_datasource SET is_active = #{isActive} WHERE agent_id = #{agentId} AND datasource_id = #{datasourceId}")

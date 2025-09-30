@@ -79,6 +79,7 @@ public class UserPromptConfigService {
 		else {
 			// Create new configuration
 			config = new UserPromptConfig();
+			config.setId(UUID.randomUUID().toString());
 			config.setName(configDTO.name());
 			config.setPromptType(configDTO.promptType());
 			config.setSystemPrompt(configDTO.optimizationPrompt());
