@@ -21,9 +21,6 @@ import org.apache.ibatis.annotations.*;
 
 import java.util.List;
 
-/**
- * Agent Mapper Interface
- */
 @Mapper
 public interface AgentMapper {
 
@@ -59,18 +56,22 @@ public interface AgentMapper {
 	int insert(Agent agent);
 
 	@Update("""
-			UPDATE agent SET
-				name = #{name},
-				description = #{description},
-				avatar = #{avatar},
-				status = #{status},
-				prompt = #{prompt},
-				category = #{category},
-				admin_id = #{adminId},
-				tags = #{tags},
-				update_time = #{updateTime},
-				human_review_enabled = #{humanReviewEnabled}
-			WHERE id = #{id}
+			<script>
+			          UPDATE agent
+			          <trim prefix="SET" suffixOverrides=",">
+			            <if test='name != null'>name = #{name},</if>
+			            <if test='description != null'>description = #{description},</if>
+			            <if test='avatar != null'>avatar = #{avatar},</if>
+			            <if test='status != null'>status = #{status},</if>
+			            <if test='prompt != null'>prompt = #{prompt},</if>
+			            <if test='category != null'>category = #{category},</if>
+			            <if test='adminId != null'>admin_id = #{adminId},</if>
+			            <if test='tags != null'>tags = #{tags},</if>
+			            <if test='humanReviewEnabled != null'>human_review_enabled = #{humanReviewEnabled},</if>
+			            update_time = NOW()
+			          </trim>
+			          WHERE id = #{id}
+			</script>
 			""")
 	int updateById(Agent agent);
 

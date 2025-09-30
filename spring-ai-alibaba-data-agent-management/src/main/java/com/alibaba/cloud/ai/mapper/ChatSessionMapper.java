@@ -17,65 +17,109 @@
 package com.alibaba.cloud.ai.mapper;
 
 import com.alibaba.cloud.ai.entity.ChatSession;
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Chat Session Mapper Interface
- *
- * @author Alibaba Cloud AI
- */
 @Mapper
-public interface ChatSessionMapper extends BaseMapper<ChatSession> {
+public interface ChatSessionMapper {
 
 	/**
 	 * Query session list by agent ID
 	 */
-	@Select("SELECT * FROM chat_session WHERE agent_id = #{agentId} AND status != 'deleted' ORDER BY is_pinned DESC, update_time DESC")
+	@Select("""
+			SELECT * FROM chat_session
+			WHERE agent_id = #{agentId} AND status != 'deleted'
+			ORDER BY is_pinned DESC, update_time DESC
+			""")
 	List<ChatSession> selectByAgentId(@Param("agentId") Integer agentId);
 
 	/**
 	 * Query session details by session ID
 	 */
-	@Select("SELECT * FROM chat_session WHERE id = #{sessionId} AND status != 'deleted'")
+	@Select("""
+			SELECT * FROM chat_session
+			WHERE id = #{sessionId} AND status != 'deleted'
+			""")
 	ChatSession selectBySessionId(@Param("sessionId") String sessionId);
+
+	/**
+	 * Update session
+	 */
+	@Update("""
+			<script>
+			UPDATE chat_session
+			<set>
+				<if test="title != null">title = #{title},</if>
+				<if test="status != null">status = #{status},</if>
+				<if test="isPinned != null">is_pinned = #{isPinned},</if>
+				<if test="userId != null">user_id = #{userId},</if>
+				update_time = NOW()
+			</set>
+			WHERE id = #{sessionId}
+			</script>
+			""")
+	int updateById(ChatSession session);
 
 	/**
 	 * Soft delete all sessions for an agent
 	 */
-	@Update("UPDATE chat_session SET status = 'deleted', update_time = #{updateTime} WHERE agent_id = #{agentId}")
+	@Update("""
+			UPDATE chat_session
+			SET status = 'deleted', update_time = #{updateTime}
+			WHERE agent_id = #{agentId}
+			""")
 	int softDeleteByAgentId(@Param("agentId") Integer agentId, @Param("updateTime") LocalDateTime updateTime);
 
 	/**
 	 * Update session time
 	 */
-	@Update("UPDATE chat_session SET update_time = #{updateTime} WHERE id = #{sessionId}")
+	@Update("""
+			UPDATE chat_session
+			SET update_time = #{updateTime}
+			WHERE id = #{sessionId}
+			""")
 	int updateSessionTime(@Param("sessionId") String sessionId, @Param("updateTime") LocalDateTime updateTime);
 
 	/**
 	 * Update session pinned status
 	 */
-	@Update("UPDATE chat_session SET is_pinned = #{isPinned}, update_time = #{updateTime} WHERE id = #{sessionId}")
+	@Update("""
+			UPDATE chat_session SET
+				is_pinned = #{isPinned},
+				update_time = #{updateTime}
+			WHERE id = #{sessionId}
+			""")
 	int updatePinStatus(@Param("sessionId") String sessionId, @Param("isPinned") boolean isPinned,
 			@Param("updateTime") LocalDateTime updateTime);
 
 	/**
 	 * Update session title
 	 */
-	@Update("UPDATE chat_session SET title = #{title}, update_time = #{updateTime} WHERE id = #{sessionId}")
+	@Update("""
+			UPDATE chat_session SET
+				title = #{title},
+				update_time = #{updateTime}
+			WHERE id = #{sessionId}
+			""")
 	int updateTitle(@Param("sessionId") String sessionId, @Param("title") String title,
 			@Param("updateTime") LocalDateTime updateTime);
 
 	/**
 	 * Soft delete session
 	 */
-	@Update("UPDATE chat_session SET status = 'deleted', update_time = #{updateTime} WHERE id = #{sessionId}")
+	@Update("""
+			UPDATE chat_session
+			SET status = 'deleted', update_time = #{updateTime}
+			WHERE id = #{sessionId}
+			""")
 	int softDeleteById(@Param("sessionId") String sessionId, @Param("updateTime") LocalDateTime updateTime);
+
+	@Insert("""
+			INSERT INTO chat_session (id, agent_id, title, status, is_pinned, user_id, create_time, update_time)
+			VALUES (#{id}, #{agentId}, #{title}, #{status}, #{isPinned}, #{userId}, #{createTime}, #{updateTime})
+			""")
+	int insert(ChatSession session);
 
 }

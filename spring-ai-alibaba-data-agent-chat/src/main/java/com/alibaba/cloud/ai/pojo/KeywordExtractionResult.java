@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.pojo;
 
 import java.util.List;
+import lombok.Getter;
 
 /**
  * Keyword extraction result data structure, used to store extraction results for each
@@ -24,6 +25,7 @@ import java.util.List;
  *
  * @author zhangshenghang
  */
+@Getter
 public class KeywordExtractionResult {
 
 	/**

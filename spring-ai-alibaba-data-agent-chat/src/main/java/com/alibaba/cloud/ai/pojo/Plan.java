@@ -20,9 +20,15 @@ import com.alibaba.cloud.ai.util.JsonUtil;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.util.List;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Plan {
 
 	@JsonProperty("thought_process")
@@ -30,30 +36,6 @@ public class Plan {
 
 	@JsonProperty("execution_plan")
 	private List<ExecutionStep> executionPlan;
-
-	public Plan() {
-	}
-
-	public Plan(String thoughtProcess, List<ExecutionStep> executionPlan) {
-		this.thoughtProcess = thoughtProcess;
-		this.executionPlan = executionPlan;
-	}
-
-	public String getThoughtProcess() {
-		return thoughtProcess;
-	}
-
-	public void setThoughtProcess(String thoughtProcess) {
-		this.thoughtProcess = thoughtProcess;
-	}
-
-	public List<ExecutionStep> getExecutionPlan() {
-		return executionPlan;
-	}
-
-	public void setExecutionPlan(List<ExecutionStep> executionPlan) {
-		this.executionPlan = executionPlan;
-	}
 
 	@Override
 	public String toString() {

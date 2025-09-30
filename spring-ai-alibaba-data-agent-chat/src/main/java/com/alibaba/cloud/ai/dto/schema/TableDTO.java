@@ -18,10 +18,14 @@ package com.alibaba.cloud.ai.dto.schema;
 import com.alibaba.cloud.ai.util.JsonUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Data
+@NoArgsConstructor
 public class TableDTO {
 
 	private String name;
@@ -31,38 +35,6 @@ public class TableDTO {
 	private List<ColumnDTO> column = new ArrayList<ColumnDTO>();
 
 	private List<String> primaryKeys;
-
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
-	}
-
-	public List<ColumnDTO> getColumn() {
-		return column;
-	}
-
-	public void setColumn(List<ColumnDTO> column) {
-		this.column = column;
-	}
-
-	public List<String> getPrimaryKeys() {
-		return primaryKeys;
-	}
-
-	public void setPrimaryKeys(List<String> primaryKeys) {
-		this.primaryKeys = primaryKeys;
-	}
 
 	@Override
 	public String toString() {

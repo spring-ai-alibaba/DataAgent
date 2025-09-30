@@ -15,9 +15,14 @@
  */
 package com.alibaba.cloud.ai.vo;
 
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 /**
  * Common API Response Class
  */
+@Data
+@NoArgsConstructor
 public class ApiResponse {
 
 	private boolean success;
@@ -25,9 +30,6 @@ public class ApiResponse {
 	private String message;
 
 	private Object data;
-
-	public ApiResponse() {
-	}
 
 	public ApiResponse(boolean success, String message) {
 		this.success = success;
@@ -50,30 +52,6 @@ public class ApiResponse {
 
 	public static ApiResponse error(String message) {
 		return new ApiResponse(false, message);
-	}
-
-	public boolean isSuccess() {
-		return success;
-	}
-
-	public void setSuccess(boolean success) {
-		this.success = success;
-	}
-
-	public String getMessage() {
-		return message;
-	}
-
-	public void setMessage(String message) {
-		this.message = message;
-	}
-
-	public Object getData() {
-		return data;
-	}
-
-	public void setData(Object data) {
-		this.data = data;
 	}
 
 }

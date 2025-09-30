@@ -20,7 +20,13 @@ import com.alibaba.cloud.ai.util.JsonUtil;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class ExecutionStep {
 
 	@JsonProperty("step")
@@ -32,6 +38,9 @@ public class ExecutionStep {
 	@JsonProperty("tool_parameters")
 	private ToolParameters toolParameters;
 
+	@Data
+	@NoArgsConstructor
+	@AllArgsConstructor
 	public static class ToolParameters {
 
 		private String description;
@@ -48,47 +57,6 @@ public class ExecutionStep {
 		@JsonProperty("input_data_description")
 		private String inputDataDescription;
 
-		// Manual getters and setters to ensure they are available
-		public String getDescription() {
-			return description;
-		}
-
-		public void setDescription(String description) {
-			this.description = description;
-		}
-
-		public String getSummaryAndRecommendations() {
-			return summaryAndRecommendations;
-		}
-
-		public void setSummaryAndRecommendations(String summaryAndRecommendations) {
-			this.summaryAndRecommendations = summaryAndRecommendations;
-		}
-
-		public String getSqlQuery() {
-			return sqlQuery;
-		}
-
-		public void setSqlQuery(String sqlQuery) {
-			this.sqlQuery = sqlQuery;
-		}
-
-		public String getInstruction() {
-			return instruction;
-		}
-
-		public void setInstruction(String instruction) {
-			this.instruction = instruction;
-		}
-
-		public String getInputDataDescription() {
-			return inputDataDescription;
-		}
-
-		public void setInputDataDescription(String inputDataDescription) {
-			this.inputDataDescription = inputDataDescription;
-		}
-
 		public String toJsonStr() {
 			ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 			try {
@@ -99,39 +67,6 @@ public class ExecutionStep {
 			}
 		}
 
-	}
-
-	public ExecutionStep() {
-	}
-
-	public ExecutionStep(int step, String toolToUse, ToolParameters toolParameters) {
-		this.step = step;
-		this.toolToUse = toolToUse;
-		this.toolParameters = toolParameters;
-	}
-
-	public int getStep() {
-		return step;
-	}
-
-	public void setStep(int step) {
-		this.step = step;
-	}
-
-	public String getToolToUse() {
-		return toolToUse;
-	}
-
-	public void setToolToUse(String toolToUse) {
-		this.toolToUse = toolToUse;
-	}
-
-	public ToolParameters getToolParameters() {
-		return toolParameters;
-	}
-
-	public void setToolParameters(ToolParameters toolParameters) {
-		this.toolParameters = toolParameters;
 	}
 
 	@Override

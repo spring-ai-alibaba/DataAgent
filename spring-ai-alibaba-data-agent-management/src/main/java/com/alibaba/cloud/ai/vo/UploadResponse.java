@@ -15,9 +15,16 @@
  */
 package com.alibaba.cloud.ai.vo;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 /**
  * 通用上传响应实体。
  */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class UploadResponse {
 
 	private boolean success;
@@ -27,9 +34,6 @@ public class UploadResponse {
 	private String url;
 
 	private String filename;
-
-	public UploadResponse() {
-	}
 
 	public static UploadResponse ok(String message, String url, String filename) {
 		UploadResponse r = new UploadResponse();
@@ -45,38 +49,6 @@ public class UploadResponse {
 		r.setSuccess(false);
 		r.setMessage(message);
 		return r;
-	}
-
-	public boolean isSuccess() {
-		return success;
-	}
-
-	public void setSuccess(boolean success) {
-		this.success = success;
-	}
-
-	public String getMessage() {
-		return message;
-	}
-
-	public void setMessage(String message) {
-		this.message = message;
-	}
-
-	public String getUrl() {
-		return url;
-	}
-
-	public void setUrl(String url) {
-		this.url = url;
-	}
-
-	public String getFilename() {
-		return filename;
-	}
-
-	public void setFilename(String filename) {
-		this.filename = filename;
 	}
 
 }

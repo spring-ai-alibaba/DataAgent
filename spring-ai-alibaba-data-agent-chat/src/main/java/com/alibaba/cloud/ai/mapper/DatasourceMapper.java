@@ -17,10 +17,13 @@
 package com.alibaba.cloud.ai.mapper;
 
 import com.alibaba.cloud.ai.entity.Datasource;
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.Delete;
 
 import java.util.List;
 import java.util.Map;
@@ -31,7 +34,50 @@ import java.util.Map;
  * @author Alibaba Cloud AI
  */
 @Mapper
-public interface DatasourceMapper extends BaseMapper<Datasource> {
+public interface DatasourceMapper {
+
+	@Select("SELECT * FROM datasource WHERE id = #{id}")
+	Datasource selectById(@Param("id") Integer id);
+
+	@Select("SELECT * FROM datasource ORDER BY create_time DESC")
+	List<Datasource> selectAll();
+
+	@Insert("""
+			INSERT INTO datasource
+			    (name, type, host, port, database_name, username, password, connection_url, status, test_status, description, creator_id, create_time, update_time)
+			VALUES (#{name}, #{type}, #{host}, #{port}, #{databaseName}, #{username}, #{password}, #{connectionUrl}, #{status}, #{testStatus}, #{description}, #{creatorId}, NOW(), NOW())
+			""")
+	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
+	int insert(Datasource datasource);
+
+	/**
+	 * Update data source by id, only update non-null fields
+	 */
+	@Update("""
+			<script>
+			UPDATE datasource
+			<set>
+			    <if test="name != null">name = #{name},</if>
+			    <if test="type != null">type = #{type},</if>
+			    <if test="host != null">host = #{host},</if>
+			    <if test="port != null">port = #{port},</if>
+			    <if test="databaseName != null">database_name = #{databaseName},</if>
+			    <if test="username != null">username = #{username},</if>
+			    <if test="password != null">password = #{password},</if>
+			    <if test="connectionUrl != null">connection_url = #{connectionUrl},</if>
+			    <if test="status != null">status = #{status},</if>
+			    <if test="testStatus != null">test_status = #{testStatus},</if>
+			    <if test="description != null">description = #{description},</if>
+			    <if test="creatorId != null">creator_id = #{creatorId},</if>
+			    update_time = NOW()
+			</set>
+			WHERE id = #{id}
+			</script>
+			""")
+	int updateById(Datasource datasource);
+
+	@Update("UPDATE datasource SET test_status = #{testStatus} WHERE id = #{id}")
+	int updateTestStatusById(@Param("id") Integer id, @Param("testStatus") String testStatus);
 
 	/**
 	 * Query data source list by status
@@ -62,5 +108,11 @@ public interface DatasourceMapper extends BaseMapper<Datasource> {
 	 */
 	@Select("SELECT test_status, COUNT(*) as count FROM datasource GROUP BY test_status")
 	List<Map<String, Object>> selectTestStatusStats();
+
+	@Select("SELECT COUNT(*) FROM datasource")
+	Long selectCount();
+
+	@Delete("DELETE FROM datasource WHERE id = #{id}")
+	int deleteById(Integer id);
 
 }

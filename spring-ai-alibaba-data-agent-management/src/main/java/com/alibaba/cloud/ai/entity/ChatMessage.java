@@ -15,38 +15,32 @@
  */
 package com.alibaba.cloud.ai.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
  * Chat Message Entity Class
  */
-@TableName("chat_message")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class ChatMessage {
 
-	@TableId(value = "id", type = IdType.AUTO)
 	private Long id;
 
-	@TableField("session_id")
 	private String sessionId;
 
-	@TableField("role")
 	private String role; // user, assistant, system
 
-	@TableField("content")
 	private String content;
 
-	@TableField("message_type")
 	private String messageType; // text, sql, result, error
 
-	@TableField("metadata")
 	private String metadata; // JSON格式的元数据
 
-	@TableField(value = "create_time", fill = FieldFill.INSERT)
 	private LocalDateTime createTime;
-
-	public ChatMessage() {
-	}
 
 	public ChatMessage(String sessionId, String role, String content, String messageType) {
 		this.sessionId = sessionId;
@@ -61,70 +55,6 @@ public class ChatMessage {
 		this.content = content;
 		this.messageType = messageType;
 		this.metadata = metadata;
-	}
-
-	// Getters and Setters
-	public Long getId() {
-		return id;
-	}
-
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	public String getSessionId() {
-		return sessionId;
-	}
-
-	public void setSessionId(String sessionId) {
-		this.sessionId = sessionId;
-	}
-
-	public String getRole() {
-		return role;
-	}
-
-	public void setRole(String role) {
-		this.role = role;
-	}
-
-	public String getContent() {
-		return content;
-	}
-
-	public void setContent(String content) {
-		this.content = content;
-	}
-
-	public String getMessageType() {
-		return messageType;
-	}
-
-	public void setMessageType(String messageType) {
-		this.messageType = messageType;
-	}
-
-	public String getMetadata() {
-		return metadata;
-	}
-
-	public void setMetadata(String metadata) {
-		this.metadata = metadata;
-	}
-
-	public LocalDateTime getCreateTime() {
-		return createTime;
-	}
-
-	public void setCreateTime(LocalDateTime createTime) {
-		this.createTime = createTime;
-	}
-
-	@Override
-	public String toString() {
-		return "ChatMessage{" + "id=" + id + ", sessionId='" + sessionId + '\'' + ", role='" + role + '\''
-				+ ", content='" + content + '\'' + ", messageType='" + messageType + '\'' + ", metadata='" + metadata
-				+ '\'' + ", createTime=" + createTime + '}';
 	}
 
 }

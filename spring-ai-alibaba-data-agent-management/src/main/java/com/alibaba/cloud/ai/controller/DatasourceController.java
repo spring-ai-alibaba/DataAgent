@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2024-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,11 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
-/**
- * Data Source Controller
- *
- * @author Alibaba Cloud AI
- */
+// todo: 不要吞掉所有异常，可以直接抛出，写一个Advice拦截异常并做日志
 @RestController
 @RequestMapping("/api/datasource")
 @CrossOrigin(origins = "*")
@@ -53,13 +49,13 @@ public class DatasourceController {
 		List<Datasource> datasources;
 
 		if (status != null && !status.isEmpty()) {
-			datasources = datasourceService.getDatasourcesByStatus(status);
+			datasources = datasourceService.getDatasourceByStatus(status);
 		}
 		else if (type != null && !type.isEmpty()) {
-			datasources = datasourceService.getDatasourcesByType(type);
+			datasources = datasourceService.getDatasourceByType(type);
 		}
 		else {
-			datasources = datasourceService.getAllDatasources();
+			datasources = datasourceService.getAllDatasource();
 		}
 
 		return ResponseEntity.ok(datasources);

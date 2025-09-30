@@ -19,7 +19,6 @@ package com.alibaba.cloud.ai.service;
 import com.alibaba.cloud.ai.dto.PromptConfigDTO;
 import com.alibaba.cloud.ai.entity.UserPromptConfig;
 import com.alibaba.cloud.ai.mapper.UserPromptConfigMapper;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,6 +79,7 @@ public class UserPromptConfigService {
 		else {
 			// Create new configuration
 			config = new UserPromptConfig();
+			config.setId(UUID.randomUUID().toString());
 			config.setName(configDTO.name());
 			config.setPromptType(configDTO.promptType());
 			config.setSystemPrompt(configDTO.optimizationPrompt());
@@ -115,12 +115,7 @@ public class UserPromptConfigService {
 	 * @return 配置列表
 	 */
 	public List<UserPromptConfig> getActiveConfigsByType(String promptType) {
-		return userPromptConfigMapper.selectList(Wrappers.<UserPromptConfig>lambdaQuery()
-			.eq(UserPromptConfig::getPromptType, promptType)
-			.eq(UserPromptConfig::getEnabled, true)
-			.orderByDesc(UserPromptConfig::getPriority)
-			.orderByAsc(UserPromptConfig::getDisplayOrder)
-			.orderByDesc(UserPromptConfig::getUpdateTime));
+		return userPromptConfigMapper.getActiveConfigsByType(promptType);
 	}
 
 	/**
@@ -137,8 +132,7 @@ public class UserPromptConfigService {
 	 * @return configuration list
 	 */
 	public List<UserPromptConfig> getAllConfigs() {
-		return userPromptConfigMapper
-			.selectList(Wrappers.<UserPromptConfig>lambdaQuery().orderByDesc(UserPromptConfig::getUpdateTime));
+		return userPromptConfigMapper.selectAll();
 	}
 
 	/**
@@ -147,11 +141,7 @@ public class UserPromptConfigService {
 	 * @return configuration list
 	 */
 	public List<UserPromptConfig> getConfigsByType(String promptType) {
-		return userPromptConfigMapper.selectList(Wrappers.<UserPromptConfig>lambdaQuery()
-			.eq(UserPromptConfig::getPromptType, promptType)
-			.orderByDesc(UserPromptConfig::getPriority)
-			.orderByAsc(UserPromptConfig::getDisplayOrder)
-			.orderByDesc(UserPromptConfig::getUpdateTime));
+		return userPromptConfigMapper.getConfigsByType(promptType);
 	}
 
 	/**
