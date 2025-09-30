@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.mapper;
 
 import com.alibaba.cloud.ai.MySqlContainerConfiguration;
+import com.alibaba.cloud.ai.TestConfiguration;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.entity.UserPromptConfig;
@@ -25,6 +26,7 @@ import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.testcontainers.context.ImportTestcontainers;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestPropertySource(properties = { "spring.sql.init.mode=never" })
 @ImportTestcontainers(MySqlContainerConfiguration.class)
 @ImportAutoConfiguration(MySqlContainerConfiguration.class)
+@ContextConfiguration(classes = TestConfiguration.class)
 @Transactional
 public class MappersTest {
 
