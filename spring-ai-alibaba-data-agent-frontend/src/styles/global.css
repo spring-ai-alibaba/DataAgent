@@ -319,6 +319,22 @@ body {
   transform: translateY(-1px);
 }
 
+/* 修复点击时白块问题：为轮廓按钮显式定义 active 与 disabled 状态，避免背景回退为白色 */
+.btn-outline:active:not(:disabled) {
+  background: #1890ff;
+  color: #ffffff;
+  border-color: #1890ff;
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(24, 144, 255, 0.25);
+}
+
+.btn-outline:disabled {
+  background: transparent;
+  color: #1890ff;
+  border-color: #1890ff;
+  opacity: 0.5;
+}
+
 /* 文字按钮 */
 .btn-text {
   background: transparent;
@@ -489,6 +505,7 @@ body {
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent; /* 避免移动端点击高亮导致的闪白 */
 }
 
 .btn::before {
@@ -499,11 +516,20 @@ body {
   width: 100%;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left var(--transition-slow);
+  transition: left var(--transition-slow), opacity var(--transition-base);
+  opacity: 0.8;
 }
 
 .btn:hover::before {
   left: 100%;
+  opacity: 1;
+}
+
+/* 按下时关闭炫光层，避免出现白块 */
+.btn:active::before {
+  left: -100%;
+  opacity: 0;
+  transition: none;
 }
 
 .btn:focus {
