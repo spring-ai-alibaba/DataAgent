@@ -213,8 +213,8 @@
 import { reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseLayout from '../layouts/BaseLayout.vue'
-import { agentApi, fileUploadApi } from '../services/api.js'
-import { generateRandomAvatar, generateProfessionalAvatar } from '../utils/avatar.js'
+import { agentApi, fileUploadApi } from '@/services/api'
+import { generateRandomAvatar } from '@/utils/avatar'
 
 export default {
   name: 'CreateAgent',
