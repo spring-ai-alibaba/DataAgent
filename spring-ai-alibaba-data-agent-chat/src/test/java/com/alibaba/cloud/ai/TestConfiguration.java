@@ -21,8 +21,7 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 
 /**
- * 测试配置类
- * 为MyBatis测试提供Spring Boot配置
+ * 测试配置类 为MyBatis测试提供Spring Boot配置
  *
  * @author Alibaba Cloud AI
  */
@@ -30,4 +29,5 @@ import org.springframework.context.annotation.ComponentScan;
 @EnableAutoConfiguration
 @ComponentScan(basePackages = "com.alibaba.cloud.ai")
 public class TestConfiguration {
+
 }
