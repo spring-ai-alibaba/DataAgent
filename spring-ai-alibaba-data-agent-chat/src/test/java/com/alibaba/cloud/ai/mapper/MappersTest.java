@@ -40,7 +40,8 @@ import org.springframework.jdbc.support.KeyHolder;
 import java.sql.Statement;
 
 @MybatisTest
-@TestPropertySource(properties = { "spring.sql.init.mode=never", "mybatis.configuration.map-underscore-to-camel-case=true" })
+@TestPropertySource(
+		properties = { "spring.sql.init.mode=never", "mybatis.configuration.map-underscore-to-camel-case=true" })
 @ImportTestcontainers(MySqlContainerConfiguration.class)
 @ImportAutoConfiguration(MySqlContainerConfiguration.class)
 public class MappersTest {
