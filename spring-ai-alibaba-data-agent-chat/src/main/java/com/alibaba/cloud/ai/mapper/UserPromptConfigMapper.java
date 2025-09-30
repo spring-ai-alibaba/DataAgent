@@ -20,7 +20,6 @@ import com.alibaba.cloud.ai.entity.UserPromptConfig;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
@@ -83,10 +82,9 @@ public interface UserPromptConfigMapper {
 
 	@Insert("""
 			INSERT INTO user_prompt_config
-			(name, prompt_type, system_prompt, enabled, description, priority, display_order, create_time, update_time, creator)
-			VALUES (#{name}, #{promptType}, #{systemPrompt}, #{enabled}, #{description}, #{priority}, #{displayOrder}, NOW(), NOW(), #{creator})
+			(id, name, prompt_type, system_prompt, enabled, description, priority, display_order, create_time, update_time, creator)
+			VALUES (#{id}, #{name}, #{promptType}, #{systemPrompt}, #{enabled}, #{description}, #{priority}, #{displayOrder}, NOW(), NOW(), #{creator})
 			""")
-	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
 	int insert(UserPromptConfig config);
 
 	@Select("""
