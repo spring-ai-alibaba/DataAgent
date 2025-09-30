@@ -40,27 +40,6 @@
               </div>
             </div>
           </div>
-          <div class="agent-actions">
-
-            <!-- 发布更新按钮 -->
-            <button
-                class="dropdown-item primary"
-                @click="publishUpdate"
-                :disabled="isPublishing"
-            >
-              <div class="item-content">
-                <div class="item-icon">
-                  <i class="bi bi-cloud-upload" v-if="!isPublishing"></i>
-                  <div class="spinner" v-if="isPublishing"></div>
-                </div>
-                <div class="item-text">
-                  <span class="item-title">{{ isPublishing ? '发布中...' : '发布更新' }}</span>
-                  <span class="item-shortcut">⌘ ↑ P</span>
-                </div>
-              </div>
-            </button>
-
-          </div>
         </div>
       </div>
     </div>
@@ -394,10 +373,29 @@
               <div class="datasource-section">
                 <div class="section-header">
                   <h3>数据源列表</h3>
-                  <button class="btn btn-primary" @click="openAddDatasourceModal">
-                    <i class="bi bi-plus"></i>
-                    添加数据源
-                  </button>
+                  <div class="database-actions">
+                    <button class="btn btn-primary" @click="openAddDatasourceModal">
+                      <i class="bi bi-plus"></i>
+                      添加数据源
+                    </button>
+                    <!-- 发布更新按钮 -->
+                    <button
+                        class="dropdown-item primary"
+                        @click="publishUpdate"
+                        :disabled="isPublishing"
+                    >
+                      <div class="item-content">
+                        <div class="item-icon">
+                          <i class="bi bi-cloud-upload" v-if="!isPublishing"></i>
+                          <div class="spinner" v-if="isPublishing"></div>
+                        </div>
+                        <div class="item-text">
+                          <span class="item-title">{{ isPublishing ? '初始化中...' : '初始化数据源' }}</span>
+                          <span class="item-shortcut">⌘ ↑ P</span>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
                 </div>
                 <div class="datasource-table-container">
                   <div class="datasource-table">
@@ -2313,25 +2311,26 @@ export default {
         isPublishing.value = true
 
         // 1. 获取智能体配置的数据源
-        const agentDatasources = await datasourceApi.getAgentDatasources(agent.id)
-        if (!agentDatasources || agentDatasources.length === 0) {
+        const agentDatasource = await datasourceApi.getAgentDatasources(agent.id)
+        if (!agentDatasource || agentDatasource.length === 0) {
           ElMessage.error('智能体未配置数据源，请先配置数据源')
           return
         }
 
         // 2. 使用正常的 agentId 进行 schema 初始化
-        const enabledDatasources = agentDatasources.filter(ds => ds.isActive === 1)
-        if (enabledDatasources.length === 0) {
+        const enabledDatasource = agentDatasource.filter(ds => ds.isActive === 1)
+        if (enabledDatasource.length === 0) {
           ElMessage.error('没有启用的数据源，请先启用至少一个数据源')
           return
         }
 
         // 3. 为每个启用的数据源获取表列表并初始化
-        for (const agentDatasource of enabledDatasources) {
+        for (const agentDatasource of enabledDatasource) {
           const datasource = agentDatasource.datasource
           ElMessage.primary(`正在初始化数据源: ${datasource.name}...`)
           
           // 获取数据源的所有表
+          // todo: fetch方法移动到js中
           const tablesResponse = await fetch(`/api/agent/${agent.id}/schema/datasources/${datasource.id}/tables`)
           if (!tablesResponse.ok) {
             ElMessage.warning(`获取数据源 ${datasource.name} 的表列表失败`)
@@ -2790,7 +2789,6 @@ print(result)`
       // 消息提示方法
       showMessage,
       hideMessage,
-      getMessageIcon,
       // 发布相关
       showPublishModal,
       closePublishModal,
@@ -2867,24 +2865,6 @@ print(result)`
   gap: 0.75rem;
   max-width: 400px;
   animation: slideInRight 0.3s ease;
-}
-
-.message-toast.success {
-  background: #d1fae5;
-  border: 1px solid #a7f3d0;
-  color: #065f46;
-}
-
-.message-toast.error {
-  background: #fee2e2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
-}
-
-.message-toast.info {
-  background: #dbeafe;
-  border: 1px solid #93c5fd;
-  color: #1e40af;
 }
 
 .message-content {
@@ -3017,63 +2997,10 @@ print(result)`
   color: #6b7280;
 }
 
-.status-tag.published {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.status-tag.draft {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.status-tag.offline {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.agent-actions {
+.database-actions {
   display: flex;
   gap: 0.75rem;
-}
-
-.btn-publish {
-  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
-  color: white;
-  position: relative;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
-}
-
-.btn-publish:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
-}
-
-.dropdown-arrow {
-  font-size: 0.75rem;
-  transition: transform 0.2s ease;
-}
-
-.publish-dropdown.active .dropdown-arrow {
-  transform: rotate(180deg);
-}
-
-.publish-dropdown-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  min-width: 300px;
-  z-index: 10;
-  margin-top: 0.5rem;
-}
-
-.dropdown-header {
-  padding: 1rem;
-  border-bottom: 1px solid #e5e7eb;
+  max-width: 20rem;
 }
 
 .publish-status {
@@ -3105,55 +3032,8 @@ print(result)`
   padding: 2rem 0;
 }
 
-.content-grid {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 2rem;
-}
-
-.content-main {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.content-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-/* 卡片样式 */
-.card {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e2e8f0;
-  overflow: hidden;
-}
-
-.card-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-}
-
-.card-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1e40af;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .card-title i {
   color: #3b82f6;
-}
-
-.card-body {
-  padding: 1.5rem;
 }
 
 /* 表单样式 */
@@ -3271,15 +3151,6 @@ print(result)`
   z-index: 1000;
 }
 
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -3321,16 +3192,6 @@ print(result)`
 }
 
 /* 响应式设计 */
-@media (max-width: 1024px) {
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .content-sidebar {
-    order: -1;
-  }
-}
-
 @media (max-width: 768px) {
   .container {
     padding: 0 1rem;
@@ -3350,19 +3211,11 @@ print(result)`
     width: 100%;
   }
   
-  .agent-actions {
+  .database-actions {
     width: 100%;
     justify-content: flex-end;
   }
-  
-  .card-body {
-    padding: 1rem;
-  }
-  
-  .modal-content {
-    width: 95%;
-    margin: 1rem;
-  }
+
 }
 
 /* 确保页面占满整个屏幕宽度 */
@@ -3380,16 +3233,6 @@ html {
   overflow-x: hidden;
 }
 
-/* 现代化头部导航 */
-.page-header {
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-secondary);
-  box-shadow: var(--shadow-xs);
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
-}
-
 .header-content {
   max-width: 100%;
   margin: 0 auto;
@@ -3400,67 +3243,9 @@ html {
   height: 64px;
 }
 
-.brand-section {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2xl);
-}
-
-.brand-logo {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--primary-color);
-  cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-}
-
 .brand-logo i {
   font-size: var(--font-size-xl);
   color: var(--accent-color);
-}
-
-.brand-text {
-  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.header-nav {
-  display: flex;
-  gap: var(--space-lg);
-}
-
-.header-nav .nav-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-base);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  border-radius: var(--radius-base);
-  border: 1px solid transparent;
-}
-
-.header-nav .nav-item:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border-color: var(--border-primary);
-}
-
-.header-nav .nav-item.active {
-  background: var(--primary-light);
-  color: var(--primary-color);
-  border-color: var(--primary-color);
 }
 
 .header-nav .nav-item i {
@@ -3490,30 +3275,6 @@ html {
   animation: slideInRight 0.3s ease-out;
   font-size: 14px;
   font-weight: 500;
-}
-
-.message-toast.success {
-  background: #f6ffed;
-  border: 1px solid #b7eb8f;
-  color: #52c41a;
-}
-
-.message-toast.error {
-  background: #fff2f0;
-  border: 1px solid #ffccc7;
-  color: #ff4d4f;
-}
-
-.message-toast.warning {
-  background: #fffbe6;
-  border: 1px solid #ffe58f;
-  color: #faad14;
-}
-
-.message-toast.info {
-  background: #e6f7ff;
-  border: 1px solid #91d5ff;
-  color: #1890ff;
 }
 
 .message-content {
@@ -3679,64 +3440,8 @@ html {
   }
 }
 
-/* 头部导航样式 */
-.top-nav {
-  background: white;
-  border-bottom: 1px solid #e5e5e5;
-  padding: 0 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 60px;
-  max-width: 100%;
-}
-
-.nav-items {
-  display: flex;
-  gap: 32px;
-}
-
-.nav-item {
-  padding: 8px 16px;
-  color: #666;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.nav-item.logo-item {
-  cursor: default;
-  font-weight: 600;
-  color: #1890ff;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .nav-item.logo-item i {
   font-size: 18px;
-}
-
-.nav-item.clickable {
-  cursor: pointer;
-}
-
-.nav-item.active,
-.nav-item.clickable:hover {
-  color: #1890ff;
-  background: #f0f8ff;
-}
-
-.nav-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.project-select {
-  padding: 6px 12px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  background: white;
 }
 
 /* 智能体头部样式 */
@@ -3785,42 +3490,10 @@ html {
   flex: 1;
 }
 
-.agent-actions {
+.database-actions {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.btn-publish {
-  padding: 10px 20px;
-  background: linear-gradient(135deg, #52c41a, #73d13d);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(82, 196, 26, 0.25);
-}
-
-.btn-publish:hover:not(:disabled) {
-  background: linear-gradient(135deg, #389e0d, #52c41a);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(82, 196, 26, 0.35);
-}
-
-.btn-publish:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.btn-publish.loading {
-  pointer-events: none;
 }
 
 .btn-publish .spinner {
@@ -3832,34 +3505,8 @@ html {
   animation: spin 1s linear infinite;
 }
 
-.dropdown-arrow {
-  margin-left: 4px;
-  font-size: 12px;
-  transition: transform 0.2s ease;
-}
-
 .publish-dropdown.active .dropdown-arrow {
   transform: rotate(180deg);
-}
-
-/* 发布下拉菜单样式 */
-.publish-dropdown {
-  position: relative;
-  display: inline-block;
-}
-
-.publish-dropdown-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 8px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-  border: 1px solid var(--border-secondary);
-  min-width: 320px;
-  z-index: 1000;
-  animation: dropdownFadeIn 0.2s ease-out;
 }
 
 @keyframes dropdownFadeIn {
@@ -3871,11 +3518,6 @@ html {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.dropdown-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-tertiary);
 }
 
 .publish-status {
@@ -3900,10 +3542,6 @@ html {
   margin: 2px 0 0 0;
   font-size: 12px;
   color: var(--text-tertiary);
-}
-
-.dropdown-body {
-  padding: 8px;
 }
 
 .dropdown-item {
@@ -3972,11 +3610,6 @@ html {
   font-family: monospace;
 }
 
-.item-arrow {
-  font-size: 14px;
-  opacity: 0.7;
-}
-
 .dropdown-item.primary .item-shortcut,
 .dropdown-item.primary .item-arrow {
   color: rgba(255, 255, 255, 0.8);
@@ -4030,31 +3663,6 @@ html {
   border-radius: 12px;
   font-size: 12px;
   color: #666;
-}
-
-.status-tag.published {
-  background: #f6ffed;
-  color: #52c41a;
-}
-
-.status-tag.draft {
-  background: #fff7e6;
-  color: #fa8c16;
-}
-
-.status-tag.offline {
-  background: #fff2f0;
-  color: #ff4d4f;
-}
-
-.status-tag.active {
-  background: #f6ffed;
-  color: #52c41a;
-}
-
-.status-tag.inactive {
-  background: #fff2f0;
-  color: #ff4d4f;
 }
 
 /* 主要内容区域样式 */
@@ -4253,31 +3861,11 @@ html {
   border: 1px solid #d9d9d9;
 }
 
-/* 审计日志样式 */
-/* 初始化信息源样式 */
-.schema-init-section {
-  margin-bottom: 32px;
-}
-
-.schema-init-card {
-  background: #fafafa;
-  border: 1px solid #e8e8e8;
-  border-radius: 8px;
-  padding: 24px;
-  margin-top: 16px;
-}
-
 .init-form .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin-bottom: 16px;
-}
-
-.table-selection {
-  border: 1px solid #e8e8e8;
-  border-radius: 6px;
-  background: white;
 }
 
 .table-search {
@@ -4303,12 +3891,6 @@ html {
   max-height: 300px;
   overflow-y: auto;
   padding: 12px;
-}
-
-.table-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
 }
 
 .table-checkbox {
@@ -4338,34 +3920,16 @@ html {
   font-weight: 500;
 }
 
-.empty-tables {
-  text-align: center;
-  padding: 40px 20px;
-  color: #999;
-}
-
 .empty-tables i {
   font-size: 48px;
   margin-bottom: 16px;
   display: block;
 }
 
-.init-status {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #e8e8e8;
-}
-
 .init-status h4 {
   margin: 0 0 16px 0;
   color: #333;
   font-size: 16px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 16px;
 }
 
 .stat-item {
@@ -4388,14 +3952,6 @@ html {
   font-size: 18px;
   font-weight: 600;
   color: #333;
-}
-
-.stat-value.text-success {
-  color: #52c41a;
-}
-
-.stat-value.text-muted {
-  color: #999;
 }
 
 .spin {
@@ -4485,21 +4041,6 @@ html {
   color: #ff4d4f;
 }
 
-.datasource-table .status-badge.success {
-  background: #f6ffed;
-  color: #52c41a;
-}
-
-.datasource-table .status-badge.failed {
-  background: #fff2f0;
-  color: #ff4d4f;
-}
-
-.datasource-table .status-badge.unknown {
-  background: #f5f5f5;
-  color: #999;
-}
-
 /* 响应式优化 */
 @media (max-width: 1200px) {
   .datasource-table-container {
@@ -4514,59 +4055,6 @@ html {
     padding: 3px 6px;
     font-size: 11px;
   }
-}
-
-/* 启用/禁用按钮样式 */
-.toggle-btn {
-  position: relative;
-  transition: all 0.3s ease;
-  border: none;
-  border-radius: 20px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 80px;
-  justify-content: center;
-}
-
-.btn-active {
-  background: linear-gradient(135deg, #52c41a, #73d13d);
-  color: white;
-  box-shadow: 0 2px 8px rgba(82, 196, 26, 0.3);
-}
-
-.btn-active:hover {
-  background: linear-gradient(135deg, #389e0d, #52c41a);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(82, 196, 26, 0.4);
-}
-
-.btn-inactive {
-  background: linear-gradient(135deg, #f5f5f5, #e8e8e8);
-  color: #666;
-  border: 1px solid #d9d9d9;
-}
-
-.btn-inactive:hover {
-  background: linear-gradient(135deg, #52c41a, #73d13d);
-  color: white;
-  border-color: #52c41a;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(82, 196, 26, 0.3);
-}
-
-/* 图标样式 */
-.icon-toggle-on::before {
-  content: '●';
-  color: white;
-  font-size: 12px;
-}
-
-.icon-toggle-off::before {
-  content: '○';
-  color: #999;
-  font-size: 12px;
 }
 
 /* 模态框基础样式 */
@@ -4594,10 +4082,6 @@ html {
   max-height: 90vh;
   overflow: hidden;
   animation: modalSlideIn 0.3s ease-out;
-}
-
-.modal-dialog.modal-lg {
-  max-width: 800px;
 }
 
 .modal-header {
@@ -4921,47 +4405,6 @@ html {
 }
 
 /* 数据源状态区域 */
-.datasource-modal .datasource-status {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
-  min-width: 85px;
-}
-
-.datasource-modal .test-status,
-.datasource-modal .status-badge {
-  padding: 6px 10px;
-  border-radius: 16px;
-  font-size: 11px;
-  font-weight: 600;
-  text-align: center;
-  min-width: 70px;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.datasource-modal .test-status.success {
-  background: linear-gradient(135deg, #f6ffed, #d9f7be);
-  color: #389e0d;
-  border: 1px solid #95de64;
-  box-shadow: 0 2px 4px rgba(56, 158, 13, 0.1);
-}
-
-.datasource-modal .test-status.failed {
-  background: linear-gradient(135deg, #fff2f0, #ffccc7);
-  color: #cf1322;
-  border: 1px solid #ff7875;
-  box-shadow: 0 2px 4px rgba(207, 19, 34, 0.1);
-}
-
-.datasource-modal .test-status.unknown {
-  background: linear-gradient(135deg, #f5f5f5, #e8e8e8);
-  color: #666;
-  border: 1px solid #d9d9d9;
-  box-shadow: 0 2px 4px rgba(102, 102, 102, 0.1);
-}
 
 .datasource-modal .status-badge.active {
   background: linear-gradient(135deg, #e6f4ff, #bae7ff);
