@@ -33,6 +33,10 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import java.sql.Statement;
 
 @MybatisTest
 @TestPropertySource(properties = { "spring.sql.init.mode=never" })
@@ -48,6 +52,9 @@ public class MappersTest {
 
 	@Autowired
 	private AgentDatasourceMapper agentDatasourceMapper;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	// ==================== DatasourceMapper Tests ====================
 
@@ -427,7 +434,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceCreateNewRelationEnabled() {
 		// Given
-		Integer agentId = 1;
+		Integer agentId = createTestAgentAndGetId();
 		Integer datasourceId = createTestDatasourceAndGetId();
 
 		// When
@@ -445,7 +452,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceSelectByAgentId() {
 		// Given
-		Integer agentId = 1;
+		Integer agentId = createTestAgentAndGetId();
 		Integer datasourceId1 = createTestDatasourceAndGetId();
 		Integer datasourceId2 = createTestDatasourceAndGetId();
 
@@ -465,7 +472,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceSelectByAgentIdAndDatasourceId() {
 		// Given
-		Integer agentId = 1;
+		Integer agentId = createTestAgentAndGetId();
 		Integer datasourceId = createTestDatasourceAndGetId();
 		agentDatasourceMapper.createNewRelationEnabled(agentId, datasourceId);
 
@@ -481,7 +488,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceUpdateRelation() {
 		// Given
-		Integer agentId = 1;
+		Integer agentId = createTestAgentAndGetId();
 		Integer datasourceId = createTestDatasourceAndGetId();
 		agentDatasourceMapper.createNewRelationEnabled(agentId, datasourceId);
 
@@ -505,7 +512,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceDisableAllByAgentId() {
 		// Given
-		Integer agentId = 1;
+		Integer agentId = createTestAgentAndGetId();
 		Integer datasourceId1 = createTestDatasourceAndGetId();
 		Integer datasourceId2 = createTestDatasourceAndGetId();
 
@@ -525,7 +532,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceCountActiveByAgentIdExcluding() {
 		// Given
-		Integer agentId = 1;
+		Integer agentId = createTestAgentAndGetId();
 		Integer datasourceId1 = createTestDatasourceAndGetId();
 		Integer datasourceId2 = createTestDatasourceAndGetId();
 		Integer datasourceId3 = createTestDatasourceAndGetId();
@@ -560,8 +567,8 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceDeleteAllByDatasourceId() {
 		// Given
-		Integer agentId1 = 1;
-		Integer agentId2 = 2;
+		Integer agentId1 = createTestAgentAndGetId();
+		Integer agentId2 = createTestAgentAndGetId();
 		Integer datasourceId = createTestDatasourceAndGetId();
 
 		agentDatasourceMapper.createNewRelationEnabled(agentId1, datasourceId);
@@ -619,6 +626,20 @@ public class MappersTest {
 		Datasource datasource = createTestDatasource();
 		datasourceMapper.insert(datasource);
 		return datasource.getId();
+	}
+
+	private Integer createTestAgentAndGetId() {
+		KeyHolder keyHolder = new GeneratedKeyHolder();
+		jdbcTemplate.update(con -> {
+			var ps = con.prepareStatement(
+					"INSERT INTO agent (name, description, status, category) VALUES (?, ?, 'published', 'test')",
+					Statement.RETURN_GENERATED_KEYS);
+			ps.setString(1, "测试智能体" + UUID.randomUUID());
+			ps.setString(2, "用于单元测试的临时智能体");
+			return ps;
+		}, keyHolder);
+		Number key = keyHolder.getKey();
+		return key == null ? null : key.intValue();
 	}
 
 }
