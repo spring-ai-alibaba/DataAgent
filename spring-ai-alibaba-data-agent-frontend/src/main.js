@@ -22,10 +22,8 @@ import '@/styles/global.css'
 import 'element-plus/dist/index.css'
 
 // 引入样式系统
-import { initCompleteStyleSystem } from '@/styles'
 
-// 初始化样式系统
-initCompleteStyleSystem()
+// 关闭动态样式系统注入，避免与 global.css 重复样式冲突导致按钮闪白
 
 // 创建应用实例
 const app = createApp(App)
