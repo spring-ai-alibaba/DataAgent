@@ -20,6 +20,7 @@ import com.alibaba.cloud.ai.MySqlContainerConfiguration;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.entity.UserPromptConfig;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,7 +40,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import java.sql.Statement;
 
 @MybatisTest
-@TestPropertySource(properties = { "spring.sql.init.mode=never" })
+@TestPropertySource(properties = { "spring.sql.init.mode=never", "mybatis.configuration.map-underscore-to-camel-case=true" })
 @ImportTestcontainers(MySqlContainerConfiguration.class)
 @ImportAutoConfiguration(MySqlContainerConfiguration.class)
 public class MappersTest {
@@ -55,6 +56,13 @@ public class MappersTest {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+	private Integer agentId;
+
+	@BeforeEach
+	public void setUpAgent() {
+		this.agentId = createTestAgentAndGetId();
+	}
 
 	// ==================== DatasourceMapper Tests ====================
 
@@ -434,7 +442,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceCreateNewRelationEnabled() {
 		// Given
-		Integer agentId = createTestAgentAndGetId();
+		Integer agentId = this.agentId;
 		Integer datasourceId = createTestDatasourceAndGetId();
 
 		// When
@@ -452,7 +460,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceSelectByAgentId() {
 		// Given
-		Integer agentId = createTestAgentAndGetId();
+		Integer agentId = this.agentId;
 		Integer datasourceId1 = createTestDatasourceAndGetId();
 		Integer datasourceId2 = createTestDatasourceAndGetId();
 
@@ -472,7 +480,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceSelectByAgentIdAndDatasourceId() {
 		// Given
-		Integer agentId = createTestAgentAndGetId();
+		Integer agentId = this.agentId;
 		Integer datasourceId = createTestDatasourceAndGetId();
 		agentDatasourceMapper.createNewRelationEnabled(agentId, datasourceId);
 
@@ -488,7 +496,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceUpdateRelation() {
 		// Given
-		Integer agentId = createTestAgentAndGetId();
+		Integer agentId = this.agentId;
 		Integer datasourceId = createTestDatasourceAndGetId();
 		agentDatasourceMapper.createNewRelationEnabled(agentId, datasourceId);
 
@@ -512,7 +520,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceDisableAllByAgentId() {
 		// Given
-		Integer agentId = createTestAgentAndGetId();
+		Integer agentId = this.agentId;
 		Integer datasourceId1 = createTestDatasourceAndGetId();
 		Integer datasourceId2 = createTestDatasourceAndGetId();
 
@@ -532,7 +540,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceCountActiveByAgentIdExcluding() {
 		// Given
-		Integer agentId = createTestAgentAndGetId();
+		Integer agentId = this.agentId;
 		Integer datasourceId1 = createTestDatasourceAndGetId();
 		Integer datasourceId2 = createTestDatasourceAndGetId();
 		Integer datasourceId3 = createTestDatasourceAndGetId();
@@ -551,7 +559,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceRemoveRelation() {
 		// Given
-		Integer agentId = createTestAgentAndGetId();
+		Integer agentId = this.agentId;
 		Integer datasourceId = createTestDatasourceAndGetId();
 		agentDatasourceMapper.createNewRelationEnabled(agentId, datasourceId);
 
