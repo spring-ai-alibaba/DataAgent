@@ -639,7 +639,16 @@ public class MappersTest {
 			return ps;
 		}, keyHolder);
 		Number key = keyHolder.getKey();
-		return key == null ? null : key.intValue();
+		Integer id = key == null ? null : key.intValue();
+		// 立即校验插入是否可见且存在，避免外键引用失败
+		if (id == null) {
+			throw new IllegalStateException("创建测试Agent失败：未获取到自增ID");
+		}
+		Integer exists = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM agent WHERE id = ?", Integer.class, id);
+		if (exists == null || exists == 0) {
+			throw new IllegalStateException("创建测试Agent失败：数据库中不存在id=" + id);
+		}
+		return id;
 	}
 
 }
