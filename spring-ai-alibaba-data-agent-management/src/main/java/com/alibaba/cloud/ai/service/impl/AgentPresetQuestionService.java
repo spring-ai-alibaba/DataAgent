@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.service;
+package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.entity.AgentPresetQuestion;
 import com.alibaba.cloud.ai.mapper.AgentPresetQuestionMapper;

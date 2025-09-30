@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.controller;
 
-import com.alibaba.cloud.ai.service.AgentVectorService;
+import com.alibaba.cloud.ai.service.impl.AgentVectorService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
