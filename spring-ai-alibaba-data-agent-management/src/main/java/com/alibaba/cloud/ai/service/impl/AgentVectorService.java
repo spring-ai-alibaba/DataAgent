@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service;
+package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
+import com.alibaba.cloud.ai.service.DatasourceService;
 import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;

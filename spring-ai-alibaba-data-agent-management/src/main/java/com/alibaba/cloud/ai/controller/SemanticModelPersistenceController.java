@@ -17,7 +17,7 @@ package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.SemanticModel;
 import com.alibaba.cloud.ai.dto.SemanticModelDTO;
-import com.alibaba.cloud.ai.service.SemanticModelPersistenceService;
+import com.alibaba.cloud.ai.service.impl.SemanticModelPersistenceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

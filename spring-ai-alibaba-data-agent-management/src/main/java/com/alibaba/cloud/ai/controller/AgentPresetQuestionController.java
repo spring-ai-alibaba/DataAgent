@@ -17,7 +17,7 @@
 package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.AgentPresetQuestion;
-import com.alibaba.cloud.ai.service.AgentPresetQuestionService;
+import com.alibaba.cloud.ai.service.impl.AgentPresetQuestionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;

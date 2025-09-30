@@ -17,8 +17,8 @@
 package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
-import com.alibaba.cloud.ai.service.AgentKnowledgeService;
-import com.alibaba.cloud.ai.service.AgentVectorService;
+import com.alibaba.cloud.ai.service.impl.AgentKnowledgeService;
+import com.alibaba.cloud.ai.service.impl.AgentVectorService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;

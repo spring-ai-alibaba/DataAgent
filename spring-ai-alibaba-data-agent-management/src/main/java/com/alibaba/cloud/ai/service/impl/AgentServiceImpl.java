@@ -17,7 +17,6 @@ package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.entity.Agent;
 import com.alibaba.cloud.ai.service.AgentService;
-import com.alibaba.cloud.ai.service.AgentVectorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.alibaba.cloud.ai.mapper.AgentMapper;

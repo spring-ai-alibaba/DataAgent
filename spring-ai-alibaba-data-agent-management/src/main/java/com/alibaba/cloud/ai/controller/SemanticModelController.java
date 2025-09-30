@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.SemanticModel;
-import com.alibaba.cloud.ai.service.SemanticModelService;
+import com.alibaba.cloud.ai.service.impl.SemanticModelService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
