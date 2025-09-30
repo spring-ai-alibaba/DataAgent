@@ -446,7 +446,7 @@ public class MappersTest {
 		assertNotNull(relation);
 		assertEquals(agentId, relation.getAgentId());
 		assertEquals(datasourceId, relation.getDatasourceId());
-		assertEquals(1, relation.getIsActive());
+		assertEquals(Integer.valueOf(1), relation.getIsActive());
 	}
 
 	@Test
@@ -498,7 +498,7 @@ public class MappersTest {
 
 		// Then
 		assertEquals(1, disableResult);
-		assertEquals(0, disabledRelation.getIsActive());
+		assertEquals(Integer.valueOf(0), disabledRelation.getIsActive());
 
 		// When - 启用关联
 		int enableResult = agentDatasourceMapper.enableRelation(agentId, datasourceId);
@@ -506,7 +506,7 @@ public class MappersTest {
 
 		// Then
 		assertEquals(1, enableResult);
-		assertEquals(1, enabledRelation.getIsActive());
+		assertEquals(Integer.valueOf(1), enabledRelation.getIsActive());
 	}
 
 	@Test
@@ -526,7 +526,7 @@ public class MappersTest {
 		assertEquals(2, disableResult);
 
 		List<AgentDatasource> relations = agentDatasourceMapper.selectByAgentId(agentId);
-		assertTrue(relations.stream().allMatch(r -> r.getIsActive() == 0));
+		assertTrue(relations.stream().allMatch(r -> r.getIsActive() != null && r.getIsActive() == 0));
 	}
 
 	@Test
