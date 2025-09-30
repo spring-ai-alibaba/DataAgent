@@ -551,7 +551,7 @@ public class MappersTest {
 	@Test
 	public void testAgentDatasourceRemoveRelation() {
 		// Given
-		Integer agentId = 1;
+		Integer agentId = createTestAgentAndGetId();
 		Integer datasourceId = createTestDatasourceAndGetId();
 		agentDatasourceMapper.createNewRelationEnabled(agentId, datasourceId);
 
