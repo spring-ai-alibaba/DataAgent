@@ -117,62 +117,8 @@
 
           <!-- 右侧内容 -->
           <div class="main-panel">
-            <!-- 基本信息 -->
-            <div v-if="activeTab === 'basic'" class="tab-content">
-              <div class="content-header">
-                <h2>基本信息</h2>
-                <p class="content-subtitle">智能体的基本配置信息</p>
-              </div>
-              <div class="basic-info-form">
-                <div class="form-group">
-                  <label>智能体名称</label>
-                  <input type="text" v-model="agent.name" class="form-control">
-                </div>
-                <div class="form-group">
-                  <label>描述</label>
-                  <textarea v-model="agent.description" class="form-control" rows="3"></textarea>
-                </div>
-                <div class="form-group">
-                  <label>分类</label>
-                  <input type="text" v-model="agent.category" class="form-control" placeholder="请输入智能体分类">
-                </div>
-                <div class="form-group">
-                  <label>标签</label>
-                  <input type="text" v-model="agent.tags" class="form-control" placeholder="多个标签用逗号分隔">
-                </div>
-                <div class="form-group">
-                  <label>状态</label>
-                  <select v-model="agent.status" class="form-control">
-                    <option value="draft">待发布</option>
-                    <option value="published">已发布</option>
-                    <option value="offline">已下线</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>创建时间</label>
-                  <div class="form-control readonly-field">{{ formatDateTime(agent.createTime) }}</div>
-                </div>
-                <div class="form-group">
-                  <label>更新时间</label>
-                  <div class="form-control readonly-field">{{ formatDateTime(agent.updateTime) }}</div>
-                </div>
-                <div class="form-group">
-                  <div class="checkbox-group">
-                    <input
-                        type="checkbox"
-                        id="humanReviewCheckBox"
-                        v-model="agent.humanReviewEnabled"
-                        class="form-checkbox"
-                    >
-                    <label class="checkbox-label" for="humanReviewCheckBox">启用计划人工复核</label>
-                  </div>
-                  <small class="form-text">开启后，Planner 计划会在执行前等待人工复核</small>
-                </div>
-                <div class="form-actions">
-                  <button class="btn btn-primary" @click="updateAgent">保存</button>
-                </div>
-              </div>
-            </div>
+
+            <AgentBaseSetting v-if="activeTab === 'basic'" :agent="agent"></AgentBaseSetting>
 
             <!-- 业务知识管理 -->
             <div v-if="activeTab === 'business-knowledge'" class="tab-content">
@@ -379,21 +325,12 @@
                       添加数据源
                     </button>
                     <!-- 发布更新按钮 -->
-                    <button
-                        class="dropdown-item primary"
-                        @click="publishUpdate"
-                        :disabled="isPublishing"
-                    >
-                      <div class="item-content">
-                        <div class="item-icon">
-                          <i class="bi bi-cloud-upload" v-if="!isPublishing"></i>
-                          <div class="spinner" v-if="isPublishing"></div>
-                        </div>
-                        <div class="item-text">
-                          <span class="item-title">{{ isPublishing ? '初始化中...' : '初始化数据源' }}</span>
-                          <span class="item-shortcut">⌘ ↑ P</span>
-                        </div>
+                    <button class="btn btn-primary" @click="publishUpdate" :disabled="isPublishing">
+                      <div class="item-icon">
+                        <i class="bi bi-cloud-upload" v-if="!isPublishing"></i>
+                        <div class="spinner" v-if="isPublishing"></div>
                       </div>
+                      <span class="item-title">{{ isPublishing ? '初始化中...' : '初始化数据源' }}</span>
                     </button>
                   </div>
                 </div>
@@ -1312,17 +1249,19 @@ print(result)</code></pre>
 </template>
 
 <script>
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, defineComponent } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import BaseLayout from '@/layouts/BaseLayout.vue'
 import { agentApi, businessKnowledgeApi, semanticModelApi, datasourceApi, presetQuestionApi } from '@/services/api'
 import PromptOptimizationConfig from '@/components/PromptOptimizationConfig.vue'
 import { ElMessage } from 'element-plus'
+import AgentBaseSetting from '@/components/agent/AgentBaseSetting.vue'
 
-export default {
+export default defineComponent({
   name: 'AgentDetail',
   components: {
     BaseLayout,
+    AgentBaseSetting,
     PromptOptimizationConfig
   },
   setup() {
@@ -2837,7 +2776,7 @@ print(result)`
       canInitialize
     }
   }
-}
+})
 </script>
 
 <style scoped>

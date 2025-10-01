@@ -20,12 +20,10 @@ import router from '@/router'
 // 引入全局样式
 import '@/styles/global.css'
 import 'element-plus/dist/index.css'
-
-// 引入样式系统
-
-// 关闭动态样式系统注入，避免与 global.css 重复样式冲突导致按钮闪白
+import ElementPlus from 'element-plus'
 
 // 创建应用实例
 const app = createApp(App)
 app.use(router)
+app.use(ElementPlus)
 app.mount('#app')
