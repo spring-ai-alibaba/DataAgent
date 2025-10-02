@@ -102,11 +102,7 @@
                   <i class="bi bi-play-circle"></i>
                   前往运行页面
                 </a>
-                <a href="#" class="nav-link" :class="{ active: activeTab === 'embed-website' }" @click="embedWebsite">
-                  <i class="bi bi-code-square"></i>
-                  嵌入网站
-                </a>
-                <a href="#" class="nav-link" :class="{ active: activeTab === 'access-api' }" @click="accessAPI">
+                <a href="#" class="nav-link" :class="{ active: activeTab === 'access-api' }" @click="setActiveTab('access-api')">
                   <i class="bi bi-terminal"></i>
                   访问 API
                 </a>
@@ -121,351 +117,21 @@
             <AgentBaseSetting v-if="activeTab === 'basic'" :agent="agent"></AgentBaseSetting>
 
             <!-- 业务知识管理 -->
-            <div v-if="activeTab === 'business-knowledge'" class="tab-content">
-              <div class="content-header">
-                <h2>业务知识管理</h2>
-                <p class="content-subtitle">管理智能体的业务知识库</p>
-              </div>
-              <div class="business-knowledge-section">
-                <div class="section-header">
-                  <h3>业务知识列表</h3>
-                  <button class="btn btn-primary" @click="showCreateKnowledgeModal = true">
-                    <i class="bi bi-plus"></i>
-                    添加知识
-                  </button>
-                </div>
-                <div class="knowledge-table">
-                  <table class="table">
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>业务名词</th>
-                        <th>描述</th>
-                        <th>同义词</th>
-                        <th>默认召回</th>
-                        <th>创建时间</th>
-                        <th>操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="knowledge in businessKnowledgeList" :key="knowledge.id">
-                        <td>{{ knowledge.id }}</td>
-                        <td>{{ knowledge.businessTerm }}</td>
-                        <td>{{ knowledge.description ? knowledge.description.substring(0, 50) + '...' : '-' }}</td>
-                        <td>{{ knowledge.synonyms || '-' }}</td>
-                        <td>
-                          <span class="status-badge" :class="knowledge.defaultRecall ? 'active' : 'inactive'">
-                            {{ knowledge.defaultRecall ? '是' : '否' }}
-                          </span>
-                        </td>
-                        <td>{{ formatDate(knowledge.createTime) }}</td>
-                        <td>
-                          <div class="action-buttons">
-                            <button class="btn btn-sm btn-outline" @click="editBusinessKnowledge(knowledge)">编辑</button>
-                            <button class="btn btn-sm btn-danger" @click="deleteBusinessKnowledge(knowledge.id)">删除</button>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr v-if="businessKnowledgeList.length === 0">
-                        <td colspan="7" class="text-center">暂无业务知识数据</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            <AgentKnowledgeConfig v-if="activeTab === 'business-knowledge'"></AgentKnowledgeConfig>
 
             <!-- 语义模型配置 -->
-            <div v-if="activeTab === 'semantic-model'" class="tab-content">
-              <div class="content-header">
-                <h2>语义模型配置</h2>
-                <p class="content-subtitle">配置智能体的语义模型</p>
-              </div>
-              
-              <!-- 搜索和筛选 -->
-              <div class="model-filters">
-                <div class="filter-group">
-                  <div class="search-box">
-                    <i class="bi bi-search"></i>
-                    <input 
-                      type="text" 
-                      v-model="modelFilters.keyword" 
-                      placeholder="搜索字段名..." 
-                      class="form-control"
-                      @input="filterSemanticModels"
-                    >
-                  </div>
-                </div>
-                <div class="filter-group">
-                  <select v-model="modelFilters.fieldType" @change="filterSemanticModels" class="form-control">
-                    <option value="">全部类型</option>
-                    <option value="VARCHAR">VARCHAR</option>
-                    <option value="INTEGER">INTEGER</option>
-                    <option value="DECIMAL">DECIMAL</option>
-                    <option value="DATE">DATE</option>
-                    <option value="DATETIME">DATETIME</option>
-                    <option value="TEXT">TEXT</option>
-                  </select>
-                </div>
-                <div class="filter-group">
-                  <select v-model="modelFilters.enabled" @change="filterSemanticModels" class="form-control">
-                    <option value="">全部状态</option>
-                    <option value="true">启用</option>
-                    <option value="false">禁用</option>
-                  </select>
-                </div>
-                <div class="filter-group">
-                  <select v-model="modelFilters.defaultRecall" @change="filterSemanticModels" class="form-control">
-                    <option value="">全部召回状态</option>
-                    <option value="true">默认召回</option>
-                    <option value="false">非默认召回</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div class="semantic-model-section">
-                <div class="section-header">
-                  <h3>语义模型列表</h3>
-                  <div class="header-actions">
-                    <div class="batch-actions" v-if="selectedModels.length > 0">
-                      <span class="selected-count">已选择 {{ selectedModels.length }} 项</span>
-                      <button class="btn btn-sm btn-outline" @click="batchToggleStatus(true)">批量启用</button>
-                      <button class="btn btn-sm btn-outline" @click="batchToggleStatus(false)">批量禁用</button>
-                      <button class="btn btn-sm btn-danger" @click="batchDeleteModels">批量删除</button>
-                    </div>
-                    <button class="btn btn-success" @click="openSchemaInitModal">
-                      <i class="bi bi-database-gear"></i>
-                      初始化信息源
-                    </button>
-                    <button class="btn btn-primary" @click="showCreateModelModal = true">
-                      <i class="bi bi-plus"></i>
-                      添加模型
-                    </button>
-                  </div>
-                </div>
-                <div class="semantic-model-table">
-                  <table class="table">
-                    <thead>
-                      <tr>
-                        <th>
-                          <input type="checkbox" @change="toggleSelectAll" 
-                            :checked="isAllSelected" 
-                            :indeterminate="isPartialSelected">
-                        </th>
-                        <th>ID</th>
-                        <th>原始字段名</th>
-                        <th>智能体字段名</th>
-                        <th>字段同义词</th>
-                        <th>字段类型</th>
-                        <th>默认召回</th>
-                        <th>启用状态</th>
-                        <th>创建时间</th>
-                        <th>操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-if="filteredSemanticModels.length === 0">
-                        <td colspan="11" class="text-center text-muted">
-                          {{ semanticModelList.length === 0 ? '暂无数据' : '无符合条件的数据' }}
-                        </td>
-                      </tr>
-                      <tr v-else v-for="model in filteredSemanticModels" :key="model.id">
-                        <td>
-                          <input type="checkbox" v-model="selectedModels" :value="model.id">
-                        </td>
-                        <td>{{ model.id }}</td>
-                        <td><strong>{{ model.originalFieldName }}</strong></td>
-                        <td>{{ model.agentFieldName || '-' }}</td>
-                        <td>{{ model.fieldSynonyms || '-' }}</td>
-                        <td><span class="badge badge-secondary">{{ model.fieldType || '-' }}</span></td>
-                        <td>
-                          <span class="badge" :class="model.defaultRecall ? 'badge-success' : 'badge-secondary'">
-                            {{ model.defaultRecall ? '是' : '否' }}
-                          </span>
-                        </td>
-                        <td>
-                          <span class="badge" :class="model.enabled ? 'badge-success' : 'badge-secondary'">
-                            {{ model.enabled ? '启用' : '禁用' }}
-                          </span>
-                        </td>
-                        <td>{{ formatDateTime(model.createTime) }}</td>
-                        <td>
-                          <div class="action-buttons">
-                            <button class="btn btn-sm btn-outline" @click="editModel(model)">编辑</button>
-                            <button class="btn btn-sm btn-danger" @click="deleteModel(model.id)">删除</button>
-                          </div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            <AgentSemanticsConfig v-if="activeTab === 'semantic-model'"></AgentSemanticsConfig>
 
             <!-- Prompt配置 -->
-            <div v-if="activeTab === 'prompt'" class="tab-content">
-              <PromptOptimizationConfig 
-                :prompt-type="'report-generator'"
-                :agent-prompt="agent.prompt"
-              />
-            </div>
+            <AgentPromptConfig :agent-prompt="agent.prompt" v-if="activeTab === 'prompt'"/>
+
+            <AgentAccessApi v-if="activeTab === 'access-api'"></AgentAccessApi>
 
             <!-- 数据源配置 -->
-            <div v-if="activeTab === 'datasource'" class="tab-content">
-              <div class="content-header">
-                <h2>数据源配置</h2>
-                <p class="content-subtitle">配置智能体需要读取的数据源</p>
-              </div>
-              <div class="datasource-section">
-                <div class="section-header">
-                  <h3>数据源列表</h3>
-                  <div class="database-actions">
-                    <button class="btn btn-primary" @click="openAddDatasourceModal">
-                      <i class="bi bi-plus"></i>
-                      添加数据源
-                    </button>
-                    <!-- 发布更新按钮 -->
-                    <button class="btn btn-primary" @click="publishUpdate" :disabled="isPublishing">
-                      <div class="item-icon">
-                        <i class="bi bi-cloud-upload" v-if="!isPublishing"></i>
-                        <div class="spinner" v-if="isPublishing"></div>
-                      </div>
-                      <span class="item-title">{{ isPublishing ? '初始化中...' : '初始化数据源' }}</span>
-                    </button>
-                  </div>
-                </div>
-                <div class="datasource-table-container">
-                  <div class="datasource-table">
-                    <table class="table">
-                      <thead>
-                        <tr>
-                          <th style="min-width: 120px;">数据源名称</th>
-                          <th style="min-width: 100px;">数据源类型</th>
-                          <th style="min-width: 200px;">连接地址</th>
-                          <th style="min-width: 80px;">连接状态</th>
-                          <th style="min-width: 60px;">状态</th>
-                          <th style="min-width: 100px;">创建时间</th>
-                          <th style="min-width: 200px;">操作</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-if="agentDatasourceList.length === 0">
-                          <td colspan="7" class="text-center text-muted">暂无数据源</td>
-                        </tr>
-                        <tr v-for="agentDatasource in agentDatasourceList" :key="agentDatasource.id">
-                          <td>
-                            <div class="cell-content" :title="agentDatasource.datasource?.name">
-                              {{ agentDatasource.datasource?.name }}
-                            </div>
-                          </td>
-                          <td>{{ getDatasourceTypeText(agentDatasource.datasource?.type) }}</td>
-                          <td>
-                            <div class="cell-content" :title="agentDatasource.datasource?.connectionUrl">
-                              {{ agentDatasource.datasource?.connectionUrl }}
-                            </div>
-                          </td>
-                          <td>
-                            <span class="status-badge" :class="agentDatasource.datasource?.testStatus">
-                              {{ getTestStatusText(agentDatasource.datasource?.testStatus) }}
-                            </span>
-                          </td>
-                          <td>
-                            <span class="status-badge" :class="agentDatasource.isActive === 1 ? 'active' : 'inactive'">
-                              {{ agentDatasource.isActive === 1 ? '启用' : '禁用' }}
-                            </span>
-                          </td>
-                          <td>{{ formatDate(agentDatasource.createTime) }}</td>
-                          <td>
-                            <div class="action-buttons">
-                              <button 
-                                class="btn btn-sm"
-                                :class="agentDatasource.isActive === 1 ? 'btn-warning' : 'btn-success'"
-                                @click="toggleDatasourceStatus(agentDatasource.datasource.id, agentDatasource.isActive !== 1)"
-                                :title="agentDatasource.isActive === 1 ? '禁用数据源' : '启用数据源'"
-                              >
-                                {{ agentDatasource.isActive === 1 ? '禁用' : '启用' }}
-                              </button>
-                              <button 
-                                class="btn btn-sm btn-outline" 
-                                @click="testDatasourceConnection(agentDatasource.datasource.id)"
-                                :disabled="testingConnections.has(agentDatasource.datasource.id)"
-                                :title="testingConnections.has(agentDatasource.datasource.id) ? '测试中...' : '测试连接'"
-                              >
-                                <i v-if="testingConnections.has(agentDatasource.datasource.id)" class="bi bi-arrow-clockwise spin"></i>
-                                <span v-if="!testingConnections.has(agentDatasource.datasource.id)">测试连接</span>
-                                <span v-else>测试中...</span>
-                              </button>
-                              <button 
-                                class="btn btn-sm btn-danger" 
-                                @click="removeDatasourceFromAgent(agentDatasource.datasource.id)"
-                                title="移除数据源"
-                              >
-                                移除
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <AgentDataSourceConfig :agent-id="agent.id" v-if="activeTab === 'datasource'"></AgentDataSourceConfig>
 
             <!-- 预设问题管理 -->
-            <div v-if="activeTab === 'preset-questions'" class="tab-content">
-              <div class="content-header">
-                <h2>预设问题管理</h2>
-                <p class="content-subtitle">配置智能体工作台显示的预设问题</p>
-              </div>
-              <div class="preset-questions-section">
-                <div class="section-header">
-                  <h3>预设问题列表</h3>
-                  <button class="btn btn-primary" @click="addPresetQuestion">
-                    <i class="bi bi-plus"></i>
-                    添加问题
-                  </button>
-                </div>
-                <div class="questions-list">
-                  <div v-if="presetQuestions.length === 0" class="empty-questions">
-                    <i class="bi bi-question-circle"></i>
-                    <p>暂无预设问题，点击"添加问题"开始配置</p>
-                  </div>
-                  <div v-else>
-                    <div 
-                      v-for="(question, index) in presetQuestions" 
-                      :key="index"
-                      class="question-item"
-                    >
-                      <div class="question-content">
-                        <div class="question-number">{{ index + 1 }}</div>
-                        <input 
-                          type="text" 
-                          v-model="question.question" 
-                          class="question-input"
-                          placeholder="请输入预设问题..."
-                        >
-                      </div>
-                      <div class="question-actions">
-                        <button class="btn btn-sm btn-outline" @click="moveQuestionUp(index)" :disabled="index === 0">
-                          <i class="bi bi-arrow-up"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline" @click="moveQuestionDown(index)" :disabled="index === presetQuestions.length - 1">
-                          <i class="bi bi-arrow-down"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" @click="removePresetQuestion(index)">
-                          <i class="bi bi-trash"></i>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="form-actions" v-if="presetQuestions.length > 0">
-                  <button class="btn btn-primary" @click="savePresetQuestions">保存配置</button>
-                  <button class="btn btn-secondary" @click="loadPresetQuestions">重置</button>
-                </div>
-              </div>
-            </div>
+            <AgentPresetsConfig v-if="activeTab === 'preset-questions'"></AgentPresetsConfig>
 
           </div>
         </div>
@@ -1253,16 +919,26 @@ import { ref, reactive, onMounted, onUnmounted, computed, defineComponent } from
 import { useRouter, useRoute } from 'vue-router'
 import BaseLayout from '@/layouts/BaseLayout.vue'
 import { agentApi, businessKnowledgeApi, semanticModelApi, datasourceApi, presetQuestionApi } from '@/services/api'
-import PromptOptimizationConfig from '@/components/PromptOptimizationConfig.vue'
 import { ElMessage } from 'element-plus'
 import AgentBaseSetting from '@/components/agent/AgentBaseSetting.vue'
+import AgentPromptConfig from '@/components/agent/AgentPromptConfig.vue'
+import AgentKnowledgeConfig from '@/components/agent/AgentKnowledgeConfig.vue'
+import AgentSemanticsConfig from '@/components/agent/AgentSemanticsConfig.vue'
+import AgentPresetsConfig from '@/components/agent/AgentPresetsConfig.vue'
+import AgentAccessApi from "@/components/agent/AgentAccessApi.vue"
+import AgentDataSourceConfig from '@/components/agent/AgentDataSourceConfig.vue'
 
 export default defineComponent({
   name: 'AgentDetail',
   components: {
     BaseLayout,
     AgentBaseSetting,
-    PromptOptimizationConfig
+    AgentPromptConfig,
+    AgentKnowledgeConfig,
+    AgentSemanticsConfig,
+    AgentPresetsConfig,
+    AgentAccessApi,
+    AgentDataSourceConfig
   },
   setup() {
     const router = useRouter()

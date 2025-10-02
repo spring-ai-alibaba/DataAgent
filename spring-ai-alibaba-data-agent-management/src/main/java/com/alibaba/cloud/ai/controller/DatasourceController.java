@@ -42,7 +42,7 @@ public class DatasourceController {
 	 * Get all data source list
 	 */
 	@GetMapping
-	public ResponseEntity<List<Datasource>> getAllDatasources(
+	public ResponseEntity<List<Datasource>> getAllDatasource(
 			@RequestParam(value = "status", required = false) String status,
 			@RequestParam(value = "type", required = false) String type) {
 
@@ -162,10 +162,10 @@ public class DatasourceController {
 	 * Get data source list associated with agent
 	 */
 	@GetMapping("/agent/{agentId}")
-	public ResponseEntity<List<AgentDatasource>> getAgentDatasources(@PathVariable(value = "agentId") Integer agentId) {
+	public ResponseEntity<List<AgentDatasource>> getAgentDatasource(@PathVariable(value = "agentId") Integer agentId) {
 		try {
-			List<AgentDatasource> agentDatasources = datasourceService.getAgentDatasources(agentId);
-			return ResponseEntity.ok(agentDatasources);
+			List<AgentDatasource> agentDatasource = datasourceService.getAgentDatasources(agentId);
+			return ResponseEntity.ok(agentDatasource);
 		}
 		catch (Exception e) {
 			return ResponseEntity.badRequest().build();

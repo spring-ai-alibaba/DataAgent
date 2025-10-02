@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import org.springframework.util.StringUtils;
 
 @Data
 @NoArgsConstructor
@@ -68,7 +69,11 @@ public class Datasource {
 	/**
 	 * Generate connection URL
 	 */
+	// todo: 改为策略模式
 	public void generateConnectionUrl() {
+		if (StringUtils.hasText(connectionUrl)) {
+			return;
+		}
 		if (host != null && port != null && databaseName != null) {
 			if ("mysql".equalsIgnoreCase(type)) {
 				this.connectionUrl = String.format(

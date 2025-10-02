@@ -19,6 +19,7 @@
       <div style="margin-bottom: 20px;">
         <h2>基本信息</h2>
       </div>
+      <el-divider/>
       <el-row :gutter="20">
         <el-col :span="12">
           <div class="form-item">
@@ -52,7 +53,7 @@
       <el-row :gutter="20">
         <el-col :span="24">
           <div class="form-item">
-            <label>Prompt</label>
+            <label>智能体Prompt</label>
             <el-input
                 v-model="props.agent.prompt"
                 :rows="4"
@@ -137,7 +138,7 @@ export default defineComponent({
           ElMessage.error('更新失败：未知错误')
         } else {
           ElMessage.success('更新成功！')
-          props.agent = agent;
+          props.agent.updateTime = agent.updateTime
         }
       } catch (e) {
         console.error('更新智能体失败:', e)
@@ -145,7 +146,7 @@ export default defineComponent({
       }
     }
 
-    const formatDateTime = (dateString) => {
+    const formatDateTime = (dateString: string) : string => {
       if (!dateString) return '-'
       const date = new Date(dateString)
       return date.toLocaleString('zh-CN', {
