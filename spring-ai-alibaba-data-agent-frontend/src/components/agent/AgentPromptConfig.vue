@@ -254,7 +254,7 @@
 
 <script>
 export default {
-  name: 'PromptOptimizationConfig',
+  name: 'AgentPromptConfig',
   props: {
     promptType: {
       type: String,

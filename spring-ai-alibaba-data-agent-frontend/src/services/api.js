@@ -18,7 +18,7 @@
  * 业务API服务
  * 封装所有业务相关的API调用
  */
-
+// todo: 拆分此脚本，且用ts规范输入输出
 import { get, post, put, del, upload, stream } from '@/utils/http'
 
 // 智能体管理API

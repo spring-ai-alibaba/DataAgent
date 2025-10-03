@@ -2929,6 +2929,7 @@ export default {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  max-height: calc(100vh - 4rem);
 }
 
 /* 左侧边栏样式 */
