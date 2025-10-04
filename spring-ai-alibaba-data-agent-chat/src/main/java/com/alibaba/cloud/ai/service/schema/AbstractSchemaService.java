@@ -15,29 +15,28 @@
  */
 package com.alibaba.cloud.ai.service.schema;
 
+import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.alibaba.cloud.ai.request.SearchRequest;
 import com.alibaba.cloud.ai.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dto.schema.TableDTO;
-import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
+import org.springframework.util.Assert;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -45,19 +44,17 @@ import java.util.stream.Collectors;
 /**
  * Schema service base class, providing common method implementations
  */
+@Slf4j
 public abstract class AbstractSchemaService implements SchemaService {
-
-	protected final DbConfig dbConfig;
 
 	protected final ObjectMapper objectMapper;
 
 	/**
 	 * Vector storage service
 	 */
-	protected final VectorStoreService vectorStoreService;
+	protected final AgentVectorStoreService vectorStoreService;
 
-	public AbstractSchemaService(DbConfig dbConfig, ObjectMapper objectMapper, VectorStoreService vectorStoreService) {
-		this.dbConfig = dbConfig;
+	public AbstractSchemaService(ObjectMapper objectMapper, AgentVectorStoreService vectorStoreService) {
 		this.objectMapper = objectMapper;
 		this.vectorStoreService = vectorStoreService;
 	}
@@ -67,42 +64,44 @@ public abstract class AbstractSchemaService implements SchemaService {
 	 * @param agentId agent ID
 	 * @param query query
 	 * @param keywords keyword list
+	 * @param dbConfig Database configuration
 	 * @return SchemaDTO
 	 */
 	@Override
-	public SchemaDTO mixRagForAgent(String agentId, String query, List<String> keywords) {
+	public SchemaDTO mixRagForAgent(String agentId, String query, List<String> keywords, DbConfig dbConfig) {
 		SchemaDTO schemaDTO = new SchemaDTO();
-		extractDatabaseName(schemaDTO); // Set database name or schema name
+		extractDatabaseName(schemaDTO, dbConfig); // Set database name or schema name
 
-		List<Document> tableDocuments = getTableDocuments(query, agentId); // Get table
-																			// documents
-		List<List<Document>> columnDocumentList = getColumnDocumentsByKeywords(keywords, agentId); // Get
-																									// column
-																									// document
-																									// list
+		// Get table documents
+		List<Document> tableDocuments = getTableDocumentsForAgent(agentId, query);
 
-		buildSchemaFromDocuments(columnDocumentList, tableDocuments, schemaDTO);
+		// Get column documents
+		List<List<Document>> columnDocumentList = getColumnDocumentsByKeywordsForAgent(agentId, keywords);
+
+		buildSchemaFromDocuments(agentId, columnDocumentList, tableDocuments, schemaDTO);
 
 		return schemaDTO;
 	}
 
 	@Override
-	public void buildSchemaFromDocuments(List<List<Document>> columnDocumentList, List<Document> tableDocuments,
-			SchemaDTO schemaDTO) {
+	public void buildSchemaFromDocuments(String agentId, List<List<Document>> columnDocumentList,
+			List<Document> tableDocuments, SchemaDTO schemaDTO) {
 		// Process column weights and sort by table association
-		processColumnWeights(columnDocumentList, tableDocuments);
+		updateAndSortColumnScoresByTableWeights(columnDocumentList, tableDocuments);
 
 		// Initialize column selector, TODO upper limit 100 has issues
-		Map<String, Document> weightedColumns = selectWeightedColumns(columnDocumentList, 100);
+		Map<String, Document> weightedColumns = selectColumnsByRoundRobin(columnDocumentList, 100);
 
-		Set<String> foreignKeySet = extractForeignKeyRelations(tableDocuments);
+		// 如果外键关系是"订单表.订单ID=订单详情表.订单ID"，那么 relatedNamesFromForeignKeys
+		// 将包含"订单表.订单ID"和"订单详情表.订单ID"
+		Set<String> relatedNamesFromForeignKeys = extractRelatedNamesFromForeignKeys(tableDocuments);
 
 		// Build table list
 		List<TableDTO> tableList = buildTableListFromDocuments(tableDocuments);
 
 		// Supplement missing foreign key corresponding tables
-		expandTableDocumentsWithForeignKeys(tableDocuments, foreignKeySet, "table");
-		expandColumnDocumentsWithForeignKeys(weightedColumns, foreignKeySet, "column");
+		expandTableDocumentsWithForeignKeys(agentId, tableDocuments, relatedNamesFromForeignKeys);
+		expandColumnDocumentsWithForeignKeys(agentId, weightedColumns, relatedNamesFromForeignKeys);
 
 		// Attach weighted columns to corresponding tables
 		attachColumnsToTables(weightedColumns, tableList);
@@ -119,37 +118,12 @@ public abstract class AbstractSchemaService implements SchemaService {
 	}
 
 	/**
-	 * Get all table documents by keywords - supports agent isolation
-	 */
-	public List<Document> getTableDocuments(String query, String agentId) {
-		if (agentId != null && !agentId.trim().isEmpty()) {
-			return vectorStoreService.getDocumentsForAgent(agentId, query, "table");
-		}
-		else {
-			return vectorStoreService.getDocuments(query, "table");
-		}
-	}
-
-	/**
 	 * Get all table documents by keywords for specified agent
 	 */
 	@Override
 	public List<Document> getTableDocumentsForAgent(String agentId, String query) {
-		return vectorStoreService.getDocumentsForAgent(agentId, query, "table");
-	}
-
-	/**
-	 * Get all column documents by keywords - supports agent isolation
-	 */
-	public List<List<Document>> getColumnDocumentsByKeywords(List<String> keywords, String agentId) {
-		if (agentId != null) {
-			return getColumnDocumentsByKeywordsForAgent(agentId, keywords);
-		}
-		else {
-			return keywords.stream()
-				.map(kw -> vectorStoreService.getDocuments(kw, "column"))
-				.collect(Collectors.toList());
-		}
+		Assert.notNull(agentId, "agentId cannot be null");
+		return vectorStoreService.getDocumentsForAgent(agentId, query, Constant.TABLE);
 	}
 
 	/**
@@ -157,21 +131,19 @@ public abstract class AbstractSchemaService implements SchemaService {
 	 */
 	@Override
 	public List<List<Document>> getColumnDocumentsByKeywordsForAgent(String agentId, List<String> keywords) {
-		if (agentId == null) {
-			return keywords.stream()
-				.map(kw -> vectorStoreService.getDocuments(kw, "column"))
-				.collect(Collectors.toList());
-		}
+
+		Assert.notNull(agentId, "agentId cannot be null");
+
 		return keywords.stream()
-			.map(kw -> vectorStoreService.getDocumentsForAgent(agentId, kw, "column"))
+			.map(kw -> vectorStoreService.getDocumentsForAgent(agentId, kw, Constant.COLUMN))
 			.collect(Collectors.toList());
 	}
 
 	/**
 	 * Expand column documents (supplement missing columns through foreign keys)
 	 */
-	private void expandColumnDocumentsWithForeignKeys(Map<String, Document> weightedColumns, Set<String> foreignKeySet,
-			String vectorType) {
+	private void expandColumnDocumentsWithForeignKeys(String agentId, Map<String, Document> weightedColumns,
+			Set<String> foreignKeySet) {
 
 		Set<String> existingColumnNames = weightedColumns.keySet();
 		Set<String> missingColumns = new HashSet<>();
@@ -182,7 +154,7 @@ public abstract class AbstractSchemaService implements SchemaService {
 		}
 
 		for (String columnName : missingColumns) {
-			addColumnsDocument(weightedColumns, columnName, vectorType);
+			addColumnsDocument(agentId, weightedColumns, columnName);
 		}
 
 	}
@@ -190,8 +162,8 @@ public abstract class AbstractSchemaService implements SchemaService {
 	/**
 	 * Expand table documents (supplement missing tables through foreign keys)
 	 */
-	private void expandTableDocumentsWithForeignKeys(List<Document> tableDocuments, Set<String> foreignKeySet,
-			String vectorType) {
+	private void expandTableDocumentsWithForeignKeys(String agentId, List<Document> tableDocuments,
+			Set<String> foreignKeySet) {
 		Set<String> uniqueTableNames = tableDocuments.stream()
 			.map(doc -> (String) doc.getMetadata().get("name"))
 			.collect(Collectors.toSet());
@@ -208,46 +180,67 @@ public abstract class AbstractSchemaService implements SchemaService {
 		}
 
 		for (String tableName : missingTables) {
-			addTableDocument(tableDocuments, tableName, vectorType);
+			addTableDocument(agentId, tableDocuments, tableName);
+		}
+	}
+
+	protected void addTableDocument(String agentId, List<Document> tableDocuments, String tableName) {
+		List<Document> documentsForAgent = vectorStoreService.getDocumentsForAgent(agentId, tableName, Constant.TABLE);
+		if (documentsForAgent != null && !documentsForAgent.isEmpty())
+			tableDocuments.addAll(documentsForAgent);
+	}
+
+	protected void addColumnsDocument(String agentId, Map<String, Document> weightedColumns, String columnName) {
+		List<Document> documentsForAgent = vectorStoreService.getDocumentsForAgent(agentId, columnName,
+				Constant.COLUMN);
+		if (documentsForAgent != null && !documentsForAgent.isEmpty()) {
+			for (Document document : documentsForAgent)
+				weightedColumns.putIfAbsent(document.getId(), document);
 		}
 	}
 
 	/**
-	 * Add missing table documents
-	 * @param tableDocuments
-	 * @param tableName
-	 * @param vectorType
+	 * Select up to maxCount columns by weight using a round-robin approach to ensure
+	 * balanced selection across different tables
 	 */
-	protected abstract void addTableDocument(List<Document> tableDocuments, String tableName, String vectorType);
+	protected Map<String, Document> selectColumnsByRoundRobin(List<List<Document>> columnDocumentList, int maxCount) {
+		Map<String, Document> selectedColumns = new HashMap<>();
+		int currentRound = 0;
 
-	protected abstract void addColumnsDocument(Map<String, Document> weightedColumns, String columnName,
-			String vectorType);
+		// Continue selecting columns until we reach maxCount or exhaust all columns
+		while (selectedColumns.size() < maxCount) {
+			boolean hasMoreColumnsInAnyList = false;
 
-	/**
-	 * Select up to maxCount columns by weight
-	 */
-	protected Map<String, Document> selectWeightedColumns(List<List<Document>> columnDocumentList, int maxCount) {
-		Map<String, Document> result = new HashMap<>();
-		int index = 0;
+			// Process each table's column list in the current round
+			for (List<Document> tableColumns : columnDocumentList) {
+				if (currentRound < tableColumns.size()) {
+					// Get the column at current position (already sorted by weight)
+					Document column = tableColumns.get(currentRound);
+					String columnId = column.getId();
 
-		while (result.size() < maxCount) {
-			boolean completed = true;
-			for (List<Document> docs : columnDocumentList) {
-				if (index < docs.size()) {
-					Document doc = docs.get(index);
-					String id = doc.getId();
-					if (!result.containsKey(id)) {
-						result.put(id, doc);
+					// Add to selection if not already selected
+					if (!selectedColumns.containsKey(columnId)) {
+						selectedColumns.put(columnId, column);
+
+						// Stop if we've reached the maximum count
+						if (selectedColumns.size() >= maxCount) {
+							break;
+						}
 					}
-					completed = false;
+
+					hasMoreColumnsInAnyList = true;
 				}
 			}
-			index++;
-			if (completed) {
+
+			// If no more columns in any list, exit the loop
+			if (!hasMoreColumnsInAnyList) {
 				break;
 			}
+
+			currentRound++;
 		}
-		return result;
+
+		return selectedColumns;
 	}
 
 	/**
@@ -284,34 +277,147 @@ public abstract class AbstractSchemaService implements SchemaService {
 	/**
 	 * Score each column (combining with its table's score)
 	 */
-	public void processColumnWeights(List<List<Document>> columnDocuments, List<Document> tableDocuments) {
-		columnDocuments.replaceAll(docs -> docs.stream()
-			.filter(column -> tableDocuments.stream()
-				.anyMatch(table -> table.getMetadata().get("name").equals(column.getMetadata().get("tableName"))))
-			.peek(column -> {
-				Optional<Document> matchingTable = tableDocuments.stream()
-					.filter(table -> table.getMetadata().get("name").equals(column.getMetadata().get("tableName")))
-					.findFirst();
-				matchingTable.ifPresent(tableDoc -> {
-					Double tableScore = Optional.ofNullable((Double) tableDoc.getMetadata().get("score"))
-						.orElse(tableDoc.getScore());
-					Double columnScore = Optional.ofNullable((Double) column.getMetadata().get("score"))
-						.orElse(column.getScore());
-					if (tableScore != null && columnScore != null) {
-						column.getMetadata().put("score", columnScore * tableScore);
-					}
-				});
-			})
-			.sorted(Comparator.comparing((Document d) -> (Double) d.getMetadata().get("score")).reversed())
-			.collect(Collectors.toList()));
+	public void updateAndSortColumnScoresByTableWeights(List<List<Document>> columnDocuments,
+			List<Document> tableDocuments) {
+		for (int i = 0; i < columnDocuments.size(); i++) {
+			List<Document> processedColumns = processSingleTableColumns(columnDocuments.get(i), tableDocuments);
+			columnDocuments.set(i, processedColumns);
+		}
 	}
 
 	/**
-	 * Extract foreign key relationships
-	 * @param tableDocuments table document list
-	 * @return foreign key relationship set
+	 * Process columns for a single table, filtering and updating scores
 	 */
-	protected Set<String> extractForeignKeyRelations(List<Document> tableDocuments) {
+	private List<Document> processSingleTableColumns(List<Document> columns, List<Document> tableDocuments) {
+		// Step 1: Filter columns to only include those that have a matching table
+		List<Document> filteredColumns = filterColumnsWithMatchingTables(columns, tableDocuments);
+
+		// Step 2: Update column scores by multiplying with their table scores
+		updateColumnScoresWithTableScores(filteredColumns, tableDocuments);
+
+		// Step 3: Sort columns by their new scores in descending order
+		return sortColumnsByScoreDescending(filteredColumns);
+	}
+
+	/**
+	 * Filter columns to only include those that have a matching table
+	 */
+	private List<Document> filterColumnsWithMatchingTables(List<Document> columns, List<Document> tableDocuments) {
+		List<Document> result = new ArrayList<>();
+
+		for (Document column : columns) {
+			String columnTableName = (String) column.getMetadata().get("tableName");
+			if (hasMatchingTable(tableDocuments, columnTableName)) {
+				result.add(column);
+			}
+		}
+
+		return result;
+	}
+
+	/**
+	 * Check if there's a table with the given name in the table documents
+	 */
+	private boolean hasMatchingTable(List<Document> tableDocuments, String tableName) {
+		if (StringUtils.isBlank(tableName)) {
+			return false;
+		}
+
+		for (Document table : tableDocuments) {
+			String table_name = (String) table.getMetadata().get("name");
+			if (tableName.equals(table_name)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Update column scores by multiplying with their table scores
+	 */
+	private void updateColumnScoresWithTableScores(List<Document> columns, List<Document> tableDocuments) {
+		for (Document column : columns) {
+			String columnTableName = (String) column.getMetadata().get("tableName");
+			Document matchingTable = findTableByName(tableDocuments, columnTableName);
+
+			if (matchingTable != null) {
+				Double tableScore = getTableScore(matchingTable);
+				Double columnScore = getColumnScore(column);
+
+				if (tableScore != null && columnScore != null) {
+					Double newScore = columnScore * tableScore;
+					column.getMetadata().put("score", newScore);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Find a table document by its name
+	 */
+	private Document findTableByName(List<Document> tableDocuments, String tableName) {
+		if (StringUtils.isBlank(tableName)) {
+			return null;
+		}
+
+		for (Document table : tableDocuments) {
+			String table_name = (String) table.getMetadata().get("name");
+			if (tableName.equals(table_name)) {
+				return table;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Get the score from a table document
+	 */
+	private Double getTableScore(Document tableDoc) {
+		Double scoreFromMetadata = (Double) tableDoc.getMetadata().get("score");
+		return scoreFromMetadata != null ? scoreFromMetadata : tableDoc.getScore();
+	}
+
+	/**
+	 * Get the score from a column document
+	 */
+	private Double getColumnScore(Document columnDoc) {
+		Double scoreFromMetadata = (Double) columnDoc.getMetadata().get("score");
+		return scoreFromMetadata != null ? scoreFromMetadata : columnDoc.getScore();
+	}
+
+	/**
+	 * Sort columns by their scores in descending order
+	 */
+	private List<Document> sortColumnsByScoreDescending(List<Document> columns) {
+		List<Document> sortedColumns = new ArrayList<>(columns);
+
+		sortedColumns.sort((doc1, doc2) -> {
+			Double score1 = (Double) doc1.getMetadata().get("score");
+			Double score2 = (Double) doc2.getMetadata().get("score");
+
+			// Handle null scores
+			if (score1 == null && score2 == null)
+				return 0;
+			if (score1 == null)
+				return 1;
+			if (score2 == null)
+				return -1;
+
+			// Sort in descending order
+			return score2.compareTo(score1);
+		});
+
+		return sortedColumns;
+	}
+
+	/**
+	 * Extract related table and column names from foreign key relationships
+	 * @param tableDocuments table document list
+	 * @return set of related names in format "tableName.columnName"
+	 */
+	protected Set<String> extractRelatedNamesFromForeignKeys(List<Document> tableDocuments) {
 		Set<String> result = new HashSet<>();
 
 		for (Document doc : tableDocuments) {
@@ -352,7 +458,8 @@ public abstract class AbstractSchemaService implements SchemaService {
 					});
 					columnDTO.setData(samples);
 				}
-				catch (Exception ignore) {
+				catch (Exception e) {
+					log.error("Failed to parse samples: {}", samplesStr, e);
 				}
 			}
 
@@ -365,27 +472,12 @@ public abstract class AbstractSchemaService implements SchemaService {
 	}
 
 	/**
-	 * Get table metadata
-	 * @param tableName table name
-	 * @return table metadata
-	 */
-	protected Map<String, Object> getTableMetadata(String tableName) {
-		List<Document> tableDocuments = getTableDocuments(tableName);
-		for (Document doc : tableDocuments) {
-			Map<String, Object> metadata = doc.getMetadata();
-			if (tableName.equals(metadata.get("name"))) {
-				return metadata;
-			}
-		}
-		return null;
-	}
-
-	/**
 	 * Extract database name
 	 * @param schemaDTO SchemaDTO
+	 * @param dbConfig Database configuration
 	 */
 	@Override
-	public void extractDatabaseName(SchemaDTO schemaDTO) {
+	public void extractDatabaseName(SchemaDTO schemaDTO, DbConfig dbConfig) {
 		String pattern = ":\\d+/([^/?&]+)";
 		if (BizDataSourceTypeEnum.isMysqlDialect(dbConfig.getDialectType())) {
 			Pattern regex = Pattern.compile(pattern);
@@ -396,33 +488,6 @@ public abstract class AbstractSchemaService implements SchemaService {
 		}
 		else if (BizDataSourceTypeEnum.isPgDialect(dbConfig.getDialectType())) {
 			schemaDTO.setName(dbConfig.getSchema());
-		}
-	}
-
-	/**
-	 * Common document query processing template to reduce subclass redundant code.
-	 */
-	protected void handleDocumentQuery(List<Document> targetList, String key, String vectorType,
-			Function<String, SearchRequest> requestBuilder, Function<SearchRequest, List<Document>> searchFunc) {
-		SearchRequest request = requestBuilder.apply(key);
-		request.setVectorType(vectorType);
-		request.setTopK(10);
-		List<Document> docs = searchFunc.apply(request);
-		if (CollectionUtils.isNotEmpty(docs)) {
-			targetList.addAll(docs);
-		}
-	}
-
-	protected void handleDocumentQuery(Map<String, Document> targetMap, String key, String vectorType,
-			Function<String, SearchRequest> requestBuilder, Function<SearchRequest, List<Document>> searchFunc) {
-		SearchRequest request = requestBuilder.apply(key);
-		request.setVectorType(vectorType);
-		request.setTopK(10);
-		List<Document> docs = searchFunc.apply(request);
-		if (CollectionUtils.isNotEmpty(docs)) {
-			for (Document doc : docs) {
-				targetMap.putIfAbsent(doc.getId(), doc);
-			}
 		}
 	}
 

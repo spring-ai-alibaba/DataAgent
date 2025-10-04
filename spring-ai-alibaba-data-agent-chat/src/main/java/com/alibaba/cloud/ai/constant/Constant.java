@@ -144,4 +144,16 @@ public final class Constant {
 	// 人类复核相关
 	public static final String HUMAN_REVIEW_ENABLED = "HUMAN_REVIEW_ENABLED";
 
+	// column
+	public static final String COLUMN = "column";
+
+	// table
+	public static final String TABLE = "table";
+
+	// vectorType
+	public static final String VECTOR_TYPE = "vectorType";
+
+	// knowledgeId
+	public static final String KNOWLEDGE_ID = "knowledgeId";
+
 }

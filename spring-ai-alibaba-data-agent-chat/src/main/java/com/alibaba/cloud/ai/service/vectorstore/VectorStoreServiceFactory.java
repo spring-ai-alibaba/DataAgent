@@ -16,19 +16,21 @@
 
 package com.alibaba.cloud.ai.service.vectorstore;
 
-import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.service.vectorstore.impls.AnalyticVectorStoreService;
-import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleVectorStoreService;
-import com.alibaba.cloud.ai.vectorstore.analyticdb.AnalyticDbVectorStoreProperties;
-import com.aliyun.gpdb20160503.Client;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
+import com.alibaba.cloud.ai.service.vectorstore.impls.AnalyticVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleVectorStoreService;
+import com.alibaba.cloud.ai.vectorstore.analyticdb.AnalyticDbVectorStore;
+
+@Slf4j
 @Component
-public class VectorStoreServiceFactory implements FactoryBean<VectorStoreService> {
+public class VectorStoreServiceFactory implements FactoryBean<AgentVectorStoreService> {
 
 	// todo: 改为枚举，由用户配置决定实现类
 	@Value("${spring.ai.vectorstore.analytic.enabled:false}")
@@ -37,31 +39,27 @@ public class VectorStoreServiceFactory implements FactoryBean<VectorStoreService
 	@Autowired
 	private EmbeddingModel embeddingModel;
 
-	@Autowired(required = false)
-	private AnalyticDbVectorStoreProperties analyticDbVectorStoreProperties;
-
-	@Autowired(required = false)
-	private Client client;
-
 	@Autowired
 	private AccessorFactory accessorFactory;
 
-	@Autowired
-	private AgentVectorStoreManager agentVectorStoreManager;
+	@Autowired(required = false)
+	private AnalyticDbVectorStore analyticDbVectorStore;
 
 	@Override
-	public VectorStoreService getObject() {
+	public AgentVectorStoreService getObject() {
 		if (Boolean.TRUE.equals(analyticEnabled)) {
-			return new AnalyticVectorStoreService(analyticDbVectorStoreProperties, embeddingModel, client);
+			log.info("Using AnalyticDbVectorStoreService");
+			return new AnalyticVectorStoreService(embeddingModel, analyticDbVectorStore, accessorFactory);
 		}
 		else {
-			return new SimpleVectorStoreService(embeddingModel, accessorFactory, agentVectorStoreManager);
+			log.info("Using SimpleVectorStoreService");
+			return new SimpleVectorStoreService(embeddingModel, accessorFactory);
 		}
 	}
 
 	@Override
 	public Class<?> getObjectType() {
-		return VectorStoreService.class;
+		return AgentVectorStoreService.class;
 	}
 
 }

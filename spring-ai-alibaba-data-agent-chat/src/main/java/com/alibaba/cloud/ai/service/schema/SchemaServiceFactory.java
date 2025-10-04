@@ -16,36 +16,48 @@
 
 package com.alibaba.cloud.ai.service.schema;
 
-import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.service.schema.impls.AnalyticSchemaService;
 import com.alibaba.cloud.ai.service.schema.impls.SimpleSchemaService;
-import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.AnalyticVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleVectorStoreService;
 import com.alibaba.cloud.ai.util.JsonUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
+@DependsOn("vectorStoreServiceFactory")
 public class SchemaServiceFactory implements FactoryBean<SchemaService> {
 
 	// todo: 改为枚举，由用户配置决定实现类
 	@Value("${spring.ai.vectorstore.analytic.enabled:false}")
 	private Boolean analyticEnabled;
 
-	@Autowired
-	private DbConfig dbConfig;
-
-	@Autowired
-	private VectorStoreService vectorStoreService;
+	@Autowired(required = false)
+	private AgentVectorStoreService agentVectorStoreService;
 
 	@Override
 	public SchemaService getObject() {
 		if (Boolean.TRUE.equals(analyticEnabled)) {
-			return new AnalyticSchemaService(dbConfig, JsonUtil.getObjectMapper(), vectorStoreService);
+			log.info("Using AnalyticSchemaService");
+			if (agentVectorStoreService instanceof AnalyticVectorStoreService) {
+				return new AnalyticSchemaService(JsonUtil.getObjectMapper(),
+						(AnalyticVectorStoreService) agentVectorStoreService);
+			}
+			throw new IllegalStateException("AgentVectorStoreService is not an instance of AnalyticVectorStoreService");
 		}
 		else {
-			return new SimpleSchemaService(dbConfig, JsonUtil.getObjectMapper(), vectorStoreService);
+			log.info("Using SimpleSchemaService");
+			if (agentVectorStoreService instanceof SimpleVectorStoreService) {
+				return new SimpleSchemaService(JsonUtil.getObjectMapper(),
+						(SimpleVectorStoreService) agentVectorStoreService);
+			}
+			throw new IllegalStateException("AgentVectorStoreService is not an instance of SimpleVectorStoreService");
 		}
 	}
 

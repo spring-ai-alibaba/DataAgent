@@ -16,10 +16,11 @@
 package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
+import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.service.DatasourceService;
-import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
@@ -31,10 +32,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Agent Vector Storage Service Specializes in handling agent-related vector storage
@@ -45,28 +44,8 @@ public class AgentVectorService {
 
 	private static final Logger log = LoggerFactory.getLogger(AgentVectorService.class);
 
-	// todo: 提取实现类的方法到接口
 	@Autowired
-	private VectorStoreService vectorStoreService;
-
-	/**
-	 * Initialize database Schema for agent
-	 * @param agentId agent ID
-	 * @param schemaInitRequest Schema initialization request
-	 * @return success status
-	 */
-	public Boolean initializeSchemaForAgent(Long agentId, SchemaInitRequest schemaInitRequest) {
-		try {
-			String agentIdStr = String.valueOf(agentId);
-			log.info("Initializing schema for agent: {}", agentIdStr);
-
-			return vectorStoreService.schemaForAgent(agentIdStr, schemaInitRequest);
-		}
-		catch (Exception e) {
-			log.error("Failed to initialize schema for agent: {}", agentId, e);
-			throw new RuntimeException("Failed to initialize schema for agent " + agentId + ": " + e.getMessage(), e);
-		}
-	}
+	private AgentVectorStoreService vectorStoreService;
 
 	/**
 	 * Add knowledge document to vector store for agent
@@ -82,7 +61,7 @@ public class AgentVectorService {
 			Document document = createDocumentFromKnowledge(agentIdStr, knowledge);
 
 			// Add to vector store
-			vectorStoreService.getAgentVectorStoreManager().addDocuments(agentIdStr, List.of(document));
+			vectorStoreService.addDocuments(agentIdStr, List.of(document));
 
 			log.info("Successfully added knowledge to vector store for agent: {}", agentIdStr);
 		}
@@ -90,89 +69,6 @@ public class AgentVectorService {
 			log.error("Failed to add knowledge to vector store for agent: {}, knowledge ID: {}", agentId,
 					knowledge.getId(), e);
 			throw new RuntimeException("Failed to add knowledge to vector store: " + e.getMessage(), e);
-		}
-	}
-
-	/**
-	 * Batch add knowledge documents to vector store for agent
-	 * @param agentId agent ID
-	 * @param knowledgeList knowledge list
-	 */
-	public void addKnowledgeListToVector(Long agentId, List<AgentKnowledge> knowledgeList) {
-		if (knowledgeList == null || knowledgeList.isEmpty()) {
-			log.warn("No knowledge to add for agent: {}", agentId);
-			return;
-		}
-
-		try {
-			String agentIdStr = String.valueOf(agentId);
-			log.info("Adding {} knowledge items to vector store for agent: {}", knowledgeList.size(), agentIdStr);
-
-			// Create document列表
-			List<Document> documents = knowledgeList.stream()
-				.map(knowledge -> createDocumentFromKnowledge(agentIdStr, knowledge))
-				.toList();
-
-			// Batch add to vector store
-			vectorStoreService.getAgentVectorStoreManager().addDocuments(agentIdStr, documents);
-
-			log.info("Successfully added {} knowledge items to vector store for agent: {}", documents.size(),
-					agentIdStr);
-		}
-		catch (Exception e) {
-			log.error("Failed to add knowledge list to vector store for agent: {}", agentId, e);
-			throw new RuntimeException("Failed to add knowledge list to vector store: " + e.getMessage(), e);
-		}
-	}
-
-	/**
-	 * Search related knowledge from vector store
-	 * @param agentId agent ID
-	 * @param query query text
-	 * @param topK number of results to return
-	 * @return list of related documents
-	 */
-	public List<Document> searchKnowledge(Long agentId, String query, int topK) {
-		try {
-			String agentIdStr = String.valueOf(agentId);
-			log.debug("Searching knowledge for agent: {}, query: {}, topK: {}", agentIdStr, query, topK);
-
-			List<Document> results = vectorStoreService.getAgentVectorStoreManager()
-				.similaritySearch(agentIdStr, query, topK);
-
-			log.info("Found {} knowledge documents for agent: {}", results.size(), agentIdStr);
-			return results;
-		}
-		catch (Exception e) {
-			log.error("Failed to search knowledge for agent: {}", agentId, e);
-			throw new RuntimeException("Failed to search knowledge: " + e.getMessage(), e);
-		}
-	}
-
-	/**
-	 * Search specific type of knowledge from vector store
-	 * @param agentId agent ID
-	 * @param query query text
-	 * @param topK number of results to return
-	 * @param knowledgeType knowledge type
-	 * @return list of related documents
-	 */
-	public List<Document> searchKnowledgeByType(Long agentId, String query, int topK, String knowledgeType) {
-		try {
-			String agentIdStr = String.valueOf(agentId);
-			log.debug("Searching knowledge by type for agent: {}, query: {}, topK: {}, type: {}", agentIdStr, query,
-					topK, knowledgeType);
-
-			List<Document> results = vectorStoreService.getAgentVectorStoreManager()
-				.similaritySearchWithFilter(agentIdStr, query, topK, "knowledge:" + knowledgeType);
-
-			log.info("Found {} knowledge documents of type '{}' for agent: {}", results.size(), knowledgeType,
-					agentIdStr);
-			return results;
-		}
-		catch (Exception e) {
-			log.error("Failed to search knowledge by type for agent: {}", agentId, e);
-			throw new RuntimeException("Failed to search knowledge by type: " + e.getMessage(), e);
 		}
 	}
 
@@ -188,7 +84,10 @@ public class AgentVectorService {
 
 			log.info("Deleting knowledge from vector store for agent: {}, knowledge ID: {}", agentIdStr, knowledgeId);
 
-			vectorStoreService.getAgentVectorStoreManager().deleteDocuments(agentIdStr, List.of(documentId));
+			Map<String, Object> metadata = new HashMap<>(Map.ofEntries(Map.entry(Constant.AGENT_ID, agentIdStr),
+					Map.entry(Constant.KNOWLEDGE_ID, knowledgeId)));
+
+			vectorStoreService.deleteDocumentsByMetedata(agentIdStr, metadata);
 
 			log.info("Successfully deleted knowledge from vector store for agent: {}", agentIdStr);
 		}
@@ -208,13 +107,24 @@ public class AgentVectorService {
 			String agentIdStr = String.valueOf(agentId);
 			log.info("Deleting all vector data for agent: {}", agentIdStr);
 
-			vectorStoreService.getAgentVectorStoreManager().deleteAgentData(agentIdStr);
+			vectorStoreService.deleteDocumentsByMetedata(String.valueOf(agentId), new HashMap<>());
 
 			log.info("Successfully deleted all vector data for agent: {}", agentIdStr);
 		}
 		catch (Exception e) {
 			log.error("Failed to delete all vector data for agent: {}", agentId, e);
 			throw new RuntimeException("Failed to delete all vector data: " + e.getMessage(), e);
+		}
+	}
+
+	public boolean isAlreadyInitialized(Long agentId) {
+		try {
+			String agentIdStr = String.valueOf(agentId);
+			return vectorStoreService.hasDocuments(agentIdStr);
+		}
+		catch (Exception e) {
+			log.error("Failed to check initialization status for agent: {}, assuming not initialized", agentId, e);
+			return false;
 		}
 	}
 
@@ -228,15 +138,13 @@ public class AgentVectorService {
 			String agentIdStr = String.valueOf(agentId);
 			Map<String, Object> stats = new HashMap<>();
 
-			boolean hasData = vectorStoreService.getAgentVectorStoreManager().hasAgentData(agentIdStr);
-			int documentCount = vectorStoreService.getAgentVectorStoreManager().getDocumentCount(agentIdStr);
+			int docNum = vectorStoreService.estimateDocuments(agentIdStr);
 
+			stats.put("docNum", docNum);
 			stats.put("agentId", agentId);
-			stats.put("hasData", hasData);
-			stats.put("documentCount", documentCount);
+			stats.put("hasData", docNum > 0);
 
-			log.debug("Vector statistics for agent {}: hasData={}, documentCount={}", agentIdStr, hasData,
-					documentCount);
+			log.info("Successfully retrieved vector statistics for agent: {}, detail: {}", agentIdStr, stats);
 
 			return stats;
 		}
@@ -382,6 +290,7 @@ public class AgentVectorService {
 		}
 	}
 
+	// TODO common模块工具类也有，后续合并chat模块回来后把该方法去掉
 	/**
 	 * Create database configuration from data source entity
 	 */
@@ -447,169 +356,13 @@ public class AgentVectorService {
 			log.info("Created SchemaInitRequest for agent: {}, dbConfig: {}, tables: {}", agentIdStr, dbConfig, tables);
 
 			// Call the original initialization method
-			return vectorStoreService.schemaForAgent(agentIdStr, schemaInitRequest);
+			return vectorStoreService.schema(agentIdStr, schemaInitRequest);
 
 		}
 		catch (Exception e) {
 			log.error("Failed to initialize schema for agent: {} with datasource: {}", agentId, datasourceId, e);
 			throw new RuntimeException("Failed to initialize schema for agent " + agentId + ": " + e.getMessage(), e);
 		}
-	}
-
-	/**
-	 * Agent chat function
-	 * @param agentId agent ID
-	 * @param query user query
-	 * @return agent response
-	 */
-	public String chatWithAgent(Long agentId, String query) {
-		try {
-			String agentIdStr = String.valueOf(agentId);
-			log.info("Processing chat request for agent: {}, query: {}", agentIdStr, query);
-
-			// Check if agent has been initialized
-			boolean hasData = vectorStoreService.getAgentVectorStoreManager().hasAgentData(agentIdStr);
-			if (!hasData) {
-				return "智能体尚未初始化数据源，请先在「初始化信息源」中配置数据源和表结构。";
-			}
-
-			// Get agent's data source information
-			List<Map<String, Object>> datasources = getAgentDatasources(agentId);
-			if (datasources.isEmpty()) {
-				return "智能体没有配置可用的数据源，请先配置数据源。";
-			}
-
-			// Use the first active data source
-			Map<String, Object> datasource = datasources.get(0);
-
-			// Create database configuration
-			com.alibaba.cloud.ai.entity.Datasource dsEntity = datasourceService
-				.getDatasourceById((Integer) datasource.get("id"));
-			if (dsEntity == null) {
-				return "数据源配置不存在，请检查数据源配置。";
-			}
-
-			DbConfig dbConfig = createDbConfigFromDatasource(dsEntity);
-
-			// Use SimpleNl2SqlService to process query
-			// Note: SimpleNl2SqlService needs to be injected here, but for simplicity, we
-			// return a basic response first
-			String response = processAgentQuery(agentIdStr, query, dbConfig);
-
-			log.info("Generated response for agent: {}", agentIdStr);
-			return response;
-
-		}
-		catch (Exception e) {
-			log.error("Failed to process chat request for agent: {}", agentId, e);
-			return "处理查询时发生错误：" + e.getMessage() + "。请检查数据源配置和网络连接。";
-		}
-	}
-
-	/**
-	 * Process agent query (simplified version)
-	 */
-	private String processAgentQuery(String agentId, String query, DbConfig dbConfig) {
-		try {
-			// This is a simplified implementation
-			// In actual applications, the complete NL2SQL processing flow should be
-			// integrated
-
-			// 1. 检查是否是简单的问候语
-			if (isGreeting(query)) {
-				return "您好！我是您的数据分析助手。您可以用自然语言询问数据相关的问题，我会帮您查询和分析数据。\n\n" + "例如：\n" + "• 查询用户总数\n" + "• 显示最近一周的订单统计\n"
-						+ "• 分析销售趋势\n\n" + "请告诉我您想了解什么数据信息？";
-			}
-
-			// 2. 获取相关的表和列信息
-			List<org.springframework.ai.document.Document> relevantDocs = vectorStoreService
-				.getAgentVectorStoreManager()
-				.similaritySearch(agentId, query, 10);
-
-			if (relevantDocs.isEmpty()) {
-				return "抱歉，我没有找到与您的问题相关的数据表信息。请确保已正确初始化数据源，或者尝试用不同的方式描述您的问题。";
-			}
-
-			// 3. 构建响应
-			StringBuilder response = new StringBuilder();
-			response.append("根据您的问题「").append(query).append("」，我找到了以下相关信息：\n\n");
-
-			// Analyze related tables and columns
-			Set<String> tables = new HashSet<>();
-			List<String> columns = new ArrayList<>();
-
-			for (org.springframework.ai.document.Document doc : relevantDocs) {
-				Map<String, Object> metadata = doc.getMetadata();
-				String vectorType = (String) metadata.get("vectorType");
-
-				if ("table".equals(vectorType)) {
-					tables.add((String) metadata.get("name"));
-				}
-				else if ("column".equals(vectorType)) {
-					String tableName = (String) metadata.get("tableName");
-					String columnName = (String) metadata.get("name");
-					String description = (String) metadata.get("description");
-
-					tables.add(tableName);
-					columns.add(String.format("• %s.%s%s", tableName, columnName,
-							description != null && !description.isEmpty() ? " - " + description : ""));
-				}
-			}
-
-			if (!tables.isEmpty()) {
-				response.append("📊 **相关数据表：**\n");
-				for (String table : tables) {
-					response.append("• ").append(table).append("\n");
-				}
-				response.append("\n");
-			}
-
-			if (!columns.isEmpty()) {
-				response.append("📋 **相关字段：**\n");
-				for (String column : columns.subList(0, Math.min(columns.size(), 8))) { // Limit
-																						// display
-																						// quantity
-					response.append(column).append("\n");
-				}
-				if (columns.size() > 8) {
-					response.append("... 还有 ").append(columns.size() - 8).append(" 个相关字段\n");
-				}
-				response.append("\n");
-			}
-
-			response.append("💡 **建议：**\n");
-			response.append("基于找到的数据结构，您可以询问更具体的问题，比如：\n");
-			if (tables.contains("users")) {
-				response.append("• 用户总数是多少？\n");
-				response.append("• 最近注册的用户有哪些？\n");
-			}
-			if (tables.contains("orders")) {
-				response.append("• 今天的订单数量是多少？\n");
-				response.append("• 最近一周的销售额是多少？\n");
-			}
-			if (tables.contains("products")) {
-				response.append("• 有哪些产品分类？\n");
-				response.append("• 最受欢迎的产品是什么？\n");
-			}
-
-			response.append("\n⚠️ **注意：** 当前为调试模式，显示的是数据结构分析。完整的SQL查询和数据分析功能正在开发中。");
-
-			return response.toString();
-
-		}
-		catch (Exception e) {
-			log.error("Error processing agent query: {}", e.getMessage(), e);
-			return "处理查询时发生错误：" + e.getMessage();
-		}
-	}
-
-	/**
-	 * Check if it is a greeting
-	 */
-	private boolean isGreeting(String query) {
-		String lowerQuery = query.toLowerCase().trim();
-		return lowerQuery.matches(".*(你好|hello|hi|您好|嗨|hey).*") || lowerQuery.equals("你好") || lowerQuery.equals("您好")
-				|| lowerQuery.equals("hello") || lowerQuery.equals("hi");
 	}
 
 }

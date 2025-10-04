@@ -16,32 +16,33 @@
 
 package com.alibaba.cloud.ai.service.processing.impls;
 
+import com.alibaba.cloud.ai.service.DatasourceService;
 import com.alibaba.cloud.ai.service.LlmService;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.service.schema.SchemaService;
 import com.alibaba.cloud.ai.service.processing.AbstractQueryProcessingService;
-import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import org.springframework.stereotype.Service;
 
 @Service
 public class QueryProcessingServiceImpl extends AbstractQueryProcessingService {
 
-	private final VectorStoreService vectorStoreService;
+	private final AgentVectorStoreService vectorStoreService;
 
 	private final SchemaService schemaService;
 
 	private final Nl2SqlService nl2SqlService;
 
-	public QueryProcessingServiceImpl(LlmService aiService, VectorStoreService vectorStoreService,
-			SchemaService schemaService, Nl2SqlService nl2SqlService) {
-		super(aiService);
+	public QueryProcessingServiceImpl(LlmService aiService, AgentVectorStoreService vectorStoreService,
+			SchemaService schemaService, Nl2SqlService nl2SqlService, DatasourceService datasourceService) {
+		super(aiService, datasourceService);
 		this.vectorStoreService = vectorStoreService;
 		this.schemaService = schemaService;
 		this.nl2SqlService = nl2SqlService;
 	}
 
 	@Override
-	protected VectorStoreService getVectorStoreService() {
+	protected AgentVectorStoreService getVectorStoreService() {
 		return this.vectorStoreService;
 	}
 
