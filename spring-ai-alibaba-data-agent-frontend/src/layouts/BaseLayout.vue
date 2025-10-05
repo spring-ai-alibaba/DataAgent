@@ -102,8 +102,7 @@ export default {
 }
 
 .header-content {
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
   padding: 0 1.5rem;
   display: flex;
   align-items: center;
