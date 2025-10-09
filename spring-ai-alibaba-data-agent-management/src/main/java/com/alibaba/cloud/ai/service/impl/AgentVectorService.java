@@ -24,6 +24,7 @@ import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
+import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
@@ -264,7 +265,7 @@ public class AgentVectorService {
 			// }
 
 			// Create database configuration
-			DbConfig dbConfig = createDbConfigFromDatasource(datasource);
+			DbConfig dbConfig = SchemaProcessorUtil.createDbConfigFromDatasource(datasource);
 
 			// Create query parameters
 			DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
@@ -290,42 +291,6 @@ public class AgentVectorService {
 		}
 	}
 
-	// TODO common模块工具类也有，后续合并chat模块回来后把该方法去掉
-	/**
-	 * Create database configuration from data source entity
-	 */
-	private DbConfig createDbConfigFromDatasource(com.alibaba.cloud.ai.entity.Datasource datasource) {
-		DbConfig dbConfig = new DbConfig();
-
-		// Set basic connection information
-		dbConfig.setUrl(datasource.getConnectionUrl());
-		dbConfig.setUsername(datasource.getUsername());
-		dbConfig.setPassword(datasource.getPassword());
-
-		// Set database type
-		if ("mysql".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("mysql");
-		}
-		else if ("h2".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("h2");
-		}
-		// Support for other database types can be extended here
-		// else if ("postgresql".equalsIgnoreCase(datasource.getType())) {
-		// dbConfig.setConnectionType("jdbc");
-		// dbConfig.setDialectType("postgresql");
-		// }
-
-		// Set Schema as the database name of the data source
-		dbConfig.setSchema(datasource.getDatabaseName());
-
-		log.debug("Created DbConfig for datasource {}: url={}, schema={}, type={}", datasource.getId(),
-				dbConfig.getUrl(), dbConfig.getSchema(), dbConfig.getDialectType());
-
-		return dbConfig;
-	}
-
 	/**
 	 * Initialize database Schema for agent using data source ID
 	 * @param agentId agent ID
@@ -346,7 +311,7 @@ public class AgentVectorService {
 			}
 
 			// Create database configuration
-			DbConfig dbConfig = createDbConfigFromDatasource(datasource);
+			DbConfig dbConfig = SchemaProcessorUtil.createDbConfigFromDatasource(datasource);
 
 			// Create SchemaInitRequest
 			SchemaInitRequest schemaInitRequest = new SchemaInitRequest();

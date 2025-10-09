@@ -70,10 +70,10 @@ public class SchemaProcessorUtil {
 		// 保存处理过的列数据到TableInfoBO，供后续使用
 		tableInfoBO.setColumns(columnInfoBOS);
 
-		List<ColumnInfoBO> targetPrimaryList = columnInfoBOS.stream().filter(ColumnInfoBO::isPrimary).toList();
+		List<ColumnInfoBO> primaryKeyColumns = columnInfoBOS.stream().filter(ColumnInfoBO::isPrimary).toList();
 
-		if (!targetPrimaryList.isEmpty()) {
-			List<String> columnNames = targetPrimaryList.stream()
+		if (!primaryKeyColumns.isEmpty()) {
+			List<String> columnNames = primaryKeyColumns.stream()
 				.map(ColumnInfoBO::getName)
 				.collect(Collectors.toList());
 			tableInfoBO.setPrimaryKeys(columnNames);
@@ -104,10 +104,6 @@ public class SchemaProcessorUtil {
 			dbConfig.setDialectType("h2");
 		}
 		// Support for other database types can be extended here
-		// else if ("postgresql".equalsIgnoreCase(datasource.getType())) {
-		// dbConfig.setConnectionType("jdbc");
-		// dbConfig.setDialectType("postgresql");
-		// }
 
 		// Set Schema as the database name of the data source
 		dbConfig.setSchema(datasource.getDatabaseName());

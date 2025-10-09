@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
@@ -43,6 +44,12 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public abstract class AbstractVectorStoreService implements AgentVectorStoreService {
+
+	/**
+	 * 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档
+	 */
+	@Value("${spring.ai.vectorstore.similarityThreshold:0.6}")
+	protected double similarityThreshold;
 
 	/**
 	 * Get embedding model
@@ -71,8 +78,7 @@ public abstract class AbstractVectorStoreService implements AgentVectorStoreServ
 		String filterFormatted = buildFilterExpressionString(searchRequest.getMetadataFilter());
 		if (StringUtils.hasText(filterFormatted))
 			builder.filterExpression(filterFormatted);
-		// 中等严格度，平衡召回率和精确率
-		builder.similarityThreshold(0.6);
+		builder.similarityThreshold(similarityThreshold);
 		List<Document> results = getVectorStore().similaritySearch(builder.build());
 		log.info("Search completed. Found {} documents for SearchRequest: {}", results.size(), searchRequest);
 		return results;
@@ -81,7 +87,7 @@ public abstract class AbstractVectorStoreService implements AgentVectorStoreServ
 
 	// 模板方法 - 通用schema处理流程
 	@Override
-	public Boolean schema(String agentId, SchemaInitRequest schemaInitRequest) throws Exception {
+	public final Boolean schema(String agentId, SchemaInitRequest schemaInitRequest) throws Exception {
 		try {
 
 			DbConfig config = schemaInitRequest.getDbConfig();
