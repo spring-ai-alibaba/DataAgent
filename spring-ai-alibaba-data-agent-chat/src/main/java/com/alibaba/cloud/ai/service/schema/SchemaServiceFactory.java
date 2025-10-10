@@ -17,10 +17,12 @@
 package com.alibaba.cloud.ai.service.schema;
 
 import com.alibaba.cloud.ai.service.schema.impls.AnalyticSchemaService;
+import com.alibaba.cloud.ai.service.schema.impls.MilvusSchemaService;
 import com.alibaba.cloud.ai.service.schema.impls.SimpleSchemaService;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.service.vectorstore.VectorStoreType;
 import com.alibaba.cloud.ai.service.vectorstore.impls.AnalyticAgentVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.MilvusAgentVectorStoreService;
 import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleAgentVectorStoreService;
 import com.alibaba.cloud.ai.util.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -57,7 +59,7 @@ public class SchemaServiceFactory implements FactoryBean<SchemaService> {
 		// 初始化各种向量存储类型的创建策略
 		serviceCreators.put(VectorStoreType.ANALYTIC_DB, this::createAnalyticSchemaService);
 		serviceCreators.put(VectorStoreType.SIMPLE, this::createSimpleSchemaService);
-
+		serviceCreators.put(VectorStoreType.MILVUS, this::createMilvusSchemaService);
 	}
 
 	@Override
@@ -108,6 +110,15 @@ public class SchemaServiceFactory implements FactoryBean<SchemaService> {
 		}
 		return new SimpleSchemaService(JsonUtil.getObjectMapper(),
 				(SimpleAgentVectorStoreService) agentVectorStoreService);
+	}
+
+	private SchemaService createMilvusSchemaService() {
+		log.info("Using MilvusSchemaService");
+		if (!(agentVectorStoreService instanceof MilvusAgentVectorStoreService))
+			throw new IllegalStateException(
+					"AgentVectorStoreService is not an instance of MilvusAgentVectorStoreService");
+		return new MilvusSchemaService(JsonUtil.getObjectMapper(),
+				(MilvusAgentVectorStoreService) agentVectorStoreService);
 	}
 
 }

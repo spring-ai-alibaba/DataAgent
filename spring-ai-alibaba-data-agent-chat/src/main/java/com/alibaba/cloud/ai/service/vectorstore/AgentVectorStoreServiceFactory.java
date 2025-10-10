@@ -18,11 +18,14 @@ package com.alibaba.cloud.ai.service.vectorstore;
 
 import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.service.vectorstore.impls.AnalyticAgentVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.MilvusAgentVectorStoreService;
 import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleAgentVectorStoreService;
 import com.alibaba.cloud.ai.vectorstore.analyticdb.AnalyticDbVectorStore;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.milvus.MilvusVectorStore;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,6 +52,9 @@ public class AgentVectorStoreServiceFactory implements FactoryBean<AgentVectorSt
 	@Autowired(required = false)
 	private VectorStore vectorStore;
 
+	@Autowired
+	private BatchingStrategy batchingStrategy;
+
 	@FunctionalInterface
 	private interface AgentVectorStoreServiceCreator {
 
@@ -63,11 +69,9 @@ public class AgentVectorStoreServiceFactory implements FactoryBean<AgentVectorSt
 
 	public AgentVectorStoreServiceFactory() {
 		// 初始化各种向量存储类型的创建策略
-		// 这里使用显式的匿名类实现而不是方法引用，以提高代码可读性
 		serviceCreators.put(VectorStoreType.ANALYTIC_DB, this::createAnalyticAgentVectorStoreService);
-
 		serviceCreators.put(VectorStoreType.SIMPLE, this::createSimpleAgentVectorStoreService);
-
+		serviceCreators.put(VectorStoreType.MILVUS, this::createMilvusAgentVectorStoreService);
 		// TODO 后续其他向量存储类型扩展处
 
 	}
@@ -99,8 +103,8 @@ public class AgentVectorStoreServiceFactory implements FactoryBean<AgentVectorSt
 		if (!(vectorStore instanceof AnalyticDbVectorStore)) {
 			throw new IllegalStateException("VectorStore is not an instance of AnalyticDbVectorStore");
 		}
-		return new AnalyticAgentVectorStoreService(embeddingModel, (AnalyticDbVectorStore) vectorStore,
-				accessorFactory);
+		return new AnalyticAgentVectorStoreService(embeddingModel, (AnalyticDbVectorStore) vectorStore, accessorFactory,
+				batchingStrategy);
 	}
 
 	/**
@@ -109,7 +113,17 @@ public class AgentVectorStoreServiceFactory implements FactoryBean<AgentVectorSt
 	 */
 	private AgentVectorStoreService createSimpleAgentVectorStoreService() {
 		log.info("Using SimpleVectorStoreService");
-		return new SimpleAgentVectorStoreService(embeddingModel, accessorFactory);
+		return new SimpleAgentVectorStoreService(embeddingModel, accessorFactory, batchingStrategy);
+	}
+
+	private AgentVectorStoreService createMilvusAgentVectorStoreService() {
+		if (vectorStore == null)
+			throw new IllegalStateException("MilvusVectorStore is not configured. Please check your configuration.");
+		log.info("Using MilvusAgentVectorStoreService");
+		if (!(vectorStore instanceof MilvusVectorStore))
+			throw new IllegalStateException("VectorStore is not an instance of MilvusVectorStore");
+		return new MilvusAgentVectorStoreService(accessorFactory, (MilvusVectorStore) vectorStore, embeddingModel,
+				batchingStrategy);
 	}
 
 }
