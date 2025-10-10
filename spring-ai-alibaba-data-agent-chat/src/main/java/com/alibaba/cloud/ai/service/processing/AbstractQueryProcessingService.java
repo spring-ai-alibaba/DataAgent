@@ -137,10 +137,10 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 		logger.debug("Time rewritten query: {} -> {}", query, timeRewrittenQuery);
 
 		List<String> evidences = extractEvidences(timeRewrittenQuery, agentId);
-		logger.debug("Extracted {} evidences for rewriteStream", evidences.size());
+		logger.debug("Extracted {} evidences for rewriteStream, they are {}", evidences.size(), evidences);
 		SchemaDTO schemaDTO = select(timeRewrittenQuery, evidences, agentId);
 		String prompt = PromptHelper.buildRewritePrompt(timeRewrittenQuery, schemaDTO, evidences);
-		logger.debug("Built rewrite prompt for streaming");
+		logger.debug("Built rewrite prompt for streaming, prompt is as follows \n {}", prompt);
 		Flux<ChatResponse> result = aiService.streamCall(prompt);
 		logger.info("RewriteStream completed for query: {}", query);
 		return result;

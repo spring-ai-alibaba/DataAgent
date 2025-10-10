@@ -30,6 +30,7 @@ import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -78,7 +79,7 @@ public class SchemaRecallNode implements NodeAction {
 		// If agentId exists, use agent-specific search, otherwise use global search
 		if (agentId != null && !agentId.trim().isEmpty()) {
 			logger.info("Using agent-specific schema recall for agent: {}", agentId);
-			tableDocuments = schemaService.getTableDocumentsForAgent(agentId, input);
+			tableDocuments = new ArrayList<>(schemaService.getTableDocumentsForAgent(agentId, input));
 			columnDocumentsByKeywords = schemaService.getColumnDocumentsByKeywordsForAgent(agentId, keywords);
 		}
 		else {

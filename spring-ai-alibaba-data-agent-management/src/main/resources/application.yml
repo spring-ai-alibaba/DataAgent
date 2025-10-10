@@ -31,6 +31,25 @@ spring:
         name: xiyan-server    # MCP服务器名称
         version: 0.0.1           # 服务器版本号
     vectorstore:
+      type: simple
+      #milvus配置
+#      milvus:
+#        initialize-schema: true
+#        client:
+#          host: ${MILVUS_HOST:192.168.16.100}
+#          port: ${MILVUS_PORT:19530}
+#          username: ${MILVUS_USERNAME:root}
+#          password: ${MILVUS_PASSWORD}
+#        databaseName: ${MILVUS_DATABASE:default}
+#        collectionName: ${MILVUS_COLLECTION:vector_store}
+#        embeddingDimension: 1536
+#        indexType: IVF_FLAT
+#        metricType: COSINE
+#        id-field-name:
+#        content-field-name:
+#        metadata-field-name:
+#        embedding-field-name:
+
       analytic:
         enabled: false
         collectName: chatBi
@@ -70,3 +89,5 @@ logging:
   level:
     com.alibaba.cloud.ai.mapper: debug
     org.springframework.jdbc: debug
+#    com.alibaba.cloud.ai.node:  debug
+#    com.alibaba.cloud.ai.service.processing.AbstractQueryProcessingService: debug

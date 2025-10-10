@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
+import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import java.util.ArrayList;
@@ -45,7 +46,8 @@ import java.util.stream.Collectors;
  * Schema service base class, providing common method implementations
  */
 @Slf4j
-public abstract class AbstractSchemaService implements SchemaService {
+@Service
+public class SchemaServiceImpl implements SchemaService {
 
 	protected final ObjectMapper objectMapper;
 
@@ -54,7 +56,7 @@ public abstract class AbstractSchemaService implements SchemaService {
 	 */
 	protected final AgentVectorStoreService vectorStoreService;
 
-	public AbstractSchemaService(ObjectMapper objectMapper, AgentVectorStoreService vectorStoreService) {
+	public SchemaServiceImpl(ObjectMapper objectMapper, AgentVectorStoreService vectorStoreService) {
 		this.objectMapper = objectMapper;
 		this.vectorStoreService = vectorStoreService;
 	}
@@ -73,7 +75,7 @@ public abstract class AbstractSchemaService implements SchemaService {
 		extractDatabaseName(schemaDTO, dbConfig); // Set database name or schema name
 
 		// Get table documents
-		List<Document> tableDocuments = getTableDocumentsForAgent(agentId, query);
+		List<Document> tableDocuments = new ArrayList<>(getTableDocumentsForAgent(agentId, query));
 
 		// Get column documents
 		List<List<Document>> columnDocumentList = getColumnDocumentsByKeywordsForAgent(agentId, keywords);

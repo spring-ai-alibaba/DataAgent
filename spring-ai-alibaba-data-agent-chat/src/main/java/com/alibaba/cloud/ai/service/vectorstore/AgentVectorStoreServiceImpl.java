@@ -22,9 +22,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import org.springframework.ai.document.Document;
-import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
@@ -43,23 +44,27 @@ import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public abstract class AbstractAgentVectorStoreService implements AgentVectorStoreService {
+@Service
+public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
+
+	private final VectorStore vectorStore; // 由Spring Boot自动配置
 
 	/**
 	 * 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档
 	 */
-	@Value("${spring.ai.vectorstore.similarityThreshold:0.6}")
+	@Value("${spring.ai.vectorstore.similarityThreshold:0.2}")
 	protected double similarityThreshold;
-
-	/**
-	 * Get embedding model
-	 */
-	protected abstract EmbeddingModel getEmbeddingModel();
 
 	protected final AccessorFactory accessorFactory;
 
-	public AbstractAgentVectorStoreService(AccessorFactory accessorFactory) {
+	protected final BatchingStrategy batchingStrategy;
+
+	public AgentVectorStoreServiceImpl(VectorStore vectorStore, BatchingStrategy batchingStrategy,
+			AccessorFactory accessorFactory) {
+		this.vectorStore = vectorStore;
+		this.batchingStrategy = batchingStrategy;
 		this.accessorFactory = accessorFactory;
+		log.info("VectorStore type: {}", vectorStore.getClass().getSimpleName());
 	}
 
 	@Override
@@ -79,7 +84,7 @@ public abstract class AbstractAgentVectorStoreService implements AgentVectorStor
 		if (StringUtils.hasText(filterFormatted))
 			builder.filterExpression(filterFormatted);
 		builder.similarityThreshold(similarityThreshold);
-		List<Document> results = getVectorStore().similaritySearch(builder.build());
+		List<Document> results = vectorStore.similaritySearch(builder.build());
 		log.info("Search completed. Found {} documents for SearchRequest: {}", results.size(), searchRequest);
 		return results;
 
@@ -117,7 +122,8 @@ public abstract class AbstractAgentVectorStoreService implements AgentVectorStor
 			List<Document> tableDocs = convertTablesToDocuments(agentId, tables);
 
 			// 存储文档
-			return storeSchemaDocuments(columnDocs, tableDocs);
+			storeSchemaDocuments(columnDocs, tableDocs);
+			return true;
 		}
 		catch (Exception e) {
 			log.error("Failed to process schema ", e);
@@ -125,15 +131,18 @@ public abstract class AbstractAgentVectorStoreService implements AgentVectorStor
 		}
 	}
 
-	protected Boolean storeSchemaDocuments(List<Document> columns, List<Document> tables) {
-		try {
-			getVectorStore().add(columns);
-			getVectorStore().add(tables);
-			return true;
+	protected void storeSchemaDocuments(List<Document> columns, List<Document> tables) {
+
+		// 使用批处理策略处理列文档
+		List<List<Document>> columnBatches = batchingStrategy.batch(columns);
+		for (List<Document> batch : columnBatches) {
+			vectorStore.add(batch);
 		}
-		catch (Exception e) {
-			log.error("add document to vectorstore error", e);
-			return false;
+
+		// 使用批处理策略处理表文档
+		List<List<Document>> tableBatches = batchingStrategy.batch(tables);
+		for (List<Document> batch : tableBatches) {
+			vectorStore.add(batch);
 		}
 
 	}
@@ -149,8 +158,6 @@ public abstract class AbstractAgentVectorStoreService implements AgentVectorStor
 		}
 		return map;
 	}
-
-	protected abstract VectorStore getVectorStore();
 
 	protected void clearSchemaDataForAgent(String agentId) throws Exception {
 		deleteDocumentsByVectorType(agentId, Constant.COLUMN);
@@ -172,19 +179,64 @@ public abstract class AbstractAgentVectorStoreService implements AgentVectorStor
 	public void addDocuments(String agentId, List<Document> documents) {
 		Assert.notNull(agentId, "AgentId cannot be null.");
 		Assert.notEmpty(documents, "Documents cannot be empty.");
-		getVectorStore().add(documents);
+		vectorStore.add(documents);
 	}
 
 	@Override
 	public int estimateDocuments(String agentId) {
-		// 初略估算文档数目
-		List<Document> docs = getVectorStore()
-			.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
-				.query("")
-				.filterExpression(buildFilterExpressionString(Map.of(Constant.AGENT_ID, agentId)))
-				.topK(Integer.MAX_VALUE) // 获取所有匹配的文档
-				.build());
-		return docs.size();
+		Assert.notNull(agentId, "AgentId cannot be null.");
+
+		// 使用相似度搜索来估计文档数量
+		// 设置一个较大的topK值以获取尽可能多的文档，但避免超过向量数据库的限制
+		int batchSize = 1000;
+		int totalCount = 0;
+		Set<String> seenDocumentIds = new HashSet<>();
+		int newDocumentsCount;
+		int maxIterations = 100; // 设置最大迭代次数，防止死循环
+		int currentIteration = 0;
+
+		do {
+			currentIteration++;
+			if (currentIteration > maxIterations) {
+				log.warn("Reached maximum iterations ({}) while estimating documents for agent: {}", maxIterations,
+						agentId);
+				break;
+			}
+
+			// 使用不同的查询字符串来获取不同的文档集合
+			// 使用迭代次数作为查询的一部分，确保每次查询略有不同
+			String query = currentIteration == 1 ? "" : "iteration_" + currentIteration;
+
+			List<Document> batch = vectorStore
+				.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
+					.query(query)
+					.filterExpression(buildFilterExpressionString(Map.of(Constant.AGENT_ID, agentId)))
+					.topK(batchSize)
+					.similarityThreshold(0.0) // 设置最低相似度阈值以获取所有文档
+					.build());
+
+			// 计算新文档数量
+			newDocumentsCount = 0;
+			for (Document doc : batch) {
+				if (seenDocumentIds.add(doc.getId())) {
+					// 如果add返回true，表示这是一个新的文档ID
+					newDocumentsCount++;
+				}
+			}
+
+			totalCount += newDocumentsCount;
+
+			// 如果这批文档数量小于batchSize，说明已经获取了所有文档
+			// 或者没有新文档，也说明已经获取了所有文档
+			if (batch.size() < batchSize || newDocumentsCount == 0) {
+				break;
+			}
+
+		}
+		while (newDocumentsCount > 0); // 只有当获取到新文档时才继续循环
+
+		log.info("Estimated {} documents for agent: {} after {} iterations", totalCount, agentId, currentIteration);
+		return totalCount;
 	}
 
 	@Override
@@ -199,21 +251,49 @@ public abstract class AbstractAgentVectorStoreService implements AgentVectorStor
 		// TODO 目前不支持通过元数据删除，使用会抛出UnsupportedOperationException，后续spring
 		// TODO ai发布1.1.0正式版本后再修改，现在是通过id删除
 
-		// 先搜索要删除的文档
-		List<Document> documentsToDelete = getVectorStore()
-			.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
-				.query("")
-				.filterExpression(filterExpression)
-				.topK(Integer.MAX_VALUE)
-				.build());
-
-		// 提取文档ID并删除
-		if (!documentsToDelete.isEmpty()) {
-			List<String> idsToDelete = documentsToDelete.stream().map(Document::getId).collect(Collectors.toList());
-			getVectorStore().delete(idsToDelete);
-		}
+		// 搜索和删除文档
+		batchDelDocumentsWithFilter(filterExpression);
 
 		return true;
+	}
+
+	private void batchDelDocumentsWithFilter(String filterExpression) {
+		Set<String> seenDocumentIds = new HashSet<>();
+		int batchSize = 16384;
+		// 分批获取，因为Milvus等向量数据库的topK有限制
+		List<Document> batch;
+		int newDocumentsCount;
+		int totalDeleted = 0;
+
+		do {
+			batch = vectorStore.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
+				.query("")
+				.filterExpression(filterExpression)
+				.topK(batchSize)
+				.build());
+
+			// 过滤掉已经处理过的文档，只删除未处理的文档
+			List<String> idsToDelete = new ArrayList<>();
+			newDocumentsCount = 0;
+
+			for (Document doc : batch) {
+				if (seenDocumentIds.add(doc.getId())) {
+					// 如果add返回true，表示这是一个新的文档ID
+					idsToDelete.add(doc.getId());
+					newDocumentsCount++;
+				}
+			}
+
+			// 删除这批新文档
+			if (!idsToDelete.isEmpty()) {
+				vectorStore.delete(idsToDelete);
+				totalDeleted += idsToDelete.size();
+			}
+
+		}
+		while (newDocumentsCount > 0); // 只有当获取到新文档时才继续循环
+
+		log.info("Deleted {} documents with filter expression: {}", totalDeleted, filterExpression);
 	}
 
 	/**
@@ -306,12 +386,11 @@ public abstract class AbstractAgentVectorStoreService implements AgentVectorStor
 	@Override
 	public boolean hasDocuments(String agentId) {
 		// 类似 MySQL 的 LIMIT 1,只检查是否存在文档
-		List<Document> docs = getVectorStore()
-			.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
-				.query("")
-				.filterExpression(buildFilterExpressionString(Map.of(Constant.AGENT_ID, agentId)))
-				.topK(1) // 只获取1个文档
-				.build());
+		List<Document> docs = vectorStore.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
+			.query("")
+			.filterExpression(buildFilterExpressionString(Map.of(Constant.AGENT_ID, agentId)))
+			.topK(1) // 只获取1个文档
+			.build());
 		return !docs.isEmpty();
 	}
 

@@ -71,7 +71,7 @@
 
 ### 存储与连接
 - 📊 **数据库支持**: MySQL / PostgreSQL
-- 🔍 **向量存储**: AnalyticDB / SimpleVector
+- 🔍 **向量存储**: AnalyticDB / SimpleVector / Milvus(我们欢迎您贡献更多的其他类型向量库支持)
 - 💻 **Python代码执行**: Docker
 
 ### 工具支持
@@ -140,6 +140,12 @@ implementation 'com.alibaba.cloud.ai:spring-ai-alibaba-starter-nl2sql:${spring-a
 - 📝 支持小规模数据场景
 - 🔄 快速迭代和测试
 
+#### 3️⃣ Milvus（适合大规模向量检索）
+- 🔍 专为海量向量数据设计，支持高性能相似性搜索
+- 🌐 支持多种索引类型和距离度量方式
+- 📈 水平扩展能力强，可处理数十亿级向量数据
+- 🛠️ 丰富的生态系统和工具链支持
+
 > 💡 **选择建议**：
 > - 开发测试环境：使用 SimpleVector，简单快捷
 > - 生产环境：使用 AnalyticDB，性能和可靠性更好
@@ -184,6 +190,45 @@ spring:
 </details>
 
 <details>
+
+<summary>📌 Milvus 配置</summary>
+
+```yaml
+spring:
+  ai:
+    vectorstore:
+      type: MILVUS #使用Milvus作为向量存储
+      #下方的都是spring ai 中milvus的配置，可以查看官方文档https://springdoc.cn/spring-ai/api/vectordbs.html
+      milvus:
+        initialize-schema: true #是否初始化向量数据库结构
+        client:
+          host: ${MILVUS_HOST:192.168.16.100}        # Milvus服务器地址
+          port: ${MILVUS_PORT:19530}                  # Milvus服务器端口
+          username: ${MILVUS_USERNAME:root}           # Milvus用户名
+          password: ${MILVUS_PASSWORD}                 # Milvus密码
+        databaseName: ${MILVUS_DATABASE:default}       # 数据库名称
+        collectionName: ${MILVUS_COLLECTION:vector_store}  # 集合名称
+        embeddingDimension: ${EMBEDDING_DIMENSION:1536}  # 向量维度
+        indexType: ${INDEX_TYPE:IVF_FLAT}             # 索引类型
+        metricType: ${METRIC_TYPE:COSINE}             # 相似度度量类型
+        # 可选字段配置，如果是手动创建的集合而不是该项目启动创建的集合请严格填写确保和自己的milvus中的schema一致，否则会导致错误
+        # id-field-name: id                            # ID字段名
+        # content-field-name: content                 # 内容字段名
+        # metadata-field-name: metadata               # 元数据字段名
+        # embedding-field-name: embedding              # 向量字段名
+```
+
+> 💡 **配置说明**：
+> 1. Milvus是一个高性能、高可扩展的向量数据库，专为海量向量数据设计
+> 2. `embeddingDimension`需要与使用的EmbeddingModel生成的向量维度一致，也要和集合中schema的维度一致，我们使用的EmbeddingModel生成的向量维度为1536
+> 3. `indexType`支持多种索引类型：IVF_FLAT、IVF_SQ8、IVF_PQ、HNSW等
+> 4. `metricType`支持多种相似度度量：COSINE、IP（内积）、L2（欧氏距离）
+> 5. 所有敏感信息建议使用环境变量配置，提高安全性
+
+> ⚠️ **注意事项**：
+> 1. 首次使用时，确保`initialize-schema`设置为true以自动创建集合方便测试,生产环境建议关闭 
+> 2. 根据数据规模合理配置索引参数，以平衡查询性能和内存占用
+
 <summary>📌 应用配置</summary>
 
 ```yaml
@@ -465,7 +510,6 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleAgentVectorStoreService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -491,7 +535,7 @@ public class Nl2sqlController {
     private final CompiledGraph compiledGraph;
 
     @Autowired
-    private SimpleAgentVectorStoreService simpleVectorStoreService;
+    private AgentVectorStoreService simpleVectorStoreService;
 
     @Autowired
     private DbConfig dbConfig;
