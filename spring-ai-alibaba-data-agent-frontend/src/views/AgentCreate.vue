@@ -213,8 +213,9 @@
 import { reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseLayout from '../layouts/BaseLayout.vue'
-import { agentApi, fileUploadApi } from '@/services/api'
+import { fileUploadApi } from '@/services/api'
 import { generateRandomAvatar } from '@/utils/avatar'
+import agentService from '@/services/agent'
 
 export default {
   name: 'CreateAgent',
@@ -404,10 +405,10 @@ export default {
           status: agentForm.status
         }
 
-        const result = await agentApi.create(agentData)
+        const result = await agentService.create(agentData)
         
         alert(`智能体创建成功！状态：${agentData.status === 'published' ? '已发布' : '草稿'}`)
-        router.push(`/agent/${result.id}`)
+        await router.push(`/agent/${result.id}`)
       } catch (error) {
         console.error('创建智能体失败:', error)
         alert('创建失败，请重试')

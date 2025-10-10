@@ -13,41 +13,49 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dto;
+package com.alibaba.cloud.ai.entity;
 
-import com.alibaba.cloud.ai.entity.BusinessKnowledge;
+import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 /**
- * Business knowledge management entity class
+ * Business Knowledge Management Entity Class
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class BusinessKnowledgeDTO {
+public class BusinessKnowledge {
+
+	private Long id;
 
 	private String businessTerm; // Business term
 
 	private String description; // Description
 
-	private String synonyms; // Synonyms, comma separated
+	private String synonyms; // Synonyms, comma-separated
 
 	@Builder.Default
 	private Boolean isRecall = true; // is recall
 
 	private Long agentId; // Associated agent ID
 
-	public BusinessKnowledge toEntity() {
-		return BusinessKnowledge.builder()
-			.businessTerm(businessTerm)
-			.description(description)
-			.synonyms(synonyms)
-			.isRecall(isRecall)
-			.agentId(agentId)
+	private LocalDateTime createTime;
+
+	private LocalDateTime updateTime;
+
+	public BusinessKnowledgeDTO toDTO() {
+		return BusinessKnowledgeDTO.builder()
+			.businessTerm(this.businessTerm)
+			.description(this.description)
+			.synonyms(this.synonyms)
+			.isRecall(this.isRecall)
+			.agentId(this.agentId)
 			.build();
 	}
 
