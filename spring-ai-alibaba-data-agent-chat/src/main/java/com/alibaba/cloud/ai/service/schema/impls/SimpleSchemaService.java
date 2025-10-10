@@ -15,38 +15,14 @@
  */
 package com.alibaba.cloud.ai.service.schema.impls;
 
-import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.alibaba.cloud.ai.request.SearchRequest;
 import com.alibaba.cloud.ai.service.schema.AbstractSchemaService;
-import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleAgentVectorStoreService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.ai.document.Document;
-
-import java.util.List;
-import java.util.Map;
 
 public class SimpleSchemaService extends AbstractSchemaService {
 
-	public SimpleSchemaService(DbConfig dbConfig, ObjectMapper objectMapper, VectorStoreService vectorStoreService) {
-		super(dbConfig, objectMapper, vectorStoreService);
-	}
-
-	@Override
-	protected void addTableDocument(List<Document> tableDocuments, String tableName, String vectorType) {
-		handleDocumentQuery(tableDocuments, tableName, vectorType, name -> {
-			SearchRequest req = new SearchRequest();
-			req.setName(name);
-			return req;
-		}, vectorStoreService::searchTableByNameAndVectorType);
-	}
-
-	@Override
-	protected void addColumnsDocument(Map<String, Document> weightedColumns, String tableName, String vectorType) {
-		handleDocumentQuery(weightedColumns, tableName, vectorType, name -> {
-			SearchRequest req = new SearchRequest();
-			req.setName(name);
-			return req;
-		}, vectorStoreService::searchTableByNameAndVectorType);
+	public SimpleSchemaService(ObjectMapper objectMapper, SimpleAgentVectorStoreService vectorStoreService) {
+		super(objectMapper, vectorStoreService);
 	}
 
 }

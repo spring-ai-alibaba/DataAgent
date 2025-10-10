@@ -13,20 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service;
 
-import com.alibaba.cloud.ai.request.DeleteRequest;
-import com.alibaba.cloud.ai.request.EvidenceRequest;
-import com.alibaba.cloud.ai.request.SchemaInitRequest;
+package com.alibaba.cloud.ai.service.vectorstore;
 
-import java.util.List;
+/**
+ * 向量存储类型枚举 用于配置使用哪种向量存储实现
+ */
+public enum VectorStoreType {
 
-public interface VectorStoreManagementService {
+	/**
+	 * 简单向量存储（内存存储）
+	 */
+	SIMPLE,
 
-	Boolean addEvidence(List<EvidenceRequest> evidenceRequests);
+	/**
+	 * 分析型数据库向量存储
+	 */
+	ANALYTIC_DB,
 
-	Boolean deleteDocuments(DeleteRequest deleteRequest) throws Exception;
+	/**
+	 * Milvus 向量存储
+	 */
+	MILVUS,
 
-	Boolean schema(SchemaInitRequest schemaInitRequest) throws Exception;
+	/**
+	 * PostgreSQL PGVector 向量存储
+	 */
+	PGVECTOR
 
 }

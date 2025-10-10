@@ -15,45 +15,17 @@
  */
 package com.alibaba.cloud.ai.service.schema.impls;
 
-import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.alibaba.cloud.ai.request.SearchRequest;
 import com.alibaba.cloud.ai.service.schema.AbstractSchemaService;
-import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.AnalyticAgentVectorStoreService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.ai.document.Document;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * Schema building service, supports RAG-based hybrid queries.
  */
 public class AnalyticSchemaService extends AbstractSchemaService {
 
-	public AnalyticSchemaService(DbConfig dbConfig, ObjectMapper objectMapper, VectorStoreService vectorStoreService) {
-		super(dbConfig, objectMapper, vectorStoreService);
-	}
-
-	@Override
-	protected void addTableDocument(List<Document> tableDocuments, String tableName, String vectorType) {
-		handleDocumentQuery(tableDocuments, tableName, vectorType, name -> {
-			SearchRequest req = new SearchRequest();
-			req.setQuery(null);
-			req.setFilterFormatted("jsonb_extract_path_text(metadata, 'vectorType') = '" + vectorType
-					+ "' and refdocid = '" + name + "'");
-			return req;
-		}, vectorStoreService::searchWithFilter);
-	}
-
-	@Override
-	protected void addColumnsDocument(Map<String, Document> weightedColumns, String columnName, String vectorType) {
-		handleDocumentQuery(weightedColumns, columnName, vectorType, name -> {
-			SearchRequest req = new SearchRequest();
-			req.setQuery(null);
-			req.setFilterFormatted("jsonb_extract_path_text(metadata, 'vectorType') = '" + vectorType
-					+ "' and refdocid = '" + name + "'");
-			return req;
-		}, vectorStoreService::searchWithFilter);
+	public AnalyticSchemaService(ObjectMapper objectMapper, AnalyticAgentVectorStoreService vectorStoreService) {
+		super(objectMapper, vectorStoreService);
 	}
 
 }

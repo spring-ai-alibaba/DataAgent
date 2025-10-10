@@ -49,7 +49,8 @@
 
         <!-- Maven Compiler Plugin -->
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
-
+        <!--        spotless version-->
+        <spotless-maven-plugin.version>2.44.5</spotless-maven-plugin.version>
         <docker-java.version>3.5.3</docker-java.version>
         <gpdb.version>3.0.0</gpdb.version>
         <druid.version>1.2.22</druid.version>
@@ -246,6 +247,24 @@
                             <goal>check</goal>
                         </goals>
                         <phase>validate</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless-maven-plugin.version}</version>
+                <configuration>
+                    <java>
+                        <removeUnusedImports/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>apply</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

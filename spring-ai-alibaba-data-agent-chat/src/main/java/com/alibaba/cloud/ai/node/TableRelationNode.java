@@ -20,7 +20,6 @@ import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.dto.SemanticModelDTO;
-import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -32,6 +31,7 @@ import com.alibaba.cloud.ai.service.business.BusinessKnowledgeRecallService;
 import com.alibaba.cloud.ai.service.schema.SchemaService;
 import com.alibaba.cloud.ai.service.semantic.SemanticModelRecallService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
@@ -40,6 +40,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -98,21 +99,20 @@ public class TableRelationNode implements NodeAction {
 				COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT);
 		String dataSetId = StateUtil.getStringValue(state, Constant.AGENT_ID);
 		String agentIdStr = StateUtil.getStringValue(state, AGENT_ID);
-		long agentId = -1L;
-		if (!agentIdStr.isEmpty()) {
-			agentId = Long.parseLong(agentIdStr);
-		}
+		if (!StringUtils.hasText(agentIdStr))
+			throw new RuntimeException("Agent ID is empty.");
 
 		// Execute business logic first - get final result immediately
-		SchemaDTO schemaDTO = buildInitialSchema(columnDocumentsByKeywords, tableDocuments);
-		SchemaDTO result = processSchemaSelection(schemaDTO, input, evidenceList, state);
+		DbConfig agentDbConfig = getAgentDbConfig(Integer.valueOf(agentIdStr));
+		SchemaDTO schemaDTO = buildInitialSchema(agentIdStr, columnDocumentsByKeywords, tableDocuments, agentDbConfig);
+		SchemaDTO result = processSchemaSelection(schemaDTO, input, evidenceList, state, agentDbConfig);
 
 		List<BusinessKnowledgeDTO> businessKnowledges;
 		List<SemanticModelDTO> semanticModel;
 		try {
 			// Extract business knowledge and semantic model
 			businessKnowledges = businessKnowledgeRecallService.getFieldByDataSetId(dataSetId);
-			semanticModel = semanticModelRecallService.getFieldByDataSetId(String.valueOf(agentId));
+			semanticModel = semanticModelRecallService.getFieldByDataSetId(dataSetId);
 		}
 		catch (DataAccessException e) {
 			logger.warn("Database query failed (attempt {}): {}", retryCount + 1, e.getMessage());
@@ -164,59 +164,27 @@ public class TableRelationNode implements NodeAction {
 	/**
 	 * Builds initial schema from column and table documents.
 	 */
-	private SchemaDTO buildInitialSchema(List<List<Document>> columnDocumentsByKeywords,
-			List<Document> tableDocuments) {
+	private SchemaDTO buildInitialSchema(String agentId, List<List<Document>> columnDocumentsByKeywords,
+			List<Document> tableDocuments, DbConfig agentDbConfig) {
 		SchemaDTO schemaDTO = new SchemaDTO();
-		schemaService.extractDatabaseName(schemaDTO);
-		schemaService.buildSchemaFromDocuments(columnDocumentsByKeywords, tableDocuments, schemaDTO);
+
+		schemaService.extractDatabaseName(schemaDTO, agentDbConfig);
+		schemaService.buildSchemaFromDocuments(agentId, columnDocumentsByKeywords, tableDocuments, schemaDTO);
 		return schemaDTO;
 	}
 
-	/**
-	 * Dynamically get the data source configuration for an agent
-	 * @param state The state object containing the agent ID
-	 * @return The database configuration corresponding to the agent, or null if not found
-	 */
-	private DbConfig getAgentDbConfig(OverAllState state) {
-		try {
-			// Get the agent ID from the state
-			String agentIdStr = StateUtil.getStringValue(state, Constant.AGENT_ID, null);
-			if (agentIdStr == null || agentIdStr.trim().isEmpty()) {
-				logger.debug("AgentId is null or empty, will use default dbConfig");
-				return null;
-			}
+	private DbConfig getAgentDbConfig(Integer agentId) {
+		// Get the enabled data source for the agent
+		Datasource agentDatasource = datasourceService.getActiveDatasourceByAgentId(agentId);
+		if (agentDatasource == null)
+			throw new RuntimeException("No active datasource found for agent " + agentId);
 
-			Integer agentId = Integer.valueOf(agentIdStr);
-			logger.debug("Getting datasource config for agent: {}", agentId);
+		// Convert to DbConfig
+		DbConfig dbConfig = SchemaProcessorUtil.createDbConfigFromDatasource(agentDatasource);
+		logger.debug("Successfully created DbConfig for agent {}: url={}, schema={}, type={}", agentId,
+				dbConfig.getUrl(), dbConfig.getSchema(), dbConfig.getDialectType());
 
-			// Get the enabled data source for the agent
-			List<AgentDatasource> agentDatasources = datasourceService.getAgentDatasources(agentId);
-			if (agentDatasources.isEmpty()) {
-				// TODO 调试AgentID不一致，暂时手动处理
-				agentDatasources = datasourceService.getAgentDatasources(agentId - 999999);
-			}
-
-			AgentDatasource activeDatasource = agentDatasources.stream()
-				.filter(ad -> ad.getIsActive() == 1)
-				.findFirst()
-				.orElse(null);
-
-			if (activeDatasource == null) {
-				logger.debug("Agent {} has no active datasource, will use default dbConfig", agentId);
-				return null;
-			}
-
-			// Convert to DbConfig
-			DbConfig dbConfig = createDbConfigFromDatasource(activeDatasource.getDatasource());
-			logger.debug("Successfully created DbConfig for agent {}: url={}, schema={}, type={}", agentId,
-					dbConfig.getUrl(), dbConfig.getSchema(), dbConfig.getDialectType());
-
-			return dbConfig;
-		}
-		catch (Exception e) {
-			logger.warn("Failed to get agent datasource config, will use default dbConfig: {}", e.getMessage());
-			return null;
-		}
+		return dbConfig;
 	}
 
 	/**
@@ -255,12 +223,8 @@ public class TableRelationNode implements NodeAction {
 	 * Processes schema selection based on input, evidence, and optional advice.
 	 */
 	private SchemaDTO processSchemaSelection(SchemaDTO schemaDTO, String input, List<String> evidenceList,
-			OverAllState state) {
+			OverAllState state, DbConfig agentDbConfig) {
 		String schemaAdvice = StateUtil.getStringValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE, null);
-
-		// 动态获取Agent对应的数据库配置
-		DbConfig agentDbConfig = getAgentDbConfig(state);
-		logger.debug("Using agent-specific dbConfig: {}", agentDbConfig != null ? agentDbConfig.getUrl() : "default");
 
 		if (schemaAdvice != null) {
 			logger.info("[{}] Processing with schema supplement advice: {}", this.getClass().getSimpleName(),

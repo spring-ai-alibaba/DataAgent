@@ -28,7 +28,6 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -127,13 +126,10 @@ public class AgentStartupInitializationService implements ApplicationRunner, Dis
 		try {
 			Long agentId = agent.getId();
 
-			Map<String, Object> statistics = agentVectorService.getVectorStatistics(agentId);
-			boolean hasData = (Boolean) statistics.getOrDefault("hasData", false);
-			int documentCount = (Integer) statistics.getOrDefault("documentCount", 0);
+			boolean hasData = agentVectorService.isAlreadyInitialized(agentId);
 
-			if (hasData && documentCount > 0) {
-				log.info("Agent {} already has vector data (documents: {}), skipping initialization", agentId,
-						documentCount);
+			if (hasData) {
+				log.info("Agent {} already has vector data , skipping initialization", agentId);
 				return true;
 			}
 
