@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.service.schema.impls;
 
 import com.alibaba.cloud.ai.service.schema.AbstractSchemaService;
-import com.alibaba.cloud.ai.service.vectorstore.impls.AnalyticVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.AnalyticAgentVectorStoreService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -24,7 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class AnalyticSchemaService extends AbstractSchemaService {
 
-	public AnalyticSchemaService(ObjectMapper objectMapper, AnalyticVectorStoreService vectorStoreService) {
+	public AnalyticSchemaService(ObjectMapper objectMapper, AnalyticAgentVectorStoreService vectorStoreService) {
 		super(objectMapper, vectorStoreService);
 	}
 

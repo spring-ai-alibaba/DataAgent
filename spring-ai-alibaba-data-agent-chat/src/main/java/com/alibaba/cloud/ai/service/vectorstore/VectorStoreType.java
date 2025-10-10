@@ -13,16 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service.schema.impls;
 
-import com.alibaba.cloud.ai.service.schema.AbstractSchemaService;
-import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleAgentVectorStoreService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+package com.alibaba.cloud.ai.service.vectorstore;
 
-public class SimpleSchemaService extends AbstractSchemaService {
+/**
+ * 向量存储类型枚举 用于配置使用哪种向量存储实现
+ */
+public enum VectorStoreType {
 
-	public SimpleSchemaService(ObjectMapper objectMapper, SimpleAgentVectorStoreService vectorStoreService) {
-		super(objectMapper, vectorStoreService);
-	}
+	/**
+	 * 简单向量存储（内存存储）
+	 */
+	SIMPLE,
+
+	/**
+	 * 分析型数据库向量存储
+	 */
+	ANALYTIC_DB,
+
+	/**
+	 * Milvus 向量存储
+	 */
+	MILVUS,
+
+	/**
+	 * PostgreSQL PGVector 向量存储
+	 */
+	PGVECTOR
 
 }

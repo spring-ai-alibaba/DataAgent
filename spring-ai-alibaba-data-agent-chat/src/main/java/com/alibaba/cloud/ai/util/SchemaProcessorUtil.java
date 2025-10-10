@@ -94,7 +94,7 @@ public class SchemaProcessorUtil {
 		dbConfig.setUsername(datasource.getUsername());
 		dbConfig.setPassword(datasource.getPassword());
 
-		// Set database type
+		// TODO Set database type need to be optimized
 		if ("mysql".equalsIgnoreCase(datasource.getType())) {
 			dbConfig.setConnectionType("jdbc");
 			dbConfig.setDialectType("mysql");

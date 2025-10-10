@@ -43,7 +43,7 @@ import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public abstract class AbstractVectorStoreService implements AgentVectorStoreService {
+public abstract class AbstractAgentVectorStoreService implements AgentVectorStoreService {
 
 	/**
 	 * 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档
@@ -58,7 +58,7 @@ public abstract class AbstractVectorStoreService implements AgentVectorStoreServ
 
 	protected final AccessorFactory accessorFactory;
 
-	public AbstractVectorStoreService(AccessorFactory accessorFactory) {
+	public AbstractAgentVectorStoreService(AccessorFactory accessorFactory) {
 		this.accessorFactory = accessorFactory;
 	}
 

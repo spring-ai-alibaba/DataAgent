@@ -16,20 +16,20 @@
 
 package com.alibaba.cloud.ai.service.vectorstore.impls;
 
+import com.alibaba.cloud.ai.service.vectorstore.AbstractAgentVectorStoreService;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.VectorStore;
 
 import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.service.vectorstore.AbstractVectorStoreService;
 import com.alibaba.cloud.ai.vectorstore.analyticdb.AnalyticDbVectorStore;
 
-public class AnalyticVectorStoreService extends AbstractVectorStoreService {
+public class AnalyticAgentVectorStoreService extends AbstractAgentVectorStoreService {
 
 	private final EmbeddingModel embeddingModel;
 
 	private final AnalyticDbVectorStore analyticDbVectorStore;
 
-	public AnalyticVectorStoreService(EmbeddingModel embeddingModel, AnalyticDbVectorStore vectorStore,
+	public AnalyticAgentVectorStoreService(EmbeddingModel embeddingModel, AnalyticDbVectorStore vectorStore,
 			AccessorFactory accessorFactory) {
 		super(accessorFactory);
 		this.embeddingModel = embeddingModel;
