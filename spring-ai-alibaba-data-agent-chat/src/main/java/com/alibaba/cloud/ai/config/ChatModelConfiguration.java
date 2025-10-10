@@ -21,7 +21,9 @@ import com.alibaba.cloud.ai.dashscope.embedding.DashScopeEmbeddingModel;
 import com.alibaba.cloud.ai.dashscope.embedding.DashScopeEmbeddingOptions;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.document.Document;
 import org.springframework.ai.document.MetadataMode;
+import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -35,6 +37,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * AI 模型配置类
@@ -143,6 +148,29 @@ public class ChatModelConfiguration {
 		OpenAiApi openAiApi = builder.build();
 		OpenAiEmbeddingOptions options = OpenAiEmbeddingOptions.builder().model(openAiEmbeddingModel).build();
 		return new OpenAiEmbeddingModel(openAiApi, MetadataMode.EMBED, options);
+	}
+
+	@Bean
+	public BatchingStrategy customBatchingStrategy() {
+		return new CustomBatchingStrategy();
+	}
+
+	public static class CustomBatchingStrategy implements BatchingStrategy {
+
+		@Override
+		public List<List<Document>> batch(List<Document> documents) {
+			// TODO 后续优化下分批逻辑，目前dashscope的embedding接口一次只能处理25个documents
+			int batchSize = 25;
+			List<List<Document>> batches = new ArrayList<>();
+
+			for (int i = 0; i < documents.size(); i += batchSize) {
+				int end = Math.min(i + batchSize, documents.size());
+				batches.add(documents.subList(i, end));
+			}
+
+			return batches;
+		}
+
 	}
 
 }

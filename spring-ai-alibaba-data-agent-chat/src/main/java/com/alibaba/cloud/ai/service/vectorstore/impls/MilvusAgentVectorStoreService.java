@@ -16,35 +16,34 @@
 
 package com.alibaba.cloud.ai.service.vectorstore.impls;
 
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.service.vectorstore.AbstractAgentVectorStoreService;
 import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.milvus.MilvusVectorStore;
 
-import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.vectorstore.analyticdb.AnalyticDbVectorStore;
+public class MilvusAgentVectorStoreService extends AbstractAgentVectorStoreService {
 
-public class AnalyticAgentVectorStoreService extends AbstractAgentVectorStoreService {
+	private final MilvusVectorStore milvusVectorStore;
 
 	private final EmbeddingModel embeddingModel;
 
-	private final AnalyticDbVectorStore analyticDbVectorStore;
-
-	public AnalyticAgentVectorStoreService(EmbeddingModel embeddingModel, AnalyticDbVectorStore vectorStore,
-			AccessorFactory accessorFactory, BatchingStrategy batchingStrategy) {
+	public MilvusAgentVectorStoreService(AccessorFactory accessorFactory, MilvusVectorStore milvusVectorStore,
+			EmbeddingModel embeddingModel, BatchingStrategy batchingStrategy) {
 		super(batchingStrategy, accessorFactory);
+		this.milvusVectorStore = milvusVectorStore;
 		this.embeddingModel = embeddingModel;
-		this.analyticDbVectorStore = vectorStore;
 	}
 
 	@Override
 	protected EmbeddingModel getEmbeddingModel() {
-		return embeddingModel;
+		return this.embeddingModel;
 	}
 
 	@Override
 	protected VectorStore getVectorStore() {
-		return analyticDbVectorStore;
+		return this.milvusVectorStore;
 	}
 
 }

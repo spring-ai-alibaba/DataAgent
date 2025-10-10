@@ -22,6 +22,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import org.springframework.ai.document.Document;
+import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
@@ -58,7 +59,10 @@ public abstract class AbstractAgentVectorStoreService implements AgentVectorStor
 
 	protected final AccessorFactory accessorFactory;
 
-	public AbstractAgentVectorStoreService(AccessorFactory accessorFactory) {
+	protected final BatchingStrategy batchingStrategy;
+
+	public AbstractAgentVectorStoreService(BatchingStrategy batchingStrategy, AccessorFactory accessorFactory) {
+		this.batchingStrategy = batchingStrategy;
 		this.accessorFactory = accessorFactory;
 	}
 
@@ -117,7 +121,8 @@ public abstract class AbstractAgentVectorStoreService implements AgentVectorStor
 			List<Document> tableDocs = convertTablesToDocuments(agentId, tables);
 
 			// 存储文档
-			return storeSchemaDocuments(columnDocs, tableDocs);
+			storeSchemaDocuments(columnDocs, tableDocs);
+			return true;
 		}
 		catch (Exception e) {
 			log.error("Failed to process schema ", e);
@@ -125,15 +130,18 @@ public abstract class AbstractAgentVectorStoreService implements AgentVectorStor
 		}
 	}
 
-	protected Boolean storeSchemaDocuments(List<Document> columns, List<Document> tables) {
-		try {
-			getVectorStore().add(columns);
-			getVectorStore().add(tables);
-			return true;
+	protected void storeSchemaDocuments(List<Document> columns, List<Document> tables) {
+
+		// 使用批处理策略处理列文档
+		List<List<Document>> columnBatches = batchingStrategy.batch(columns);
+		for (List<Document> batch : columnBatches) {
+			getVectorStore().add(batch);
 		}
-		catch (Exception e) {
-			log.error("add document to vectorstore error", e);
-			return false;
+
+		// 使用批处理策略处理表文档
+		List<List<Document>> tableBatches = batchingStrategy.batch(tables);
+		for (List<Document> batch : tableBatches) {
+			getVectorStore().add(batch);
 		}
 
 	}
@@ -200,12 +208,7 @@ public abstract class AbstractAgentVectorStoreService implements AgentVectorStor
 		// TODO ai发布1.1.0正式版本后再修改，现在是通过id删除
 
 		// 先搜索要删除的文档
-		List<Document> documentsToDelete = getVectorStore()
-			.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
-				.query("")
-				.filterExpression(filterExpression)
-				.topK(Integer.MAX_VALUE)
-				.build());
+		List<Document> documentsToDelete = getAllDocumentsWithFilter(filterExpression);
 
 		// 提取文档ID并删除
 		if (!documentsToDelete.isEmpty()) {
@@ -214,6 +217,25 @@ public abstract class AbstractAgentVectorStoreService implements AgentVectorStor
 		}
 
 		return true;
+	}
+
+	private List<Document> getAllDocumentsWithFilter(String filterExpression) {
+		List<Document> allDocuments = new ArrayList<>();
+		int batchSize = 16384;
+		// 分批获取，因为milvus的topK限制为16384
+		List<Document> batch;
+		do {
+			batch = getVectorStore().similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
+				.query("")
+				.filterExpression(filterExpression)
+				.topK(batchSize)
+				.build());
+			if (!batch.isEmpty())
+				allDocuments.addAll(batch);
+		}
+		while (!batch.isEmpty());
+
+		return allDocuments;
 	}
 
 	/**

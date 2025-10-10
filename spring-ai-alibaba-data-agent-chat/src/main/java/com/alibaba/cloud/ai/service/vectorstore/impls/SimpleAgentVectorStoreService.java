@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.service.vectorstore.impls;
 
+import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -28,8 +29,9 @@ public class SimpleAgentVectorStoreService extends AbstractAgentVectorStoreServi
 
 	private final EmbeddingModel embeddingModel;
 
-	public SimpleAgentVectorStoreService(EmbeddingModel embeddingModel, AccessorFactory accessorFactory) {
-		super(accessorFactory);
+	public SimpleAgentVectorStoreService(EmbeddingModel embeddingModel, AccessorFactory accessorFactory,
+			BatchingStrategy batchingStrategy) {
+		super(batchingStrategy, accessorFactory);
 		this.embeddingModel = embeddingModel;
 		this.vectorStore = SimpleVectorStore.builder(embeddingModel).build();
 	}
