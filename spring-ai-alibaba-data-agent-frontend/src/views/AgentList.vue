@@ -142,8 +142,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseLayout from '@/layouts/BaseLayout.vue'
-import { agentApi } from '@/services/api'
 import { ElMessage } from 'element-plus'
+import agentService from '@/services/agent'
 
 export default {
   name: 'AgentList',
@@ -187,7 +187,7 @@ export default {
     const loadAgents = async () => {
       loading.value = true
       try {
-          const response = await agentApi.getList()
+          const response = await agentService.list()
           agents.value = response || []
       } catch (error) {
         ElMessage.error('获取智能体列表失败，请检查网络！')

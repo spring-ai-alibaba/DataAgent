@@ -38,8 +38,4 @@ public interface QueryProcessingService {
 		return extractEvidences(query, null);
 	}
 
-	default Flux<ChatResponse> rewriteStream(String query) throws Exception {
-		return rewriteStream(query, null);
-	}
-
 }
