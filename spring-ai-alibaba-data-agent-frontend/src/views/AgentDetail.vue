@@ -26,8 +26,8 @@
           <el-col :span="1" style="text-align: left;">
             <el-avatar :src="agent.avatar" size="large">{{ agent.name }}</el-avatar>
           </el-col>
-          <el-col :span="3" style="text-align: left;">
-            <h1>{{ agent.name }}</h1>
+          <el-col :span="30" style="text-align: left;">
+            <h2>{{ agent.name }}</h2>
           </el-col>
         </el-row>
         <el-divider/>
@@ -87,7 +87,7 @@
           <AgentBaseSetting v-if="activeMenuIndex === 'basic'" :agent="agent"></AgentBaseSetting>
           <AgentDataSourceConfig v-if="activeMenuIndex === 'datasource'" :agent-id="agent.id"></AgentDataSourceConfig>
           <AgentPromptConfig v-if="activeMenuIndex === 'prompt'" :agent-prompt="agent.prompt"></AgentPromptConfig>
-          <AgentKnowledgeConfig v-if="activeMenuIndex === 'business-knowledge'"></AgentKnowledgeConfig>
+          <AgentKnowledgeConfig v-if="activeMenuIndex === 'business-knowledge'" :agent-id="agent.id"></AgentKnowledgeConfig>
           <AgentSemanticsConfig v-if="activeMenuIndex === 'semantic-model'"></AgentSemanticsConfig>
           <AgentPresetsConfig v-if="activeMenuIndex === 'preset-questions'"></AgentPresetsConfig>
           <AgentAccessApi v-if="activeMenuIndex === 'access-api'"></AgentAccessApi>
