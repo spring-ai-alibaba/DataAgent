@@ -104,13 +104,13 @@ import { ElMessage } from 'element-plus'
 import AgentService from '@/services/agent'
 import { ArrowLeft, InfoFilled, Coin, ChatLineSquare, User, Suitcase, Setting, VideoPlay, Connection } from '@element-plus/icons-vue'
 import BaseLayout from '@/layouts/BaseLayout.vue'
-import AgentBaseSetting from '@/components/agent/AgentBaseSetting.vue'
-import AgentPromptConfig from '@/components/agent/AgentPromptConfig.vue'
-import AgentKnowledgeConfig from '@/components/agent/AgentKnowledgeConfig.vue'
-import AgentSemanticsConfig from '@/components/agent/AgentSemanticsConfig.vue'
-import AgentPresetsConfig from '@/components/agent/AgentPresetsConfig.vue'
-import AgentAccessApi from "@/components/agent/AgentAccessApi.vue"
-import AgentDataSourceConfig from '@/components/agent/AgentDataSourceConfig.vue'
+import AgentBaseSetting from '@/components/agent/BaseSetting.vue'
+import AgentPromptConfig from '@/components/agent/PromptConfig.vue'
+import AgentKnowledgeConfig from '@/components/agent/BusinessKnowledgeConfig.vue'
+import AgentSemanticsConfig from "@/components/agent/SemanticsConfig.vue"
+import AgentPresetsConfig from '@/components/agent/PresetsConfig.vue'
+import AgentAccessApi from "@/components/agent/AccessApi.vue"
+import AgentDataSourceConfig from '@/components/agent/DataSourceConfig.vue'
 import { Agent } from '@/services/agent'
 
 export default defineComponent({
