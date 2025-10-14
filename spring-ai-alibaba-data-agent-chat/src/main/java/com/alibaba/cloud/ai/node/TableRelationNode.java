@@ -92,7 +92,8 @@ public class TableRelationNode implements NodeAction {
 		int retryCount = StateUtil.getObjectValue(state, TABLE_RELATION_RETRY_COUNT, Integer.class, 0);
 
 		// Get necessary input parameters
-		String input = StateUtil.getStringValue(state, INPUT_KEY);
+		String input = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT,
+				StateUtil.getStringValue(state, INPUT_KEY));
 		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);
 		List<Document> tableDocuments = StateUtil.getDocumentList(state, TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT);
 		List<List<Document>> columnDocumentsByKeywords = StateUtil.getDocumentListList(state,

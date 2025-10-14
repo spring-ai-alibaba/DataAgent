@@ -58,7 +58,8 @@ public class PlannerNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		String input = (String) state.value(INPUT_KEY).orElseThrow();
+		String input = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT,
+				StateUtil.getStringValue(state, INPUT_KEY));
 		// 使用经过时间表达式处理的重写查询，如果没有则回退到原始输入
 		String processedQuery = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT, input);
 		logger.info("Using processed query for planning: {}", processedQuery);
