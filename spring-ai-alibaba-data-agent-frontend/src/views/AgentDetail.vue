@@ -85,12 +85,13 @@
         <el-main style="background-color: white;">
         <!-- 右侧内容-->
           <AgentBaseSetting v-if="activeMenuIndex === 'basic'" :agent="agent"></AgentBaseSetting>
-          <AgentDataSourceConfig v-if="activeMenuIndex === 'datasource'" :agent-id="agent.id"></AgentDataSourceConfig>
-          <AgentPromptConfig v-if="activeMenuIndex === 'prompt'" :agent-prompt="agent.prompt"></AgentPromptConfig>
-          <AgentKnowledgeConfig v-if="activeMenuIndex === 'business-knowledge'" :agent-id="agent.id"></AgentKnowledgeConfig>
-          <AgentSemanticsConfig v-if="activeMenuIndex === 'semantic-model'"></AgentSemanticsConfig>
-          <AgentPresetsConfig v-if="activeMenuIndex === 'preset-questions'"></AgentPresetsConfig>
-          <AgentAccessApi v-if="activeMenuIndex === 'access-api'"></AgentAccessApi>
+          <AgentDataSourceConfig v-else-if="activeMenuIndex === 'datasource'" :agent-id="agent.id"></AgentDataSourceConfig>
+          <AgentPromptConfig v-else-if="activeMenuIndex === 'prompt'" :agent-prompt="agent.prompt"></AgentPromptConfig>
+          <AgentKnowledgeConfig v-else-if="activeMenuIndex === 'business-knowledge'" :agent-id="agent.id"></AgentKnowledgeConfig>
+          <AgentSemanticsConfig v-else-if="activeMenuIndex === 'semantic-model'"></AgentSemanticsConfig>
+          <AgentPresetsConfig v-else-if="activeMenuIndex === 'preset-questions'"></AgentPresetsConfig>
+          <AgentAccessApi v-else-if="activeMenuIndex === 'access-api'"></AgentAccessApi>
+          <NotFound v-else></NotFound>
         </el-main>
       </el-container>
     </el-container>
@@ -111,6 +112,7 @@ import AgentSemanticsConfig from "@/components/agent/SemanticsConfig.vue"
 import AgentPresetsConfig from '@/components/agent/PresetsConfig.vue'
 import AgentAccessApi from "@/components/agent/AccessApi.vue"
 import AgentDataSourceConfig from '@/components/agent/DataSourceConfig.vue'
+import NotFound from "@/views/NotFound.vue";
 import { Agent } from '@/services/agent'
 
 export default defineComponent({
@@ -124,6 +126,7 @@ export default defineComponent({
     AgentPresetsConfig,
     AgentAccessApi,
     AgentDataSourceConfig,
+    NotFound,
     InfoFilled,
     Coin,
     ChatLineSquare,

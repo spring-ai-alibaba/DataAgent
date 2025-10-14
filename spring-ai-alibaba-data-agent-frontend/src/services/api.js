@@ -66,16 +66,3 @@ export const fileUploadApi = {
     return upload('/api/upload/file', file, onProgress)
   }
 }
-
-// 文件上传API
-export const uploadAPI = {
-  // 上传头像
-  uploadAvatar(file) {
-    return upload('/api/upload/avatar', file)
-  },
-
-  // 上传文件
-  uploadFile(file, onProgress) {
-    return upload('/api/upload/file', file, onProgress)
-  }
-}
