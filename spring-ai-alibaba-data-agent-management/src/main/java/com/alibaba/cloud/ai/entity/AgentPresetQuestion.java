@@ -45,7 +45,7 @@ public class AgentPresetQuestion {
 		this.agentId = agentId;
 		this.question = question;
 		this.sortOrder = sortOrder;
-		this.isActive = true;
+		this.isActive = false;
 	}
 
 }
