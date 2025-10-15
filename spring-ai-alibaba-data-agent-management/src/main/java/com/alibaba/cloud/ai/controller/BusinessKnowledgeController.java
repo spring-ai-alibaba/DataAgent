@@ -13,20 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.cloud.ai.controller;
 
+import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.entity.BusinessKnowledge;
-import com.alibaba.cloud.ai.service.impl.BusinessKnowledgeService;
+import com.alibaba.cloud.ai.service.business.BusinessKnowledgeService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Business Knowledge Management Controller
- */
-@Controller
+@RestController
 @RequestMapping("/api/business-knowledge")
 @CrossOrigin(origins = "*")
 public class BusinessKnowledgeController {
@@ -38,27 +46,32 @@ public class BusinessKnowledgeController {
 	}
 
 	@GetMapping
-	@ResponseBody
 	public ResponseEntity<List<BusinessKnowledge>> list(
-			@RequestParam(value = "datasetId", required = false) String datasetId,
+			@RequestParam(value = "agentId", required = false) String agentIdStr,
 			@RequestParam(value = "keyword", required = false) String keyword) {
 		List<BusinessKnowledge> result;
-		if (keyword != null && !keyword.trim().isEmpty()) {
-			result = businessKnowledgeService.search(keyword);
+		Long agentId = null;
+		try {
+			agentId = Long.parseLong(agentIdStr);
 		}
-		else if (datasetId != null && !datasetId.trim().isEmpty()) {
-			result = businessKnowledgeService.findByDatasetId(datasetId);
+		catch (Exception e) {
+			// ignore
+		}
+		if (StringUtils.hasText(keyword) && agentId != null) {
+			result = businessKnowledgeService.searchKnowledge(agentId, keyword);
+		}
+		else if (agentId != null) {
+			result = businessKnowledgeService.getKnowledge(agentId);
 		}
 		else {
-			result = businessKnowledgeService.findAll();
+			result = businessKnowledgeService.getAllKnowledge();
 		}
 		return ResponseEntity.ok(result);
 	}
 
 	@GetMapping("/{id}")
-	@ResponseBody
 	public ResponseEntity<BusinessKnowledge> get(@PathVariable(value = "id") Long id) {
-		BusinessKnowledge knowledge = businessKnowledgeService.findById(id);
+		BusinessKnowledge knowledge = businessKnowledgeService.getKnowledgeById(id);
 		if (knowledge == null) {
 			return ResponseEntity.notFound().build();
 		}
@@ -66,32 +79,35 @@ public class BusinessKnowledgeController {
 	}
 
 	@PostMapping
-	@ResponseBody
-	public ResponseEntity<BusinessKnowledge> create(@RequestBody BusinessKnowledge knowledge) {
-		BusinessKnowledge saved = businessKnowledgeService.save(knowledge);
-		return ResponseEntity.ok(saved);
+	public ResponseEntity<BusinessKnowledge> create(@RequestBody BusinessKnowledgeDTO knowledge) {
+		Long id = businessKnowledgeService.addKnowledge(knowledge);
+		return this.get(id);
 	}
 
 	@PutMapping("/{id}")
-	@ResponseBody
 	public ResponseEntity<BusinessKnowledge> update(@PathVariable(value = "id") Long id,
-			@RequestBody BusinessKnowledge knowledge) {
-		if (businessKnowledgeService.findById(id) == null) {
+			@RequestBody BusinessKnowledgeDTO knowledge) {
+		if (businessKnowledgeService.getKnowledgeById(id) == null) {
 			return ResponseEntity.notFound().build();
 		}
-		knowledge.setId(id);
-		BusinessKnowledge updated = businessKnowledgeService.save(knowledge);
-		return ResponseEntity.ok(updated);
+		businessKnowledgeService.updateKnowledge(id, knowledge);
+		return ResponseEntity.ok(businessKnowledgeService.getKnowledgeById(id));
 	}
 
 	@DeleteMapping("/{id}")
-	@ResponseBody
 	public ResponseEntity<Void> delete(@PathVariable(value = "id") Long id) {
-		if (businessKnowledgeService.findById(id) == null) {
+		if (businessKnowledgeService.getKnowledgeById(id) == null) {
 			return ResponseEntity.notFound().build();
 		}
-		businessKnowledgeService.deleteById(id);
+		businessKnowledgeService.deleteKnowledge(id);
 		return ResponseEntity.ok().build();
+	}
+
+	@PostMapping("/recall/{id}")
+	public ResponseEntity<Boolean> recallKnowledge(@PathVariable(value = "id") Long id,
+			@RequestParam(value = "isRecall") boolean isRecall) {
+		businessKnowledgeService.recallKnowledge(id, isRecall);
+		return ResponseEntity.ok().body(true);
 	}
 
 }

@@ -465,7 +465,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleAgentVectorStoreService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -491,7 +491,7 @@ public class Nl2sqlController {
     private final CompiledGraph compiledGraph;
 
     @Autowired
-    private SimpleVectorStoreService simpleVectorStoreService;
+    private SimpleAgentVectorStoreService simpleVectorStoreService;
 
     @Autowired
     private DbConfig dbConfig;

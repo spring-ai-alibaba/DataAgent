@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.service.schema;
 
+import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import org.springframework.ai.document.Document;
 
@@ -27,12 +28,12 @@ public interface SchemaService {
 
 	List<List<Document>> getColumnDocumentsByKeywordsForAgent(String agentId, List<String> keywords);
 
-	void extractDatabaseName(SchemaDTO schemaDTO);
+	void extractDatabaseName(SchemaDTO schemaDTO, DbConfig dbConfig);
 
-	void buildSchemaFromDocuments(List<List<Document>> columnDocumentList, List<Document> tableDocuments,
-			SchemaDTO schemaDTO);
+	void buildSchemaFromDocuments(String agentId, List<List<Document>> columnDocumentList,
+			List<Document> tableDocuments, SchemaDTO schemaDTO);
 
-	SchemaDTO mixRagForAgent(String agentId, String query, List<String> keywords);
+	SchemaDTO mixRagForAgent(String agentId, String query, List<String> keywords, DbConfig dbConfig);
 
 	default List<Document> getTableDocuments(String query) {
 		return getTableDocumentsForAgent(null, query);
@@ -42,8 +43,8 @@ public interface SchemaService {
 		return getColumnDocumentsByKeywordsForAgent(null, keywords);
 	}
 
-	default SchemaDTO mixRag(String query, List<String> keywords) {
-		return mixRagForAgent(null, query, keywords);
+	default SchemaDTO mixRag(String query, List<String> keywords, DbConfig dbConfig) {
+		return mixRagForAgent(null, query, keywords, dbConfig);
 	}
 
 }

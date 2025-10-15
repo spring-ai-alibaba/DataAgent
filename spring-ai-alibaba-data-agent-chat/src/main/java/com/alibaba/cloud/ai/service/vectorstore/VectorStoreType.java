@@ -1,5 +1,5 @@
-<!--
- * Copyright 2025 the original author or authors.
+/*
+ * Copyright 2024-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,29 +12,33 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
--->
+ */
 
-<template>
-  <!-- todo: 后端开发完成后，补充前端页面 -->
-  <div style="max-width: 600px; margin: 40px auto 0;">
-    <el-alert title="相关功能正在开发中，请耐心等待..." type="primary" :closable="false" show-icon/>
-  </div>
-</template>
+package com.alibaba.cloud.ai.service.vectorstore;
 
-<script lang="ts">
-import { defineComponent } from "vue"
+/**
+ * 向量存储类型枚举 用于配置使用哪种向量存储实现
+ */
+public enum VectorStoreType {
 
-export default defineComponent({
-  name: 'AgentKnowledgeConfig',
-  setup() {
+	/**
+	 * 简单向量存储（内存存储）
+	 */
+	SIMPLE,
 
-    return {
+	/**
+	 * 分析型数据库向量存储
+	 */
+	ANALYTIC_DB,
 
-    }
-  }
-})
-</script>
+	/**
+	 * Milvus 向量存储
+	 */
+	MILVUS,
 
-<style scoped>
+	/**
+	 * PostgreSQL PGVector 向量存储
+	 */
+	PGVECTOR
 
-</style>
+}

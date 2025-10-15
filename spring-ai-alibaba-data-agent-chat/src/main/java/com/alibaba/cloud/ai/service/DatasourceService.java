@@ -299,4 +299,15 @@ public class DatasourceService {
 		return stats;
 	}
 
+	public Datasource getActiveDatasourceByAgentId(Integer agentId) {
+		AgentDatasource agentDatasource = getAgentDatasources(agentId).stream()
+			.filter(a -> a.getIsActive() == 1)
+			.findFirst()
+			.orElse(null);
+		if (agentDatasource == null) {
+			return null;
+		}
+		return agentDatasource.getDatasource();
+	}
+
 }

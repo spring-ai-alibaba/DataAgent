@@ -261,30 +261,32 @@ public class MappersTest {
 	public void testBusinessKnowledgeMapperCrud() {
 		Long agentId = createAgent("bk-holder");
 		// clean
-		businessKnowledgeMapper.selectByDatasetId("ds_ut").forEach(b -> businessKnowledgeMapper.deleteById(b.getId()));
+		businessKnowledgeMapper.selectAll().forEach(b -> businessKnowledgeMapper.deleteById(b.getId()));
 
-		List<BusinessKnowledge> before = businessKnowledgeMapper.selectByDatasetId("ds_ut");
+		List<BusinessKnowledge> before = businessKnowledgeMapper.selectAll();
 		Assertions.assertEquals(List.of(), before);
 
 		BusinessKnowledge k = new BusinessKnowledge();
 		k.setBusinessTerm("term_ut");
 		k.setDescription("desc_ut");
 		k.setSynonyms("a,b");
-		k.setDefaultRecall(true);
-		k.setDatasetId("ds_ut");
-		k.setAgentId(String.valueOf(agentId));
+		k.setIsRecall(true);
+		k.setAgentId(agentId);
 		int ins = businessKnowledgeMapper.insert(k);
 		Assertions.assertEquals(1, ins);
 		Assertions.assertNotNull(k.getId());
 
-		List<BusinessKnowledge> byDataset = businessKnowledgeMapper.selectByDatasetId("ds_ut");
+		List<BusinessKnowledge> byDataset = businessKnowledgeMapper.selectByAgentId(agentId);
 		Assertions.assertEquals(1, byDataset.size());
 
-		List<BusinessKnowledge> search = businessKnowledgeMapper.searchByKeyword("term_ut");
+		List<BusinessKnowledge> search = businessKnowledgeMapper.searchInAgent(agentId, "term_ut");
 		Assertions.assertTrue(search.stream().anyMatch(x -> x.getId().equals(k.getId())));
 
 		k.setDescription("desc_ut_updated");
 		int upd = businessKnowledgeMapper.updateById(k);
+		Assertions.assertEquals(1, upd);
+
+		upd = businessKnowledgeMapper.changeRecall(k.getId(), false);
 		Assertions.assertEquals(1, upd);
 
 		int del = businessKnowledgeMapper.deleteById(k.getId());

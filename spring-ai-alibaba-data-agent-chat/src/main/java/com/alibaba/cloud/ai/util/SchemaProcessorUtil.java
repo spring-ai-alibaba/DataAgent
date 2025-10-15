@@ -15,6 +15,9 @@
  */
 package com.alibaba.cloud.ai.util;
 
+import java.util.*;
+import java.util.stream.Collectors;
+
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
@@ -22,10 +25,6 @@ import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.collections.CollectionUtils;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Utility class for processing database schema information. Provides common schema
@@ -71,12 +70,10 @@ public class SchemaProcessorUtil {
 		// 保存处理过的列数据到TableInfoBO，供后续使用
 		tableInfoBO.setColumns(columnInfoBOS);
 
-		List<ColumnInfoBO> targetPrimaryList = columnInfoBOS.stream()
-			.filter(ColumnInfoBO::isPrimary)
-			.collect(Collectors.toList());
+		List<ColumnInfoBO> primaryKeyColumns = columnInfoBOS.stream().filter(ColumnInfoBO::isPrimary).toList();
 
-		if (CollectionUtils.isNotEmpty(targetPrimaryList)) {
-			List<String> columnNames = targetPrimaryList.stream()
+		if (!primaryKeyColumns.isEmpty()) {
+			List<String> columnNames = primaryKeyColumns.stream()
 				.map(ColumnInfoBO::getName)
 				.collect(Collectors.toList());
 			tableInfoBO.setPrimaryKeys(columnNames);
@@ -87,6 +84,31 @@ public class SchemaProcessorUtil {
 
 		tableInfoBO
 			.setForeignKey(String.join("、", foreignKeyMap.getOrDefault(tableInfoBO.getName(), new ArrayList<>())));
+	}
+
+	public static DbConfig createDbConfigFromDatasource(com.alibaba.cloud.ai.entity.Datasource datasource) {
+		DbConfig dbConfig = new DbConfig();
+
+		// Set basic connection information
+		dbConfig.setUrl(datasource.getConnectionUrl());
+		dbConfig.setUsername(datasource.getUsername());
+		dbConfig.setPassword(datasource.getPassword());
+
+		// TODO Set database type need to be optimized
+		if ("mysql".equalsIgnoreCase(datasource.getType())) {
+			dbConfig.setConnectionType("jdbc");
+			dbConfig.setDialectType("mysql");
+		}
+		else if ("h2".equalsIgnoreCase(datasource.getType())) {
+			dbConfig.setConnectionType("jdbc");
+			dbConfig.setDialectType("h2");
+		}
+		// Support for other database types can be extended here
+
+		// Set Schema as the database name of the data source
+		dbConfig.setSchema(datasource.getDatabaseName());
+
+		return dbConfig;
 	}
 
 	/**

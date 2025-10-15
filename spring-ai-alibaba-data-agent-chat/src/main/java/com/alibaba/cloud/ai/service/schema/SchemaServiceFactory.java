@@ -16,42 +16,98 @@
 
 package com.alibaba.cloud.ai.service.schema;
 
-import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.service.schema.impls.AnalyticSchemaService;
 import com.alibaba.cloud.ai.service.schema.impls.SimpleSchemaService;
-import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.VectorStoreType;
+import com.alibaba.cloud.ai.service.vectorstore.impls.AnalyticAgentVectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.impls.SimpleAgentVectorStoreService;
 import com.alibaba.cloud.ai.util.JsonUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
+import java.util.Map;
+
+@Slf4j
 @Component
+@DependsOn("agentVectorStoreServiceFactory")
 public class SchemaServiceFactory implements FactoryBean<SchemaService> {
 
-	// todo: 改为枚举，由用户配置决定实现类
-	@Value("${spring.ai.vectorstore.analytic.enabled:false}")
-	private Boolean analyticEnabled;
+	@Value("${spring.ai.vectorstore.type:SIMPLE}")
+	private VectorStoreType vectorStoreType;
 
-	@Autowired
-	private DbConfig dbConfig;
+	@Autowired(required = false)
+	private AgentVectorStoreService agentVectorStoreService;
 
-	@Autowired
-	private VectorStoreService vectorStoreService;
+	@FunctionalInterface
+	private interface SchemaServiceCreator {
+
+		SchemaService create();
+
+	}
+
+	private final Map<VectorStoreType, SchemaServiceCreator> serviceCreators = new HashMap<>();
+
+	public SchemaServiceFactory() {
+		// 初始化各种向量存储类型的创建策略
+		serviceCreators.put(VectorStoreType.ANALYTIC_DB, this::createAnalyticSchemaService);
+		serviceCreators.put(VectorStoreType.SIMPLE, this::createSimpleSchemaService);
+
+	}
 
 	@Override
 	public SchemaService getObject() {
-		if (Boolean.TRUE.equals(analyticEnabled)) {
-			return new AnalyticSchemaService(dbConfig, JsonUtil.getObjectMapper(), vectorStoreService);
+		if (agentVectorStoreService == null) {
+			throw new IllegalStateException("AgentVectorStoreService is not initialized.");
 		}
-		else {
-			return new SimpleSchemaService(dbConfig, JsonUtil.getObjectMapper(), vectorStoreService);
+
+		// 根据配置的向量存储类型获取对应的创建策略
+		SchemaServiceCreator creator = serviceCreators.get(vectorStoreType);
+		if (creator == null) {
+			log.warn("Unsupported vector store type: {}, falling back to SIMPLE", vectorStoreType);
+			creator = serviceCreators.get(VectorStoreType.SIMPLE);
 		}
+
+		// 使用选定的策略创建SchemaService实例
+		return creator.create();
 	}
 
 	@Override
 	public Class<?> getObjectType() {
 		return SchemaService.class;
+	}
+
+	/**
+	 * 创建分析型数据库的SchemaService
+	 * @return AnalyticSchemaService实例
+	 */
+	private SchemaService createAnalyticSchemaService() {
+		log.info("Using AnalyticSchemaService");
+		if (!(agentVectorStoreService instanceof AnalyticAgentVectorStoreService)) {
+			throw new IllegalStateException(
+					"AgentVectorStoreService is not an instance of AnalyticAgentVectorStoreService");
+		}
+		return new AnalyticSchemaService(JsonUtil.getObjectMapper(),
+				(AnalyticAgentVectorStoreService) agentVectorStoreService);
+	}
+
+	/**
+	 * 创建简单内存存储的SchemaService
+	 * @return SimpleSchemaService实例
+	 */
+	private SchemaService createSimpleSchemaService() {
+		log.info("Using SimpleSchemaService");
+		if (!(agentVectorStoreService instanceof SimpleAgentVectorStoreService)) {
+			throw new IllegalStateException(
+					"AgentVectorStoreService is not an instance of SimpleAgentVectorStoreService");
+		}
+		return new SimpleSchemaService(JsonUtil.getObjectMapper(),
+				(SimpleAgentVectorStoreService) agentVectorStoreService);
 	}
 
 }

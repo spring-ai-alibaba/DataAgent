@@ -19,17 +19,20 @@ package com.alibaba.cloud.ai.service.processing;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
+import com.alibaba.cloud.ai.service.DatasourceService;
 import com.alibaba.cloud.ai.service.LlmService;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.service.schema.SchemaService;
-import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.util.JsonUtil;
+import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
+import org.springframework.util.Assert;
 import reactor.core.publisher.Flux;
 
 import java.util.Collections;
@@ -44,11 +47,14 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 
 	private final LlmService aiService;
 
-	public AbstractQueryProcessingService(LlmService aiService) {
+	private final DatasourceService datasourceService;
+
+	public AbstractQueryProcessingService(LlmService aiService, DatasourceService datasourceService) {
 		this.aiService = aiService;
+		this.datasourceService = datasourceService;
 	}
 
-	protected abstract VectorStoreService getVectorStoreService();
+	protected abstract AgentVectorStoreService getVectorStoreService();
 
 	protected abstract SchemaService getSchemaService();
 
@@ -57,13 +63,9 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 	@Override
 	public List<String> extractEvidences(String query, String agentId) {
 		logger.debug("Extracting evidences for query: {} with agentId: {}", query, agentId);
-		List<Document> evidenceDocuments;
-		if (agentId != null && !agentId.trim().isEmpty()) {
-			evidenceDocuments = getVectorStoreService().getDocumentsForAgent(agentId, query, "evidence");
-		}
-		else {
-			evidenceDocuments = getVectorStoreService().getDocuments(query, "evidence");
-		}
+		Assert.notNull(agentId, "AgentId cannot be null");
+		List<Document> evidenceDocuments = getVectorStoreService().getDocumentsForAgent(agentId, query, "evidence");
+
 		List<String> evidences = evidenceDocuments.stream().map(Document::getText).collect(Collectors.toList());
 		logger.debug("Extracted {} evidences: {}", evidences.size(), evidences);
 		return evidences;
@@ -176,17 +178,20 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 	}
 
 	private SchemaDTO select(String query, List<String> evidenceList, String agentId) throws Exception {
+		Assert.notNull(agentId, "AgentId cannot be null");
 		logger.debug("Starting schema selection for query: {} with {} evidences and agentId: {}", query,
 				evidenceList.size(), agentId);
 		List<String> keywords = extractKeywords(query, evidenceList);
 		logger.debug("Using {} keywords for schema selection", keywords != null ? keywords.size() : 0);
-		SchemaDTO schemaDTO;
-		if (agentId != null) {
-			schemaDTO = getSchemaService().mixRagForAgent(agentId, query, keywords);
+
+		com.alibaba.cloud.ai.entity.Datasource datasource = datasourceService
+			.getActiveDatasourceByAgentId(Integer.valueOf(agentId));
+		if (datasource == null) {
+			throw new RuntimeException("No active datasource found for agentId: " + agentId);
 		}
-		else {
-			schemaDTO = getSchemaService().mixRag(query, keywords);
-		}
+		SchemaDTO schemaDTO = getSchemaService().mixRagForAgent(agentId, query, keywords,
+				SchemaProcessorUtil.createDbConfigFromDatasource(datasource));
+
 		logger.debug("Retrieved schema with {} tables", schemaDTO.getTable() != null ? schemaDTO.getTable().size() : 0);
 		SchemaDTO result = fineSelect(schemaDTO, query, evidenceList);
 		logger.debug("Fine selection completed, final schema has {} tables",

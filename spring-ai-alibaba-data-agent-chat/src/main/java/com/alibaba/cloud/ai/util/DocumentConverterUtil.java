@@ -15,12 +15,14 @@
  */
 package com.alibaba.cloud.ai.util;
 
+import java.util.*;
+import java.util.stream.Collectors;
+
+import org.springframework.ai.document.Document;
+
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.request.EvidenceRequest;
-import org.springframework.ai.document.Document;
-
-import java.util.*;
 
 /**
  * Utility class for converting business objects to Document objects. Provides common
@@ -28,13 +30,28 @@ import java.util.*;
  */
 public class DocumentConverterUtil {
 
+	public static List<Document> convertColumnsToDocuments(String agentId, List<TableInfoBO> tables) {
+		List<Document> documents = new ArrayList<>();
+		for (TableInfoBO table : tables) {
+			// 使用已经处理过的列数据，避免重复查询
+			List<ColumnInfoBO> columns = table.getColumns();
+			if (columns != null) {
+				for (ColumnInfoBO column : columns) {
+					documents.add(DocumentConverterUtil.convertColumnToDocumentForAgent(agentId, table, column));
+				}
+			}
+		}
+		return documents;
+	}
+
 	/**
 	 * Converts a column info object to a Document for vector storage.
 	 * @param tableInfoBO the table information containing schema details
 	 * @param columnInfoBO the column information to convert
 	 * @return Document object with column metadata
 	 */
-	public static Document convertColumnToDocument(TableInfoBO tableInfoBO, ColumnInfoBO columnInfoBO) {
+	public static Document convertColumnToDocumentForAgent(String agentId, TableInfoBO tableInfoBO,
+			ColumnInfoBO columnInfoBO) {
 		String text = Optional.ofNullable(columnInfoBO.getDescription()).orElse(columnInfoBO.getName());
 		Map<String, Object> metadata = new HashMap<>();
 		metadata.put("name", columnInfoBO.getName());
@@ -44,6 +61,7 @@ public class DocumentConverterUtil {
 		metadata.put("primary", columnInfoBO.isPrimary());
 		metadata.put("notnull", columnInfoBO.isNotnull());
 		metadata.put("vectorType", "column");
+		metadata.put("agentId", agentId);
 
 		if (columnInfoBO.getSamples() != null) {
 			metadata.put("samples", columnInfoBO.getSamples());
@@ -57,7 +75,7 @@ public class DocumentConverterUtil {
 	 * @param tableInfoBO the table information to convert
 	 * @return Document object with table metadata
 	 */
-	public static Document convertTableToDocument(TableInfoBO tableInfoBO) {
+	public static Document convertTableToDocumentForAgent(String agentId, TableInfoBO tableInfoBO) {
 		String text = Optional.ofNullable(tableInfoBO.getDescription()).orElse(tableInfoBO.getName());
 		Map<String, Object> metadata = new HashMap<>();
 		metadata.put("schema", Optional.ofNullable(tableInfoBO.getSchema()).orElse(""));
@@ -66,8 +84,14 @@ public class DocumentConverterUtil {
 		metadata.put("foreignKey", Optional.ofNullable(tableInfoBO.getForeignKey()).orElse(""));
 		metadata.put("primaryKey", Optional.ofNullable(tableInfoBO.getPrimaryKeys()).orElse(new ArrayList<>()));
 		metadata.put("vectorType", "table");
-
+		metadata.put("agentId", agentId);
 		return new Document(tableInfoBO.getName(), text, metadata);
+	}
+
+	public static List<Document> convertTablesToDocuments(String agentId, List<TableInfoBO> tables) {
+		return tables.stream()
+			.map(table -> DocumentConverterUtil.convertTableToDocumentForAgent(agentId, table))
+			.collect(Collectors.toList());
 	}
 
 	/**
@@ -75,12 +99,14 @@ public class DocumentConverterUtil {
 	 * @param evidenceRequests list of evidence requests
 	 * @return list of Document objects
 	 */
-	public static List<Document> convertEvidenceToDocuments(List<EvidenceRequest> evidenceRequests) {
+	public static List<Document> convertEvidenceToDocumentsForAgent(String agentId,
+			List<EvidenceRequest> evidenceRequests) {
 		return evidenceRequests.stream().map(evidenceRequest -> {
 			Map<String, Object> metadata = new HashMap<>();
 			metadata.put("evidenceType", evidenceRequest.getType());
 			metadata.put("vectorType", "evidence");
 
+			metadata.put("agentId", agentId);
 			return new Document(UUID.randomUUID().toString(), evidenceRequest.getContent(), metadata);
 		}).toList();
 	}

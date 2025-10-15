@@ -16,17 +16,14 @@
 
 package com.alibaba.cloud.ai.controller;
 
-import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.graph.*;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.state.StateSnapshot;
-import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.service.vectorstore.VectorStoreService;
+import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.service.DatasourceService;
-import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.service.AgentService;
 import com.alibaba.cloud.ai.util.JsonUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,12 +40,10 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static com.alibaba.cloud.ai.constant.Constant.AGENT_ID;
 import static com.alibaba.cloud.ai.constant.Constant.HUMAN_FEEDBACK_NODE;
 import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
 import static com.alibaba.cloud.ai.constant.Constant.RESULT;
@@ -66,7 +61,7 @@ public class Nl2sqlForGraphController {
 
 	private final CompiledGraph compiledGraph;
 
-	private final VectorStoreService vectorStoreService;
+	private final AgentVectorStoreService vectorStoreService;
 
 	private final DatasourceService datasourceService;
 
@@ -75,113 +70,13 @@ public class Nl2sqlForGraphController {
 	private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 
 	public Nl2sqlForGraphController(@Qualifier("nl2sqlGraph") StateGraph stateGraph,
-			VectorStoreService vectorStoreService, DatasourceService datasourceService, AgentService agentService)
+			AgentVectorStoreService vectorStoreService, DatasourceService datasourceService, AgentService agentService)
 			throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
 		this.compiledGraph.setMaxIterations(100);
 		this.vectorStoreService = vectorStoreService;
 		this.datasourceService = datasourceService;
 		this.agentService = agentService;
-	}
-
-	@GetMapping("/search")
-	public String search(
-			@RequestParam(value = "query", required = false,
-					defaultValue = "查询每个分类下已经成交且销量最高的商品及其销售总量，每个分类只返回销量最高的商品。") String query,
-			@RequestParam(value = "dataSetId", required = false, defaultValue = "1") String dataSetId,
-			@RequestParam(value = "agentId", required = false, defaultValue = "1") String agentId) throws Exception {
-		// Get the data source configuration for an agent for vector initialization
-		DbConfig dbConfig = getDbConfigForAgent(Integer.valueOf(agentId));
-
-		SchemaInitRequest schemaInitRequest = new SchemaInitRequest();
-		schemaInitRequest.setDbConfig(dbConfig);
-		schemaInitRequest
-			.setTables(Arrays.asList("categories", "order_items", "orders", "products", "users", "product_categories"));
-		vectorStoreService.schema(schemaInitRequest);
-
-		boolean humanReviewEnabled = false;
-		try {
-			var agent = agentService.findById(Long.valueOf(agentId));
-			humanReviewEnabled = agent != null && agent.getHumanReviewEnabled() != null
-					&& agent.getHumanReviewEnabled() == 1;
-		}
-		catch (Exception ignore) {
-		}
-
-		Optional<OverAllState> invoke = compiledGraph
-			.call(Map.of(INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled));
-		OverAllState overAllState = invoke.get();
-		// 注意：在新的人类反馈实现中，计划内容通过流式处理发送给前端
-		// 这里不再需要单独获取计划内容
-		return overAllState.value(RESULT).map(Object::toString).orElse("");
-	}
-
-	@GetMapping("/init")
-	public void init(@RequestParam(value = "agentId", required = false, defaultValue = "1") Integer agentId)
-			throws Exception {
-		// Get the data source configuration for an agent for vector initialization
-		DbConfig dbConfig = getDbConfigForAgent(agentId);
-
-		SchemaInitRequest schemaInitRequest = new SchemaInitRequest();
-		schemaInitRequest.setDbConfig(dbConfig);
-		schemaInitRequest
-			.setTables(Arrays.asList("categories", "order_items", "orders", "products", "users", "product_categories"));
-		vectorStoreService.schema(schemaInitRequest);
-	}
-
-	/**
-	 * Get database configuration by agent ID
-	 */
-	private DbConfig getDbConfigForAgent(Integer agentId) {
-		try {
-			// Get the enabled data source for an agent
-			var agentDatasources = datasourceService.getAgentDatasources(agentId);
-			var activeDatasource = agentDatasources.stream()
-				.filter(ad -> ad.getIsActive() == 1)
-				.findFirst()
-				.orElseThrow(() -> new RuntimeException("智能体 " + agentId + " 未配置启用的数据源"));
-
-			// Convert to DbConfig
-			return createDbConfigFromDatasource(activeDatasource.getDatasource());
-		}
-		catch (Exception e) {
-			logger.error("Failed to get agent datasource config for agent: {}", agentId, e);
-			throw new RuntimeException("获取智能体数据源配置失败: " + e.getMessage(), e);
-		}
-	}
-
-	/**
-	 * Create database configuration from data source entity
-	 */
-	private DbConfig createDbConfigFromDatasource(Datasource datasource) {
-		DbConfig dbConfig = new DbConfig();
-
-		// Set basic connection information
-		dbConfig.setUrl(datasource.getConnectionUrl());
-		dbConfig.setUsername(datasource.getUsername());
-		dbConfig.setPassword(datasource.getPassword());
-
-		// Set database type
-		if ("mysql".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("mysql");
-		}
-		else if ("postgresql".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("postgresql");
-		}
-		else if ("h2".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("h2");
-		}
-		else {
-			throw new RuntimeException("不支持的数据库类型: " + datasource.getType());
-		}
-
-		// Set Schema to the database name of the data source
-		dbConfig.setSchema(datasource.getDatabaseName());
-
-		return dbConfig;
 	}
 
 	@GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
