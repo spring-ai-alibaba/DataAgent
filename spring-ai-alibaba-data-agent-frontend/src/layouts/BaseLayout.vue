@@ -34,12 +34,6 @@
             </div>
           </nav>
         </div>
-        <div class="header-actions">
-          <button class="btn btn-outline btn-sm" @click="showHelp">
-            <i class="bi bi-question-circle"></i>
-            帮助
-          </button>
-        </div>
       </div>
     </header>
 
@@ -52,7 +46,6 @@
 
 <script>
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 
 export default {
   name: 'BaseLayout',
@@ -64,12 +57,6 @@ export default {
       router.push('/agents')
     }
 
-    const showHelp = () => {
-      console.log('帮助')
-      // todo: 显示帮助信息
-      ElMessage.primary('正在开发中...')
-    }
-
     const isAgentPage = () => {
       return router.currentRoute.value.name === 'AgentList'
           || router.currentRoute.value.name === 'AgentDetail'
@@ -79,7 +66,6 @@ export default {
 
     return {
       goToAgentList,
-      showHelp,
       isAgentPage
     }
   }
@@ -162,59 +148,9 @@ export default {
   font-size: 1rem;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
 .page-content {
   flex: 1;
   padding: 0;
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .header-content {
-    padding: 0 1rem;
-    height: 3.5rem;
-  }
-
-  .brand-section {
-    gap: 1rem;
-  }
-
-  .brand-logo {
-    font-size: 1.1rem;
-  }
-
-  .brand-logo i {
-    font-size: 1.25rem;
-  }
-
-  .header-nav {
-    gap: 0.25rem;
-  }
-
-  .nav-item {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.9rem;
-  }
-
-  .nav-item span {
-    display: none;
-  }
-
-  .header-actions {
-    gap: 0.5rem;
-  }
-
-  .header-actions .btn {
-    padding: 0.5rem;
-  }
-
-  .header-actions .btn span {
-    display: none;
-  }
-}
 </style>

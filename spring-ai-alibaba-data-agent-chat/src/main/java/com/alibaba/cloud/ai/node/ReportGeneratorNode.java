@@ -42,6 +42,7 @@ import java.util.Map;
 import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
 import static com.alibaba.cloud.ai.constant.Constant.PLANNER_NODE_OUTPUT;
 import static com.alibaba.cloud.ai.constant.Constant.PLAN_CURRENT_STEP;
+import static com.alibaba.cloud.ai.constant.Constant.QUERY_REWRITE_NODE_OUTPUT;
 import static com.alibaba.cloud.ai.constant.Constant.RESULT;
 import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
 
@@ -79,7 +80,8 @@ public class ReportGeneratorNode implements NodeAction {
 
 		// Get necessary input parameters
 		String plannerNodeOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);
-		String userInput = StateUtil.getStringValue(state, INPUT_KEY);
+		String userInput = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT,
+				StateUtil.getStringValue(state, INPUT_KEY));
 		Integer currentStep = StateUtil.getObjectValue(state, PLAN_CURRENT_STEP, Integer.class, 1);
 		@SuppressWarnings("unchecked")
 		HashMap<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,

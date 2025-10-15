@@ -26,8 +26,8 @@
           <el-col :span="1" style="text-align: left;">
             <el-avatar :src="agent.avatar" size="large">{{ agent.name }}</el-avatar>
           </el-col>
-          <el-col :span="3" style="text-align: left;">
-            <h1>{{ agent.name }}</h1>
+          <el-col :span="30" style="text-align: left;">
+            <h2>{{ agent.name }}</h2>
           </el-col>
         </el-row>
         <el-divider/>
@@ -85,12 +85,13 @@
         <el-main style="background-color: white;">
         <!-- 右侧内容-->
           <AgentBaseSetting v-if="activeMenuIndex === 'basic'" :agent="agent"></AgentBaseSetting>
-          <AgentDataSourceConfig v-if="activeMenuIndex === 'datasource'" :agent-id="agent.id"></AgentDataSourceConfig>
-          <AgentPromptConfig v-if="activeMenuIndex === 'prompt'" :agent-prompt="agent.prompt"></AgentPromptConfig>
-          <AgentKnowledgeConfig v-if="activeMenuIndex === 'business-knowledge'"></AgentKnowledgeConfig>
-          <AgentSemanticsConfig v-if="activeMenuIndex === 'semantic-model'"></AgentSemanticsConfig>
-          <AgentPresetsConfig v-if="activeMenuIndex === 'preset-questions'"></AgentPresetsConfig>
-          <AgentAccessApi v-if="activeMenuIndex === 'access-api'"></AgentAccessApi>
+          <AgentDataSourceConfig v-else-if="activeMenuIndex === 'datasource'" :agent-id="agent.id"></AgentDataSourceConfig>
+          <AgentPromptConfig v-else-if="activeMenuIndex === 'prompt'" :agent-prompt="agent.prompt"></AgentPromptConfig>
+          <AgentKnowledgeConfig v-else-if="activeMenuIndex === 'business-knowledge'" :agent-id="agent.id"></AgentKnowledgeConfig>
+          <AgentSemanticsConfig v-else-if="activeMenuIndex === 'semantic-model'"></AgentSemanticsConfig>
+          <AgentPresetsConfig v-else-if="activeMenuIndex === 'preset-questions'"></AgentPresetsConfig>
+          <AgentAccessApi v-else-if="activeMenuIndex === 'access-api'"></AgentAccessApi>
+          <NotFound v-else></NotFound>
         </el-main>
       </el-container>
     </el-container>
@@ -104,13 +105,14 @@ import { ElMessage } from 'element-plus'
 import AgentService from '@/services/agent'
 import { ArrowLeft, InfoFilled, Coin, ChatLineSquare, User, Suitcase, Setting, VideoPlay, Connection } from '@element-plus/icons-vue'
 import BaseLayout from '@/layouts/BaseLayout.vue'
-import AgentBaseSetting from '@/components/agent/AgentBaseSetting.vue'
-import AgentPromptConfig from '@/components/agent/AgentPromptConfig.vue'
-import AgentKnowledgeConfig from '@/components/agent/AgentKnowledgeConfig.vue'
-import AgentSemanticsConfig from '@/components/agent/AgentSemanticsConfig.vue'
-import AgentPresetsConfig from '@/components/agent/AgentPresetsConfig.vue'
-import AgentAccessApi from "@/components/agent/AgentAccessApi.vue"
-import AgentDataSourceConfig from '@/components/agent/AgentDataSourceConfig.vue'
+import AgentBaseSetting from '@/components/agent/BaseSetting.vue'
+import AgentPromptConfig from '@/components/agent/PromptConfig.vue'
+import AgentKnowledgeConfig from '@/components/agent/BusinessKnowledgeConfig.vue'
+import AgentSemanticsConfig from "@/components/agent/SemanticsConfig.vue"
+import AgentPresetsConfig from '@/components/agent/PresetsConfig.vue'
+import AgentAccessApi from "@/components/agent/AccessApi.vue"
+import AgentDataSourceConfig from '@/components/agent/DataSourceConfig.vue'
+import NotFound from "@/views/NotFound.vue";
 import { Agent } from '@/services/agent'
 
 export default defineComponent({
@@ -124,6 +126,7 @@ export default defineComponent({
     AgentPresetsConfig,
     AgentAccessApi,
     AgentDataSourceConfig,
+    NotFound,
     InfoFilled,
     Coin,
     ChatLineSquare,

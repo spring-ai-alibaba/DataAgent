@@ -2,10 +2,10 @@
 -- 只在表为空时插入示例数据
 
 -- 业务知识示例数据
-INSERT IGNORE INTO `business_knowledge` (`id`, `business_term`, `description`, `synonyms`, `is_recall`, `data_set_id`, `agent_id`, `created_time`, `updated_time`) VALUES 
-(1, 'Customer Satisfaction', 'Measures how satisfied customers are with the service or product.', 'customer happiness, client contentment', 1, 'dataset_001', 1, NOW(), NOW()),
-(2, 'Net Promoter Score', 'A measure of the likelihood of customers recommending a company to others.', 'NPS, customer loyalty score', 1, 'dataset_002', 1, NOW(), NOW()),
-(3, 'Customer Retention Rate', 'The percentage of customers who continue to use a service over a given period.', 'retention, customer loyalty', 1, 'dataset_003', 2, NOW(), NOW());
+INSERT IGNORE INTO `business_knowledge` (`id`, `business_term`, `description`, `synonyms`, `is_recall`, `agent_id`, `created_time`, `updated_time`) VALUES
+(1, 'Customer Satisfaction', 'Measures how satisfied customers are with the service or product.', 'customer happiness, client contentment', 1, 1, NOW(), NOW()),
+(2, 'Net Promoter Score', 'A measure of the likelihood of customers recommending a company to others.', 'NPS, customer loyalty score', 1, 1, NOW(), NOW()),
+(3, 'Customer Retention Rate', 'The percentage of customers who continue to use a service over a given period.', 'retention, customer loyalty', 1, 2, NOW(), NOW());
 
 -- 语义模型示例数据
 INSERT IGNORE INTO `semantic_model` (`id`, `agent_id`, `field_name`, `synonyms`, `origin_name`, `description`, `origin_description`, `type`, `created_time`, `updated_time`, `is_recall`, `status`) VALUES 

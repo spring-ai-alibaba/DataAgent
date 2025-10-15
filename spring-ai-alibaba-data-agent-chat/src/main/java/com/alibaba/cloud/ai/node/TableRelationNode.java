@@ -26,8 +26,8 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.service.DatasourceService;
+import com.alibaba.cloud.ai.service.business.BusinessKnowledgeService;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
-import com.alibaba.cloud.ai.service.business.BusinessKnowledgeRecallService;
 import com.alibaba.cloud.ai.service.schema.SchemaService;
 import com.alibaba.cloud.ai.service.semantic.SemanticModelRecallService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
@@ -69,18 +69,18 @@ public class TableRelationNode implements NodeAction {
 
 	private final Nl2SqlService nl2SqlService;
 
-	private final BusinessKnowledgeRecallService businessKnowledgeRecallService;
+	private final BusinessKnowledgeService businessKnowledgeService;
 
 	private final SemanticModelRecallService semanticModelRecallService;
 
 	private final DatasourceService datasourceService;
 
 	public TableRelationNode(SchemaService schemaService, Nl2SqlService nl2SqlService,
-			BusinessKnowledgeRecallService businessKnowledgeRecallService,
-			SemanticModelRecallService semanticModelRecallService, DatasourceService datasourceService) {
+			BusinessKnowledgeService businessKnowledgeService, SemanticModelRecallService semanticModelRecallService,
+			DatasourceService datasourceService) {
 		this.schemaService = schemaService;
 		this.nl2SqlService = nl2SqlService;
-		this.businessKnowledgeRecallService = businessKnowledgeRecallService;
+		this.businessKnowledgeService = businessKnowledgeService;
 		this.semanticModelRecallService = semanticModelRecallService;
 		this.datasourceService = datasourceService;
 	}
@@ -92,7 +92,8 @@ public class TableRelationNode implements NodeAction {
 		int retryCount = StateUtil.getObjectValue(state, TABLE_RELATION_RETRY_COUNT, Integer.class, 0);
 
 		// Get necessary input parameters
-		String input = StateUtil.getStringValue(state, INPUT_KEY);
+		String input = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT,
+				StateUtil.getStringValue(state, INPUT_KEY));
 		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);
 		List<Document> tableDocuments = StateUtil.getDocumentList(state, TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT);
 		List<List<Document>> columnDocumentsByKeywords = StateUtil.getDocumentListList(state,
@@ -111,7 +112,7 @@ public class TableRelationNode implements NodeAction {
 		List<SemanticModelDTO> semanticModel;
 		try {
 			// Extract business knowledge and semantic model
-			businessKnowledges = businessKnowledgeRecallService.getFieldByDataSetId(dataSetId);
+			businessKnowledges = businessKnowledgeService.getKnowledgeDtoRecalled(Long.parseLong(agentIdStr));
 			semanticModel = semanticModelRecallService.getFieldByDataSetId(dataSetId);
 		}
 		catch (DataAccessException e) {
@@ -183,38 +184,6 @@ public class TableRelationNode implements NodeAction {
 		DbConfig dbConfig = SchemaProcessorUtil.createDbConfigFromDatasource(agentDatasource);
 		logger.debug("Successfully created DbConfig for agent {}: url={}, schema={}, type={}", agentId,
 				dbConfig.getUrl(), dbConfig.getSchema(), dbConfig.getDialectType());
-
-		return dbConfig;
-	}
-
-	/**
-	 * Create database configuration from data source entity
-	 * @param datasource The data source entity
-	 * @return The database configuration object
-	 */
-	private DbConfig createDbConfigFromDatasource(Datasource datasource) {
-		DbConfig dbConfig = new DbConfig();
-
-		// Set basic connection information
-		dbConfig.setUrl(datasource.getConnectionUrl());
-		dbConfig.setUsername(datasource.getUsername());
-		dbConfig.setPassword(datasource.getPassword());
-
-		// Set database type
-		if ("mysql".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("mysql");
-		}
-		else if ("postgresql".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("postgresql");
-		}
-		else {
-			throw new RuntimeException("不支持的数据库类型: " + datasource.getType());
-		}
-
-		// Set Schema to the database name of the data source
-		dbConfig.setSchema(datasource.getDatabaseName());
 
 		return dbConfig;
 	}
