@@ -17,7 +17,6 @@
 package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.dto.SemanticModelDTO;
 import com.alibaba.cloud.ai.entity.Datasource;
@@ -98,7 +97,6 @@ public class TableRelationNode implements NodeAction {
 		List<Document> tableDocuments = StateUtil.getDocumentList(state, TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT);
 		List<List<Document>> columnDocumentsByKeywords = StateUtil.getDocumentListList(state,
 				COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT);
-		String dataSetId = StateUtil.getStringValue(state, Constant.AGENT_ID);
 		String agentIdStr = StateUtil.getStringValue(state, AGENT_ID);
 		if (!StringUtils.hasText(agentIdStr))
 			throw new RuntimeException("Agent ID is empty.");
@@ -113,7 +111,7 @@ public class TableRelationNode implements NodeAction {
 		try {
 			// Extract business knowledge and semantic model
 			businessKnowledges = businessKnowledgeService.getKnowledgeDtoRecalled(Long.parseLong(agentIdStr));
-			semanticModel = semanticModelRecallService.getFieldByDataSetId(dataSetId);
+			semanticModel = semanticModelRecallService.getFieldByDataSetId(agentIdStr);
 		}
 		catch (DataAccessException e) {
 			logger.warn("Database query failed (attempt {}): {}", retryCount + 1, e.getMessage());
