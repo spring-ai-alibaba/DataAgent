@@ -1,8 +1,97 @@
 # Spring AI Alibaba DataAgent
+
 （ “DataAgent用户1群”群的钉钉群号： 154405001431）
+
 ## 项目简介
 
 这是一个基于Spring AI Alibaba的自然语言转SQL项目，能让你用自然语言直接查询数据库，不需要写复杂的SQL。
+
+（提示：文档有点落后，请以仓库实际代码为准，开发者正在抽空完善文档中……）
+
+### 替换chat-model、embedding-model和vector-store的实现类
+
+本项目的`ChatModel`和`EmbeddingModel`默认使用`DashScope`的实现，`VectorStore`默认使用内存向量，你可以替换成其他模型实现。
+
+在[根pom](./pom.xml)中的`dependencies`中可以替换`ChatModel`，`EmbeddingModel`和`VectorStore`的实现starter，以替换掉项目默认使用的实现：
+
+```xml
+    <dependencies>
+        <!-- 在这里可以替换vector-store，chat-model和embedding-model的starter -->
+        <!-- 如果不使用默认依赖的话，需要手动配置application.yml -->
+    
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+            <version>${spring-ai-alibaba.version}</version>
+        </dependency>
+    
+        <!--            milvus  -->
+        <!--        <dependency>-->
+        <!--            <groupId>org.springframework.ai</groupId>-->
+        <!--            <artifactId>spring-ai-starter-vector-store-milvus</artifactId>-->
+        <!--        </dependency>-->
+    </dependencies>
+```
+
+注意修改`application.yml`，以符合这些starter的需求。
+
+举个例子，如果你需要使用`Milvus`作为向量库，使用DeepSeek的`ChatModel`，使用硅基流动的`EmbeddingModel`，你可以导入以下依赖：
+
+```xml
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-deepseek</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-vector-store-milvus</artifactId>
+        </dependency>
+    </dependencies>
+```
+
+然后这么写`application.yml`：
+
+```yaml
+spring:
+  ai:
+    model:
+      chat: deepseek      # 一定要配置此字段，否则会报多个Bean实例的异常
+      embedding: openai
+    deepseek:
+      chat:
+        api-key: ${DEEPSEEK_API_KEY}
+    openai:
+      api-key: ${SILICONFLOW_API_KEY}
+      embedding:
+        api-key: ${SILICONFLOW_API_KEY}
+        base-url: https://api.siliconflow.cn
+        options:
+          model: BAAI/bge-m3
+    vectorstore:
+      milvus:
+        initialize-schema: true
+        client:
+          host: ${MILVUS_HOST:192.168.16.100}
+          port: ${MILVUS_PORT:19530}
+          username: ${MILVUS_USERNAME:root}
+          password: ${MILVUS_PASSWORD}
+        databaseName: ${MILVUS_DATABASE:default}
+        collectionName: ${MILVUS_COLLECTION:vector_store}
+        embeddingDimension: 1536
+        indexType: IVF_FLAT
+        metricType: COSINE
+        id-field-name:
+        content-field-name:
+        metadata-field-name:
+        embedding-field-name:
+```
 
 ## 项目结构
 

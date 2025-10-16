@@ -21,13 +21,13 @@ spring:
     dashscope:
       api-key: ${AI_DASHSCOPE_API_KEY}
       chat:
+        enabled: true
         options:
           model: qwen-plus
       embedding:
+        enabled: true
         options:
           model: text-embedding-v4
-    vectorstore:
-      type: simple
     alibaba:
       nl2sql:
         code-executor:
