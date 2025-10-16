@@ -37,11 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.alibaba.cloud.ai.constant.Constant.EVIDENCES;
-import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
-import static com.alibaba.cloud.ai.constant.Constant.KEYWORD_EXTRACT_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.QUERY_REWRITE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.RESULT;
+import static com.alibaba.cloud.ai.constant.Constant.*;
 
 /**
  * Keyword, entity, and temporal information extraction node to prepare for subsequent
@@ -70,11 +66,11 @@ public class KeywordExtractNode implements NodeAction {
 	 * @param questions list of question variants
 	 * @return list of extraction results
 	 */
-	private List<KeywordExtractionResult> processMultipleQuestions(List<String> questions) {
+	private List<KeywordExtractionResult> processMultipleQuestions(List<String> questions, String agentId) {
 		return questions.parallelStream().map(question -> {
 			try {
 
-				List<String> evidences = queryProcessingService.extractEvidences(question);
+				List<String> evidences = queryProcessingService.extractEvidences(question, agentId);
 				List<String> keywords = queryProcessingService.extractKeywords(question, evidences);
 
 				logger.info("成功从问题变体提取关键词: 问题=\"{}\", 关键词={}", question, keywords);
@@ -82,7 +78,7 @@ public class KeywordExtractNode implements NodeAction {
 			}
 			catch (Exception e) {
 
-				logger.warn("从问题变体提取关键词失败: 问题=\"{}\", 错误={}", question, e.getMessage());
+				logger.warn("从问题变体提取关键词失败: 问题={}", question, e);
 				return new KeywordExtractionResult(question, false);
 			}
 		}).collect(java.util.stream.Collectors.toList());
@@ -142,7 +138,8 @@ public class KeywordExtractNode implements NodeAction {
 			List<String> expandedQuestions = queryProcessingService.expandQuestion(input);
 			logger.info("问题扩展结果: {}", expandedQuestions);
 
-			List<KeywordExtractionResult> extractionResults = processMultipleQuestions(expandedQuestions);
+			List<KeywordExtractionResult> extractionResults = processMultipleQuestions(expandedQuestions,
+					StateUtil.getStringValue(state, AGENT_ID));
 
 			List<String> mergedKeywords = mergeKeywords(extractionResults, input);
 			List<String> mergedEvidences = mergeEvidences(extractionResults);

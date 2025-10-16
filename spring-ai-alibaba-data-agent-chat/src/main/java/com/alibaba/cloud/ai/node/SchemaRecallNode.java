@@ -30,6 +30,7 @@ import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +38,7 @@ import static com.alibaba.cloud.ai.constant.Constant.COLUMN_DOCUMENTS_BY_KEYWORD
 import static com.alibaba.cloud.ai.constant.Constant.AGENT_ID;
 import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
 import static com.alibaba.cloud.ai.constant.Constant.KEYWORD_EXTRACT_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.constant.Constant.QUERY_REWRITE_NODE_OUTPUT;
 import static com.alibaba.cloud.ai.constant.Constant.SCHEMA_RECALL_NODE_OUTPUT;
 import static com.alibaba.cloud.ai.constant.Constant.TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT;
 
@@ -65,7 +67,8 @@ public class SchemaRecallNode implements NodeAction {
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 		logger.info("Entering {} node", this.getClass().getSimpleName());
 
-		String input = StateUtil.getStringValue(state, INPUT_KEY);
+		String input = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT,
+				StateUtil.getStringValue(state, INPUT_KEY));
 		List<String> keywords = StateUtil.getListValue(state, KEYWORD_EXTRACT_NODE_OUTPUT);
 		String agentId = StateUtil.getStringValue(state, AGENT_ID);
 
@@ -76,7 +79,7 @@ public class SchemaRecallNode implements NodeAction {
 		// If agentId exists, use agent-specific search, otherwise use global search
 		if (agentId != null && !agentId.trim().isEmpty()) {
 			logger.info("Using agent-specific schema recall for agent: {}", agentId);
-			tableDocuments = schemaService.getTableDocumentsForAgent(agentId, input);
+			tableDocuments = new ArrayList<>(schemaService.getTableDocumentsForAgent(agentId, input));
 			columnDocumentsByKeywords = schemaService.getColumnDocumentsByKeywordsForAgent(agentId, keywords);
 		}
 		else {

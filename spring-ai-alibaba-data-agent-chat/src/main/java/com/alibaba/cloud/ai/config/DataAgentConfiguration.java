@@ -44,16 +44,23 @@ import com.alibaba.cloud.ai.node.SemanticConsistencyNode;
 import com.alibaba.cloud.ai.node.SqlExecuteNode;
 import com.alibaba.cloud.ai.node.SqlGenerateNode;
 import com.alibaba.cloud.ai.node.TableRelationNode;
+import com.alibaba.cloud.ai.strategy.CustomBatchingStrategy;
 import com.alibaba.cloud.ai.util.NodeBeanUtil;
 import com.alibaba.cloud.ai.vectorstore.analyticdb.AnalyticDbVectorStoreProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.embedding.BatchingStrategy;
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.vectorstore.SimpleVectorStore;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.web.client.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
@@ -273,6 +280,23 @@ public class DataAgentConfiguration {
 		logger.info("\n\n");
 
 		return stateGraph;
+	}
+
+	// 为了不必要的重复手动配置
+	// 不要在此添加其他向量的手动配置，如果扩展其他向量，请阅读spring ai文档
+	// https://springdoc.cn/spring-ai/api/vectordbs.html
+	// 根据自己想要的向量，在pom文件引入 Boot Starter 依赖即可。
+	// 此处配置使用内存向量作为兜底配置
+	@Bean
+	@Primary
+	@ConditionalOnProperty(name = "spring.ai.vectorstore.type", havingValue = "simple", matchIfMissing = true)
+	public VectorStore simpleVectorStore(EmbeddingModel embeddingModel) {
+		return SimpleVectorStore.builder(embeddingModel).build();
+	}
+
+	@Bean
+	public BatchingStrategy customBatchingStrategy() {
+		return new CustomBatchingStrategy();
 	}
 
 }

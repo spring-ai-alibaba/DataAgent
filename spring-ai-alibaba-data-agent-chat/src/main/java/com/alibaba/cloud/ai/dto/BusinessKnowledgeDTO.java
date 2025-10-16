@@ -15,6 +15,9 @@
  */
 package com.alibaba.cloud.ai.dto;
 
+import com.alibaba.cloud.ai.entity.BusinessKnowledge;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -23,6 +26,8 @@ import lombok.NoArgsConstructor;
  */
 @Data
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class BusinessKnowledgeDTO {
 
 	private String businessTerm; // Business term
@@ -31,30 +36,19 @@ public class BusinessKnowledgeDTO {
 
 	private String synonyms; // Synonyms, comma separated
 
-	private Boolean defaultRecall; // Default recall
+	@Builder.Default
+	private Boolean isRecall = true; // is recall
 
-	private String datasetId; // Associated dataset ID
+	private Long agentId; // Associated agent ID
 
-	private String agentId; // Associated agent ID
-
-	public BusinessKnowledgeDTO(String businessTerm, String description, String synonyms, Boolean defaultRecall,
-			String datasetId) {
-		this.businessTerm = businessTerm;
-		this.description = description;
-		this.synonyms = synonyms;
-		this.defaultRecall = defaultRecall;
-		this.datasetId = datasetId;
-		this.agentId = null; // Default to null for backward compatibility
-	}
-
-	public BusinessKnowledgeDTO(String businessTerm, String description, String synonyms, Boolean defaultRecall,
-			String datasetId, String agentId) {
-		this.businessTerm = businessTerm;
-		this.description = description;
-		this.synonyms = synonyms;
-		this.defaultRecall = defaultRecall;
-		this.datasetId = datasetId;
-		this.agentId = agentId;
+	public BusinessKnowledge toEntity() {
+		return BusinessKnowledge.builder()
+			.businessTerm(businessTerm)
+			.description(description)
+			.synonyms(synonyms)
+			.isRecall(isRecall)
+			.agentId(agentId)
+			.build();
 	}
 
 }
