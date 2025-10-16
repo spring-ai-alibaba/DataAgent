@@ -97,7 +97,7 @@ public class TableRelationNode implements NodeAction {
 		List<Document> tableDocuments = StateUtil.getDocumentList(state, TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT);
 		List<List<Document>> columnDocumentsByKeywords = StateUtil.getDocumentListList(state,
 				COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT);
-        String agentIdStr = StateUtil.getStringValue(state, AGENT_ID);
+		String agentIdStr = StateUtil.getStringValue(state, AGENT_ID);
 		if (!StringUtils.hasText(agentIdStr))
 			throw new RuntimeException("Agent ID is empty.");
 
