@@ -89,7 +89,7 @@
           <AgentPromptConfig v-if="activeMenuIndex === 'prompt'" :agent-prompt="agent.prompt"></AgentPromptConfig>
           <AgentKnowledgeConfig v-if="activeMenuIndex === 'business-knowledge'"></AgentKnowledgeConfig>
           <AgentSemanticsConfig v-if="activeMenuIndex === 'semantic-model'"></AgentSemanticsConfig>
-          <AgentPresetsConfig v-if="activeMenuIndex === 'preset-questions'"></AgentPresetsConfig>
+          <AgentPresetsConfig v-if="activeMenuIndex === 'preset-questions'" :agent-id="agent.id"></AgentPresetsConfig>
           <AgentAccessApi v-if="activeMenuIndex === 'access-api'"></AgentAccessApi>
         </el-main>
       </el-container>
