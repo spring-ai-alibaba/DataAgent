@@ -46,21 +46,21 @@ import com.alibaba.cloud.ai.node.SqlGenerateNode;
 import com.alibaba.cloud.ai.node.TableRelationNode;
 import com.alibaba.cloud.ai.strategy.CustomBatchingStrategy;
 import com.alibaba.cloud.ai.util.NodeBeanUtil;
-import com.alibaba.cloud.ai.vectorstore.analyticdb.AnalyticDbVectorStoreProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.web.client.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
@@ -130,12 +130,13 @@ import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
  * @since 2025/9/28
  */
 @Configuration
-@EnableConfigurationProperties({ CodeExecutorProperties.class, AnalyticDbVectorStoreProperties.class })
+@EnableConfigurationProperties({ CodeExecutorProperties.class })
 public class DataAgentConfiguration {
 
 	private static final Logger logger = LoggerFactory.getLogger(DataAgentConfiguration.class);
 
 	@Bean
+	@ConditionalOnMissingBean(RestClientCustomizer.class)
 	public RestClientCustomizer restClientCustomizer(@Value("${rest.connect.timeout:600}") long connectTimeout,
 			@Value("${rest.read.timeout:600}") long readTimeout) {
 		return restClientBuilder -> restClientBuilder
@@ -146,6 +147,7 @@ public class DataAgentConfiguration {
 	}
 
 	@Bean
+	@ConditionalOnMissingBean(WebClient.Builder.class)
 	public WebClient.Builder webClientBuilder(@Value("${webclient.response.timeout:600}") long responseTimeout) {
 
 		return WebClient.builder()
@@ -282,21 +284,27 @@ public class DataAgentConfiguration {
 		return stateGraph;
 	}
 
-	// 为了不必要的重复手动配置
-	// 不要在此添加其他向量的手动配置，如果扩展其他向量，请阅读spring ai文档
-	// https://springdoc.cn/spring-ai/api/vectordbs.html
-	// 根据自己想要的向量，在pom文件引入 Boot Starter 依赖即可。
-	// 此处配置使用内存向量作为兜底配置
+	/**
+	 * 为了不必要的重复手动配置，不要在此添加其他向量的手动配置，如果扩展其他向量，请阅读spring ai文档
+	 * <a href="https://springdoc.cn/spring-ai/api/vectordbs.html">...</a>
+	 * 根据自己想要的向量，在pom文件引入 Boot Starter 依赖即可。此处配置使用内存向量作为兜底配置
+	 */
 	@Bean
-	@Primary
-	@ConditionalOnProperty(name = "spring.ai.vectorstore.type", havingValue = "simple", matchIfMissing = true)
+	@ConditionalOnMissingBean(VectorStore.class)
 	public VectorStore simpleVectorStore(EmbeddingModel embeddingModel) {
 		return SimpleVectorStore.builder(embeddingModel).build();
 	}
 
 	@Bean
+	@ConditionalOnMissingBean(BatchingStrategy.class)
 	public BatchingStrategy customBatchingStrategy() {
 		return new CustomBatchingStrategy();
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(ChatClient.class)
+	public ChatClient chatClient(ChatModel chatModel) {
+		return ChatClient.builder(chatModel).build();
 	}
 
 }
