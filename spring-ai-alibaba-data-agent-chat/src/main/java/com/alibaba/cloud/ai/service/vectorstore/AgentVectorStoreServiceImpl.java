@@ -47,6 +47,8 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
+	private static final String DEFAULT = "default";
+
 	private final VectorStore vectorStore; // 由Spring Boot自动配置
 
 	/**
@@ -54,6 +56,12 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	 */
 	@Value("${spring.ai.vectorstore.similarityThreshold:0.2}")
 	protected double similarityThreshold;
+
+	@Value("${spring.ai.vectorstore.batch-topk-limit:9999}")
+	protected int batchTopkLimit;
+
+	@Value("${spring.ai.vectorstore.agent-query-topk-limit:25}")
+	protected int agentQueryTopkLimit;
 
 	protected final AccessorFactory accessorFactory;
 
@@ -187,8 +195,6 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 		Assert.notNull(agentId, "AgentId cannot be null.");
 
 		// 使用相似度搜索来估计文档数量
-		// 设置一个较大的topK值以获取尽可能多的文档，但避免超过向量数据库的限制
-		int batchSize = 1000;
 		int totalCount = 0;
 		Set<String> seenDocumentIds = new HashSet<>();
 		int newDocumentsCount;
@@ -211,7 +217,7 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 				.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
 					.query(query)
 					.filterExpression(buildFilterExpressionString(Map.of(Constant.AGENT_ID, agentId)))
-					.topK(batchSize)
+					.topK(batchTopkLimit)
 					.similarityThreshold(0.0) // 设置最低相似度阈值以获取所有文档
 					.build());
 
@@ -228,7 +234,7 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 			// 如果这批文档数量小于batchSize，说明已经获取了所有文档
 			// 或者没有新文档，也说明已经获取了所有文档
-			if (batch.size() < batchSize || newDocumentsCount == 0) {
+			if (batch.size() < batchTopkLimit || newDocumentsCount == 0) {
 				break;
 			}
 
@@ -259,7 +265,6 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 	private void batchDelDocumentsWithFilter(String filterExpression) {
 		Set<String> seenDocumentIds = new HashSet<>();
-		int batchSize = 16384;
 		// 分批获取，因为Milvus等向量数据库的topK有限制
 		List<Document> batch;
 		int newDocumentsCount;
@@ -267,9 +272,10 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 		do {
 			batch = vectorStore.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
-				.query("")
+				.query(DEFAULT)// 使用默认的查询字符串，因为有的嵌入模型不支持空字符串
 				.filterExpression(filterExpression)
-				.topK(batchSize)
+				.similarityThreshold(0.0)// 设置最低相似度阈值以获取元数据匹配的所有文档
+				.topK(batchTopkLimit)
 				.build());
 
 			// 过滤掉已经处理过的文档，只删除未处理的文档
@@ -377,7 +383,7 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	public List<Document> getDocumentsForAgent(String agentId, String query, String vectorType) {
 		AgentSearchRequest searchRequest = AgentSearchRequest.getInstance(agentId);
 		searchRequest.setQuery(query);
-		searchRequest.setTopK(20);
+		searchRequest.setTopK(agentQueryTopkLimit);
 		searchRequest.setMetadataFilter(Map.of(Constant.VECTOR_TYPE, vectorType));
 
 		return search(searchRequest);
@@ -387,9 +393,10 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	public boolean hasDocuments(String agentId) {
 		// 类似 MySQL 的 LIMIT 1,只检查是否存在文档
 		List<Document> docs = vectorStore.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
-			.query("")
+			.query(DEFAULT)// 使用默认的查询字符串，因为有的嵌入模型不支持空字符串
 			.filterExpression(buildFilterExpressionString(Map.of(Constant.AGENT_ID, agentId)))
 			.topK(1) // 只获取1个文档
+			.similarityThreshold(0.0)
 			.build());
 		return !docs.isEmpty();
 	}
