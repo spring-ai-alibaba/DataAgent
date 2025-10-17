@@ -33,19 +33,22 @@ public class QueryRewriteDispatcher implements EdgeAction {
 
 	@Override
 	public String apply(OverAllState state) {
+		// value的值是和 resources/init-rewrite.txt的输出一致，例如
+		// 需求类型：《自由闲聊》.........
+		// 语种类型：《中文》
+		// 需求内容：2025-10-17天气如何
 		String value = state.value(QUERY_REWRITE_NODE_OUTPUT, END);
-		logger.debug("[QueryRewriteDispatcher]apply方法被调用，参数value: {}", value);
+		logger.info("[QueryRewriteDispatcher]apply方法被调用，QUERY_REWRITE_NODE_OUTPUT的value如下\n {}", value);
 
-		return switch (value) {
-			case INTENT_UNCLEAR, SMALL_TALK_REJECT -> {
-				logger.info("[QueryRewriteDispatcher]意图不明确或闲聊被拒绝，返回END节点");
-				yield END;
-			}
-			default -> {
-				logger.info("[QueryRewriteDispatcher]进入KEYWORD_EXTRACT_NODE节点");
-				yield KEYWORD_EXTRACT_NODE;
-			}
-		};
+		if (value != null && value.contains("需求类型：《数据分析》")) {
+			logger.info("[QueryRewriteDispatcher]需求类型为数据分析，进入KEYWORD_EXTRACT_NODE节点");
+			return KEYWORD_EXTRACT_NODE;
+		}
+		else {
+			logger.info("[QueryRewriteDispatcher]需求类型非数据分析，返回END节点");
+			return END;
+		}
+
 	}
 
 }
