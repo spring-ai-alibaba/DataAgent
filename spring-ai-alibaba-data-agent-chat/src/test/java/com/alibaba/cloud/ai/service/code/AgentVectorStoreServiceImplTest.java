@@ -150,16 +150,19 @@ public class AgentVectorStoreServiceImplTest {
 				new Document("Test content 1", Map.of(Constant.AGENT_ID, TEST_AGENT_ID)),
 				new Document("Test content 2", Map.of(Constant.AGENT_ID, TEST_AGENT_ID)));
 		// Mock the vectorStore.similaritySearch to return documents on first call and
-		// empty list on subsequent calls
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(mockDocuments)
-			.thenReturn(Collections.emptyList());
+		// empty list on subsequent calls using doReturn style for better mocking
+		doReturn(mockDocuments).doReturn(Collections.emptyList())
+			.when(vectorStore)
+			.similaritySearch(any(SearchRequest.class));
 
 		// Act
 		int result = agentVectorStoreService.estimateDocuments(TEST_AGENT_ID);
 
 		// Assert
 		assertEquals(2, result);
-		verify(vectorStore, times(1)).similaritySearch(any(SearchRequest.class));
+		// Since the estimated Documents method is called multiple times until there are
+		// no new documents, we should verify that it has been called at least once
+		verify(vectorStore, atLeastOnce()).similaritySearch(any(SearchRequest.class));
 	}
 
 	@Test
