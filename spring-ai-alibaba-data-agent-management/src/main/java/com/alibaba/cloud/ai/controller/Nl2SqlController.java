@@ -15,9 +15,9 @@
  */
 package com.alibaba.cloud.ai.controller;
 
+import com.alibaba.cloud.ai.service.graph.GraphService;
 import com.alibaba.cloud.ai.vo.Nl2SqlProcessVO;
 import com.alibaba.cloud.ai.graph.StateGraph;
-import com.alibaba.cloud.ai.service.OldNl2SqlService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,11 +46,11 @@ public class Nl2SqlController {
 
 	private static final Logger logger = LoggerFactory.getLogger(Nl2SqlController.class);
 
-	private final OldNl2SqlService nl2SqlService;
+	private final GraphService nl2SqlService;
 
 	private final ExecutorService executorService;
 
-	public Nl2SqlController(OldNl2SqlService nl2SqlService) {
+	public Nl2SqlController(GraphService nl2SqlService) {
 		this.nl2SqlService = nl2SqlService;
 		this.executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 	}
