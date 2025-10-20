@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.service.processing.impls;
 
-import com.alibaba.cloud.ai.service.DatasourceService;
-import com.alibaba.cloud.ai.service.LlmService;
+import com.alibaba.cloud.ai.service.datasource.DatasourceService;
+import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.service.schema.SchemaService;
 import com.alibaba.cloud.ai.service.processing.AbstractQueryProcessingService;

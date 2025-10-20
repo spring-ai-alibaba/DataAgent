@@ -26,7 +26,7 @@ import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
-import com.alibaba.cloud.ai.service.DatasourceService;
+import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
@@ -112,10 +112,10 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 			logger.info("Getting datasource config for agent: {}", agentId);
 
 			// Get the enabled data source for the agent
-			List<AgentDatasource> agentDatasources = datasourceService.getAgentDatasources(agentId);
+			List<AgentDatasource> agentDatasources = datasourceService.getAgentDatasource(agentId);
 			if (agentDatasources.size() == 0) {
 				// TODO 调试AgentID不一致，暂时手动处理
-				agentDatasources = datasourceService.getAgentDatasources(agentId - 999999);
+				agentDatasources = datasourceService.getAgentDatasource(agentId - 999999);
 			}
 			AgentDatasource activeDatasource = agentDatasources.stream()
 				.filter(ad -> ad.getIsActive() == 1)

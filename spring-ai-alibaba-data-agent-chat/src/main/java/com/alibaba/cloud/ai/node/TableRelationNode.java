@@ -24,7 +24,7 @@ import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
-import com.alibaba.cloud.ai.service.DatasourceService;
+import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.service.business.BusinessKnowledgeService;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.service.schema.SchemaService;

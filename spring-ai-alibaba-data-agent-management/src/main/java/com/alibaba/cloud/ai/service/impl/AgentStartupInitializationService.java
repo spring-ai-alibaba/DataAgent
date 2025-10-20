@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.service.impl;
 import com.alibaba.cloud.ai.entity.Agent;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.service.AgentService;
-import com.alibaba.cloud.ai.service.DatasourceService;
+import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -133,7 +133,7 @@ public class AgentStartupInitializationService implements ApplicationRunner, Dis
 				return true;
 			}
 
-			List<AgentDatasource> agentDatasources = datasourceService.getAgentDatasources(agentId.intValue());
+			List<AgentDatasource> agentDatasources = datasourceService.getAgentDatasource(agentId.intValue());
 
 			if (agentDatasources.isEmpty()) {
 				log.warn("Agent {} has no associated datasources", agentId);

@@ -23,7 +23,7 @@ import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
-import com.alibaba.cloud.ai.service.LlmService;
+import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.service.UserPromptConfigService;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;

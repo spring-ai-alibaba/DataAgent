@@ -23,7 +23,7 @@ import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.state.StateSnapshot;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
-import com.alibaba.cloud.ai.service.DatasourceService;
+import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.service.AgentService;
 import com.alibaba.cloud.ai.util.JsonUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
