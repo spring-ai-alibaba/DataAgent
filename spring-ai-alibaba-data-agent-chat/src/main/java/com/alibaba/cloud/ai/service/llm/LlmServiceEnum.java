@@ -16,26 +16,8 @@
 
 package com.alibaba.cloud.ai.service.llm;
 
-import org.springframework.ai.chat.model.ChatResponse;
-import reactor.core.publisher.Flux;
+public enum LlmServiceEnum {
 
-import java.util.Optional;
-
-public interface LlmService {
-
-	Flux<ChatResponse> call(String system, String user);
-
-	Flux<ChatResponse> callSystem(String system);
-
-	Flux<ChatResponse> callUser(String user);
-
-	// todo: 临时兼容方法，之后需要把调用此处的方法转为流式调用
-	default String blockToString(Flux<ChatResponse> responseFlux) {
-		return responseFlux.map(r -> r.getResult().getOutput())
-			.map(r -> Optional.ofNullable(r.getText()).orElse(""))
-			.collect(StringBuilder::new, StringBuilder::append)
-			.map(StringBuilder::toString)
-			.block();
-	}
+	BLOCK, STREAM
 
 }

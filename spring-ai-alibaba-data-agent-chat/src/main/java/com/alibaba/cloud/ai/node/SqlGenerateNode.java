@@ -251,7 +251,7 @@ public class SqlGenerateNode implements NodeAction {
 			prompt.append("4. 优化可读性\n\n");
 			prompt.append("请只返回优化后的SQL语句，不要包含其他说明。");
 
-			String response = llmService.call(prompt.toString());
+			String response = llmService.blockToString(llmService.callUser(prompt.toString()));
 
 			return MarkdownParserUtil.extractRawText(response).trim();
 		}

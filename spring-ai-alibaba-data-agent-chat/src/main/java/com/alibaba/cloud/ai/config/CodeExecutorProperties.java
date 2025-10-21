@@ -17,6 +17,8 @@
 package com.alibaba.cloud.ai.config;
 
 import com.alibaba.cloud.ai.service.code.CodePoolExecutorEnum;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import static com.alibaba.cloud.ai.constant.Constant.PROJECT_PROPERTIES_PREFIX;
@@ -25,6 +27,8 @@ import static com.alibaba.cloud.ai.constant.Constant.PROJECT_PROPERTIES_PREFIX;
  * @author vlsmb
  * @since 2025/7/12
  */
+@Getter
+@Setter
 @ConfigurationProperties(prefix = CodeExecutorProperties.CONFIG_PREFIX)
 public class CodeExecutorProperties {
 
@@ -115,141 +119,5 @@ public class CodeExecutorProperties {
 	 * Container network mode
 	 */
 	String networkMode = "none";
-
-	public CodePoolExecutorEnum getCodePoolExecutor() {
-		return codePoolExecutor;
-	}
-
-	public void setCodePoolExecutor(CodePoolExecutorEnum codePoolExecutor) {
-		this.codePoolExecutor = codePoolExecutor;
-	}
-
-	public String getHost() {
-		return host;
-	}
-
-	public void setHost(String host) {
-		this.host = host;
-	}
-
-	public String getImageName() {
-		return imageName;
-	}
-
-	public void setImageName(String imageName) {
-		this.imageName = imageName;
-	}
-
-	public String getContainerNamePrefix() {
-		return containerNamePrefix;
-	}
-
-	public void setContainerNamePrefix(String containerNamePrefix) {
-		this.containerNamePrefix = containerNamePrefix;
-	}
-
-	public Integer getTaskQueueSize() {
-		return taskQueueSize;
-	}
-
-	public void setTaskQueueSize(Integer taskQueueSize) {
-		this.taskQueueSize = taskQueueSize;
-	}
-
-	public Integer getCoreContainerNum() {
-		return coreContainerNum;
-	}
-
-	public void setCoreContainerNum(Integer coreContainerNum) {
-		this.coreContainerNum = coreContainerNum;
-	}
-
-	public Integer getTempContainerNum() {
-		return tempContainerNum;
-	}
-
-	public void setTempContainerNum(Integer tempContainerNum) {
-		this.tempContainerNum = tempContainerNum;
-	}
-
-	public Integer getCoreThreadSize() {
-		return coreThreadSize;
-	}
-
-	public void setCoreThreadSize(Integer coreThreadSize) {
-		this.coreThreadSize = coreThreadSize;
-	}
-
-	public Integer getMaxThreadSize() {
-		return maxThreadSize;
-	}
-
-	public void setMaxThreadSize(Integer maxThreadSize) {
-		this.maxThreadSize = maxThreadSize;
-	}
-
-	public Integer getTempContainerAliveTime() {
-		return tempContainerAliveTime;
-	}
-
-	public void setTempContainerAliveTime(Integer tempContainerAliveTime) {
-		this.tempContainerAliveTime = tempContainerAliveTime;
-	}
-
-	public Long getKeepThreadAliveTime() {
-		return keepThreadAliveTime;
-	}
-
-	public void setKeepThreadAliveTime(Long keepThreadAliveTime) {
-		this.keepThreadAliveTime = keepThreadAliveTime;
-	}
-
-	public Integer getThreadQueueSize() {
-		return threadQueueSize;
-	}
-
-	public void setThreadQueueSize(Integer threadQueueSize) {
-		this.threadQueueSize = threadQueueSize;
-	}
-
-	public Long getLimitMemory() {
-		return limitMemory;
-	}
-
-	public void setLimitMemory(Long limitMemory) {
-		this.limitMemory = limitMemory;
-	}
-
-	public Long getCpuCore() {
-		return cpuCore;
-	}
-
-	public void setCpuCore(Long cpuCore) {
-		this.cpuCore = cpuCore;
-	}
-
-	public String getCodeTimeout() {
-		return codeTimeout;
-	}
-
-	public void setCodeTimeout(String codeTimeout) {
-		this.codeTimeout = codeTimeout;
-	}
-
-	public Long getContainerTimeout() {
-		return containerTimeout;
-	}
-
-	public void setContainerTimeout(Long containerTimeout) {
-		this.containerTimeout = containerTimeout;
-	}
-
-	public String getNetworkMode() {
-		return networkMode;
-	}
-
-	public void setNetworkMode(String networkMode) {
-		this.networkMode = networkMode;
-	}
 
 }

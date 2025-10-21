@@ -45,12 +45,12 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 
 	private static final Logger logger = LoggerFactory.getLogger(AbstractQueryProcessingService.class);
 
-	private final LlmService aiService;
+	private final LlmService llmService;
 
 	private final DatasourceService datasourceService;
 
-	public AbstractQueryProcessingService(LlmService aiService, DatasourceService datasourceService) {
-		this.aiService = aiService;
+	public AbstractQueryProcessingService(LlmService llmService, DatasourceService datasourceService) {
+		this.llmService = llmService;
 		this.datasourceService = datasourceService;
 	}
 
@@ -82,7 +82,7 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 
 		String prompt = PromptHelper.buildQueryToKeywordsPrompt(query);
 		logger.debug("Calling LLM for keyword extraction");
-		String content = aiService.call(prompt);
+		String content = llmService.blockToString(llmService.callUser(prompt));
 
 		List<String> keywords;
 		try {
@@ -107,7 +107,7 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 
 			// Call LLM to get expanded questions
 			logger.debug("Calling LLM for question expansion");
-			String content = aiService.call(prompt);
+			String content = llmService.blockToString(llmService.callUser(prompt));
 
 			// Parse JSON response
 			List<String> expandedQuestions = JsonUtil.getObjectMapper().readValue(content, new TypeReference<>() {
@@ -141,7 +141,7 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 		SchemaDTO schemaDTO = select(timeRewrittenQuery, evidences, agentId);
 		String prompt = PromptHelper.buildRewritePrompt(timeRewrittenQuery, schemaDTO, evidences);
 		logger.debug("Built rewrite prompt for streaming, prompt is as follows \n {}", prompt);
-		Flux<ChatResponse> result = aiService.streamCall(prompt);
+		Flux<ChatResponse> result = llmService.callUser(prompt);
 		logger.info("RewriteStream completed for query: {}", query);
 		return result;
 	}
@@ -159,7 +159,7 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 			String timeConversionPrompt = PromptHelper.buildTimeConversionPrompt(query);
 
 			// 调用模型进行时间转换
-			String convertedQuery = aiService.call(timeConversionPrompt);
+			String convertedQuery = llmService.blockToString(llmService.callUser(timeConversionPrompt));
 
 			if (!convertedQuery.equals(query)) {
 				logger.info("Time expression conversion: {} -> {}", query, convertedQuery);

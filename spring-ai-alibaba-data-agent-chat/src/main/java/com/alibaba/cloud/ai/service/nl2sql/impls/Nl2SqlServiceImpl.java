@@ -52,15 +52,15 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 
 	private static final Logger logger = LoggerFactory.getLogger(Nl2SqlServiceImpl.class);
 
-	public final LlmService aiService;
+	public final LlmService llmService;
 
 	// todo: Accessor应根据数据源动态获取
 	protected final Accessor dbAccessor;
 
 	protected final DbConfig dbConfig;
 
-	public Nl2SqlServiceImpl(LlmService aiService, AccessorFactory accessorFactory, DbConfig dbConfig) {
-		this.aiService = aiService;
+	public Nl2SqlServiceImpl(LlmService llmService, AccessorFactory accessorFactory, DbConfig dbConfig) {
+		this.llmService = llmService;
 		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 		this.dbConfig = dbConfig;
 	}
@@ -69,7 +69,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 	public Flux<ChatResponse> semanticConsistencyStream(String sql, String queryPrompt) {
 		String semanticConsistencyPrompt = PromptHelper.buildSemanticConsistenPrompt(queryPrompt, sql);
 		logger.info("semanticConsistencyPrompt = {}", semanticConsistencyPrompt);
-		return aiService.streamCall(semanticConsistencyPrompt);
+		return llmService.callUser(semanticConsistencyPrompt);
 	}
 
 	@Override
@@ -86,14 +86,14 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 			logger.debug("Using SQL error fixer for existing SQL: {}", sql);
 			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(query, dbConfig, schemaDTO, evidenceList,
 					sql, exceptionMessage);
-			newSql = aiService.call(errorFixerPrompt);
+			newSql = llmService.blockToString(llmService.callUser(errorFixerPrompt));
 			logger.info("SQL error fixing completed");
 		}
 		else {
 			// Normal SQL generation process
 			logger.debug("Generating new SQL from scratch");
 			List<String> prompts = PromptHelper.buildMixSqlGeneratorPrompt(query, dbConfig, schemaDTO, evidenceList);
-			newSql = aiService.callWithSystemPrompt(prompts.get(0), prompts.get(1));
+			newSql = llmService.blockToString(llmService.call(prompts.get(0), prompts.get(1)));
 			logger.info("New SQL generation completed");
 		}
 
@@ -108,7 +108,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 		String prompt = " 建议：" + sqlGenerateSchemaMissingAdvice
 				+ " \n 请按照建议进行返回相关表的名称，只返回建议中提到的表名，返回格式为：[\"a\",\"b\",\"c\"] \n " + schemaInfo;
 		logger.debug("Calling LLM for table selection with advice");
-		String content = aiService.call(prompt);
+		String content = llmService.blockToString(llmService.callUser(prompt));
 		if (content != null && !content.trim().isEmpty()) {
 			String jsonContent = MarkdownParserUtil.extractText(content);
 			List<String> tableList;
@@ -143,7 +143,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 
 		String prompt = buildMixSelectorPrompt(evidenceList, query, enrichedSchema);
 		logger.debug("Calling LLM for schema fine selection");
-		String content = aiService.call(prompt);
+		String content = llmService.blockToString(llmService.callUser(prompt));
 		Set<String> selectedTables = new HashSet<>();
 
 		if (sqlGenerateSchemaMissingAdvice != null) {

@@ -115,7 +115,7 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 					objectMapper.writeValueAsString(sqlResults.stream().limit(SAMPLE_DATA_NUMBER).toList()),
 					"plan_description", objectMapper.writeValueAsString(toolParameters)));
 
-		Flux<ChatResponse> pythonGenerateFlux = llmService.streamCallWithSystemPrompt(systemPrompt, userPrompt);
+		Flux<ChatResponse> pythonGenerateFlux = llmService.call(systemPrompt, userPrompt);
 
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state, "", "",
 				aiResponse -> {
