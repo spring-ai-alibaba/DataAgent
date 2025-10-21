@@ -14,43 +14,36 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.service.impl;
+package com.alibaba.cloud.ai.service.knowledge;
 
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 import com.alibaba.cloud.ai.mapper.AgentKnowledgeMapper;
+import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Agent Knowledge Service Class
- */
 @Service
-public class AgentKnowledgeService {
+public class AgentKnowledgeServiceImpl implements AgentKnowledgeService {
 
-	@Autowired
-	private AgentKnowledgeMapper agentKnowledgeMapper;
+	private final AgentKnowledgeMapper agentKnowledgeMapper;
 
-	/**
-	 * Query knowledge list by agent ID
-	 */
+	public AgentKnowledgeServiceImpl(AgentKnowledgeMapper agentKnowledgeMapper) {
+		this.agentKnowledgeMapper = agentKnowledgeMapper;
+	}
+
+	@Override
 	public List<AgentKnowledge> getKnowledgeByAgentId(Integer agentId) {
 		return agentKnowledgeMapper.selectByAgentId(agentId);
 	}
 
-	/**
-	 * Query knowledge details by ID
-	 */
+	@Override
 	public AgentKnowledge getKnowledgeById(Integer id) {
 		return agentKnowledgeMapper.selectById(id);
 	}
 
-	/**
-	 * Create knowledge
-	 */
-	public AgentKnowledge createKnowledge(AgentKnowledge knowledge) {
+	@Override
+	public boolean createKnowledge(AgentKnowledge knowledge) {
 		LocalDateTime now = LocalDateTime.now();
 
 		// Set default values
@@ -69,15 +62,11 @@ public class AgentKnowledgeService {
 		knowledge.setUpdateTime(now);
 
 		// Insert into database, the ID will be auto-filled by MyBatis
-		agentKnowledgeMapper.insert(knowledge);
-
-		return knowledge;
+		return agentKnowledgeMapper.insert(knowledge) > 0;
 	}
 
-	/**
-	 * Update knowledge
-	 */
-	public AgentKnowledge updateKnowledge(Integer id, AgentKnowledge knowledge) {
+	@Override
+	public boolean updateKnowledge(Integer id, AgentKnowledge knowledge) {
 		LocalDateTime now = LocalDateTime.now();
 
 		// Ensure the knowledge object has the correct ID
@@ -85,67 +74,47 @@ public class AgentKnowledgeService {
 		knowledge.setUpdateTime(now);
 
 		int updatedRows = agentKnowledgeMapper.update(knowledge);
-		if (updatedRows > 0) {
-			return knowledge;
-		}
-		else {
-			return null; // No matching record found
-		}
+		return updatedRows > 0;
 	}
 
-	/**
-	 * Delete knowledge
-	 */
+	@Override
 	public boolean deleteKnowledge(Integer id) {
 		int deletedRows = agentKnowledgeMapper.deleteById(id);
 		return deletedRows > 0;
 	}
 
-	/**
-	 * Query knowledge list by type
-	 */
+	@Override
 	public List<AgentKnowledge> getKnowledgeByType(Integer agentId, String type) {
 		return agentKnowledgeMapper.selectByAgentIdAndType(agentId, type);
 	}
 
-	/**
-	 * Query knowledge list by status
-	 */
+	@Override
 	public List<AgentKnowledge> getKnowledgeByStatus(Integer agentId, String status) {
 		return agentKnowledgeMapper.selectByAgentIdAndStatus(agentId, status);
 	}
 
-	/**
-	 * Search knowledge
-	 */
+	@Override
 	public List<AgentKnowledge> searchKnowledge(Integer agentId, String keyword) {
 		return agentKnowledgeMapper.searchByAgentIdAndKeyword(agentId, keyword);
 	}
 
-	/**
-	 * Batch update knowledge status
-	 */
-	public int batchUpdateStatus(List<Integer> ids, String status) {
-		String sql = "UPDATE agent_knowledge SET status = ?, update_time = ? WHERE id = ?";
+	@Override
+	public boolean batchUpdateStatus(List<Integer> ids, String status) {
 		LocalDateTime now = LocalDateTime.now();
 
 		int totalUpdated = 0;
 		for (Integer id : ids) {
 			totalUpdated += agentKnowledgeMapper.updateStatus(id, status, now);
 		}
-		return totalUpdated;
+		return totalUpdated == ids.size();
 	}
 
-	/**
-	 * Count agent knowledge
-	 */
+	@Override
 	public int countKnowledgeByAgent(Integer agentId) {
 		return agentKnowledgeMapper.countByAgentId(agentId);
 	}
 
-	/**
-	 * Count knowledge by types
-	 */
+	@Override
 	public List<Object[]> countKnowledgeByType(Integer agentId) {
 		return agentKnowledgeMapper.countByType(agentId);
 	}

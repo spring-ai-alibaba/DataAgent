@@ -17,9 +17,8 @@ package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.entity.ChatMessage;
 import com.alibaba.cloud.ai.mapper.ChatMessageMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.alibaba.cloud.ai.service.ChatMessageService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -27,44 +26,38 @@ import java.util.List;
 /**
  * Chat Message Service Class
  */
+@Slf4j
 @Service
-public class ChatMessageService {
+public class ChatMessageServiceImpl implements ChatMessageService {
 
-	private static final Logger log = LoggerFactory.getLogger(ChatMessageService.class);
+	private final ChatMessageMapper chatMessageMapper;
 
-	@Autowired
-	private ChatMessageMapper chatMessageMapper;
+	public ChatMessageServiceImpl(ChatMessageMapper chatMessageMapper) {
+		this.chatMessageMapper = chatMessageMapper;
+	}
 
-	/**
-	 * Get message list by session ID
-	 */
+	@Override
 	public List<ChatMessage> findBySessionId(String sessionId) {
 		return chatMessageMapper.selectBySessionId(sessionId);
 	}
 
-	/**
-	 * Save message
-	 */
+	@Override
 	public ChatMessage saveMessage(ChatMessage message) {
 		chatMessageMapper.insert(message);
 		log.info("Saved message: {} for session: {}", message.getId(), message.getSessionId());
 		return message;
 	}
 
-	/**
-	 * Save user message
-	 */
-	public ChatMessage saveUserMessage(String sessionId, String content) {
+	@Override
+	public void saveUserMessage(String sessionId, String content) {
 		ChatMessage message = new ChatMessage(sessionId, "user", content, "text");
-		return saveMessage(message);
+		saveMessage(message);
 	}
 
-	/**
-	 * Save assistant message
-	 */
-	public ChatMessage saveAssistantMessage(String sessionId, String content, String messageType, String metadata) {
+	@Override
+	public void saveAssistantMessage(String sessionId, String content, String messageType, String metadata) {
 		ChatMessage message = new ChatMessage(sessionId, "assistant", content, messageType, metadata);
-		return saveMessage(message);
+		saveMessage(message);
 	}
 
 }
