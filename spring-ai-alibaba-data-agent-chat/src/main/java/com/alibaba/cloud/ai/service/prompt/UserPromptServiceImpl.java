@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.service;
+package com.alibaba.cloud.ai.service.prompt;
 
 import com.alibaba.cloud.ai.dto.PromptConfigDTO;
 import com.alibaba.cloud.ai.entity.UserPromptConfig;
 import com.alibaba.cloud.ai.mapper.UserPromptConfigMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -32,21 +30,19 @@ import java.util.*;
  *
  * @author Makoto
  */
+@Slf4j
 @Service
-public class UserPromptConfigService {
+public class UserPromptServiceImpl implements UserPromptService {
 
-	private static final Logger logger = LoggerFactory.getLogger(UserPromptConfigService.class);
+	private final UserPromptConfigMapper userPromptConfigMapper;
 
-	@Autowired
-	private UserPromptConfigMapper userPromptConfigMapper;
+	public UserPromptServiceImpl(UserPromptConfigMapper userPromptConfigMapper) {
+		this.userPromptConfigMapper = userPromptConfigMapper;
+	}
 
-	/**
-	 * Create or update prompt configuration
-	 * @param configDTO configuration data transfer object
-	 * @return saved configuration object
-	 */
+	@Override
 	public UserPromptConfig saveOrUpdateConfig(PromptConfigDTO configDTO) {
-		logger.info("保存或更新提示词优化配置：{}", configDTO);
+		log.info("保存或更新提示词优化配置：{}", configDTO);
 
 		UserPromptConfig config;
 		if (configDTO.id() != null) {
@@ -94,170 +90,117 @@ public class UserPromptConfigService {
 		// 如果配置启用，直接启用该配置（支持多个配置同时启用）
 		if (Boolean.TRUE.equals(config.getEnabled())) {
 			userPromptConfigMapper.enableById(config.getId());
-			logger.info("已启用提示词类型 [{}] 的配置：{}", config.getPromptType(), config.getId());
+			log.info("已启用提示词类型 [{}] 的配置：{}", config.getPromptType(), config.getId());
 		}
 
 		return config;
 	}
 
-	/**
-	 * Get configuration by ID
-	 * @param id configuration ID
-	 * @return configuration object, returns null if not exists
-	 */
+	@Override
 	public UserPromptConfig getConfigById(String id) {
 		return userPromptConfigMapper.selectById(id);
 	}
 
-	/**
-	 * 根据提示词类型获取所有启用的配置
-	 * @param promptType 提示词类型
-	 * @return 配置列表
-	 */
+	@Override
 	public List<UserPromptConfig> getActiveConfigsByType(String promptType) {
 		return userPromptConfigMapper.getActiveConfigsByType(promptType);
 	}
 
-	/**
-	 * Get enabled configuration by prompt type
-	 * @param promptType prompt type
-	 * @return configuration object, returns null if not exists
-	 */
+	@Override
 	public UserPromptConfig getActiveConfigByType(String promptType) {
 		return userPromptConfigMapper.selectActiveByPromptType(promptType);
 	}
 
-	/**
-	 * Get all configurations
-	 * @return configuration list
-	 */
+	@Override
 	public List<UserPromptConfig> getAllConfigs() {
 		return userPromptConfigMapper.selectAll();
 	}
 
-	/**
-	 * Get all configurations by prompt type
-	 * @param promptType prompt type
-	 * @return configuration list
-	 */
+	@Override
 	public List<UserPromptConfig> getConfigsByType(String promptType) {
 		return userPromptConfigMapper.getConfigsByType(promptType);
 	}
 
-	/**
-	 * Delete configuration
-	 * @param id configuration ID
-	 * @return whether deletion succeeded
-	 */
+	@Override
 	public boolean deleteConfig(String id) {
 		UserPromptConfig config = userPromptConfigMapper.selectById(id);
 		if (config != null) {
 			// 从数据库删除
 			int deleted = userPromptConfigMapper.deleteById(id);
 			if (deleted > 0) {
-				logger.info("已删除配置：{}", id);
+				log.info("已删除配置：{}", id);
 				return true;
 			}
 		}
 		return false;
 	}
 
-	/**
-	 * Enable specified configuration
-	 * @param id configuration ID
-	 * @return whether operation succeeded
-	 */
+	@Override
 	public boolean enableConfig(String id) {
 		UserPromptConfig config = userPromptConfigMapper.selectById(id);
 		if (config != null) {
 			// Enable the current configuration (支持多个配置同时启用)
 			int updated = userPromptConfigMapper.enableById(id);
 			if (updated > 0) {
-				logger.info("已启用配置：{}", id);
+				log.info("已启用配置：{}", id);
 				return true;
 			}
 		}
 		return false;
 	}
 
-	/**
-	 * Disable specified configuration
-	 * @param id configuration ID
-	 * @return whether operation succeeded
-	 */
+	@Override
 	public boolean disableConfig(String id) {
 		int updated = userPromptConfigMapper.disableById(id);
 		if (updated > 0) {
-			logger.info("已禁用配置：{}", id);
+			log.info("已禁用配置：{}", id);
 			return true;
 		}
 		return false;
 	}
 
-	/**
-	 * Get optimization configurations by prompt type
-	 * @param promptType prompt type
-	 * @return optimization configuration list
-	 */
+	@Override
 	public List<UserPromptConfig> getOptimizationConfigs(String promptType) {
 		return getActiveConfigsByType(promptType);
 	}
 
-	/**
-	 * 批量启用配置
-	 * @param ids 配置ID列表
-	 * @return 操作结果
-	 */
+	@Override
 	public boolean enableConfigs(List<String> ids) {
 		for (String id : ids) {
 			userPromptConfigMapper.enableById(id);
 		}
-		logger.info("批量启用配置成功：{}", ids);
+		log.info("批量启用配置成功：{}", ids);
 		return true;
 	}
 
-	/**
-	 * 批量禁用配置
-	 * @param ids 配置ID列表
-	 * @return 操作结果
-	 */
+	@Override
 	public boolean disableConfigs(List<String> ids) {
 		for (String id : ids) {
 			userPromptConfigMapper.disableById(id);
 		}
-		logger.info("批量禁用配置成功：{}", ids);
+		log.info("批量禁用配置成功：{}", ids);
 		return true;
 	}
 
-	/**
-	 * 更新配置优先级
-	 * @param id 配置ID
-	 * @param priority 优先级
-	 * @return 操作结果
-	 */
+	@Override
 	public boolean updatePriority(String id, Integer priority) {
 		UserPromptConfig config = userPromptConfigMapper.selectById(id);
 		if (config != null) {
 			config.setPriority(priority);
 			userPromptConfigMapper.updateById(config);
-			logger.info("更新配置优先级成功：{} -> {}", id, priority);
+			log.info("更新配置优先级成功：{} -> {}", id, priority);
 			return true;
 		}
 		return false;
 	}
 
-	/**
-	 * 更新配置显示顺序
-	 * @param id 配置ID
-	 * @param displayOrder 显示顺序
-	 * @return 操作结果
-	 */
+	@Override
 	public boolean updateDisplayOrder(String id, Integer displayOrder) {
 		UserPromptConfig config = userPromptConfigMapper.selectById(id);
 		if (config != null) {
 			config.setDisplayOrder(displayOrder);
 			userPromptConfigMapper.updateById(config);
-			logger.info("更新配置显示顺序成功：{} -> {}", id, displayOrder);
+			log.info("更新配置显示顺序成功：{} -> {}", id, displayOrder);
 			return true;
 		}
 		return false;

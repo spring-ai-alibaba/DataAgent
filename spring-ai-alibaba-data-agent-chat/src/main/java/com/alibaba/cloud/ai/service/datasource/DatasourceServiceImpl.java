@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.service;
+package com.alibaba.cloud.ai.service.datasource;
 
 import com.alibaba.cloud.ai.connector.pool.DBConnectionPool;
 import com.alibaba.cloud.ai.connector.pool.DBConnectionPoolFactory;
@@ -27,7 +27,6 @@ import com.alibaba.cloud.ai.mapper.AgentDatasourceMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,50 +36,44 @@ import java.util.Map;
 
 // todo: 检查Mapper的返回值，判断是否执行成功（或者对Mapper进行AOP）
 @Service
-public class DatasourceService {
+public class DatasourceServiceImpl implements DatasourceService {
 
-	private static final Logger log = LoggerFactory.getLogger(DatasourceService.class);
+	private static final Logger log = LoggerFactory.getLogger(DatasourceServiceImpl.class);
 
-	@Autowired
-	private DatasourceMapper datasourceMapper;
+	private final DatasourceMapper datasourceMapper;
 
-	@Autowired
-	private AgentDatasourceMapper agentDatasourceMapper;
+	private final AgentDatasourceMapper agentDatasourceMapper;
 
-	@Autowired
-	private DBConnectionPoolFactory poolFactory;
+	private final DBConnectionPoolFactory poolFactory;
 
-	/**
-	 * Get all data source list
-	 */
+	public DatasourceServiceImpl(DatasourceMapper datasourceMapper, AgentDatasourceMapper agentDatasourceMapper,
+			DBConnectionPoolFactory poolFactory) {
+		this.datasourceMapper = datasourceMapper;
+		this.agentDatasourceMapper = agentDatasourceMapper;
+		this.poolFactory = poolFactory;
+	}
+
+	@Override
 	public List<Datasource> getAllDatasource() {
 		return datasourceMapper.selectAll();
 	}
 
-	/**
-	 * Get data source list by status
-	 */
+	@Override
 	public List<Datasource> getDatasourceByStatus(String status) {
 		return datasourceMapper.selectByStatus(status);
 	}
 
-	/**
-	 * Get data source list by type
-	 */
+	@Override
 	public List<Datasource> getDatasourceByType(String type) {
 		return datasourceMapper.selectByType(type);
 	}
 
-	/**
-	 * Get data source details by ID
-	 */
+	@Override
 	public Datasource getDatasourceById(Integer id) {
 		return datasourceMapper.selectById(id);
 	}
 
-	/**
-	 * Create data source
-	 */
+	@Override
 	public Datasource createDatasource(Datasource datasource) {
 		// Generate connection URL
 		datasource.generateConnectionUrl();
@@ -97,9 +90,7 @@ public class DatasourceService {
 		return datasource;
 	}
 
-	/**
-	 * Update data source
-	 */
+	@Override
 	public Datasource updateDatasource(Integer id, Datasource datasource) {
 		// Regenerate connection URL
 		datasource.generateConnectionUrl();
@@ -109,9 +100,7 @@ public class DatasourceService {
 		return datasource;
 	}
 
-	/**
-	 * Delete data source
-	 */
+	@Override
 	@Transactional
 	public void deleteDatasource(Integer id) {
 		// First, delete the associations
@@ -121,16 +110,12 @@ public class DatasourceService {
 		datasourceMapper.deleteById(id);
 	}
 
-	/**
-	 * Update data source test status
-	 */
+	@Override
 	public void updateTestStatus(Integer id, String testStatus) {
 		datasourceMapper.updateTestStatusById(id, testStatus);
 	}
 
-	/**
-	 * Test data source connection
-	 */
+	@Override
 	public boolean testConnection(Integer id) {
 		Datasource datasource = getDatasourceById(id);
 		if (datasource == null) {
@@ -198,27 +183,23 @@ public class DatasourceService {
 
 	}
 
-	/**
-	 * Get data source list associated with agent
-	 */
-	public List<AgentDatasource> getAgentDatasources(Integer agentId) {
-		List<AgentDatasource> agentDatasources = agentDatasourceMapper.selectByAgentIdWithDatasource(agentId);
+	@Override
+	public List<AgentDatasource> getAgentDatasource(Integer agentId) {
+		List<AgentDatasource> adentDatasources = agentDatasourceMapper.selectByAgentIdWithDatasource(agentId);
 
 		// Manually fill in the data source information (since MyBatis Plus does not
 		// directly support complex join query result mapping)
-		for (AgentDatasource agentDatasource : agentDatasources) {
+		for (AgentDatasource agentDatasource : adentDatasources) {
 			if (agentDatasource.getDatasourceId() != null) {
 				Datasource datasource = datasourceMapper.selectById(agentDatasource.getDatasourceId());
 				agentDatasource.setDatasource(datasource);
 			}
 		}
 
-		return agentDatasources;
+		return adentDatasources;
 	}
 
-	/**
-	 * Add data source to agent
-	 */
+	@Override
 	@Transactional
 	public AgentDatasource addDatasourceToAgent(Integer agentId, Integer datasourceId) {
 		// First, disable other data sources for this agent (an agent can only have one
@@ -244,16 +225,12 @@ public class DatasourceService {
 		}
 	}
 
-	/**
-	 * Remove data source association from agent
-	 */
+	@Override
 	public void removeDatasourceFromAgent(Integer agentId, Integer datasourceId) {
 		agentDatasourceMapper.removeRelation(agentId, datasourceId);
 	}
 
-	/**
-	 * 启用/禁用智能体的数据源
-	 */
+	@Override
 	public AgentDatasource toggleDatasourceForAgent(Integer agentId, Integer datasourceId, Boolean isActive) {
 		// If enabling data source, first check if there are other enabled data sources
 		if (isActive) {
@@ -274,9 +251,7 @@ public class DatasourceService {
 		return agentDatasourceMapper.selectByAgentIdAndDatasourceId(agentId, datasourceId);
 	}
 
-	/**
-	 * Get data source statistics
-	 */
+	@Override
 	public Map<String, Object> getDatasourceStats() {
 		Map<String, Object> stats = new HashMap<>();
 
@@ -299,8 +274,9 @@ public class DatasourceService {
 		return stats;
 	}
 
+	@Override
 	public Datasource getActiveDatasourceByAgentId(Integer agentId) {
-		AgentDatasource agentDatasource = getAgentDatasources(agentId).stream()
+		AgentDatasource agentDatasource = getAgentDatasource(agentId).stream()
 			.filter(a -> a.getIsActive() == 1)
 			.findFirst()
 			.orElse(null);

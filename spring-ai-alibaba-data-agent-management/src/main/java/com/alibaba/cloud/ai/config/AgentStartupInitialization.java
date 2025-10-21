@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service.impl;
+package com.alibaba.cloud.ai.config;
 
 import com.alibaba.cloud.ai.entity.Agent;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.service.AgentService;
-import com.alibaba.cloud.ai.service.DatasourceService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.alibaba.cloud.ai.service.datasource.DatasourceService;
+import com.alibaba.cloud.ai.service.impl.AgentVectorService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
@@ -32,10 +32,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+@Slf4j
 @Service
-public class AgentStartupInitializationService implements ApplicationRunner, DisposableBean {
-
-	private static final Logger log = LoggerFactory.getLogger(AgentStartupInitializationService.class);
+public class AgentStartupInitialization implements ApplicationRunner, DisposableBean {
 
 	@Autowired
 	private AgentService agentService;
@@ -49,12 +48,12 @@ public class AgentStartupInitializationService implements ApplicationRunner, Dis
 	private final ExecutorService executorService = Executors.newFixedThreadPool(3);
 
 	@Override
-	public void run(ApplicationArguments args) throws Exception {
+	public void run(ApplicationArguments args) {
 		log.info("Starting automatic initialization of published agents...");
 
 		try {
 			CompletableFuture.runAsync(this::initializePublishedAgents, executorService).exceptionally(throwable -> {
-				log.error("Error during agent initialization", throwable);
+				log.error("Error during agent initialization: {}", throwable.getMessage());
 				return null;
 			});
 
@@ -96,7 +95,8 @@ public class AgentStartupInitializationService implements ApplicationRunner, Dis
 				}
 				catch (Exception e) {
 					failureCount++;
-					log.error("Error initializing agent: {} (ID: {})", agent.getName(), agent.getId(), e);
+					log.error("Error initializing agent: {} (ID: {}, reason: {})", agent.getName(), agent.getId(),
+							e.getMessage());
 				}
 
 				try {
@@ -133,7 +133,7 @@ public class AgentStartupInitializationService implements ApplicationRunner, Dis
 				return true;
 			}
 
-			List<AgentDatasource> agentDatasources = datasourceService.getAgentDatasources(agentId.intValue());
+			List<AgentDatasource> agentDatasources = datasourceService.getAgentDatasource(agentId.intValue());
 
 			if (agentDatasources.isEmpty()) {
 				log.warn("Agent {} has no associated datasources", agentId);
@@ -177,7 +177,7 @@ public class AgentStartupInitializationService implements ApplicationRunner, Dis
 
 		}
 		catch (Exception e) {
-			log.error("Error initializing datasource for agent {}", agent.getId(), e);
+			log.error("Error initializing datasource for agent {}, reason: {}", agent.getId(), e.getMessage());
 			return false;
 		}
 	}
@@ -187,8 +187,8 @@ public class AgentStartupInitializationService implements ApplicationRunner, Dis
 	 * the DisposableBean interface
 	 */
 	@Override
-	public void destroy() throws Exception {
-		if (executorService != null && !executorService.isShutdown()) {
+	public void destroy() {
+		if (!executorService.isShutdown()) {
 			log.info("Shutting down agent initialization executor service");
 			executorService.shutdown();
 		}

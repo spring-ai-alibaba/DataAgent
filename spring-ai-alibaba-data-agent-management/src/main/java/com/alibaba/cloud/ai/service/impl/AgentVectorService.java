@@ -19,7 +19,7 @@ import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.service.DatasourceService;
+import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
@@ -40,6 +40,7 @@ import java.util.Map;
  * Agent Vector Storage Service Specializes in handling agent-related vector storage
  * operations, ensuring data isolation
  */
+// todo: 需要与AgentVectorStoreService和AgentKnowledgeService合并
 @Service
 public class AgentVectorService {
 
@@ -201,7 +202,7 @@ public class AgentVectorService {
 
 			// Call DatasourceService to get data sources associated with agent
 			List<com.alibaba.cloud.ai.entity.AgentDatasource> agentDatasources = datasourceService
-				.getAgentDatasources(agentId.intValue());
+				.getAgentDatasource(agentId.intValue());
 
 			List<Map<String, Object>> datasources = new ArrayList<>();
 
@@ -286,7 +287,7 @@ public class AgentVectorService {
 
 		}
 		catch (Exception e) {
-			log.error("Failed to get tables for datasource: {}", datasourceId, e);
+			log.error("Failed to get tables for datasource: {}, reason: {}", datasourceId, e.getMessage());
 			throw new RuntimeException("Failed to get tables: " + e.getMessage(), e);
 		}
 	}

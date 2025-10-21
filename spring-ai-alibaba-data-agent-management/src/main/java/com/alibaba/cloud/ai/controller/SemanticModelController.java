@@ -16,9 +16,8 @@
 package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.SemanticModel;
-import com.alibaba.cloud.ai.service.impl.SemanticModelService;
+import com.alibaba.cloud.ai.service.semantic.SemanticModelService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,7 +25,7 @@ import java.util.List;
 /**
  * Semantic Model Configuration Controller
  */
-@Controller
+@RestController
 @RequestMapping("/api/semantic-model")
 @CrossOrigin(origins = "*")
 public class SemanticModelController {
@@ -38,7 +37,6 @@ public class SemanticModelController {
 	}
 
 	@GetMapping
-	@ResponseBody
 	public ResponseEntity<List<SemanticModel>> list(@RequestParam(value = "keyword", required = false) String keyword,
 			@RequestParam(value = "agentId", required = false) Long agentId) {
 		List<SemanticModel> result;
@@ -46,18 +44,17 @@ public class SemanticModelController {
 			result = semanticModelService.search(keyword);
 		}
 		else if (agentId != null) {
-			result = semanticModelService.findByAgentId(agentId);
+			result = semanticModelService.getByAgentId(agentId);
 		}
 		else {
-			result = semanticModelService.findAll();
+			result = semanticModelService.getAll();
 		}
 		return ResponseEntity.ok(result);
 	}
 
 	@GetMapping("/{id}")
-	@ResponseBody
 	public ResponseEntity<SemanticModel> get(@PathVariable(value = "id") Long id) {
-		SemanticModel model = semanticModelService.findById(id);
+		SemanticModel model = semanticModelService.getById(id);
 		if (model == null) {
 			return ResponseEntity.notFound().build();
 		}
@@ -65,30 +62,41 @@ public class SemanticModelController {
 	}
 
 	@PostMapping
-	@ResponseBody
 	public ResponseEntity<SemanticModel> create(@RequestBody SemanticModel model) {
-		SemanticModel saved = semanticModelService.save(model);
-		return ResponseEntity.ok(saved);
+		semanticModelService.addSemanticModel(model);
+		return ResponseEntity.ok(model);
 	}
 
 	@PutMapping("/{id}")
-	@ResponseBody
 	public ResponseEntity<SemanticModel> update(@PathVariable(value = "id") Long id, @RequestBody SemanticModel model) {
-		if (semanticModelService.findById(id) == null) {
+		if (semanticModelService.getById(id) == null) {
 			return ResponseEntity.notFound().build();
 		}
 		model.setId(id);
-		SemanticModel updated = semanticModelService.save(model);
-		return ResponseEntity.ok(updated);
+		semanticModelService.updateSemanticModel(id, model);
+		return ResponseEntity.ok(model);
 	}
 
 	@DeleteMapping("/{id}")
-	@ResponseBody
 	public ResponseEntity<Void> delete(@PathVariable(value = "id") Long id) {
-		if (semanticModelService.findById(id) == null) {
+		if (semanticModelService.getById(id) == null) {
 			return ResponseEntity.notFound().build();
 		}
-		semanticModelService.deleteById(id);
+		semanticModelService.deleteSemanticModel(id);
+		return ResponseEntity.ok().build();
+	}
+
+	// Enable
+	@PutMapping("/enable")
+	public ResponseEntity<Void> enableFields(@RequestBody List<Long> ids) {
+		semanticModelService.enableSemanticModels(ids);
+		return ResponseEntity.ok().build();
+	}
+
+	// Disable
+	@PutMapping("/disable")
+	public ResponseEntity<Void> disableFields(@RequestBody List<Long> ids) {
+		semanticModelService.deleteSemanticModels(ids);
 		return ResponseEntity.ok().build();
 	}
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2024-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.entity.AgentPresetQuestion;
 import com.alibaba.cloud.ai.mapper.AgentPresetQuestionMapper;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.alibaba.cloud.ai.service.AgentPresetQuestionService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -27,22 +27,20 @@ import java.util.List;
  * AgentPresetQuestion Service Class
  */
 @Service
-public class AgentPresetQuestionService {
+public class AgentPresetQuestionServiceImpl implements AgentPresetQuestionService {
 
-	@Autowired
-	private AgentPresetQuestionMapper agentPresetQuestionMapper;
+	private final AgentPresetQuestionMapper agentPresetQuestionMapper;
 
-	/**
-	 * Get the list of preset questions by agent ID (only active ones, ordered by
-	 * sort_order and id)
-	 */
+	public AgentPresetQuestionServiceImpl(AgentPresetQuestionMapper agentPresetQuestionMapper) {
+		this.agentPresetQuestionMapper = agentPresetQuestionMapper;
+	}
+
+	@Override
 	public List<AgentPresetQuestion> findByAgentId(Long agentId) {
 		return agentPresetQuestionMapper.selectByAgentId(agentId);
 	}
 
-	/**
-	 * Create a new preset question
-	 */
+	@Override
 	public AgentPresetQuestion create(AgentPresetQuestion question) {
 		// Ensure default values
 		if (question.getSortOrder() == null) {
@@ -56,32 +54,23 @@ public class AgentPresetQuestionService {
 		return question; // ID will be auto-filled by MyBatis
 	}
 
-	/**
-	 * Update an existing preset question
-	 */
+	@Override
 	public void update(Long id, AgentPresetQuestion question) {
 		question.setId(id); // Ensure the ID is set
 		agentPresetQuestionMapper.update(question);
 	}
 
-	/**
-	 * Delete a preset question by ID
-	 */
+	@Override
 	public void deleteById(Long id) {
 		agentPresetQuestionMapper.deleteById(id);
 	}
 
-	/**
-	 * Delete all preset questions for a given agent
-	 */
+	@Override
 	public void deleteByAgentId(Long agentId) {
 		agentPresetQuestionMapper.deleteByAgentId(agentId);
 	}
 
-	/**
-	 * Batch save preset questions: delete all existing ones for the agent, then insert
-	 * the new list
-	 */
+	@Override
 	public void batchSave(Long agentId, List<AgentPresetQuestion> questions) {
 		// Step 1: Delete all existing preset questions for the agent
 		deleteByAgentId(agentId);

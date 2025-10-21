@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
-import com.alibaba.cloud.ai.service.DatasourceService;
+import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -164,7 +164,7 @@ public class DatasourceController {
 	@GetMapping("/agent/{agentId}")
 	public ResponseEntity<List<AgentDatasource>> getAgentDatasource(@PathVariable(value = "agentId") Integer agentId) {
 		try {
-			List<AgentDatasource> agentDatasource = datasourceService.getAgentDatasources(agentId);
+			List<AgentDatasource> agentDatasource = datasourceService.getAgentDatasource(agentId);
 			return ResponseEntity.ok(agentDatasource);
 		}
 		catch (Exception e) {

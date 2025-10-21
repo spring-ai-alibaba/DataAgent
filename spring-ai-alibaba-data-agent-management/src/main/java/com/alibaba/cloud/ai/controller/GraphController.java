@@ -22,14 +22,13 @@ import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.state.StateSnapshot;
-import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
-import com.alibaba.cloud.ai.service.DatasourceService;
+import com.alibaba.cloud.ai.service.graph.GraphService;
 import com.alibaba.cloud.ai.service.AgentService;
 import com.alibaba.cloud.ai.util.JsonUtil;
+import com.alibaba.cloud.ai.vo.Nl2SqlProcessVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -43,6 +42,9 @@ import reactor.core.publisher.Sinks;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 import static com.alibaba.cloud.ai.constant.Constant.HUMAN_FEEDBACK_NODE;
 import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
@@ -53,30 +55,28 @@ import static com.alibaba.cloud.ai.constant.Constant.PLANNER_NODE_OUTPUT;
 /**
  * @author zhangshenghang
  */
+@Slf4j
 @RestController
 @RequestMapping("nl2sql")
-public class Nl2sqlForGraphController {
-
-	private static final Logger logger = LoggerFactory.getLogger(Nl2sqlForGraphController.class);
+public class GraphController {
 
 	private final CompiledGraph compiledGraph;
 
-	private final AgentVectorStoreService vectorStoreService;
+	private final GraphService graphService;
 
-	private final DatasourceService datasourceService;
+	private final ExecutorService executorService;
 
 	private final AgentService agentService;
 
 	private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 
-	public Nl2sqlForGraphController(@Qualifier("nl2sqlGraph") StateGraph stateGraph,
-			AgentVectorStoreService vectorStoreService, DatasourceService datasourceService, AgentService agentService)
-			throws GraphStateException {
+	public GraphController(@Qualifier("nl2sqlGraph") StateGraph stateGraph, AgentService agentService,
+			GraphService graphService) throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
 		this.compiledGraph.setMaxIterations(100);
-		this.vectorStoreService = vectorStoreService;
-		this.datasourceService = datasourceService;
 		this.agentService = agentService;
+		this.graphService = graphService;
+		this.executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 	}
 
 	@GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -92,7 +92,7 @@ public class Nl2sqlForGraphController {
 		response.setHeader("Access-Control-Allow-Origin", "*");
 		response.setHeader("Access-Control-Allow-Headers", "Cache-Control");
 
-		logger.info("Starting stream search for query: {} with agentId: {}", query, agentId);
+		log.info("Starting stream search for query: {} with agentId: {}", query, agentId);
 
 		Sinks.Many<ServerSentEvent<String>> sink = Sinks.many().unicast().onBackpressureBuffer();
 
@@ -108,7 +108,7 @@ public class Nl2sqlForGraphController {
 		// Use streaming processing and pass agentId to the state
 		// 如果没有提供threadId，生成一个
 		String finalThreadId = threadId != null ? threadId : String.valueOf(System.currentTimeMillis());
-		logger.info("Using threadId: {}", finalThreadId);
+		log.info("Using threadId: {}", finalThreadId);
 
 		Flux<NodeOutput> generator = compiledGraph.fluxStream(
 				Map.of(INPUT_KEY, query, Constant.AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled),
@@ -127,10 +127,10 @@ public class Nl2sqlForGraphController {
 		});
 
 		return sink.asFlux()
-			.doOnSubscribe(subscription -> logger.info("Client subscribed to stream"))
-			.doOnCancel(() -> logger.info("Client disconnected from stream"))
-			.doOnError(e -> logger.error("Error occurred during streaming: ", e))
-			.doOnComplete(() -> logger.info("Stream completed successfully"));
+			.doOnSubscribe(subscription -> log.info("Client subscribed to stream"))
+			.doOnCancel(() -> log.info("Client disconnected from stream"))
+			.doOnError(e -> log.error("Error occurred during streaming: ", e))
+			.doOnComplete(() -> log.info("Stream completed successfully"));
 	}
 
 	/**
@@ -138,7 +138,7 @@ public class Nl2sqlForGraphController {
 	 */
 	private void processStreamingOutput(Object output, boolean humanReviewEnabled, StringBuilder planBuilder,
 			boolean[] humanReviewDetected, Sinks.Many<ServerSentEvent<String>> sink) {
-		logger.debug("Received output: {}", output.getClass().getSimpleName());
+		log.debug("Received output: {}", output.getClass().getSimpleName());
 
 		if (output instanceof StreamingOutput) {
 			processStreamingChunk((StreamingOutput) output, humanReviewEnabled, planBuilder, humanReviewDetected, sink);
@@ -147,7 +147,7 @@ public class Nl2sqlForGraphController {
 			processNodeOutput((NodeOutput) output, humanReviewEnabled, planBuilder, humanReviewDetected, sink);
 		}
 		else {
-			logger.debug("Non-streaming output received: {}", output);
+			log.debug("Non-streaming output received: {}", output);
 		}
 	}
 
@@ -158,11 +158,11 @@ public class Nl2sqlForGraphController {
 			StringBuilder planBuilder, boolean[] humanReviewDetected, Sinks.Many<ServerSentEvent<String>> sink) {
 		String chunk = streamingOutput.chunk();
 		if (chunk == null || chunk.trim().isEmpty()) {
-			logger.warn("Received null or empty chunk from streaming output");
+			log.warn("Received null or empty chunk from streaming output");
 			return;
 		}
 
-		logger.debug("Emitting chunk: {}", chunk);
+		log.debug("Emitting chunk: {}", chunk);
 
 		// 如果启用了人工复核，累积所有内容
 		if (humanReviewEnabled) {
@@ -188,7 +188,7 @@ public class Nl2sqlForGraphController {
 	 */
 	private void processNodeOutput(NodeOutput nodeOutput, boolean humanReviewEnabled, StringBuilder planBuilder,
 			boolean[] humanReviewDetected, Sinks.Many<ServerSentEvent<String>> sink) {
-		logger.debug("Non-streaming output received: {}", nodeOutput);
+		log.debug("Non-streaming output received: {}", nodeOutput);
 
 		// 检查是否是human_feedback节点
 		if (humanReviewEnabled && !humanReviewDetected[0]) {
@@ -197,7 +197,7 @@ public class Nl2sqlForGraphController {
 
 			if (extractedPlanContent.contains("thought_process") && extractedPlanContent.contains("execution_plan")) {
 				humanReviewDetected[0] = true;
-				logger.debug("Found plan for human review");
+				log.debug("Found plan for human review");
 
 				Map<String, Object> humanReviewData = Map.of("type", "human_feedback", "data", extractedPlanContent);
 				try {
@@ -212,13 +212,13 @@ public class Nl2sqlForGraphController {
 				return;
 			}
 			else {
-				logger.info("Plan content not found in extracted content, content preview: {}",
+				log.info("Plan content not found in extracted content, content preview: {}",
 						extractedPlanContent.length() > 200 ? extractedPlanContent.substring(0, 200) + "..."
 								: extractedPlanContent);
 			}
 		}
 		else {
-			logger.debug("Human feedback check skipped: enabled={}, detected={}", humanReviewEnabled,
+			log.debug("Human feedback check skipped: enabled={}, detected={}", humanReviewEnabled,
 					humanReviewDetected[0]);
 		}
 	}
@@ -232,7 +232,7 @@ public class Nl2sqlForGraphController {
 			return false;
 		}
 
-		logger.debug("Accumulated content length: {}, contains thought_process: {}, contains execution_plan: {}",
+		log.debug("Accumulated content length: {}, contains thought_process: {}, contains execution_plan: {}",
 				accumulatedContent.length(), accumulatedContent.contains("thought_process"),
 				accumulatedContent.contains("execution_plan"));
 
@@ -242,11 +242,11 @@ public class Nl2sqlForGraphController {
 			// 检查JSON是否完整
 			if (accumulatedContent.trim().endsWith("}") || accumulatedContent.trim().endsWith("]")) {
 				humanReviewDetected[0] = true;
-				logger.info("Detected complete human review plan in streaming output");
-				logger.info("Plan content length: {}", accumulatedContent.length());
+				log.info("Detected complete human review plan in streaming output");
+				log.info("Plan content length: {}", accumulatedContent.length());
 
 				// 发送完整的人工复核计划并结束流
-				logger.info("Sending complete human review plan");
+				log.info("Sending complete human review plan");
 				Map<String, Object> humanReviewData = Map.of("type", "human_feedback", "data", accumulatedContent);
 				try {
 					String json = objectMapper.writeValueAsString(humanReviewData);
@@ -259,12 +259,12 @@ public class Nl2sqlForGraphController {
 				return true;
 			}
 			else {
-				logger.debug("JSON not complete yet, ends with: {}",
+				log.debug("JSON not complete yet, ends with: {}",
 						accumulatedContent.trim().substring(Math.max(0, accumulatedContent.trim().length() - 10)));
 			}
 		}
 		else {
-			logger.debug("Plan structure not complete yet");
+			log.debug("Plan structure not complete yet");
 		}
 		return false;
 	}
@@ -273,7 +273,7 @@ public class Nl2sqlForGraphController {
 	 * 处理流式错误
 	 */
 	private void handleStreamError(Throwable error, Sinks.Many<ServerSentEvent<String>> sink) {
-		logger.error("Error in stream processing: ", error);
+		log.error("Error in stream processing: ", error);
 		sink.tryEmitNext(ServerSentEvent.builder("error: " + error.getMessage()).event("error").build());
 		sink.tryEmitComplete();
 	}
@@ -282,7 +282,7 @@ public class Nl2sqlForGraphController {
 	 * 处理流式完成
 	 */
 	private void handleStreamComplete(Sinks.Many<ServerSentEvent<String>> sink) {
-		logger.info("Stream processing completed successfully");
+		log.info("Stream processing completed successfully");
 		sink.tryEmitNext(ServerSentEvent.builder("complete").event("complete").build());
 		sink.tryEmitComplete();
 	}
@@ -436,16 +436,16 @@ public class Nl2sqlForGraphController {
 					}
 				}
 				catch (Exception e) {
-					logger.debug("Failed to parse JSON chunk: {}", jsonChunk);
+					log.debug("Failed to parse JSON chunk: {}", jsonChunk);
 				}
 			}
 
 			String extractedContent = planBuilder.toString();
-			logger.debug("Extracted content from streaming: {}", extractedContent.length());
+			log.debug("Extracted content from streaming: {}", extractedContent.length());
 			return extractedContent;
 		}
 		catch (Exception e) {
-			logger.error("Error extracting plan from streaming content: ", e);
+			log.error("Error extracting plan from streaming content: ", e);
 			return streamingContent;
 		}
 	}
@@ -458,7 +458,7 @@ public class Nl2sqlForGraphController {
 			@RequestParam(value = "threadId") String threadId, @RequestParam(value = "feedback") boolean feedback,
 			@RequestParam(value = "feedbackContent", required = false, defaultValue = "") String feedbackContent)
 			throws GraphStateException {
-		logger.info("Processing feedback: {} ({})", feedback ? "approved" : "rejected",
+		log.info("Processing feedback: {} ({})", feedback ? "approved" : "rejected",
 				feedback ? "continue" : feedbackContent);
 
 		Sinks.Many<ServerSentEvent<String>> sink = Sinks.many().unicast().onBackpressureBuffer();
@@ -480,14 +480,14 @@ public class Nl2sqlForGraphController {
 				}
 			}
 			catch (Exception e) {
-				logger.error("Error handling human feedback: ", e);
+				log.error("Error handling human feedback: ", e);
 				sink.tryEmitError(e);
 			}
 		});
 
 		return sink.asFlux()
-			.doOnError(e -> logger.error("Human feedback stream error: ", e))
-			.doOnComplete(() -> logger.debug("Human feedback stream completed"));
+			.doOnError(e -> log.error("Human feedback stream error: ", e))
+			.doOnComplete(() -> log.debug("Human feedback stream completed"));
 	}
 
 	private void executeApprovedPlanWithResume(OverAllState.HumanFeedback humanFeedback, String threadId,
@@ -506,7 +506,7 @@ public class Nl2sqlForGraphController {
 					() -> handleStreamComplete(sink));
 		}
 		catch (Exception e) {
-			logger.error("Error in approved plan resume execution: ", e);
+			log.error("Error in approved plan resume execution: ", e);
 			sink.tryEmitNext(ServerSentEvent.builder("error: " + e.getMessage()).event("error").build());
 			sink.tryEmitComplete();
 		}
@@ -533,10 +533,76 @@ public class Nl2sqlForGraphController {
 					() -> handleRejectedPlanComplete(humanReviewDetected, sink));
 		}
 		catch (Exception e) {
-			logger.error("Error in rejected plan resume execution: ", e);
+			log.error("Error in rejected plan resume execution: ", e);
 			sink.tryEmitNext(ServerSentEvent.builder("error: " + e.getMessage()).event("error").build());
 			sink.tryEmitComplete();
 		}
+	}
+
+	/**
+	 * 直接返回NL2SQL的结果
+	 * @param query 自然语言
+	 * @param agentId Agent Id
+	 * @return sql结果
+	 */
+	@GetMapping("/nl2sql")
+	public String nl2sql(@RequestParam(value = "query") String query,
+			@RequestParam(value = "agentId", required = false, defaultValue = "") String agentId) {
+		try {
+			return this.graphService.nl2sql(query, agentId);
+		}
+		catch (Exception e) {
+			log.error("nl2sql Exception: {}", e.getMessage(), e);
+			return "Error: " + e.getMessage();
+		}
+	}
+
+	/**
+	 * 执行NL2SQL的过程（带中间过程输出）
+	 * @param query 自然语言
+	 * @param agentId Agent Id
+	 * @param response Servlet Response
+	 * @return NL2SQL执行过程
+	 */
+	@GetMapping(value = "/stream/nl2sql", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+	public Flux<ServerSentEvent<Nl2SqlProcessVO>> nl2sqlWithProcess(@RequestParam(value = "query") String query,
+			@RequestParam(value = "agentId", required = false, defaultValue = "") String agentId,
+			HttpServletResponse response) {
+		// Set SSE-related HTTP headers
+		response.setCharacterEncoding("UTF-8");
+		response.setContentType("text/event-stream");
+		response.setHeader("Cache-Control", "no-cache");
+		response.setHeader("Connection", "keep-alive");
+		response.setHeader("Access-Control-Allow-Origin", "*");
+		response.setHeader("Access-Control-Allow-Headers", "Cache-Control");
+
+		log.info("Starting nl2sql for query: {} with agentId: {}", query, agentId);
+
+		Sinks.Many<ServerSentEvent<Nl2SqlProcessVO>> sink = Sinks.many().unicast().onBackpressureBuffer();
+		Consumer<Nl2SqlProcessVO> consumer = (process) -> {
+			sink.tryEmitNext(ServerSentEvent.builder(process).build());
+			if (process.getFinished()) {
+				sink.tryEmitComplete();
+			}
+		};
+
+		executorService.submit(() -> {
+			try {
+				this.graphService.nl2sqlWithProcess(consumer, query, agentId);
+			}
+			catch (Exception e) {
+				log.error("nl2sql Exception: {}", e.getMessage(), e);
+				sink.tryEmitNext(
+						ServerSentEvent.builder(Nl2SqlProcessVO.fail(e.getMessage(), StateGraph.END, e.getMessage()))
+							.build());
+				sink.tryEmitError(e);
+			}
+		});
+		return sink.asFlux()
+			.doOnSubscribe(subscription -> log.info("Client subscribed to stream"))
+			.doOnCancel(() -> log.info("Client disconnected from stream"))
+			.doOnError(e -> log.error("Error occurred during streaming: ", e))
+			.doOnComplete(() -> log.info("Stream completed successfully"));
 	}
 
 }

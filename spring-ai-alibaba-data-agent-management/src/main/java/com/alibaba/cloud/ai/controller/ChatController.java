@@ -18,7 +18,8 @@ package com.alibaba.cloud.ai.controller;
 import com.alibaba.cloud.ai.dto.ChatRequest;
 import com.alibaba.cloud.ai.entity.*;
 import com.alibaba.cloud.ai.service.*;
-import com.alibaba.cloud.ai.service.impl.ChatMessageService;
+import com.alibaba.cloud.ai.service.graph.GraphService;
+import com.alibaba.cloud.ai.service.ChatMessageService;
 import com.alibaba.cloud.ai.util.JsonUtil;
 import com.alibaba.cloud.ai.vo.ApiResponse;
 import com.alibaba.cloud.ai.vo.ChatResponse;
@@ -53,7 +54,7 @@ public class ChatController {
 	private ChatMessageService chatMessageService;
 
 	@Autowired(required = false)
-	private OldNl2SqlService nl2SqlService;
+	private GraphService nl2SqlService;
 
 	private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 

@@ -18,17 +18,17 @@ package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
-import com.alibaba.cloud.ai.dto.SemanticModelDTO;
 import com.alibaba.cloud.ai.entity.Datasource;
+import com.alibaba.cloud.ai.entity.SemanticModel;
 import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
-import com.alibaba.cloud.ai.service.DatasourceService;
+import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.service.business.BusinessKnowledgeService;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.service.schema.SchemaService;
-import com.alibaba.cloud.ai.service.semantic.SemanticModelRecallService;
+import com.alibaba.cloud.ai.service.semantic.SemanticModelService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
@@ -70,17 +70,17 @@ public class TableRelationNode implements NodeAction {
 
 	private final BusinessKnowledgeService businessKnowledgeService;
 
-	private final SemanticModelRecallService semanticModelRecallService;
+	private final SemanticModelService semanticModelService;
 
 	private final DatasourceService datasourceService;
 
 	public TableRelationNode(SchemaService schemaService, Nl2SqlService nl2SqlService,
-			BusinessKnowledgeService businessKnowledgeService, SemanticModelRecallService semanticModelRecallService,
+			BusinessKnowledgeService businessKnowledgeService, SemanticModelService semanticModelService,
 			DatasourceService datasourceService) {
 		this.schemaService = schemaService;
 		this.nl2SqlService = nl2SqlService;
 		this.businessKnowledgeService = businessKnowledgeService;
-		this.semanticModelRecallService = semanticModelRecallService;
+		this.semanticModelService = semanticModelService;
 		this.datasourceService = datasourceService;
 	}
 
@@ -107,11 +107,13 @@ public class TableRelationNode implements NodeAction {
 		SchemaDTO result = processSchemaSelection(schemaDTO, input, evidenceList, state, agentDbConfig);
 
 		List<BusinessKnowledgeDTO> businessKnowledges;
-		List<SemanticModelDTO> semanticModel;
+		List<SemanticModel> semanticModel = List.of();
 		try {
 			// Extract business knowledge and semantic model
 			businessKnowledges = businessKnowledgeService.getKnowledgeDtoRecalled(Long.parseLong(agentIdStr));
-			semanticModel = semanticModelRecallService.getFieldByDataSetId(agentIdStr);
+			// todo: 等待SemanticModelService写完再打开
+			// semanticModel =
+			// semanticModelService.getEnabledByAgentId(Long.parseLong(agentIdStr));
 		}
 		catch (DataAccessException e) {
 			logger.warn("Database query failed (attempt {}): {}", retryCount + 1, e.getMessage());
