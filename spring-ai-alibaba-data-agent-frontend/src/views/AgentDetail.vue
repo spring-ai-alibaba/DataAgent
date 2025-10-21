@@ -55,6 +55,10 @@
               </el-menu-item>
             </el-menu-item-group>
             <el-menu-item-group title="知识配置">
+              <el-menu-item index="agent-knowledge">
+                <el-icon><Document/></el-icon>
+                智能体知识配置
+              </el-menu-item>
               <el-menu-item index="business-knowledge">
                 <el-icon><User/></el-icon>
                 业务知识配置
@@ -87,10 +91,11 @@
           <AgentBaseSetting v-if="activeMenuIndex === 'basic'" :agent="agent"></AgentBaseSetting>
           <AgentDataSourceConfig v-else-if="activeMenuIndex === 'datasource'" :agent-id="agent.id"></AgentDataSourceConfig>
           <AgentPromptConfig v-else-if="activeMenuIndex === 'prompt'" :agent-prompt="agent.prompt"></AgentPromptConfig>
-          <AgentKnowledgeConfig v-else-if="activeMenuIndex === 'business-knowledge'" :agent-id="agent.id"></AgentKnowledgeConfig>
+          <BusinessKnowledgeConfig v-else-if="activeMenuIndex === 'business-knowledge'" :agent-id="agent.id"></BusinessKnowledgeConfig>
           <AgentSemanticsConfig v-else-if="activeMenuIndex === 'semantic-model'"></AgentSemanticsConfig>
           <AgentPresetsConfig v-else-if="activeMenuIndex === 'preset-questions'"></AgentPresetsConfig>
           <AgentAccessApi v-else-if="activeMenuIndex === 'access-api'"></AgentAccessApi>
+          <AgentKnowledgeConfig v-else-if="activeMenuIndex === 'agent-knowledge'"></AgentKnowledgeConfig>
           <NotFound v-else></NotFound>
         </el-main>
       </el-container>
@@ -103,15 +108,16 @@ import { ref, defineComponent, Ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import AgentService from '@/services/agent'
-import { ArrowLeft, InfoFilled, Coin, ChatLineSquare, User, Suitcase, Setting, VideoPlay, Connection } from '@element-plus/icons-vue'
+import { ArrowLeft, InfoFilled, Coin, ChatLineSquare, User, Suitcase, Setting, VideoPlay, Connection, Document } from '@element-plus/icons-vue'
 import BaseLayout from '@/layouts/BaseLayout.vue'
 import AgentBaseSetting from '@/components/agent/BaseSetting.vue'
 import AgentPromptConfig from '@/components/agent/PromptConfig.vue'
-import AgentKnowledgeConfig from '@/components/agent/BusinessKnowledgeConfig.vue'
+import BusinessKnowledgeConfig from '@/components/agent/BusinessKnowledgeConfig.vue'
 import AgentSemanticsConfig from "@/components/agent/SemanticsConfig.vue"
 import AgentPresetsConfig from '@/components/agent/PresetsConfig.vue'
 import AgentAccessApi from "@/components/agent/AccessApi.vue"
 import AgentDataSourceConfig from '@/components/agent/DataSourceConfig.vue'
+import AgentKnowledgeConfig from '@/components/agent/AgentKnowledgeConfig.vue'
 import NotFound from "@/views/NotFound.vue";
 import { Agent } from '@/services/agent'
 
@@ -121,11 +127,12 @@ export default defineComponent({
     BaseLayout,
     AgentBaseSetting,
     AgentPromptConfig,
-    AgentKnowledgeConfig,
+    BusinessKnowledgeConfig,
     AgentSemanticsConfig,
     AgentPresetsConfig,
     AgentAccessApi,
     AgentDataSourceConfig,
+    AgentKnowledgeConfig,
     NotFound,
     InfoFilled,
     Coin,
@@ -134,7 +141,8 @@ export default defineComponent({
     Suitcase,
     Setting,
     VideoPlay,
-    Connection
+    Connection,
+    Document
   },
   setup() {
     const router = useRouter()

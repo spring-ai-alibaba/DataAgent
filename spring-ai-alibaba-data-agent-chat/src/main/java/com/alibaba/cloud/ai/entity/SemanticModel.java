@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.entity;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -25,46 +26,34 @@ import java.time.LocalDateTime;
  * Semantic Model Configuration Entity Class
  */
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class SemanticModel {
 
 	private Long id;
 
-	private Long agentId; // Agent ID
+	private Long agentId;
 
-	private String originalFieldName; // Original field name
+	private String fieldName;
 
-	private String agentFieldName; // Agent field name
+	private String conversationName;
 
-	private String fieldSynonyms; // Field name synonyms, comma-separated
+	private String synonyms;
 
-	private String fieldDescription; // Field description
+	private String description;
 
-	private String fieldType; // Field type
+	private String type;
 
-	private String originalDescription; // Original field description
-
-	private Boolean defaultRecall; // Default recall
-
-	private Boolean enabled; // Whether enabled
-
-	private LocalDateTime createTime;
+	private LocalDateTime createdTime;
 
 	private LocalDateTime updateTime;
 
-	public SemanticModel(Long agentId, String originalFieldName, String agentFieldName, String fieldSynonyms,
-			String fieldDescription, String fieldType, String originalDescription, Boolean defaultRecall,
-			Boolean enabled) {
-		this.agentId = agentId;
-		this.originalFieldName = originalFieldName;
-		this.agentFieldName = agentFieldName;
-		this.fieldSynonyms = fieldSynonyms;
-		this.fieldDescription = fieldDescription;
-		this.fieldType = fieldType;
-		this.originalDescription = originalDescription;
-		this.defaultRecall = defaultRecall;
-		this.enabled = enabled;
+	private Integer status;
+
+	public String getPromptInfo() {
+		return String.format("对话字段名称: %s, 数据库字段名: %s, 字段同义词: %s, 字段描述: %s, 字段类型: %s", conversationName, fieldName,
+				synonyms, description, type);
 	}
 
 }

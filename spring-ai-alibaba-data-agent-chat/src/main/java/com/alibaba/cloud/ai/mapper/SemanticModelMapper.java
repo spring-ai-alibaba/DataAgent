@@ -24,6 +24,9 @@ import java.util.List;
 @Mapper
 public interface SemanticModelMapper {
 
+	@Select("SELECT * FROM semantic_model ORDER BY created_time DESC")
+	List<SemanticModel> selectAll();
+
 	/**
 	 * Query semantic model list by agent ID
 	 */
@@ -49,6 +52,7 @@ public interface SemanticModelMapper {
 	@Select("""
 			SELECT * FROM semantic_model
 			WHERE field_name LIKE CONCAT('%', #{keyword}, '%')
+			   OR conversation_name LIKE CONCAT('%', #{keyword}, '%')
 			   OR description LIKE CONCAT('%', #{keyword}, '%')
 			   OR synonyms LIKE CONCAT('%', #{keyword}, '%')
 			ORDER BY created_time DESC
@@ -81,16 +85,16 @@ public interface SemanticModelMapper {
 	@Select("""
 			SELECT * FROM semantic_model
 			WHERE agent_id = #{agentId}
-			  AND status = #{enabled}
+			  AND status != 0
 			ORDER BY created_time DESC
 			""")
-	List<SemanticModel> selectByAgentIdAndEnabled(@Param("agentId") Long agentId, @Param("enabled") Boolean enabled);
+	List<SemanticModel> selectEnabledByAgentId(@Param("agentId") Long agentId);
 
 	@Insert("""
 			INSERT INTO semantic_model
-			(agent_id, origin_name, field_name, synonyms, description, type, origin_description, is_recall, status, created_time, updated_time)
+			(agent_id, field_name, conversation_name, synonyms, description, type, created_time, updated_time, status)
 			VALUES
-			(#{agentId}, #{originalFieldName}, #{agentFieldName}, #{fieldSynonyms}, #{fieldDescription}, #{fieldType}, #{originalDescription}, #{defaultRecall}, #{enabled}, NOW(), NOW())
+			(#{agentId}, #{fieldName}, #{conversationName}, #{synonyms}, #{description}, #{type}, NOW(), NOW(), #{status})
 			""")
 	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
 	int insert(SemanticModel model);
@@ -99,14 +103,13 @@ public interface SemanticModelMapper {
 			<script>
 			UPDATE semantic_model
 			<set>
-				<if test="originalFieldName != null">origin_name = #{originalFieldName},</if>
-				<if test="agentFieldName != null">field_name = #{agentFieldName},</if>
-				<if test="fieldSynonyms != null">synonyms = #{fieldSynonyms},</if>
-				<if test="fieldDescription != null">description = #{fieldDescription},</if>
-				<if test="fieldType != null">type = #{fieldType},</if>
-				<if test="originalDescription != null">origin_description = #{originalDescription},</if>
-				<if test="defaultRecall != null">is_recall = #{defaultRecall},</if>
-				<if test="enabled != null">status = #{enabled},</if>
+			    <if test="agentId != null">agent_id = #{agentId},</if>
+				<if test="fieldName != null">field_name = #{fieldName},</if>
+				<if test="conversationName != null">conversation_name = #{conversationName},</if>
+				<if test="synonyms != null">synonyms = #{synonyms},</if>
+				<if test="description != null">description = #{description},</if>
+				<if test="type != null">type = #{type},</if>
+				<if test="status != null">status = #{status},</if>
 				updated_time = NOW()
 			</set>
 			WHERE id = #{id}
