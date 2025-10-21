@@ -84,7 +84,7 @@ public abstract class AbstractAccessor implements Accessor {
 		}
 		catch (Exception e) {
 
-			logger.error("Error accessing database with method: {}", method, e);
+			logger.error("Error accessing database with method: {}, reason: {}", method, e.getMessage());
 			throw e;
 		}
 	}

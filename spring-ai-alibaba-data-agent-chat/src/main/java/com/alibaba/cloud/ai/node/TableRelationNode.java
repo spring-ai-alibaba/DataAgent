@@ -107,11 +107,13 @@ public class TableRelationNode implements NodeAction {
 		SchemaDTO result = processSchemaSelection(schemaDTO, input, evidenceList, state, agentDbConfig);
 
 		List<BusinessKnowledgeDTO> businessKnowledges;
-		List<SemanticModel> semanticModel;
+		List<SemanticModel> semanticModel = List.of();
 		try {
 			// Extract business knowledge and semantic model
 			businessKnowledges = businessKnowledgeService.getKnowledgeDtoRecalled(Long.parseLong(agentIdStr));
-			semanticModel = semanticModelService.getEnabledByAgentId(Long.parseLong(agentIdStr));
+			// todo: 等待SemanticModelService写完再打开
+			// semanticModel =
+			// semanticModelService.getEnabledByAgentId(Long.parseLong(agentIdStr));
 		}
 		catch (DataAccessException e) {
 			logger.warn("Database query failed (attempt {}): {}", retryCount + 1, e.getMessage());

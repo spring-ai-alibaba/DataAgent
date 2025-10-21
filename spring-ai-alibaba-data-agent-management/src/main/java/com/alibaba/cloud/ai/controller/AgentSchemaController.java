@@ -44,10 +44,9 @@ public class AgentSchemaController {
 
 	private final AgentVectorService agentVectorService;
 
-	private final Nl2sqlForGraphController nl2sqlForGraphController;
+	private final GraphController nl2sqlForGraphController;
 
-	public AgentSchemaController(AgentVectorService agentVectorService,
-			Nl2sqlForGraphController nl2sqlForGraphController) {
+	public AgentSchemaController(AgentVectorService agentVectorService, GraphController nl2sqlForGraphController) {
 		this.agentVectorService = agentVectorService;
 		this.nl2sqlForGraphController = nl2sqlForGraphController;
 	}

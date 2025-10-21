@@ -40,6 +40,7 @@ import java.util.Map;
  * Agent Vector Storage Service Specializes in handling agent-related vector storage
  * operations, ensuring data isolation
  */
+// todo: 需要与AgentVectorStoreService和AgentKnowledgeService合并
 @Service
 public class AgentVectorService {
 
@@ -286,7 +287,7 @@ public class AgentVectorService {
 
 		}
 		catch (Exception e) {
-			log.error("Failed to get tables for datasource: {}", datasourceId, e);
+			log.error("Failed to get tables for datasource: {}, reason: {}", datasourceId, e.getMessage());
 			throw new RuntimeException("Failed to get tables: " + e.getMessage(), e);
 		}
 	}
