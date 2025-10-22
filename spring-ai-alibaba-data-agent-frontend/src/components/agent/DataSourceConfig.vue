@@ -182,7 +182,7 @@ import datasourceService from '@/services/datasource'
 import { Datasource, AgentDatasource } from '@/services/datasource'
 import { ApiResponse } from '@/services/common'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import agentSchemaService from '@/services/schema'
+import agentDatasourceService from '@/services/schema'
 
 export default defineComponent({
   name: 'AgentDataSourceConfig',
@@ -260,7 +260,7 @@ export default defineComponent({
         // todo: 支持每一个数据源选择指定的数据表进行初始化（需要后端的配合）
         for (const source of usedDatasource) {
           ElMessage.primary(`正在初始化数据源: ${source.name}...`)
-          const tables : ApiResponse<string[]> = await agentSchemaService.getDatasourceTables(props.agentId, source.id);
+          const tables : ApiResponse<string[]> = await agentDatasourceService.getDatasourceTables(props.agentId, source.id);
           if(tables === null || tables.data === null || !tables.success) {
             throw new Error('获取数据源表失败')
           }
@@ -270,7 +270,7 @@ export default defineComponent({
             continue
           }
 
-          const response: any = await agentSchemaService.initAgentSchema(props.agentId, source.id, tablesData);
+          const response: any = await agentDatasourceService.initAgentSchema(props.agentId, source.id, tablesData);
           if(response.success === undefined || response.success == null || !response.success) {
             ElMessage.error(`初始化数据源: ${source.name} 失败`)
             throw new Error('初始化数据源失败')

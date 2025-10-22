@@ -74,20 +74,7 @@ public interface DatasourceService {
 	 */
 	List<AgentDatasource> getAgentDatasource(Integer agentId);
 
-	/**
-	 * Add data source to agent
-	 */
-	AgentDatasource addDatasourceToAgent(Integer agentId, Integer datasourceId);
-
-	/**
-	 * Remove data source association from agent
-	 */
-	void removeDatasourceFromAgent(Integer agentId, Integer datasourceId);
-
-	/**
-	 * 启用/禁用智能体的数据源
-	 */
-	AgentDatasource toggleDatasourceForAgent(Integer agentId, Integer datasourceId, Boolean isActive);
+	List<String> getDatasourceTables(Integer datasourceId) throws Exception;
 
 	/**
 	 * Get data source statistics

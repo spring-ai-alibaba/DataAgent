@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.util;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.alibaba.cloud.ai.entity.AgentKnowledge;
 import org.springframework.ai.document.Document;
 
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
@@ -109,6 +110,33 @@ public class DocumentConverterUtil {
 			metadata.put("agentId", agentId);
 			return new Document(UUID.randomUUID().toString(), evidenceRequest.getContent(), metadata);
 		}).toList();
+	}
+
+	/**
+	 * Create Document from AgentKnowledge
+	 */
+	public static Document createDocumentFromKnowledge(String agentId, AgentKnowledge knowledge) {
+		String documentId = agentId + ":knowledge:" + knowledge.getId();
+		String content = knowledge.getContent();
+		if (content == null || content.trim().isEmpty()) {
+			content = knowledge.getTitle(); // If content is empty, use title
+		}
+
+		Map<String, Object> metadata = new HashMap<>();
+		metadata.put("agentId", agentId);
+		metadata.put("knowledgeId", knowledge.getId());
+		metadata.put("title", knowledge.getTitle());
+		metadata.put("type", knowledge.getType());
+		metadata.put("category", knowledge.getCategory());
+		metadata.put("tags", knowledge.getTags());
+		metadata.put("status", knowledge.getStatus());
+		metadata.put("vectorType", "knowledge:" + knowledge.getType());
+		metadata.put("sourceUrl", knowledge.getSourceUrl());
+		metadata.put("fileType", knowledge.getFileType());
+		metadata.put("embeddingStatus", knowledge.getEmbeddingStatus());
+		metadata.put("createTime", knowledge.getCreateTime());
+
+		return new Document(documentId, content, metadata);
 	}
 
 	/**

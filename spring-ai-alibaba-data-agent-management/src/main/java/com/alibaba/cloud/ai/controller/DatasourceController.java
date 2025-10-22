@@ -17,7 +17,6 @@
 package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.Datasource;
-import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -155,102 +154,6 @@ public class DatasourceController {
 		}
 		catch (Exception e) {
 			return ResponseEntity.badRequest().build();
-		}
-	}
-
-	/**
-	 * Get data source list associated with agent
-	 */
-	@GetMapping("/agent/{agentId}")
-	public ResponseEntity<List<AgentDatasource>> getAgentDatasource(@PathVariable(value = "agentId") Integer agentId) {
-		try {
-			List<AgentDatasource> agentDatasource = datasourceService.getAgentDatasource(agentId);
-			return ResponseEntity.ok(agentDatasource);
-		}
-		catch (Exception e) {
-			return ResponseEntity.badRequest().build();
-		}
-	}
-
-	/**
-	 * Add data source for agent
-	 */
-	@PostMapping("/agent/{agentId}")
-	public ResponseEntity<Map<String, Object>> addDatasourceToAgent(@PathVariable(value = "agentId") Integer agentId,
-			@RequestBody Map<String, Integer> request) {
-		try {
-			Integer datasourceId = request.get("datasourceId");
-			if (datasourceId == null) {
-				Map<String, Object> response = new HashMap<>();
-				response.put("success", false);
-				response.put("message", "数据源ID不能为空");
-				return ResponseEntity.badRequest().body(response);
-			}
-
-			AgentDatasource agentDatasource = datasourceService.addDatasourceToAgent(agentId, datasourceId);
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
-			response.put("message", "数据源添加成功");
-			response.put("data", agentDatasource);
-			return ResponseEntity.ok(response);
-		}
-		catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "添加失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
-	}
-
-	/**
-	 * Remove data source association from agent
-	 */
-	@DeleteMapping("/agent/{agentId}/{datasourceId}")
-	public ResponseEntity<Map<String, Object>> removeDatasourceFromAgent(@PathVariable("agentId") Integer agentId,
-			@PathVariable("datasourceId") Integer datasourceId) {
-		try {
-			datasourceService.removeDatasourceFromAgent(agentId, datasourceId);
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
-			response.put("message", "数据源移除成功");
-			return ResponseEntity.ok(response);
-		}
-		catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "移除失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
-	}
-
-	/**
-	 * 启用/禁用智能体的数据源
-	 */
-	@PutMapping("/agent/{agentId}/{datasourceId}/toggle")
-	public ResponseEntity<Map<String, Object>> toggleDatasourceForAgent(@PathVariable("agentId") Integer agentId,
-			@PathVariable("datasourceId") Integer datasourceId, @RequestBody Map<String, Boolean> request) {
-		try {
-			Boolean isActive = request.get("isActive");
-			if (isActive == null) {
-				Map<String, Object> response = new HashMap<>();
-				response.put("success", false);
-				response.put("message", "激活状态不能为空");
-				return ResponseEntity.badRequest().body(response);
-			}
-
-			AgentDatasource agentDatasource = datasourceService.toggleDatasourceForAgent(agentId, datasourceId,
-					isActive);
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
-			response.put("message", isActive ? "数据源已启用" : "数据源已禁用");
-			response.put("data", agentDatasource);
-			return ResponseEntity.ok(response);
-		}
-		catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "操作失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
 		}
 	}
 

@@ -187,6 +187,14 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	public void addDocuments(String agentId, List<Document> documents) {
 		Assert.notNull(agentId, "AgentId cannot be null.");
 		Assert.notEmpty(documents, "Documents cannot be empty.");
+		// 校验文档中metadata中包含的agentId
+		for (Document document : documents) {
+			Assert.notNull(document.getMetadata(), "Document metadata cannot be null.");
+			Assert.isTrue(document.getMetadata().containsKey(Constant.AGENT_ID),
+					"Document metadata must contain agentId.");
+			Assert.isTrue(document.getMetadata().get(Constant.AGENT_ID).equals(agentId),
+					"Document metadata agentId does not match.");
+		}
 		vectorStore.add(documents);
 	}
 
@@ -243,6 +251,28 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 		log.info("Estimated {} documents for agent: {} after {} iterations", totalCount, agentId, currentIteration);
 		return totalCount;
+	}
+
+	@Override
+	public Map<String, Object> getVectorStatistics(String agentId) {
+		try {
+			String agentIdStr = String.valueOf(agentId);
+			Map<String, Object> stats = new HashMap<>();
+
+			int estimatedDocNum = this.estimateDocuments(agentIdStr);
+
+			stats.put("estimatedDocNum", estimatedDocNum);
+			stats.put("agentId", agentId);
+			stats.put("hasData", estimatedDocNum > 0);
+
+			log.info("Successfully retrieved vector statistics for agent: {}, detail: {}", agentIdStr, stats);
+
+			return stats;
+		}
+		catch (Exception e) {
+			log.error("Failed to get vector statistics for agent: {}", agentId, e);
+			throw new RuntimeException("Failed to get vector statistics: " + e.getMessage(), e);
+		}
 	}
 
 	@Override
