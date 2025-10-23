@@ -18,8 +18,7 @@ package com.alibaba.cloud.ai.dispatcher;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.alibaba.cloud.ai.constant.Constant.*;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
@@ -27,25 +26,24 @@ import static com.alibaba.cloud.ai.graph.StateGraph.END;
 /**
  * @author zhangshenghang
  */
+@Slf4j
 public class SqlGenerateDispatcher implements EdgeAction {
-
-	private static final Logger logger = LoggerFactory.getLogger(SqlGenerateDispatcher.class);
 
 	@Override
 	public String apply(OverAllState state) {
 		String sqlGenerateOutput = (String) state.value(SQL_GENERATE_OUTPUT).orElseThrow();
-		logger.info("SQL 生成结果: {}", sqlGenerateOutput);
+		log.info("SQL 生成结果: {}", sqlGenerateOutput);
 		return switch (sqlGenerateOutput) {
 			case END -> {
-				logger.info("检测到流程结束标志: {}", END);
+				log.info("检测到流程结束标志: {}", END);
 				yield END;
 			}
 			case SQL_GENERATE_SCHEMA_MISSING -> {
-				logger.warn("SQL生成缺少Schema，跳转到{}节点", KEYWORD_EXTRACT_NODE);
+				log.warn("SQL生成缺少Schema，跳转到{}节点", KEYWORD_EXTRACT_NODE);
 				yield KEYWORD_EXTRACT_NODE;
 			}
 			default -> {
-				logger.info("SQL生成成功，进入SQL执行节点: {}", SQL_EXECUTE_NODE);
+				log.info("SQL生成成功，进入SQL执行节点: {}", SQL_EXECUTE_NODE);
 				yield SQL_EXECUTE_NODE;
 			}
 		};

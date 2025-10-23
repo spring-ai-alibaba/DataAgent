@@ -20,8 +20,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.ParameterizedTypeReference;
 
@@ -37,9 +36,8 @@ import static com.alibaba.cloud.ai.constant.Constant.PLANNER_NODE_OUTPUT;
  * @author zhangshenghang
  */
 // todo: 改为工具类，注入到Node实现类中
+@Slf4j
 public abstract class AbstractPlanBasedNode implements NodeAction {
-
-	private static final Logger logger = LoggerFactory.getLogger(AbstractPlanBasedNode.class);
 
 	private final BeanOutputConverter<Plan> converter;
 
@@ -108,14 +106,14 @@ public abstract class AbstractPlanBasedNode implements NodeAction {
 	 * Log node entry
 	 */
 	protected void logNodeEntry() {
-		logger.info("Entering {} node", this.getClass().getSimpleName());
+		log.info("Entering {} node", this.getClass().getSimpleName());
 	}
 
 	/**
 	 * Log node output
 	 */
 	protected void logNodeOutput(String outputKey, Object output) {
-		logger.info("{} node output {}: {}", this.getClass().getSimpleName(), outputKey, output);
+		log.info("{} node output {}: {}", this.getClass().getSimpleName(), outputKey, output);
 	}
 
 }

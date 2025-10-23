@@ -19,8 +19,7 @@ package com.alibaba.cloud.ai.node;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.util.StateUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -34,20 +33,19 @@ import static com.alibaba.cloud.ai.constant.Constant.*;
  *
  * @author Makoto
  */
+@Slf4j
 @Component
 public class HumanFeedbackNode implements NodeAction {
 
-	private static final Logger logger = LoggerFactory.getLogger(HumanFeedbackNode.class);
-
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logger.info("Processing human feedback");
+		log.info("Processing human feedback");
 		Map<String, Object> updated = new HashMap<>();
 
 		// 检查最大修复次数
 		int repairCount = StateUtil.getObjectValue(state, PLAN_REPAIR_COUNT, Integer.class, 0);
 		if (repairCount >= 3) {
-			logger.warn("Max repair attempts (3) exceeded, ending process");
+			log.warn("Max repair attempts (3) exceeded, ending process");
 			updated.put("human_next_node", "END");
 			return updated;
 		}
@@ -64,12 +62,12 @@ public class HumanFeedbackNode implements NodeAction {
 		boolean approved = (boolean) feedbackData.getOrDefault("feedback", true);
 
 		if (approved) {
-			logger.info("Plan approved → execution");
+			log.info("Plan approved → execution");
 			updated.put("human_next_node", PLAN_EXECUTOR_NODE);
 			updated.put(HUMAN_REVIEW_ENABLED, false);
 		}
 		else {
-			logger.info("Plan rejected → regeneration (attempt {})", repairCount + 1);
+			log.info("Plan rejected → regeneration (attempt {})", repairCount + 1);
 			updated.put("human_next_node", PLANNER_NODE);
 			updated.put(PLAN_REPAIR_COUNT, repairCount + 1);
 			updated.put(PLAN_CURRENT_STEP, 1);

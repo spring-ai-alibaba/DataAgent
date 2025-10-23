@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.service.business.impls;
+package com.alibaba.cloud.ai.service.business;
 
 import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.entity.BusinessKnowledge;
 import com.alibaba.cloud.ai.mapper.BusinessKnowledgeMapper;
-import com.alibaba.cloud.ai.service.business.BusinessKnowledgeService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

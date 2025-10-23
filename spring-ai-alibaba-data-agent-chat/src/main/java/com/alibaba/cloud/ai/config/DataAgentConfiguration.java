@@ -46,8 +46,7 @@ import com.alibaba.cloud.ai.node.SqlGenerateNode;
 import com.alibaba.cloud.ai.node.TableRelationNode;
 import com.alibaba.cloud.ai.strategy.CustomBatchingStrategy;
 import com.alibaba.cloud.ai.util.NodeBeanUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.BatchingStrategy;
@@ -129,11 +128,10 @@ import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
  * @author vlsmb
  * @since 2025/9/28
  */
+@Slf4j
 @Configuration
 @EnableConfigurationProperties({ CodeExecutorProperties.class, DataAgentProperties.class })
 public class DataAgentConfiguration {
-
-	private static final Logger logger = LoggerFactory.getLogger(DataAgentConfiguration.class);
 
 	@Bean
 	@ConditionalOnMissingBean(RestClientCustomizer.class)
@@ -277,9 +275,9 @@ public class DataAgentConfiguration {
 		GraphRepresentation graphRepresentation = stateGraph.getGraph(GraphRepresentation.Type.PLANTUML,
 				"workflow graph");
 
-		logger.info("\n\n");
-		logger.info(graphRepresentation.content());
-		logger.info("\n\n");
+		log.info("\n\n");
+		log.info(graphRepresentation.content());
+		log.info("\n\n");
 
 		return stateGraph;
 	}

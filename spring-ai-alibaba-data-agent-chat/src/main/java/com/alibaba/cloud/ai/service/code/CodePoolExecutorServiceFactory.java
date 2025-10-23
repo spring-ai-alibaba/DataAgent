@@ -20,6 +20,7 @@ import com.alibaba.cloud.ai.config.CodeExecutorProperties;
 import com.alibaba.cloud.ai.service.code.impls.AiSimulationCodeExecutorService;
 import com.alibaba.cloud.ai.service.code.impls.DockerCodePoolExecutorService;
 import com.alibaba.cloud.ai.service.code.impls.LocalCodePoolExecutorService;
+import lombok.AllArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.stereotype.Component;
@@ -31,16 +32,12 @@ import org.springframework.stereotype.Component;
  * @since 2025/7/28
  */
 @Component
+@AllArgsConstructor
 public class CodePoolExecutorServiceFactory implements FactoryBean<CodePoolExecutorService> {
 
 	private final CodeExecutorProperties properties;
 
 	private final ChatClient.Builder chatClientBuilder;
-
-	public CodePoolExecutorServiceFactory(CodeExecutorProperties properties, ChatClient.Builder chatClientBuilder) {
-		this.properties = properties;
-		this.chatClientBuilder = chatClientBuilder;
-	}
 
 	@Override
 	public CodePoolExecutorService getObject() {

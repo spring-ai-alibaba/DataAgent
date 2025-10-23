@@ -25,8 +25,8 @@ import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -55,16 +55,12 @@ import static com.alibaba.cloud.ai.constant.Constant.*;
  *
  * @author zhangshenghang
  */
+@Slf4j
 @Component
+@AllArgsConstructor
 public class KeywordExtractNode implements NodeAction {
 
-	private static final Logger logger = LoggerFactory.getLogger(KeywordExtractNode.class);
-
 	private final QueryProcessingService queryProcessingService;
-
-	public KeywordExtractNode(QueryProcessingService queryProcessingService) {
-		this.queryProcessingService = queryProcessingService;
-	}
 
 	/**
 	 * Process multiple question variants, extract keywords and merge results Use parallel
@@ -80,10 +76,10 @@ public class KeywordExtractNode implements NodeAction {
 			List<String> evidences = queryProcessingService.extractEvidences(question, agentId);
 			fluxRef
 				.set(fluxRef.get().concatWith(queryProcessingService.extractKeywords(question, evidences, keywords -> {
-					logger.info("成功从问题变体提取关键词: 问题=\"{}\", 关键词={}", question, keywords);
+					log.info("成功从问题变体提取关键词: 问题=\"{}\", 关键词={}", question, keywords);
 					resultList.add(new KeywordExtractionResult(question, evidences, keywords));
 				}).doOnError(e -> {
-					logger.warn("从问题变体提取关键词失败: 问题={}", question, e);
+					log.warn("从问题变体提取关键词失败: 问题={}", question, e);
 					resultList.add(new KeywordExtractionResult(question, false));
 				})));
 		});
@@ -133,13 +129,13 @@ public class KeywordExtractNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logger.info("Entering {} node", this.getClass().getSimpleName());
+		log.info("Entering {} node", this.getClass().getSimpleName());
 
 		String input = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT,
 				StateUtil.getStringValue(state, INPUT_KEY));
 
 		try {
-			logger.info("开始增强关键词提取处理...");
+			log.info("开始增强关键词提取处理...");
 
 			Map<String, Object> resultMap = new HashMap<>();
 
@@ -147,19 +143,19 @@ public class KeywordExtractNode implements NodeAction {
 			Sinks.Many<ChatResponse> sink = Sinks.many().multicast().onBackpressureBuffer();
 			Flux<ChatResponse> displayFlux = FluxUtil
 				.<ChatResponse, String>cascadeFlux(queryProcessingService.expandQuestion(input, expandedQuestions -> {
-					logger.info("问题扩展结果: {}", expandedQuestions);
+					log.info("问题扩展结果: {}", expandedQuestions);
 					expandedQuestionsRef.set(expandedQuestions);
 				}), r -> processMultipleQuestions(expandedQuestionsRef.get(), StateUtil.getStringValue(state, AGENT_ID),
 						extractionResults -> {
 							List<String> mergedKeywords = mergeKeywords(extractionResults, input);
 							List<String> mergedEvidences = mergeEvidences(extractionResults);
 
-							logger.info("[{}] 增强提取结果 - 证据: {}, 关键词: {}", this.getClass().getSimpleName(),
-									mergedEvidences, mergedKeywords);
+							log.info("[{}] 增强提取结果 - 证据: {}, 关键词: {}", this.getClass().getSimpleName(), mergedEvidences,
+									mergedKeywords);
 							resultMap.putAll(Map.of(KEYWORD_EXTRACT_NODE_OUTPUT, mergedKeywords, EVIDENCES,
 									mergedEvidences, RESULT, mergedKeywords));
 							sink.tryEmitNext(ChatResponseUtil
-								.createStatusResponse("合并后的证据: " + String.join(", ", mergedEvidences)));
+								.createStatusResponse("\n合并后的证据: " + String.join(", ", mergedEvidences)));
 							sink.tryEmitNext(ChatResponseUtil
 								.createStatusResponse("合并后的关键词: " + String.join(", ", mergedKeywords)));
 							sink.tryEmitNext(ChatResponseUtil.createStatusResponse("关键词提取完成."));
@@ -179,7 +175,7 @@ public class KeywordExtractNode implements NodeAction {
 
 		}
 		catch (Exception e) {
-			logger.error("增强关键词提取失败{}", e.getMessage());
+			log.error("增强关键词提取失败{}", e.getMessage());
 			throw new RuntimeException(e);
 		}
 	}

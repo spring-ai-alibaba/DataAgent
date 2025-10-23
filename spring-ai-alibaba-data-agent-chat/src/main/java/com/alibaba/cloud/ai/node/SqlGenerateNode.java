@@ -219,7 +219,7 @@ public class SqlGenerateNode implements NodeAction {
 							roundRef.get())
 					.collect(StringBuilder::new, StringBuilder::append)
 					.map(StringBuilder::toString)
-					.flatMapMany(sql -> Flux.just(sql).expand(newSql -> {
+					.flatMapMany(sql -> Flux.just(nl2SqlService.sqlTrim(sql)).expand(newSql -> {
 						if (checkSqlFunc.apply(newSql) || roundRef.getAndIncrement() > MAX_OPTIMIZATION_ROUNDS) {
 							String bestSql = bestSqlRef.get();
 							bestSqlConsumer.accept(bestSql);
@@ -233,20 +233,20 @@ public class SqlGenerateNode implements NodeAction {
 			}
 		};
 
-		Flux<String> sqlFlux = Flux.just("正在生成SQL...\n")
-			.concatWith(nl2SqlService.generateSql(evidenceList, input, schemaDTO, originalSql, exceptionMessage))
-			.concatWith(Flux.just("SQL生成完成...\n"));
+		Flux<String> sqlFlux = nl2SqlService.generateSql(evidenceList, input, schemaDTO, originalSql, exceptionMessage);
 		Mono<String> sqlMono = sqlFlux.collect(StringBuilder::new, StringBuilder::append).map(StringBuilder::toString);
-		return sqlMono.flatMapMany(sql -> Flux.just(sql).expand(newSql -> {
-			if (checkSqlFunc.apply(newSql) || roundRef.getAndIncrement() > MAX_OPTIMIZATION_ROUNDS) {
-				String bestSql = bestSqlRef.get();
-				bestSqlConsumer.accept(bestSql);
-				return Flux.just(bestSql);
-			}
-			else {
-				return reGenerateSupplier.get();
-			}
-		}));
+		return Flux.just("正在生成SQL...\n")
+			.concatWith(sqlMono.flatMapMany(sql -> Flux.just(nl2SqlService.sqlTrim(sql)).expand(newSql -> {
+				if (checkSqlFunc.apply(newSql) || roundRef.getAndIncrement() > MAX_OPTIMIZATION_ROUNDS) {
+					String bestSql = bestSqlRef.get();
+					bestSqlConsumer.accept(bestSql);
+					return Flux.just(bestSql);
+				}
+				else {
+					return reGenerateSupplier.get();
+				}
+			})))
+			.concatWith(Flux.just("SQL生成完成！\n"));
 	}
 
 	/**

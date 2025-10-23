@@ -41,8 +41,4 @@ public interface QueryProcessingService {
 
 	Flux<ChatResponse> rewriteStream(String query, String agentId) throws Exception;
 
-	default List<String> extractEvidences(String query) {
-		return extractEvidences(query, null);
-	}
-
 }

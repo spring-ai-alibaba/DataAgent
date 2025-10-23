@@ -17,17 +17,15 @@
 package com.alibaba.cloud.ai.service.llm.impls;
 
 import com.alibaba.cloud.ai.service.llm.LlmService;
+import lombok.AllArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 
+@AllArgsConstructor
 public class StreamLlmService implements LlmService {
 
 	private final ChatClient chatClient;
-
-	public StreamLlmService(ChatClient chatClient) {
-		this.chatClient = chatClient;
-	}
 
 	@Override
 	public Flux<ChatResponse> call(String system, String user) {

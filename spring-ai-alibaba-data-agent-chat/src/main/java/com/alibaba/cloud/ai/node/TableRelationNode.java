@@ -33,8 +33,8 @@ import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.dao.DataAccessException;
@@ -61,10 +61,10 @@ import static com.alibaba.cloud.ai.prompt.PromptHelper.buildSemanticModelPrompt;
  *
  * @author zhangshenghang
  */
+@Slf4j
 @Component
+@AllArgsConstructor
 public class TableRelationNode implements NodeAction {
-
-	private static final Logger logger = LoggerFactory.getLogger(TableRelationNode.class);
 
 	private final SchemaService schemaService;
 
@@ -76,19 +76,9 @@ public class TableRelationNode implements NodeAction {
 
 	private final DatasourceService datasourceService;
 
-	public TableRelationNode(SchemaService schemaService, Nl2SqlService nl2SqlService,
-			BusinessKnowledgeService businessKnowledgeService, SemanticModelService semanticModelService,
-			DatasourceService datasourceService) {
-		this.schemaService = schemaService;
-		this.nl2SqlService = nl2SqlService;
-		this.businessKnowledgeService = businessKnowledgeService;
-		this.semanticModelService = semanticModelService;
-		this.datasourceService = datasourceService;
-	}
-
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logger.info("Entering {} node", this.getClass().getSimpleName());
+		log.info("Entering {} node", this.getClass().getSimpleName());
 
 		int retryCount = StateUtil.getObjectValue(state, TABLE_RELATION_RETRY_COUNT, Integer.class, 0);
 
@@ -117,7 +107,7 @@ public class TableRelationNode implements NodeAction {
 			// semanticModelService.getEnabledByAgentId(Long.parseLong(agentIdStr));
 		}
 		catch (DataAccessException e) {
-			logger.warn("Database query failed (attempt {}): {}", retryCount + 1, e.getMessage());
+			log.warn("Database query failed (attempt {}): {}", retryCount + 1, e.getMessage());
 
 			String errorType = classifyDatabaseError(e);
 			return Map.of(TABLE_RELATION_EXCEPTION_OUTPUT, errorType + ": " + e.getMessage(),
@@ -132,7 +122,7 @@ public class TableRelationNode implements NodeAction {
 
 		Flux<ChatResponse> schemaFlux = processSchemaSelection(schemaDTO, input, evidenceList, state, agentDbConfig,
 				result -> {
-					logger.info("[{}] Schema processing result: {}", this.getClass().getSimpleName(), result);
+					log.info("[{}] Schema processing result: {}", this.getClass().getSimpleName(), result);
 					resultMap.put(TABLE_RELATION_OUTPUT, result);
 				});
 
@@ -151,7 +141,7 @@ public class TableRelationNode implements NodeAction {
 		// Use utility class to create generator, directly return business logic computed
 		// result
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state, v -> {
-			logger.debug("resultMap: {}", resultMap);
+			log.debug("resultMap: {}", resultMap);
 			return resultMap;
 		}, displayFlux, StreamResponseType.SCHEMA_DEEP_RECALL);
 
@@ -192,8 +182,8 @@ public class TableRelationNode implements NodeAction {
 
 		// Convert to DbConfig
 		DbConfig dbConfig = SchemaProcessorUtil.createDbConfigFromDatasource(agentDatasource);
-		logger.debug("Successfully created DbConfig for agent {}: url={}, schema={}, type={}", agentId,
-				dbConfig.getUrl(), dbConfig.getSchema(), dbConfig.getDialectType());
+		log.debug("Successfully created DbConfig for agent {}: url={}, schema={}, type={}", agentId, dbConfig.getUrl(),
+				dbConfig.getSchema(), dbConfig.getDialectType());
 
 		return dbConfig;
 	}
@@ -207,13 +197,13 @@ public class TableRelationNode implements NodeAction {
 
 		Flux<ChatResponse> schemaFlux;
 		if (schemaAdvice != null) {
-			logger.info("[{}] Processing with schema supplement advice: {}", this.getClass().getSimpleName(),
+			log.info("[{}] Processing with schema supplement advice: {}", this.getClass().getSimpleName(),
 					schemaAdvice);
 			schemaFlux = nl2SqlService.fineSelect(schemaDTO, input, evidenceList, schemaAdvice, agentDbConfig,
 					dtoConsumer);
 		}
 		else {
-			logger.info("[{}] Executing regular schema selection", this.getClass().getSimpleName());
+			log.info("[{}] Executing regular schema selection", this.getClass().getSimpleName());
 			schemaFlux = nl2SqlService.fineSelect(schemaDTO, input, evidenceList, null, agentDbConfig, dtoConsumer);
 		}
 		return Flux.just(ChatResponseUtil.createStatusResponse("正在选择合适的数据表..."))

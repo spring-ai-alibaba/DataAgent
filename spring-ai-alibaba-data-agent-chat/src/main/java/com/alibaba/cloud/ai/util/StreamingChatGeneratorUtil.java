@@ -21,8 +21,7 @@ import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.streaming.FluxConverter;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 
@@ -35,9 +34,8 @@ import java.util.function.Function;
  *
  * @author zhangshenghang
  */
+@Slf4j
 public class StreamingChatGeneratorUtil {
-
-	private static final Logger logger = LoggerFactory.getLogger(StreamingChatGeneratorUtil.class);
 
 	/**
 	 * Create a StreamingChatGenerator with a custom result mapping function
@@ -199,15 +197,15 @@ public class StreamingChatGeneratorUtil {
 						if (completionMessage != null && !completionMessage.isEmpty()) {
 							emitter.next(ChatResponseUtil.createCustomStatusResponse("\n" + completionMessage, type));
 						}
-						logger.debug("[{}] Streaming processing completed", nodeName);
+						log.debug("[{}] Streaming processing completed", nodeName);
 						emitter.complete();
 					}).doOnError(error -> {
-						logger.error("[{}] Error in streaming processing", nodeName, error);
+						log.error("[{}] Error in streaming processing", nodeName, error);
 						emitter.error(error);
 					}).subscribe();
 				}
 				catch (Exception e) {
-					logger.error("[{}] Failed to start streaming processing", nodeName, e);
+					log.error("[{}] Failed to start streaming processing", nodeName, e);
 					emitter.error(e);
 				}
 			});

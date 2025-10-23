@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service.nl2sql.impls;
+package com.alibaba.cloud.ai.service.nl2sql;
 
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
@@ -26,7 +26,6 @@ import com.alibaba.cloud.ai.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.llm.LlmService;
 
-import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.MarkdownParserUtil;
 import com.fasterxml.jackson.core.type.TypeReference;

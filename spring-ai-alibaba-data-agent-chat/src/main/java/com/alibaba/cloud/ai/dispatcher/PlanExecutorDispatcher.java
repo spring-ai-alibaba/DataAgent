@@ -19,8 +19,7 @@ package com.alibaba.cloud.ai.dispatcher;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
 import com.alibaba.cloud.ai.util.StateUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.alibaba.cloud.ai.constant.Constant.*;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
@@ -30,9 +29,8 @@ import static com.alibaba.cloud.ai.graph.StateGraph.END;
  *
  * @author zhangshenghang
  */
+@Slf4j
 public class PlanExecutorDispatcher implements EdgeAction {
-
-	private static final Logger logger = LoggerFactory.getLogger(PlanExecutorDispatcher.class);
 
 	private static final int MAX_REPAIR_ATTEMPTS = 2;
 
@@ -41,7 +39,7 @@ public class PlanExecutorDispatcher implements EdgeAction {
 		boolean validationPassed = StateUtil.getObjectValue(state, PLAN_VALIDATION_STATUS, Boolean.class, false);
 
 		if (validationPassed) {
-			logger.info("Plan validation passed. Proceeding to next step.");
+			log.info("Plan validation passed. Proceeding to next step.");
 			String nextNode = state.value(PLAN_NEXT_NODE, END);
 			// 如果返回的是"END"，直接返回END常量
 			if ("END".equals(nextNode)) {
@@ -55,13 +53,12 @@ public class PlanExecutorDispatcher implements EdgeAction {
 			int repairCount = StateUtil.getObjectValue(state, PLAN_REPAIR_COUNT, Integer.class, 0);
 
 			if (repairCount > MAX_REPAIR_ATTEMPTS) {
-				logger.error("Plan repair attempts exceeded the limit of {}. Terminating execution.",
-						MAX_REPAIR_ATTEMPTS);
+				log.error("Plan repair attempts exceeded the limit of {}. Terminating execution.", MAX_REPAIR_ATTEMPTS);
 				// The node is responsible for setting the final error message.
 				return END;
 			}
 
-			logger.warn("Plan validation failed. Routing back to PlannerNode for repair. Attempt count from state: {}.",
+			log.warn("Plan validation failed. Routing back to PlannerNode for repair. Attempt count from state: {}.",
 					repairCount);
 			return PLANNER_NODE;
 		}

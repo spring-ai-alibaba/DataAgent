@@ -43,8 +43,4 @@ public interface SchemaService {
 		return getColumnDocumentsByKeywordsForAgent(null, keywords);
 	}
 
-	default SchemaDTO mixRag(String query, List<String> keywords, DbConfig dbConfig) {
-		return mixRagForAgent(null, query, keywords, dbConfig);
-	}
-
 }

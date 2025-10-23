@@ -73,38 +73,6 @@ public class KeywordExtractionResult {
 		this.successful = successful;
 	}
 
-	/**
-	 * Get question variant
-	 * @return question variant
-	 */
-	public String getQuestion() {
-		return question;
-	}
-
-	/**
-	 * Get extracted evidence list
-	 * @return evidence list
-	 */
-	public List<String> getEvidences() {
-		return evidences;
-	}
-
-	/**
-	 * Get extracted keyword list
-	 * @return keyword list
-	 */
-	public List<String> getKeywords() {
-		return keywords;
-	}
-
-	/**
-	 * Whether extraction was successful
-	 * @return whether successful
-	 */
-	public boolean isSuccessful() {
-		return successful;
-	}
-
 	@Override
 	public String toString() {
 		return "KeywordExtractionResult{" + "question='" + question + '\'' + ", evidences=" + evidences + ", keywords="
