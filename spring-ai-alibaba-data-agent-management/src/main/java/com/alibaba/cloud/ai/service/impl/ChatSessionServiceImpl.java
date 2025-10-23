@@ -19,6 +19,7 @@ package com.alibaba.cloud.ai.service.impl;
 import com.alibaba.cloud.ai.entity.ChatSession;
 import com.alibaba.cloud.ai.mapper.ChatSessionMapper;
 import com.alibaba.cloud.ai.service.ChatSessionService;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -28,13 +29,10 @@ import java.util.UUID;
 
 @Service
 @Slf4j
+@AllArgsConstructor
 public class ChatSessionServiceImpl implements ChatSessionService {
 
 	private final ChatSessionMapper chatSessionMapper;
-
-	public ChatSessionServiceImpl(ChatSessionMapper chatSessionMapper) {
-		this.chatSessionMapper = chatSessionMapper;
-	}
 
 	/**
 	 * Get session list by agent ID

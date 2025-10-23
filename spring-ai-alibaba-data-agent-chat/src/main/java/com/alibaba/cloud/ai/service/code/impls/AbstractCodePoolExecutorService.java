@@ -18,10 +18,9 @@ package com.alibaba.cloud.ai.service.code.impls;
 
 import com.alibaba.cloud.ai.config.CodeExecutorProperties;
 import com.alibaba.cloud.ai.service.code.CodePoolExecutorService;
+import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,9 +45,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author vlsmb
  * @since 2025/7/12
  */
+@Slf4j
 public abstract class AbstractCodePoolExecutorService implements CodePoolExecutorService {
-
-	private static final Logger log = LoggerFactory.getLogger(AbstractCodePoolExecutorService.class);
 
 	// Record core container status
 	protected final ConcurrentHashMap<String, CodePoolExecutorService.State> coreContainerState;

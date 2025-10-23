@@ -29,8 +29,7 @@ import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -52,10 +51,9 @@ import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
  * @author vlsmb
  * @since 2025/7/30
  */
+@Slf4j
 @Component
 public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAction {
-
-	private static final Logger log = LoggerFactory.getLogger(PythonGenerateNode.class);
 
 	private static final int SAMPLE_DATA_NUMBER = 5;
 

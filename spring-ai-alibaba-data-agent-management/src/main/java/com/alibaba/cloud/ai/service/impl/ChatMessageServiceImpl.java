@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.service.impl;
 import com.alibaba.cloud.ai.entity.ChatMessage;
 import com.alibaba.cloud.ai.mapper.ChatMessageMapper;
 import com.alibaba.cloud.ai.service.ChatMessageService;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -28,13 +29,10 @@ import java.util.List;
  */
 @Slf4j
 @Service
+@AllArgsConstructor
 public class ChatMessageServiceImpl implements ChatMessageService {
 
 	private final ChatMessageMapper chatMessageMapper;
-
-	public ChatMessageServiceImpl(ChatMessageMapper chatMessageMapper) {
-		this.chatMessageMapper = chatMessageMapper;
-	}
 
 	@Override
 	public List<ChatMessage> findBySessionId(String sessionId) {

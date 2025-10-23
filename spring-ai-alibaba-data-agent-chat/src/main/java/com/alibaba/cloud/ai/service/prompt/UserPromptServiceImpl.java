@@ -19,6 +19,7 @@ package com.alibaba.cloud.ai.service.prompt;
 import com.alibaba.cloud.ai.dto.PromptConfigDTO;
 import com.alibaba.cloud.ai.entity.UserPromptConfig;
 import com.alibaba.cloud.ai.mapper.UserPromptConfigMapper;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -32,13 +33,10 @@ import java.util.*;
  */
 @Slf4j
 @Service
+@AllArgsConstructor
 public class UserPromptServiceImpl implements UserPromptService {
 
 	private final UserPromptConfigMapper userPromptConfigMapper;
-
-	public UserPromptServiceImpl(UserPromptConfigMapper userPromptConfigMapper) {
-		this.userPromptConfigMapper = userPromptConfigMapper;
-	}
 
 	@Override
 	public UserPromptConfig saveOrUpdateConfig(PromptConfigDTO configDTO) {

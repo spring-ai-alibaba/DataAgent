@@ -27,8 +27,7 @@ import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.service.prompt.UserPromptService;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.ParameterizedTypeReference;
@@ -56,10 +55,9 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
  *
  * @author zhangshenghang
  */
+@Slf4j
 @Component
 public class ReportGeneratorNode implements NodeAction {
-
-	private static final Logger logger = LoggerFactory.getLogger(ReportGeneratorNode.class);
 
 	private final LlmService llmService;
 
@@ -76,7 +74,7 @@ public class ReportGeneratorNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logger.info("Entering {} node", this.getClass().getSimpleName());
+		log.info("Entering {} node", this.getClass().getSimpleName());
 
 		// Get necessary input parameters
 		String plannerNodeOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);
@@ -87,7 +85,7 @@ public class ReportGeneratorNode implements NodeAction {
 		HashMap<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,
 				HashMap.class, new HashMap<>());
 
-		logger.info("Planner node output: {}", plannerNodeOutput);
+		log.info("Planner node output: {}", plannerNodeOutput);
 
 		// Parse plan and get current step
 		Plan plan = converter.convert(plannerNodeOutput);
@@ -101,7 +99,7 @@ public class ReportGeneratorNode implements NodeAction {
 		// Use utility class to create streaming generator with content collection
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
 				"开始生成报告...", "报告生成完成！", reportContent -> {
-					logger.info("Generated report content: {}", reportContent);
+					log.info("Generated report content: {}", reportContent);
 					Map<String, Object> result = new HashMap<>();
 					result.put(RESULT, reportContent);
 					result.put(SQL_EXECUTE_NODE_OUTPUT, null);
@@ -148,7 +146,7 @@ public class ReportGeneratorNode implements NodeAction {
 		String reportPrompt = PromptHelper.buildReportGeneratorPromptWithOptimization(userRequirementsAndPlan,
 				analysisStepsAndData, summaryAndRecommendations, optimizationConfigs);
 
-		logger.info("Using {} prompt for report generation",
+		log.info("Using {} prompt for report generation",
 				!optimizationConfigs.isEmpty() ? "optimized (" + optimizationConfigs.size() + " configs)" : "default");
 
 		return llmService.callUser(reportPrompt);

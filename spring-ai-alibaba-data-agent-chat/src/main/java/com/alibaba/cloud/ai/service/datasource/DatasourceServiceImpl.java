@@ -24,9 +24,9 @@ import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.enums.ErrorCodeEnum;
 import com.alibaba.cloud.ai.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.mapper.AgentDatasourceMapper;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,23 +35,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 // todo: 检查Mapper的返回值，判断是否执行成功（或者对Mapper进行AOP）
+@Slf4j
 @Service
+@AllArgsConstructor
 public class DatasourceServiceImpl implements DatasourceService {
-
-	private static final Logger log = LoggerFactory.getLogger(DatasourceServiceImpl.class);
 
 	private final DatasourceMapper datasourceMapper;
 
 	private final AgentDatasourceMapper agentDatasourceMapper;
 
 	private final DBConnectionPoolFactory poolFactory;
-
-	public DatasourceServiceImpl(DatasourceMapper datasourceMapper, AgentDatasourceMapper agentDatasourceMapper,
-			DBConnectionPoolFactory poolFactory) {
-		this.datasourceMapper = datasourceMapper;
-		this.agentDatasourceMapper = agentDatasourceMapper;
-		this.poolFactory = poolFactory;
-	}
 
 	@Override
 	public List<Datasource> getAllDatasource() {

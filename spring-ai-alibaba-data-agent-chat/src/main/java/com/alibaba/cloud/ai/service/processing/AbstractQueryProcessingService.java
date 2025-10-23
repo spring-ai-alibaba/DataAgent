@@ -31,8 +31,8 @@ import com.alibaba.cloud.ai.util.JsonUtil;
 import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.util.Assert;
@@ -48,18 +48,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+@Slf4j
+@AllArgsConstructor
 public abstract class AbstractQueryProcessingService implements QueryProcessingService {
-
-	private static final Logger logger = LoggerFactory.getLogger(AbstractQueryProcessingService.class);
 
 	private final LlmService llmService;
 
 	private final DatasourceService datasourceService;
-
-	public AbstractQueryProcessingService(LlmService llmService, DatasourceService datasourceService) {
-		this.llmService = llmService;
-		this.datasourceService = datasourceService;
-	}
 
 	protected abstract AgentVectorStoreService getVectorStoreService();
 
@@ -69,19 +64,19 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 
 	@Override
 	public List<String> extractEvidences(String query, String agentId) {
-		logger.debug("Extracting evidences for query: {} with agentId: {}", query, agentId);
+		log.debug("Extracting evidences for query: {} with agentId: {}", query, agentId);
 		Assert.notNull(agentId, "AgentId cannot be null");
 		List<Document> evidenceDocuments = getVectorStoreService().getDocumentsForAgent(agentId, query, "evidence");
 
 		List<String> evidences = evidenceDocuments.stream().map(Document::getText).collect(Collectors.toList());
-		logger.debug("Extracted {} evidences: {}", evidences.size(), evidences);
+		log.debug("Extracted {} evidences: {}", evidences.size(), evidences);
 		return evidences;
 	}
 
 	@Override
 	public Flux<ChatResponse> extractKeywords(String query, List<String> evidenceList,
 			Consumer<List<String>> resultConsumer) {
-		logger.debug("Extracting keywords from query: {} with {} evidences", query, evidenceList.size());
+		log.debug("Extracting keywords from query: {} with {} evidences", query, evidenceList.size());
 		StringBuilder queryBuilder = new StringBuilder(query);
 		for (String evidence : evidenceList) {
 			queryBuilder.append(evidence).append("。");
@@ -89,7 +84,7 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 		query = queryBuilder.toString();
 
 		String prompt = PromptHelper.buildQueryToKeywordsPrompt(query);
-		logger.debug("Calling LLM for keyword extraction");
+		log.debug("Calling LLM for keyword extraction");
 		StringBuilder sb = new StringBuilder();
 		return llmService.callUser(prompt).doOnNext(response -> {
 			String text = response.getResult().getOutput().getText();
@@ -104,14 +99,14 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 			catch (JsonProcessingException e) {
 				throw new RuntimeException(e);
 			}
-			logger.debug("Extracted {} keywords: {}", keywords != null ? keywords.size() : 0, keywords);
+			log.debug("Extracted {} keywords: {}", keywords != null ? keywords.size() : 0, keywords);
 			resultConsumer.accept(keywords);
 		});
 	}
 
 	@Override
 	public Flux<ChatResponse> expandQuestion(String query, Consumer<List<String>> resultConsumer) {
-		logger.info("Starting question expansion for query: {}", query);
+		log.info("Starting question expansion for query: {}", query);
 		try {
 			// Build question expansion prompt
 			Map<String, Object> params = new HashMap<>();
@@ -119,7 +114,7 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 			String prompt = PromptConstant.getQuestionExpansionPromptTemplate().render(params);
 
 			// Call LLM to get expanded questions
-			logger.debug("Calling LLM for question expansion");
+			log.debug("Calling LLM for question expansion");
 			StringBuilder sb = new StringBuilder();
 			Flux<ChatResponse> responseFlux = llmService.callUser(prompt);
 			return responseFlux.doOnNext(response -> {
@@ -134,13 +129,13 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 						});
 
 					if (expandedQuestions == null || expandedQuestions.isEmpty()) {
-						logger.warn("No expanded questions generated, returning original query");
+						log.warn("No expanded questions generated, returning original query");
 						expandedQuestions = Collections.singletonList(query);
 					}
 
-					logger.info("Question expansion completed successfully: {} questions generated",
+					log.info("Question expansion completed successfully: {} questions generated",
 							expandedQuestions.size());
-					logger.debug("Expanded questions: {}", expandedQuestions);
+					log.debug("Expanded questions: {}", expandedQuestions);
 					resultConsumer.accept(expandedQuestions);
 				}
 				catch (Exception e) {
@@ -149,7 +144,7 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 			});
 		}
 		catch (Exception e) {
-			logger.warn("Question expansion failed, returning original query: {}", e.getMessage());
+			log.warn("Question expansion failed, returning original query: {}", e.getMessage());
 			return Flux.error(e);
 		}
 	}
@@ -158,18 +153,18 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 	public Flux<ChatResponse> rewriteStream(String query, String agentId) {
 		return FluxUtil.<ChatResponse, String>cascadeFlux(processTimeExpressions(query), timeRewrittenQuery -> {
 
-			logger.debug("Time rewritten query: {} -> {}", query, timeRewrittenQuery);
+			log.debug("Time rewritten query: {} -> {}", query, timeRewrittenQuery);
 
 			List<String> evidences = extractEvidences(timeRewrittenQuery, agentId);
-			logger.debug("Extracted {} evidences for rewriteStream, they are {}", evidences.size(), evidences);
+			log.debug("Extracted {} evidences for rewriteStream, they are {}", evidences.size(), evidences);
 
 			AtomicReference<SchemaDTO> schemaDTORef = new AtomicReference<>(null);
 			return FluxUtil.<ChatResponse, String>cascadeFlux(
 					select(timeRewrittenQuery, evidences, agentId, schemaDTORef::set), r -> {
 						SchemaDTO schemaDTO = schemaDTORef.get();
-						logger.debug("SchemaDTO is {}", schemaDTO);
+						log.debug("SchemaDTO is {}", schemaDTO);
 						String prompt = PromptHelper.buildRewritePrompt(timeRewrittenQuery, schemaDTO, evidences);
-						logger.debug("Built rewrite prompt for streaming, prompt is as follows \n {}", prompt);
+						log.debug("Built rewrite prompt for streaming, prompt is as follows \n {}", prompt);
 						return llmService.callUser(prompt);
 					}, flux -> Mono.just(""), Flux.just(ChatResponseUtil.createStatusResponse("正在选择合适的数据表...")),
 					Flux.just(ChatResponseUtil.createStatusResponse("选择数据表完成！")), Flux.empty());
@@ -177,8 +172,8 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 			.collect(StringBuilder::new, StringBuilder::append)
 			.map(StringBuilder::toString), Flux.just(ChatResponseUtil.createStatusResponse("正在替换问题中的时间表达式...")),
 				Flux.just(ChatResponseUtil.createStatusResponse("\n重写时间表达式完成！\n正在提取用户问题关键词...")), Flux.empty())
-			.doOnSubscribe(s -> logger.info("Starting rewriteStream for query: {} with agentId: {}", query, agentId))
-			.doOnError(e -> logger.error("RewriteStream failed for query: {}", e.getMessage()));
+			.doOnSubscribe(s -> log.info("Starting rewriteStream for query: {} with agentId: {}", query, agentId))
+			.doOnError(e -> log.error("RewriteStream failed for query: {}", e.getMessage()));
 	}
 
 	/**
@@ -187,7 +182,7 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 	 * @return 处理后的查询
 	 */
 	private Flux<ChatResponse> processTimeExpressions(String query) {
-		logger.debug("Processing time expressions in query: {}", query);
+		log.debug("Processing time expressions in query: {}", query);
 
 		// 使用统一管理的提示词构建时间转换提示
 		String timeConversionPrompt = PromptHelper.buildTimeConversionPrompt(query);
@@ -199,11 +194,11 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 	private Flux<ChatResponse> select(String query, List<String> evidenceList, String agentId,
 			Consumer<SchemaDTO> dtoConsumer) {
 		Assert.notNull(agentId, "AgentId cannot be null");
-		logger.debug("Starting schema selection for query: {} with {} evidences and agentId: {}", query,
+		log.debug("Starting schema selection for query: {} with {} evidences and agentId: {}", query,
 				evidenceList.size(), agentId);
 		AtomicReference<SchemaDTO> oldSchemaDTORef = new AtomicReference<>(null);
 		return FluxUtil.<ChatResponse, String>cascadeFlux(extractKeywords(query, evidenceList, keywords -> {
-			logger.debug("Using {} keywords for schema selection", keywords != null ? keywords.size() : 0);
+			log.debug("Using {} keywords for schema selection", keywords != null ? keywords.size() : 0);
 
 			Datasource datasource = datasourceService.getActiveDatasourceByAgentId(Integer.valueOf(agentId));
 			if (datasource == null) {
@@ -213,10 +208,10 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 					SchemaProcessorUtil.createDbConfigFromDatasource(datasource));
 			oldSchemaDTORef.set(schemaDTO);
 
-			logger.debug("Retrieved schema with {} tables",
+			log.debug("Retrieved schema with {} tables",
 					schemaDTO.getTable() != null ? schemaDTO.getTable().size() : 0);
 		}), r -> fineSelect(oldSchemaDTORef.get(), query, evidenceList, result -> {
-			logger.debug("Fine selection completed, final schema has {} tables",
+			log.debug("Fine selection completed, final schema has {} tables",
 					result.getTable() != null ? result.getTable().size() : 0);
 			dtoConsumer.accept(result);
 		}), flux -> Mono.just(""));

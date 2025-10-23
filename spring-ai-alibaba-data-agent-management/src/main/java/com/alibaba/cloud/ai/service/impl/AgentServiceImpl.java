@@ -17,8 +17,8 @@ package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.entity.Agent;
 import com.alibaba.cloud.ai.service.AgentService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import com.alibaba.cloud.ai.mapper.AgentMapper;
 import org.springframework.stereotype.Service;
 
@@ -28,19 +28,14 @@ import java.util.List;
 /**
  * Agent Service Class
  */
+@Slf4j
 @Service
+@AllArgsConstructor
 public class AgentServiceImpl implements AgentService {
-
-	private static final Logger log = LoggerFactory.getLogger(AgentServiceImpl.class);
 
 	private final AgentMapper agentMapper;
 
 	private final AgentVectorService agentVectorService;
-
-	public AgentServiceImpl(AgentMapper agentMapper, AgentVectorService agentVectorService) {
-		this.agentMapper = agentMapper;
-		this.agentVectorService = agentVectorService;
-	}
 
 	@Override
 	public List<Agent> findAll() {

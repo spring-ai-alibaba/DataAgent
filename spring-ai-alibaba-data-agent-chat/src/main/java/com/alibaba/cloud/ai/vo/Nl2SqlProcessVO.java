@@ -18,6 +18,8 @@ package com.alibaba.cloud.ai.vo;
 
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 /**
  * 用来记录NL2SQL中间过程的类
@@ -25,6 +27,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * @author vlsmb
  * @since 2025/8/14
  */
+@Data
+@AllArgsConstructor
 public class Nl2SqlProcessVO {
 
 	/**
@@ -57,19 +61,6 @@ public class Nl2SqlProcessVO {
 	@JsonProperty("current_node_output")
 	String currentNodeOutput;
 
-	public Nl2SqlProcessVO() {
-
-	}
-
-	public Nl2SqlProcessVO(Boolean finished, Boolean succeed, String result, String currentNodeName,
-			String currentNodeOutput) {
-		this.finished = finished;
-		this.succeed = succeed;
-		this.result = result;
-		this.currentNodeName = currentNodeName;
-		this.currentNodeOutput = currentNodeOutput;
-	}
-
 	public static Nl2SqlProcessVO success(String result, String currentNodeName, String currentNodeOutput) {
 		return new Nl2SqlProcessVO(true, true, result, currentNodeName, currentNodeOutput);
 	}
@@ -88,46 +79,6 @@ public class Nl2SqlProcessVO {
 
 	public static Nl2SqlProcessVO processing(String currentNodeName, String currentNodeOutput) {
 		return new Nl2SqlProcessVO(false, false, "", currentNodeName, currentNodeOutput);
-	}
-
-	public Boolean getFinished() {
-		return finished;
-	}
-
-	public void setFinished(Boolean finished) {
-		this.finished = finished;
-	}
-
-	public Boolean getSucceed() {
-		return succeed;
-	}
-
-	public void setSucceed(Boolean succeed) {
-		this.succeed = succeed;
-	}
-
-	public String getResult() {
-		return result;
-	}
-
-	public void setResult(String result) {
-		this.result = result;
-	}
-
-	public String getCurrentNodeName() {
-		return currentNodeName;
-	}
-
-	public void setCurrentNodeName(String currentNodeName) {
-		this.currentNodeName = currentNodeName;
-	}
-
-	public String getCurrentNodeOutput() {
-		return currentNodeOutput;
-	}
-
-	public void setCurrentNodeOutput(String currentNodeOutput) {
-		this.currentNodeOutput = currentNodeOutput;
 	}
 
 }

@@ -19,6 +19,7 @@ package com.alibaba.cloud.ai.service.impl;
 import com.alibaba.cloud.ai.entity.AgentPresetQuestion;
 import com.alibaba.cloud.ai.mapper.AgentPresetQuestionMapper;
 import com.alibaba.cloud.ai.service.AgentPresetQuestionService;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -27,13 +28,10 @@ import java.util.List;
  * AgentPresetQuestion Service Class
  */
 @Service
+@AllArgsConstructor
 public class AgentPresetQuestionServiceImpl implements AgentPresetQuestionService {
 
 	private final AgentPresetQuestionMapper agentPresetQuestionMapper;
-
-	public AgentPresetQuestionServiceImpl(AgentPresetQuestionMapper agentPresetQuestionMapper) {
-		this.agentPresetQuestionMapper = agentPresetQuestionMapper;
-	}
 
 	@Override
 	public List<AgentPresetQuestion> findByAgentId(Long agentId) {

@@ -25,8 +25,8 @@ import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -45,16 +45,12 @@ import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
 /**
  * @author zhangshenghang
  */
+@Slf4j
 @Component
+@AllArgsConstructor
 public class PlannerNode implements NodeAction {
 
-	private static final Logger logger = LoggerFactory.getLogger(PlannerNode.class);
-
 	private final LlmService llmService;
-
-	public PlannerNode(LlmService llmService) {
-		this.llmService = llmService;
-	}
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -62,7 +58,7 @@ public class PlannerNode implements NodeAction {
 				StateUtil.getStringValue(state, INPUT_KEY));
 		// 使用经过时间表达式处理的重写查询，如果没有则回退到原始输入
 		String processedQuery = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT, input);
-		logger.info("Using processed query for planning: {}", processedQuery);
+		log.info("Using processed query for planning: {}", processedQuery);
 
 		// 是否为NL2SQL模式
 		Boolean onlyNl2sql = state.value(IS_ONLY_NL2SQL, false);
@@ -70,10 +66,10 @@ public class PlannerNode implements NodeAction {
 		// 检查是否为修复模式
 		String validationError = StateUtil.getStringValue(state, PLAN_VALIDATION_ERROR, null);
 		if (validationError != null) {
-			logger.info("Regenerating plan with user feedback: {}", validationError);
+			log.info("Regenerating plan with user feedback: {}", validationError);
 		}
 		else {
-			logger.info("Generating initial plan");
+			log.info("Generating initial plan");
 		}
 
 		// 构建提示参数
