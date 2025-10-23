@@ -21,9 +21,9 @@ import com.alibaba.cloud.ai.service.AgentDatasourceService;
 import com.alibaba.cloud.ai.service.AgentService;
 import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Service;
@@ -35,19 +35,16 @@ import java.util.concurrent.Executors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class AgentStartupInitialization implements ApplicationRunner, DisposableBean {
 
-	@Autowired
-	private AgentService agentService;
+	private final AgentService agentService;
 
-	@Autowired
-	private AgentVectorStoreService agentVectorStoreService;
+	private final AgentVectorStoreService agentVectorStoreService;
 
-	@Autowired
-	private AgentDatasourceService agentDatasourceService;
+	private final AgentDatasourceService agentDatasourceService;
 
-	@Autowired
-	private DatasourceService datasourceService;
+	private final DatasourceService datasourceService;
 
 	private final ExecutorService executorService = Executors.newFixedThreadPool(3);
 

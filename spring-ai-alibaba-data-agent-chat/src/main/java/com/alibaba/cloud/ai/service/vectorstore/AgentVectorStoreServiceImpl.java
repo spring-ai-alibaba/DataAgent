@@ -254,28 +254,6 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	}
 
 	@Override
-	public Map<String, Object> getVectorStatistics(String agentId) {
-		try {
-			String agentIdStr = String.valueOf(agentId);
-			Map<String, Object> stats = new HashMap<>();
-
-			int estimatedDocNum = this.estimateDocuments(agentIdStr);
-
-			stats.put("estimatedDocNum", estimatedDocNum);
-			stats.put("agentId", agentId);
-			stats.put("hasData", estimatedDocNum > 0);
-
-			log.info("Successfully retrieved vector statistics for agent: {}, detail: {}", agentIdStr, stats);
-
-			return stats;
-		}
-		catch (Exception e) {
-			log.error("Failed to get vector statistics for agent: {}", agentId, e);
-			throw new RuntimeException("Failed to get vector statistics: " + e.getMessage(), e);
-		}
-	}
-
-	@Override
 	public Boolean deleteDocumentsByMetedata(String agentId, Map<String, Object> metadata) throws Exception {
 		Assert.notNull(agentId, "AgentId cannot be null.");
 		Assert.notNull(metadata, "Metadata cannot be null.");

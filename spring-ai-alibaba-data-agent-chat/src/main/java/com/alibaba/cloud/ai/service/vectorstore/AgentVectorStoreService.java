@@ -48,6 +48,4 @@ public interface AgentVectorStoreService {
 
 	int estimateDocuments(String agentId);
 
-	Map<String, Object> getVectorStatistics(String agentId);
-
 }
