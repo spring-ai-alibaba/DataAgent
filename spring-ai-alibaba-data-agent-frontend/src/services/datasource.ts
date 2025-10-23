@@ -104,49 +104,6 @@ class DatasourceService {
         return response.data;
     }
 
-    // todo: 更改位置
-
-    // 8. 获取与智能体关联的数据源列表
-    async getAgentDatasource(agentId: number): Promise<AgentDatasource[]> {
-        const response = await axios.get<AgentDatasource[]>(`${API_BASE_URL}/agent/${agentId}`);
-        return response.data;
-    }
-
-    // 9. 为智能体添加数据源
-    async addDatasourceToAgent(
-        agentId: number,
-        datasourceId: number
-    ): Promise<ApiResponse<AgentDatasource>> {
-        const response = await axios.post<ApiResponse<AgentDatasource>>(
-            `${API_BASE_URL}/agent/${agentId}`,
-            { datasourceId }
-        );
-        return response.data;
-    }
-
-    // 10. 从智能体移除数据源关联
-    async removeDatasourceFromAgent(
-        agentId: number,
-        datasourceId: number
-    ): Promise<ApiResponse<void>> {
-        const response = await axios.delete<ApiResponse<void>>(
-            `${API_BASE_URL}/agent/${agentId}/${datasourceId}`
-        );
-        return response.data;
-    }
-
-    // 11. 启用/禁用智能体的数据源
-    async toggleDatasourceForAgent(
-        agentId: number,
-        datasourceId: number,
-        isActive: boolean
-    ): Promise<ApiResponse<AgentDatasource>> {
-        const response = await axios.put<ApiResponse<AgentDatasource>>(
-            `${API_BASE_URL}/agent/${agentId}/${datasourceId}/toggle`,
-            { isActive }
-        );
-        return response.data;
-    }
 }
 
 export default new DatasourceService();

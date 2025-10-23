@@ -18,7 +18,6 @@ package com.alibaba.cloud.ai.controller;
 import com.alibaba.cloud.ai.dto.InitSchemaDto;
 import com.alibaba.cloud.ai.dto.ToggleDatasourceDto;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
-import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.service.AgentDatasourceService;
 import com.alibaba.cloud.ai.vo.ApiResponse;
 import lombok.AllArgsConstructor;
@@ -89,7 +88,7 @@ public class AgentDatasourceController {
 	public ResponseEntity<ApiResponse> getAgentDatasource(@PathVariable(value = "agentId") Long agentId) {
 		try {
 			log.info("Getting datasources for agent: {}", agentId);
-			List<Datasource> datasources = agentDatasourceService.getAgentDatasourcesWithDetails(agentId);
+			List<AgentDatasource> datasources = agentDatasourceService.getAgentDatasource(Math.toIntExact(agentId));
 			log.info("Successfully retrieved {} datasources for agent: {}", datasources.size(), agentId);
 			return ResponseEntity.ok(ApiResponse.success("操作成功", datasources));
 		}

@@ -18,7 +18,6 @@ package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
-import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.service.AgentDatasourceService;
@@ -30,7 +29,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -84,29 +82,6 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 			log.error("Failed to initialize schema for agent: {} with datasource: {}", agentId, datasourceId, e);
 			throw new RuntimeException("Failed to initialize schema for agent " + agentId + ": " + e.getMessage(), e);
 		}
-	}
-
-	@Override
-	public List<Datasource> getAgentDatasourcesWithDetails(Long agentId) {
-		Assert.notNull(agentId, "Agent ID cannot be null");
-		log.info("Getting datasources for agent: {}", agentId);
-
-		// Call DatasourceService to get data sources associated with agent
-		List<AgentDatasource> agentDatasources = this.getAgentDatasource(agentId.intValue());
-
-		List<Datasource> datasources = new ArrayList<>();
-
-		for (AgentDatasource agentDatasource : agentDatasources) {
-			if (agentDatasource.getIsActive() != null) {
-				Datasource datasource = agentDatasource.getDatasource();
-				if (datasource != null) {
-					datasources.add(datasource);
-				}
-			}
-		}
-
-		log.info("Found {} active datasources for agent: {}", datasources.size(), agentId);
-		return datasources;
 	}
 
 	@Override

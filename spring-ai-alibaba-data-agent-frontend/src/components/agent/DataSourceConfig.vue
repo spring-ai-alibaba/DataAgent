@@ -182,7 +182,7 @@ import datasourceService from '@/services/datasource'
 import { Datasource, AgentDatasource } from '@/services/datasource'
 import { ApiResponse } from '@/services/common'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import agentDatasourceService from '@/services/schema'
+import agentDatasourceService from '@/services/agentDatasource'
 
 export default defineComponent({
   name: 'AgentDataSourceConfig',
@@ -214,7 +214,7 @@ export default defineComponent({
     const loadAgentDatasource = async () => {
       selectedDatasourceId.value = null
       try {
-        const response = await datasourceService.getAgentDatasource(props.agentId)
+        const response = await agentDatasourceService.getAgentDatasource(props.agentId)
         const agentDatasource: AgentDatasource[] = response || []
         datasource.value = agentDatasource.map((item) => {
           const datasourceItem = { ...item.datasource };
@@ -270,7 +270,7 @@ export default defineComponent({
             continue
           }
 
-          const response: any = await agentDatasourceService.initAgentSchema(props.agentId, source.id, tablesData);
+          const response: any = await agentDatasourceService.initSchema(props.agentId, { datasourceId: source.id, tables: tablesData});
           if(response.success === undefined || response.success == null || !response.success) {
             ElMessage.error(`初始化数据源: ${source.name} 失败`)
             throw new Error('初始化数据源失败')
@@ -290,7 +290,7 @@ export default defineComponent({
     const changeDatasource = async (row : Datasource, active : boolean) => {
       const datasourceId = row.id;
       try {
-        const response : ApiResponse = await datasourceService.toggleDatasourceForAgent(props.agentId, datasourceId, active);
+        const response : ApiResponse = await agentDatasourceService.toggleDatasourceForAgent(props.agentId, { datasourceId: datasourceId, isActive: active});
         if(response.success) {
           ElMessage.success('操作成功！')
           row.status = active ? 'active' : 'inactive'
@@ -339,7 +339,7 @@ export default defineComponent({
       }
 
       try {
-        const response : ApiResponse = await datasourceService.removeDatasourceFromAgent(props.agentId, datasourceId);
+        const response : ApiResponse = await agentDatasourceService.removeDatasourceFromAgent(props.agentId, datasourceId);
         if(response.success) {
           ElMessage.success('移除成功！')
           datasource.value = datasource.value.filter((item) => item.id !== datasourceId)
@@ -355,7 +355,7 @@ export default defineComponent({
 
     const addDatasourceToAgent = async (datasourceId: number) => {
       try {
-        await datasourceService.addDatasourceToAgent(props.agentId, datasourceId)
+        await agentDatasourceService.addDatasourceToAgent(props.agentId, datasourceId)
         await loadAgentDatasource()
         ElMessage.success('添加数据源成功')
         dialogVisible.value = false

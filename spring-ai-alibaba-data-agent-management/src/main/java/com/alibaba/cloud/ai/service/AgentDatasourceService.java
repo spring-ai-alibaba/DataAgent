@@ -17,7 +17,6 @@
 package com.alibaba.cloud.ai.service;
 
 import com.alibaba.cloud.ai.entity.AgentDatasource;
-import com.alibaba.cloud.ai.entity.Datasource;
 
 import java.util.List;
 
@@ -27,11 +26,6 @@ public interface AgentDatasourceService {
 	 * Initialize agent's database schema using datasource
 	 */
 	Boolean initializeSchemaForAgentWithDatasource(Long agentId, Integer datasourceId, List<String> tables);
-
-	/**
-	 * Get agent's active datasources with details
-	 */
-	List<Datasource> getAgentDatasourcesWithDetails(Long agentId);
 
 	/**
 	 * Get datasource tables
