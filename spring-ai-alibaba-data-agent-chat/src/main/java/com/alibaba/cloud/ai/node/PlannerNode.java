@@ -95,7 +95,7 @@ public class PlannerNode implements NodeAction {
 				: PromptConstant.getPlannerPromptTemplate())
 			.render(params);
 
-		Flux<ChatResponse> chatResponseFlux = llmService.streamCall(plannerPrompt);
+		Flux<ChatResponse> chatResponseFlux = llmService.callUser(plannerPrompt);
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
 				v -> Map.of(PLANNER_NODE_OUTPUT, v), chatResponseFlux, StreamResponseType.PLAN_GENERATION);
 

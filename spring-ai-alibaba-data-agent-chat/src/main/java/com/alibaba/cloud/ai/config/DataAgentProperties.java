@@ -13,34 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.cloud.ai.config;
 
 import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.service.llm.LlmServiceEnum;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/**
- * 文件上传相关配置属性。
- */
 @Getter
 @Setter
-@ConfigurationProperties(prefix = Constant.PROJECT_PROPERTIES_PREFIX + ".file.upload")
-public class FileUploadProperties {
+@ConfigurationProperties(prefix = Constant.PROJECT_PROPERTIES_PREFIX)
+public class DataAgentProperties {
 
-	/**
-	 * 本地上传目录路径。
-	 */
-	private String path = "./uploads";
-
-	/**
-	 * 对外暴露的访问前缀。
-	 */
-	private String urlPrefix = "/uploads";
-
-	/**
-	 * 头像图片大小上限（字节）。默认 2MB。
-	 */
-	private long imageSize = 2L * 1024 * 1024;
+	private LlmServiceEnum llmServiceType = LlmServiceEnum.STREAM;
 
 }

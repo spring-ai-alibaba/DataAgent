@@ -19,27 +19,25 @@ package com.alibaba.cloud.ai.service.llm;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 
+import java.util.Optional;
+
 public interface LlmService {
 
-	String call(String prompt);
+	Flux<ChatResponse> call(String system, String user);
 
-	String callWithSystemPrompt(String system, String user);
+	Flux<ChatResponse> callSystem(String system);
 
-	/**
-	 * Stream the response to the user's prompt
-	 * @param prompt The user's input prompt
-	 * @return Streaming response
-	 */
-	Flux<ChatResponse> streamCall(String prompt);
+	Flux<ChatResponse> callUser(String user);
 
-	Flux<ChatResponse> streamCallSystem(String system);
+	@Deprecated
+	default String blockToString(Flux<ChatResponse> responseFlux) {
+		return toStringFlux(responseFlux).collect(StringBuilder::new, StringBuilder::append)
+			.map(StringBuilder::toString)
+			.block();
+	}
 
-	/**
-	 * Stream the response to the user's prompt with a system prompt
-	 * @param system The system prompt
-	 * @param user The user's input
-	 * @return Streaming response
-	 */
-	Flux<ChatResponse> streamCallWithSystemPrompt(String system, String user);
+	default Flux<String> toStringFlux(Flux<ChatResponse> responseFlux) {
+		return responseFlux.map(r -> r.getResult().getOutput()).map(r -> Optional.ofNullable(r.getText()).orElse(""));
+	}
 
 }

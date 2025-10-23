@@ -130,7 +130,7 @@ import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
  * @since 2025/9/28
  */
 @Configuration
-@EnableConfigurationProperties({ CodeExecutorProperties.class })
+@EnableConfigurationProperties({ CodeExecutorProperties.class, DataAgentProperties.class })
 public class DataAgentConfiguration {
 
 	private static final Logger logger = LoggerFactory.getLogger(DataAgentConfiguration.class);

@@ -151,7 +151,7 @@ public class ReportGeneratorNode implements NodeAction {
 		logger.info("Using {} prompt for report generation",
 				!optimizationConfigs.isEmpty() ? "optimized (" + optimizationConfigs.size() + " configs)" : "default");
 
-		return llmService.streamCall(reportPrompt);
+		return llmService.callUser(reportPrompt);
 	}
 
 	/**
