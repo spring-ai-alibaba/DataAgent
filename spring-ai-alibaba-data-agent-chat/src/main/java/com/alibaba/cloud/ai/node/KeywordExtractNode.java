@@ -22,6 +22,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.service.processing.QueryProcessingService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.slf4j.Logger;
@@ -29,13 +30,18 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.alibaba.cloud.ai.constant.Constant.*;
 
@@ -66,22 +72,22 @@ public class KeywordExtractNode implements NodeAction {
 	 * @param questions list of question variants
 	 * @return list of extraction results
 	 */
-	private List<KeywordExtractionResult> processMultipleQuestions(List<String> questions, String agentId) {
-		return questions.parallelStream().map(question -> {
-			try {
-
-				List<String> evidences = queryProcessingService.extractEvidences(question, agentId);
-				List<String> keywords = queryProcessingService.extractKeywords(question, evidences);
-
-				logger.info("成功从问题变体提取关键词: 问题=\"{}\", 关键词={}", question, keywords);
-				return new KeywordExtractionResult(question, evidences, keywords);
-			}
-			catch (Exception e) {
-
-				logger.warn("从问题变体提取关键词失败: 问题={}", question, e);
-				return new KeywordExtractionResult(question, false);
-			}
-		}).collect(java.util.stream.Collectors.toList());
+	private Flux<ChatResponse> processMultipleQuestions(List<String> questions, String agentId,
+			Consumer<List<KeywordExtractionResult>> resultConsumer) {
+		List<KeywordExtractionResult> resultList = new ArrayList<>(questions.size());
+		AtomicReference<Flux<ChatResponse>> fluxRef = new AtomicReference<>(Flux.empty());
+		questions.forEach(question -> {
+			List<String> evidences = queryProcessingService.extractEvidences(question, agentId);
+			fluxRef
+				.set(fluxRef.get().concatWith(queryProcessingService.extractKeywords(question, evidences, keywords -> {
+					logger.info("成功从问题变体提取关键词: 问题=\"{}\", 关键词={}", question, keywords);
+					resultList.add(new KeywordExtractionResult(question, evidences, keywords));
+				}).doOnError(e -> {
+					logger.warn("从问题变体提取关键词失败: 问题={}", question, e);
+					resultList.add(new KeywordExtractionResult(question, false));
+				})));
+		});
+		return fluxRef.get().doOnComplete(() -> resultConsumer.accept(resultList));
 	}
 
 	/**
@@ -135,97 +141,47 @@ public class KeywordExtractNode implements NodeAction {
 		try {
 			logger.info("开始增强关键词提取处理...");
 
-			List<String> expandedQuestions = queryProcessingService.expandQuestion(input);
-			logger.info("问题扩展结果: {}", expandedQuestions);
+			Map<String, Object> resultMap = new HashMap<>();
 
-			List<KeywordExtractionResult> extractionResults = processMultipleQuestions(expandedQuestions,
-					StateUtil.getStringValue(state, AGENT_ID));
+			AtomicReference<List<String>> expandedQuestionsRef = new AtomicReference<>(null);
+			Sinks.Many<ChatResponse> sink = Sinks.many().multicast().onBackpressureBuffer();
+			Flux<ChatResponse> displayFlux = FluxUtil
+				.<ChatResponse, String>cascadeFlux(queryProcessingService.expandQuestion(input, expandedQuestions -> {
+					logger.info("问题扩展结果: {}", expandedQuestions);
+					expandedQuestionsRef.set(expandedQuestions);
+				}), r -> processMultipleQuestions(expandedQuestionsRef.get(), StateUtil.getStringValue(state, AGENT_ID),
+						extractionResults -> {
+							List<String> mergedKeywords = mergeKeywords(extractionResults, input);
+							List<String> mergedEvidences = mergeEvidences(extractionResults);
 
-			List<String> mergedKeywords = mergeKeywords(extractionResults, input);
-			List<String> mergedEvidences = mergeEvidences(extractionResults);
+							logger.info("[{}] 增强提取结果 - 证据: {}, 关键词: {}", this.getClass().getSimpleName(),
+									mergedEvidences, mergedKeywords);
+							resultMap.putAll(Map.of(KEYWORD_EXTRACT_NODE_OUTPUT, mergedKeywords, EVIDENCES,
+									mergedEvidences, RESULT, mergedKeywords));
+							sink.tryEmitNext(ChatResponseUtil
+								.createStatusResponse("合并后的证据: " + String.join(", ", mergedEvidences)));
+							sink.tryEmitNext(ChatResponseUtil
+								.createStatusResponse("合并后的关键词: " + String.join(", ", mergedKeywords)));
+							sink.tryEmitNext(ChatResponseUtil.createStatusResponse("关键词提取完成."));
+							sink.tryEmitComplete();
+						}), flux -> Mono.just(""),
+						Flux.just(ChatResponseUtil.createStatusResponse("开始增强关键词提取..."),
+								ChatResponseUtil.createStatusResponse("正在扩展问题理解...")),
+						Flux.defer(() -> Flux.just(
+								ChatResponseUtil.createStatusResponse("\n问题扩展结果：" + expandedQuestionsRef.get()),
+								ChatResponseUtil.createStatusResponse("合并多个问题变体的结果...\n"))),
+						sink.asFlux());
 
-			logger.info("[{}] 增强提取结果 - 证据: {}, 关键词: {}", this.getClass().getSimpleName(), mergedEvidences,
-					mergedKeywords);
-
-			Flux<ChatResponse> displayFlux = createEnhancedDisplayFlux(extractionResults, mergedKeywords,
-					mergedEvidences);
-
-			var generator = StreamingChatGeneratorUtil
-				.createStreamingGeneratorWithMessages(
-						this.getClass(), state, v -> Map.of(KEYWORD_EXTRACT_NODE_OUTPUT, mergedKeywords, EVIDENCES,
-								mergedEvidences, RESULT, mergedKeywords),
-						displayFlux, StreamResponseType.KEYWORD_EXTRACT);
+			var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
+					v -> resultMap, displayFlux, StreamResponseType.KEYWORD_EXTRACT);
 
 			return Map.of(KEYWORD_EXTRACT_NODE_OUTPUT, generator);
 
 		}
 		catch (Exception e) {
-
-			logger.warn("增强关键词提取失败，回退到原始处理方法: {}", e.getMessage());
-			return fallbackToOriginalProcessing(state, input);
+			logger.error("增强关键词提取失败{}", e.getMessage());
+			throw new RuntimeException(e);
 		}
-	}
-
-	/**
-	 * Create enhanced streaming response
-	 * @param extractionResults list of extraction results
-	 * @param mergedKeywords merged keywords
-	 * @param mergedEvidences merged evidences
-	 * @return streaming response
-	 */
-	private Flux<ChatResponse> createEnhancedDisplayFlux(List<KeywordExtractionResult> extractionResults,
-			List<String> mergedKeywords, List<String> mergedEvidences) {
-		return Flux.create(emitter -> {
-			emitter.next(ChatResponseUtil.createStatusResponse("开始增强关键词提取..."));
-			emitter.next(ChatResponseUtil.createStatusResponse("正在扩展问题理解..."));
-
-			for (KeywordExtractionResult result : extractionResults) {
-				if (result.isSuccessful()) {
-					emitter.next(ChatResponseUtil.createStatusResponse("处理问题变体: \"" + result.getQuestion() + "\""));
-					emitter.next(ChatResponseUtil
-						.createStatusResponse("提取的证据: " + String.join(", ", result.getEvidences())));
-					emitter.next(ChatResponseUtil
-						.createStatusResponse("提取的关键词: " + String.join(", ", result.getKeywords())));
-				}
-			}
-
-			emitter.next(ChatResponseUtil.createStatusResponse("合并多个问题变体的结果..."));
-			emitter.next(ChatResponseUtil.createStatusResponse("合并后的证据: " + String.join(", ", mergedEvidences)));
-			emitter.next(ChatResponseUtil.createStatusResponse("合并后的关键词: " + String.join(", ", mergedKeywords)));
-			emitter.next(ChatResponseUtil.createStatusResponse("关键词提取完成."));
-			emitter.complete();
-		});
-	}
-
-	/**
-	 * Fallback to original processing method
-	 * @param state state
-	 * @param input input
-	 * @return processing result
-	 * @throws Exception processing exception
-	 */
-	private Map<String, Object> fallbackToOriginalProcessing(OverAllState state, String input) throws Exception {
-
-		List<String> evidences = queryProcessingService.extractEvidences(input);
-		List<String> keywords = queryProcessingService.extractKeywords(input, evidences);
-
-		logger.info("[{}] 原始提取结果 - 证据: {}, 关键词: {}", this.getClass().getSimpleName(), evidences, keywords);
-
-		Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
-			emitter.next(ChatResponseUtil.createCustomStatusResponse("开始提取关键词..."));
-			emitter.next(ChatResponseUtil.createCustomStatusResponse("正在提取证据..."));
-			emitter.next(ChatResponseUtil.createCustomStatusResponse("提取的证据: " + String.join(", ", evidences)));
-			emitter.next(ChatResponseUtil.createCustomStatusResponse("正在提取关键词..."));
-			emitter.next(ChatResponseUtil.createCustomStatusResponse("提取的关键词: " + String.join(", ", keywords)));
-			emitter.next(ChatResponseUtil.createCustomStatusResponse("关键词提取完成."));
-			emitter.complete();
-		});
-
-		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-				v -> Map.of(KEYWORD_EXTRACT_NODE_OUTPUT, keywords, EVIDENCES, evidences, RESULT, keywords), displayFlux,
-				StreamResponseType.KEYWORD_EXTRACT);
-
-		return Map.of(KEYWORD_EXTRACT_NODE_OUTPUT, generator);
 	}
 
 }

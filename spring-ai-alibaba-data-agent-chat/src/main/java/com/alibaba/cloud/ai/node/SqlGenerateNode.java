@@ -21,44 +21,44 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
-import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.util.MarkdownParserUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.google.common.util.concurrent.AtomicDouble;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.alibaba.cloud.ai.constant.Constant.*;
-import static com.alibaba.cloud.ai.graph.StateGraph.END;
 
 /**
  * Enhanced SQL generation node that handles SQL query regeneration with advanced
- * optimization features.
- *
- * This node is responsible for: - Multi-round SQL optimization and refinement - Syntax
- * validation and security analysis - Performance optimization and intelligent caching -
- * Handling execution exceptions and semantic consistency failures - Managing retry logic
- * with schema advice - Providing streaming feedback during regeneration process
+ * optimization features. This node is responsible for: - Multi-round SQL optimization and
+ * refinement - Syntax validation and security analysis - Performance optimization and
+ * intelligent caching - Handling execution exceptions and semantic consistency failures -
+ * Managing retry logic with schema advice - Providing streaming feedback during
+ * regeneration process
  *
  * @author zhangshenghang
  */
+@Slf4j
 @Component
 public class SqlGenerateNode implements NodeAction {
-
-	private static final Logger logger = LoggerFactory.getLogger(SqlGenerateNode.class);
-
-	private static final int MAX_RETRY_COUNT = 3;
 
 	private static final int MAX_OPTIMIZATION_ROUNDS = 3;
 
@@ -66,66 +66,57 @@ public class SqlGenerateNode implements NodeAction {
 
 	private final BeanOutputConverter<Plan> converter;
 
-	private final LlmService llmService;
-
-	public SqlGenerateNode(LlmService llmService, Nl2SqlService nl2SqlService) {
-		this.llmService = llmService;
+	public SqlGenerateNode(Nl2SqlService nl2SqlService) {
 		this.nl2SqlService = nl2SqlService;
-		this.converter = new BeanOutputConverter<>(new ParameterizedTypeReference<Plan>() {
+		this.converter = new BeanOutputConverter<>(new ParameterizedTypeReference<>() {
 		});
 	}
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logger.info("Entering {} node", this.getClass().getSimpleName());
+		log.info("Entering {} node", this.getClass().getSimpleName());
 
 		// Get necessary input parameters
 		String plannerNodeOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);
 		Plan plan = converter.convert(plannerNodeOutput);
 		Integer currentStep = StateUtil.getObjectValue(state, PLAN_CURRENT_STEP, Integer.class, 1);
 
-		List<ExecutionStep> executionPlan = plan.getExecutionPlan();
+		List<ExecutionStep> executionPlan = Optional.ofNullable(plan).orElseThrow().getExecutionPlan();
 		ExecutionStep executionStep = executionPlan.get(currentStep - 1);
 		ExecutionStep.ToolParameters toolParameters = executionStep.getToolParameters();
 
 		// Execute business logic first - determine what needs to be regenerated
-		Map<String, Object> result;
+		Map<String, Object> result = new HashMap<>(Map.of(SQL_GENERATE_OUTPUT, SQL_EXECUTE_NODE));
 		String displayMessage;
+
+		Consumer<String> finalSqlConsumer = finalSql -> {
+			toolParameters.setSqlQuery(finalSql);
+			log.info("[{}] Regenerated SQL: {}", this.getClass().getSimpleName(), finalSql);
+			result.put(PLANNER_NODE_OUTPUT, plan.toJsonStr());
+		};
+		Flux<String> sqlFlux;
 
 		if (StateUtil.hasValue(state, SQL_EXECUTE_NODE_EXCEPTION_OUTPUT)) {
 			displayMessage = "检测到SQL执行异常，开始重新生成SQL...";
-			String newSql = handleSqlExecutionException(state, plan, toolParameters);
-			toolParameters.setSqlQuery(newSql);
-			result = Map.of(SQL_GENERATE_OUTPUT, SQL_EXECUTE_NODE, PLANNER_NODE_OUTPUT, plan.toJsonStr());
-			logger.info("[{}] Regenerated SQL due to execution exception: {}", this.getClass().getSimpleName(), newSql);
+			sqlFlux = handleSqlExecutionException(state, toolParameters, finalSqlConsumer);
 		}
 		else if (isSemanticConsistencyFailed(state)) {
 			displayMessage = "语义一致性校验未通过，开始重新生成SQL...";
-			String newSql = handleSemanticConsistencyFailure(state, toolParameters);
-			toolParameters.setSqlQuery(newSql);
-			result = Map.of(SQL_GENERATE_OUTPUT, SQL_EXECUTE_NODE, PLANNER_NODE_OUTPUT, plan.toJsonStr());
-			logger.info("[{}] Regenerated SQL due to semantic consistency failure: {}", this.getClass().getSimpleName(),
-					newSql);
+			sqlFlux = handleSemanticConsistencyFailure(state, toolParameters, finalSqlConsumer);
 		}
 		else {
 			throw new IllegalStateException("SQL generation node was called unexpectedly");
 		}
 
 		// Create display flux for user experience only
-		Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
-			emitter.next(ChatResponseUtil.createCustomStatusResponse(displayMessage));
-			if (result.containsKey(RESULT)) {
-				emitter.next(ChatResponseUtil.createCustomStatusResponse("重新生成的SQL: " + result.get(RESULT)));
-			}
-			else if (result.containsKey(SQL_GENERATE_OUTPUT)
-					&& result.get(SQL_GENERATE_OUTPUT).equals(SQL_EXECUTE_NODE)) {
-				emitter.next(ChatResponseUtil.createCustomStatusResponse("SQL重新生成完成，准备执行"));
-			}
-			emitter.complete();
-		});
+		Flux<ChatResponse> preFlux = Flux.just(ChatResponseUtil.createCustomStatusResponse(displayMessage));
+		Flux<ChatResponse> displayFlux = preFlux.concatWith(sqlFlux.map(ChatResponseUtil::createCustomStatusResponse))
+			.concatWith(Flux.just(ChatResponseUtil.createCustomStatusResponse("SQL重新生成完成，准备执行")));
 
-		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-				v -> result, displayFlux);
+		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state, v -> {
+			log.debug("resultMap: {}", result);
+			return result;
+		}, displayFlux);
 
 		return Map.of(SQL_GENERATE_OUTPUT, generator);
 	}
@@ -133,138 +124,135 @@ public class SqlGenerateNode implements NodeAction {
 	/**
 	 * Handle SQL execution exception
 	 */
-	private String handleSqlExecutionException(OverAllState state, Plan plan,
-			ExecutionStep.ToolParameters toolParameters) throws Exception {
+	private Flux<String> handleSqlExecutionException(OverAllState state, ExecutionStep.ToolParameters toolParameters,
+			Consumer<String> finalSqlConsumer) {
 		String sqlException = StateUtil.getStringValue(state, SQL_EXECUTE_NODE_EXCEPTION_OUTPUT);
-		logger.info("Detected SQL execution exception, starting to regenerate SQL: {}", sqlException);
+		log.info("Detected SQL execution exception, starting to regenerate SQL: {}", sqlException);
 
 		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 
 		return regenerateSql(state, toolParameters.toJsonStr(), evidenceList, schemaDTO,
-				SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, toolParameters.getSqlQuery());
+				SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, toolParameters.getSqlQuery(), finalSqlConsumer);
 	}
 
 	/**
 	 * Handle semantic consistency validation failure
 	 */
-	private String handleSemanticConsistencyFailure(OverAllState state, ExecutionStep.ToolParameters toolParameters)
-			throws Exception {
-		logger.info("Semantic consistency validation failed, starting to regenerate SQL");
+	private Flux<String> handleSemanticConsistencyFailure(OverAllState state,
+			ExecutionStep.ToolParameters toolParameters, Consumer<String> finalSqlConsumer) {
+		log.info("Semantic consistency validation failed, starting to regenerate SQL");
 
 		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 
 		return regenerateSql(state, toolParameters.toJsonStr(), evidenceList, schemaDTO,
-				SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT, toolParameters.getSqlQuery());
+				SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT, toolParameters.getSqlQuery(), finalSqlConsumer);
 	}
 
 	/**
 	 * Check if semantic consistency validation failed
 	 */
 	private boolean isSemanticConsistencyFailed(OverAllState state) {
-		return StateUtil.getObjectValue(state, SEMANTIC_CONSISTENCY_NODE_OUTPUT, Boolean.class, true) == false;
+		return !StateUtil.getObjectValue(state, SEMANTIC_CONSISTENCY_NODE_OUTPUT, Boolean.class, true);
 	}
 
 	/**
 	 * If the first planned execution fails, regenerate SQL using enhanced SQL with
 	 * multi-round optimization, security checks, and performance analysis
+	 * @param finalSqlConsumer 处理最终生成SQL的消费者，如果失败，则sql为null
+	 * @return AI中间输出过程的Flux
 	 */
-	private String regenerateSql(OverAllState state, String input, List<String> evidenceList, SchemaDTO schemaDTO,
-			String exceptionOutputKey, String originalSql) throws Exception {
+	private Flux<String> regenerateSql(OverAllState state, String input, List<String> evidenceList, SchemaDTO schemaDTO,
+			String exceptionOutputKey, String originalSql, Consumer<String> finalSqlConsumer) {
 		String exceptionMessage = StateUtil.getStringValue(state, exceptionOutputKey);
-
-		logger.info("开始增强SQL生成流程 - 原始SQL: {}, 异常信息: {}", originalSql, exceptionMessage);
+		log.info("开始增强SQL生成流程 - 原始SQL: {}, 异常信息: {}", originalSql, exceptionMessage);
 
 		// Multi-round SQL optimization process
-		String bestSql = originalSql;
-		double bestScore = 0.0;
+		AtomicReference<String> bestSqlRef = new AtomicReference<>(null);
+		AtomicDouble bestScoreRef = new AtomicDouble(0.0);
+		AtomicInteger roundRef = new AtomicInteger(1);
 
-		for (int round = 1; round <= MAX_OPTIMIZATION_ROUNDS; round++) {
-			logger.info("开始第{}轮SQL优化", round);
-
-			try {
-				String currentSql;
-				if (round == 1) {
-					// First round: Use original service to generate basic SQL
-					currentSql = nl2SqlService.generateSql(evidenceList, input, schemaDTO, originalSql,
-							exceptionMessage);
-				}
-				else {
-					// Subsequent rounds: Use ChatClient for optimization
-					currentSql = generateOptimizedSql(bestSql, exceptionMessage, round);
-				}
-
-				if (currentSql == null || currentSql.trim().isEmpty()) {
-					logger.warn("第{}轮SQL生成结果为空，跳过", round);
-					continue;
-				}
-
-				// Evaluate SQL quality
-				SqlQualityScore score = evaluateSqlQuality(currentSql, schemaDTO);
-				logger.info("第{}轮SQL评分: 语法={}, 安全={}, 性能={}, 总分={}", round, score.syntaxScore, score.securityScore,
-						score.performanceScore, score.totalScore);
-
-				// Update best SQL
-				if (score.totalScore > bestScore) {
-					bestSql = currentSql;
-					bestScore = score.totalScore;
-					logger.info("第{}轮产生了更好的SQL，总分提升到{}", round, score.totalScore);
-				}
-
-				// End early if the quality is high enough
-				if (score.totalScore >= 0.95) {
-					logger.info("SQL质量分数达到{}，提前结束优化", score.totalScore);
-					break;
-				}
-
-			}
-			catch (Exception e) {
-				logger.warn("第{}轮SQL优化失败: {}", round, e.getMessage());
-			}
-		}
-
-		// Final verification and cleanup
-		bestSql = performFinalValidation(bestSql);
-
-		logger.info("增强SQL生成完成，最终SQL: {}, 最终评分: {}", bestSql, bestScore);
-		return bestSql;
-	}
-
-	/**
-	 * Use ChatClient to generate optimized SQL
-	 */
-	private String generateOptimizedSql(String previousSql, String exceptionMessage, int round) {
-		try {
-			StringBuilder prompt = new StringBuilder();
-			prompt.append("请对以下SQL进行第").append(round).append("轮优化:\n\n");
-			prompt.append("当前SQL:\n").append(previousSql).append("\n\n");
-
-			if (exceptionMessage != null && !exceptionMessage.trim().isEmpty()) {
-				prompt.append("需要解决的问题:\n").append(exceptionMessage).append("\n\n");
+		// 检查SQL，并评分，为true则直接使用当前SQL
+		Function<String, Boolean> checkSqlFunc = (currentSql) -> {
+			int round = roundRef.get();
+			if (currentSql == null || currentSql.trim().isEmpty()) {
+				log.warn("第{}轮SQL生成结果为空，跳过", round);
+				return false;
 			}
 
-			prompt.append("优化目标:\n");
-			prompt.append("1. 修复任何语法错误\n");
-			prompt.append("2. 提升查询性能\n");
-			prompt.append("3. 确保查询安全性\n");
-			prompt.append("4. 优化可读性\n\n");
-			prompt.append("请只返回优化后的SQL语句，不要包含其他说明。");
+			// Evaluate SQL quality
+			SqlQualityScore score = evaluateSqlQuality(currentSql);
+			log.info("第{}轮SQL评分: 语法={}, 安全={}, 性能={}, 总分={}", round, score.syntaxScore, score.securityScore,
+					score.performanceScore, score.totalScore);
 
-			String response = llmService.blockToString(llmService.callUser(prompt.toString()));
+			// Update best SQL
+			if (score.totalScore > bestScoreRef.get()) {
+				bestSqlRef.set(currentSql);
+				bestScoreRef.set(score.totalScore);
+				log.info("第{}轮产生了更好的SQL，总分提升到{}", round, score.totalScore);
+			}
 
-			return MarkdownParserUtil.extractRawText(response).trim();
-		}
-		catch (Exception e) {
-			logger.error("使用ChatClient优化SQL失败: {}", e.getMessage());
-			return previousSql;
-		}
+			// End early if the quality is high enough
+			if (score.totalScore >= 0.95) {
+				log.info("SQL质量分数达到{}，提前结束优化", score.totalScore);
+				return true;
+			}
+			return false;
+		};
+
+		// 最好的SQL消费者，如果失败，则sql为null
+		Consumer<String> bestSqlConsumer = (bestSql) -> {
+			if (bestSql != null) {
+				// Final verification and cleanup
+				bestSql = performFinalValidation(bestSql);
+				log.info("增强SQL生成完成，最终SQL: {}", bestSql);
+			}
+			finalSqlConsumer.accept(bestSql);
+		};
+
+		Supplier<Flux<String>> reGenerateSupplier = new Supplier<>() {
+			@Override
+			public Flux<String> get() {
+				Flux<String> sqlFlux = nl2SqlService
+					.generateOptimizedSql(Optional.ofNullable(bestSqlRef.get()).orElse(originalSql), exceptionMessage,
+							roundRef.get())
+					.collect(StringBuilder::new, StringBuilder::append)
+					.map(StringBuilder::toString)
+					.flatMapMany(sql -> Flux.just(sql).expand(newSql -> {
+						if (checkSqlFunc.apply(newSql) || roundRef.getAndIncrement() > MAX_OPTIMIZATION_ROUNDS) {
+							String bestSql = bestSqlRef.get();
+							bestSqlConsumer.accept(bestSql);
+							return Flux.just(bestSql);
+						}
+						else {
+							return this.get();
+						}
+					}));
+				return Flux.just("正在重新生成SQL...\n").concatWith(sqlFlux).concatWith(Flux.just("重新生成SQL完成..."));
+			}
+		};
+
+		Flux<String> sqlFlux = Flux.just("正在生成SQL...\n")
+			.concatWith(nl2SqlService.generateSql(evidenceList, input, schemaDTO, originalSql, exceptionMessage))
+			.concatWith(Flux.just("SQL生成完成...\n"));
+		Mono<String> sqlMono = sqlFlux.collect(StringBuilder::new, StringBuilder::append).map(StringBuilder::toString);
+		return sqlMono.flatMapMany(sql -> Flux.just(sql).expand(newSql -> {
+			if (checkSqlFunc.apply(newSql) || roundRef.getAndIncrement() > MAX_OPTIMIZATION_ROUNDS) {
+				String bestSql = bestSqlRef.get();
+				bestSqlConsumer.accept(bestSql);
+				return Flux.just(bestSql);
+			}
+			else {
+				return reGenerateSupplier.get();
+			}
+		}));
 	}
 
 	/**
 	 * Evaluate SQL quality
 	 */
-	private SqlQualityScore evaluateSqlQuality(String sql, SchemaDTO schemaDTO) {
+	private SqlQualityScore evaluateSqlQuality(String sql) {
 		SqlQualityScore score = new SqlQualityScore();
 
 		// Syntax check (40% weight)
@@ -327,7 +315,7 @@ public class SqlGenerateNode implements NodeAction {
 		for (String keyword : dangerousKeywords) {
 			if (upperSql.contains(keyword)) {
 				score -= 0.3;
-				logger.warn("检测到潜在危险SQL操作: {}", keyword);
+				log.warn("检测到潜在危险SQL操作: {}", keyword);
 			}
 		}
 
@@ -336,7 +324,7 @@ public class SqlGenerateNode implements NodeAction {
 		for (String pattern : injectionPatterns) {
 			if (upperSql.contains(pattern.toUpperCase())) {
 				score -= 0.2;
-				logger.warn("检测到潜在SQL注入模式: {}", pattern);
+				log.warn("检测到潜在SQL注入模式: {}", pattern);
 			}
 		}
 
@@ -356,13 +344,13 @@ public class SqlGenerateNode implements NodeAction {
 		// Check for SELECT *
 		if (upperSql.contains("SELECT *")) {
 			score -= 0.2;
-			logger.warn("检测到SELECT *，建议明确指定字段");
+			log.warn("检测到SELECT *，建议明确指定字段");
 		}
 
 		// Check WHERE conditions
 		if (!upperSql.contains("WHERE")) {
 			score -= 0.3;
-			logger.warn("查询缺少WHERE条件，可能影响性能");
+			log.warn("查询缺少WHERE条件，可能影响性能");
 		}
 
 		return Math.max(0.0, score);
@@ -384,7 +372,7 @@ public class SqlGenerateNode implements NodeAction {
 
 		// Security check
 		if (validateSqlSecurity(sql) < 0.5) {
-			logger.warn("生成的SQL存在安全风险，但继续执行");
+			log.warn("生成的SQL存在安全风险，但继续执行");
 		}
 
 		return sql;
@@ -403,47 +391,6 @@ public class SqlGenerateNode implements NodeAction {
 
 		double totalScore = 0.0;
 
-	}
-
-	/**
-	 * Handle unsatisfied recall information
-	 */
-	private Map<String, Object> handleUnsatisfiedRecallInfo(OverAllState state, String recallInfoSatisfyRequirement) {
-		int sqlGenerateCount = StateUtil.getObjectValue(state, SQL_GENERATE_COUNT, Integer.class, 0) + 1;
-
-		logger.info(sqlGenerateCount == 1 ? "First time generating SQL" : "SQL generation count: {}", sqlGenerateCount);
-
-		if (sqlGenerateCount <= MAX_RETRY_COUNT) {
-			return buildRetryResult(state, recallInfoSatisfyRequirement, sqlGenerateCount);
-		}
-		else {
-			logger.info("Recall information doesn't satisfy requirements, retry limit reached, ending SQL generation");
-			return Map.of(RESULT, recallInfoSatisfyRequirement, SQL_GENERATE_OUTPUT, END, SQL_GENERATE_COUNT, 0);
-		}
-	}
-
-	/**
-	 * Build retry result
-	 */
-	private Map<String, Object> buildRetryResult(OverAllState state, String recallInfoSatisfyRequirement,
-			int sqlGenerateCount) {
-		logger.info("Recall information doesn't satisfy requirements, starting to regenerate SQL");
-
-		Map<String, Object> result = new HashMap<>();
-		result.put(SQL_GENERATE_COUNT, sqlGenerateCount);
-		result.put(SQL_GENERATE_OUTPUT, SQL_GENERATE_SCHEMA_MISSING);
-
-		String newAdvice = StateUtil.getStringValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE, "")
-				+ (StateUtil.hasValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE) ? "\n" : "")
-				+ recallInfoSatisfyRequirement;
-
-		result.put(SQL_GENERATE_SCHEMA_MISSING_ADVICE, newAdvice);
-
-		if (!StateUtil.hasValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE)) {
-			logger.info("Recall information doesn't satisfy requirements, need to supplement Schema information");
-		}
-
-		return result;
 	}
 
 }

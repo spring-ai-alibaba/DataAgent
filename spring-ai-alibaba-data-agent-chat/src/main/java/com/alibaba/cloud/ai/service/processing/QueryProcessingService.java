@@ -20,6 +20,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * 问题加工服务
@@ -28,9 +29,15 @@ public interface QueryProcessingService {
 
 	List<String> extractEvidences(String query, String agentId);
 
-	List<String> extractKeywords(String query, List<String> evidenceList);
+	Flux<ChatResponse> extractKeywords(String query, List<String> evidenceList, Consumer<List<String>> resultConsumer);
 
-	List<String> expandQuestion(String query);
+	/**
+	 * 扩展用户问题为一个List列表
+	 * @param query 用户问题
+	 * @param resultConsumer 处理扩展结果的消费者
+	 * @return AI模型的流式结果
+	 */
+	Flux<ChatResponse> expandQuestion(String query, Consumer<List<String>> resultConsumer);
 
 	Flux<ChatResponse> rewriteStream(String query, String agentId) throws Exception;
 

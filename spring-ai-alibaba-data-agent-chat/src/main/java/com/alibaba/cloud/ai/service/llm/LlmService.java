@@ -29,13 +29,15 @@ public interface LlmService {
 
 	Flux<ChatResponse> callUser(String user);
 
-	// todo: 临时兼容方法，之后需要把调用此处的方法转为流式调用
+	@Deprecated
 	default String blockToString(Flux<ChatResponse> responseFlux) {
-		return responseFlux.map(r -> r.getResult().getOutput())
-			.map(r -> Optional.ofNullable(r.getText()).orElse(""))
-			.collect(StringBuilder::new, StringBuilder::append)
+		return toStringFlux(responseFlux).collect(StringBuilder::new, StringBuilder::append)
 			.map(StringBuilder::toString)
 			.block();
+	}
+
+	default Flux<String> toStringFlux(Flux<ChatResponse> responseFlux) {
+		return responseFlux.map(r -> r.getResult().getOutput()).map(r -> Optional.ofNullable(r.getText()).orElse(""));
 	}
 
 }
