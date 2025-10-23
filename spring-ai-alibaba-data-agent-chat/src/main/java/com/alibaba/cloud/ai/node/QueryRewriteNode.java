@@ -22,8 +22,8 @@ import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.service.processing.QueryProcessingService;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -42,24 +42,20 @@ import static com.alibaba.cloud.ai.constant.Constant.RESULT;
  *
  * @author zhangshenghang
  */
+@Slf4j
 @Component
+@AllArgsConstructor
 public class QueryRewriteNode implements NodeAction {
-
-	private static final Logger logger = LoggerFactory.getLogger(QueryRewriteNode.class);
 
 	private final QueryProcessingService queryProcessingService;
 
-	public QueryRewriteNode(QueryProcessingService queryProcessingService) {
-		this.queryProcessingService = queryProcessingService;
-	}
-
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logger.info("Entering {} node", this.getClass().getSimpleName());
+		log.info("Entering {} node", this.getClass().getSimpleName());
 
 		String input = StateUtil.getStringValue(state, INPUT_KEY);
 		String agentId = StateUtil.getStringValue(state, AGENT_ID); // Get agent ID
-		logger.info("[{}] Processing user input: {} for agentId: {}", this.getClass().getSimpleName(), input, agentId);
+		log.info("[{}] Processing user input: {} for agentId: {}", this.getClass().getSimpleName(), input, agentId);
 
 		// Use streaming utility class for content collection and result mapping
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,

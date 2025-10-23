@@ -33,8 +33,8 @@ import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.dao.DataAccessException;
@@ -42,8 +42,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static com.alibaba.cloud.ai.constant.Constant.*;
 import static com.alibaba.cloud.ai.prompt.PromptHelper.buildBusinessKnowledgePrompt;
@@ -59,10 +61,10 @@ import static com.alibaba.cloud.ai.prompt.PromptHelper.buildSemanticModelPrompt;
  *
  * @author zhangshenghang
  */
+@Slf4j
 @Component
+@AllArgsConstructor
 public class TableRelationNode implements NodeAction {
-
-	private static final Logger logger = LoggerFactory.getLogger(TableRelationNode.class);
 
 	private final SchemaService schemaService;
 
@@ -74,19 +76,9 @@ public class TableRelationNode implements NodeAction {
 
 	private final DatasourceService datasourceService;
 
-	public TableRelationNode(SchemaService schemaService, Nl2SqlService nl2SqlService,
-			BusinessKnowledgeService businessKnowledgeService, SemanticModelService semanticModelService,
-			DatasourceService datasourceService) {
-		this.schemaService = schemaService;
-		this.nl2SqlService = nl2SqlService;
-		this.businessKnowledgeService = businessKnowledgeService;
-		this.semanticModelService = semanticModelService;
-		this.datasourceService = datasourceService;
-	}
-
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logger.info("Entering {} node", this.getClass().getSimpleName());
+		log.info("Entering {} node", this.getClass().getSimpleName());
 
 		int retryCount = StateUtil.getObjectValue(state, TABLE_RELATION_RETRY_COUNT, Integer.class, 0);
 
@@ -104,7 +96,6 @@ public class TableRelationNode implements NodeAction {
 		// Execute business logic first - get final result immediately
 		DbConfig agentDbConfig = getAgentDbConfig(Integer.valueOf(agentIdStr));
 		SchemaDTO schemaDTO = buildInitialSchema(agentIdStr, columnDocumentsByKeywords, tableDocuments, agentDbConfig);
-		SchemaDTO result = processSchemaSelection(schemaDTO, input, evidenceList, state, agentDbConfig);
 
 		List<BusinessKnowledgeDTO> businessKnowledges;
 		List<SemanticModel> semanticModel = List.of();
@@ -116,7 +107,7 @@ public class TableRelationNode implements NodeAction {
 			// semanticModelService.getEnabledByAgentId(Long.parseLong(agentIdStr));
 		}
 		catch (DataAccessException e) {
-			logger.warn("Database query failed (attempt {}): {}", retryCount + 1, e.getMessage());
+			log.warn("Database query failed (attempt {}): {}", retryCount + 1, e.getMessage());
 
 			String errorType = classifyDatabaseError(e);
 			return Map.of(TABLE_RELATION_EXCEPTION_OUTPUT, errorType + ": " + e.getMessage(),
@@ -126,24 +117,33 @@ public class TableRelationNode implements NodeAction {
 		String businessKnowledgePrompt = buildBusinessKnowledgePrompt(businessKnowledges);
 		String semanticModelPrompt = buildSemanticModelPrompt(semanticModel);
 
-		logger.info("[{}] Schema processing result: {}", this.getClass().getSimpleName(), result);
+		Map<String, Object> resultMap = new HashMap<>(
+				Map.of(BUSINESS_KNOWLEDGE, businessKnowledgePrompt, SEMANTIC_MODEL, semanticModelPrompt));
+
+		Flux<ChatResponse> schemaFlux = processSchemaSelection(schemaDTO, input, evidenceList, state, agentDbConfig,
+				result -> {
+					log.info("[{}] Schema processing result: {}", this.getClass().getSimpleName(), result);
+					resultMap.put(TABLE_RELATION_OUTPUT, result);
+				});
 
 		// Create display stream for user experience only
-		Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
+		Flux<ChatResponse> preFlux = Flux.create(emitter -> {
 			emitter.next(ChatResponseUtil.createStatusResponse("开始构建初始Schema..."));
 			emitter.next(ChatResponseUtil.createStatusResponse("初始Schema构建完成."));
-
+			emitter.complete();
+		});
+		Flux<ChatResponse> displayFlux = preFlux.concatWith(schemaFlux).concatWith(Flux.create(emitter -> {
 			emitter.next(ChatResponseUtil.createStatusResponse("开始处理Schema选择..."));
 			emitter.next(ChatResponseUtil.createStatusResponse("Schema选择处理完成."));
 			emitter.complete();
-		});
+		}));
 
 		// Use utility class to create generator, directly return business logic computed
 		// result
-		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(
-				this.getClass(), state, v -> Map.of(TABLE_RELATION_OUTPUT, result, BUSINESS_KNOWLEDGE,
-						businessKnowledgePrompt, SEMANTIC_MODEL, semanticModelPrompt),
-				displayFlux, StreamResponseType.SCHEMA_DEEP_RECALL);
+		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state, v -> {
+			log.debug("resultMap: {}", resultMap);
+			return resultMap;
+		}, displayFlux, StreamResponseType.SCHEMA_DEEP_RECALL);
 
 		// need to reset retry count and exception
 		return Map.of(TABLE_RELATION_OUTPUT, generator, BUSINESS_KNOWLEDGE, businessKnowledgePrompt, SEMANTIC_MODEL,
@@ -182,8 +182,8 @@ public class TableRelationNode implements NodeAction {
 
 		// Convert to DbConfig
 		DbConfig dbConfig = SchemaProcessorUtil.createDbConfigFromDatasource(agentDatasource);
-		logger.debug("Successfully created DbConfig for agent {}: url={}, schema={}, type={}", agentId,
-				dbConfig.getUrl(), dbConfig.getSchema(), dbConfig.getDialectType());
+		log.debug("Successfully created DbConfig for agent {}: url={}, schema={}, type={}", agentId, dbConfig.getUrl(),
+				dbConfig.getSchema(), dbConfig.getDialectType());
 
 		return dbConfig;
 	}
@@ -191,19 +191,24 @@ public class TableRelationNode implements NodeAction {
 	/**
 	 * Processes schema selection based on input, evidence, and optional advice.
 	 */
-	private SchemaDTO processSchemaSelection(SchemaDTO schemaDTO, String input, List<String> evidenceList,
-			OverAllState state, DbConfig agentDbConfig) {
+	private Flux<ChatResponse> processSchemaSelection(SchemaDTO schemaDTO, String input, List<String> evidenceList,
+			OverAllState state, DbConfig agentDbConfig, Consumer<SchemaDTO> dtoConsumer) {
 		String schemaAdvice = StateUtil.getStringValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE, null);
 
+		Flux<ChatResponse> schemaFlux;
 		if (schemaAdvice != null) {
-			logger.info("[{}] Processing with schema supplement advice: {}", this.getClass().getSimpleName(),
+			log.info("[{}] Processing with schema supplement advice: {}", this.getClass().getSimpleName(),
 					schemaAdvice);
-			return nl2SqlService.fineSelect(schemaDTO, input, evidenceList, schemaAdvice, agentDbConfig);
+			schemaFlux = nl2SqlService.fineSelect(schemaDTO, input, evidenceList, schemaAdvice, agentDbConfig,
+					dtoConsumer);
 		}
 		else {
-			logger.info("[{}] Executing regular schema selection", this.getClass().getSimpleName());
-			return nl2SqlService.fineSelect(schemaDTO, input, evidenceList, null, agentDbConfig);
+			log.info("[{}] Executing regular schema selection", this.getClass().getSimpleName());
+			schemaFlux = nl2SqlService.fineSelect(schemaDTO, input, evidenceList, null, agentDbConfig, dtoConsumer);
 		}
+		return Flux.just(ChatResponseUtil.createStatusResponse("正在选择合适的数据表..."))
+			.concatWith(schemaFlux)
+			.concatWith(Flux.just(ChatResponseUtil.createStatusResponse("选择数据表完成。")));
 	}
 
 }

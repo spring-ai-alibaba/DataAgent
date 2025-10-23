@@ -14,45 +14,32 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.service.llm;
+package com.alibaba.cloud.ai.service.llm.impls;
 
+import com.alibaba.cloud.ai.service.llm.LlmService;
+import lombok.AllArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
-@Service
-public class LlmServiceImpl implements LlmService {
+@AllArgsConstructor
+public class StreamLlmService implements LlmService {
 
 	private final ChatClient chatClient;
 
-	public LlmServiceImpl(ChatClient chatClient) {
-		this.chatClient = chatClient;
+	@Override
+	public Flux<ChatResponse> call(String system, String user) {
+		return chatClient.prompt().system(system).user(user).stream().chatResponse();
 	}
 
 	@Override
-	public String call(String prompt) {
-		return chatClient.prompt().user(prompt).call().content();
-	}
-
-	@Override
-	public String callWithSystemPrompt(String system, String user) {
-		return chatClient.prompt().system(system).user(user).call().content();
-	}
-
-	@Override
-	public Flux<ChatResponse> streamCall(String prompt) {
-		return chatClient.prompt().user(prompt).stream().chatResponse();
-	}
-
-	@Override
-	public Flux<ChatResponse> streamCallSystem(String system) {
+	public Flux<ChatResponse> callSystem(String system) {
 		return chatClient.prompt().system(system).stream().chatResponse();
 	}
 
 	@Override
-	public Flux<ChatResponse> streamCallWithSystemPrompt(String system, String user) {
-		return chatClient.prompt().system(system).user(user).stream().chatResponse();
+	public Flux<ChatResponse> callUser(String user) {
+		return chatClient.prompt().user(user).stream().chatResponse();
 	}
 
 }

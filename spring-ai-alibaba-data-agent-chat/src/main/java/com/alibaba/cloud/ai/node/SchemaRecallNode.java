@@ -23,8 +23,8 @@ import com.alibaba.cloud.ai.service.schema.SchemaService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
@@ -52,20 +52,16 @@ import static com.alibaba.cloud.ai.constant.Constant.TABLE_DOCUMENTS_FOR_SCHEMA_
  *
  * @author zhangshenghang
  */
+@Slf4j
 @Component
+@AllArgsConstructor
 public class SchemaRecallNode implements NodeAction {
-
-	private static final Logger logger = LoggerFactory.getLogger(SchemaRecallNode.class);
 
 	private final SchemaService schemaService;
 
-	public SchemaRecallNode(SchemaService schemaService) {
-		this.schemaService = schemaService;
-	}
-
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logger.info("Entering {} node", this.getClass().getSimpleName());
+		log.info("Entering {} node", this.getClass().getSimpleName());
 
 		String input = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT,
 				StateUtil.getStringValue(state, INPUT_KEY));
@@ -78,18 +74,17 @@ public class SchemaRecallNode implements NodeAction {
 
 		// If agentId exists, use agent-specific search, otherwise use global search
 		if (agentId != null && !agentId.trim().isEmpty()) {
-			logger.info("Using agent-specific schema recall for agent: {}", agentId);
+			log.info("Using agent-specific schema recall for agent: {}", agentId);
 			tableDocuments = new ArrayList<>(schemaService.getTableDocumentsForAgent(agentId, input));
 			columnDocumentsByKeywords = schemaService.getColumnDocumentsByKeywordsForAgent(agentId, keywords);
 		}
 		else {
-			logger.info("Using global schema recall (no agentId provided)");
+			log.info("Using global schema recall (no agentId provided)");
 			tableDocuments = schemaService.getTableDocuments(input);
 			columnDocumentsByKeywords = schemaService.getColumnDocumentsByKeywords(keywords);
 		}
 
-		logger.info(
-				"[{}] Schema recall results - table documents count: {}, keyword-related column document groups: {}",
+		log.info("[{}] Schema recall results - table documents count: {}, keyword-related column document groups: {}",
 				this.getClass().getSimpleName(), tableDocuments.size(), columnDocumentsByKeywords.size());
 
 		Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
@@ -102,8 +97,8 @@ public class SchemaRecallNode implements NodeAction {
 
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
 				currentState -> {
-					logger.info("Table document details: {}", tableDocuments);
-					logger.info("Keyword-related column document details: {}", columnDocumentsByKeywords);
+					log.info("Table document details: {}", tableDocuments);
+					log.info("Keyword-related column document details: {}", columnDocumentsByKeywords);
 					return Map.of(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocuments,
 							COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT, columnDocumentsByKeywords);
 				}, displayFlux, StreamResponseType.SCHEMA_RECALL);

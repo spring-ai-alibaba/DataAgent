@@ -14,23 +14,10 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.dto;
+package com.alibaba.cloud.ai.service.llm;
 
-/**
- * Prompt configuration request DTO
- *
- * @author Makoto
- */
+public enum LlmServiceEnum {
 
-public record PromptConfigDTO(String id, // Configuration ID (required for update)
-		String name, // Configuration name
-		String promptType, // Prompt type
-		String optimizationPrompt, // User-defined system prompt content
-		Boolean enabled, // Whether to enable this configuration
-		String description, // Configuration description
-		String creator, // Creator
-		Integer priority, // Configuration priority
-		Integer displayOrder // Configuration display order
-) {
+	BLOCK, STREAM
 
 }

@@ -18,18 +18,16 @@ package com.alibaba.cloud.ai.service.semantic;
 
 import com.alibaba.cloud.ai.entity.SemanticModel;
 import com.alibaba.cloud.ai.mapper.SemanticModelMapper;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
+@AllArgsConstructor
 public class SemanticModelServiceImpl implements SemanticModelService {
 
 	private final SemanticModelMapper semanticModelMapper;
-
-	public SemanticModelServiceImpl(SemanticModelMapper semanticModelMapper) {
-		this.semanticModelMapper = semanticModelMapper;
-	}
 
 	@Override
 	public List<SemanticModel> getAll() {

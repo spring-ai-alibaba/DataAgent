@@ -24,6 +24,7 @@ import com.alibaba.cloud.ai.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -47,19 +48,15 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
+@AllArgsConstructor
 public class SchemaServiceImpl implements SchemaService {
 
-	protected final ObjectMapper objectMapper;
+	private final ObjectMapper objectMapper;
 
 	/**
 	 * Vector storage service
 	 */
-	protected final AgentVectorStoreService vectorStoreService;
-
-	public SchemaServiceImpl(ObjectMapper objectMapper, AgentVectorStoreService vectorStoreService) {
-		this.objectMapper = objectMapper;
-		this.vectorStoreService = vectorStoreService;
-	}
+	private final AgentVectorStoreService vectorStoreService;
 
 	/**
 	 * Build schema based on RAG - supports agent isolation

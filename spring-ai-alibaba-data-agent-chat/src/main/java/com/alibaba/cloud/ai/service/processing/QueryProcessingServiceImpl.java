@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.service.processing.impls;
+package com.alibaba.cloud.ai.service.processing;
 
 import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.service.schema.SchemaService;
-import com.alibaba.cloud.ai.service.processing.AbstractQueryProcessingService;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import org.springframework.stereotype.Service;
 

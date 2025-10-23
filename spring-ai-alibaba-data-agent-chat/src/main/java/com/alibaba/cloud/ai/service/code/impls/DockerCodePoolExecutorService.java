@@ -31,8 +31,7 @@ import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
@@ -54,9 +53,8 @@ import static com.github.dockerjava.api.model.HostConfig.newHostConfig;
  * @author vlsmb
  * @since 2025/7/12
  */
+@Slf4j
 public class DockerCodePoolExecutorService extends AbstractCodePoolExecutorService implements CodePoolExecutorService {
-
-	private static final Logger log = LoggerFactory.getLogger(DockerCodePoolExecutorService.class);
 
 	private final DockerClient dockerClient;
 

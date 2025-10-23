@@ -17,8 +17,7 @@
 package com.alibaba.cloud.ai.service.code.impls;
 
 import com.alibaba.cloud.ai.service.code.CodePoolExecutorService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 
 /**
@@ -27,9 +26,8 @@ import org.springframework.ai.chat.client.ChatClient;
  * @author vlsmb
  * @since 2025/7/30
  */
+@Slf4j
 public class AiSimulationCodeExecutorService implements CodePoolExecutorService {
-
-	private static final Logger log = LoggerFactory.getLogger(AiSimulationCodeExecutorService.class);
 
 	private static final String SYSTEM_PROMPT = """
 			你将模拟Python的执行，根据我提供的代码和输入数据，并给出最终的数据结果。

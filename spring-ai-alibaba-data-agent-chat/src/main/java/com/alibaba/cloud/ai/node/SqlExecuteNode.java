@@ -33,8 +33,7 @@ import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StepResultUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -55,10 +54,9 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
  *
  * @author zhangshenghang
  */
+@Slf4j
 @Component
 public class SqlExecuteNode extends AbstractPlanBasedNode {
-
-	private static final Logger logger = LoggerFactory.getLogger(SqlExecuteNode.class);
 
 	// todo: 根据数据库配置动态获取Accessor
 	private final Accessor dbAccessor;
@@ -84,8 +82,8 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 		ExecutionStep.ToolParameters toolParameters = executionStep.getToolParameters();
 		String sqlQuery = toolParameters.getSqlQuery();
 
-		logger.info("Executing SQL query: {}", sqlQuery);
-		logger.info("Step description: {}", toolParameters.getDescription());
+		log.info("Executing SQL query: {}", sqlQuery);
+		log.info("Step description: {}", toolParameters.getDescription());
 
 		// Dynamically get the data source configuration for an agent
 		DbConfig dbConfig = getAgentDbConfig(state);
@@ -109,7 +107,7 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 			}
 
 			Integer agentId = Integer.valueOf(agentIdStr);
-			logger.info("Getting datasource config for agent: {}", agentId);
+			log.info("Getting datasource config for agent: {}", agentId);
 
 			// Get the enabled data source for the agent
 			List<AgentDatasource> agentDatasources = datasourceService.getAgentDatasource(agentId);
@@ -124,13 +122,13 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 
 			// Convert to DbConfig
 			DbConfig dbConfig = createDbConfigFromDatasource(activeDatasource.getDatasource());
-			logger.info("Successfully created DbConfig for agent {}: url={}, schema={}, type={}", agentId,
+			log.info("Successfully created DbConfig for agent {}: url={}, schema={}, type={}", agentId,
 					dbConfig.getUrl(), dbConfig.getSchema(), dbConfig.getDialectType());
 
 			return dbConfig;
 		}
 		catch (Exception e) {
-			logger.error("Failed to get agent datasource config", e);
+			log.error("Failed to get agent datasource config", e);
 			throw new RuntimeException("获取智能体数据源配置失败: " + e.getMessage(), e);
 		}
 	}
@@ -201,7 +199,7 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 					new HashMap<>());
 			Map<String, String> updatedResults = StepResultUtil.addStepResult(existingResults, currentStep, jsonStr);
 
-			logger.info("SQL execution successful, result count: {}",
+			log.info("SQL execution successful, result count: {}",
 					resultSetBO.getData() != null ? resultSetBO.getData().size() : 0);
 
 			// Prepare the final result object
@@ -227,7 +225,7 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 		}
 		catch (Exception e) {
 			String errorMessage = e.getMessage();
-			logger.error("SQL execution failed - SQL: [{}] ", sqlQuery, e);
+			log.error("SQL execution failed - SQL: [{}] ", sqlQuery, e);
 
 			// Prepare error result
 			Map<String, Object> errorResult = Map.of(SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, errorMessage);
