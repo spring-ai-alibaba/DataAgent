@@ -29,4 +29,26 @@ public class DataAgentProperties {
 
 	private LlmServiceEnum llmServiceType = LlmServiceEnum.STREAM;
 
+	/**
+	 * 批处理配置 spring.ai.alibaba.nl2sql.embedding-batch.max-token-count=2000
+	 * spring.ai.alibaba.nl2sql.embedding-batch.reserve-percentage=0.2
+	 */
+	private EmbeddingBatch embeddingBatch = new EmbeddingBatch();
+
+	@Getter
+	@Setter
+	public static class EmbeddingBatch {
+
+		/**
+		 * 每批次最大令牌数 值越小，每批次文档越少，但更安全 值越大，处理效率越高，但可能超出API限制 建议值：2000-8000，根据实际API限制调整
+		 */
+		private int maxTokenCount = 8000;
+
+		/**
+		 * 预留百分比 用于预留缓冲空间，避免超出限制 建议值：0.1-0.2（10%-20%）
+		 */
+		private double reservePercentage = 0.2;
+
+	}
+
 }

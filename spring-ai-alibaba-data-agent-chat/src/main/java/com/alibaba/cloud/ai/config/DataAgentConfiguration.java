@@ -44,13 +44,15 @@ import com.alibaba.cloud.ai.node.SemanticConsistencyNode;
 import com.alibaba.cloud.ai.node.SqlExecuteNode;
 import com.alibaba.cloud.ai.node.SqlGenerateNode;
 import com.alibaba.cloud.ai.node.TableRelationNode;
-import com.alibaba.cloud.ai.strategy.CustomBatchingStrategy;
+
 import com.alibaba.cloud.ai.util.NodeBeanUtil;
+import com.knuddels.jtokkit.api.EncodingType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.embedding.TokenCountBatchingStrategy;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
@@ -295,8 +297,10 @@ public class DataAgentConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean(BatchingStrategy.class)
-	public BatchingStrategy customBatchingStrategy() {
-		return new CustomBatchingStrategy();
+	public BatchingStrategy customBatchingStrategy(DataAgentProperties properties) {
+		return new TokenCountBatchingStrategy(EncodingType.CL100K_BASE,
+				properties.getEmbeddingBatch().getMaxTokenCount(),
+				properties.getEmbeddingBatch().getReservePercentage());
 	}
 
 	@Bean
