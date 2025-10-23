@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.service.knowledge.AgentKnowledgeService;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -42,13 +43,11 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/agent-knowledge")
 @CrossOrigin(origins = "*")
+@AllArgsConstructor
+// todo: 功能完成后需要与前端接入，部分返回值需要定义DTO
 public class AgentKnowledgeController {
 
 	private final AgentKnowledgeService agentKnowledgeService;
-
-	public AgentKnowledgeController(AgentKnowledgeService agentKnowledgeService) {
-		this.agentKnowledgeService = agentKnowledgeService;
-	}
 
 	/**
 	 * Query knowledge list by agent ID

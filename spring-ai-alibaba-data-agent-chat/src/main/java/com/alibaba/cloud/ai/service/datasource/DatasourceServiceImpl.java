@@ -36,8 +36,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.HashMap;
-import java.util.Map;
 
 // todo: 检查Mapper的返回值，判断是否执行成功（或者对Mapper进行AOP）
 @Slf4j
@@ -229,29 +227,6 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		log.info("Found {} tables for datasource: {}", tableNames.size(), datasourceId);
 		return tableNames;
-	}
-
-	@Override
-	public Map<String, Object> getDatasourceStats() {
-		Map<String, Object> stats = new HashMap<>();
-
-		// Total count statistics
-		Long total = datasourceMapper.selectCount();
-		stats.put("total", total);
-
-		// Statistics by status
-		List<Map<String, Object>> statusStats = datasourceMapper.selectStatusStats();
-		stats.put("byStatus", statusStats);
-
-		// Statistics by type
-		List<Map<String, Object>> typeStats = datasourceMapper.selectTypeStats();
-		stats.put("byType", typeStats);
-
-		// Connection status statistics
-		List<Map<String, Object>> testStats = datasourceMapper.selectTestStatusStats();
-		stats.put("byTestStatus", testStats);
-
-		return stats;
 	}
 
 	@Override

@@ -104,11 +104,7 @@ class DatasourceService {
         return response.data;
     }
 
-    // 7. 获取数据源统计信息
-    async getDatasourceStats(): Promise<Record<string, any>> {
-        const response = await axios.get<Record<string, any>>(`${API_BASE_URL}/stats`);
-        return response.data;
-    }
+    // todo: 更改位置
 
     // 8. 获取与智能体关联的数据源列表
     async getAgentDatasource(agentId: number): Promise<AgentDatasource[]> {

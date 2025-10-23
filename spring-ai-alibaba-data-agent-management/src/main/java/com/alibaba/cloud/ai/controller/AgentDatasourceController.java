@@ -15,81 +15,53 @@
  */
 package com.alibaba.cloud.ai.controller;
 
+import com.alibaba.cloud.ai.dto.InitSchemaDto;
+import com.alibaba.cloud.ai.dto.ToggleDatasourceDto;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.service.AgentDatasourceService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.alibaba.cloud.ai.vo.ApiResponse;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Agent Schema Initialization Controller Handles agent's database Schema initialization
  * to vector storage
  */
-@Controller
+@Slf4j
+@RestController
 @RequestMapping("/api/agent/{agentId}/datasources")
 @CrossOrigin(origins = "*")
+@AllArgsConstructor
 public class AgentDatasourceController {
 
-	private static final Logger log = LoggerFactory.getLogger(AgentDatasourceController.class);
-
 	private final AgentDatasourceService agentDatasourceService;
-
-	public AgentDatasourceController(AgentDatasourceService agentDatasourceService) {
-		this.agentDatasourceService = agentDatasourceService;
-	}
 
 	/**
 	 * Initialize agent's database Schema to vector storage Corresponds to the "Initialize
 	 * Information Source" function on the frontend
 	 */
 	@PostMapping("/init")
-	@ResponseBody
-	public ResponseEntity<Map<String, Object>> initializeSchema(@PathVariable(value = "agentId") Long agentId,
-			@RequestBody Map<String, Object> requestData) {
-
-		Map<String, Object> response = new HashMap<>();
-
+	public ResponseEntity<ApiResponse> initSchema(@PathVariable(value = "agentId") Long agentId,
+			@RequestBody InitSchemaDto dto) {
 		try {
 			log.info("Initializing schema for agent: {}", agentId);
 
 			// Extract data source ID and table list from request
-			Integer datasourceId = null;
-			List<String> tables = null;
-
-			// Try to extract data from different request formats
-			if (requestData.containsKey("datasourceId")) {
-				datasourceId = (Integer) requestData.get("datasourceId");
-			}
-			else if (requestData.containsKey("dbConfig")) {
-				Map<String, Object> dbConfig = (Map<String, Object>) requestData.get("dbConfig");
-				if (dbConfig.containsKey("id")) {
-					datasourceId = (Integer) dbConfig.get("id");
-				}
-			}
-
-			if (requestData.containsKey("tables")) {
-				tables = (List<String>) requestData.get("tables");
-			}
+			Integer datasourceId = dto.getDatasourceId();
+			List<String> tables = dto.getTables();
 
 			// Validate request parameters
 			if (datasourceId == null) {
-				response.put("success", false);
-				response.put("message", "数据源ID不能为空");
-				return ResponseEntity.badRequest().body(response);
+				return ResponseEntity.badRequest().body(ApiResponse.error("数据源ID不能为空"));
 			}
 
 			if (tables == null || tables.isEmpty()) {
-				response.put("success", false);
-				response.put("message", "表列表不能为空");
-				return ResponseEntity.badRequest().body(response);
+				return ResponseEntity.badRequest().body(ApiResponse.error("表列表不能为空"));
 			}
 
 			// Execute Schema initialization
@@ -97,27 +69,16 @@ public class AgentDatasourceController {
 					tables);
 
 			if (result) {
-				response.put("success", true);
-				response.put("message", "Schema初始化成功");
-				response.put("agentId", agentId);
-				response.put("tablesCount", tables.size());
-
 				log.info("Successfully initialized schema for agent: {}, tables: {}", agentId, tables.size());
-
-				return ResponseEntity.ok(response);
+				return ResponseEntity.ok(ApiResponse.success("Schema初始化成功"));
 			}
 			else {
-				response.put("success", false);
-				response.put("message", "Schema初始化失败");
-				return ResponseEntity.badRequest().body(response);
+				return ResponseEntity.internalServerError().body(ApiResponse.error("Schema初始化失败"));
 			}
-
 		}
 		catch (Exception e) {
 			log.error("Failed to initialize schema for agent: {}", agentId, e);
-			response.put("success", false);
-			response.put("message", "Schema初始化失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
+			return ResponseEntity.internalServerError().body(ApiResponse.error("Schema初始化失败：" + e.getMessage()));
 		}
 	}
 
@@ -125,28 +86,16 @@ public class AgentDatasourceController {
 	 * Get list of data sources configured for agent
 	 */
 	@GetMapping
-	@ResponseBody
-	public ResponseEntity<Map<String, Object>> getAgentDatasources(@PathVariable(value = "agentId") Long agentId) {
-		Map<String, Object> response = new HashMap<>();
-
+	public ResponseEntity<ApiResponse> getAgentDatasource(@PathVariable(value = "agentId") Long agentId) {
 		try {
 			log.info("Getting datasources for agent: {}", agentId);
 			List<Datasource> datasources = agentDatasourceService.getAgentDatasourcesWithDetails(agentId);
-
-			response.put("success", true);
-			response.put("data", datasources);
-			response.put("agentId", agentId);
-
 			log.info("Successfully retrieved {} datasources for agent: {}", datasources.size(), agentId);
-			return ResponseEntity.ok(response);
-
+			return ResponseEntity.ok(ApiResponse.success("操作成功", datasources));
 		}
 		catch (Exception e) {
 			log.error("Failed to get datasources for agent: {}", agentId, e);
-			response.put("success", false);
-			response.put("message", "获取数据源失败：" + e.getMessage());
-			response.put("data", new ArrayList<>());
-			return ResponseEntity.badRequest().body(response);
+			return ResponseEntity.badRequest().body(ApiResponse.error("获取数据源失败：" + e.getMessage(), List.of()));
 		}
 	}
 
@@ -154,61 +103,36 @@ public class AgentDatasourceController {
 	 * Get table list of data source
 	 */
 	@GetMapping("/{datasourceId}/tables")
-	@ResponseBody
-	public ResponseEntity<Map<String, Object>> getDatasourceTables(
-			@PathVariable(value = "datasourceId") Integer datasourceId) {
-		Map<String, Object> response = new HashMap<>();
-
+	public ResponseEntity<ApiResponse> getDatasourceTables(@PathVariable(value = "datasourceId") Integer datasourceId) {
 		try {
 			log.info("Getting tables for datasource: {}", datasourceId);
-
 			List<String> tables = agentDatasourceService.getDatasourceTables(datasourceId);
-
-			response.put("success", true);
-			response.put("data", tables);
-			response.put("datasourceId", datasourceId);
-
 			log.info("Successfully retrieved {} tables for datasource: {}", tables.size(), datasourceId);
-			return ResponseEntity.ok(response);
+			return ResponseEntity.ok(ApiResponse.success("操作成功", tables));
 
 		}
 		catch (Exception e) {
 			log.error("Failed to get tables for datasource: {}", datasourceId, e);
-			response.put("success", false);
-			response.put("message", "获取表列表失败：" + e.getMessage());
-			response.put("data", new ArrayList<>());
-			return ResponseEntity.badRequest().body(response);
+			return ResponseEntity.badRequest().body(ApiResponse.error("获取表列表失败：" + e.getMessage(), List.of()));
 		}
 	}
 
 	/**
 	 * Add data source for agent
 	 */
-	@PostMapping
-	@ResponseBody
-	public ResponseEntity<Map<String, Object>> addDatasourceToAgent(@PathVariable(value = "agentId") Integer agentId,
-			@RequestBody Map<String, Integer> request) {
+	@PostMapping("/{datasourceId}")
+	public ResponseEntity<ApiResponse> addDatasourceToAgent(@PathVariable(value = "agentId") Integer agentId,
+			@PathVariable(value = "datasourceId") Integer datasourceId) {
 		try {
-			Integer datasourceId = request.get("datasourceId");
 			if (datasourceId == null) {
-				Map<String, Object> response = new HashMap<>();
-				response.put("success", false);
-				response.put("message", "数据源ID不能为空");
-				return ResponseEntity.badRequest().body(response);
+				return ResponseEntity.badRequest().body(ApiResponse.error("数据源ID不能为空"));
 			}
 
 			AgentDatasource agentDatasource = agentDatasourceService.addDatasourceToAgent(agentId, datasourceId);
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
-			response.put("message", "数据源添加成功");
-			response.put("data", agentDatasource);
-			return ResponseEntity.ok(response);
+			return ResponseEntity.ok(ApiResponse.success("数据源添加成功", agentDatasource));
 		}
 		catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "添加失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
+			return ResponseEntity.badRequest().body(ApiResponse.error("添加失败：" + e.getMessage()));
 		}
 	}
 
@@ -216,53 +140,35 @@ public class AgentDatasourceController {
 	 * Remove data source association from agent
 	 */
 	@DeleteMapping("/{datasourceId}")
-	@ResponseBody
-	public ResponseEntity<Map<String, Object>> removeDatasourceFromAgent(@PathVariable("agentId") Integer agentId,
+	public ResponseEntity<ApiResponse> removeDatasourceFromAgent(@PathVariable("agentId") Integer agentId,
 			@PathVariable("datasourceId") Integer datasourceId) {
 		try {
 			agentDatasourceService.removeDatasourceFromAgent(agentId, datasourceId);
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
-			response.put("message", "数据源移除成功");
-			return ResponseEntity.ok(response);
+			return ResponseEntity.ok(ApiResponse.success("数据源已移除"));
 		}
 		catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "移除失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
+			return ResponseEntity.badRequest().body(ApiResponse.error("移除失败：" + e.getMessage()));
 		}
 	}
 
 	/**
 	 * 启用/禁用智能体的数据源
 	 */
-	@PutMapping("/{datasourceId}/toggle")
-	@ResponseBody
-	public ResponseEntity<Map<String, Object>> toggleDatasourceForAgent(@PathVariable("agentId") Integer agentId,
-			@PathVariable("datasourceId") Integer datasourceId, @RequestBody Map<String, Boolean> request) {
+	@PutMapping("/toggle")
+	public ResponseEntity<ApiResponse> toggleDatasourceForAgent(@PathVariable("agentId") Integer agentId,
+			@RequestBody ToggleDatasourceDto dto) {
 		try {
-			Boolean isActive = request.get("isActive");
-			if (isActive == null) {
-				Map<String, Object> response = new HashMap<>();
-				response.put("success", false);
-				response.put("message", "激活状态不能为空");
-				return ResponseEntity.badRequest().body(response);
+			Boolean isActive = dto.getIsActive();
+			Integer datasourceId = dto.getDatasourceId();
+			if (isActive == null || datasourceId == null) {
+				return ResponseEntity.badRequest().body(ApiResponse.error("激活状态不能为空"));
 			}
-
-			AgentDatasource agentDatasource = agentDatasourceService.toggleDatasourceForAgent(agentId, datasourceId,
-					isActive);
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
-			response.put("message", isActive ? "数据源已启用" : "数据源已禁用");
-			response.put("data", agentDatasource);
-			return ResponseEntity.ok(response);
+			AgentDatasource agentDatasource = agentDatasourceService.toggleDatasourceForAgent(agentId,
+					dto.getDatasourceId(), isActive);
+			return ResponseEntity.ok(ApiResponse.success(isActive ? "数据源已启用" : "数据源已禁用", agentDatasource));
 		}
 		catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "操作失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
+			return ResponseEntity.badRequest().body(ApiResponse.error("操作失败：" + e.getMessage()));
 		}
 	}
 

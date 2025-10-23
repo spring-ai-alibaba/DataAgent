@@ -20,7 +20,6 @@ import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.Datasource;
 
 import java.util.List;
-import java.util.Map;
 
 public interface DatasourceService {
 
@@ -75,12 +74,6 @@ public interface DatasourceService {
 	List<AgentDatasource> getAgentDatasource(Integer agentId);
 
 	List<String> getDatasourceTables(Integer datasourceId) throws Exception;
-
-	/**
-	 * Get data source statistics
-	 */
-	// todo: 定义返回类型的POJO
-	Map<String, Object> getDatasourceStats();
 
 	Datasource getActiveDatasourceByAgentId(Integer agentId);
 

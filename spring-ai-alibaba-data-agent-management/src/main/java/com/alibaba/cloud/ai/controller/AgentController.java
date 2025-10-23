@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.Agent;
 import com.alibaba.cloud.ai.service.AgentService;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -40,13 +41,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/agent")
 @CrossOrigin(origins = "*")
+@AllArgsConstructor
 public class AgentController {
 
 	private final AgentService agentService;
-
-	public AgentController(AgentService agentService) {
-		this.agentService = agentService;
-	}
 
 	/**
 	 * Get agent list
