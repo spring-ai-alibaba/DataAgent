@@ -111,8 +111,11 @@ public class AgentVectorStoreServiceImplTest {
 	@Test
 	@DisplayName("Test addDocuments with valid input")
 	void testAddDocuments() {
+		Map<String, Object> metadata = new HashMap<>();
+		metadata.put(Constant.AGENT_ID, TEST_AGENT_ID);
 		// Arrange
-		List<Document> documents = Arrays.asList(new Document("Test content 1"), new Document("Test content 2"));
+		List<Document> documents = Arrays.asList(new Document("Test content 1", metadata),
+				new Document("Test content 2", metadata));
 
 		// Act
 		agentVectorStoreService.addDocuments(TEST_AGENT_ID, documents);

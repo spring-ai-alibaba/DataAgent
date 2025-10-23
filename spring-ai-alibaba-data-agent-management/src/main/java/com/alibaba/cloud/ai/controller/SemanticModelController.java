@@ -17,6 +17,8 @@ package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.SemanticModel;
 import com.alibaba.cloud.ai.service.semantic.SemanticModelService;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,16 +27,15 @@ import java.util.List;
 /**
  * Semantic Model Configuration Controller
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/semantic-model")
 @CrossOrigin(origins = "*")
+@AllArgsConstructor
+// todo: 完成后与前端对接
 public class SemanticModelController {
 
 	private final SemanticModelService semanticModelService;
-
-	public SemanticModelController(SemanticModelService semanticModelService) {
-		this.semanticModelService = semanticModelService;
-	}
 
 	@GetMapping
 	public ResponseEntity<List<SemanticModel>> list(@RequestParam(value = "keyword", required = false) String keyword,

@@ -17,26 +17,22 @@
 package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.Datasource;
-import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.service.datasource.DatasourceService;
+import com.alibaba.cloud.ai.vo.ApiResponse;
+import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
 
 // todo: 不要吞掉所有异常，可以直接抛出，写一个Advice拦截异常并做日志
 @RestController
 @RequestMapping("/api/datasource")
 @CrossOrigin(origins = "*")
+@AllArgsConstructor
 public class DatasourceController {
 
 	private final DatasourceService datasourceService;
-
-	public DatasourceController(DatasourceService datasourceService) {
-		this.datasourceService = datasourceService;
-	}
 
 	/**
 	 * Get all data source list
@@ -108,19 +104,13 @@ public class DatasourceController {
 	 * Delete data source
 	 */
 	@DeleteMapping("/{id}")
-	public ResponseEntity<Map<String, Object>> deleteDatasource(@PathVariable(value = "id") Integer id) {
+	public ResponseEntity<ApiResponse> deleteDatasource(@PathVariable(value = "id") Integer id) {
 		try {
 			datasourceService.deleteDatasource(id);
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
-			response.put("message", "数据源删除成功");
-			return ResponseEntity.ok(response);
+			return ResponseEntity.ok(ApiResponse.success("数据源删除成功"));
 		}
 		catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "删除失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
+			return ResponseEntity.badRequest().body(ApiResponse.error("删除失败：" + e.getMessage()));
 		}
 	}
 
@@ -128,129 +118,13 @@ public class DatasourceController {
 	 * Test data source connection
 	 */
 	@PostMapping("/{id}/test")
-	public ResponseEntity<Map<String, Object>> testConnection(@PathVariable(value = "id") Integer id) {
+	public ResponseEntity<ApiResponse> testConnection(@PathVariable(value = "id") Integer id) {
 		try {
 			boolean success = datasourceService.testConnection(id);
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", success);
-			response.put("message", success ? "连接测试成功" : "连接测试失败");
-			return ResponseEntity.ok(response);
+			return ResponseEntity.ok(ApiResponse.success(success ? "连接测试成功" : "连接测试失败"));
 		}
 		catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "测试失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
-	}
-
-	/**
-	 * Get data source statistics
-	 */
-	@GetMapping("/stats")
-	public ResponseEntity<Map<String, Object>> getDatasourceStats() {
-		try {
-			Map<String, Object> stats = datasourceService.getDatasourceStats();
-			return ResponseEntity.ok(stats);
-		}
-		catch (Exception e) {
-			return ResponseEntity.badRequest().build();
-		}
-	}
-
-	/**
-	 * Get data source list associated with agent
-	 */
-	@GetMapping("/agent/{agentId}")
-	public ResponseEntity<List<AgentDatasource>> getAgentDatasource(@PathVariable(value = "agentId") Integer agentId) {
-		try {
-			List<AgentDatasource> agentDatasource = datasourceService.getAgentDatasource(agentId);
-			return ResponseEntity.ok(agentDatasource);
-		}
-		catch (Exception e) {
-			return ResponseEntity.badRequest().build();
-		}
-	}
-
-	/**
-	 * Add data source for agent
-	 */
-	@PostMapping("/agent/{agentId}")
-	public ResponseEntity<Map<String, Object>> addDatasourceToAgent(@PathVariable(value = "agentId") Integer agentId,
-			@RequestBody Map<String, Integer> request) {
-		try {
-			Integer datasourceId = request.get("datasourceId");
-			if (datasourceId == null) {
-				Map<String, Object> response = new HashMap<>();
-				response.put("success", false);
-				response.put("message", "数据源ID不能为空");
-				return ResponseEntity.badRequest().body(response);
-			}
-
-			AgentDatasource agentDatasource = datasourceService.addDatasourceToAgent(agentId, datasourceId);
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
-			response.put("message", "数据源添加成功");
-			response.put("data", agentDatasource);
-			return ResponseEntity.ok(response);
-		}
-		catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "添加失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
-	}
-
-	/**
-	 * Remove data source association from agent
-	 */
-	@DeleteMapping("/agent/{agentId}/{datasourceId}")
-	public ResponseEntity<Map<String, Object>> removeDatasourceFromAgent(@PathVariable("agentId") Integer agentId,
-			@PathVariable("datasourceId") Integer datasourceId) {
-		try {
-			datasourceService.removeDatasourceFromAgent(agentId, datasourceId);
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
-			response.put("message", "数据源移除成功");
-			return ResponseEntity.ok(response);
-		}
-		catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "移除失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
-	}
-
-	/**
-	 * 启用/禁用智能体的数据源
-	 */
-	@PutMapping("/agent/{agentId}/{datasourceId}/toggle")
-	public ResponseEntity<Map<String, Object>> toggleDatasourceForAgent(@PathVariable("agentId") Integer agentId,
-			@PathVariable("datasourceId") Integer datasourceId, @RequestBody Map<String, Boolean> request) {
-		try {
-			Boolean isActive = request.get("isActive");
-			if (isActive == null) {
-				Map<String, Object> response = new HashMap<>();
-				response.put("success", false);
-				response.put("message", "激活状态不能为空");
-				return ResponseEntity.badRequest().body(response);
-			}
-
-			AgentDatasource agentDatasource = datasourceService.toggleDatasourceForAgent(agentId, datasourceId,
-					isActive);
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", true);
-			response.put("message", isActive ? "数据源已启用" : "数据源已禁用");
-			response.put("data", agentDatasource);
-			return ResponseEntity.ok(response);
-		}
-		catch (Exception e) {
-			Map<String, Object> response = new HashMap<>();
-			response.put("success", false);
-			response.put("message", "操作失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
+			return ResponseEntity.badRequest().body(ApiResponse.error("测试失败：" + e.getMessage()));
 		}
 	}
 

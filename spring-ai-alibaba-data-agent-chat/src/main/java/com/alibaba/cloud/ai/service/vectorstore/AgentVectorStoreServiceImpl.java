@@ -187,6 +187,14 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	public void addDocuments(String agentId, List<Document> documents) {
 		Assert.notNull(agentId, "AgentId cannot be null.");
 		Assert.notEmpty(documents, "Documents cannot be empty.");
+		// 校验文档中metadata中包含的agentId
+		for (Document document : documents) {
+			Assert.notNull(document.getMetadata(), "Document metadata cannot be null.");
+			Assert.isTrue(document.getMetadata().containsKey(Constant.AGENT_ID),
+					"Document metadata must contain agentId.");
+			Assert.isTrue(document.getMetadata().get(Constant.AGENT_ID).equals(agentId),
+					"Document metadata agentId does not match.");
+		}
 		vectorStore.add(documents);
 	}
 

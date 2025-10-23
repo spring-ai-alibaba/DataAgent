@@ -20,7 +20,6 @@ import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.Datasource;
 
 import java.util.List;
-import java.util.Map;
 
 public interface DatasourceService {
 
@@ -74,26 +73,7 @@ public interface DatasourceService {
 	 */
 	List<AgentDatasource> getAgentDatasource(Integer agentId);
 
-	/**
-	 * Add data source to agent
-	 */
-	AgentDatasource addDatasourceToAgent(Integer agentId, Integer datasourceId);
-
-	/**
-	 * Remove data source association from agent
-	 */
-	void removeDatasourceFromAgent(Integer agentId, Integer datasourceId);
-
-	/**
-	 * 启用/禁用智能体的数据源
-	 */
-	AgentDatasource toggleDatasourceForAgent(Integer agentId, Integer datasourceId, Boolean isActive);
-
-	/**
-	 * Get data source statistics
-	 */
-	// todo: 定义返回类型的POJO
-	Map<String, Object> getDatasourceStats();
+	List<String> getDatasourceTables(Integer datasourceId) throws Exception;
 
 	Datasource getActiveDatasourceByAgentId(Integer agentId);
 

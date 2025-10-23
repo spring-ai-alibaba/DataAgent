@@ -15,8 +15,8 @@
  */
 package com.alibaba.cloud.ai.controller;
 
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -41,10 +41,10 @@ import com.alibaba.cloud.ai.vo.UploadResponse;
 @RestController
 @RequestMapping("/api/upload")
 @CrossOrigin(origins = "*")
+@AllArgsConstructor
 public class FileUploadController {
 
-	@Autowired
-	private FileUploadProperties fileUploadProperties;
+	private final FileUploadProperties fileUploadProperties;
 
 	/**
 	 * 上传头像图片

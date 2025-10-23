@@ -44,4 +44,8 @@ public interface AgentKnowledgeService {
 
 	List<Object[]> countKnowledgeByType(Integer agentId);
 
+	void addKnowledgeToVectorStore(Long agentId, AgentKnowledge knowledge);
+
+	void deleteKnowledgeFromVectorStore(Long agentId, Integer knowledgeId);
+
 }
