@@ -21,6 +21,11 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.alibaba.cloud.ai.mapper.AgentMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,9 +38,11 @@ import java.util.List;
 @AllArgsConstructor
 public class AgentServiceImpl implements AgentService {
 
-	private final AgentMapper agentMapper;
+    private final AgentMapper agentMapper;
 
-	private final AgentVectorService agentVectorService;
+    private final AgentVectorService agentVectorService;
+
+    private final com.alibaba.cloud.ai.config.FileUploadProperties fileUploadProperties;
 
 	@Override
 	public List<Agent> findAll() {
@@ -58,7 +65,8 @@ public class AgentServiceImpl implements AgentService {
 	}
 
 	@Override
-	public Agent save(Agent agent) {
+    @Transactional
+    public Agent save(Agent agent) {
 		LocalDateTime now = LocalDateTime.now();
 
 		if (agent.getId() == null) {
@@ -86,8 +94,13 @@ public class AgentServiceImpl implements AgentService {
 	}
 
 	@Override
-	public void deleteById(Long id) {
+    @Transactional
+    public void deleteById(Long id) {
 		try {
+            // 获取头像信息用于文件清理
+            Agent existing = agentMapper.findById(id);
+            String avatar = existing != null ? existing.getAvatar() : null;
+
 			// Delete agent record from database
 			agentMapper.deleteById(id);
 
@@ -103,6 +116,14 @@ public class AgentServiceImpl implements AgentService {
 				}
 			}
 
+            // 清理头像文件（为本地上传）
+            try {
+                cleanupAvatarFile(avatar);
+            }
+            catch (Exception avatarEx) {
+                log.warn("Failed to cleanup avatar file for agent: {}, error: {}", id, avatarEx.getMessage());
+            }
+
 			log.info("Successfully deleted agent: {}", id);
 		}
 		catch (Exception e) {
@@ -111,4 +132,49 @@ public class AgentServiceImpl implements AgentService {
 		}
 	}
 
+    private void cleanupAvatarFile(String avatar) throws Exception {
+        if (avatar == null || avatar.isBlank()) {
+            return;
+        }
+        String urlPrefix = fileUploadProperties.getUrlPrefix();
+        String filename = null;
+        String normalized = avatar;
+
+        // 如果是完整URL，提取 path 部分
+        try {
+            java.net.URI uri = new java.net.URI(avatar);
+            if (uri.getScheme() != null) {
+                normalized = uri.getPath();
+            }
+        }
+        catch (Exception ignore) {
+            // 非URL，按路径处理
+        }
+
+        if (normalized != null) {
+            if (normalized.startsWith(urlPrefix + "/avatars/")) {
+                filename = normalized.substring((urlPrefix + "/avatars/").length());
+            }
+            else if (normalized.startsWith("/avatars/")) {
+                filename = normalized.substring("/avatars/".length());
+            }
+        }
+
+        if (filename == null || filename.isBlank()) {
+            return;
+        }
+
+        Path root = Paths.get(fileUploadProperties.getPath()).toAbsolutePath();
+        Path avatarPath = root.resolve("avatars").resolve(filename);
+        if (Files.exists(avatarPath)) {
+            try {
+                Files.delete(avatarPath);
+                log.info("Deleted avatar file: {}", avatarPath);
+            }
+            catch (Exception e) {
+                // 将异常抛出到调用方，由调用方决定是否忽略
+                throw e;
+            }
+        }
+    }
 }

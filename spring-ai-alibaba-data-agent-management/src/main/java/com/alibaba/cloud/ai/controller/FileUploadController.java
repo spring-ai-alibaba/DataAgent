@@ -21,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -81,7 +82,11 @@ public class FileUploadController {
 			Files.copy(file.getInputStream(), filePath);
 
 			// 生成访问URL
-			String fileUrl = "http://localhost:8065" + fileUploadProperties.getUrlPrefix() + "/avatars/" + filename;
+			String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+				.path(fileUploadProperties.getUrlPrefix())
+				.path("/avatars/")
+				.path(filename)
+				.toUriString();
 
 			return ResponseEntity.ok(UploadResponse.ok("上传成功", fileUrl, filename));
 
