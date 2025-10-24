@@ -35,6 +35,8 @@ spring:
           # 运行Python代码的环境（生产环境建议使用docker，不建议使用local）
           code-pool-executor: local
         file:
+          storage:
+            type: local  # 存储类型: local
           upload:
             path: ./uploads
             url-prefix: /uploads

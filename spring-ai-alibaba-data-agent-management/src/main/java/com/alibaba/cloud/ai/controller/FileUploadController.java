@@ -21,23 +21,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.UUID;
 
 import com.alibaba.cloud.ai.config.FileUploadProperties;
+import com.alibaba.cloud.ai.service.FileStorageService;
 import com.alibaba.cloud.ai.vo.UploadResponse;
 
-/**
- * 文件上传控制器
- *
- * @author Makoto
- * @since 2025/9/19
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/upload")
@@ -47,22 +35,19 @@ public class FileUploadController {
 	@Autowired
 	private FileUploadProperties fileUploadProperties;
 
+	@Autowired
+	private FileStorageService fileStorageService;
+
 	/**
 	 * 上传头像图片
 	 */
 	@PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	public ResponseEntity<UploadResponse> uploadAvatar(@RequestParam("file") MultipartFile file) {
 		try {
-
 			// 验证文件类型
 			String contentType = file.getContentType();
 			if (contentType == null || !contentType.startsWith("image/")) {
 				return ResponseEntity.badRequest().body(UploadResponse.error("只支持图片文件"));
-			}
-			// 创建上传目录
-			Path uploadDir = Paths.get(fileUploadProperties.getPath(), "avatars");
-			if (!Files.exists(uploadDir)) {
-				Files.createDirectories(uploadDir);
 			}
 
 			// 校验文件大小
@@ -71,28 +56,46 @@ public class FileUploadController {
 				return ResponseEntity.badRequest().body(UploadResponse.error("图片大小超限，最大允许：" + maxImageSize + " 字节"));
 			}
 
-			String originalFilename = file.getOriginalFilename();
-			String extension = "";
-			if (originalFilename != null && originalFilename.contains(".")) {
-				extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-			}
-			String filename = UUID.randomUUID().toString() + extension;
+			// 使用文件存储服务上传到avatars文件夹
+			String fileUrl = fileStorageService.uploadFile(file, "avatars");
 
-			Path filePath = uploadDir.resolve(filename);
-			Files.copy(file.getInputStream(), filePath);
+			// 提取文件名
+			String filename = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
 
-			// 生成访问URL
-			String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-				.path(fileUploadProperties.getUrlPrefix())
-				.path("/avatars/")
-				.path(filename)
-				.toUriString();
-
+			log.info("头像上传成功: {} -> {}", file.getOriginalFilename(), fileUrl);
 			return ResponseEntity.ok(UploadResponse.ok("上传成功", fileUrl, filename));
 
 		}
-		catch (IOException e) {
+		catch (Exception e) {
 			log.error("头像上传失败", e);
+			return ResponseEntity.internalServerError().body(UploadResponse.error("上传失败: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 通用文件上传接口 支持其他文件上传：POST /api/upload/file?folder=documents
+	 */
+	@PostMapping(value = "/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public ResponseEntity<UploadResponse> uploadFile(@RequestParam("file") MultipartFile file,
+			@RequestParam(value = "folder", defaultValue = "files") String folder) {
+		try {
+			// 基本文件验证
+			if (file.isEmpty()) {
+				return ResponseEntity.badRequest().body(UploadResponse.error("文件不能为空"));
+			}
+
+			// 使用文件存储服务上传
+			String fileUrl = fileStorageService.uploadFile(file, folder);
+
+			// 提取文件名
+			String filename = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+
+			log.info("文件上传成功: {} -> {} (folder: {})", file.getOriginalFilename(), fileUrl, folder);
+			return ResponseEntity.ok(UploadResponse.ok("上传成功", fileUrl, filename));
+
+		}
+		catch (Exception e) {
+			log.error("文件上传失败", e);
 			return ResponseEntity.internalServerError().body(UploadResponse.error("上传失败: " + e.getMessage()));
 		}
 	}
