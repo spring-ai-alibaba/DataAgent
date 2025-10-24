@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.entity.Agent;
 import com.alibaba.cloud.ai.service.AgentService;
+import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.alibaba.cloud.ai.mapper.AgentMapper;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -39,6 +41,7 @@ public class AgentServiceImpl implements AgentService {
 	private final AgentVectorService agentVectorService;
 
 	private final com.alibaba.cloud.ai.config.FileUploadProperties fileUploadProperties;
+	private final AgentVectorStoreService agentVectorStoreService;
 
 	private final com.alibaba.cloud.ai.service.FileStorageService fileStorageService;
 
@@ -103,9 +106,9 @@ public class AgentServiceImpl implements AgentService {
 			agentMapper.deleteById(id);
 
 			// Also clean up the agent's vector data
-			if (agentVectorService != null) {
+			if (agentVectorStoreService != null) {
 				try {
-					agentVectorService.deleteAllVectorDataForAgent(id);
+					agentVectorStoreService.deleteDocumentsByMetedata(id.toString(), new HashMap<>());
 					log.info("Successfully deleted vector data for agent: {}", id);
 				}
 				catch (Exception vectorException) {

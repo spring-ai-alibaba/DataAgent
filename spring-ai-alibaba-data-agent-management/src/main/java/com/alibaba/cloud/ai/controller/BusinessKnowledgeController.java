@@ -19,6 +19,7 @@ package com.alibaba.cloud.ai.controller;
 import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.entity.BusinessKnowledge;
 import com.alibaba.cloud.ai.service.business.BusinessKnowledgeService;
+import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -37,13 +38,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/business-knowledge")
 @CrossOrigin(origins = "*")
+@AllArgsConstructor
 public class BusinessKnowledgeController {
 
 	private final BusinessKnowledgeService businessKnowledgeService;
-
-	public BusinessKnowledgeController(BusinessKnowledgeService businessKnowledgeService) {
-		this.businessKnowledgeService = businessKnowledgeService;
-	}
 
 	@GetMapping
 	public ResponseEntity<List<BusinessKnowledge>> list(

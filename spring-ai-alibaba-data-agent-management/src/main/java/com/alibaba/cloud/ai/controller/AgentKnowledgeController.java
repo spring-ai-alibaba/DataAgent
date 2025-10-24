@@ -17,8 +17,8 @@
 package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
-import com.alibaba.cloud.ai.service.impl.AgentVectorService;
 import com.alibaba.cloud.ai.service.knowledge.AgentKnowledgeService;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -43,17 +43,11 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/agent-knowledge")
 @CrossOrigin(origins = "*")
+@AllArgsConstructor
+// todo: 功能完成后需要与前端接入，部分返回值需要定义DTO
 public class AgentKnowledgeController {
 
 	private final AgentKnowledgeService agentKnowledgeService;
-
-	private final AgentVectorService agentVectorService;
-
-	public AgentKnowledgeController(AgentKnowledgeService agentKnowledgeService,
-			AgentVectorService agentVectorService) {
-		this.agentKnowledgeService = agentKnowledgeService;
-		this.agentVectorService = agentVectorService;
-	}
 
 	/**
 	 * Query knowledge list by agent ID
@@ -155,7 +149,7 @@ public class AgentKnowledgeController {
 			if (knowledge.getContent() != null && !knowledge.getContent().trim().isEmpty()
 					&& "active".equals(knowledge.getStatus())) {
 				try {
-					agentVectorService.addKnowledgeToVector(Long.valueOf(knowledge.getAgentId()), knowledge);
+					agentKnowledgeService.addKnowledgeToVectorStore(Long.valueOf(knowledge.getAgentId()), knowledge);
 					// Update embedding status to completed
 					knowledge.setEmbeddingStatus("completed");
 					agentKnowledgeService.updateKnowledge(knowledge.getId(), knowledge);
@@ -226,19 +220,19 @@ public class AgentKnowledgeController {
 
 					if (statusChangedFromActive) {
 						// Status changes from active to other, delete vector data
-						agentVectorService.deleteKnowledgeFromVector(agentId, id);
+						agentKnowledgeService.deleteKnowledgeFromVectorStore(agentId, id);
 						updatedKnowledge.setEmbeddingStatus("pending");
 					}
 					else if ((contentChanged || statusChangedToActive) && "active".equals(updatedKnowledge.getStatus())
 							&& updatedKnowledge.getContent() != null
 							&& !updatedKnowledge.getContent().trim().isEmpty()) {
 						// Content changes or status becomes active, re-vectorize
-						agentVectorService.deleteKnowledgeFromVector(agentId, id); // First
-																					// delete
-																					// old
-						agentVectorService.addKnowledgeToVector(agentId, updatedKnowledge); // Then
-																							// add
-																							// new
+						agentKnowledgeService.deleteKnowledgeFromVectorStore(agentId, id); // First
+						// delete
+						// old
+						agentKnowledgeService.addKnowledgeToVectorStore(agentId, updatedKnowledge); // Then
+						// add
+						// new
 						updatedKnowledge.setEmbeddingStatus("completed");
 						agentKnowledgeService.updateKnowledge(id, updatedKnowledge); // Update
 																						// embedding
@@ -293,7 +287,7 @@ public class AgentKnowledgeController {
 				// Also delete vector data
 				try {
 					Long agentId = Long.valueOf(knowledge.getAgentId());
-					agentVectorService.deleteKnowledgeFromVector(agentId, id);
+					agentKnowledgeService.deleteKnowledgeFromVectorStore(agentId, id);
 				}
 				catch (Exception vectorException) {
 					// Vector deletion failed, log warning but don't affect main process

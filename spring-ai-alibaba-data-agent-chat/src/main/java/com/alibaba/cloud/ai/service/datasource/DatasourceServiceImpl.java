@@ -16,6 +16,10 @@
 
 package com.alibaba.cloud.ai.service.datasource;
 
+import com.alibaba.cloud.ai.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
+import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
+import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.pool.DBConnectionPool;
 import com.alibaba.cloud.ai.connector.pool.DBConnectionPoolFactory;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
@@ -24,6 +28,7 @@ import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.enums.ErrorCodeEnum;
 import com.alibaba.cloud.ai.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.mapper.AgentDatasourceMapper;
+import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -31,8 +36,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.HashMap;
-import java.util.Map;
 
 // todo: 检查Mapper的返回值，判断是否执行成功（或者对Mapper进行AOP）
 @Slf4j
@@ -45,6 +48,8 @@ public class DatasourceServiceImpl implements DatasourceService {
 	private final AgentDatasourceMapper agentDatasourceMapper;
 
 	private final DBConnectionPoolFactory poolFactory;
+
+	private final AccessorFactory accessorFactory;
 
 	@Override
 	public List<Datasource> getAllDatasource() {
@@ -193,78 +198,35 @@ public class DatasourceServiceImpl implements DatasourceService {
 	}
 
 	@Override
-	@Transactional
-	public AgentDatasource addDatasourceToAgent(Integer agentId, Integer datasourceId) {
-		// First, disable other data sources for this agent (an agent can only have one
-		// enabled data source)
-		agentDatasourceMapper.disableAllByAgentId(agentId);
+	public List<String> getDatasourceTables(Integer datasourceId) throws Exception {
+		log.info("Getting tables for datasource: {}", datasourceId);
 
-		// Check if an association already exists
-		AgentDatasource existing = agentDatasourceMapper.selectByAgentIdAndDatasourceId(agentId, datasourceId);
-
-		if (existing != null) {
-			// If it exists, activate the association
-			agentDatasourceMapper.enableRelation(agentId, datasourceId);
-
-			// Query and return the updated association
-			return agentDatasourceMapper.selectByAgentIdAndDatasourceId(agentId, datasourceId);
-		}
-		else {
-			// If it does not exist, create a new association
-			AgentDatasource agentDatasource = new AgentDatasource(agentId, datasourceId);
-			agentDatasource.setIsActive(1);
-			agentDatasourceMapper.createNewRelationEnabled(agentId, datasourceId);
-			return agentDatasource;
-		}
-	}
-
-	@Override
-	public void removeDatasourceFromAgent(Integer agentId, Integer datasourceId) {
-		agentDatasourceMapper.removeRelation(agentId, datasourceId);
-	}
-
-	@Override
-	public AgentDatasource toggleDatasourceForAgent(Integer agentId, Integer datasourceId, Boolean isActive) {
-		// If enabling data source, first check if there are other enabled data sources
-		if (isActive) {
-			int activeCount = agentDatasourceMapper.countActiveByAgentIdExcluding(agentId, datasourceId);
-			if (activeCount > 0) {
-				throw new RuntimeException("同一智能体下只能启用一个数据源，请先禁用其他数据源后再启用此数据源");
-			}
+		// Get data source information
+		com.alibaba.cloud.ai.entity.Datasource datasource = this.getDatasourceById(datasourceId);
+		if (datasource == null) {
+			throw new RuntimeException("Datasource not found with id: " + datasourceId);
 		}
 
-		// Update data source status
-		int updated = agentDatasourceMapper.updateRelation(agentId, datasourceId, isActive ? 1 : 0);
+		// Create database configuration
+		DbConfig dbConfig = SchemaProcessorUtil.createDbConfigFromDatasource(datasource);
 
-		if (updated == 0) {
-			throw new RuntimeException("未找到相关的数据源关联记录");
-		}
+		// Create query parameters
+		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
+		queryParam.setSchema(datasource.getDatabaseName());
 
-		// Return the updated association record
-		return agentDatasourceMapper.selectByAgentIdAndDatasourceId(agentId, datasourceId);
-	}
+		// Query table list
+		Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
+		List<TableInfoBO> tableInfoList = dbAccessor.showTables(dbConfig, queryParam);
 
-	@Override
-	public Map<String, Object> getDatasourceStats() {
-		Map<String, Object> stats = new HashMap<>();
+		// Extract table names
+		List<String> tableNames = tableInfoList.stream()
+			.map(TableInfoBO::getName)
+			.filter(name -> name != null && !name.trim().isEmpty())
+			.sorted()
+			.toList();
 
-		// Total count statistics
-		Long total = datasourceMapper.selectCount();
-		stats.put("total", total);
-
-		// Statistics by status
-		List<Map<String, Object>> statusStats = datasourceMapper.selectStatusStats();
-		stats.put("byStatus", statusStats);
-
-		// Statistics by type
-		List<Map<String, Object>> typeStats = datasourceMapper.selectTypeStats();
-		stats.put("byType", typeStats);
-
-		// Connection status statistics
-		List<Map<String, Object>> testStats = datasourceMapper.selectTestStatusStats();
-		stats.put("byTestStatus", testStats);
-
-		return stats;
+		log.info("Found {} tables for datasource: {}", tableNames.size(), datasourceId);
+		return tableNames;
 	}
 
 	@Override

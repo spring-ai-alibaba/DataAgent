@@ -17,12 +17,13 @@ package com.alibaba.cloud.ai.config;
 
 import com.alibaba.cloud.ai.entity.Agent;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
+import com.alibaba.cloud.ai.service.AgentDatasourceService;
 import com.alibaba.cloud.ai.service.AgentService;
 import com.alibaba.cloud.ai.service.datasource.DatasourceService;
-import com.alibaba.cloud.ai.service.impl.AgentVectorService;
+import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Service;
@@ -34,16 +35,16 @@ import java.util.concurrent.Executors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class AgentStartupInitialization implements ApplicationRunner, DisposableBean {
 
-	@Autowired
-	private AgentService agentService;
+	private final AgentService agentService;
 
-	@Autowired
-	private AgentVectorService agentVectorService;
+	private final AgentVectorStoreService agentVectorStoreService;
 
-	@Autowired
-	private DatasourceService datasourceService;
+	private final AgentDatasourceService agentDatasourceService;
+
+	private final DatasourceService datasourceService;
 
 	private final ExecutorService executorService = Executors.newFixedThreadPool(3);
 
@@ -126,7 +127,7 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 		try {
 			Long agentId = agent.getId();
 
-			boolean hasData = agentVectorService.isAlreadyInitialized(agentId);
+			boolean hasData = isAlreadyInitialized(agentId);
 
 			if (hasData) {
 				log.info("Agent {} already has vector data , skipping initialization", agentId);
@@ -155,7 +156,7 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 
 			Integer datasourceId = activeDatasource.getDatasourceId();
 
-			List<String> tables = agentVectorService.getDatasourceTables(datasourceId);
+			List<String> tables = datasourceService.getDatasourceTables(datasourceId);
 
 			if (tables.isEmpty()) {
 				log.warn("Datasource {} has no tables available for agent {}", datasourceId, agentId);
@@ -164,7 +165,8 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 
 			log.info("Initializing agent {} with datasource {} and {} tables", agentId, datasourceId, tables.size());
 
-			Boolean result = agentVectorService.initializeSchemaForAgentWithDatasource(agentId, datasourceId, tables);
+			Boolean result = agentDatasourceService.initializeSchemaForAgentWithDatasource(agentId, datasourceId,
+					tables);
 
 			if (result) {
 				log.info("Successfully initialized datasource for agent {} with {} tables", agentId, tables.size());
@@ -178,6 +180,17 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 		}
 		catch (Exception e) {
 			log.error("Error initializing datasource for agent {}, reason: {}", agent.getId(), e.getMessage());
+			return false;
+		}
+	}
+
+	private boolean isAlreadyInitialized(Long agentId) {
+		try {
+			String agentIdStr = String.valueOf(agentId);
+			return agentVectorStoreService.hasDocuments(agentIdStr);
+		}
+		catch (Exception e) {
+			log.error("Failed to check initialization status for agent: {}, assuming not initialized", agentId, e);
 			return false;
 		}
 	}
