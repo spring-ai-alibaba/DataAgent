@@ -54,4 +54,8 @@ public class ApiResponse {
 		return new ApiResponse(false, message);
 	}
 
+	public static ApiResponse error(String message, Object data) {
+		return new ApiResponse(false, message, data);
+	}
+
 }

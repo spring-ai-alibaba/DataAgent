@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2024-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,26 +18,23 @@ package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.AgentPresetQuestion;
 import com.alibaba.cloud.ai.service.AgentPresetQuestionService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/agent")
 @CrossOrigin(origins = "*")
+@AllArgsConstructor
+// todo: 部分返回值和参数需要定义DTO
 public class AgentPresetQuestionController {
 
-	private static final Logger logger = LoggerFactory.getLogger(AgentPresetQuestionController.class);
-
 	private final AgentPresetQuestionService presetQuestionService;
-
-	public AgentPresetQuestionController(AgentPresetQuestionService presetQuestionService) {
-		this.presetQuestionService = presetQuestionService;
-	}
 
 	/**
 	 * Get preset question list of agent
@@ -49,7 +46,7 @@ public class AgentPresetQuestionController {
 			return ResponseEntity.ok(questions);
 		}
 		catch (Exception e) {
-			logger.error("Error getting preset questions for agent {}", agentId, e);
+			log.error("Error getting preset questions for agent {}", agentId, e);
 			return ResponseEntity.internalServerError().build();
 		}
 	}
@@ -72,7 +69,7 @@ public class AgentPresetQuestionController {
 			return ResponseEntity.ok(Map.of("message", "预设问题保存成功"));
 		}
 		catch (Exception e) {
-			logger.error("Error saving preset questions for agent {}", agentId, e);
+			log.error("Error saving preset questions for agent {}", agentId, e);
 			return ResponseEntity.internalServerError().body(Map.of("error", "保存预设问题失败: " + e.getMessage()));
 		}
 	}
@@ -88,7 +85,7 @@ public class AgentPresetQuestionController {
 			return ResponseEntity.ok(Map.of("message", "预设问题删除成功"));
 		}
 		catch (Exception e) {
-			logger.error("Error deleting preset question {} for agent {}", questionId, agentId, e);
+			log.error("Error deleting preset question {} for agent {}", questionId, agentId, e);
 			return ResponseEntity.internalServerError().body(Map.of("error", "删除预设问题失败: " + e.getMessage()));
 		}
 	}

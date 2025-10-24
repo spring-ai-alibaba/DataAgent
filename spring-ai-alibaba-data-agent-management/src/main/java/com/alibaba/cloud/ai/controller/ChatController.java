@@ -24,9 +24,8 @@ import com.alibaba.cloud.ai.util.JsonUtil;
 import com.alibaba.cloud.ai.vo.ApiResponse;
 import com.alibaba.cloud.ai.vo.ChatResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,24 +36,20 @@ import java.util.Map;
 /**
  * Chat Controller
  */
+@Slf4j
 @RestController
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class ChatController {
 
-	private static final Logger log = LoggerFactory.getLogger(ChatController.class);
+	private final AgentService agentService;
 
-	@Autowired
-	private AgentService agentService;
+	private final ChatSessionService chatSessionService;
 
-	@Autowired
-	private ChatSessionService chatSessionService;
+	private final ChatMessageService chatMessageService;
 
-	@Autowired
-	private ChatMessageService chatMessageService;
-
-	@Autowired(required = false)
-	private GraphService nl2SqlService;
+	private final GraphService graphService;
 
 	private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 
@@ -129,10 +124,10 @@ public class ChatController {
 			// Call the NL2SQL service to process the user message
 			ChatResponse response = new ChatResponse(sessionId, "", "text");
 
-			if (nl2SqlService != null) {
+			if (graphService != null) {
 				try {
 					// Use the NL2SQL service to generate SQL
-					String sql = nl2SqlService.nl2sql(userMessage);
+					String sql = graphService.nl2sql(userMessage);
 
 					// Create a response
 					response.setMessage("我为您生成了以下SQL查询：");
