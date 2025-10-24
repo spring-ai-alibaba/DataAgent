@@ -17,10 +17,10 @@
 package com.alibaba.cloud.ai.connector.pool;
 
 import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
-import com.alibaba.cloud.ai.enums.ErrorCodeEnum;
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.druid.pool.DruidDataSourceFactory;
+import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.enums.ErrorCodeEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,40 +81,58 @@ public abstract class AbstractDBConnectionPool implements DBConnectionPool {
 
 	public Connection getConnection(DbConfig config) {
 
-		// Test the connection before returning it
-		log.info("Testing database connection.... db config: {}", config);
-		ErrorCodeEnum pingResult = this.ping(config);
-		if (pingResult != ErrorCodeEnum.SUCCESS) {
-			throw new RuntimeException("Database connection test failed: " + pingResult);
-		}
 		String jdbcUrl = config.getUrl();
+		int maxRetries = 3;
+		int retryDelay = 1000; // 1 second
 
-		try {
-			// Generate cache key based on connection parameters
-			String cacheKey = generateCacheKey(jdbcUrl, config.getUsername(), config.getPassword());
+		for (int attempt = 1; attempt <= maxRetries; attempt++) {
+			try {
+				// Generate cache key based on connection parameters
+				String cacheKey = generateCacheKey(jdbcUrl, config.getUsername(), config.getPassword());
 
-			// Use computeIfAbsent to ensure thread safety and avoid duplicate DataSource
-			// creation
-			DataSource dataSource = DATA_SOURCE_CACHE.computeIfAbsent(cacheKey, key -> {
+				// Use computeIfAbsent to ensure thread safety and avoid duplicate
+				// DataSource
+				// creation
+				DataSource dataSource = DATA_SOURCE_CACHE.computeIfAbsent(cacheKey, key -> {
+					try {
+						log.debug("Creating new DataSource for key: {}", key);
+						return createdDataSource(jdbcUrl, config.getUsername(), config.getPassword());
+					}
+					catch (Exception e) {
+						log.error("Failed to create DataSource for key: {}", key, e);
+						throw new RuntimeException("Failed to create DataSource", e);
+					}
+				});
+
+				// 记录连接池状态
+				if (dataSource instanceof DruidDataSource druidDataSource) {
+					log.debug("Connection pool status - Active: {}, Idle: {}, Total: {}, WaitCount: {}",
+							druidDataSource.getActiveCount(), druidDataSource.getPoolingCount(),
+							druidDataSource.getActiveCount() + druidDataSource.getPoolingCount(),
+							druidDataSource.getWaitThreadCount());
+				}
+
+				return dataSource.getConnection();
+			}
+			catch (Exception e) {
+				log.warn("Attempt {} to get database connection failed: {}", attempt, e.getMessage());
+
+				if (attempt == maxRetries) {
+					log.error("Failed to get database connection after {} attempts, URL: {}", maxRetries, jdbcUrl, e);
+					throw new RuntimeException("Failed to get database connection after " + maxRetries + " attempts",
+							e);
+				}
+
+				// Wait before retry with exponential backoff
 				try {
-					log.debug("Creating new DataSource for key: {}", key);
-					return createdDataSource(jdbcUrl, config.getUsername(), config.getPassword());
+					Thread.sleep((long) retryDelay * attempt);
 				}
-				catch (Exception e) {
-					log.error("Failed to create DataSource for key: {}", key, e);
-					throw new RuntimeException("Failed to create DataSource", e);
-				}
-			});
+				catch (InterruptedException ignore) {
 
-			return dataSource.getConnection();
+				}
+			}
 		}
-		catch (SQLException e) {
-			log.error("create db connection error, e:" + e);
-			throw new RuntimeException(e);
-		}
-		catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+		return null;
 	}
 
 	/**
@@ -149,12 +167,16 @@ public abstract class AbstractDBConnectionPool implements DBConnectionPool {
 		DruidDataSource dataSource = (DruidDataSource) DruidDataSourceFactory.createDataSource(
 				Map.of(DruidDataSourceFactory.PROP_DRIVERCLASSNAME, getDriver(), DruidDataSourceFactory.PROP_URL, url,
 						DruidDataSourceFactory.PROP_USERNAME, username, DruidDataSourceFactory.PROP_PASSWORD, password,
-						DruidDataSourceFactory.PROP_INITIALSIZE, "1", DruidDataSourceFactory.PROP_MINIDLE, "1",
-						DruidDataSourceFactory.PROP_MAXACTIVE, "3", DruidDataSourceFactory.PROP_MAXWAIT, "6000",
+						DruidDataSourceFactory.PROP_INITIALSIZE, "5", DruidDataSourceFactory.PROP_MINIDLE, "5",
+						DruidDataSourceFactory.PROP_MAXACTIVE, "20", DruidDataSourceFactory.PROP_MAXWAIT, "10000",
 						DruidDataSourceFactory.PROP_TIMEBETWEENEVICTIONRUNSMILLIS, "60000",
 						DruidDataSourceFactory.PROP_FILTERS, "wall,stat"));
 		dataSource.setBreakAfterAcquireFailure(Boolean.TRUE);
 		dataSource.setConnectionErrorRetryAttempts(2);
+
+		// 记录数据源创建信息
+		log.info(
+				"Created new DataSource with optimized parameters - InitialSize: 5, MinIdle: 5, MaxActive: 20, MaxWait: 10000ms");
 
 		return dataSource;
 	}

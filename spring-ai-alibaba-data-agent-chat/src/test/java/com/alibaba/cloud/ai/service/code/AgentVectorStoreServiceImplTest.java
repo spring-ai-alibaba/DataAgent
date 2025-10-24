@@ -20,11 +20,14 @@ import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
+import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.request.AgentSearchRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
+import com.alibaba.cloud.ai.service.TableMetadataService;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreServiceImpl;
+import com.alibaba.cloud.ai.util.DocumentConverterUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -56,6 +59,9 @@ public class AgentVectorStoreServiceImplTest {
 
 	@Mock
 	private BatchingStrategy batchingStrategy;
+
+	@Mock
+	private TableMetadataService tableMetadataService;
 
 	@Mock
 	private AccessorFactory accessorFactory;
@@ -316,18 +322,35 @@ public class AgentVectorStoreServiceImplTest {
 
 		List<ForeignKeyInfoBO> foreignKeys = Arrays.asList(new ForeignKeyInfoBO("table1", "col1", "table2", "col2"));
 
-		List<TableInfoBO> tables = Arrays.asList(
-				TableInfoBO.builder().name("table1").description("Description 1").build(),
-				TableInfoBO.builder().name("table2").description("Description 2").build());
+		// 创建带有列信息的表数据
+		List<ColumnInfoBO> columns1 = Arrays.asList(ColumnInfoBO.builder()
+			.name("id")
+			.type("BIGINT")
+			.description("Primary key")
+			.primary(true)
+			.notnull(true)
+			.build(), ColumnInfoBO.builder().name("name").type("VARCHAR").description("Name column").build());
+		List<ColumnInfoBO> columns2 = Arrays.asList(ColumnInfoBO.builder()
+			.name("id")
+			.type("BIGINT")
+			.description("Primary key")
+			.primary(true)
+			.notnull(true)
+			.build(), ColumnInfoBO.builder().name("value").type("INTEGER").description("Value column").build());
+
+		List<TableInfoBO> tables = Arrays.asList(createTableInfoBO("table1", "Description 1", columns1),
+				createTableInfoBO("table2", "Description 2", columns2));
 
 		when(accessorFactory.getAccessorByDbConfig(any(DbConfig.class))).thenReturn(accessor);
 		when(accessor.showForeignKeys(any(DbConfig.class), any())).thenReturn(foreignKeys);
 		when(accessor.fetchTables(any(DbConfig.class), any())).thenReturn(tables);
-		// Create a list of documents to simulate the batching strategy output
-		List<Document> documents = Arrays.asList(
-				new Document("table1 content", Map.of("name", "table1", "description", "Description 1")),
-				new Document("table2 content", Map.of("name", "table2", "description", "Description 2")));
-		when(batchingStrategy.batch(any())).thenReturn(Arrays.asList(documents));
+
+		// 模拟DocumentConverterUtil.convertColumnsToDocuments和convertTablesToDocuments的返回值
+		List<Document> columnDocs = DocumentConverterUtil.convertColumnsToDocuments(TEST_AGENT_ID, tables);
+		List<Document> tableDocs = DocumentConverterUtil.convertTablesToDocuments(TEST_AGENT_ID, tables);
+
+		// 模拟批处理策略返回文档列表
+		when(batchingStrategy.batch(any())).thenReturn(Arrays.asList(columnDocs, tableDocs));
 
 		// Act
 		Boolean result = agentVectorStoreService.schema(TEST_AGENT_ID, schemaInitRequest);
@@ -462,6 +485,15 @@ public class AgentVectorStoreServiceImplTest {
 		String result3 = (String) ReflectionTestUtils.invokeMethod(agentVectorStoreService, "escapeStringLiteral",
 				"string'with\\special\nchars");
 		assertEquals("string\\'with\\\\special\\nchars", result3);
+	}
+
+	/**
+	 * Helper method to create TableInfoBO with columns
+	 */
+	private TableInfoBO createTableInfoBO(String name, String description, List<ColumnInfoBO> columns) {
+		TableInfoBO table = TableInfoBO.builder().name(name).description(description).build();
+		table.setColumns(columns);
+		return table;
 	}
 
 }

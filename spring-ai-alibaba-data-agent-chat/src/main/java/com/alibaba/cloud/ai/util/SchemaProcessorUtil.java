@@ -15,16 +15,8 @@
  */
 package com.alibaba.cloud.ai.util;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
-import com.alibaba.cloud.ai.connector.accessor.Accessor;
-import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
-import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
-import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.cloud.ai.entity.Datasource;
 
 /**
  * Utility class for processing database schema information. Provides common schema
@@ -32,61 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class SchemaProcessorUtil {
 
-	/**
-	 * Processes table information by fetching column details and setting metadata.
-	 * @param tableInfoBO the table to process
-	 * @param dqp database query parameter
-	 * @param dbConfig database configuration
-	 * @param dbAccessor database accessor
-	 * @param objectMapper object mapper for JSON serialization
-	 * @throws Exception if processing fails
-	 */
-	public static void enrichTableMetadata(TableInfoBO tableInfoBO, DbQueryParameter dqp, DbConfig dbConfig,
-			Accessor dbAccessor, ObjectMapper objectMapper, Map<String, List<String>> foreignKeyMap) throws Exception {
-		dqp.setTable(tableInfoBO.getName());
-		List<ColumnInfoBO> columnInfoBOS = dbAccessor.showColumns(dbConfig, dqp);
-
-		for (ColumnInfoBO columnInfoBO : columnInfoBOS) {
-			dqp.setColumn(columnInfoBO.getName());
-			List<String> sampleColumnValue = dbAccessor.sampleColumn(dbConfig, dqp);
-			sampleColumnValue = Optional.ofNullable(sampleColumnValue)
-				.orElse(new ArrayList<>())
-				.stream()
-				.filter(Objects::nonNull)
-				.distinct()
-				.limit(3)
-				.filter(s -> s.length() <= 100)
-				.toList();
-
-			columnInfoBO.setTableName(tableInfoBO.getName());
-			try {
-				columnInfoBO.setSamples(objectMapper.writeValueAsString(sampleColumnValue));
-			}
-			catch (JsonProcessingException e) {
-				columnInfoBO.setSamples("[]");
-			}
-		}
-
-		// 保存处理过的列数据到TableInfoBO，供后续使用
-		tableInfoBO.setColumns(columnInfoBOS);
-
-		List<ColumnInfoBO> primaryKeyColumns = columnInfoBOS.stream().filter(ColumnInfoBO::isPrimary).toList();
-
-		if (!primaryKeyColumns.isEmpty()) {
-			List<String> columnNames = primaryKeyColumns.stream()
-				.map(ColumnInfoBO::getName)
-				.collect(Collectors.toList());
-			tableInfoBO.setPrimaryKeys(columnNames);
-		}
-		else {
-			tableInfoBO.setPrimaryKeys(new ArrayList<>());
-		}
-
-		tableInfoBO
-			.setForeignKey(String.join("、", foreignKeyMap.getOrDefault(tableInfoBO.getName(), new ArrayList<>())));
-	}
-
-	public static DbConfig createDbConfigFromDatasource(com.alibaba.cloud.ai.entity.Datasource datasource) {
+	public static DbConfig createDbConfigFromDatasource(Datasource datasource) {
 		DbConfig dbConfig = new DbConfig();
 
 		// Set basic connection information
