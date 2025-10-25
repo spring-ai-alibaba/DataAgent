@@ -21,7 +21,11 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -86,7 +90,19 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 
     @Override
     public String getFileUrl(String filePath) {
-        return "http://localhost:8065" + fileUploadProperties.getUrlPrefix() + "/" + filePath;
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                HttpServletRequest request = attributes.getRequest();
+                return ServletUriComponentsBuilder.fromRequestUri(request)
+                        .replacePath(fileUploadProperties.getUrlPrefix() + "/" + filePath)
+                        .build()
+                        .toUriString();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to build dynamic URL, fallback to relative path", e);
+        }
+        return fileUploadProperties.getUrlPrefix() + "/" + filePath;
     }
 
 }

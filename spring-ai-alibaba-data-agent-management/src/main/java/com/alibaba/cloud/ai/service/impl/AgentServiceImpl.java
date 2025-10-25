@@ -116,10 +116,11 @@ public class AgentServiceImpl implements AgentService {
 			try {
 				if (avatar != null && !avatar.isBlank()) {
 					fileStorageService.deleteFile(avatar);
+					log.info("Successfully deleted avatar file: {} for agent: {}", avatar, id);
 				}
 			}
 			catch (Exception avatarEx) {
-				log.warn("Failed to cleanup avatar file for agent: {}, error: {}", id, avatarEx.getMessage());
+				log.warn("Failed to cleanup avatar file: {} for agent: {}, error: {}", avatar, id, avatarEx.getMessage());
 			}
 
 			log.info("Successfully deleted agent: {}", id);

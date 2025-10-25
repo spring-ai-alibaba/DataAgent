@@ -90,7 +90,8 @@ public class FileUploadController {
 	public ResponseEntity<byte[]> getFile(HttpServletRequest request) {
 		try {
 			String requestPath = request.getRequestURI();
-			String filePath = requestPath.substring("/api/upload/".length());
+			String urlPrefix = fileUploadProperties.getUrlPrefix();
+			String filePath = requestPath.substring(urlPrefix.length());
 			
 			Path fullPath = Paths.get(fileUploadProperties.getPath(), filePath);
 			
