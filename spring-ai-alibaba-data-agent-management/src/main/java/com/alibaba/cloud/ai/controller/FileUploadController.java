@@ -92,21 +92,22 @@ public class FileUploadController {
 			String requestPath = request.getRequestURI();
 			String urlPrefix = fileUploadProperties.getUrlPrefix();
 			String filePath = requestPath.substring(urlPrefix.length());
-			
+
 			Path fullPath = Paths.get(fileUploadProperties.getPath(), filePath);
-			
+
 			if (!Files.exists(fullPath) || Files.isDirectory(fullPath)) {
 				return ResponseEntity.notFound().build();
 			}
-			
+
 			byte[] fileContent = Files.readAllBytes(fullPath);
 			String contentType = Files.probeContentType(fullPath);
-			
+
 			return ResponseEntity.ok()
 				.contentType(MediaType.parseMediaType(contentType != null ? contentType : "application/octet-stream"))
 				.body(fileContent);
-				
-		} catch (IOException e) {
+
+		}
+		catch (IOException e) {
 			log.error("文件读取失败", e);
 			return ResponseEntity.internalServerError().build();
 		}

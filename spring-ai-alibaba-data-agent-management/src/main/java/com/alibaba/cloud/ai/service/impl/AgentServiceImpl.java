@@ -120,7 +120,8 @@ public class AgentServiceImpl implements AgentService {
 				}
 			}
 			catch (Exception avatarEx) {
-				log.warn("Failed to cleanup avatar file: {} for agent: {}, error: {}", avatar, id, avatarEx.getMessage());
+				log.warn("Failed to cleanup avatar file: {} for agent: {}, error: {}", avatar, id,
+						avatarEx.getMessage());
 			}
 
 			log.info("Successfully deleted agent: {}", id);

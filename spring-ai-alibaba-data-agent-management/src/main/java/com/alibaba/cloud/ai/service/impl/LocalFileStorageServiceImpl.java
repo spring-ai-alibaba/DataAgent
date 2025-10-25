@@ -32,77 +32,81 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
 
-
 @Slf4j
 @Service
 @AllArgsConstructor
 public class LocalFileStorageServiceImpl implements FileStorageService {
 
-    private final FileUploadProperties fileUploadProperties;
+	private final FileUploadProperties fileUploadProperties;
 
-    @Override
-    public String storeFile(MultipartFile file, String subPath) {
-        try {
-            // 创建上传目录
-            Path uploadDir = Paths.get(fileUploadProperties.getPath(), subPath);
-            if (!Files.exists(uploadDir)) {
-                Files.createDirectories(uploadDir);
-            }
+	@Override
+	public String storeFile(MultipartFile file, String subPath) {
+		try {
+			// 创建上传目录
+			Path uploadDir = Paths.get(fileUploadProperties.getPath(), subPath);
+			if (!Files.exists(uploadDir)) {
+				Files.createDirectories(uploadDir);
+			}
 
-            // 生成文件名
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-            String filename = UUID.randomUUID().toString() + extension;
+			// 生成文件名
+			String originalFilename = file.getOriginalFilename();
+			String extension = "";
+			if (originalFilename != null && originalFilename.contains(".")) {
+				extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+			}
+			String filename = UUID.randomUUID().toString() + extension;
 
-            // 存储文件
-            Path filePath = uploadDir.resolve(filename);
-            Files.copy(file.getInputStream(), filePath);
+			// 存储文件
+			Path filePath = uploadDir.resolve(filename);
+			Files.copy(file.getInputStream(), filePath);
 
-            // 返回相对路径
-            return subPath + "/" + filename;
+			// 返回相对路径
+			return subPath + "/" + filename;
 
-        } catch (IOException e) {
-            log.error("文件存储失败", e);
-            throw new RuntimeException("文件存储失败: " + e.getMessage(), e);
-        }
-    }
+		}
+		catch (IOException e) {
+			log.error("文件存储失败", e);
+			throw new RuntimeException("文件存储失败: " + e.getMessage(), e);
+		}
+	}
 
-    @Override
-    public boolean deleteFile(String filePath) {
-        try {
-            Path fullPath = Paths.get(fileUploadProperties.getPath(), filePath);
-            if (Files.exists(fullPath)) {
-                Files.delete(fullPath);
-                log.info("成功删除文件: {}", filePath);
-                return true;
-            } else {
-                log.warn("文件不存在，无法删除: {}", filePath);
-                return false;
-            }
-        } catch (IOException e) {
-            log.error("删除文件失败: {}", filePath, e);
-            return false;
-        }
-    }
+	@Override
+	public boolean deleteFile(String filePath) {
+		try {
+			Path fullPath = Paths.get(fileUploadProperties.getPath(), filePath);
+			if (Files.exists(fullPath)) {
+				Files.delete(fullPath);
+				log.info("成功删除文件: {}", filePath);
+				return true;
+			}
+			else {
+				log.warn("文件不存在，无法删除: {}", filePath);
+				return false;
+			}
+		}
+		catch (IOException e) {
+			log.error("删除文件失败: {}", filePath, e);
+			return false;
+		}
+	}
 
-    @Override
-    public String getFileUrl(String filePath) {
-        try {
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            if (attributes != null) {
-                HttpServletRequest request = attributes.getRequest();
-                return ServletUriComponentsBuilder.fromRequestUri(request)
-                        .replacePath(fileUploadProperties.getUrlPrefix() + "/" + filePath)
-                        .build()
-                        .toUriString();
-            }
-        } catch (Exception e) {
-            log.warn("Failed to build dynamic URL, fallback to relative path", e);
-        }
-        return fileUploadProperties.getUrlPrefix() + "/" + filePath;
-    }
+	@Override
+	public String getFileUrl(String filePath) {
+		try {
+			ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
+				.getRequestAttributes();
+			if (attributes != null) {
+				HttpServletRequest request = attributes.getRequest();
+				return ServletUriComponentsBuilder.fromRequestUri(request)
+					.replacePath(fileUploadProperties.getUrlPrefix() + "/" + filePath)
+					.build()
+					.toUriString();
+			}
+		}
+		catch (Exception e) {
+			log.warn("Failed to build dynamic URL, fallback to relative path", e);
+		}
+		return fileUploadProperties.getUrlPrefix() + "/" + filePath;
+	}
 
 }
