@@ -89,7 +89,6 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-
             <dependency>
                 <groupId>com.aliyun</groupId>
                 <artifactId>gpdb20160503</artifactId>

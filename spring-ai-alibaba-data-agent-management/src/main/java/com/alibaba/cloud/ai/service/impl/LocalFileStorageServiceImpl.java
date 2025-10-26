@@ -15,11 +15,14 @@
  */
 package com.alibaba.cloud.ai.service.impl;
 
+import com.alibaba.cloud.ai.config.FileStorageProperties;
 import com.alibaba.cloud.ai.config.FileUploadProperties;
 import com.alibaba.cloud.ai.service.FileStorageService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -34,21 +37,17 @@ import java.util.UUID;
 
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "spring.ai.alibaba.nl2sql.file.storage.type", havingValue = "local", matchIfMissing = true)
 @AllArgsConstructor
 public class LocalFileStorageServiceImpl implements FileStorageService {
+
+	private final FileStorageProperties fileStorageProperties;
 
 	private final FileUploadProperties fileUploadProperties;
 
 	@Override
 	public String storeFile(MultipartFile file, String subPath) {
 		try {
-			// 创建上传目录
-			Path uploadDir = Paths.get(fileUploadProperties.getPath(), subPath);
-			if (!Files.exists(uploadDir)) {
-				Files.createDirectories(uploadDir);
-			}
-
-			// 生成文件名
 			String originalFilename = file.getOriginalFilename();
 			String extension = "";
 			if (originalFilename != null && originalFilename.contains(".")) {
@@ -56,12 +55,18 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 			}
 			String filename = UUID.randomUUID().toString() + extension;
 
-			// 存储文件
-			Path filePath = uploadDir.resolve(filename);
+			String storagePath = buildStoragePath(subPath, filename);
+
+			Path uploadDir = Paths.get(fileUploadProperties.getPath(), storagePath).getParent();
+			if (uploadDir != null && !Files.exists(uploadDir)) {
+				Files.createDirectories(uploadDir);
+			}
+
+			Path filePath = Paths.get(fileUploadProperties.getPath(), storagePath);
 			Files.copy(file.getInputStream(), filePath);
 
-			// 返回相对路径
-			return subPath + "/" + filename;
+			log.info("文件存储成功: {}", storagePath);
+			return storagePath;
 
 		}
 		catch (IOException e) {
@@ -104,9 +109,28 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 			}
 		}
 		catch (Exception e) {
-			log.warn("Failed to build dynamic URL, fallback to relative path", e);
+			log.warn("动态构建URL失败，使用相对路径", e);
 		}
 		return fileUploadProperties.getUrlPrefix() + "/" + filePath;
+	}
+
+	/**
+	 * 构建本地存储路径
+	 */
+	private String buildStoragePath(String subPath, String filename) {
+		StringBuilder pathBuilder = new StringBuilder();
+
+		if (StringUtils.hasText(fileStorageProperties.getPathPrefix())) {
+			pathBuilder.append(fileStorageProperties.getPathPrefix()).append("/");
+		}
+
+		if (StringUtils.hasText(subPath)) {
+			pathBuilder.append(subPath).append("/");
+		}
+
+		pathBuilder.append(filename);
+
+		return pathBuilder.toString();
 	}
 
 }

@@ -36,7 +36,14 @@ spring:
           code-pool-executor: local
         file:
           storage:
-            type: local  # 存储类型: local
+            type: local
+            path-prefix: data-agent
+            oss:
+              access-key-id: ${OSS_ACCESS_KEY_ID:}
+              access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+              endpoint: ${OSS_ENDPOINT:}
+              bucket-name: ${OSS_BUCKET_NAME:}
+              custom-domain: ${OSS_CUSTOM_DOMAIN:}
           upload:
             path: ./uploads
             url-prefix: /uploads
