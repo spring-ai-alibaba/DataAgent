@@ -22,14 +22,15 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.alibaba.cloud.ai.config.FileUploadProperties;
+import com.alibaba.cloud.ai.service.FileStorageService;
+import com.alibaba.cloud.ai.vo.UploadResponse;
+
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.UUID;
-
-import com.alibaba.cloud.ai.config.FileUploadProperties;
-import com.alibaba.cloud.ai.vo.UploadResponse;
 
 /**
  * 文件上传控制器
@@ -46,22 +47,18 @@ public class FileUploadController {
 
 	private final FileUploadProperties fileUploadProperties;
 
+	private final FileStorageService fileStorageService;
+
 	/**
 	 * 上传头像图片
 	 */
 	@PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	public ResponseEntity<UploadResponse> uploadAvatar(@RequestParam("file") MultipartFile file) {
 		try {
-
 			// 验证文件类型
 			String contentType = file.getContentType();
 			if (contentType == null || !contentType.startsWith("image/")) {
 				return ResponseEntity.badRequest().body(UploadResponse.error("只支持图片文件"));
-			}
-			// 创建上传目录
-			Path uploadDir = Paths.get(fileUploadProperties.getPath(), "avatars");
-			if (!Files.exists(uploadDir)) {
-				Files.createDirectories(uploadDir);
 			}
 
 			// 校验文件大小
@@ -70,25 +67,49 @@ public class FileUploadController {
 				return ResponseEntity.badRequest().body(UploadResponse.error("图片大小超限，最大允许：" + maxImageSize + " 字节"));
 			}
 
-			String originalFilename = file.getOriginalFilename();
-			String extension = "";
-			if (originalFilename != null && originalFilename.contains(".")) {
-				extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-			}
-			String filename = UUID.randomUUID().toString() + extension;
+			// 使用文件存储服务存储文件
+			String filePath = fileStorageService.storeFile(file, "avatars");
+			String fileUrl = fileStorageService.getFileUrl(filePath);
 
-			Path filePath = uploadDir.resolve(filename);
-			Files.copy(file.getInputStream(), filePath);
-
-			// 生成访问URL
-			String fileUrl = "http://localhost:8065" + fileUploadProperties.getUrlPrefix() + "/avatars/" + filename;
+			// 提取文件名
+			String filename = filePath.substring(filePath.lastIndexOf("/") + 1);
 
 			return ResponseEntity.ok(UploadResponse.ok("上传成功", fileUrl, filename));
 
 		}
-		catch (IOException e) {
+		catch (Exception e) {
 			log.error("头像上传失败", e);
 			return ResponseEntity.internalServerError().body(UploadResponse.error("上传失败: " + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 获取文件
+	 */
+	@GetMapping("/**")
+	public ResponseEntity<byte[]> getFile(HttpServletRequest request) {
+		try {
+			String requestPath = request.getRequestURI();
+			String urlPrefix = fileUploadProperties.getUrlPrefix();
+			String filePath = requestPath.substring(urlPrefix.length());
+
+			Path fullPath = Paths.get(fileUploadProperties.getPath(), filePath);
+
+			if (!Files.exists(fullPath) || Files.isDirectory(fullPath)) {
+				return ResponseEntity.notFound().build();
+			}
+
+			byte[] fileContent = Files.readAllBytes(fullPath);
+			String contentType = Files.probeContentType(fullPath);
+
+			return ResponseEntity.ok()
+				.contentType(MediaType.parseMediaType(contentType != null ? contentType : "application/octet-stream"))
+				.body(fileContent);
+
+		}
+		catch (IOException e) {
+			log.error("文件读取失败", e);
+			return ResponseEntity.internalServerError().build();
 		}
 	}
 

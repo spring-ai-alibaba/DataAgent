@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.entity.Agent;
 import com.alibaba.cloud.ai.service.AgentService;
+import com.alibaba.cloud.ai.service.FileStorageService;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,8 @@ public class AgentServiceImpl implements AgentService {
 	private final AgentMapper agentMapper;
 
 	private final AgentVectorStoreService agentVectorStoreService;
+
+	private final FileStorageService fileStorageService;
 
 	@Override
 	public List<Agent> findAll() {
@@ -90,6 +93,10 @@ public class AgentServiceImpl implements AgentService {
 	@Override
 	public void deleteById(Long id) {
 		try {
+			// 获取头像信息用于文件清理
+			Agent existing = agentMapper.findById(id);
+			String avatar = existing != null ? existing.getAvatar() : null;
+
 			// Delete agent record from database
 			agentMapper.deleteById(id);
 
@@ -103,6 +110,18 @@ public class AgentServiceImpl implements AgentService {
 					log.warn("Failed to delete vector data for agent: {}, error: {}", id, vectorException.getMessage());
 					// Vector data deletion failure does not affect the main process
 				}
+			}
+
+			// 清理头像文件
+			try {
+				if (avatar != null && !avatar.isBlank()) {
+					fileStorageService.deleteFile(avatar);
+					log.info("Successfully deleted avatar file: {} for agent: {}", avatar, id);
+				}
+			}
+			catch (Exception avatarEx) {
+				log.warn("Failed to cleanup avatar file: {} for agent: {}, error: {}", avatar, id,
+						avatarEx.getMessage());
 			}
 
 			log.info("Successfully deleted agent: {}", id);
