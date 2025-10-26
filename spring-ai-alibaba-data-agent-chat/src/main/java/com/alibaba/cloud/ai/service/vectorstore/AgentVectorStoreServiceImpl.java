@@ -19,8 +19,16 @@ import static com.alibaba.cloud.ai.util.DocumentConverterUtil.convertColumnsToDo
 import static com.alibaba.cloud.ai.util.DocumentConverterUtil.convertTablesToDocuments;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import jakarta.annotation.PreDestroy;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -38,8 +46,7 @@ import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.request.AgentSearchRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.util.JsonUtil;
-import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
+import com.alibaba.cloud.ai.service.TableMetadataService;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,6 +57,11 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	private static final String DEFAULT = "default";
 
 	private final VectorStore vectorStore; // 由Spring Boot自动配置
+
+	/**
+	 * 专用线程池，用于数据库操作的并行处理
+	 */
+	private final ExecutorService dbOperationExecutor;
 
 	/**
 	 * 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档
@@ -67,12 +79,31 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 	protected final BatchingStrategy batchingStrategy;
 
+	protected final TableMetadataService tableMetadataService;
+
 	public AgentVectorStoreServiceImpl(VectorStore vectorStore, BatchingStrategy batchingStrategy,
-			AccessorFactory accessorFactory) {
+			AccessorFactory accessorFactory, TableMetadataService tableMetadataService) {
 		this.vectorStore = vectorStore;
 		this.batchingStrategy = batchingStrategy;
 		this.accessorFactory = accessorFactory;
+		this.tableMetadataService = tableMetadataService;
+
+		// 初始化专用线程池，用于数据库操作
+		// 线程数量设置为CPU核心数的2倍，但不少于4个，不超过16个
+		int threadCount = Math.max(4, Math.min(Runtime.getRuntime().availableProcessors() * 2, 16));
+		this.dbOperationExecutor = Executors.newFixedThreadPool(threadCount, new ThreadFactory() {
+			private final AtomicInteger threadNumber = new AtomicInteger(1);
+
+			@Override
+			public Thread newThread(@NotNull Runnable r) {
+				Thread t = new Thread(r, "db-operation-" + threadNumber.getAndIncrement());
+				t.setDaemon(true);
+				return t;
+			}
+		});
+
 		log.info("VectorStore type: {}", vectorStore.getClass().getSimpleName());
+		log.info("Database operation executor initialized with {} threads", threadCount);
 	}
 
 	@Override
@@ -98,60 +129,133 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 	}
 
-	// 模板方法 - 通用schema处理流程
 	@Override
-	public final Boolean schema(String agentId, SchemaInitRequest schemaInitRequest) throws Exception {
+	public Boolean schema(String agentId, SchemaInitRequest schemaInitRequest) throws Exception {
+		log.info("Starting schema initialization for agent: {}", agentId);
+		DbConfig config = schemaInitRequest.getDbConfig();
+		DbQueryParameter dqp = DbQueryParameter.from(config)
+			.setSchema(config.getSchema())
+			.setTables(schemaInitRequest.getTables());
+
 		try {
-
-			DbConfig config = schemaInitRequest.getDbConfig();
-			DbQueryParameter dqp = DbQueryParameter.from(config)
-				.setSchema(config.getSchema())
-				.setTables(schemaInitRequest.getTables());
-
 			// 根据当前DbConfig获取Accessor
 			Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(config);
 
 			// 清理旧数据
+			log.info("Clearing existing schema data for agent: {}", agentId);
 			clearSchemaDataForAgent(agentId);
+			log.debug("Successfully cleared existing schema data for agent: {}", agentId);
 
 			// 处理外键
+			log.debug("Fetching foreign keys for agent: {}", agentId);
 			List<ForeignKeyInfoBO> foreignKeys = dbAccessor.showForeignKeys(config, dqp);
+			log.info("Found {} foreign keys for agent: {}", foreignKeys.size(), agentId);
+
 			Map<String, List<String>> foreignKeyMap = buildForeignKeyMap(foreignKeys);
+			log.debug("Built foreign key map with {} entries for agent: {}", foreignKeyMap.size(), agentId);
 
 			// 处理表和列
+			log.debug("Fetching tables for agent: {}", agentId);
 			List<TableInfoBO> tables = dbAccessor.fetchTables(config, dqp);
-			for (TableInfoBO table : tables) {
-				SchemaProcessorUtil.enrichTableMetadata(table, dqp, config, dbAccessor, JsonUtil.getObjectMapper(),
-						foreignKeyMap);
+			log.info("Found {} tables for agent: {}", tables.size(), agentId);
+
+			if (tables.size() > 5) {
+				// 对于大量表，使用并行处理
+				log.info("Processing {} tables in parallel mode for agent: {}", tables.size(), agentId);
+				processTablesInParallel(tables, config, foreignKeyMap);
 			}
+			else {
+				// 对于少量表，使用批量处理
+				log.info("Processing {} tables in batch mode for agent: {}", tables.size(), agentId);
+				tableMetadataService.batchEnrichTableMetadata(tables, config, foreignKeyMap);
+			}
+
+			log.info("Successfully processed all tables for agent: {}", agentId);
 
 			// 转换为文档
 			List<Document> columnDocs = convertColumnsToDocuments(agentId, tables);
 			List<Document> tableDocs = convertTablesToDocuments(agentId, tables);
 
 			// 存储文档
+			log.info("Storing {} columns and {} tables for agent: {}", columnDocs.size(), tableDocs.size(), agentId);
 			storeSchemaDocuments(columnDocs, tableDocs);
+			log.info("Successfully stored all documents for agent: {}", agentId);
 			return true;
 		}
 		catch (Exception e) {
-			log.error("Failed to process schema ", e);
+			log.error("Failed to process schema for agent: {}", agentId, e);
 			return false;
 		}
 	}
 
-	protected void storeSchemaDocuments(List<Document> columns, List<Document> tables) {
+	/**
+	 * 并行处理表元数据，提高大量表时的处理性能
+	 * @param tables 表列表
+	 * @param config 数据库配置
+	 * @param foreignKeyMap 外键映射
+	 * @throws Exception 处理失败时抛出异常
+	 */
+	private void processTablesInParallel(List<TableInfoBO> tables, DbConfig config,
+			Map<String, List<String>> foreignKeyMap) throws Exception {
 
+		// 根据CPU核心数确定并行度，但不超过表的数量
+		int parallelism = Math.min(Runtime.getRuntime().availableProcessors() * 2, tables.size());
+		int batchSize = (int) Math.ceil((double) tables.size() / parallelism);
+
+		log.info("Processing {} tables in parallel with parallelism: {}, batch size: {}", tables.size(), parallelism,
+				batchSize);
+		// 将表分成多个批次
+		List<List<TableInfoBO>> tableBatches = partitionList(tables, batchSize);
+
+		// 使用CompletableFuture进行更精细的并行控制，使用专用线程池
+		List<CompletableFuture<Void>> futures = tableBatches.stream().map(batch -> CompletableFuture.runAsync(() -> {
+			try {
+				log.debug("Processing batch of {} tables", batch.size());
+
+				// 批量处理当前批次的表
+				tableMetadataService.batchEnrichTableMetadata(batch, config, foreignKeyMap);
+				log.debug("Successfully processed batch of {} tables", batch.size());
+			}
+			catch (Exception e) {
+				log.error("Failed to process batch of tables", e);
+				throw new CompletionException(e);
+			}
+		}, dbOperationExecutor)).toList();
+
+		// 等待所有任务完成，并处理异常
+		try {
+			CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+			log.info("All parallel batches completed successfully");
+		}
+		catch (CompletionException e) {
+			log.error("Parallel processing failed", e);
+			throw new Exception(e.getCause());
+		}
+	}
+
+	/**
+	 * 将列表分成指定大小的子列表
+	 * @param list 原始列表
+	 * @param batchSize 批次大小
+	 * @param <T> 列表元素类型
+	 * @return 分批后的列表
+	 */
+	private <T> List<List<T>> partitionList(List<T> list, int batchSize) {
+		List<List<T>> partitions = new ArrayList<>();
+		for (int i = 0; i < list.size(); i += batchSize) {
+			partitions.add(list.subList(i, Math.min(i + batchSize, list.size())));
+		}
+		return partitions;
+	}
+
+	protected void storeSchemaDocuments(List<Document> columns, List<Document> tables) {
 		// 使用批处理策略处理列文档
 		List<List<Document>> columnBatches = batchingStrategy.batch(columns);
-		for (List<Document> batch : columnBatches) {
-			vectorStore.add(batch);
-		}
+		columnBatches.parallelStream().forEach(vectorStore::add);
 
 		// 使用批处理策略处理表文档
 		List<List<Document>> tableBatches = batchingStrategy.batch(tables);
-		for (List<Document> batch : tableBatches) {
-			vectorStore.add(batch);
-		}
+		tableBatches.parallelStream().forEach(vectorStore::add);
 
 	}
 
@@ -407,6 +511,29 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 			.similarityThreshold(0.0)
 			.build());
 		return !docs.isEmpty();
+	}
+
+	/**
+	 * 销毁方法，在Spring容器销毁bean时调用，用于关闭线程池
+	 */
+	@PreDestroy
+	public void destroy() {
+		if (dbOperationExecutor != null && !dbOperationExecutor.isShutdown()) {
+			log.info("Shutting down database operation executor");
+			dbOperationExecutor.shutdown();
+			try {
+				// 等待正在执行的任务完成，最多等待30秒
+				if (!dbOperationExecutor.awaitTermination(30, java.util.concurrent.TimeUnit.SECONDS)) {
+					log.warn("Database operation executor did not terminate gracefully, forcing shutdown");
+					dbOperationExecutor.shutdownNow();
+				}
+			}
+			catch (InterruptedException e) {
+				log.warn("Interrupted while waiting for database operation executor to terminate");
+				dbOperationExecutor.shutdownNow();
+				Thread.currentThread().interrupt();
+			}
+		}
 	}
 
 }
