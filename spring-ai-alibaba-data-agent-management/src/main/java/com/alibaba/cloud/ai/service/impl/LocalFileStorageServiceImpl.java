@@ -37,7 +37,8 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "spring.ai.alibaba.nl2sql.file.storage.type", havingValue = "local", matchIfMissing = true)
+@ConditionalOnProperty(name = "spring.ai.alibaba.nl2sql.file.storage.type", havingValue = "local",
+		matchIfMissing = true)
 @AllArgsConstructor
 public class LocalFileStorageServiceImpl implements FileStorageService {
 

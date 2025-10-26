@@ -49,8 +49,7 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 
 	private OSS ossClient;
 
-	public OssFileStorageServiceImpl(FileStorageProperties fileStorageProperties,
-			OssStorageProperties ossProperties) {
+	public OssFileStorageServiceImpl(FileStorageProperties fileStorageProperties, OssStorageProperties ossProperties) {
 		this.fileStorageProperties = fileStorageProperties;
 		this.ossProperties = ossProperties;
 	}
@@ -59,8 +58,7 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 	public void init() {
 		this.ossClient = new OSSClientBuilder().build(ossProperties.getEndpoint(), ossProperties.getAccessKeyId(),
 				ossProperties.getAccessKeySecret());
-		log.info("OSS客户端初始化完成，endpoint: {}, bucket: {}", ossProperties.getEndpoint(),
-				ossProperties.getBucketName());
+		log.info("OSS客户端初始化完成，endpoint: {}, bucket: {}", ossProperties.getEndpoint(), ossProperties.getBucketName());
 	}
 
 	@PreDestroy
@@ -111,10 +109,10 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 
 	@Override
 	public boolean deleteFile(String filePath) {
-        if(!StringUtils.hasText(filePath)){
-            log.info("删除文件失败，路径为空");
-            return false;
-        }
+		if (!StringUtils.hasText(filePath)) {
+			log.info("删除文件失败，路径为空");
+			return false;
+		}
 		try {
 			if (ossClient.doesObjectExist(ossProperties.getBucketName(), filePath)) {
 				ossClient.deleteObject(ossProperties.getBucketName(), filePath);
