@@ -24,7 +24,26 @@
             <el-button type="primary" :icon="ArrowLeft" @click="goBack" circle style="transform: scale(1.2);"/>
           </el-col>
           <el-col :span="1" style="text-align: left;">
-            <el-avatar :src="agent.avatar" size="large">{{ agent.name }}</el-avatar>
+            <div class="avatar-wrapper" @mouseenter="showHeaderAvatarButton = true" @mouseleave="showHeaderAvatarButton = false">
+              <el-avatar :src="agent.avatar" size="large" class="header-avatar">{{ agent.name }}</el-avatar>
+              <div v-if="showHeaderAvatarButton" class="avatar-overlay-header">
+                <el-button
+                  type="primary"
+                  size="small"
+                  @click="triggerHeaderFileUpload"
+                  :loading="headerUploading"
+                >
+                  {{ headerUploading ? '上传中...' : '替换头像' }}
+                </el-button>
+              </div>
+            </div>
+            <input
+              ref="headerFileInput"
+              type="file"
+              accept="image/*"
+              style="display: none"
+              @change="handleHeaderFileUpload"
+            />
           </el-col>
           <el-col :span="30" style="text-align: left;">
             <h2>{{ agent.name }}</h2>
@@ -120,6 +139,7 @@ import AgentDataSourceConfig from '@/components/agent/DataSourceConfig.vue'
 import AgentKnowledgeConfig from '@/components/agent/AgentKnowledgeConfig.vue'
 import NotFound from "@/views/NotFound.vue";
 import { Agent } from '@/services/agent'
+import { fileUploadApi } from '@/services/api'
 
 export default defineComponent({
   name: 'AgentDetail',
@@ -164,6 +184,63 @@ export default defineComponent({
       humanReviewEnabled: false
     } as Agent)
 
+    const headerFileInput = ref<HTMLInputElement | null>(null)
+    const headerUploading = ref(false)
+    const showHeaderAvatarButton = ref(false)
+    const originalHeaderAvatar = ref<string>('')
+
+    const triggerHeaderFileUpload = () => {
+      if (headerFileInput.value) {
+        headerFileInput.value.click()
+      }
+    }
+
+    const handleHeaderFileUpload = async (event: Event) => {
+      const target = event.target as HTMLInputElement
+      const file = target.files?.[0]
+      if (!file) return
+
+      // 验证文件类型
+      if (!file.type.startsWith('image/')) {
+        ElMessage.error('请选择图片文件')
+        return
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        ElMessage.error('图片大小不能超过5MB')
+        return
+      }
+
+      try {
+        headerUploading.value = true
+
+        originalHeaderAvatar.value = agent.value.avatar
+
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          agent.value.avatar = e.target?.result as string
+        }
+        reader.readAsDataURL(file)
+
+        const response = await fileUploadApi.uploadAvatar(file)
+
+        if (response.success) {
+          agent.value.avatar = response.url
+          ElMessage.success('头像上传成功')
+        } else {
+          throw new Error(response.message || '上传失败')
+        }
+      } catch (error) {
+        ElMessage.error('头像上传失败: ' + (error instanceof Error ? error.message : '未知错误'))
+        agent.value.avatar = originalHeaderAvatar.value
+      } finally {
+        headerUploading.value = false
+        if (headerFileInput.value) {
+          headerFileInput.value.value = ''
+        }
+      }
+    }
+
     const handleMenuSelect = (index: string) => {
       const id = router.currentRoute.value.params.id
       activeMenuIndex.value = index
@@ -200,12 +277,60 @@ export default defineComponent({
       agent,
       activeMenuIndex,
       handleMenuSelect,
-      goBack
+      goBack,
+      headerFileInput,
+      headerUploading,
+      showHeaderAvatarButton,
+      triggerHeaderFileUpload,
+      handleHeaderFileUpload
     }
   }
 })
 </script>
 
 <style scoped>
+.avatar-wrapper {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  cursor: pointer;
+  border-radius: 50%;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
 
+.header-avatar {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+}
+
+.avatar-wrapper:hover .header-avatar {
+  opacity: 0.3;
+}
+
+.avatar-overlay-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.4);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 </style>
