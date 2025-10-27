@@ -13,20 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.config;
+package com.alibaba.cloud.ai.config.file;
 
 import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.service.file.FileStorageServiceEnum;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 /**
- * 文件上传相关配置属性。
+ * 文件存储相关配置属性。
  */
 @Getter
 @Setter
-@ConfigurationProperties(prefix = Constant.PROJECT_PROPERTIES_PREFIX + ".file.upload")
-public class FileUploadProperties {
+@EnableConfigurationProperties({ OssStorageProperties.class })
+@ConfigurationProperties(prefix = Constant.PROJECT_PROPERTIES_PREFIX + ".file")
+public class FileStorageProperties {
+
+	/**
+	 * 存储类型：local（本地存储）、oss（阿里云OSS）
+	 */
+	private FileStorageServiceEnum type = FileStorageServiceEnum.LOCAL;
+
+	/**
+	 * 对象存储路径前缀（通用配置，对OSS和本地存储都适用）
+	 */
+	private String pathPrefix = "";
 
 	/**
 	 * 本地上传目录路径。

@@ -17,7 +17,7 @@ package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.entity.Agent;
 import com.alibaba.cloud.ai.service.AgentService;
-import com.alibaba.cloud.ai.service.FileStorageService;
+import com.alibaba.cloud.ai.service.file.FileStorageService;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

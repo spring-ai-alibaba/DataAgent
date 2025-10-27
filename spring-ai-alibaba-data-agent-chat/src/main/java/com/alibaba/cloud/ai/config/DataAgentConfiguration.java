@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.config;
 
+import com.alibaba.cloud.ai.config.file.FileStorageProperties;
 import com.alibaba.cloud.ai.dispatcher.HumanFeedbackDispatcher;
 import com.alibaba.cloud.ai.dispatcher.PlanExecutorDispatcher;
 import com.alibaba.cloud.ai.dispatcher.PythonExecutorDispatcher;
@@ -132,7 +133,7 @@ import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
  */
 @Slf4j
 @Configuration
-@EnableConfigurationProperties({ CodeExecutorProperties.class, DataAgentProperties.class })
+@EnableConfigurationProperties({ CodeExecutorProperties.class, DataAgentProperties.class, FileStorageProperties.class })
 public class DataAgentConfiguration {
 
 	@Bean

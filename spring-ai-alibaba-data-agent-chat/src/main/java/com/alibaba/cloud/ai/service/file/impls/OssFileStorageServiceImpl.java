@@ -13,18 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service.impl;
+package com.alibaba.cloud.ai.service.file.impls;
 
-import com.alibaba.cloud.ai.config.FileStorageProperties;
-import com.alibaba.cloud.ai.config.OssStorageProperties;
-import com.alibaba.cloud.ai.service.FileStorageService;
+import com.alibaba.cloud.ai.config.file.FileStorageProperties;
+import com.alibaba.cloud.ai.config.file.OssStorageProperties;
+import com.alibaba.cloud.ai.service.file.FileStorageService;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.model.ObjectMetadata;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -38,9 +35,6 @@ import java.util.UUID;
  * 阿里云OSS文件存储服务实现
  */
 @Slf4j
-@Service
-@ConditionalOnProperty(name = "spring.ai.alibaba.nl2sql.file.storage.type", havingValue = "oss")
-@EnableConfigurationProperties({ FileStorageProperties.class, OssStorageProperties.class })
 public class OssFileStorageServiceImpl implements FileStorageService {
 
 	private final FileStorageProperties fileStorageProperties;

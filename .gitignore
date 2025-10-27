@@ -35,16 +35,6 @@ target/
 # node_modules
 **/node_modules
 
-# Generated Files
-spring-ai-alibaba-examples/playground-flight-booking/frontend/generated/
-spring-ai-alibaba-examples/playground-flight-booking/src/main/bundles/
-/spring-ai-alibaba-examples/playground-flight-booking-example/
-**/spring-ai-alibaba-jmanus/extensions/*
-**/venv/*
-**/spring-ai-alibaba-jmanus/h2-data/*
-**/playwright/*
-spring-ai-alibaba-jmanus/ui-vue3/pnpm-lock.yaml
-
 
 # windows os
 /extensions/
@@ -66,12 +56,4 @@ modified_mcp_config.json
 # ignore code copilot local index
 .idea/LocalCodeIndex/
 
-
-/spring-ai-alibaba-studio/spring-ai-alibaba-studio-server/docker/middleware/elasticsearch/*
-!/spring-ai-alibaba-studio/spring-ai-alibaba-studio-server/docker/middleware/elasticsearch/data/
-!/spring-ai-alibaba-studio/spring-ai-alibaba-studio-server/docker/middleware/elasticsearch/data/.gitkeep
-
-/spring-ai-alibaba-studio/spring-ai-alibaba-studio-server/docker/middleware/kibana/*
-!/spring-ai-alibaba-studio/spring-ai-alibaba-studio-server/docker/middleware/kibana/data/
-!/spring-ai-alibaba-studio/spring-ai-alibaba-studio-server/docker/middleware/kibana/data/.gitkeep
-/spring-ai-alibaba-studio/ui/
+uploads/*

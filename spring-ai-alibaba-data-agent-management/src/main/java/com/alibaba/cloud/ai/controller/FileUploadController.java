@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.controller;
 
+import com.alibaba.cloud.ai.config.file.FileStorageProperties;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -22,8 +23,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.alibaba.cloud.ai.config.FileUploadProperties;
-import com.alibaba.cloud.ai.service.FileStorageService;
+import com.alibaba.cloud.ai.service.file.FileStorageService;
 import com.alibaba.cloud.ai.vo.UploadResponse;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,7 +45,7 @@ import java.nio.file.Paths;
 @AllArgsConstructor
 public class FileUploadController {
 
-	private final FileUploadProperties fileUploadProperties;
+	private final FileStorageProperties fileStorageProperties;
 
 	private final FileStorageService fileStorageService;
 
@@ -62,7 +62,7 @@ public class FileUploadController {
 			}
 
 			// 校验文件大小
-			long maxImageSize = fileUploadProperties.getImageSize();
+			long maxImageSize = fileStorageProperties.getImageSize();
 			if (file.getSize() > maxImageSize) {
 				return ResponseEntity.badRequest().body(UploadResponse.error("图片大小超限，最大允许：" + maxImageSize + " 字节"));
 			}
@@ -90,10 +90,10 @@ public class FileUploadController {
 	public ResponseEntity<byte[]> getFile(HttpServletRequest request) {
 		try {
 			String requestPath = request.getRequestURI();
-			String urlPrefix = fileUploadProperties.getUrlPrefix();
+			String urlPrefix = fileStorageProperties.getUrlPrefix();
 			String filePath = requestPath.substring(urlPrefix.length());
 
-			Path fullPath = Paths.get(fileUploadProperties.getPath(), filePath);
+			Path fullPath = Paths.get(fileStorageProperties.getPath(), filePath);
 
 			if (!Files.exists(fullPath) || Files.isDirectory(fullPath)) {
 				return ResponseEntity.notFound().build();
