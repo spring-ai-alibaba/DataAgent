@@ -17,42 +17,44 @@
 package com.alibaba.cloud.ai.service.processing;
 
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
+import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
-import com.alibaba.cloud.ai.service.DatasourceService;
-import com.alibaba.cloud.ai.service.LlmService;
+import com.alibaba.cloud.ai.service.datasource.DatasourceService;
+import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.service.schema.SchemaService;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
+import com.alibaba.cloud.ai.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.JsonUtil;
 import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.util.Assert;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+@Slf4j
+@AllArgsConstructor
 public abstract class AbstractQueryProcessingService implements QueryProcessingService {
 
-	private static final Logger logger = LoggerFactory.getLogger(AbstractQueryProcessingService.class);
-
-	private final LlmService aiService;
+	private final LlmService llmService;
 
 	private final DatasourceService datasourceService;
-
-	public AbstractQueryProcessingService(LlmService aiService, DatasourceService datasourceService) {
-		this.aiService = aiService;
-		this.datasourceService = datasourceService;
-	}
 
 	protected abstract AgentVectorStoreService getVectorStoreService();
 
@@ -62,18 +64,19 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 
 	@Override
 	public List<String> extractEvidences(String query, String agentId) {
-		logger.debug("Extracting evidences for query: {} with agentId: {}", query, agentId);
+		log.debug("Extracting evidences for query: {} with agentId: {}", query, agentId);
 		Assert.notNull(agentId, "AgentId cannot be null");
 		List<Document> evidenceDocuments = getVectorStoreService().getDocumentsForAgent(agentId, query, "evidence");
 
 		List<String> evidences = evidenceDocuments.stream().map(Document::getText).collect(Collectors.toList());
-		logger.debug("Extracted {} evidences: {}", evidences.size(), evidences);
+		log.debug("Extracted {} evidences: {}", evidences.size(), evidences);
 		return evidences;
 	}
 
 	@Override
-	public List<String> extractKeywords(String query, List<String> evidenceList) {
-		logger.debug("Extracting keywords from query: {} with {} evidences", query, evidenceList.size());
+	public Flux<ChatResponse> extractKeywords(String query, List<String> evidenceList,
+			Consumer<List<String>> resultConsumer) {
+		log.debug("Extracting keywords from query: {} with {} evidences", query, evidenceList.size());
 		StringBuilder queryBuilder = new StringBuilder(query);
 		for (String evidence : evidenceList) {
 			queryBuilder.append(evidence).append("。");
@@ -81,24 +84,29 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 		query = queryBuilder.toString();
 
 		String prompt = PromptHelper.buildQueryToKeywordsPrompt(query);
-		logger.debug("Calling LLM for keyword extraction");
-		String content = aiService.call(prompt);
-
-		List<String> keywords;
-		try {
-			keywords = JsonUtil.getObjectMapper().readValue(content, new TypeReference<List<String>>() {
-			});
-		}
-		catch (JsonProcessingException e) {
-			throw new RuntimeException(e);
-		}
-		logger.debug("Extracted {} keywords: {}", keywords != null ? keywords.size() : 0, keywords);
-		return keywords;
+		log.debug("Calling LLM for keyword extraction");
+		StringBuilder sb = new StringBuilder();
+		return llmService.callUser(prompt).doOnNext(response -> {
+			String text = response.getResult().getOutput().getText();
+			sb.append(text);
+		}).doOnComplete(() -> {
+			String content = sb.toString();
+			List<String> keywords;
+			try {
+				keywords = JsonUtil.getObjectMapper().readValue(content, new TypeReference<>() {
+				});
+			}
+			catch (JsonProcessingException e) {
+				throw new RuntimeException(e);
+			}
+			log.debug("Extracted {} keywords: {}", keywords != null ? keywords.size() : 0, keywords);
+			resultConsumer.accept(keywords);
+		});
 	}
 
 	@Override
-	public List<String> expandQuestion(String query) {
-		logger.info("Starting question expansion for query: {}", query);
+	public Flux<ChatResponse> expandQuestion(String query, Consumer<List<String>> resultConsumer) {
+		log.info("Starting question expansion for query: {}", query);
 		try {
 			// Build question expansion prompt
 			Map<String, Object> params = new HashMap<>();
@@ -106,44 +114,66 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 			String prompt = PromptConstant.getQuestionExpansionPromptTemplate().render(params);
 
 			// Call LLM to get expanded questions
-			logger.debug("Calling LLM for question expansion");
-			String content = aiService.call(prompt);
+			log.debug("Calling LLM for question expansion");
+			StringBuilder sb = new StringBuilder();
+			Flux<ChatResponse> responseFlux = llmService.callUser(prompt);
+			return responseFlux.doOnNext(response -> {
+				String text = response.getResult().getOutput().getText();
+				sb.append(text);
+			}).doOnComplete(() -> {
+				String content = sb.toString();
+				try {
+					// Parse JSON response
+					List<String> expandedQuestions = JsonUtil.getObjectMapper()
+						.readValue(content, new TypeReference<>() {
+						});
 
-			// Parse JSON response
-			List<String> expandedQuestions = JsonUtil.getObjectMapper().readValue(content, new TypeReference<>() {
+					if (expandedQuestions == null || expandedQuestions.isEmpty()) {
+						log.warn("No expanded questions generated, returning original query");
+						expandedQuestions = Collections.singletonList(query);
+					}
+
+					log.info("Question expansion completed successfully: {} questions generated",
+							expandedQuestions.size());
+					log.debug("Expanded questions: {}", expandedQuestions);
+					resultConsumer.accept(expandedQuestions);
+				}
+				catch (Exception e) {
+					throw new RuntimeException(e);
+				}
 			});
-
-			if (expandedQuestions == null || expandedQuestions.isEmpty()) {
-				logger.warn("No expanded questions generated, returning original query");
-				return Collections.singletonList(query);
-			}
-
-			logger.info("Question expansion completed successfully: {} questions generated", expandedQuestions.size());
-			logger.debug("Expanded questions: {}", expandedQuestions);
-			return expandedQuestions;
 		}
 		catch (Exception e) {
-			logger.warn("Question expansion failed, returning original query: {}", e.getMessage());
-			return Collections.singletonList(query);
+			log.warn("Question expansion failed, returning original query: {}", e.getMessage());
+			return Flux.error(e);
 		}
 	}
 
 	@Override
-	public Flux<ChatResponse> rewriteStream(String query, String agentId) throws Exception {
-		logger.info("Starting rewriteStream for query: {} with agentId: {}", query, agentId);
+	public Flux<ChatResponse> rewriteStream(String query, String agentId) {
+		return FluxUtil.<ChatResponse, String>cascadeFlux(processTimeExpressions(query), timeRewrittenQuery -> {
 
-		// 处理时间表达式 - 将相对时间转换为具体时间
-		String timeRewrittenQuery = processTimeExpressions(query);
-		logger.debug("Time rewritten query: {} -> {}", query, timeRewrittenQuery);
+			log.debug("Time rewritten query: {} -> {}", query, timeRewrittenQuery);
 
-		List<String> evidences = extractEvidences(timeRewrittenQuery, agentId);
-		logger.debug("Extracted {} evidences for rewriteStream, they are {}", evidences.size(), evidences);
-		SchemaDTO schemaDTO = select(timeRewrittenQuery, evidences, agentId);
-		String prompt = PromptHelper.buildRewritePrompt(timeRewrittenQuery, schemaDTO, evidences);
-		logger.debug("Built rewrite prompt for streaming, prompt is as follows \n {}", prompt);
-		Flux<ChatResponse> result = aiService.streamCall(prompt);
-		logger.info("RewriteStream completed for query: {}", query);
-		return result;
+			List<String> evidences = extractEvidences(timeRewrittenQuery, agentId);
+			log.debug("Extracted {} evidences for rewriteStream, they are {}", evidences.size(), evidences);
+
+			AtomicReference<SchemaDTO> schemaDTORef = new AtomicReference<>(null);
+			return FluxUtil.<ChatResponse, String>cascadeFlux(
+					select(timeRewrittenQuery, evidences, agentId, schemaDTORef::set), r -> {
+						SchemaDTO schemaDTO = schemaDTORef.get();
+						log.debug("SchemaDTO is {}", schemaDTO);
+						String prompt = PromptHelper.buildRewritePrompt(timeRewrittenQuery, schemaDTO, evidences);
+						log.debug("Built rewrite prompt for streaming, prompt is as follows \n {}", prompt);
+						return llmService.callUser(prompt);
+					}, flux -> Mono.just(""), Flux.just(ChatResponseUtil.createStatusResponse("正在选择合适的数据表...")),
+					Flux.just(ChatResponseUtil.createStatusResponse("选择数据表完成！")), Flux.empty());
+		}, flux -> flux.map(r -> Optional.ofNullable(r.getResult().getOutput().getText()).orElse(""))
+			.collect(StringBuilder::new, StringBuilder::append)
+			.map(StringBuilder::toString), Flux.just(ChatResponseUtil.createStatusResponse("正在替换问题中的时间表达式...")),
+				Flux.just(ChatResponseUtil.createStatusResponse("\n重写时间表达式完成！\n正在提取用户问题关键词...")), Flux.empty())
+			.doOnSubscribe(s -> log.info("Starting rewriteStream for query: {} with agentId: {}", query, agentId))
+			.doOnError(e -> log.error("RewriteStream failed for query: {}", e.getMessage()));
 	}
 
 	/**
@@ -151,56 +181,45 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 	 * @param query 原始查询
 	 * @return 处理后的查询
 	 */
-	private String processTimeExpressions(String query) {
-		try {
-			logger.debug("Processing time expressions in query: {}", query);
+	private Flux<ChatResponse> processTimeExpressions(String query) {
+		log.debug("Processing time expressions in query: {}", query);
 
-			// 使用统一管理的提示词构建时间转换提示
-			String timeConversionPrompt = PromptHelper.buildTimeConversionPrompt(query);
+		// 使用统一管理的提示词构建时间转换提示
+		String timeConversionPrompt = PromptHelper.buildTimeConversionPrompt(query);
 
-			// 调用模型进行时间转换
-			String convertedQuery = aiService.call(timeConversionPrompt);
-
-			if (!convertedQuery.equals(query)) {
-				logger.info("Time expression conversion: {} -> {}", query, convertedQuery);
-			}
-			else {
-				logger.debug("No time expressions found or converted in query: {}", query);
-			}
-
-			return convertedQuery;
-
-		}
-		catch (Exception e) {
-			logger.warn("Failed to process time expressions using AI, using original query: {}", e.getMessage());
-			return query;
-		}
+		// 调用模型进行时间转换
+		return llmService.callUser(timeConversionPrompt);
 	}
 
-	private SchemaDTO select(String query, List<String> evidenceList, String agentId) throws Exception {
+	private Flux<ChatResponse> select(String query, List<String> evidenceList, String agentId,
+			Consumer<SchemaDTO> dtoConsumer) {
 		Assert.notNull(agentId, "AgentId cannot be null");
-		logger.debug("Starting schema selection for query: {} with {} evidences and agentId: {}", query,
+		log.debug("Starting schema selection for query: {} with {} evidences and agentId: {}", query,
 				evidenceList.size(), agentId);
-		List<String> keywords = extractKeywords(query, evidenceList);
-		logger.debug("Using {} keywords for schema selection", keywords != null ? keywords.size() : 0);
+		AtomicReference<SchemaDTO> oldSchemaDTORef = new AtomicReference<>(null);
+		return FluxUtil.<ChatResponse, String>cascadeFlux(extractKeywords(query, evidenceList, keywords -> {
+			log.debug("Using {} keywords for schema selection", keywords != null ? keywords.size() : 0);
 
-		com.alibaba.cloud.ai.entity.Datasource datasource = datasourceService
-			.getActiveDatasourceByAgentId(Integer.valueOf(agentId));
-		if (datasource == null) {
-			throw new RuntimeException("No active datasource found for agentId: " + agentId);
-		}
-		SchemaDTO schemaDTO = getSchemaService().mixRagForAgent(agentId, query, keywords,
-				SchemaProcessorUtil.createDbConfigFromDatasource(datasource));
+			Datasource datasource = datasourceService.getActiveDatasourceByAgentId(Integer.valueOf(agentId));
+			if (datasource == null) {
+				throw new RuntimeException("No active datasource found for agentId: " + agentId);
+			}
+			SchemaDTO schemaDTO = getSchemaService().mixRagForAgent(agentId, query, keywords,
+					SchemaProcessorUtil.createDbConfigFromDatasource(datasource));
+			oldSchemaDTORef.set(schemaDTO);
 
-		logger.debug("Retrieved schema with {} tables", schemaDTO.getTable() != null ? schemaDTO.getTable().size() : 0);
-		SchemaDTO result = fineSelect(schemaDTO, query, evidenceList);
-		logger.debug("Fine selection completed, final schema has {} tables",
-				result.getTable() != null ? result.getTable().size() : 0);
-		return result;
+			log.debug("Retrieved schema with {} tables",
+					schemaDTO.getTable() != null ? schemaDTO.getTable().size() : 0);
+		}), r -> fineSelect(oldSchemaDTORef.get(), query, evidenceList, result -> {
+			log.debug("Fine selection completed, final schema has {} tables",
+					result.getTable() != null ? result.getTable().size() : 0);
+			dtoConsumer.accept(result);
+		}), flux -> Mono.just(""));
 	}
 
-	private SchemaDTO fineSelect(SchemaDTO schemaDTO, String query, List<String> evidenceList) {
-		return getNl2SqlService().fineSelect(schemaDTO, query, evidenceList, null, null);
+	private Flux<ChatResponse> fineSelect(SchemaDTO schemaDTO, String query, List<String> evidenceList,
+			Consumer<SchemaDTO> dtoConsumer) {
+		return getNl2SqlService().fineSelect(schemaDTO, query, evidenceList, null, null, dtoConsumer);
 	}
 
 }

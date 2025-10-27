@@ -15,10 +15,10 @@
  */
 package com.alibaba.cloud.ai.prompt;
 
+import com.alibaba.cloud.ai.entity.SemanticModel;
 import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
-import com.alibaba.cloud.ai.dto.SemanticModelDTO;
 import com.alibaba.cloud.ai.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dto.schema.TableDTO;
@@ -295,10 +295,10 @@ public class PromptHelper {
 		return PromptConstant.getBusinessKnowledgePromptTemplate().render(params);
 	}
 
-	public static String buildSemanticModelPrompt(List<SemanticModelDTO> semanticModelDTOS) {
+	public static String buildSemanticModelPrompt(List<SemanticModel> semanticModels) {
 		Map<String, Object> params = new HashMap<>();
-		String semanticModel = CollectionUtils.isEmpty(semanticModelDTOS) ? ""
-				: StringUtils.join(semanticModelDTOS, ";\n");
+		String semanticModel = CollectionUtils.isEmpty(semanticModels) ? ""
+				: semanticModels.stream().map(SemanticModel::getPromptInfo).collect(Collectors.joining(";\n"));
 		params.put("semanticModel", semanticModel);
 		return PromptConstant.getSemanticModelPromptTemplate().render(params);
 	}

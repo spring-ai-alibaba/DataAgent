@@ -15,11 +15,9 @@
  */
 package com.alibaba.cloud.ai.connector.config;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConfigurationProperties("chatbi.dbconfig")
 public class DbConfig {
 
 	private String schema;

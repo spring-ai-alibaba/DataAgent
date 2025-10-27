@@ -15,12 +15,17 @@
  */
 package com.alibaba.cloud.ai.config;
 
+import com.alibaba.cloud.ai.constant.Constant;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * 文件上传相关配置属性。
  */
-@ConfigurationProperties(prefix = "spring.ai.alibaba.nl2sql.file.upload")
+@Getter
+@Setter
+@ConfigurationProperties(prefix = Constant.PROJECT_PROPERTIES_PREFIX + ".file.upload")
 public class FileUploadProperties {
 
 	/**
@@ -37,29 +42,5 @@ public class FileUploadProperties {
 	 * 头像图片大小上限（字节）。默认 2MB。
 	 */
 	private long imageSize = 2L * 1024 * 1024;
-
-	public String getPath() {
-		return path;
-	}
-
-	public void setPath(String path) {
-		this.path = path;
-	}
-
-	public String getUrlPrefix() {
-		return urlPrefix;
-	}
-
-	public void setUrlPrefix(String urlPrefix) {
-		this.urlPrefix = urlPrefix;
-	}
-
-	public long getImageSize() {
-		return imageSize;
-	}
-
-	public void setImageSize(long imageSize) {
-		this.imageSize = imageSize;
-	}
 
 }

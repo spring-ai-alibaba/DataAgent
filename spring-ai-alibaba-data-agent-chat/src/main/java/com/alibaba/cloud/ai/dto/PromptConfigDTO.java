@@ -32,59 +32,5 @@ public record PromptConfigDTO(String id, // Configuration ID (required for updat
 		Integer priority, // Configuration priority
 		Integer displayOrder // Configuration display order
 ) {
-	public PromptConfigDTO(String promptType, String optimizationPrompt) {
-		this(null, null, promptType, optimizationPrompt, true, null, null, 0, 0);
-	}
 
-	@Override
-	public String toString() {
-		return "PromptConfigDTO{" + "id='" + id + '\'' + ", name='" + name + '\'' + ", promptType='" + promptType + '\''
-				+ ", enabled=" + enabled + ", description='" + description + '\'' + ", creator='" + creator + '\''
-				+ '}';
-	}
-
-	@Override
-	public String id() {
-		return id;
-	}
-
-	@Override
-	public String creator() {
-		return creator;
-	}
-
-	@Override
-	public String name() {
-		return name;
-	}
-
-	@Override
-	public String promptType() {
-		return promptType;
-	}
-
-	@Override
-	public String optimizationPrompt() {
-		return optimizationPrompt;
-	}
-
-	@Override
-	public Boolean enabled() {
-		return enabled;
-	}
-
-	@Override
-	public String description() {
-		return description;
-	}
-
-	@Override
-	public Integer priority() {
-		return priority;
-	}
-
-	@Override
-	public Integer displayOrder() {
-		return displayOrder;
-	}
 }

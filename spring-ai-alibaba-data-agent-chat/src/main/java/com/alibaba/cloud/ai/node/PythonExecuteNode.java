@@ -24,8 +24,7 @@ import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -44,10 +43,9 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_RESULT_LIST_MEMORY;
  * @author vlsmb
  * @since 2025/7/29
  */
+@Slf4j
 @Component
 public class PythonExecuteNode extends AbstractPlanBasedNode implements NodeAction {
-
-	private static final Logger log = LoggerFactory.getLogger(PythonExecuteNode.class);
 
 	private final CodePoolExecutorService codePoolExecutor;
 

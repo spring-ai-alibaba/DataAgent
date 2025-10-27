@@ -18,8 +18,7 @@ package com.alibaba.cloud.ai.service.code.impls;
 
 import com.alibaba.cloud.ai.config.CodeExecutorProperties;
 import com.alibaba.cloud.ai.service.code.CodePoolExecutorService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
 
 import java.io.BufferedReader;
@@ -43,9 +42,8 @@ import java.util.regex.Pattern;
  * @author vlsmb
  * @since 2025/8/23
  */
+@Slf4j
 public class LocalCodePoolExecutorService extends AbstractCodePoolExecutorService implements CodePoolExecutorService {
-
-	private static final Logger logger = LoggerFactory.getLogger(LocalCodePoolExecutorService.class);
 
 	private final ConcurrentHashMap<String, Path> containers;
 
@@ -85,7 +83,7 @@ public class LocalCodePoolExecutorService extends AbstractCodePoolExecutorServic
 			Files.write(requirementFile, Optional.ofNullable(request.requirement()).orElse("").getBytes());
 		}
 		catch (Exception e) {
-			logger.error("Create temp file failed: {}", e.getMessage(), e);
+			log.error("Create temp file failed: {}", e.getMessage(), e);
 			return TaskResponse.exception(e.getMessage());
 		}
 
@@ -108,7 +106,7 @@ public class LocalCodePoolExecutorService extends AbstractCodePoolExecutorServic
 			}
 			catch (Exception e) {
 				// 即使PIP安装失败，仍然尝试运行Python代码
-				logger.warn("Pip install failed: {}", e.getMessage(), e);
+				log.warn("Pip install failed: {}", e.getMessage(), e);
 			}
 			finally {
 				if (process != null && process.isAlive()) {
@@ -176,7 +174,7 @@ public class LocalCodePoolExecutorService extends AbstractCodePoolExecutorServic
 
 		}
 		catch (Exception e) {
-			logger.error("Python execution failed: {}", e.getMessage(), e);
+			log.error("Python execution failed: {}", e.getMessage(), e);
 			return TaskResponse.exception(e.getMessage());
 		}
 		finally {
@@ -250,13 +248,13 @@ public class LocalCodePoolExecutorService extends AbstractCodePoolExecutorServic
 				case "h" -> value * 60 * 60 * 1000;
 				case "d" -> value * 24 * 60 * 60 * 1000;
 				default -> {
-					logger.warn("Unknown time unit: {}", unit);
+					log.warn("Unknown time unit: {}", unit);
 					// 返回默认值60s
 					yield 60 * 1000;
 				}
 			};
 		}
-		logger.warn("Invalid time format: {}", timeString);
+		log.warn("Invalid time format: {}", timeString);
 		return 60 * 1000;
 	}
 

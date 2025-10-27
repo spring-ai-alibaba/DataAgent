@@ -21,8 +21,7 @@ import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
 import com.alibaba.cloud.ai.util.StateUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
@@ -51,10 +50,9 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE;
  *
  * @author zhangshenghang
  */
+@Slf4j
 @Component
 public class PlanExecutorNode extends AbstractPlanBasedNode {
-
-	private static final Logger logger = LoggerFactory.getLogger(PlanExecutorNode.class);
 
 	// Supported node types
 	private static final Set<String> SUPPORTED_NODES = Set.of(SQL_EXECUTE_NODE, PYTHON_GENERATE_NODE,
@@ -101,11 +99,11 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 						"Validation failed: The generated plan is not fit with prompt.");
 			}
 
-			logger.info("Plan validation successful.");
+			log.info("Plan validation successful.");
 
 		}
 		catch (Exception e) {
-			logger.error("Plan validation failed due to a parsing error.", e);
+			log.error("Plan validation failed due to a parsing error.", e);
 			return buildValidationResult(state, false,
 					"Validation failed: The plan is not a valid JSON structure. Error: " + e.getMessage());
 		}
@@ -113,7 +111,7 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 		// 2. If开启人工复核，则在执行前暂停，跳转到human_feedback节点
 		Boolean humanReviewEnabled = state.value(HUMAN_REVIEW_ENABLED, false);
 		if (Boolean.TRUE.equals(humanReviewEnabled)) {
-			logger.info("Human review enabled: routing to human_feedback node");
+			log.info("Human review enabled: routing to human_feedback node");
 			return Map.of(PLAN_VALIDATION_STATUS, true, PLAN_NEXT_NODE, HUMAN_FEEDBACK_NODE);
 		}
 
@@ -123,12 +121,12 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 
 		// Check if the plan is completed
 		if (currentStep > executionPlan.size()) {
-			logger.info("Plan completed, current step: {}, total steps: {}", currentStep, executionPlan.size());
+			log.info("Plan completed, current step: {}, total steps: {}", currentStep, executionPlan.size());
 			// 如果为nl2sql模式，则将结果保存，直接走向END
 			Boolean onlyNl2sql = state.value(IS_ONLY_NL2SQL, false);
 			if (onlyNl2sql) {
 				String resultSql = executionPlan.get(0).getToolParameters().getSqlQuery();
-				logger.info("Nl2sql Result: {}", resultSql);
+				log.info("Nl2sql Result: {}", resultSql);
 				return Map.of(PLAN_CURRENT_STEP, 1, PLAN_NEXT_NODE, StateGraph.END, PLAN_VALIDATION_STATUS, true,
 						ONLY_NL2SQL_OUTPUT, resultSql);
 			}
@@ -147,11 +145,11 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 	 */
 	private Map<String, Object> determineNextNode(String toolToUse) {
 		if (SUPPORTED_NODES.contains(toolToUse)) {
-			logger.info("Determined next execution node: {}", toolToUse);
+			log.info("Determined next execution node: {}", toolToUse);
 			return Map.of(PLAN_NEXT_NODE, toolToUse, PLAN_VALIDATION_STATUS, true);
 		}
 		else if (HUMAN_FEEDBACK_NODE.equals(toolToUse)) {
-			logger.info("Determined next execution node: {}", toolToUse);
+			log.info("Determined next execution node: {}", toolToUse);
 			return Map.of(PLAN_NEXT_NODE, toolToUse, PLAN_VALIDATION_STATUS, true);
 		}
 		else {

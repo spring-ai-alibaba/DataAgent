@@ -17,30 +17,30 @@ package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.entity.Agent;
 import com.alibaba.cloud.ai.service.AgentService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.alibaba.cloud.ai.service.FileStorageService;
+import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import com.alibaba.cloud.ai.mapper.AgentMapper;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 
 /**
  * Agent Service Class
  */
+@Slf4j
 @Service
+@AllArgsConstructor
 public class AgentServiceImpl implements AgentService {
-
-	private static final Logger log = LoggerFactory.getLogger(AgentServiceImpl.class);
 
 	private final AgentMapper agentMapper;
 
-	private final AgentVectorService agentVectorService;
+	private final AgentVectorStoreService agentVectorStoreService;
 
-	public AgentServiceImpl(AgentMapper agentMapper, AgentVectorService agentVectorService) {
-		this.agentMapper = agentMapper;
-		this.agentVectorService = agentVectorService;
-	}
+	private final FileStorageService fileStorageService;
 
 	@Override
 	public List<Agent> findAll() {
@@ -93,19 +93,35 @@ public class AgentServiceImpl implements AgentService {
 	@Override
 	public void deleteById(Long id) {
 		try {
+			// 获取头像信息用于文件清理
+			Agent existing = agentMapper.findById(id);
+			String avatar = existing != null ? existing.getAvatar() : null;
+
 			// Delete agent record from database
 			agentMapper.deleteById(id);
 
 			// Also clean up the agent's vector data
-			if (agentVectorService != null) {
+			if (agentVectorStoreService != null) {
 				try {
-					agentVectorService.deleteAllVectorDataForAgent(id);
+					agentVectorStoreService.deleteDocumentsByMetedata(id.toString(), new HashMap<>());
 					log.info("Successfully deleted vector data for agent: {}", id);
 				}
 				catch (Exception vectorException) {
 					log.warn("Failed to delete vector data for agent: {}, error: {}", id, vectorException.getMessage());
 					// Vector data deletion failure does not affect the main process
 				}
+			}
+
+			// 清理头像文件
+			try {
+				if (avatar != null && !avatar.isBlank()) {
+					fileStorageService.deleteFile(avatar);
+					log.info("Successfully deleted avatar file: {} for agent: {}", avatar, id);
+				}
+			}
+			catch (Exception avatarEx) {
+				log.warn("Failed to cleanup avatar file: {} for agent: {}, error: {}", avatar, id,
+						avatarEx.getMessage());
 			}
 
 			log.info("Successfully deleted agent: {}", id);

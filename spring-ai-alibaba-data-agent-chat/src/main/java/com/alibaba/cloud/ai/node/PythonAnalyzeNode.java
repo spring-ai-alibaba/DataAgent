@@ -20,7 +20,7 @@ import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
-import com.alibaba.cloud.ai.service.LlmService;
+import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StepResultUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
@@ -63,13 +63,13 @@ public class PythonAnalyzeNode extends AbstractPlanBasedNode implements NodeActi
 		int currentStep = this.getCurrentStepNumber(state);
 		@SuppressWarnings("unchecked")
 		Map<String, String> sqlExecuteResult = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
-				new HashMap());
+				new HashMap<>());
 
 		// Load Python code generation template
 		String systemPrompt = PromptConstant.getPythonAnalyzePromptTemplate()
 			.render(Map.of("python_output", pythonOutput, "user_query", userQuery));
 
-		Flux<ChatResponse> pythonAnalyzeFlux = llmService.streamCallSystem(systemPrompt);
+		Flux<ChatResponse> pythonAnalyzeFlux = llmService.callSystem(systemPrompt);
 
 		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
 				"正在分析代码运行结果...\n", "\n结果分析完成。", aiResponse -> {

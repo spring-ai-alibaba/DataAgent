@@ -42,21 +42,18 @@ CREATE TABLE IF NOT EXISTS business_knowledge (
 CREATE TABLE IF NOT EXISTS semantic_model (
   id INT NOT NULL AUTO_INCREMENT,
   agent_id INT COMMENT '关联的智能体ID',
-  field_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '智能体字段名称',
+  field_name VARCHAR(255) DEFAULT '' COMMENT '数据库字段名（数据库实际存储字，如"tbl_order.amt"）',
+  conversation_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '对话中字段名称（对话中使用的逻辑标识，如"order_amount"）',
   synonyms TEXT COMMENT '字段名称同义词',
-  origin_name VARCHAR(255) DEFAULT '' COMMENT '原始字段名',
   description TEXT COMMENT '字段描述',
-  origin_description VARCHAR(255) COMMENT '原始字段描述',
   type VARCHAR(255) DEFAULT '' COMMENT '字段类型 (integer, varchar....)',
   created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  is_recall TINYINT DEFAULT 0 COMMENT '0 停用 1 启用',
-  status TINYINT DEFAULT 0 COMMENT '0 停用 1 启用',
+  status TINYINT DEFAULT 0 COMMENT '启用状态（0 停用 1 启用）',
   PRIMARY KEY (id),
   INDEX idx_agent_id (agent_id),
   INDEX idx_field_name (field_name),
   INDEX idx_status (status),
-  INDEX idx_is_recall (is_recall),
   FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE SET NULL
 ) ENGINE = InnoDB COMMENT = '语义模型表';
 

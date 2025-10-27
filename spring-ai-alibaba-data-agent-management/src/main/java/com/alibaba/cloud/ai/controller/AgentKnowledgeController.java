@@ -17,8 +17,8 @@
 package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
-import com.alibaba.cloud.ai.service.impl.AgentKnowledgeService;
-import com.alibaba.cloud.ai.service.impl.AgentVectorService;
+import com.alibaba.cloud.ai.service.knowledge.AgentKnowledgeService;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -43,17 +43,11 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/agent-knowledge")
 @CrossOrigin(origins = "*")
+@AllArgsConstructor
+// todo: 功能完成后需要与前端接入，部分返回值需要定义DTO
 public class AgentKnowledgeController {
 
 	private final AgentKnowledgeService agentKnowledgeService;
-
-	private final AgentVectorService agentVectorService;
-
-	public AgentKnowledgeController(AgentKnowledgeService agentKnowledgeService,
-			AgentVectorService agentVectorService) {
-		this.agentKnowledgeService = agentKnowledgeService;
-		this.agentVectorService = agentVectorService;
-	}
 
 	/**
 	 * Query knowledge list by agent ID
@@ -149,29 +143,28 @@ public class AgentKnowledgeController {
 			}
 
 			// Create knowledge in database
-			AgentKnowledge createdKnowledge = agentKnowledgeService.createKnowledge(knowledge);
+			agentKnowledgeService.createKnowledge(knowledge);
 
 			// If knowledge content is not empty and status is active, add to vector store
-			if (createdKnowledge.getContent() != null && !createdKnowledge.getContent().trim().isEmpty()
-					&& "active".equals(createdKnowledge.getStatus())) {
+			if (knowledge.getContent() != null && !knowledge.getContent().trim().isEmpty()
+					&& "active".equals(knowledge.getStatus())) {
 				try {
-					agentVectorService.addKnowledgeToVector(Long.valueOf(createdKnowledge.getAgentId()),
-							createdKnowledge);
+					agentKnowledgeService.addKnowledgeToVectorStore(Long.valueOf(knowledge.getAgentId()), knowledge);
 					// Update embedding status to completed
-					createdKnowledge.setEmbeddingStatus("completed");
-					agentKnowledgeService.updateKnowledge(createdKnowledge.getId(), createdKnowledge);
+					knowledge.setEmbeddingStatus("completed");
+					agentKnowledgeService.updateKnowledge(knowledge.getId(), knowledge);
 				}
 				catch (Exception vectorException) {
 					// Vector storage failed, update embedding status to failed
-					createdKnowledge.setEmbeddingStatus("failed");
-					agentKnowledgeService.updateKnowledge(createdKnowledge.getId(), createdKnowledge);
+					knowledge.setEmbeddingStatus("failed");
+					agentKnowledgeService.updateKnowledge(knowledge.getId(), knowledge);
 					// Log but don't affect main process
 					response.put("vectorWarning", "知识已保存，但向量化失败：" + vectorException.getMessage());
 				}
 			}
 
 			response.put("success", true);
-			response.put("data", createdKnowledge);
+			response.put("data", knowledge);
 			response.put("message", "知识创建成功");
 			return ResponseEntity.ok(response);
 
@@ -210,9 +203,10 @@ public class AgentKnowledgeController {
 			}
 
 			// Update knowledge in database
-			AgentKnowledge updatedKnowledge = agentKnowledgeService.updateKnowledge(id, knowledge);
-			if (updatedKnowledge != null) {
+			boolean st = agentKnowledgeService.updateKnowledge(id, knowledge);
+			if (st) {
 				// Handle vector storage update
+				AgentKnowledge updatedKnowledge = agentKnowledgeService.getKnowledgeById(id);
 				try {
 					Long agentId = Long.valueOf(updatedKnowledge.getAgentId());
 
@@ -226,19 +220,19 @@ public class AgentKnowledgeController {
 
 					if (statusChangedFromActive) {
 						// Status changes from active to other, delete vector data
-						agentVectorService.deleteKnowledgeFromVector(agentId, id);
+						agentKnowledgeService.deleteKnowledgeFromVectorStore(agentId, id);
 						updatedKnowledge.setEmbeddingStatus("pending");
 					}
 					else if ((contentChanged || statusChangedToActive) && "active".equals(updatedKnowledge.getStatus())
 							&& updatedKnowledge.getContent() != null
 							&& !updatedKnowledge.getContent().trim().isEmpty()) {
 						// Content changes or status becomes active, re-vectorize
-						agentVectorService.deleteKnowledgeFromVector(agentId, id); // First
-																					// delete
-																					// old
-						agentVectorService.addKnowledgeToVector(agentId, updatedKnowledge); // Then
-																							// add
-																							// new
+						agentKnowledgeService.deleteKnowledgeFromVectorStore(agentId, id); // First
+						// delete
+						// old
+						agentKnowledgeService.addKnowledgeToVectorStore(agentId, updatedKnowledge); // Then
+						// add
+						// new
 						updatedKnowledge.setEmbeddingStatus("completed");
 						agentKnowledgeService.updateKnowledge(id, updatedKnowledge); // Update
 																						// embedding
@@ -293,7 +287,7 @@ public class AgentKnowledgeController {
 				// Also delete vector data
 				try {
 					Long agentId = Long.valueOf(knowledge.getAgentId());
-					agentVectorService.deleteKnowledgeFromVector(agentId, id);
+					agentKnowledgeService.deleteKnowledgeFromVectorStore(agentId, id);
 				}
 				catch (Exception vectorException) {
 					// Vector deletion failed, log warning but don't affect main process
@@ -342,10 +336,10 @@ public class AgentKnowledgeController {
 				return ResponseEntity.badRequest().body(response);
 			}
 
-			int updatedCount = agentKnowledgeService.batchUpdateStatus(ids, status);
-			response.put("success", true);
-			response.put("message", "批量更新成功，共更新 " + updatedCount + " 条记录");
-			response.put("updatedCount", updatedCount);
+			boolean st = agentKnowledgeService.batchUpdateStatus(ids, status);
+			response.put("success", st);
+			response.put("message", "批量更新成功");
+			response.put("updatedCount", ids.size());
 			return ResponseEntity.ok(response);
 
 		}

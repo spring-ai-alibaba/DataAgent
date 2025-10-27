@@ -24,9 +24,8 @@ import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -49,10 +48,9 @@ import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
  *
  * @author zhangshenghang
  */
+@Slf4j
 @Component
 public class SemanticConsistencyNode extends AbstractPlanBasedNode {
-
-	private static final Logger logger = LoggerFactory.getLogger(SemanticConsistencyNode.class);
 
 	private final Nl2SqlService nl2SqlService;
 
@@ -75,8 +73,8 @@ public class SemanticConsistencyNode extends AbstractPlanBasedNode {
 		ExecutionStep.ToolParameters toolParameters = executionStep.getToolParameters();
 		String sqlQuery = toolParameters.getSqlQuery();
 
-		logger.info("Starting semantic consistency validation - SQL: {}", sqlQuery);
-		logger.info("Step description: {}", toolParameters.getDescription());
+		log.info("Starting semantic consistency validation - SQL: {}", sqlQuery);
+		log.info("Step description: {}", toolParameters.getDescription());
 
 		Flux<ChatResponse> validationResultFlux = performSemanticValidationStream(schemaDTO, evidenceList,
 				toolParameters, sqlQuery);
@@ -85,7 +83,7 @@ public class SemanticConsistencyNode extends AbstractPlanBasedNode {
 				"开始语义一致性校验", "语义一致性校验完成", validationResult -> {
 					boolean isPassed = !validationResult.startsWith("不通过");
 					Map<String, Object> result = buildValidationResult(isPassed, validationResult, currentStep);
-					logger.info("[{}] Semantic consistency validation result: {}, passed: {}",
+					log.info("[{}] Semantic consistency validation result: {}, passed: {}",
 							this.getClass().getSimpleName(), validationResult, isPassed);
 					return result;
 				}, validationResultFlux, StreamResponseType.VALIDATION);

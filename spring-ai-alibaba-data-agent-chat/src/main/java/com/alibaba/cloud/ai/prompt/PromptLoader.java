@@ -16,8 +16,7 @@
 
 package com.alibaba.cloud.ai.prompt;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StreamUtils;
 
 import java.io.IOException;
@@ -30,9 +29,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * @author zhangshenghang
  */
+@Slf4j
 public class PromptLoader {
-
-	public static final Logger logger = LoggerFactory.getLogger(PromptLoader.class);
 
 	private static final String PROMPT_PATH_PREFIX = "prompts/";
 
@@ -51,7 +49,7 @@ public class PromptLoader {
 				return StreamUtils.copyToString(inputStream, StandardCharsets.UTF_8);
 			}
 			catch (IOException e) {
-				logger.error("加载提示词失败！{}", e.getMessage(), e);
+				log.error("加载提示词失败！{}", e.getMessage(), e);
 				throw new RuntimeException("加载提示词失败: " + name, e);
 			}
 		});

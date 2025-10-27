@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.dto.PromptConfigDTO;
 import com.alibaba.cloud.ai.entity.UserPromptConfig;
-import com.alibaba.cloud.ai.service.UserPromptConfigService;
+import com.alibaba.cloud.ai.service.prompt.UserPromptService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -40,9 +40,9 @@ public class PromptConfigController {
 
 	private static final Logger logger = LoggerFactory.getLogger(PromptConfigController.class);
 
-	private final UserPromptConfigService promptConfigService;
+	private final UserPromptService promptConfigService;
 
-	public PromptConfigController(UserPromptConfigService promptConfigService) {
+	public PromptConfigController(UserPromptService promptConfigService) {
 		this.promptConfigService = promptConfigService;
 	}
 

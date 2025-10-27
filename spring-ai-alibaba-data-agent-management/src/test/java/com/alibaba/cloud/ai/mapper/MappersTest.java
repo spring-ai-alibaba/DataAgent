@@ -169,14 +169,12 @@ public class MappersTest {
 		Long agentId = createAgent("semantic-holder");
 		SemanticModel m = new SemanticModel();
 		m.setAgentId(agentId);
-		m.setOriginalFieldName("origin_tc");
-		m.setAgentFieldName("显示名");
-		m.setFieldSynonyms("别名A,别名B");
-		m.setFieldDescription("desc");
-		m.setFieldType("VARCHAR");
-		m.setOriginalDescription("origin");
-		m.setDefaultRecall(true);
-		m.setEnabled(true);
+		m.setFieldName("origin_tc");
+		m.setConversationName("显示名");
+		m.setSynonyms("别名A,别名B");
+		m.setDescription("desc");
+		m.setType("VARCHAR");
+		m.setStatus(1);
 		int ins = semanticModelMapper.insert(m);
 		Assertions.assertEquals(1, ins);
 		Assertions.assertNotNull(m.getId());
@@ -187,7 +185,7 @@ public class MappersTest {
 		semanticModelMapper.disableById(m.getId());
 		semanticModelMapper.enableById(m.getId());
 
-		m.setFieldDescription("desc2");
+		m.setDescription("desc2");
 		int upd = semanticModelMapper.updateById(m);
 		Assertions.assertEquals(1, upd);
 
