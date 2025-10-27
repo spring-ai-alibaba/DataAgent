@@ -35,19 +35,17 @@ spring:
           # 运行Python代码的环境（生产环境建议使用docker，不建议使用local）
           code-pool-executor: local
         file:
-          storage:
-            type: local
-            path-prefix: data-agent
-            oss:
-              access-key-id: ${OSS_ACCESS_KEY_ID:}
-              access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
-              endpoint: ${OSS_ENDPOINT:}
-              bucket-name: ${OSS_BUCKET_NAME:}
-              custom-domain: ${OSS_CUSTOM_DOMAIN:}
-          upload:
-            path: ./uploads
-            url-prefix: /uploads
-            imageSize: 2097152
+          type: local
+          path-prefix: data-agent
+          path: ./uploads
+          url-prefix: /uploads
+          imageSize: 2097152
+          oss:
+            access-key-id: ${OSS_ACCESS_KEY_ID:}
+            access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+            endpoint: ${OSS_ENDPOINT:}
+            bucket-name: ${OSS_BUCKET_NAME:}
+            custom-domain: ${OSS_CUSTOM_DOMAIN:}
   servlet:
     multipart:
       max-file-size: 10MB

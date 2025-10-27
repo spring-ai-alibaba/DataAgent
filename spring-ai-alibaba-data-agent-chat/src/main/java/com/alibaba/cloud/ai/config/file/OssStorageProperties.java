@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.config;
+package com.alibaba.cloud.ai.config.file;
 
 import com.alibaba.cloud.ai.constant.Constant;
 import lombok.Getter;
@@ -25,7 +25,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @Getter
 @Setter
-@ConfigurationProperties(prefix = Constant.PROJECT_PROPERTIES_PREFIX + ".file.storage.oss")
+@ConfigurationProperties(prefix = Constant.PROJECT_PROPERTIES_PREFIX + ".file.oss")
 public class OssStorageProperties {
 
 	/**

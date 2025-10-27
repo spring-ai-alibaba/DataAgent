@@ -15,7 +15,8 @@
  */
 package com.alibaba.cloud.ai.config;
 
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import com.alibaba.cloud.ai.config.file.FileStorageProperties;
+import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -26,20 +27,16 @@ import java.nio.file.Paths;
  * Web配置类
  */
 @Configuration
-@EnableConfigurationProperties(FileUploadProperties.class)
+@AllArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
 
-	private final FileUploadProperties fileUploadProperties;
-
-	public WebConfig(FileUploadProperties fileUploadProperties) {
-		this.fileUploadProperties = fileUploadProperties;
-	}
+	private final FileStorageProperties fileStorageProperties;
 
 	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry) {
-		String uploadDir = Paths.get(fileUploadProperties.getPath()).toAbsolutePath().toString();
+		String uploadDir = Paths.get(fileStorageProperties.getPath()).toAbsolutePath().toString();
 
-		registry.addResourceHandler(fileUploadProperties.getUrlPrefix() + "/**")
+		registry.addResourceHandler(fileStorageProperties.getUrlPrefix() + "/**")
 			.addResourceLocations("file:" + uploadDir + "/")
 			.setCachePeriod(3600);
 	}

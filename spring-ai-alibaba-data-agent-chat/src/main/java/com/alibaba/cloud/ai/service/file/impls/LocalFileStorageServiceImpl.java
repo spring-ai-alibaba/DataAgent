@@ -13,15 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.service.impl;
+package com.alibaba.cloud.ai.service.file.impls;
 
-import com.alibaba.cloud.ai.config.FileStorageProperties;
-import com.alibaba.cloud.ai.config.FileUploadProperties;
-import com.alibaba.cloud.ai.service.FileStorageService;
+import com.alibaba.cloud.ai.config.file.FileStorageProperties;
+import com.alibaba.cloud.ai.service.file.FileStorageService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -36,15 +33,10 @@ import java.nio.file.Paths;
 import java.util.UUID;
 
 @Slf4j
-@Service
-@ConditionalOnProperty(name = "spring.ai.alibaba.nl2sql.file.storage.type", havingValue = "local",
-		matchIfMissing = true)
 @AllArgsConstructor
 public class LocalFileStorageServiceImpl implements FileStorageService {
 
 	private final FileStorageProperties fileStorageProperties;
-
-	private final FileUploadProperties fileUploadProperties;
 
 	@Override
 	public String storeFile(MultipartFile file, String subPath) {
@@ -58,12 +50,12 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 
 			String storagePath = buildStoragePath(subPath, filename);
 
-			Path uploadDir = Paths.get(fileUploadProperties.getPath(), storagePath).getParent();
+			Path uploadDir = Paths.get(fileStorageProperties.getPath(), storagePath).getParent();
 			if (uploadDir != null && !Files.exists(uploadDir)) {
 				Files.createDirectories(uploadDir);
 			}
 
-			Path filePath = Paths.get(fileUploadProperties.getPath(), storagePath);
+			Path filePath = Paths.get(fileStorageProperties.getPath(), storagePath);
 			Files.copy(file.getInputStream(), filePath);
 
 			log.info("文件存储成功: {}", storagePath);
@@ -79,7 +71,7 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 	@Override
 	public boolean deleteFile(String filePath) {
 		try {
-			Path fullPath = Paths.get(fileUploadProperties.getPath(), filePath);
+			Path fullPath = Paths.get(fileStorageProperties.getPath(), filePath);
 			if (Files.exists(fullPath)) {
 				Files.delete(fullPath);
 				log.info("成功删除文件: {}", filePath);
@@ -104,7 +96,7 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 			if (attributes != null) {
 				HttpServletRequest request = attributes.getRequest();
 				return ServletUriComponentsBuilder.fromRequestUri(request)
-					.replacePath(fileUploadProperties.getUrlPrefix() + "/" + filePath)
+					.replacePath(fileStorageProperties.getUrlPrefix() + "/" + filePath)
 					.build()
 					.toUriString();
 			}
@@ -112,7 +104,7 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 		catch (Exception e) {
 			log.warn("动态构建URL失败，使用相对路径", e);
 		}
-		return fileUploadProperties.getUrlPrefix() + "/" + filePath;
+		return fileStorageProperties.getUrlPrefix() + "/" + filePath;
 	}
 
 	/**
