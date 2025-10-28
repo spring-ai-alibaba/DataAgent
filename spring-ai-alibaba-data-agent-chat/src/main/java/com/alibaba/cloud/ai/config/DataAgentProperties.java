@@ -30,14 +30,21 @@ public class DataAgentProperties {
 	private LlmServiceEnum llmServiceType = LlmServiceEnum.STREAM;
 
 	/**
-	 * 批处理配置 spring.ai.alibaba.nl2sql.embedding-batch.max-token-count=2000
+	 * spring.ai.alibaba.nl2sql.embedding-batch.encoding-type=cl100k_base
+	 * spring.ai.alibaba.nl2sql.embedding-batch.max-token-count=2000
 	 * spring.ai.alibaba.nl2sql.embedding-batch.reserve-percentage=0.2
+	 * spring.ai.alibaba.nl2sql.embedding-batch.max-text-count=10
 	 */
 	private EmbeddingBatch embeddingBatch = new EmbeddingBatch();
 
 	@Getter
 	@Setter
 	public static class EmbeddingBatch {
+
+		/**
+		 * encodingType 默认值：cl100k_base，适用于OpenAI等模型
+		 */
+		private String encodingType = "cl100k_base";
 
 		/**
 		 * 每批次最大令牌数 值越小，每批次文档越少，但更安全 值越大，处理效率越高，但可能超出API限制 建议值：2000-8000，根据实际API限制调整
@@ -48,6 +55,11 @@ public class DataAgentProperties {
 		 * 预留百分比 用于预留缓冲空间，避免超出限制 建议值：0.1-0.2（10%-20%）
 		 */
 		private double reservePercentage = 0.2;
+
+		/**
+		 * 每批次最大文本数量 适用于DashScope等有文本数量限制的API DashScope限制为10
+		 */
+		private int maxTextCount = 10;
 
 	}
 
