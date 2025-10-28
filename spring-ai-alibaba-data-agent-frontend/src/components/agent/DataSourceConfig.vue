@@ -70,11 +70,17 @@
       <el-tab-pane label="选择已有数据源" name="select">
         <!-- todo: 添加分页和查询 -->
         <el-table @current-change="handleSelectDatasourceChange" :data="allDatasource" highlight-current-row style="width: 100%">
-          <el-table-column property="name" label="数据源名称" width="200"/>
+          <el-table-column property="name" label="数据源名称" width="150"/>
           <el-table-column property="type" label="数据源类型" width="100"/>
           <el-table-column property="host" label="Host" width="100"/>
-          <el-table-column property="port" label="Port" width="100"/>
-          <el-table-column property="description" label="描述" width="400"/>
+          <el-table-column property="port" label="Port" width="80"/>
+          <el-table-column property="description" label="描述" width="300"/>
+          <el-table-column label="操作" width="150">
+            <template #default="scope">
+              <el-button @click="editDatasource(scope.row)" size="small" type="primary" round plain>修改</el-button>
+              <el-button @click="deleteDatasource(scope.row)" size="small" type="danger" round plain>删除</el-button>
+            </template>
+          </el-table-column>
         </el-table>
         <el-divider/>
         <div style="text-align: right;">
@@ -173,6 +179,91 @@
       </el-tab-pane>
     </el-tabs>
   </el-dialog>
+  <el-dialog v-model="editDialogVisible" title="编辑数据源" width="1000">
+    <el-row :gutter="20">
+      <el-col :span="12">
+        <div class="form-item">
+          <label>数据源名称 *</label>
+          <el-input v-model="editingDatasource.name" placeholder="请输入数据源名称" size="large"/>
+        </div>
+      </el-col>
+      <el-col :span="12">
+        <div class="form-item">
+          <label>数据源类型 *</label>
+          <el-select v-model="editingDatasource.type" placeholder="请选择数据源类型" style="width: 100%" size="large">
+            <el-option key="mysql" label="MySQL" value="mysql"/>
+            <el-option key="postgresql" label="PostgreSQL" value="postgresql"/>
+          </el-select>
+        </div>
+      </el-col>
+    </el-row>
+    <el-row :gutter="20">
+      <el-col :span="12">
+        <div class="form-item">
+          <label>主机地址 *</label>
+          <el-input v-model="editingDatasource.host" placeholder="例如：localhost 或 192.168.1.100" size="large"/>
+        </div>
+      </el-col>
+      <el-col :span="12">
+        <div class="form-item">
+          <label>端口号 *</label>
+          <el-input-number v-model="editingDatasource.port" :min="0" :max="65535" size="large" style="width: 100%"/>
+        </div>
+      </el-col>
+    </el-row>
+    <el-row :gutter="20">
+      <el-col>
+        <div class="form-item">
+          <label>数据库名 *</label>
+          <el-input v-model="editingDatasource.databaseName" placeholder="请输入数据库名称" size="large"/>
+        </div>
+      </el-col>
+    </el-row>
+    <el-row :gutter="20">
+      <el-col>
+        <div class="form-item">
+          <label>连接地址</label>
+          <el-input v-model="editingDatasource.connectionUrl" placeholder="请输入JDBC地址（若不填则自动生成）" size="large"/>
+        </div>
+      </el-col>
+    </el-row>
+    <el-row :gutter="20">
+      <el-col :span="12">
+        <div class="form-item">
+          <label>用户名 *</label>
+          <el-input v-model="editingDatasource.username" placeholder="请输入数据库用户名" size="large"/>
+        </div>
+      </el-col>
+      <el-col :span="12">
+        <div class="form-item">
+          <label>密码 *</label>
+          <el-input v-model="editingDatasource.password" placeholder="请输入数据库密码" size="large" show-password/>
+        </div>
+      </el-col>
+    </el-row>
+    <el-row :gutter="30">
+      <el-col :span="24">
+        <div class="form-item">
+          <label>描述</label>
+          <el-input
+              v-model="editingDatasource.description"
+              :rows="4"
+              type="textarea"
+              placeholder="请输入数据源描述（可选）"
+              size="large"
+          />
+        </div>
+      </el-col>
+    </el-row>
+
+    <el-divider/>
+    <div style="text-align: right;">
+      <el-button @click="editDialogVisible = false">取消</el-button>
+      <el-button type="primary" @click="saveEditDatasource">
+        保存修改
+      </el-button>
+    </div>
+  </el-dialog>
 </template>
 
 <script lang="ts">
@@ -202,6 +293,8 @@ export default defineComponent({
     const allDatasource : Ref<Datasource[]> = ref([])
     const newDatasource : Ref<Datasource> = ref({ port: 3306 } as Datasource)
     const selectedDatasourceId : Ref<number | null> = ref(null)
+    const editDialogVisible : Ref<boolean> = ref(false)
+    const editingDatasource : Ref<Datasource> = ref({} as Datasource)  
 
     watch(dialogVisible, (newValue) => {
       if (newValue) {
@@ -427,6 +520,65 @@ export default defineComponent({
       }
       dialogVisible.value = false
     }
+    const editDatasource = (row: Datasource) => {
+      editingDatasource.value = JSON.parse(JSON.stringify(row))
+      editDialogVisible.value = true
+    }
+
+    const saveEditDatasource = async () => {
+      const formErrors : string[] = validateDatasourceForm(editingDatasource.value)
+      if(formErrors.length > 0) {
+        ElMessage.error(formErrors.join('\n'))
+        return
+      }
+
+      try {
+        const response : Datasource = await datasourceService.updateDatasource(editingDatasource.value.id!, editingDatasource.value)
+        if(response && response.id) {
+          ElMessage.success('修改成功！')
+          const index = allDatasource.value.findIndex((item) => item.id === editingDatasource.value.id)
+          if(index >= 0) {
+            allDatasource.value[index] = response
+          }
+          editDialogVisible.value = false
+        } else {
+          ElMessage.error('修改失败！')
+          console.error('Failed to update datasource:', response)
+        }
+      } catch (error) {
+        ElMessage.error('修改失败！')
+        console.error('Failed to update datasource:', error)
+      }
+    }
+
+    const deleteDatasource = async (row: Datasource) => {
+      const datasourceId = row.id;
+
+      try {
+        await ElMessageBox.confirm('删除后无法恢复，确定要删除该数据源吗？', '确认删除', {
+          confirmButtonText: '删除',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+      } catch (error) {
+        return
+      }
+
+      try {
+        const response : ApiResponse<void> = await datasourceService.deleteDatasource(datasourceId!);
+        if(response.success) {
+          ElMessage.success('删除成功！')
+          allDatasource.value = allDatasource.value.filter((item) => item.id !== datasourceId)
+        } else {
+          ElMessage.error('删除失败！')
+          console.error('Failed to delete datasource:', response)
+        }
+      } catch (error) {
+        ElMessage.error('删除失败！')
+        console.error('Failed to delete datasource:', error)
+      }
+    }
+
 
     onMounted(() => {
       loadAgentDatasource()
@@ -442,6 +594,8 @@ export default defineComponent({
       dialogActiveName,
       allDatasource,
       newDatasource,
+      editDialogVisible,
+      editingDatasource,
       initAgentDatasource,
       changeDatasource,
       testConnection,
@@ -449,7 +603,10 @@ export default defineComponent({
       loadAllDatasource,
       addSelectDatasource,
       createNewDatasource,
-      handleSelectDatasourceChange
+      handleSelectDatasourceChange,
+      editDatasource,
+      saveEditDatasource,
+      deleteDatasource
     }
   }
 })
