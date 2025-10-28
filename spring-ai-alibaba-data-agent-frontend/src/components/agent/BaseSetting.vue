@@ -109,7 +109,10 @@
         </el-col>
       </el-row>
 
-      <el-button type="primary" :icon="Edit" round @click="updateAgent" size="large">保存</el-button>
+      <div class="button-group">
+        <el-button type="primary" :icon="Edit" round @click="updateAgent" size="large">保存</el-button>
+        <el-button type="danger" :icon="Delete" round @click="handleDeleteAgent" size="large">删除智能体</el-button>
+      </div>
     </div>
 </template>
 
@@ -117,8 +120,9 @@
 import { Agent } from '@/services/agent'
 import agentService from "@/services/agent"
 import { defineComponent, computed } from "vue"
-import { ElMessage } from 'element-plus'
-import { Edit } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Edit, Delete } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 
 export default defineComponent({
   name: 'AgentBaseSetting',
@@ -129,6 +133,7 @@ export default defineComponent({
     }
   },
   setup(props) {
+    const router = useRouter()
 
     const updateAgent = async () => {
       try {
@@ -143,6 +148,35 @@ export default defineComponent({
       } catch (e) {
         console.error('更新智能体失败:', e)
         ElMessage.error('更新失败：' + (e.message || '未知错误'))
+      }
+    }
+
+    const handleDeleteAgent = async () => {
+      try {
+        await ElMessageBox.confirm(
+          `确定要删除智能体"${props.agent.name}"吗？删除后将无法恢复。`,
+          '删除智能体',
+          {
+            confirmButtonText: '确定删除',
+            cancelButtonText: '取消',
+            type: 'warning',
+            dangerouslyUseHTMLString: false
+          }
+        )
+
+        const result = await agentService.delete(props.agent.id)
+        if (result) {
+          ElMessage.success('智能体已删除')
+          await router.push('/agents')
+        } else {
+          ElMessage.error('删除失败：智能体不存在')
+        }
+      } catch (e) {
+        if (e.message === 'cancel') {
+          return
+        }
+        console.error('删除智能体失败:', e)
+        ElMessage.error('删除失败：' + (e.message || '未知错误'))
       }
     }
 
@@ -165,8 +199,10 @@ export default defineComponent({
 
     return {
       Edit,
+      Delete,
       props,
       updateAgent,
+      handleDeleteAgent,
       formattedCreateTime,
       formattedUpdateTime
     }
@@ -195,6 +231,18 @@ export default defineComponent({
   align-items: center;
   gap: 12px;
   font-size: 15px;
+}
+
+.button-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.button-group :deep(.el-button) {
+  min-width: 120px;
 }
 
 </style>
