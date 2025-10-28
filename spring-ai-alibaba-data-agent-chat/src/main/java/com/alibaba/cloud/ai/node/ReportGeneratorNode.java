@@ -17,16 +17,17 @@
 package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.entity.UserPromptConfig;
-import com.alibaba.cloud.ai.enums.StreamResponseType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.service.prompt.UserPromptService;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
-import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.converter.BeanOutputConverter;
@@ -97,8 +98,8 @@ public class ReportGeneratorNode implements NodeAction {
 				summaryAndRecommendations);
 
 		// Use utility class to create streaming generator with content collection
-		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-				"开始生成报告...", "报告生成完成！", reportContent -> {
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, "开始生成报告...", "报告生成完成！", reportContent -> {
 					log.info("Generated report content: {}", reportContent);
 					Map<String, Object> result = new HashMap<>();
 					result.put(RESULT, reportContent);
@@ -106,7 +107,7 @@ public class ReportGeneratorNode implements NodeAction {
 					result.put(PLAN_CURRENT_STEP, null);
 					result.put(PLANNER_NODE_OUTPUT, null);
 					return result;
-				}, reportGenerationFlux, StreamResponseType.OUTPUT_REPORT);
+				}, reportGenerationFlux);
 
 		return Map.of(RESULT, generator);
 	}

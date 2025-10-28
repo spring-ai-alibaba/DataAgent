@@ -16,13 +16,14 @@
 
 package com.alibaba.cloud.ai.node;
 
-import com.alibaba.cloud.ai.enums.StreamResponseType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.service.code.CodePoolExecutorService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
-import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -92,19 +93,19 @@ public class PythonExecuteNode extends AbstractPlanBasedNode implements NodeActi
 
 			// Create display flux for user experience only
 			Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
-				emitter.next(ChatResponseUtil.createStatusResponse("开始执行Python代码..."));
-				emitter.next(ChatResponseUtil.createStatusResponse("标准输出：\n```"));
-				emitter.next(ChatResponseUtil.createStatusResponse(finalStdout));
-				emitter.next(ChatResponseUtil.createStatusResponse("\n```"));
-				emitter.next(ChatResponseUtil.createStatusResponse("Python代码执行成功！"));
+				emitter.next(ChatResponseUtil.createResponse("开始执行Python代码..."));
+				emitter.next(ChatResponseUtil.createResponse("标准输出：\n```"));
+				emitter.next(ChatResponseUtil.createResponse(finalStdout));
+				emitter.next(ChatResponseUtil.createResponse("\n```"));
+				emitter.next(ChatResponseUtil.createResponse("Python代码执行成功！"));
 				emitter.complete();
 			});
 
 			// Create generator using utility class, returning pre-computed business logic
 			// result
-			var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-					v -> Map.of(PYTHON_EXECUTE_NODE_OUTPUT, finalStdout, PYTHON_IS_SUCCESS, true), displayFlux,
-					StreamResponseType.PYTHON_EXECUTE);
+			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(
+					this.getClass(), state,
+					v -> Map.of(PYTHON_EXECUTE_NODE_OUTPUT, finalStdout, PYTHON_IS_SUCCESS, true), displayFlux);
 
 			return Map.of(PYTHON_EXECUTE_NODE_OUTPUT, generator);
 		}
@@ -118,14 +119,14 @@ public class PythonExecuteNode extends AbstractPlanBasedNode implements NodeActi
 
 			// Create error display flux
 			Flux<ChatResponse> errorDisplayFlux = Flux.create(emitter -> {
-				emitter.next(ChatResponseUtil.createCustomStatusResponse("开始执行Python代码..."));
-				emitter.next(ChatResponseUtil.createCustomStatusResponse("Python代码执行失败: " + errorMessage));
+				emitter.next(ChatResponseUtil.createResponse("开始执行Python代码..."));
+				emitter.next(ChatResponseUtil.createResponse("Python代码执行失败: " + errorMessage));
 				emitter.complete();
 			});
 
 			// Create error generator using utility class
-			var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-					v -> errorResult, errorDisplayFlux, StreamResponseType.PYTHON_EXECUTE);
+			var generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(), state, v -> errorResult,
+					errorDisplayFlux);
 
 			return Map.of(PYTHON_EXECUTE_NODE_OUTPUT, generator);
 		}

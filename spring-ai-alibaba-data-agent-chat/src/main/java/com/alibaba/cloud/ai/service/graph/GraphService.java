@@ -15,9 +15,13 @@
  */
 package com.alibaba.cloud.ai.service.graph;
 
+import com.alibaba.cloud.ai.dto.GraphRequest;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
+import com.alibaba.cloud.ai.vo.GraphResponse;
 import com.alibaba.cloud.ai.vo.Nl2SqlProcessVO;
+import org.springframework.http.codec.ServerSentEvent;
+import reactor.core.publisher.Sinks;
 
 import java.util.function.Consumer;
 
@@ -57,5 +61,7 @@ public interface GraphService {
 			String agentId) {
 		this.nl2sqlWithProcess(nl2SqlProcessConsumer, naturalQuery, agentId, RunnableConfig.builder().build());
 	}
+
+	void graphStreamProcess(Sinks.Many<ServerSentEvent<GraphResponse>> sink, GraphRequest graphRequest);
 
 }

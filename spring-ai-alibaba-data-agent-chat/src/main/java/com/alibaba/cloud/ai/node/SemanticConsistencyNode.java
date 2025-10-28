@@ -17,13 +17,14 @@
 package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
-import com.alibaba.cloud.ai.enums.StreamResponseType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
-import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -79,14 +80,14 @@ public class SemanticConsistencyNode extends AbstractPlanBasedNode {
 		Flux<ChatResponse> validationResultFlux = performSemanticValidationStream(schemaDTO, evidenceList,
 				toolParameters, sqlQuery);
 
-		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-				"开始语义一致性校验", "语义一致性校验完成", validationResult -> {
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, "开始语义一致性校验", "语义一致性校验完成", validationResult -> {
 					boolean isPassed = !validationResult.startsWith("不通过");
 					Map<String, Object> result = buildValidationResult(isPassed, validationResult, currentStep);
 					log.info("[{}] Semantic consistency validation result: {}, passed: {}",
 							this.getClass().getSimpleName(), validationResult, isPassed);
 					return result;
-				}, validationResultFlux, StreamResponseType.VALIDATION);
+				}, validationResultFlux);
 
 		return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, generator);
 	}

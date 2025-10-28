@@ -166,12 +166,12 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 						String prompt = PromptHelper.buildRewritePrompt(timeRewrittenQuery, schemaDTO, evidences);
 						log.debug("Built rewrite prompt for streaming, prompt is as follows \n {}", prompt);
 						return llmService.callUser(prompt);
-					}, flux -> Mono.just(""), Flux.just(ChatResponseUtil.createStatusResponse("正在选择合适的数据表...")),
-					Flux.just(ChatResponseUtil.createStatusResponse("选择数据表完成！")), Flux.empty());
+					}, flux -> Mono.just(""), Flux.just(ChatResponseUtil.createResponse("正在选择合适的数据表...")),
+					Flux.just(ChatResponseUtil.createResponse("选择数据表完成！")), Flux.empty());
 		}, flux -> flux.map(r -> Optional.ofNullable(r.getResult().getOutput().getText()).orElse(""))
 			.collect(StringBuilder::new, StringBuilder::append)
-			.map(StringBuilder::toString), Flux.just(ChatResponseUtil.createStatusResponse("正在替换问题中的时间表达式...")),
-				Flux.just(ChatResponseUtil.createStatusResponse("\n重写时间表达式完成！\n正在提取用户问题关键词...")), Flux.empty())
+			.map(StringBuilder::toString), Flux.just(ChatResponseUtil.createResponse("正在替换问题中的时间表达式...")),
+				Flux.just(ChatResponseUtil.createResponse("\n重写时间表达式完成！\n正在提取用户问题关键词...")), Flux.empty())
 			.doOnSubscribe(s -> log.info("Starting rewriteStream for query: {} with agentId: {}", query, agentId))
 			.doOnError(e -> log.error("RewriteStream failed for query: {}", e.getMessage()));
 	}

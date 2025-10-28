@@ -16,7 +16,6 @@
 
 package com.alibaba.cloud.ai.util;
 
-import com.alibaba.cloud.ai.enums.StreamResponseType;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -28,36 +27,14 @@ import java.util.List;
  */
 public class ChatResponseUtil {
 
-	/**
-	 * Create custom status response
-	 * @param statusMessage status message
-	 * @return ChatResponse status response object
-	 */
-	public static ChatResponse createCustomStatusResponse(String statusMessage) {
-		return createCustomStatusResponse(statusMessage, StreamResponseType.STATUS);
-	}
-
-	/**
-	 * Create custom status response
-	 * @param statusMessage status message
-	 * @return ChatResponse status response object
-	 */
-	public static ChatResponse createCustomStatusResponse(String statusMessage, StreamResponseType type) {
-		AssistantMessage assistantMessage = new AssistantMessage(JsonUtil.toJson(type, statusMessage + "\n"));
-		Generation generation = new Generation(assistantMessage);
-		return new ChatResponse(List.of(generation));
-	}
-
-	public static ChatResponse createStatusResponse(String statusMessage, StreamResponseType type) {
-		AssistantMessage assistantMessage = new AssistantMessage(JsonUtil.toJson(type, statusMessage));
-		Generation generation = new Generation(assistantMessage);
-		return new ChatResponse(List.of(generation));
-	}
-
-	public static ChatResponse createStatusResponse(String statusMessage) {
+	public static ChatResponse createResponse(String statusMessage) {
 		AssistantMessage assistantMessage = new AssistantMessage(statusMessage + "\n");
 		Generation generation = new Generation(assistantMessage);
 		return new ChatResponse(List.of(generation));
+	}
+
+	public static String getText(ChatResponse chatResponse) {
+		return chatResponse.getResult().getOutput().getText();
 	}
 
 }

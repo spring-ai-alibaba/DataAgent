@@ -16,15 +16,15 @@
 
 package com.alibaba.cloud.ai.node;
 
+import com.alibaba.cloud.ai.graph.GraphResponse;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.pojo.KeywordExtractionResult;
-import com.alibaba.cloud.ai.enums.StreamResponseType;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.service.processing.QueryProcessingService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
-import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -154,22 +154,22 @@ public class KeywordExtractNode implements NodeAction {
 									mergedKeywords);
 							resultMap.putAll(Map.of(KEYWORD_EXTRACT_NODE_OUTPUT, mergedKeywords, EVIDENCES,
 									mergedEvidences, RESULT, mergedKeywords));
-							sink.tryEmitNext(ChatResponseUtil
-								.createStatusResponse("\n合并后的证据: " + String.join(", ", mergedEvidences)));
-							sink.tryEmitNext(ChatResponseUtil
-								.createStatusResponse("合并后的关键词: " + String.join(", ", mergedKeywords)));
-							sink.tryEmitNext(ChatResponseUtil.createStatusResponse("关键词提取完成."));
+							sink.tryEmitNext(
+									ChatResponseUtil.createResponse("\n合并后的证据: " + String.join(", ", mergedEvidences)));
+							sink.tryEmitNext(
+									ChatResponseUtil.createResponse("合并后的关键词: " + String.join(", ", mergedKeywords)));
+							sink.tryEmitNext(ChatResponseUtil.createResponse("关键词提取完成."));
 							sink.tryEmitComplete();
 						}), flux -> Mono.just(""),
-						Flux.just(ChatResponseUtil.createStatusResponse("开始增强关键词提取..."),
-								ChatResponseUtil.createStatusResponse("正在扩展问题理解...")),
+						Flux.just(ChatResponseUtil.createResponse("开始增强关键词提取..."),
+								ChatResponseUtil.createResponse("正在扩展问题理解...")),
 						Flux.defer(() -> Flux.just(
-								ChatResponseUtil.createStatusResponse("\n问题扩展结果：" + expandedQuestionsRef.get()),
-								ChatResponseUtil.createStatusResponse("合并多个问题变体的结果...\n"))),
+								ChatResponseUtil.createResponse("\n问题扩展结果：" + expandedQuestionsRef.get()),
+								ChatResponseUtil.createResponse("合并多个问题变体的结果...\n"))),
 						sink.asFlux());
 
-			var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-					v -> resultMap, displayFlux, StreamResponseType.KEYWORD_EXTRACT);
+			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil
+				.createStreamingGeneratorWithMessages(this.getClass(), state, v -> resultMap, displayFlux);
 
 			return Map.of(KEYWORD_EXTRACT_NODE_OUTPUT, generator);
 

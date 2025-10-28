@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.service.graph;
 
+import com.alibaba.cloud.ai.dto.GraphRequest;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -23,15 +24,23 @@ import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
+import com.alibaba.cloud.ai.vo.GraphResponse;
 import com.alibaba.cloud.ai.vo.Nl2SqlProcessVO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
 import static com.alibaba.cloud.ai.constant.Constant.AGENT_ID;
+import static com.alibaba.cloud.ai.constant.Constant.HUMAN_REVIEW_ENABLED;
 import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
 import static com.alibaba.cloud.ai.constant.Constant.IS_ONLY_NL2SQL;
 import static com.alibaba.cloud.ai.constant.Constant.ONLY_NL2SQL_OUTPUT;
@@ -40,11 +49,14 @@ import static com.alibaba.cloud.ai.constant.Constant.ONLY_NL2SQL_OUTPUT;
 @Service
 public class GraphServiceImpl implements GraphService {
 
-	private final CompiledGraph nl2sqlGraph;
+	private final CompiledGraph compiledGraph;
 
-	public GraphServiceImpl(StateGraph stateGraph) throws GraphStateException {
-		this.nl2sqlGraph = stateGraph.compile();
-		this.nl2sqlGraph.setMaxIterations(100);
+	private final ExecutorService executor;
+
+	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService) throws GraphStateException {
+		this.compiledGraph = stateGraph.compile();
+		this.compiledGraph.setMaxIterations(100);
+		this.executor = executorService;
 	}
 
 	@Override
@@ -53,7 +65,7 @@ public class GraphServiceImpl implements GraphService {
 			agentId = "";
 		}
 		Map<String, Object> stateMap = Map.of(IS_ONLY_NL2SQL, true, INPUT_KEY, naturalQuery, AGENT_ID, agentId);
-		Optional<OverAllState> call = this.nl2sqlGraph.call(stateMap);
+		Optional<OverAllState> call = this.compiledGraph.call(stateMap);
 		OverAllState state = call.orElseThrow(() -> {
 			log.error("Nl2SqlService call fail, stateMap: {}", stateMap);
 			return new GraphRunnerException("图运行失败");
@@ -69,7 +81,7 @@ public class GraphServiceImpl implements GraphService {
 			Nl2SqlProcessVO sqlProcess = this.nodeOutputToNl2sqlProcess(output);
 			nl2SqlProcessConsumer.accept(sqlProcess);
 		};
-		this.nl2sqlGraph.fluxStream(stateMap, runnableConfig).doOnNext(consumer).then().toFuture();
+		this.compiledGraph.fluxStream(stateMap, runnableConfig).doOnNext(consumer).then().toFuture();
 	}
 
 	/**
@@ -93,6 +105,83 @@ public class GraphServiceImpl implements GraphService {
 			return Nl2SqlProcessVO.success(result, output.node(), nodeRes);
 		}
 		return Nl2SqlProcessVO.processing(output.node(), nodeRes);
+	}
+
+	@Override
+	public void graphStreamProcess(Sinks.Many<ServerSentEvent<GraphResponse>> sink, GraphRequest graphRequest) {
+		if (StringUtils.hasText(graphRequest.getHumanFeedbackContent())) {
+			handleHumanFeedback(sink, graphRequest);
+		}
+		else if (graphRequest.isNl2sqlOnly()) {
+			handleNewNl2SqlProcess(sink, graphRequest);
+		}
+		else {
+			handleNewProcess(sink, graphRequest);
+		}
+	}
+
+	private void handleNewProcess(Sinks.Many<ServerSentEvent<GraphResponse>> sink, GraphRequest graphRequest) {
+		String query = graphRequest.getQuery();
+		String agentId = graphRequest.getAgentId();
+		String threadId = graphRequest.getThreadId();
+		boolean humanReviewEnabled = graphRequest.isHumanFeedback();
+		if (!StringUtils.hasText(threadId) || !StringUtils.hasText(agentId) || !StringUtils.hasText(query)) {
+			throw new IllegalArgumentException("Invalid arguments");
+		}
+		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(
+				Map.of(INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled),
+				RunnableConfig.builder().threadId(threadId).build());
+		CompletableFuture.runAsync(() -> {
+			nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output, sink),
+					error -> handleStreamError(agentId, threadId, error, sink),
+					() -> handleStreamComplete(agentId, threadId, sink));
+		}, executor);
+	}
+
+	private void handleNewNl2SqlProcess(Sinks.Many<ServerSentEvent<GraphResponse>> sink, GraphRequest graphRequest) {
+	}
+
+	private void handleHumanFeedback(Sinks.Many<ServerSentEvent<GraphResponse>> sink, GraphRequest graphRequest) {
+
+	}
+
+	/**
+	 * 处理流式错误
+	 */
+	private void handleStreamError(String agentId, String threadId, Throwable error,
+			Sinks.Many<ServerSentEvent<GraphResponse>> sink) {
+		log.error("Error in stream processing: ", error);
+		sink.tryEmitNext(ServerSentEvent
+			.builder(GraphResponse.error(agentId, threadId, "Error in stream processing: " + error.getMessage()))
+			.event("error")
+			.build());
+		sink.tryEmitComplete();
+	}
+
+	/**
+	 * 处理流式完成
+	 */
+	private void handleStreamComplete(String agentId, String threadId,
+			Sinks.Many<ServerSentEvent<GraphResponse>> sink) {
+		log.info("Stream processing completed successfully");
+		sink.tryEmitNext(ServerSentEvent.builder(GraphResponse.complete(agentId, threadId)).event("complete").build());
+		sink.tryEmitComplete();
+	}
+
+	/**
+	 * 处理节点输出
+	 */
+	private void handleNodeOutput(GraphRequest request, NodeOutput output,
+			Sinks.Many<ServerSentEvent<GraphResponse>> sink) {
+		log.debug("Received output: {}", output.getClass().getSimpleName());
+		if (output instanceof StreamingOutput streamingOutput) {
+			handleStreamNodeOutput(request, streamingOutput, sink);
+		}
+	}
+
+	private void handleStreamNodeOutput(GraphRequest request, StreamingOutput output,
+			Sinks.Many<ServerSentEvent<GraphResponse>> sink) {
+
 	}
 
 }

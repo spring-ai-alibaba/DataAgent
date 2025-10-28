@@ -16,13 +16,14 @@
 
 package com.alibaba.cloud.ai.node;
 
-import com.alibaba.cloud.ai.enums.StreamResponseType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.service.schema.SchemaService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
-import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -88,20 +89,20 @@ public class SchemaRecallNode implements NodeAction {
 				this.getClass().getSimpleName(), tableDocuments.size(), columnDocumentsByKeywords.size());
 
 		Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
-			emitter.next(ChatResponseUtil.createStatusResponse("开始召回Schema信息..."));
-			emitter.next(ChatResponseUtil.createStatusResponse("表信息召回完成，数量: " + tableDocuments.size()));
-			emitter.next(ChatResponseUtil.createStatusResponse("列信息召回完成，数量: " + columnDocumentsByKeywords.size()));
-			emitter.next(ChatResponseUtil.createStatusResponse("Schema信息召回完成."));
+			emitter.next(ChatResponseUtil.createResponse("开始召回Schema信息..."));
+			emitter.next(ChatResponseUtil.createResponse("表信息召回完成，数量: " + tableDocuments.size()));
+			emitter.next(ChatResponseUtil.createResponse("列信息召回完成，数量: " + columnDocumentsByKeywords.size()));
+			emitter.next(ChatResponseUtil.createResponse("Schema信息召回完成."));
 			emitter.complete();
 		});
 
-		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-				currentState -> {
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, currentState -> {
 					log.info("Table document details: {}", tableDocuments);
 					log.info("Keyword-related column document details: {}", columnDocumentsByKeywords);
 					return Map.of(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocuments,
 							COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT, columnDocumentsByKeywords);
-				}, displayFlux, StreamResponseType.SCHEMA_RECALL);
+				}, displayFlux);
 
 		// Return the processing result
 		return Map.of(SCHEMA_RECALL_NODE_OUTPUT, generator);

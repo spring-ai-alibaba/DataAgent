@@ -16,15 +16,17 @@
 
 package com.alibaba.cloud.ai.node;
 
-import com.alibaba.cloud.ai.enums.StreamResponseType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.service.processing.QueryProcessingService;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
-import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 import java.util.Map;
 
@@ -58,10 +60,10 @@ public class QueryRewriteNode implements NodeAction {
 		log.info("[{}] Processing user input: {} for agentId: {}", this.getClass().getSimpleName(), input, agentId);
 
 		// Use streaming utility class for content collection and result mapping
-		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-				"开始进行问题重写...", "问题重写完成！",
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, "开始进行问题重写...", "问题重写完成！",
 				finalResult -> Map.of(QUERY_REWRITE_NODE_OUTPUT, finalResult, RESULT, finalResult),
-				queryProcessingService.rewriteStream(input, agentId), StreamResponseType.REWRITE);
+				queryProcessingService.rewriteStream(input, agentId));
 
 		return Map.of(QUERY_REWRITE_NODE_OUTPUT, generator);
 	}
