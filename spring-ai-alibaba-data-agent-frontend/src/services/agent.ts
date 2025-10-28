@@ -91,6 +91,7 @@ class AgentService {
                 id: agent.id,
                 name: agent.name,
                 description: agent.description,
+                avatar: agent.avatar,
                 status: agent.status,
                 prompt: agent.prompt,
                 category: agent.category,
