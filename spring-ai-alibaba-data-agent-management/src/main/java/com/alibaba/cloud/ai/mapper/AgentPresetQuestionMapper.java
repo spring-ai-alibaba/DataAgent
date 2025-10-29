@@ -26,10 +26,20 @@ public interface AgentPresetQuestionMapper {
 
 	@Select("""
 			SELECT * FROM agent_preset_question
-			         WHERE agent_id = #{agentId} AND is_active = 1
+			WHERE agent_id = #{agentId}
 			ORDER BY sort_order ASC, id ASC
 			""")
 	List<AgentPresetQuestion> selectByAgentId(@Param("agentId") Long agentId);
+
+	/**
+	 * Query active questions by agent ID
+	 */
+	@Select("""
+			SELECT * FROM agent_preset_question
+			WHERE agent_id = #{agentId} AND is_active = 1
+			ORDER BY sort_order ASC, id ASC
+			""")
+	List<AgentPresetQuestion> selectActiveByAgentId(@Param("agentId") Long agentId);
 
 	/**
 	 * Query by id

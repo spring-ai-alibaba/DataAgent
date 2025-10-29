@@ -39,6 +39,11 @@ public class AgentPresetQuestionServiceImpl implements AgentPresetQuestionServic
 	}
 
 	@Override
+	public List<AgentPresetQuestion> findActiveByAgentId(Long agentId) {
+		return agentPresetQuestionMapper.selectActiveByAgentId(agentId);
+	}
+
+	@Override
 	public AgentPresetQuestion create(AgentPresetQuestion question) {
 		// Ensure default values
 		if (question.getSortOrder() == null) {
@@ -73,13 +78,16 @@ public class AgentPresetQuestionServiceImpl implements AgentPresetQuestionServic
 		// Step 1: Delete all existing preset questions for the agent
 		deleteByAgentId(agentId);
 
-		// Step 2: Insert new questions with proper order and active status
+		// Step 2: Insert new preset questions
 		for (int i = 0; i < questions.size(); i++) {
 			AgentPresetQuestion question = questions.get(i);
 			question.setAgentId(agentId);
 			question.setSortOrder(i);
-			question.setIsActive(true);
-			create(question); // Reuses create() which sets defaults and inserts
+			// Ensure default values
+			if (question.getIsActive() == null) {
+				question.setIsActive(true);
+			}
+			create(question); // which will insert the question
 		}
 	}
 

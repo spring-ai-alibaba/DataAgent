@@ -23,10 +23,15 @@ import java.util.List;
 public interface AgentPresetQuestionService {
 
 	/**
-	 * Get the list of preset questions by agent ID (only active ones, ordered by
-	 * sort_order and id)
+	 * Get the list of preset questions by agent ID
 	 */
 	List<AgentPresetQuestion> findByAgentId(Long agentId);
+
+	/**
+	 * Get the list of active preset questions by agent ID (only active ones, ordered by
+	 * sort_order and id)
+	 */
+	List<AgentPresetQuestion> findActiveByAgentId(Long agentId);
 
 	/**
 	 * Create a new preset question

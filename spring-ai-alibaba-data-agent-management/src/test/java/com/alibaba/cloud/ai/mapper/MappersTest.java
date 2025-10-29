@@ -233,23 +233,63 @@ public class MappersTest {
 		// clean existing
 		agentPresetQuestionMapper.deleteByAgentId(agentId);
 
-		AgentPresetQuestion q = new AgentPresetQuestion();
-		q.setAgentId(agentId);
-		q.setQuestion("q1");
-		q.setSortOrder(0);
-		q.setIsActive(true);
-		int ins = agentPresetQuestionMapper.insert(q);
-		Assertions.assertEquals(1, ins);
+		AgentPresetQuestion q1 = new AgentPresetQuestion();
+		q1.setAgentId(agentId);
+		q1.setQuestion("q1");
+		q1.setSortOrder(0);
+		q1.setIsActive(true);
+		int ins1 = agentPresetQuestionMapper.insert(q1);
+		Assertions.assertEquals(1, ins1);
+		Assertions.assertNotNull(q1.getId());
 
-		List<AgentPresetQuestion> qs = agentPresetQuestionMapper.selectByAgentId(agentId);
-		Assertions.assertEquals(1, qs.size());
+		AgentPresetQuestion q2 = new AgentPresetQuestion();
+		q2.setAgentId(agentId);
+		q2.setQuestion("q2");
+		q2.setSortOrder(1);
+		q2.setIsActive(false);
+		int ins2 = agentPresetQuestionMapper.insert(q2);
+		Assertions.assertEquals(1, ins2);
+		Assertions.assertNotNull(q2.getId());
 
-		q.setQuestion("q1_updated");
-		int upd = agentPresetQuestionMapper.update(q);
+		AgentPresetQuestion q3 = new AgentPresetQuestion();
+		q3.setAgentId(agentId);
+		q3.setQuestion("q3");
+		q3.setSortOrder(2);
+		q3.setIsActive(true);
+		int ins3 = agentPresetQuestionMapper.insert(q3);
+		Assertions.assertEquals(1, ins3);
+		Assertions.assertNotNull(q3.getId());
+
+		List<AgentPresetQuestion> allQuestions = agentPresetQuestionMapper.selectByAgentId(agentId);
+		Assertions.assertEquals(3, allQuestions.size());
+		Assertions.assertEquals(q1.getId(), allQuestions.get(0).getId());
+		Assertions.assertEquals(q2.getId(), allQuestions.get(1).getId());
+		Assertions.assertEquals(q3.getId(), allQuestions.get(2).getId());
+
+		List<AgentPresetQuestion> activeQuestions = agentPresetQuestionMapper.selectActiveByAgentId(agentId);
+		Assertions.assertEquals(2, activeQuestions.size());
+		Assertions.assertTrue(activeQuestions.stream().allMatch(q -> q.getIsActive() == true));
+		Assertions.assertEquals(q1.getId(), activeQuestions.get(0).getId());
+		Assertions.assertEquals(q3.getId(), activeQuestions.get(1).getId());
+		Assertions.assertFalse(activeQuestions.stream().anyMatch(q -> q.getId().equals(q2.getId())));
+
+		q1.setQuestion("q1_updated");
+		int upd = agentPresetQuestionMapper.update(q1);
 		Assertions.assertEquals(1, upd);
 
-		int del = agentPresetQuestionMapper.deleteById(qs.get(0).getId());
+		q2.setIsActive(true);
+		int upd2 = agentPresetQuestionMapper.update(q2);
+		Assertions.assertEquals(1, upd2);
+
+		List<AgentPresetQuestion> activeQuestionsAfterUpdate = agentPresetQuestionMapper.selectActiveByAgentId(agentId);
+		Assertions.assertEquals(3, activeQuestionsAfterUpdate.size());
+
+		int del = agentPresetQuestionMapper.deleteById(q1.getId());
 		Assertions.assertEquals(1, del);
+
+		List<AgentPresetQuestion> remainingQuestions = agentPresetQuestionMapper.selectByAgentId(agentId);
+		Assertions.assertEquals(2, remainingQuestions.size());
+		Assertions.assertFalse(remainingQuestions.stream().anyMatch(q -> q.getId().equals(q1.getId())));
 
 		// 清理创建的 agent
 		agentMapper.deleteById(agentId);
