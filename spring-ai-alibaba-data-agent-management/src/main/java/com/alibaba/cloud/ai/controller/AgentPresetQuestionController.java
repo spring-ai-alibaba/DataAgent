@@ -42,7 +42,7 @@ public class AgentPresetQuestionController {
 	@GetMapping("/{agentId}/preset-questions")
 	public ResponseEntity<List<AgentPresetQuestion>> getPresetQuestions(@PathVariable(value = "agentId") Long agentId) {
 		try {
-			List<AgentPresetQuestion> questions = presetQuestionService.findByAgentId(agentId);
+			List<AgentPresetQuestion> questions = presetQuestionService.findAllByAgentId(agentId);
 			return ResponseEntity.ok(questions);
 		}
 		catch (Exception e) {
@@ -56,12 +56,21 @@ public class AgentPresetQuestionController {
 	 */
 	@PostMapping("/{agentId}/preset-questions")
 	public ResponseEntity<Map<String, String>> savePresetQuestions(@PathVariable(value = "agentId") Long agentId,
-			@RequestBody List<Map<String, String>> questionsData) {
+			@RequestBody List<Map<String, Object>> questionsData) {
 		try {
-			// Convert to entity object
 			List<AgentPresetQuestion> questions = questionsData.stream().map(data -> {
 				AgentPresetQuestion question = new AgentPresetQuestion();
-				question.setQuestion(data.get("question"));
+				question.setQuestion((String) data.get("question"));
+				Object isActiveObj = data.get("isActive");
+				if (isActiveObj instanceof Boolean) {
+					question.setIsActive((Boolean) isActiveObj);
+				}
+				else if (isActiveObj != null) {
+					question.setIsActive(Boolean.parseBoolean(isActiveObj.toString()));
+				}
+				else {
+					question.setIsActive(true);
+				}
 				return question;
 			}).toList();
 
