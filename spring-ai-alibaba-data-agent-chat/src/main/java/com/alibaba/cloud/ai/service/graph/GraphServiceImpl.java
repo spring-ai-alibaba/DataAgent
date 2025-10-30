@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.service.graph;
 
 import com.alibaba.cloud.ai.dto.GraphRequest;
+import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -23,9 +24,9 @@ import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
+import com.alibaba.cloud.ai.graph.state.StateSnapshot;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.vo.GraphNodeResponse;
-import com.alibaba.cloud.ai.vo.Nl2SqlProcessVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
@@ -34,13 +35,13 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 import java.util.Map;
-import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Consumer;
 
 import static com.alibaba.cloud.ai.constant.Constant.AGENT_ID;
+import static com.alibaba.cloud.ai.constant.Constant.HUMAN_FEEDBACK_NODE;
 import static com.alibaba.cloud.ai.constant.Constant.HUMAN_REVIEW_ENABLED;
 import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
 import static com.alibaba.cloud.ai.constant.Constant.IS_ONLY_NL2SQL;
@@ -57,57 +58,18 @@ public class GraphServiceImpl implements GraphService {
 	private final ConcurrentHashMap<String, GraphNodeResponse.TextType> stateMap = new ConcurrentHashMap<>();
 
 	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService) throws GraphStateException {
-		this.compiledGraph = stateGraph.compile();
+		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
 		this.compiledGraph.setMaxIterations(100);
 		this.executor = executorService;
 	}
 
 	@Override
 	public String nl2sql(String naturalQuery, String agentId) throws GraphRunnerException {
-		if (agentId == null) {
-			agentId = "";
-		}
-		Map<String, Object> stateMap = Map.of(IS_ONLY_NL2SQL, true, INPUT_KEY, naturalQuery, AGENT_ID, agentId);
-		Optional<OverAllState> call = this.compiledGraph.call(stateMap);
-		OverAllState state = call.orElseThrow(() -> {
-			log.error("Nl2SqlService call fail, stateMap: {}", stateMap);
-			return new GraphRunnerException("图运行失败");
-		});
+		OverAllState state = compiledGraph
+			.call(Map.of(IS_ONLY_NL2SQL, true, INPUT_KEY, naturalQuery, AGENT_ID, agentId),
+					RunnableConfig.builder().build())
+			.orElseThrow();
 		return state.value(ONLY_NL2SQL_OUTPUT, "");
-	}
-
-	@Override
-	public void nl2sqlWithProcess(Consumer<Nl2SqlProcessVO> nl2SqlProcessConsumer, String naturalQuery, String agentId,
-			RunnableConfig runnableConfig) {
-		Map<String, Object> stateMap = Map.of(IS_ONLY_NL2SQL, true, INPUT_KEY, naturalQuery, AGENT_ID, agentId);
-		Consumer<NodeOutput> consumer = (output) -> {
-			Nl2SqlProcessVO sqlProcess = this.nodeOutputToNl2sqlProcess(output);
-			nl2SqlProcessConsumer.accept(sqlProcess);
-		};
-		this.compiledGraph.fluxStream(stateMap, runnableConfig).doOnNext(consumer).then().toFuture();
-	}
-
-	/**
-	 * 将NodeOutput转为Nl2SqlProcess实体类（用于nl2sqlWithProcess的consumer中记录转化过程）
-	 * @param output NodeOutput
-	 * @return NlSqlProcess
-	 */
-	private Nl2SqlProcessVO nodeOutputToNl2sqlProcess(NodeOutput output) {
-		// 将节点运行结果进行包装
-		String nodeRes = "";
-		if (output instanceof StreamingOutput streamingOutput) {
-			nodeRes = streamingOutput.chunk();
-		}
-		else {
-			nodeRes = output.toString();
-		}
-
-		// 如果是结束节点，取出最终生成结果
-		if (StateGraph.END.equals(output.node())) {
-			String result = output.state().value(ONLY_NL2SQL_OUTPUT, "");
-			return Nl2SqlProcessVO.success(result, output.node(), nodeRes);
-		}
-		return Nl2SqlProcessVO.processing(output.node(), nodeRes);
 	}
 
 	@Override
@@ -115,38 +77,55 @@ public class GraphServiceImpl implements GraphService {
 		if (StringUtils.hasText(graphRequest.getHumanFeedbackContent())) {
 			handleHumanFeedback(sink, graphRequest);
 		}
-		else if (graphRequest.isNl2sqlOnly()) {
-			handleNewNl2SqlProcess(sink, graphRequest);
-		}
 		else {
 			handleNewProcess(sink, graphRequest);
 		}
 	}
 
 	private void handleNewProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
+		if (!StringUtils.hasText(graphRequest.getThreadId())) {
+			graphRequest.setThreadId(UUID.randomUUID().toString());
+		}
 		String query = graphRequest.getQuery();
 		String agentId = graphRequest.getAgentId();
 		String threadId = graphRequest.getThreadId();
-		boolean humanReviewEnabled = graphRequest.isHumanFeedback();
+		boolean nl2sqlOnly = graphRequest.isNl2sqlOnly();
+		boolean humanReviewEnabled = graphRequest.isHumanFeedback() & !(nl2sqlOnly);
 		if (!StringUtils.hasText(threadId) || !StringUtils.hasText(agentId) || !StringUtils.hasText(query)) {
 			throw new IllegalArgumentException("Invalid arguments");
 		}
-		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(
-				Map.of(INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled),
+		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query,
+				AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled),
 				RunnableConfig.builder().threadId(threadId).build());
-		CompletableFuture.runAsync(() -> {
-			nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output, sink),
+		CompletableFuture
+			.runAsync(() -> nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output, sink),
 					error -> handleStreamError(agentId, threadId, error, sink),
-					() -> handleStreamComplete(agentId, threadId, sink));
-		}, executor);
-	}
-
-	private void handleNewNl2SqlProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink,
-			GraphRequest graphRequest) {
+					() -> handleStreamComplete(agentId, threadId, sink)), executor)
+			.thenRun(() -> stateMap.remove(threadId));
 	}
 
 	private void handleHumanFeedback(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
+		String agentId = graphRequest.getAgentId();
+		String threadId = graphRequest.getThreadId();
+		String feedbackContent = graphRequest.getHumanFeedbackContent();
+		if (!StringUtils.hasText(threadId) || !StringUtils.hasText(agentId) || !StringUtils.hasText(feedbackContent)) {
+			throw new IllegalArgumentException("Invalid arguments");
+		}
+		Map<String, Object> feedbackData = Map.of("feedback", !graphRequest.isRejectedPlan(), "feedback_content",
+				feedbackContent);
+		OverAllState.HumanFeedback humanFeedback = new OverAllState.HumanFeedback(feedbackData, HUMAN_FEEDBACK_NODE);
+		StateSnapshot stateSnapshot = compiledGraph.getState(RunnableConfig.builder().threadId(threadId).build());
+		OverAllState resumeState = stateSnapshot.state();
+		resumeState.withResume();
+		resumeState.withHumanFeedback(humanFeedback);
 
+		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStreamFromInitialNode(resumeState,
+				RunnableConfig.builder().threadId(threadId).build());
+		CompletableFuture
+			.runAsync(() -> nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output, sink),
+					error -> handleStreamError(agentId, threadId, error, sink),
+					() -> handleStreamComplete(agentId, threadId, sink)), executor)
+			.thenRun(() -> stateMap.remove(threadId));
 	}
 
 	/**
