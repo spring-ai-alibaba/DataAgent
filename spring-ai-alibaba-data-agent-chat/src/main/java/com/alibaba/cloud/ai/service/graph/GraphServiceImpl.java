@@ -24,7 +24,7 @@ import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import com.alibaba.cloud.ai.vo.GraphResponse;
+import com.alibaba.cloud.ai.vo.GraphNodeResponse;
 import com.alibaba.cloud.ai.vo.Nl2SqlProcessVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
@@ -36,6 +36,7 @@ import reactor.core.publisher.Sinks;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
@@ -52,6 +53,8 @@ public class GraphServiceImpl implements GraphService {
 	private final CompiledGraph compiledGraph;
 
 	private final ExecutorService executor;
+
+	private final ConcurrentHashMap<String, GraphNodeResponse.TextType> stateMap = new ConcurrentHashMap<>();
 
 	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService) throws GraphStateException {
 		this.compiledGraph = stateGraph.compile();
@@ -108,7 +111,7 @@ public class GraphServiceImpl implements GraphService {
 	}
 
 	@Override
-	public void graphStreamProcess(Sinks.Many<ServerSentEvent<GraphResponse>> sink, GraphRequest graphRequest) {
+	public void graphStreamProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
 		if (StringUtils.hasText(graphRequest.getHumanFeedbackContent())) {
 			handleHumanFeedback(sink, graphRequest);
 		}
@@ -120,7 +123,7 @@ public class GraphServiceImpl implements GraphService {
 		}
 	}
 
-	private void handleNewProcess(Sinks.Many<ServerSentEvent<GraphResponse>> sink, GraphRequest graphRequest) {
+	private void handleNewProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
 		String query = graphRequest.getQuery();
 		String agentId = graphRequest.getAgentId();
 		String threadId = graphRequest.getThreadId();
@@ -138,10 +141,11 @@ public class GraphServiceImpl implements GraphService {
 		}, executor);
 	}
 
-	private void handleNewNl2SqlProcess(Sinks.Many<ServerSentEvent<GraphResponse>> sink, GraphRequest graphRequest) {
+	private void handleNewNl2SqlProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink,
+			GraphRequest graphRequest) {
 	}
 
-	private void handleHumanFeedback(Sinks.Many<ServerSentEvent<GraphResponse>> sink, GraphRequest graphRequest) {
+	private void handleHumanFeedback(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
 
 	}
 
@@ -149,10 +153,10 @@ public class GraphServiceImpl implements GraphService {
 	 * 处理流式错误
 	 */
 	private void handleStreamError(String agentId, String threadId, Throwable error,
-			Sinks.Many<ServerSentEvent<GraphResponse>> sink) {
+			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink) {
 		log.error("Error in stream processing: ", error);
 		sink.tryEmitNext(ServerSentEvent
-			.builder(GraphResponse.error(agentId, threadId, "Error in stream processing: " + error.getMessage()))
+			.builder(GraphNodeResponse.error(agentId, threadId, "Error in stream processing: " + error.getMessage()))
 			.event("error")
 			.build());
 		sink.tryEmitComplete();
@@ -162,9 +166,10 @@ public class GraphServiceImpl implements GraphService {
 	 * 处理流式完成
 	 */
 	private void handleStreamComplete(String agentId, String threadId,
-			Sinks.Many<ServerSentEvent<GraphResponse>> sink) {
+			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink) {
 		log.info("Stream processing completed successfully");
-		sink.tryEmitNext(ServerSentEvent.builder(GraphResponse.complete(agentId, threadId)).event("complete").build());
+		sink.tryEmitNext(
+				ServerSentEvent.builder(GraphNodeResponse.complete(agentId, threadId)).event("complete").build());
 		sink.tryEmitComplete();
 	}
 
@@ -172,7 +177,7 @@ public class GraphServiceImpl implements GraphService {
 	 * 处理节点输出
 	 */
 	private void handleNodeOutput(GraphRequest request, NodeOutput output,
-			Sinks.Many<ServerSentEvent<GraphResponse>> sink) {
+			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink) {
 		log.debug("Received output: {}", output.getClass().getSimpleName());
 		if (output instanceof StreamingOutput streamingOutput) {
 			handleStreamNodeOutput(request, streamingOutput, sink);
@@ -180,8 +185,26 @@ public class GraphServiceImpl implements GraphService {
 	}
 
 	private void handleStreamNodeOutput(GraphRequest request, StreamingOutput output,
-			Sinks.Many<ServerSentEvent<GraphResponse>> sink) {
-
+			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink) {
+		String node = output.node();
+		String chunk = output.chunk();
+		log.debug("Received Stream output: {}", chunk);
+		String finalChunk = chunk;
+		GraphNodeResponse.TextType textType = stateMap.compute(request.getThreadId(), (k, v) -> {
+			if (v == null) {
+				return GraphNodeResponse.TextType.TEXT;
+			}
+			return GraphNodeResponse.TextType.getType(v, finalChunk);
+		});
+		chunk = GraphNodeResponse.TextType.trimSign(textType, chunk);
+		GraphNodeResponse response = GraphNodeResponse.builder()
+			.agentId(request.getAgentId())
+			.threadId(request.getThreadId())
+			.nodeName(node)
+			.text(chunk)
+			.textType(textType)
+			.build();
+		sink.tryEmitNext(ServerSentEvent.builder(response).event(node).build());
 	}
 
 }

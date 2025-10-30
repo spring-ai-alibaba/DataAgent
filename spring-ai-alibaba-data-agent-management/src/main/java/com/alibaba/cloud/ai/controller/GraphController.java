@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.controller;
 
 import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.dto.GraphRequest;
 import com.alibaba.cloud.ai.graph.*;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
@@ -25,6 +26,7 @@ import com.alibaba.cloud.ai.graph.state.StateSnapshot;
 import com.alibaba.cloud.ai.service.graph.GraphService;
 import com.alibaba.cloud.ai.service.AgentService;
 import com.alibaba.cloud.ai.util.JsonUtil;
+import com.alibaba.cloud.ai.vo.GraphNodeResponse;
 import com.alibaba.cloud.ai.vo.Nl2SqlProcessVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
@@ -33,6 +35,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,6 +44,7 @@ import reactor.core.publisher.Sinks;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -598,6 +602,31 @@ public class GraphController {
 				sink.tryEmitError(e);
 			}
 		});
+		return sink.asFlux()
+			.doOnSubscribe(subscription -> log.info("Client subscribed to stream"))
+			.doOnCancel(() -> log.info("Client disconnected from stream"))
+			.doOnError(e -> log.error("Error occurred during streaming: ", e))
+			.doOnComplete(() -> log.info("Stream completed successfully"));
+	}
+
+	@GetMapping(value = "/stream/test", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+	public Flux<ServerSentEvent<GraphNodeResponse>> test(@RequestBody GraphRequest request,
+			HttpServletResponse response) {
+		// Set SSE-related HTTP headers
+		response.setCharacterEncoding("UTF-8");
+		response.setContentType("text/event-stream");
+		response.setHeader("Cache-Control", "no-cache");
+		response.setHeader("Connection", "keep-alive");
+		response.setHeader("Access-Control-Allow-Origin", "*");
+		response.setHeader("Access-Control-Allow-Headers", "Cache-Control");
+
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
+
+		if (request.getThreadId() == null) {
+			request.setThreadId(UUID.randomUUID().toString());
+		}
+		graphService.graphStreamProcess(sink, request);
+
 		return sink.asFlux()
 			.doOnSubscribe(subscription -> log.info("Client subscribed to stream"))
 			.doOnCancel(() -> log.info("Client disconnected from stream"))
