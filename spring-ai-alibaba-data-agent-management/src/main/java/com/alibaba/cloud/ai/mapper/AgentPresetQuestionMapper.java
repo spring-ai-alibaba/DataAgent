@@ -31,6 +31,13 @@ public interface AgentPresetQuestionMapper {
 			""")
 	List<AgentPresetQuestion> selectByAgentId(@Param("agentId") Long agentId);
 
+	@Select("""
+			SELECT * FROM agent_preset_question
+			         WHERE agent_id = #{agentId}
+			ORDER BY sort_order ASC, id ASC
+			""")
+	List<AgentPresetQuestion> selectAllByAgentId(@Param("agentId") Long agentId);
+
 	/**
 	 * Query by id
 	 */

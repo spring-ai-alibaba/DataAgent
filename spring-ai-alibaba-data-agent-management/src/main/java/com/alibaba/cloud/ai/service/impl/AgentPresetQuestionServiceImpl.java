@@ -39,6 +39,11 @@ public class AgentPresetQuestionServiceImpl implements AgentPresetQuestionServic
 	}
 
 	@Override
+	public List<AgentPresetQuestion> findAllByAgentId(Long agentId) {
+		return agentPresetQuestionMapper.selectAllByAgentId(agentId);
+	}
+
+	@Override
 	public AgentPresetQuestion create(AgentPresetQuestion question) {
 		// Ensure default values
 		if (question.getSortOrder() == null) {
@@ -78,7 +83,9 @@ public class AgentPresetQuestionServiceImpl implements AgentPresetQuestionServic
 			AgentPresetQuestion question = questions.get(i);
 			question.setAgentId(agentId);
 			question.setSortOrder(i);
-			question.setIsActive(true);
+			if (question.getIsActive() == null) {
+				question.setIsActive(true);
+			}
 			create(question); // Reuses create() which sets defaults and inserts
 		}
 	}

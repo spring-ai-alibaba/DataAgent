@@ -29,6 +29,12 @@ public interface AgentPresetQuestionService {
 	List<AgentPresetQuestion> findByAgentId(Long agentId);
 
 	/**
+	 * Get all preset questions by agent ID (including inactive ones, ordered by
+	 * sort_order and id)
+	 */
+	List<AgentPresetQuestion> findAllByAgentId(Long agentId);
+
+	/**
 	 * Create a new preset question
 	 */
 	AgentPresetQuestion create(AgentPresetQuestion question);
