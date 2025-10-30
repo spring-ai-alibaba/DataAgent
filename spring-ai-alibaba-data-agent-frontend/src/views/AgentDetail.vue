@@ -139,7 +139,7 @@ import AgentDataSourceConfig from '@/components/agent/DataSourceConfig.vue'
 import AgentKnowledgeConfig from '@/components/agent/AgentKnowledgeConfig.vue'
 import NotFound from "@/views/NotFound.vue";
 import { Agent } from '@/services/agent'
-import { fileUploadApi } from '@/services/api'
+import { fileUploadApi } from '@/services/fileUpload'
 
 export default defineComponent({
   name: 'AgentDetail',

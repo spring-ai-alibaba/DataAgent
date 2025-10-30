@@ -25,27 +25,35 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 /**
  * @author zhangshenghang
+ * @author vlsmb
  */
 @Slf4j
 @RestController
 @AllArgsConstructor
-@RequestMapping("nl2sql")
+@CrossOrigin(origins = "*")
+@RequestMapping("/api")
 public class GraphController {
 
 	private final GraphService graphService;
 
 	@GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-	public Flux<ServerSentEvent<GraphNodeResponse>> streamSearch(@RequestBody GraphRequest request,
-			HttpServletResponse response) {
+	public Flux<ServerSentEvent<GraphNodeResponse>> streamSearch(@RequestParam("agentId") String agentId,
+			@RequestParam(value = "threadId", required = false) String threadId, @RequestParam("query") String query,
+			@RequestParam(value = "humanFeedback", required = false) boolean humanFeedback,
+			@RequestParam(value = "humanFeedbackContent", required = false) String humanFeedbackContent,
+			@RequestParam(value = "rejectedPlan", required = false) boolean rejectedPlan,
+			@RequestParam(value = "nl2sqlOnly", required = false) boolean nl2sqlOnly,
+			@RequestParam(value = "plainReport", required = false) boolean plainReport, HttpServletResponse response) {
 		// Set SSE-related HTTP headers
 		response.setCharacterEncoding("UTF-8");
 		response.setContentType("text/event-stream");
@@ -56,6 +64,16 @@ public class GraphController {
 
 		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
 
+		GraphRequest request = GraphRequest.builder()
+			.agentId(agentId)
+			.threadId(threadId)
+			.query(query)
+			.humanFeedback(humanFeedback)
+			.humanFeedbackContent(humanFeedbackContent)
+			.rejectedPlan(rejectedPlan)
+			.nl2sqlOnly(nl2sqlOnly)
+			.plainReport(plainReport)
+			.build();
 		graphService.graphStreamProcess(sink, request);
 
 		return sink.asFlux()

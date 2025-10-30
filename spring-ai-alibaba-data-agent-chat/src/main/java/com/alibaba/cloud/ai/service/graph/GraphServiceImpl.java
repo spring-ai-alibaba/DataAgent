@@ -183,7 +183,7 @@ public class GraphServiceImpl implements GraphService {
 			.text(chunk)
 			.textType(textType)
 			.build();
-		sink.tryEmitNext(ServerSentEvent.builder(response).event(node).build());
+		sink.tryEmitNext(ServerSentEvent.builder(response).build());
 	}
 
 }
