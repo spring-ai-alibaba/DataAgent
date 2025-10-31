@@ -134,6 +134,9 @@
           </div>
         </div>
 
+        <!-- 人类反馈区域 -->
+        <HumanFeedback v-if="showHumanFeedback" :request="lastRequest" :handleFeedback="handleHumanFeedback"/>
+
         <!-- 输入区域 -->
         <div class="input-area" v-if="currentSession">
           <div class="input-controls">
@@ -229,9 +232,10 @@ import {
 import BaseLayout from '@/layouts/BaseLayout.vue'
 import AgentService from '@/services/agent'
 import ChatService, { type ChatSession, type ChatMessage } from '@/services/chat'
-import GraphService, { type GraphRequest, type GraphNodeResponse, TextType } from '@/services/graph'
+import GraphService, { type GraphRequest, type GraphNodeResponse } from '@/services/graph'
 import PresetQuestionService from '@/services/presetQuestion'
 import { type Agent } from '@/services/agent'
+import HumanFeedback from '@/components/run/HumanFeedback.vue'
 
 export default defineComponent({
   name: 'AgentRun',
@@ -245,7 +249,8 @@ export default defineComponent({
     Loading,
     Promotion,
     Document,
-    Download
+    Download,
+    HumanFeedback
   },
   setup() {
     const router = useRouter()
@@ -283,6 +288,10 @@ export default defineComponent({
     const htmlReportSize = ref(0)
     const isHtmlReportComplete = ref(false)
     const markdownReportContent = ref('')
+    
+    // 人工反馈相关数据
+    const showHumanFeedback = ref(false)
+    const lastRequest = ref<GraphRequest | null>(null)
 
     // 计算属性
     const agentId = computed(() => route.params.id as string)
@@ -416,17 +425,10 @@ export default defineComponent({
         content: userInput.value,
         messageType: 'text'
       }
-
-      let currentThreadId: string | null = null;
-
       try {
         // 保存用户消息
         const savedMessage = await ChatService.saveMessage(currentSession.value.id, userMessage)
         currentMessages.value.push(savedMessage)
-        
-        // 准备流式请求
-        isStreaming.value = true
-        nodeBlocks.value = []
         
         const request: GraphRequest = {
           agentId: agentId.value,
@@ -439,6 +441,20 @@ export default defineComponent({
         }
 
         userInput.value = ''
+
+        await sendGraphRequest(request, true)
+      } catch(error) {
+        ElMessage.error("未知错误")
+        console.error(error)
+      }
+    }
+
+    const sendGraphRequest = async (request: GraphRequest, rejectedPlan: boolean) => {
+      try {
+        lastRequest.value = request
+        // 准备流式请求
+        isStreaming.value = true
+        nodeBlocks.value = []
 
         let currentNodeName: string | null = null
 
@@ -480,7 +496,7 @@ export default defineComponent({
               return
             }
 
-            currentThreadId = response.threadId
+            lastRequest.value.threadId = response.threadId
 
             // 检查是否是报告节点
             if (response.nodeName === 'ReportGeneratorNode') {
@@ -549,10 +565,7 @@ export default defineComponent({
             isStreaming.value = false
             currentNodeName = null
           },
-          async () => {
-            // 所有节点处理完成
-            isStreaming.value = false
-            
+          async () => {            
             // 保存报告到后端
             if (htmlReportContent.value) {
               const htmlReportMessage: ChatMessage = {
@@ -583,6 +596,14 @@ export default defineComponent({
             } else {
               // 其他节点，可能是错误或人类反馈模式
               await saveNodeMessage()
+              
+              // 如果是人工反馈模式，显示反馈组件
+              if (requestOptions.value.humanFeedback && rejectedPlan) {
+                showHumanFeedback.value = true
+              } else {
+                // 所有节点处理完成
+                isStreaming.value = false
+              }
             }
             
             ElMessage.success('处理完成')
@@ -721,18 +742,21 @@ export default defineComponent({
       }
     }
 
-    // 发送快速消息
-    const sendQuickMessage = (message: string) => {
-      userInput.value = message
-      sendMessage()
-    }
-
     const scrollToBottom = () => {
       nextTick(() => {
         if (chatContainer.value) {
           chatContainer.value.scrollTop = chatContainer.value.scrollHeight
         }
       })
+    }
+
+    const handleHumanFeedback = async (request: GraphRequest, rejectedPlan: boolean, content: string) => {
+      content = content.trim() || 'Accept'
+      showHumanFeedback.value = false
+      const newRequest: GraphRequest = { ...request }
+      newRequest.rejectedPlan = rejectedPlan
+      newRequest.humanFeedbackContent = content
+      await sendGraphRequest(newRequest, rejectedPlan)
     }
 
     // 生命周期
@@ -756,6 +780,8 @@ export default defineComponent({
       chatContainer,
       nodeBlocks,
       agentId,
+      showHumanFeedback,
+      lastRequest,
       goBack,
       createNewSession,
       selectSession,
@@ -771,7 +797,8 @@ export default defineComponent({
       handleNl2sqlOnlyChange,
       downloadHtmlReportFromMessage,
       markdownToHtml,
-      resetReportState
+      resetReportState,
+      handleHumanFeedback
     }
   }
 })
