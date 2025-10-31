@@ -90,16 +90,31 @@
           <div v-else class="messages-area">
             <div 
               v-for="message in currentMessages" 
-              :key="message.id" 
-              :class="['message', message.role]"
+              :key="message.id"
+              :class="message.messageType === 'text' ? ['message-container', message.role] : ''"
             >
-              <div class="message-avatar">
-                <el-avatar :size="32">
-                  {{ message.role === 'user' ? '我' : 'AI' }}
-                </el-avatar>
+              <!-- HTML类型消息直接渲染 -->
+              <div v-if="message.messageType === 'html'" v-html="message.content"></div>
+              <div v-else-if="message.messageType === 'html-report'" class="html-report-message">
+                <div class="report-info">
+                  <el-icon><Document /></el-icon>
+                  <span>HTML报告已生成</span>
+                </div>
+                <el-button type="primary" size="large" @click="downloadHtmlReportFromMessage(`${message.content}`)">
+                  <el-icon><Download /></el-icon>
+                  下载HTML报告
+                </el-button>
               </div>
-              <div class="message-content">
-                <div class="message-text" v-html="formatMessageContent(message)"></div>
+              <!-- 文本类型消息使用原有布局 -->
+              <div v-else :class="['message', message.role]">
+                <div class="message-avatar">
+                  <el-avatar :size="32">
+                    {{ message.role === 'user' ? '我' : 'AI' }}
+                  </el-avatar>
+                </div>
+                <div class="message-content">
+                  <div class="message-text" v-html="formatMessageContent(message)"></div>
+                </div>
               </div>
             </div>
             
@@ -125,15 +140,45 @@
             <div class="switch-group">
               <div class="switch-item">
                 <span class="switch-label">人工反馈</span>
-                <el-switch v-model="requestOptions.humanFeedback" />
+                <el-tooltip
+                  :disabled="!requestOptions.nl2sqlOnly"
+                  content="该功能在NL2SQL模式下不能使用"
+                  placement="top"
+                >
+                  <el-switch 
+                    v-model="requestOptions.humanFeedback" 
+                    :disabled="requestOptions.nl2sqlOnly" 
+                  />
+                </el-tooltip>
               </div>
               <div class="switch-item">
                 <span class="switch-label">仅NL2SQL</span>
-                <el-switch v-model="requestOptions.nl2sqlOnly" />
+                <el-switch 
+                  v-model="requestOptions.nl2sqlOnly" 
+                  @change="handleNl2sqlOnlyChange" 
+                />
               </div>
               <div class="switch-item">
                 <span class="switch-label">简洁报告</span>
-                <el-switch v-model="requestOptions.plainReport" />
+                <el-tooltip
+                  content="简洁报告的功能还在开发中……"
+                  placement="top"
+                >
+                  <el-switch 
+                    v-model="requestOptions.plainReport" 
+                    :disabled="true" 
+                  />
+                </el-tooltip>
+                <!-- <el-tooltip
+                  :disabled="!requestOptions.nl2sqlOnly"
+                  content="该功能在NL2SQL模式下不能使用"
+                  placement="top"
+                >
+                  <el-switch 
+                    v-model="requestOptions.plainReport" 
+                    :disabled="requestOptions.nl2sqlOnly" 
+                  />
+                </el-tooltip> -->
               </div>
               <div class="switch-item">
                 <span class="switch-label">自动Scroll</span>
@@ -177,7 +222,9 @@ import {
   Star, 
   StarFilled,
   Loading,
-  Promotion
+  Promotion,
+  Document,
+  Download
 } from '@element-plus/icons-vue'
 import BaseLayout from '@/layouts/BaseLayout.vue'
 import AgentService from '@/services/agent'
@@ -196,7 +243,9 @@ export default defineComponent({
     Star,
     StarFilled,
     Loading,
-    Promotion
+    Promotion,
+    Document,
+    Download
   },
   setup() {
     const router = useRouter()
@@ -216,9 +265,24 @@ export default defineComponent({
       nl2sqlOnly: false,
       plainReport: false
     })
+
+    // 监听NL2SQL开关变化
+    const handleNl2sqlOnlyChange = (value: boolean) => {
+      if (value) {
+        // 当仅NL2SQL开启时，禁用人工反馈和简洁报告，并设为false
+        requestOptions.value.humanFeedback = false
+        requestOptions.value.plainReport = false
+      }
+    }
     const autoScroll = ref(true)
     const chatContainer = ref<HTMLElement | null>(null)
     const nodeBlocks = ref<GraphNodeResponse[]>([])
+    
+    // 报告相关数据
+    const htmlReportContent = ref('')
+    const htmlReportSize = ref(0)
+    const isHtmlReportComplete = ref(false)
+    const markdownReportContent = ref('')
 
     // 计算属性
     const agentId = computed(() => route.params.id as string)
@@ -353,6 +417,8 @@ export default defineComponent({
         messageType: 'text'
       }
 
+      let currentThreadId: string | null = null;
+
       try {
         // 保存用户消息
         const savedMessage = await ChatService.saveMessage(currentSession.value.id, userMessage)
@@ -364,7 +430,6 @@ export default defineComponent({
         
         const request: GraphRequest = {
           agentId: agentId.value,
-          threadId: currentSession.value.id,
           query: userInput.value,
           humanFeedback: requestOptions.value.humanFeedback,
           nl2sqlOnly: requestOptions.value.nl2sqlOnly,
@@ -377,60 +442,101 @@ export default defineComponent({
 
         let currentNodeName: string | null = null
 
+        // 重置报告状态
+        resetReportState()
+
+        const saveNodeMessage = async () => {
+          if(nodeBlocks.value.length != 0) {
+            // 保存上一个节点的数据
+            const idx: number = nodeBlocks.value.length - 1;
+            if(idx < 0) {
+              ElMessage.error("未知错误");
+              return;
+            }
+            const node: GraphNodeResponse = nodeBlocks.value[idx];
+            // 使用generateNodeHtml方法生成HTML代码，确保显示与保存一致
+            const nodeHtml = generateNodeHtml(node)
+            
+            const aiMessage: ChatMessage = {
+              sessionId: currentSession.value!.id,
+              role: 'assistant',
+              content: nodeHtml,
+              messageType: 'html'
+            }
+            
+            await ChatService.saveMessage(currentSession.value!.id, aiMessage)
+              .catch((error: any) => {
+                console.error('保存AI消息失败:', error)
+              })
+          }
+        }
+
         // 发送流式请求
         const closeStream = GraphService.streamSearch(
           request,
-          (response: GraphNodeResponse) => {
+          async (response: GraphNodeResponse) => {
             if (response.error) {
               ElMessage.error(`处理错误: ${response.text}`)
-              // todo: 创建一个错误HTML
               return
             }
 
-            const newNode: boolean = response.nodeName !== currentNodeName;
-            currentNodeName = response.nodeName;
+            currentThreadId = response.threadId
 
-            if(newNode) {
-              if(nodeBlocks.value.length != 0) {
-                // 保存上一个节点的数据
+            // 检查是否是报告节点
+            if (response.nodeName === 'ReportGeneratorNode') {
+              // 处理HTML报告
+              if (response.textType === 'HTML') {
+                htmlReportContent.value += response.text
+                htmlReportSize.value = htmlReportContent.value.length
+                
+                // 更新显示：当前已经收集了多少字节的报告
+                const reportNode = nodeBlocks.value.find((block: GraphNodeResponse) => block.nodeName === 'ReportGeneratorNode' && block.textType === 'HTML')
+                if (reportNode) {
+                  reportNode.text = `正在收集HTML报告... 已收集 ${htmlReportSize.value} 字节`
+                } else {
+                  nodeBlocks.value.push({
+                    ...response,
+                    text: `正在收集HTML报告... 已收集 ${htmlReportSize.value} 字节`
+                  })
+                }
+              }
+              // 处理Markdown报告
+              else if (response.textType === 'MARK_DOWN') {
+                markdownReportContent.value += response.text
+                const markdownHtml = markdownToHtml(markdownReportContent.value)
+                
+                // 实时渲染Markdown报告
+                const reportNode = nodeBlocks.value.find((block: GraphNodeResponse) => block.nodeName === 'ReportGeneratorNode' && block.textType === 'MARK_DOWN')
+                if (reportNode) {
+                  reportNode.text = markdownHtml
+                } else {
+                  nodeBlocks.value.push({
+                    ...response,
+                    text: markdownHtml
+                  })
+                }
+              }
+            } else {
+              // 处理其他节点（原有逻辑）
+              const newNode: boolean = response.nodeName !== currentNodeName;
+              currentNodeName = response.nodeName;
+
+              if(newNode) {
+                await saveNodeMessage()
+                // 创建新的节点块
+                const newBlock: GraphNodeResponse = {
+                  ...response,
+                  text: response.text
+                }
+                nodeBlocks.value.push(newBlock)
+              } else {
                 const idx: number = nodeBlocks.value.length - 1;
                 if(idx < 0) {
                   ElMessage.error("未知错误");
                   return;
                 }
-                const node: GraphNodeResponse = nodeBlocks.value[idx];
-                // 使用generateNodeHtml方法生成HTML代码，确保显示与保存一致
-                const nodeHtml = generateNodeHtml(node)
-                
-                const aiMessage: ChatMessage = {
-                  sessionId: currentSession.value!.id,
-                  role: 'assistant',
-                  content: nodeHtml,
-                  messageType: 'html'
-                }
-                
-                ChatService.saveMessage(currentSession.value!.id, aiMessage)
-                  .then((savedMessage: ChatMessage) => {
-                    // currentMessages.value.push(savedMessage)
-                    // scrollToBottom()
-                  })
-                  .catch((error: any) => {
-                    console.error('保存AI消息失败:', error)
-                  })
+                nodeBlocks.value[idx].text += response.text;
               }
-              // 创建新的节点块
-              const newBlock: GraphNodeResponse = {
-                ...response,
-                text: response.text
-              }
-              nodeBlocks.value.push(newBlock)
-            } else {
-              const idx: number = nodeBlocks.value.length - 1;
-              if(idx < 0) {
-                ElMessage.error("未知错误");
-                return;
-              }
-              nodeBlocks.value[idx].text += response.text;
             }
 
             if(autoScroll.value) {
@@ -443,13 +549,46 @@ export default defineComponent({
             isStreaming.value = false
             currentNodeName = null
           },
-          () => {
+          async () => {
             // 所有节点处理完成
             isStreaming.value = false
+            
+            // 保存报告到后端
+            if (htmlReportContent.value) {
+              const htmlReportMessage: ChatMessage = {
+                sessionId: currentSession.value!.id,
+                role: 'assistant',
+                content: htmlReportContent.value,
+                messageType: 'html-report'
+              }
+              
+              await ChatService.saveMessage(currentSession.value!.id, htmlReportMessage)
+                .catch((error: any) => {
+                  ElMessage.error('保存HTML报告失败！')
+                  console.error('保存HTML报告失败:', error)
+                })
+            } else if (markdownReportContent.value) {
+              const markdownHtml = markdownToHtml(markdownReportContent.value)
+              const markdownMessage: ChatMessage = {
+                sessionId: currentSession.value!.id,
+                role: 'assistant',
+                content: markdownHtml,
+                messageType: 'html'
+              }
+              
+              await ChatService.saveMessage(currentSession.value!.id, markdownMessage)
+                .catch((error: any) => {
+                  console.error('保存Markdown报告失败:', error)
+                })
+            } else {
+              // 其他节点，可能是错误或人类反馈模式
+              await saveNodeMessage()
+            }
+            
             ElMessage.success('处理完成')
             currentNodeName = null
             closeStream()
-            selectSession(currentSession.value)
+            await selectSession(currentSession.value)
           }
         )
 
@@ -461,13 +600,29 @@ export default defineComponent({
     }
 
     const formatMessageContent = (message: ChatMessage) => {
-      if (message.messageType === 'html') {
-        // 直接返回HTML内容，让浏览器渲染
-        return message.content
-      } else if (message.messageType === 'text') {
+      if (message.messageType === 'text') {
         return message.content.replace(/\n/g, '<br>')
       }
       return message.content
+    }
+
+    // 从消息内容下载HTML报告
+    const downloadHtmlReportFromMessage = (content: string) => {
+      if (!content) {
+        ElMessage.warning('没有可下载的HTML报告')
+        return
+      }
+
+      const blob = new Blob([content], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `report_${new Date().getTime()}.html`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      ElMessage.success('HTML报告下载成功')
     }
 
     // 生成节点容器的HTML代码
@@ -496,6 +651,41 @@ export default defineComponent({
       if (!time) return ''
       const date = new Date(time)
       return date.toLocaleString('zh-CN')
+    }
+
+    // Markdown转HTML
+    // todo: 使用其他高亮库
+    const markdownToHtml = (markdown: string): string => {
+      // 简单的Markdown转HTML实现
+      let html = markdown
+        // 标题
+        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        // 粗体
+        .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+        // 斜体
+        .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+        // 代码块
+        .replace(/```([^`]+)```/gim, '<pre><code>$1</code></pre>')
+        // 行内代码
+        .replace(/`([^`]+)`/gim, '<code>$1</code>')
+        // 链接
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2">$1</a>')
+        // 图片
+        .replace(/!\[([^\]]+)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1">')
+        // 换行
+        .replace(/\n/g, '<br>')
+      
+      return html
+    }
+
+    // 重置报告状态
+    const resetReportState = () => {
+      htmlReportContent.value = ''
+      htmlReportSize.value = 0
+      isHtmlReportComplete.value = false
+      markdownReportContent.value = ''
     }
 
     // 快速操作按钮 - 从预设问题获取
@@ -577,7 +767,11 @@ export default defineComponent({
       formatNodeContent,
       generateNodeHtml,
       getSessionPreview,
-      formatTime
+      formatTime,
+      handleNl2sqlOnlyChange,
+      downloadHtmlReportFromMessage,
+      markdownToHtml,
+      resetReportState
     }
   }
 })
@@ -687,6 +881,20 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* 消息容器样式 */
+.message-container {
+  display: flex;
+  max-width: 100%;
+}
+
+.message-container.user {
+  justify-content: flex-end;
+}
+
+.message-container.assistant {
+  justify-content: flex-start;
 }
 
 /* 消息样式 */
@@ -823,6 +1031,32 @@ export default defineComponent({
   margin: 0;
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+/* HTML报告消息样式 */
+.html-report-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #f8fbff;
+  border-radius: 12px;
+  border: 1px solid #e1f0ff;
+}
+
+.report-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #409eff;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.report-info .el-icon {
+  color: #409eff;
+  font-size: 18px;
 }
 
 /* 输入区域样式 */
