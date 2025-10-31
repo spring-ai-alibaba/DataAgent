@@ -20,6 +20,7 @@ import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.entity.SemanticModel;
+import com.alibaba.cloud.ai.enums.TextType;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -205,9 +206,12 @@ public class TableRelationNode implements NodeAction {
 			log.info("[{}] Executing regular schema selection", this.getClass().getSimpleName());
 			schemaFlux = nl2SqlService.fineSelect(schemaDTO, input, evidenceList, null, agentDbConfig, dtoConsumer);
 		}
-		return Flux.just(ChatResponseUtil.createResponse("正在选择合适的数据表..."))
+		return Flux
+			.just(ChatResponseUtil.createResponse("正在选择合适的数据表...\n"),
+					ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()))
 			.concatWith(schemaFlux)
-			.concatWith(Flux.just(ChatResponseUtil.createResponse("选择数据表完成。")));
+			.concatWith(Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
+					ChatResponseUtil.createResponse("\n\n选择数据表完成。")));
 	}
 
 }

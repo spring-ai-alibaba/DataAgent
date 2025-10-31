@@ -23,6 +23,7 @@ import com.alibaba.cloud.ai.connector.bo.ResultSetBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.constant.Constant;
 
+import com.alibaba.cloud.ai.enums.TextType;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
@@ -212,8 +213,11 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 			Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
 				emitter.next(ChatResponseUtil.createResponse("开始执行SQL..."));
 				emitter.next(ChatResponseUtil.createResponse("执行SQL查询"));
-				emitter.next(ChatResponseUtil.createResponse("```" + sqlQuery + "```"));
+				emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign()));
+				emitter.next(ChatResponseUtil.createResponse(sqlQuery));
+				emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()));
 				emitter.next(ChatResponseUtil.createResponse("执行SQL完成"));
+				// todo: 输出SQL执行结果
 				emitter.complete();
 			});
 

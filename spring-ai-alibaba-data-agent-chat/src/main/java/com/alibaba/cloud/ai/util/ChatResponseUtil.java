@@ -28,7 +28,11 @@ import java.util.List;
 public class ChatResponseUtil {
 
 	public static ChatResponse createResponse(String statusMessage) {
-		AssistantMessage assistantMessage = new AssistantMessage(statusMessage + "\n");
+		return createPureResponse(statusMessage + "\n");
+	}
+
+	public static ChatResponse createPureResponse(String message) {
+		AssistantMessage assistantMessage = new AssistantMessage(message);
 		Generation generation = new Generation(assistantMessage);
 		return new ChatResponse(List.of(generation));
 	}

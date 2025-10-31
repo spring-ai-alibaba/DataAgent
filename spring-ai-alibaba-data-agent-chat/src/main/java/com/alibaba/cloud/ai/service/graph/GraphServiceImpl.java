@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.service.graph;
 
 import com.alibaba.cloud.ai.dto.GraphRequest;
+import com.alibaba.cloud.ai.enums.TextType;
 import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.NodeOutput;
@@ -39,6 +40,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.alibaba.cloud.ai.constant.Constant.AGENT_ID;
 import static com.alibaba.cloud.ai.constant.Constant.HUMAN_FEEDBACK_NODE;
@@ -55,7 +57,7 @@ public class GraphServiceImpl implements GraphService {
 
 	private final ExecutorService executor;
 
-	private final ConcurrentHashMap<String, GraphNodeResponse.TextType> stateMap = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, TextType> stateMap = new ConcurrentHashMap<>();
 
 	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService) throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
@@ -168,22 +170,29 @@ public class GraphServiceImpl implements GraphService {
 		String node = output.node();
 		String chunk = output.chunk();
 		log.debug("Received Stream output: {}", chunk);
-		String finalChunk = chunk;
-		GraphNodeResponse.TextType textType = stateMap.compute(request.getThreadId(), (k, v) -> {
-			if (v == null) {
-				return GraphNodeResponse.TextType.TEXT;
+		AtomicBoolean typeSign = new AtomicBoolean(false);
+		// 如果是文本标记符号，则更新文本类型
+		TextType textType = stateMap.compute(request.getThreadId(), (k, originType) -> {
+			if (originType == null) {
+				return TextType.TEXT;
 			}
-			return GraphNodeResponse.TextType.getType(v, finalChunk);
+			TextType newType = TextType.getType(originType, chunk);
+			if (newType != originType) {
+				typeSign.set(true);
+			}
+			return newType;
 		});
-		chunk = GraphNodeResponse.TextType.trimSign(textType, chunk);
-		GraphNodeResponse response = GraphNodeResponse.builder()
-			.agentId(request.getAgentId())
-			.threadId(request.getThreadId())
-			.nodeName(node)
-			.text(chunk)
-			.textType(textType)
-			.build();
-		sink.tryEmitNext(ServerSentEvent.builder(response).build());
+		// 文本标记符号不返回给前端
+		if (!typeSign.get()) {
+			GraphNodeResponse response = GraphNodeResponse.builder()
+				.agentId(request.getAgentId())
+				.threadId(request.getThreadId())
+				.nodeName(node)
+				.text(chunk)
+				.textType(textType)
+				.build();
+			sink.tryEmitNext(ServerSentEvent.builder(response).build());
+		}
 	}
 
 }

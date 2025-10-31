@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.entity.UserPromptConfig;
+import com.alibaba.cloud.ai.enums.TextType;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -26,6 +27,7 @@ import com.alibaba.cloud.ai.pojo.Plan;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.service.prompt.UserPromptService;
+import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -107,7 +109,10 @@ public class ReportGeneratorNode implements NodeAction {
 					result.put(PLAN_CURRENT_STEP, null);
 					result.put(PLANNER_NODE_OUTPUT, null);
 					return result;
-				}, reportGenerationFlux);
+				},
+				Flux.concat(Flux.just(ChatResponseUtil.createPureResponse(TextType.HTML.getStartSign())),
+						reportGenerationFlux,
+						Flux.just(ChatResponseUtil.createPureResponse(TextType.HTML.getEndSign()))));
 
 		return Map.of(RESULT, generator);
 	}

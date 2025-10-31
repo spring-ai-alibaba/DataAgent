@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.service.processing;
 
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.entity.Datasource;
+import com.alibaba.cloud.ai.enums.TextType;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.datasource.DatasourceService;
@@ -166,12 +167,16 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 						String prompt = PromptHelper.buildRewritePrompt(timeRewrittenQuery, schemaDTO, evidences);
 						log.debug("Built rewrite prompt for streaming, prompt is as follows \n {}", prompt);
 						return llmService.callUser(prompt);
-					}, flux -> Mono.just(""), Flux.just(ChatResponseUtil.createResponse("正在选择合适的数据表...")),
-					Flux.just(ChatResponseUtil.createResponse("选择数据表完成！")), Flux.empty());
+					}, flux -> Mono.just(""),
+					Flux.just(ChatResponseUtil.createResponse("正在选择合适的数据表...\n"),
+							ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign())),
+					Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
+							ChatResponseUtil.createResponse("\n\n选择数据表完成！")),
+					Flux.empty());
 		}, flux -> flux.map(r -> Optional.ofNullable(r.getResult().getOutput().getText()).orElse(""))
 			.collect(StringBuilder::new, StringBuilder::append)
-			.map(StringBuilder::toString), Flux.just(ChatResponseUtil.createResponse("正在替换问题中的时间表达式...")),
-				Flux.just(ChatResponseUtil.createResponse("\n重写时间表达式完成！\n正在提取用户问题关键词...")), Flux.empty())
+			.map(StringBuilder::toString), Flux.just(ChatResponseUtil.createResponse("正在替换问题中的时间表达式...\n")),
+				Flux.just(ChatResponseUtil.createResponse("\n\n重写时间表达式完成！\n正在提取用户问题关键词...")), Flux.empty())
 			.doOnSubscribe(s -> log.info("Starting rewriteStream for query: {} with agentId: {}", query, agentId))
 			.doOnError(e -> log.error("RewriteStream failed for query: {}", e.getMessage()));
 	}
@@ -210,11 +215,14 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 
 			log.debug("Retrieved schema with {} tables",
 					schemaDTO.getTable() != null ? schemaDTO.getTable().size() : 0);
-		}), r -> fineSelect(oldSchemaDTORef.get(), query, evidenceList, result -> {
-			log.debug("Fine selection completed, final schema has {} tables",
-					result.getTable() != null ? result.getTable().size() : 0);
-			dtoConsumer.accept(result);
-		}), flux -> Mono.just(""));
+		}), r -> {
+			Flux<ChatResponse> flux = fineSelect(oldSchemaDTORef.get(), query, evidenceList, result -> {
+				log.debug("Fine selection completed, final schema has {} tables",
+						result.getTable() != null ? result.getTable().size() : 0);
+				dtoConsumer.accept(result);
+			});
+			return Flux.concat(Flux.just(ChatResponseUtil.createResponse("")), flux);
+		}, flux -> Mono.just(""));
 	}
 
 	private Flux<ChatResponse> fineSelect(SchemaDTO schemaDTO, String query, List<String> evidenceList,

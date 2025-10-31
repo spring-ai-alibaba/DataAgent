@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.node;
 
+import com.alibaba.cloud.ai.enums.TextType;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -94,9 +95,10 @@ public class PythonExecuteNode extends AbstractPlanBasedNode implements NodeActi
 			// Create display flux for user experience only
 			Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
 				emitter.next(ChatResponseUtil.createResponse("开始执行Python代码..."));
-				emitter.next(ChatResponseUtil.createResponse("标准输出：\n```"));
+				emitter.next(ChatResponseUtil.createResponse("标准输出："));
+				emitter.next(ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()));
 				emitter.next(ChatResponseUtil.createResponse(finalStdout));
-				emitter.next(ChatResponseUtil.createResponse("\n```"));
+				emitter.next(ChatResponseUtil.createResponse(TextType.JSON.getEndSign()));
 				emitter.next(ChatResponseUtil.createResponse("Python代码执行成功！"));
 				emitter.complete();
 			});

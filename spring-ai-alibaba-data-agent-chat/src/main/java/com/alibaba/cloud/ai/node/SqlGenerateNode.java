@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
+import com.alibaba.cloud.ai.enums.TextType;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -232,13 +233,15 @@ public class SqlGenerateNode implements NodeAction {
 							return this.get();
 						}
 					}));
-				return Flux.just("正在重新生成SQL...\n").concatWith(sqlFlux).concatWith(Flux.just("重新生成SQL完成..."));
+				return Flux.just("正在重新生成SQL...\n", TextType.SQL.getStartSign())
+					.concatWith(sqlFlux)
+					.concatWith(Flux.just(TextType.SQL.getEndSign(), "重新生成SQL完成..."));
 			}
 		};
 
 		Flux<String> sqlFlux = nl2SqlService.generateSql(evidenceList, input, schemaDTO, originalSql, exceptionMessage);
 		Mono<String> sqlMono = sqlFlux.collect(StringBuilder::new, StringBuilder::append).map(StringBuilder::toString);
-		return Flux.just("正在生成SQL...\n")
+		return Flux.just("正在生成SQL...\n", TextType.SQL.getStartSign())
 			.concatWith(sqlMono.flatMapMany(sql -> Flux.just(nl2SqlService.sqlTrim(sql)).expand(newSql -> {
 				if (checkSqlFunc.apply(newSql) || roundRef.getAndIncrement() > MAX_OPTIMIZATION_ROUNDS) {
 					String bestSql = bestSqlRef.get();
@@ -249,7 +252,7 @@ public class SqlGenerateNode implements NodeAction {
 					return reGenerateSupplier.get();
 				}
 			})))
-			.concatWith(Flux.just("SQL生成完成！\n"));
+			.concatWith(Flux.just(TextType.SQL.getEndSign(), "SQL生成完成！\n"));
 	}
 
 	/**
