@@ -81,7 +81,6 @@ class GraphService {
 
         eventSource.onmessage = (event) => {
             try {
-                console.log("SSE data: " + event.data)
                 const nodeResponse: GraphNodeResponse = JSON.parse(event.data);
                 onMessage(nodeResponse);
             } catch (parseError) {

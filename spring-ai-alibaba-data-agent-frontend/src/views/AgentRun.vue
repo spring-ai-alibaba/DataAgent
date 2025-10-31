@@ -109,16 +109,12 @@
                 <el-icon class="loading-icon"><Loading /></el-icon>
                 <span>智能体正在处理中...</span>
               </div>
-              <el-tabs v-model="activeNodeTab" type="card">
-                <el-tab-pane 
-                  v-for="node in streamingNodes" 
-                  :key="node.nodeName" 
-                  :label="node.nodeName" 
-                  :name="node.nodeName"
-                >
-                  <div class="node-content" v-html="formatNodeContent(node)"></div>
-                </el-tab-pane>
-              </el-tabs>
+              <div class="agent-response-container">
+                <div 
+                  v-for="nodeBlock in nodeBlocks"
+                  v-html="generateNodeHtml(nodeBlock)"
+                ></div>
+              </div>
             </div>
           </div>
         </div>
@@ -138,6 +134,10 @@
               <div class="switch-item">
                 <span class="switch-label">简洁报告</span>
                 <el-switch v-model="requestOptions.plainReport" />
+              </div>
+              <div class="switch-item">
+                <span class="switch-label">自动Scroll</span>
+                <el-switch v-model="autoScroll" />
               </div>
             </div>
           </div>
@@ -183,6 +183,7 @@ import BaseLayout from '@/layouts/BaseLayout.vue'
 import AgentService from '@/services/agent'
 import ChatService, { type ChatSession, type ChatMessage } from '@/services/chat'
 import GraphService, { type GraphRequest, type GraphNodeResponse, TextType } from '@/services/graph'
+import PresetQuestionService from '@/services/presetQuestion'
 import { type Agent } from '@/services/agent'
 
 export default defineComponent({
@@ -215,7 +216,9 @@ export default defineComponent({
       nl2sqlOnly: false,
       plainReport: false
     })
+    const autoScroll = ref(true)
     const chatContainer = ref<HTMLElement | null>(null)
+    const nodeBlocks = ref<GraphNodeResponse[]>([])
 
     // 计算属性
     const agentId = computed(() => route.params.id as string)
@@ -269,6 +272,7 @@ export default defineComponent({
     const selectSession = async (session: ChatSession) => {
       currentSession.value = session
       streamingNodes.value = []
+      nodeBlocks.value = []
       isStreaming.value = false
       try {
         currentMessages.value = await ChatService.getSessionMessages(session.id)
@@ -333,7 +337,12 @@ export default defineComponent({
     }
 
     const sendMessage = async () => {
-      if (!userInput.value.trim() || !currentSession.value || isStreaming.value) {
+      if(!userInput.value.trim()) {
+        ElMessage.warning("请输入请求消息！")
+        return
+      }
+      if (!currentSession.value || isStreaming.value) {
+        ElMessage.warning("智能体正在处理中，请稍后...")
         return
       }
 
@@ -351,8 +360,7 @@ export default defineComponent({
         
         // 准备流式请求
         isStreaming.value = true
-        streamingNodes.value = []
-        activeNodeTab.value = ''
+        nodeBlocks.value = []
         
         const request: GraphRequest = {
           agentId: agentId.value,
@@ -367,52 +375,81 @@ export default defineComponent({
 
         userInput.value = ''
 
+        let currentNodeName: string | null = null
+
         // 发送流式请求
         const closeStream = GraphService.streamSearch(
           request,
           (response: GraphNodeResponse) => {
-            console.log("" + response)
             if (response.error) {
               ElMessage.error(`处理错误: ${response.text}`)
+              // todo: 创建一个错误HTML
               return
             }
 
-            if (response.complete) {
-              // 流式响应完成
-              isStreaming.value = false
-              // 可以在这里保存完整的响应到消息历史
-              return
-            }
+            const newNode: boolean = response.nodeName !== currentNodeName;
+            currentNodeName = response.nodeName;
 
-            // 更新流式节点
-            const existingNodeIndex = streamingNodes.value.findIndex(
-              (node: GraphNodeResponse) => node.nodeName === response.nodeName
-            )
-            
-            if (existingNodeIndex >= 0) {
-              // 更新现有节点
-              streamingNodes.value[existingNodeIndex].text += response.text
-            } else {
-              // 添加新节点
-              streamingNodes.value.push({
+            if(newNode) {
+              if(nodeBlocks.value.length != 0) {
+                // 保存上一个节点的数据
+                const idx: number = nodeBlocks.value.length - 1;
+                if(idx < 0) {
+                  ElMessage.error("未知错误");
+                  return;
+                }
+                const node: GraphNodeResponse = nodeBlocks.value[idx];
+                // 使用generateNodeHtml方法生成HTML代码，确保显示与保存一致
+                const nodeHtml = generateNodeHtml(node)
+                
+                const aiMessage: ChatMessage = {
+                  sessionId: currentSession.value!.id,
+                  role: 'assistant',
+                  content: nodeHtml,
+                  messageType: 'html'
+                }
+                
+                ChatService.saveMessage(currentSession.value!.id, aiMessage)
+                  .then((savedMessage: ChatMessage) => {
+                    // currentMessages.value.push(savedMessage)
+                    // scrollToBottom()
+                  })
+                  .catch((error: any) => {
+                    console.error('保存AI消息失败:', error)
+                  })
+              }
+              // 创建新的节点块
+              const newBlock: GraphNodeResponse = {
                 ...response,
                 text: response.text
-              })
-              if (!activeNodeTab.value) {
-                activeNodeTab.value = response.nodeName
               }
+              nodeBlocks.value.push(newBlock)
+            } else {
+              const idx: number = nodeBlocks.value.length - 1;
+              if(idx < 0) {
+                ElMessage.error("未知错误");
+                return;
+              }
+              nodeBlocks.value[idx].text += response.text;
             }
 
-            scrollToBottom()
+            if(autoScroll.value) {
+              scrollToBottom()
+            }
           },
           (error: Error) => {
             ElMessage.error(`流式请求失败: ${error.message}`)
+            console.error("error: " + error)
             isStreaming.value = false
+            currentNodeName = null
           },
           () => {
+            // 所有节点处理完成
             isStreaming.value = false
             ElMessage.success('处理完成')
+            currentNodeName = null
             closeStream()
+            selectSession(currentSession.value)
           }
         )
 
@@ -424,36 +461,34 @@ export default defineComponent({
     }
 
     const formatMessageContent = (message: ChatMessage) => {
-      if (message.messageType === 'text') {
+      if (message.messageType === 'html') {
+        // 直接返回HTML内容，让浏览器渲染
+        return message.content
+      } else if (message.messageType === 'text') {
         return message.content.replace(/\n/g, '<br>')
       }
       return message.content
     }
 
+    // 生成节点容器的HTML代码
+    const generateNodeHtml = (node: GraphNodeResponse) => {
+      let content = formatNodeContent(node)
+
+      return `
+        <div class="agent-response-block" style="display: block !important; width: 100% !important;">
+          <div class="agent-response-title">${node.nodeName}</div>
+          <div class="agent-response-content">${content}</div>
+        </div>
+      `
+    }
+
     const formatNodeContent = (node: GraphNodeResponse) => {
       let content = node.text
-      switch (node.textType) {
-        case TextType.JSON:
-          try {
-            const parsed = JSON.parse(content)
-            content = JSON.stringify(parsed, null, 2)
-            return `<pre><code class="language-json">${content}</code></pre>`
-          } catch {
-            return `<pre><code>${content}</code></pre>`
-          }
-        case TextType.SQL:
-          return `<pre><code class="language-sql">${content}</code></pre>`
-        case TextType.PYTHON:
-          return `<pre><code class="language-python">${content}</code></pre>`
-        case TextType.HTML:
-          return `<div>${content}</div>`
-        default:
-          return content.replace(/\n/g, '<br>')
-      }
+      return content
     }
 
     const getSessionPreview = (session: ChatSession) => {
-      // 这里应该从消息中获取预览，暂时返回固定文本
+      // todo: 这里应该从消息中获取预览，暂时返回固定文本
       return '点击查看对话内容...'
     }
 
@@ -461,6 +496,45 @@ export default defineComponent({
       if (!time) return ''
       const date = new Date(time)
       return date.toLocaleString('zh-CN')
+    }
+
+    // 快速操作按钮 - 从预设问题获取
+    const quickActions = ref<Array<{id: number, label: string, message: string, icon: string}>>([])
+
+    // 加载预设问题
+    const loadPresetQuestions = async () => {
+      try {
+        const questions = await PresetQuestionService.list(parseInt(agentId.value))
+        quickActions.value = questions.map((q: any, index: number) => ({
+          id: index + 1,
+          label: q.title,
+          message: q.content,
+          icon: 'Promotion'
+        }))
+      } catch (error) {
+        console.error('加载预设问题失败:', error)
+        // 如果加载失败，使用默认问题
+        quickActions.value = [
+          {
+            id: 1,
+            label: '查询最近数据',
+            message: '帮我查询最近一个月的数据',
+            icon: 'Promotion'
+          },
+          {
+            id: 2,
+            label: '生成销售报告',
+            message: '生成一份销售分析报告',
+            icon: 'Promotion'
+          }
+        ]
+      }
+    }
+
+    // 发送快速消息
+    const sendQuickMessage = (message: string) => {
+      userInput.value = message
+      sendMessage()
     }
 
     const scrollToBottom = () => {
@@ -475,6 +549,7 @@ export default defineComponent({
     onMounted(async () => {
       await loadAgent()
       await loadSessions()
+      await loadPresetQuestions()
     })
 
     return {
@@ -487,7 +562,9 @@ export default defineComponent({
       streamingNodes,
       activeNodeTab,
       requestOptions,
+      autoScroll,
       chatContainer,
+      nodeBlocks,
       agentId,
       goBack,
       createNewSession,
@@ -498,6 +575,7 @@ export default defineComponent({
       sendMessage,
       formatMessageContent,
       formatNodeContent,
+      generateNodeHtml,
       getSessionPreview,
       formatTime
     }
@@ -675,6 +753,58 @@ export default defineComponent({
 .streaming-header span {
   font-weight: 500;
   color: #409eff;
+}
+
+/* 节点容器样式 */
+.agent-response-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.agent-response-block {
+  background: #f8f9fa;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.agent-response-block:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+}
+
+.agent-response-title {
+  background: #ecf5ff;
+  padding: 12px 16px;
+  font-weight: 600;
+  color: #409eff;
+  border-bottom: 1px solid #e8e8e8;
+  font-size: 14px;
+}
+
+.agent-response-content {
+  padding: 16px;
+  line-height: 1.6;
+  min-height: 40px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.agent-response-content pre {
+  margin: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.agent-response-content code {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  background: transparent;
+  padding: 0;
 }
 
 .node-content {
