@@ -175,10 +175,21 @@ import {
   Document,
   Download
 } from '@element-plus/icons-vue'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github.css'
+// 导入并注册语言
+import sql from 'highlight.js/lib/languages/sql'
+import python from 'highlight.js/lib/languages/python'
+import json from 'highlight.js/lib/languages/json'
+
+// 注册语言
+hljs.registerLanguage('sql', sql)
+hljs.registerLanguage('python', python)
+hljs.registerLanguage('json', json)
 import BaseLayout from '@/layouts/BaseLayout.vue'
 import AgentService from '@/services/agent'
 import ChatService, { type ChatSession, type ChatMessage } from '@/services/chat'
-import GraphService, { type GraphRequest, type GraphNodeResponse } from '@/services/graph'
+import GraphService, { type GraphRequest, type GraphNodeResponse, TextType } from '@/services/graph'
 import PresetQuestionService from '@/services/presetQuestion'
 import { type Agent } from '@/services/agent'
 import HumanFeedback from '@/components/run/HumanFeedback.vue'
@@ -319,6 +330,7 @@ export default defineComponent({
         let currentNodeName: string | null = null
         let currentBlockIndex: number = -1
         let pendingSavePromises: Promise<void>[] = []
+        let currentTextType: TextType = TextType.TEXT
 
         // 重置报告状态
         resetReportState()
@@ -406,9 +418,14 @@ export default defineComponent({
                 nodeBlocks.value.push(newBlock)
                 currentBlockIndex = nodeBlocks.value.length - 1
                 currentNodeName = response.nodeName
+                currentTextType = response.textType
               } else {
                 // 继续当前节点的内容
                 if (currentBlockIndex >= 0 && nodeBlocks.value[currentBlockIndex]) {
+                  // 检查textType是否发生变化
+                  if (response.textType !== currentTextType) {
+                    currentTextType = response.textType
+                  }
                   nodeBlocks.value[currentBlockIndex].text += response.text
                 } else {
                   // 如果当前块索引无效，创建新块
@@ -419,6 +436,7 @@ export default defineComponent({
                   nodeBlocks.value.push(newBlock)
                   currentBlockIndex = nodeBlocks.value.length - 1
                   currentNodeName = response.nodeName
+                  currentTextType = response.textType
                 }
               }
             }
@@ -536,6 +554,24 @@ export default defineComponent({
 
     const formatNodeContent = (node: GraphNodeResponse) => {
       let content = node.text
+      
+      // 根据 textType 进行代码高亮处理
+      if (node.textType === TextType.JSON || node.textType === TextType.PYTHON || node.textType === TextType.SQL) {
+        try {
+          // 使用 highlight.js 进行代码高亮
+          const language = node.textType.toLowerCase()
+          const highlighted = hljs.highlight(content, { language })
+          content = `<pre><code class="hljs ${language}">${highlighted.value}</code></pre>`
+        } catch (error) {
+          console.warn(`代码高亮失败 (${node.textType}):`, error)
+          // 如果高亮失败，返回原始代码
+          content = `<pre><code>${content}</code></pre>`
+        }
+      } else if (node.textType === TextType.TEXT) {
+        // 普通文本，保持原有格式
+        content = content.replace(/\n/g, '<br>')
+      }
+      
       return content
     }
 
@@ -821,6 +857,34 @@ export default defineComponent({
   margin: 0;
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+/* 代码高亮样式 */
+.agent-response-content pre.hljs {
+  background: #f6f8fa !important;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 16px;
+  margin: 8px 0;
+  overflow-x: auto;
+}
+
+.agent-response-content code.hljs {
+  background: transparent !important;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* 确保高亮代码块正确显示 */
+.agent-response-content .hljs {
+  display: block;
+  overflow-x: auto;
+  color: #24292e;
+  background: #f6f8fa;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #e1e4e8;
 }
 
 /* HTML报告消息样式 */
