@@ -82,6 +82,7 @@ class GraphService {
         eventSource.onmessage = async (event) => {
             try {
                 const nodeResponse: GraphNodeResponse = JSON.parse(event.data);
+                console.log(`Node: ${nodeResponse.nodeName}, message: ${nodeResponse.text}`)
                 await onMessage(nodeResponse);
             } catch (parseError) {
                 console.error('Failed to parse SSE data:', parseError);
@@ -91,7 +92,13 @@ class GraphService {
             }
         };
 
+        let isCompleted = false;
+
         eventSource.onerror = async (error) => {
+            // 如果已经完成，忽略错误（可能是正常关闭）
+            if (isCompleted) {
+                return;
+            }
             console.error('EventSource error:', error);
             if (onError) {
                 await onError(new Error('Stream connection failed'));
@@ -100,6 +107,7 @@ class GraphService {
         };
 
         eventSource.addEventListener('complete', async () => {
+            isCompleted = true;
             if (onComplete) {
                 await onComplete();
             }

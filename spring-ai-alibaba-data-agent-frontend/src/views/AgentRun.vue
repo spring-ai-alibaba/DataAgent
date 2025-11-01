@@ -317,40 +317,35 @@ export default defineComponent({
         nodeBlocks.value = []
 
         let currentNodeName: string | null = null
+        let currentBlockIndex: number = -1
+        let pendingSavePromises: Promise<void>[] = []
 
         // 重置报告状态
         resetReportState()
 
-        const saveNodeMessage = async () => {
-          if(nodeBlocks.value.length != 0) {
-            // 保存上一个节点的数据
-            const idx: number = nodeBlocks.value.length - 1;
-            if(idx < 0) {
-              ElMessage.error("未知错误");
-              return;
-            }
-            const node: GraphNodeResponse = nodeBlocks.value[idx];
-            // 使用generateNodeHtml方法生成HTML代码，确保显示与保存一致
-            const nodeHtml = generateNodeHtml(node)
-            
-            const aiMessage: ChatMessage = {
-              sessionId: currentSession.value!.id,
-              role: 'assistant',
-              content: nodeHtml,
-              messageType: 'html'
-            }
-            
-            await ChatService.saveMessage(currentSession.value!.id, aiMessage)
-              .catch((error: any) => {
-                console.error('保存AI消息失败:', error)
-              })
+        const saveNodeMessage = (node: GraphNodeResponse): Promise<void> => {
+          if (!node || !node.text) return Promise.resolve()
+          
+          // 使用generateNodeHtml方法生成HTML代码，确保显示与保存一致
+          const nodeHtml = generateNodeHtml(node)
+          
+          const aiMessage: ChatMessage = {
+            sessionId: currentSession.value!.id,
+            role: 'assistant',
+            content: nodeHtml,
+            messageType: 'html'
           }
+          
+          return ChatService.saveMessage(currentSession.value!.id, aiMessage)
+            .catch((error: any) => {
+              console.error('保存AI消息失败:', error)
+            })
         }
 
         // 发送流式请求
         const closeStream = await GraphService.streamSearch(
           request,
-          async (response: GraphNodeResponse) => {
+          (response: GraphNodeResponse) => {
             if (response.error) {
               ElMessage.error(`处理错误: ${response.text}`)
               return
@@ -393,25 +388,38 @@ export default defineComponent({
                 }
               }
             } else {
-              // 处理其他节点（原有逻辑）
-              const newNode: boolean = response.nodeName !== currentNodeName;
-              currentNodeName = response.nodeName;
-
-              if(newNode) {
-                await saveNodeMessage()
+              // 处理其他节点（同步处理逻辑）
+              const isNewNode: boolean = currentNodeName === null || response.nodeName !== currentNodeName;
+              
+              if (isNewNode) {
+                // 保存上一个节点的消息（如果有）
+                if (currentBlockIndex >= 0 && nodeBlocks.value[currentBlockIndex]) {
+                  const savePromise = saveNodeMessage(nodeBlocks.value[currentBlockIndex])
+                  pendingSavePromises.push(savePromise)
+                }
+                
                 // 创建新的节点块
                 const newBlock: GraphNodeResponse = {
                   ...response,
                   text: response.text
                 }
                 nodeBlocks.value.push(newBlock)
+                currentBlockIndex = nodeBlocks.value.length - 1
+                currentNodeName = response.nodeName
               } else {
-                const idx: number = nodeBlocks.value.length - 1;
-                if(idx < 0) {
-                  ElMessage.error("未知错误");
-                  return;
+                // 继续当前节点的内容
+                if (currentBlockIndex >= 0 && nodeBlocks.value[currentBlockIndex]) {
+                  nodeBlocks.value[currentBlockIndex].text += response.text
+                } else {
+                  // 如果当前块索引无效，创建新块
+                  const newBlock: GraphNodeResponse = {
+                    ...response,
+                    text: response.text
+                  }
+                  nodeBlocks.value.push(newBlock)
+                  currentBlockIndex = nodeBlocks.value.length - 1
+                  currentNodeName = response.nodeName
                 }
-                nodeBlocks.value[idx].text += response.text;
               }
             }
 
@@ -426,6 +434,11 @@ export default defineComponent({
             currentNodeName = null
           },
           async () => {            
+            // 等待所有待处理的保存操作完成
+            if (pendingSavePromises.length > 0) {
+              await Promise.all(pendingSavePromises)
+            }
+            
             // 保存报告到后端
             if (htmlReportContent.value) {
               const htmlReportMessage: ChatMessage = {
@@ -455,7 +468,10 @@ export default defineComponent({
                 })
             } else {
               // 其他节点，可能是错误或人类反馈模式
-              await saveNodeMessage()
+              // 保存最后一个节点的消息（如果有）
+              if (currentBlockIndex >= 0 && nodeBlocks.value[currentBlockIndex]) {
+                await saveNodeMessage(nodeBlocks.value[currentBlockIndex])
+              }
               
               // 如果是人工反馈模式，显示反馈组件
               if (requestOptions.value.humanFeedback && rejectedPlan) {
