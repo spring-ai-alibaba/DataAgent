@@ -183,6 +183,22 @@
             <artifactId>aliyun-sdk-oss</artifactId>
             <version>3.17.4</version>
         </dependency>
+        <!--        elasticsearch自动配置-->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-vector-store-elasticsearch</artifactId>
+        </dependency>
+        <!-- 显式添加Elasticsearch Java客户端依赖以解决DenseVectorSimilarity类缺失问题 -->
+        <dependency>
+            <groupId>co.elastic.clients</groupId>
+            <artifactId>elasticsearch-java</artifactId>
+            <version>${elasticsearch-client.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.elasticsearch.client</groupId>
+            <artifactId>elasticsearch-rest-client</artifactId>
+            <version>${elasticsearch-client.version}</version>
+        </dependency>
 
     </dependencies>
     <repositories>

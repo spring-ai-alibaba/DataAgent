@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.request;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -28,10 +29,17 @@ public class AgentSearchRequest implements Serializable {
 
 	private final String agentId;
 
+	private String docVectorType;
+
+	private List<String> keywords;
+
+	private Double similarityThreshold = 0.2;
+
 	private String query;
 
 	private Integer topK;
 
+	// TODO 待废弃，因为元数据的过滤只需要考虑agentId,vectorType
 	private Map<String, Object> metadataFilter;
 
 	/**
@@ -123,6 +131,30 @@ public class AgentSearchRequest implements Serializable {
 	public String toString() {
 		return "AgentSearchRequest{" + "agentId='" + agentId + '\'' + ", query='" + query + '\'' + ", topK=" + topK
 				+ ", metadataFilter=" + metadataFilter + '}';
+	}
+
+	public String getDocVectorType() {
+		return docVectorType;
+	}
+
+	public void setDocVectorType(String docVectorType) {
+		this.docVectorType = docVectorType;
+	}
+
+	public List<String> getKeywords() {
+		return keywords;
+	}
+
+	public void setKeywords(List<String> keywords) {
+		this.keywords = keywords;
+	}
+
+	public Double getSimilarityThreshold() {
+		return similarityThreshold;
+	}
+
+	public void setSimilarityThreshold(Double similarityThreshold) {
+		this.similarityThreshold = similarityThreshold;
 	}
 
 }
