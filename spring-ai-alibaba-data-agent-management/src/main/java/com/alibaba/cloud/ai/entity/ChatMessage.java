@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.entity;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
@@ -26,6 +27,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class ChatMessage {
 
 	private Long id;
@@ -41,20 +43,5 @@ public class ChatMessage {
 	private String metadata; // JSON格式的元数据
 
 	private LocalDateTime createTime;
-
-	public ChatMessage(String sessionId, String role, String content, String messageType) {
-		this.sessionId = sessionId;
-		this.role = role;
-		this.content = content;
-		this.messageType = messageType;
-	}
-
-	public ChatMessage(String sessionId, String role, String content, String messageType, String metadata) {
-		this.sessionId = sessionId;
-		this.role = role;
-		this.content = content;
-		this.messageType = messageType;
-		this.metadata = metadata;
-	}
 
 }

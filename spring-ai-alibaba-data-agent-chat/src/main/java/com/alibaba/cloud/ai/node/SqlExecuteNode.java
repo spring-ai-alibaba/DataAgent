@@ -23,16 +23,18 @@ import com.alibaba.cloud.ai.connector.bo.ResultSetBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.constant.Constant;
 
-import com.alibaba.cloud.ai.enums.StreamResponseType;
+import com.alibaba.cloud.ai.enums.TextType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StepResultUtil;
-import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
@@ -209,17 +211,20 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 
 			// Create display flux for user experience only
 			Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
-				emitter.next(ChatResponseUtil.createStatusResponse("开始执行SQL..."));
-				emitter.next(ChatResponseUtil.createStatusResponse("执行SQL查询"));
-				emitter.next(ChatResponseUtil.createStatusResponse("```" + sqlQuery + "```"));
-				emitter.next(ChatResponseUtil.createStatusResponse("执行SQL完成"));
+				emitter.next(ChatResponseUtil.createResponse("开始执行SQL..."));
+				emitter.next(ChatResponseUtil.createResponse("执行SQL查询"));
+				emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign()));
+				emitter.next(ChatResponseUtil.createResponse(sqlQuery));
+				emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()));
+				emitter.next(ChatResponseUtil.createResponse("执行SQL完成"));
+				// todo: 输出SQL执行结果
 				emitter.complete();
 			});
 
 			// Create generator using utility class, returning pre-computed business logic
 			// result
-			var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-					v -> result, displayFlux, StreamResponseType.EXECUTE_SQL);
+			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil
+				.createStreamingGeneratorWithMessages(this.getClass(), state, v -> result, displayFlux);
 
 			return Map.of(SQL_EXECUTE_NODE_OUTPUT, generator);
 		}
@@ -232,15 +237,15 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 
 			// Create error display flux
 			Flux<ChatResponse> errorDisplayFlux = Flux.create(emitter -> {
-				emitter.next(ChatResponseUtil.createStatusResponse("开始执行SQL..."));
-				emitter.next(ChatResponseUtil.createStatusResponse("执行SQL查询"));
-				emitter.next(ChatResponseUtil.createStatusResponse("SQL执行失败: " + errorMessage));
+				emitter.next(ChatResponseUtil.createResponse("开始执行SQL..."));
+				emitter.next(ChatResponseUtil.createResponse("执行SQL查询"));
+				emitter.next(ChatResponseUtil.createResponse("SQL执行失败: " + errorMessage));
 				emitter.complete();
 			});
 
 			// Create error generator using utility class
-			var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-					v -> errorResult, errorDisplayFlux, StreamResponseType.EXECUTE_SQL);
+			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil
+				.createStreamingGeneratorWithMessages(this.getClass(), state, v -> errorResult, errorDisplayFlux);
 
 			return Map.of(SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, generator);
 		}

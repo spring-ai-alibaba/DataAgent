@@ -70,6 +70,8 @@ import reactor.netty.http.client.HttpClient;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.alibaba.cloud.ai.constant.Constant.AGENT_ID;
 import static com.alibaba.cloud.ai.constant.Constant.BUSINESS_KNOWLEDGE;
@@ -308,6 +310,12 @@ public class DataAgentConfiguration {
 	@ConditionalOnMissingBean(ChatClient.class)
 	public ChatClient chatClient(ChatModel chatModel) {
 		return ChatClient.builder(chatModel).build();
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(ExecutorService.class)
+	public ExecutorService executorService() {
+		return Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 	}
 
 }

@@ -16,14 +16,15 @@
 
 package com.alibaba.cloud.ai.node;
 
-import com.alibaba.cloud.ai.enums.StreamResponseType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
 import com.alibaba.cloud.ai.service.llm.LlmService;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.alibaba.cloud.ai.util.StepResultUtil;
-import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -71,13 +72,13 @@ public class PythonAnalyzeNode extends AbstractPlanBasedNode implements NodeActi
 
 		Flux<ChatResponse> pythonAnalyzeFlux = llmService.callSystem(systemPrompt);
 
-		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-				"正在分析代码运行结果...\n", "\n结果分析完成。", aiResponse -> {
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, "正在分析代码运行结果...\n", "\n结果分析完成。", aiResponse -> {
 					Map<String, String> updatedSqlResult = StepResultUtil.addStepResult(sqlExecuteResult, currentStep,
 							aiResponse);
 					this.logNodeOutput("python_analysis_result", aiResponse);
 					return Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedSqlResult, PLAN_CURRENT_STEP, currentStep + 1);
-				}, pythonAnalyzeFlux, StreamResponseType.PYTHON_ANALYSIS);
+				}, pythonAnalyzeFlux);
 
 		return Map.of(PYTHON_ANALYSIS_NODE_OUTPUT, generator);
 	}

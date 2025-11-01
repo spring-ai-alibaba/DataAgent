@@ -15,12 +15,16 @@
  */
 package com.alibaba.cloud.ai.service.graph;
 
-import com.alibaba.cloud.ai.graph.RunnableConfig;
+import com.alibaba.cloud.ai.dto.GraphRequest;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
-import com.alibaba.cloud.ai.vo.Nl2SqlProcessVO;
+import com.alibaba.cloud.ai.vo.GraphNodeResponse;
+import org.springframework.http.codec.ServerSentEvent;
+import reactor.core.publisher.Sinks;
 
-import java.util.function.Consumer;
-
+/**
+ * @author vlsmb
+ * @since 2025/10/30
+ */
 public interface GraphService {
 
 	/**
@@ -32,30 +36,11 @@ public interface GraphService {
 	 */
 	String nl2sql(String naturalQuery, String agentId) throws GraphRunnerException;
 
-	// todo: 遗留方法，待删除
-	default String nl2sql(String naturalQuery) throws GraphRunnerException {
-		return this.nl2sql(naturalQuery, "");
-	}
-
 	/**
-	 * 自然语言转SQL，允许记录中间执行过程
-	 * @param nl2SqlProcessConsumer 处理节点运行结果的Consumer
-	 * @param naturalQuery 自然语言
-	 * @param agentId Agent Id
-	 * @param runnableConfig Runnable Config
+	 * 流式处理NL2SQL或者DataAgent请求
+	 * @param sink 输出Sink
+	 * @param graphRequest 请求体
 	 */
-	void nl2sqlWithProcess(Consumer<Nl2SqlProcessVO> nl2SqlProcessConsumer, String naturalQuery, String agentId,
-			RunnableConfig runnableConfig);
-
-	/**
-	 * 自然语言转SQL，允许记录中间执行过程
-	 * @param nl2SqlProcessConsumer 处理节点运行结果的Consumer
-	 * @param naturalQuery 自然语言
-	 * @param agentId Agent Id
-	 */
-	default void nl2sqlWithProcess(Consumer<Nl2SqlProcessVO> nl2SqlProcessConsumer, String naturalQuery,
-			String agentId) {
-		this.nl2sqlWithProcess(nl2SqlProcessConsumer, naturalQuery, agentId, RunnableConfig.builder().build());
-	}
+	void graphStreamProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest);
 
 }

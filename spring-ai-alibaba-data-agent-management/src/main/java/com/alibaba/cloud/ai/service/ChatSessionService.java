@@ -30,19 +30,9 @@ public interface ChatSessionService {
 	List<ChatSession> findByAgentId(Integer agentId);
 
 	/**
-	 * Get session by ID
-	 */
-	ChatSession findById(String sessionId);
-
-	/**
 	 * Create a new session
 	 */
 	ChatSession createSession(Integer agentId, String title, Long userId);
-
-	/**
-	 * Update session
-	 */
-	ChatSession updateSession(ChatSession session);
 
 	/**
 	 * Clear all sessions for an agent

@@ -46,16 +46,4 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 		return message;
 	}
 
-	@Override
-	public void saveUserMessage(String sessionId, String content) {
-		ChatMessage message = new ChatMessage(sessionId, "user", content, "text");
-		saveMessage(message);
-	}
-
-	@Override
-	public void saveAssistantMessage(String sessionId, String content, String messageType, String metadata) {
-		ChatMessage message = new ChatMessage(sessionId, "assistant", content, messageType, metadata);
-		saveMessage(message);
-	}
-
 }

@@ -20,19 +20,21 @@ import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.entity.SemanticModel;
-import com.alibaba.cloud.ai.enums.StreamResponseType;
+import com.alibaba.cloud.ai.enums.TextType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.service.business.BusinessKnowledgeService;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.service.schema.SchemaService;
 import com.alibaba.cloud.ai.service.semantic.SemanticModelService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
-import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -128,22 +130,20 @@ public class TableRelationNode implements NodeAction {
 
 		// Create display stream for user experience only
 		Flux<ChatResponse> preFlux = Flux.create(emitter -> {
-			emitter.next(ChatResponseUtil.createStatusResponse("开始构建初始Schema..."));
-			emitter.next(ChatResponseUtil.createStatusResponse("初始Schema构建完成."));
+			emitter.next(ChatResponseUtil.createResponse("开始构建初始Schema..."));
+			emitter.next(ChatResponseUtil.createResponse("初始Schema构建完成."));
 			emitter.complete();
 		});
 		Flux<ChatResponse> displayFlux = preFlux.concatWith(schemaFlux).concatWith(Flux.create(emitter -> {
-			emitter.next(ChatResponseUtil.createStatusResponse("开始处理Schema选择..."));
-			emitter.next(ChatResponseUtil.createStatusResponse("Schema选择处理完成."));
+			emitter.next(ChatResponseUtil.createResponse("开始处理Schema选择..."));
+			emitter.next(ChatResponseUtil.createResponse("Schema选择处理完成."));
 			emitter.complete();
 		}));
 
 		// Use utility class to create generator, directly return business logic computed
 		// result
-		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state, v -> {
-			log.debug("resultMap: {}", resultMap);
-			return resultMap;
-		}, displayFlux, StreamResponseType.SCHEMA_DEEP_RECALL);
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, v -> resultMap, displayFlux);
 
 		// need to reset retry count and exception
 		return Map.of(TABLE_RELATION_OUTPUT, generator, BUSINESS_KNOWLEDGE, businessKnowledgePrompt, SEMANTIC_MODEL,
@@ -206,9 +206,12 @@ public class TableRelationNode implements NodeAction {
 			log.info("[{}] Executing regular schema selection", this.getClass().getSimpleName());
 			schemaFlux = nl2SqlService.fineSelect(schemaDTO, input, evidenceList, null, agentDbConfig, dtoConsumer);
 		}
-		return Flux.just(ChatResponseUtil.createStatusResponse("正在选择合适的数据表..."))
+		return Flux
+			.just(ChatResponseUtil.createResponse("正在选择合适的数据表...\n"),
+					ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()))
 			.concatWith(schemaFlux)
-			.concatWith(Flux.just(ChatResponseUtil.createStatusResponse("选择数据表完成。")));
+			.concatWith(Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
+					ChatResponseUtil.createResponse("\n\n选择数据表完成。")));
 	}
 
 }

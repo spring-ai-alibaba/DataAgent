@@ -31,14 +31,4 @@ public interface ChatMessageService {
 	 */
 	ChatMessage saveMessage(ChatMessage message);
 
-	/**
-	 * Save user message
-	 */
-	void saveUserMessage(String sessionId, String content);
-
-	/**
-	 * Save assistant message
-	 */
-	void saveAssistantMessage(String sessionId, String content, String messageType, String metadata);
-
 }
