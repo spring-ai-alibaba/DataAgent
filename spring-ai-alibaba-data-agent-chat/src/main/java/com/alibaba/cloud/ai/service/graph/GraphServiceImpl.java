@@ -102,8 +102,7 @@ public class GraphServiceImpl implements GraphService {
 		CompletableFuture
 			.runAsync(() -> nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output, sink),
 					error -> handleStreamError(agentId, threadId, error, sink),
-					() -> handleStreamComplete(agentId, threadId, sink)), executor)
-			.thenRun(() -> stateMap.remove(threadId));
+					() -> handleStreamComplete(agentId, threadId, sink)), executor);
 	}
 
 	private void handleHumanFeedback(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
@@ -126,8 +125,7 @@ public class GraphServiceImpl implements GraphService {
 		CompletableFuture
 			.runAsync(() -> nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output, sink),
 					error -> handleStreamError(agentId, threadId, error, sink),
-					() -> handleStreamComplete(agentId, threadId, sink)), executor)
-			.thenRun(() -> stateMap.remove(threadId));
+					() -> handleStreamComplete(agentId, threadId, sink)), executor);
 	}
 
 	/**
@@ -141,6 +139,7 @@ public class GraphServiceImpl implements GraphService {
 			.event("error")
 			.build());
 		sink.tryEmitComplete();
+		stateMap.remove(threadId);
 	}
 
 	/**
@@ -152,6 +151,7 @@ public class GraphServiceImpl implements GraphService {
 		sink.tryEmitNext(
 				ServerSentEvent.builder(GraphNodeResponse.complete(agentId, threadId)).event("complete").build());
 		sink.tryEmitComplete();
+		stateMap.remove(threadId);
 	}
 
 	/**
@@ -174,7 +174,11 @@ public class GraphServiceImpl implements GraphService {
 		// 如果是文本标记符号，则更新文本类型
 		TextType textType = stateMap.compute(request.getThreadId(), (k, originType) -> {
 			if (originType == null) {
-				return TextType.TEXT;
+				TextType type = TextType.getTypeByStratSign(chunk);
+				if (type != TextType.TEXT) {
+					typeSign.set(true);
+				}
+				return type;
 			}
 			TextType newType = TextType.getType(originType, chunk);
 			if (newType != originType) {

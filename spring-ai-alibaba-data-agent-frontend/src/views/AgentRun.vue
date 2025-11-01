@@ -96,15 +96,16 @@
                 >
                   <el-switch 
                     v-model="requestOptions.humanFeedback" 
-                    :disabled="requestOptions.nl2sqlOnly" 
+                    :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback" 
                   />
                 </el-tooltip>
               </div>
               <div class="switch-item">
                 <span class="switch-label">仅NL2SQL</span>
                 <el-switch 
-                  v-model="requestOptions.nl2sqlOnly" 
-                  @change="handleNl2sqlOnlyChange" 
+                  v-model="requestOptions.nl2sqlOnly"
+                  :disabled="isStreaming || showHumanFeedback" 
+                  @change="handleNl2sqlOnlyChange"
                 />
               </div>
               <div class="switch-item">
@@ -125,7 +126,7 @@
                 >
                   <el-switch 
                     v-model="requestOptions.plainReport" 
-                    :disabled="requestOptions.nl2sqlOnly" 
+                    :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback" 
                   />
                 </el-tooltip> -->
               </div>
@@ -141,13 +142,13 @@
               type="textarea"
               :rows="3"
               placeholder="请输入您的问题..."
-              :disabled="isStreaming"
+              :disabled="isStreaming || showHumanFeedback"
               @keydown.enter.exact.prevent="sendMessage"
             />
             <el-button 
               type="primary" 
               @click="sendMessage" 
-              :loading="isStreaming"
+              :loading="isStreaming || showHumanFeedback"
               circle
               class="send-button"
             >
@@ -305,7 +306,8 @@ export default defineComponent({
           nl2sqlOnly: requestOptions.value.nl2sqlOnly,
           plainReport: requestOptions.value.plainReport,
           rejectedPlan: false,
-          humanFeedbackContent: null
+          humanFeedbackContent: null,
+          threadId: null
         }
 
         userInput.value = ''
@@ -541,7 +543,10 @@ export default defineComponent({
       let content = ""
 
       for (let idx = 0; idx < node.length; idx++) {
-        if(node[idx].textType === TextType.TEXT) {
+        if (node[idx].textType === TextType.HTML) {
+          content += node[idx].text
+        }
+        else if(node[idx].textType === TextType.TEXT) {
           content += node[idx].text.replace(/\n/g, '<br>')
         } else if(node[idx].textType === TextType.JSON || node[idx].textType === TextType.PYTHON || node[idx].textType === TextType.SQL) {
           let pre = ""

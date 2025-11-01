@@ -16,7 +16,7 @@
 
 export interface GraphRequest {
     agentId: string;
-    threadId: string;
+    threadId?: string;
     query: string;
     humanFeedback: boolean;
     humanFeedbackContent?: string;
@@ -64,7 +64,9 @@ class GraphService {
         // 构建查询参数
         const params = new URLSearchParams();
         params.append('agentId', request.agentId);
-        params.append('threadId', request.threadId);
+        if(request.threadId) {
+            params.append('threadId', request.threadId);
+        }
         params.append('query', request.query);
         params.append('humanFeedback', request.humanFeedback.toString());
         params.append('rejectedPlan', request.rejectedPlan.toString());
@@ -82,7 +84,7 @@ class GraphService {
         eventSource.onmessage = async (event) => {
             try {
                 const nodeResponse: GraphNodeResponse = JSON.parse(event.data);
-                console.log(`Node: ${nodeResponse.nodeName}, message: ${nodeResponse.text}`)
+                console.log(`Node: ${nodeResponse.nodeName}, message: ${nodeResponse.text}, type: ${nodeResponse.textType}`)
                 await onMessage(nodeResponse);
             } catch (parseError) {
                 console.error('Failed to parse SSE data:', parseError);
