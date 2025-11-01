@@ -190,10 +190,10 @@ import BaseLayout from '@/layouts/BaseLayout.vue'
 import AgentService from '@/services/agent'
 import ChatService, { type ChatSession, type ChatMessage } from '@/services/chat'
 import GraphService, { type GraphRequest, type GraphNodeResponse, TextType } from '@/services/graph'
-import PresetQuestionService from '@/services/presetQuestion'
 import { type Agent } from '@/services/agent'
 import HumanFeedback from '@/components/run/HumanFeedback.vue'
 import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue'
+// todo: 添加预设问题子件
 
 export default defineComponent({
   name: 'AgentRun',
@@ -220,8 +220,7 @@ export default defineComponent({
     const currentMessages = ref<ChatMessage[]>([])
     const userInput = ref('')
     const isStreaming = ref(false)
-    const streamingNodes = ref<GraphNodeResponse[]>([])
-    const activeNodeTab = ref('')
+    const nodeBlocks = ref<GraphNodeResponse[][]>([])
     const requestOptions = ref({
       humanFeedback: false,
       nl2sqlOnly: false,
@@ -238,7 +237,6 @@ export default defineComponent({
     }
     const autoScroll = ref(true)
     const chatContainer = ref<HTMLElement | null>(null)
-    const nodeBlocks = ref<GraphNodeResponse[]>([])
     
     // 报告相关数据
     const htmlReportContent = ref('')
@@ -268,7 +266,6 @@ export default defineComponent({
 
     const selectSession = async (session: ChatSession) => {
       currentSession.value = session
-      streamingNodes.value = []
       nodeBlocks.value = []
       isStreaming.value = false
       try {
@@ -335,8 +332,8 @@ export default defineComponent({
         // 重置报告状态
         resetReportState()
 
-        const saveNodeMessage = (node: GraphNodeResponse): Promise<void> => {
-          if (!node || !node.text) return Promise.resolve()
+        const saveNodeMessage = (node: GraphNodeResponse[]): Promise<void> => {
+          if (!node || !node.length) return Promise.resolve()
           
           // 使用generateNodeHtml方法生成HTML代码，确保显示与保存一致
           const nodeHtml = generateNodeHtml(node)
@@ -373,31 +370,19 @@ export default defineComponent({
                 htmlReportSize.value = htmlReportContent.value.length
                 
                 // 更新显示：当前已经收集了多少字节的报告
-                const reportNode = nodeBlocks.value.find((block: GraphNodeResponse) => block.nodeName === 'ReportGeneratorNode' && block.textType === 'HTML')
+                const reportNode: GraphNodeResponse[] = nodeBlocks.value.find((block: GraphNodeResponse[]) => block.length > 0 && block[0].nodeName === 'ReportGeneratorNode' && block[0].textType === 'HTML')
                 if (reportNode) {
-                  reportNode.text = `正在收集HTML报告... 已收集 ${htmlReportSize.value} 字节`
+                  reportNode[0].text = `正在收集HTML报告... 已收集 ${htmlReportSize.value} 字节`
                 } else {
-                  nodeBlocks.value.push({
+                  nodeBlocks.value.push([{
                     ...response,
                     text: `正在收集HTML报告... 已收集 ${htmlReportSize.value} 字节`
-                  })
+                  }])
                 }
               }
               // 处理Markdown报告
               else if (response.textType === 'MARK_DOWN') {
-                markdownReportContent.value += response.text
-                const markdownHtml = markdownToHtml(markdownReportContent.value)
-                
-                // 实时渲染Markdown报告
-                const reportNode = nodeBlocks.value.find((block: GraphNodeResponse) => block.nodeName === 'ReportGeneratorNode' && block.textType === 'MARK_DOWN')
-                if (reportNode) {
-                  reportNode.text = markdownHtml
-                } else {
-                  nodeBlocks.value.push({
-                    ...response,
-                    text: markdownHtml
-                  })
-                }
+                // todo
               }
             } else {
               // 处理其他节点（同步处理逻辑）
@@ -415,25 +400,25 @@ export default defineComponent({
                   ...response,
                   text: response.text
                 }
-                nodeBlocks.value.push(newBlock)
+                nodeBlocks.value.push([newBlock])
                 currentBlockIndex = nodeBlocks.value.length - 1
                 currentNodeName = response.nodeName
                 currentTextType = response.textType
               } else {
                 // 继续当前节点的内容
                 if (currentBlockIndex >= 0 && nodeBlocks.value[currentBlockIndex]) {
-                  // 检查textType是否发生变化
-                  if (response.textType !== currentTextType) {
-                    currentTextType = response.textType
-                  }
-                  nodeBlocks.value[currentBlockIndex].text += response.text
-                } else {
-                  // 如果当前块索引无效，创建新块
                   const newBlock: GraphNodeResponse = {
                     ...response,
                     text: response.text
                   }
-                  nodeBlocks.value.push(newBlock)
+                  nodeBlocks.value[currentBlockIndex].push(newBlock)
+                } else {
+                  // 创建新的节点块
+                  const newBlock: GraphNodeResponse = {
+                    ...response,
+                    text: response.text
+                  }
+                  nodeBlocks.value.push([newBlock])
                   currentBlockIndex = nodeBlocks.value.length - 1
                   currentNodeName = response.nodeName
                   currentTextType = response.textType
@@ -541,66 +526,60 @@ export default defineComponent({
     }
 
     // 生成节点容器的HTML代码
-    const generateNodeHtml = (node: GraphNodeResponse) => {
+    const generateNodeHtml = (node: GraphNodeResponse[]) => {
       let content = formatNodeContent(node)
 
       return `
         <div class="agent-response-block" style="display: block !important; width: 100% !important;">
-          <div class="agent-response-title">${node.nodeName}</div>
+          <div class="agent-response-title">${node.length > 0 ? node[0].nodeName : "空节点"}</div>
           <div class="agent-response-content">${content}</div>
         </div>
       `
     }
 
-    const formatNodeContent = (node: GraphNodeResponse) => {
-      let content = node.text
-      
-      // 根据 textType 进行代码高亮处理
-      if (node.textType === TextType.JSON || node.textType === TextType.PYTHON || node.textType === TextType.SQL) {
-        try {
-          // 使用 highlight.js 进行代码高亮
-          const language = node.textType.toLowerCase()
-          const highlighted = hljs.highlight(content, { language })
-          content = `<pre><code class="hljs ${language}">${highlighted.value}</code></pre>`
-        } catch (error) {
-          console.warn(`代码高亮失败 (${node.textType}):`, error)
-          // 如果高亮失败，返回原始代码
-          content = `<pre><code>${content}</code></pre>`
+    const formatNodeContent = (node: GraphNodeResponse[]) => {
+      let content = ""
+
+      for (let idx = 0; idx < node.length; idx++) {
+        if(node[idx].textType === TextType.TEXT) {
+          content += node[idx].text.replace(/\n/g, '<br>')
+        } else if(node[idx].textType === TextType.JSON || node[idx].textType === TextType.PYTHON || node[idx].textType === TextType.SQL) {
+          let pre = ""
+          let p = idx
+          for (; p < node.length; p++) {
+            if(node[p].textType !== node[idx].textType) {
+              break
+            }
+            pre += node[p].text
+          }
+          try {
+            // 使用 highlight.js 进行代码高亮
+            const language = node[idx].textType.toLowerCase()
+            const highlighted = hljs.highlight(pre, { language })
+            content += `<pre><code class="hljs ${language}">${highlighted.value}</code></pre>`
+          } catch (error) {
+            // 如果高亮失败，返回原始代码
+            content += `<pre><code>${pre}</code></pre>`
+          }
+          if(p < node.length) {
+            idx = p - 1
+          } else {
+            break
+          }
+        } else {
+          console.warn(`不支持的 textType: ${node[idx].textType}`)
+          content += node[idx].text
         }
-      } else if (node.textType === TextType.TEXT) {
-        // 普通文本，保持原有格式
-        content = content.replace(/\n/g, '<br>')
       }
-      
+
       return content
     }
 
 
     // Markdown转HTML
-    // todo: 使用其他高亮库
     const markdownToHtml = (markdown: string): string => {
-      // 简单的Markdown转HTML实现
-      let html = markdown
-        // 标题
-        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-        // 粗体
-        .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-        // 斜体
-        .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-        // 代码块
-        .replace(/```([^`]+)```/gim, '<pre><code>$1</code></pre>')
-        // 行内代码
-        .replace(/`([^`]+)`/gim, '<code>$1</code>')
-        // 链接
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2">$1</a>')
-        // 图片
-        .replace(/!\[([^\]]+)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1">')
-        // 换行
-        .replace(/\n/g, '<br>')
-      
-      return html
+      // todo
+      return markdown
     }
 
     // 重置报告状态
@@ -609,39 +588,6 @@ export default defineComponent({
       htmlReportSize.value = 0
       isHtmlReportComplete.value = false
       markdownReportContent.value = ''
-    }
-
-    // 快速操作按钮 - 从预设问题获取
-    const quickActions = ref<Array<{id: number, label: string, message: string, icon: string}>>([])
-
-    // 加载预设问题
-    const loadPresetQuestions = async () => {
-      try {
-        const questions = await PresetQuestionService.list(parseInt(agentId.value))
-        quickActions.value = questions.map((q: any, index: number) => ({
-          id: index + 1,
-          label: q.title,
-          message: q.content,
-          icon: 'Promotion'
-        }))
-      } catch (error) {
-        console.error('加载预设问题失败:', error)
-        // 如果加载失败，使用默认问题
-        quickActions.value = [
-          {
-            id: 1,
-            label: '查询最近数据',
-            message: '帮我查询最近一个月的数据',
-            icon: 'Promotion'
-          },
-          {
-            id: 2,
-            label: '生成销售报告',
-            message: '生成一份销售分析报告',
-            icon: 'Promotion'
-          }
-        ]
-      }
     }
 
     const scrollToBottom = () => {
@@ -664,7 +610,6 @@ export default defineComponent({
     // 生命周期
     onMounted(async () => {
       await loadAgent()
-      await loadPresetQuestions()
     })
 
     return {
@@ -673,8 +618,6 @@ export default defineComponent({
       currentMessages,
       userInput,
       isStreaming,
-      streamingNodes,
-      activeNodeTab,
       requestOptions,
       autoScroll,
       chatContainer,
