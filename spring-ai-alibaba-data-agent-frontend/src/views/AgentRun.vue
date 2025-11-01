@@ -18,67 +18,13 @@
   <BaseLayout>
   <el-container style="height: calc(100vh - 60px); gap: 0;">
     <!-- 左侧历史消息栏 -->
-    <el-aside width="320px" style="background-color: white; border-right: 1px solid #e8e8e8;">
-      <!-- 顶部操作栏 -->
-      <div class="sidebar-header">
-          <div class="header-controls">
-            <el-button type="primary" @click="goBack" circle>
-              <el-icon><ArrowLeft /></el-icon>
-            </el-button>
-            <el-avatar :src="agent.avatar" size="large">{{ agent.name }}</el-avatar>
-            <el-button type="danger" @click="clearAllSessions" circle>
-              <el-icon><Delete /></el-icon>
-            </el-button>
-          </div>
-        <div class="new-session-section">
-          <el-button type="primary" @click="createNewSession" style="width: 100%;">
-            <el-icon><Plus /></el-icon>
-            新建会话
-          </el-button>
-        </div>
-      </div>
-      
-      <el-divider style="margin: 0;" />
-      
-      <!-- 会话列表 -->
-      <div class="session-list" style="margin-top: 20px;">
-        <div 
-          v-for="session in sessions" 
-          :key="session.id"
-          :class="['session-item', { active: currentSession?.id === session.id, pinned: session.isPinned }]"
-          @click="selectSession(session)"
-        >
-          <div class="session-header">
-            <span class="session-title">{{ session.title || '新会话' }}</span>
-            <div class="session-actions">
-              <el-button 
-                type="text" 
-                size="small" 
-                @click.stop="togglePinSession(session)"
-              >
-                <el-icon>
-                  <StarFilled v-if="session.isPinned" />
-                  <Star v-else />
-                </el-icon>
-              </el-button>
-              <el-button 
-                type="text" 
-                size="small" 
-                @click.stop="deleteSession(session)"
-              >
-                <el-icon><Delete /></el-icon>
-              </el-button>
-            </div>
-          </div>
-          <div class="session-preview">
-            {{ getSessionPreview(session) }}
-          </div>
-          <div class="session-time">
-            {{ formatTime(session.updateTime || session.createTime) }}
-          </div>
-        </div>
-      </div>
-    </el-aside>
+    <ChatSessionSidebar
+      :agent="agent"
+      :handleSetCurrentSession="(session: ChatSession | null) => { currentSession.value = session }"
+      :handleGetCurrentSession="() => { return currentSession.value }"
+      :handleSelectSession="selectSession"
+      :handleClearMessage="() => {currentMessages.value = []}"
+    />
 
       <!-- 右侧对话栏 -->
       <el-main style="background-color: white; display: flex; flex-direction: column;">
@@ -216,8 +162,8 @@
 
 <script lang="ts">
 import { ref, defineComponent, onMounted, nextTick, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { 
   ArrowLeft, 
   Plus, 
@@ -236,6 +182,7 @@ import GraphService, { type GraphRequest, type GraphNodeResponse } from '@/servi
 import PresetQuestionService from '@/services/presetQuestion'
 import { type Agent } from '@/services/agent'
 import HumanFeedback from '@/components/run/HumanFeedback.vue'
+import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue'
 
 export default defineComponent({
   name: 'AgentRun',
@@ -250,15 +197,14 @@ export default defineComponent({
     Promotion,
     Document,
     Download,
-    HumanFeedback
+    HumanFeedback,
+    ChatSessionSidebar
   },
   setup() {
-    const router = useRouter()
     const route = useRoute()
 
     // 响应式数据
     const agent = ref<Agent>({} as Agent)
-    const sessions = ref<ChatSession[]>([])
     const currentSession = ref<ChatSession | null>(null)
     const currentMessages = ref<ChatMessage[]>([])
     const userInput = ref('')
@@ -293,13 +239,7 @@ export default defineComponent({
     const showHumanFeedback = ref(false)
     const lastRequest = ref<GraphRequest | null>(null)
 
-    // 计算属性
     const agentId = computed(() => route.params.id as string)
-
-    // 方法
-    const goBack = () => {
-      router.push(`/agent/${agentId.value}`)
-    }
 
     const loadAgent = async () => {
       try {
@@ -315,33 +255,6 @@ export default defineComponent({
       }
     }
 
-    const loadSessions = async () => {
-      try {
-        sessions.value = await ChatService.getAgentSessions(parseInt(agentId.value))
-        // 默认选择第一个会话或创建新会话
-        if (sessions.value.length > 0) {
-          await selectSession(sessions.value[0])
-        } else {
-          await createNewSession()
-        }
-      } catch (error) {
-        ElMessage.error('加载会话列表失败')
-        console.error('加载会话列表失败:', error)
-      }
-    }
-
-    const createNewSession = async () => {
-      try {
-        const newSession = await ChatService.createSession(parseInt(agentId.value), '新会话')
-        sessions.value.unshift(newSession)
-        await selectSession(newSession)
-        ElMessage.success('新会话创建成功')
-      } catch (error) {
-        ElMessage.error('创建会话失败')
-        console.error('创建会话失败:', error)
-      }
-    }
-
     const selectSession = async (session: ChatSession) => {
       currentSession.value = session
       streamingNodes.value = []
@@ -353,59 +266,6 @@ export default defineComponent({
       } catch (error) {
         ElMessage.error('加载消息失败')
         console.error('加载消息失败:', error)
-      }
-    }
-
-    const togglePinSession = async (session: ChatSession) => {
-      try {
-        await ChatService.pinSession(session.id, !session.isPinned)
-        session.isPinned = !session.isPinned
-        ElMessage.success(session.isPinned ? '会话已置顶' : '会话已取消置顶')
-      } catch (error) {
-        ElMessage.error('操作失败')
-        console.error('置顶会话失败:', error)
-      }
-    }
-
-    const deleteSession = async (session: ChatSession) => {
-      try {
-        await ElMessageBox.confirm('确定要删除这个会话吗？', '确认删除', {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning'
-        })
-        await ChatService.deleteSession(session.id)
-        sessions.value = sessions.value.filter((s: ChatSession) => s.id !== session.id)
-        if (currentSession.value?.id === session.id) {
-          currentSession.value = null
-          currentMessages.value = []
-        }
-        ElMessage.success('会话删除成功')
-      } catch (error) {
-        if (error !== 'cancel') {
-          ElMessage.error('删除会话失败')
-          console.error('删除会话失败:', error)
-        }
-      }
-    }
-
-    const clearAllSessions = async () => {
-      try {
-        await ElMessageBox.confirm('确定要清空所有会话吗？此操作不可恢复。', '确认清空', {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning'
-        })
-        await ChatService.clearAgentSessions(parseInt(agentId.value))
-        sessions.value = []
-        currentSession.value = null
-        currentMessages.value = []
-        ElMessage.success('所有会话已清空')
-      } catch (error) {
-        if (error !== 'cancel') {
-          ElMessage.error('清空会话失败')
-          console.error('清空会话失败:', error)
-        }
       }
     }
 
@@ -488,7 +348,7 @@ export default defineComponent({
         }
 
         // 发送流式请求
-        const closeStream = GraphService.streamSearch(
+        const closeStream = await GraphService.streamSearch(
           request,
           async (response: GraphNodeResponse) => {
             if (response.error) {
@@ -559,7 +419,7 @@ export default defineComponent({
               scrollToBottom()
             }
           },
-          (error: Error) => {
+          async (error: Error) => {
             ElMessage.error(`流式请求失败: ${error.message}`)
             console.error("error: " + error)
             isStreaming.value = false
@@ -663,16 +523,6 @@ export default defineComponent({
       return content
     }
 
-    const getSessionPreview = (session: ChatSession) => {
-      // todo: 这里应该从消息中获取预览，暂时返回固定文本
-      return '点击查看对话内容...'
-    }
-
-    const formatTime = (time: Date | string | undefined) => {
-      if (!time) return ''
-      const date = new Date(time)
-      return date.toLocaleString('zh-CN')
-    }
 
     // Markdown转HTML
     // todo: 使用其他高亮库
@@ -762,13 +612,11 @@ export default defineComponent({
     // 生命周期
     onMounted(async () => {
       await loadAgent()
-      await loadSessions()
       await loadPresetQuestions()
     })
 
     return {
       agent,
-      sessions,
       currentSession,
       currentMessages,
       userInput,
@@ -782,18 +630,11 @@ export default defineComponent({
       agentId,
       showHumanFeedback,
       lastRequest,
-      goBack,
-      createNewSession,
       selectSession,
-      togglePinSession,
-      deleteSession,
-      clearAllSessions,
       sendMessage,
       formatMessageContent,
       formatNodeContent,
       generateNodeHtml,
-      getSessionPreview,
-      formatTime,
       handleNl2sqlOnlyChange,
       downloadHtmlReportFromMessage,
       markdownToHtml,
@@ -805,88 +646,6 @@ export default defineComponent({
 </script>
 
 <style scoped>
-/* 左侧边栏样式 */
-.sidebar-header {
-  padding: 20px;
-}
-
-.header-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-/* 会话列表样式 */
-.session-list {
-  max-height: calc(100vh - 200px);
-  overflow-y: auto;
-  padding: 0 20px 20px;
-}
-
-.session-item {
-  padding: 16px;
-  border: 1px solid #e8e8e8;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  background: white;
-}
-
-.session-item:hover {
-  border-color: #409eff;
-  background-color: #f8fbff;
-}
-
-.session-item.active {
-  border-color: #409eff;
-  background-color: #ecf5ff;
-}
-
-.session-item.pinned {
-  border-left: 4px solid #e6a23c;
-}
-
-.session-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
-}
-
-.session-title {
-  font-weight: 600;
-  font-size: 14px;
-  color: #303133;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-right: 8px;
-}
-
-.session-actions {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.session-preview {
-  font-size: 13px;
-  color: #606266;
-  margin-bottom: 4px;
-  line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.session-time {
-  font-size: 12px;
-  color: #909399;
-}
-
 /* 聊天容器样式 */
 .chat-container {
   flex: 1;
@@ -1042,18 +801,6 @@ export default defineComponent({
   padding: 0;
 }
 
-.node-content {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  max-height: 300px;
-  overflow-y: auto;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border: 1px solid #e8e8e8;
-}
-
 .node-content pre {
   margin: 0;
   white-space: pre-wrap;
@@ -1079,11 +826,6 @@ export default defineComponent({
   color: #409eff;
   font-size: 16px;
   font-weight: 500;
-}
-
-.report-info .el-icon {
-  color: #409eff;
-  font-size: 18px;
 }
 
 /* 输入区域样式 */

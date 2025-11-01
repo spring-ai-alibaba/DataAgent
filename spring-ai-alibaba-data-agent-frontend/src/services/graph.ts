@@ -55,12 +55,12 @@ class GraphService {
      * @param onComplete 完成回调函数
      * @returns 关闭连接的函数
      */
-    streamSearch(
+    async streamSearch(
         request: GraphRequest,
-        onMessage: (response: GraphNodeResponse) => void,
-        onError?: (error: Error) => void,
-        onComplete?: () => void
-    ): () => void {
+        onMessage: (response: GraphNodeResponse) => Promise<void>,
+        onError?: (error: Error) => Promise<void>,
+        onComplete?: () => Promise<void>
+    ): Promise<() => void> {
         // 构建查询参数
         const params = new URLSearchParams();
         params.append('agentId', request.agentId);
@@ -79,29 +79,29 @@ class GraphService {
 
         const eventSource = new EventSource(url);
 
-        eventSource.onmessage = (event) => {
+        eventSource.onmessage = async (event) => {
             try {
                 const nodeResponse: GraphNodeResponse = JSON.parse(event.data);
-                onMessage(nodeResponse);
+                await onMessage(nodeResponse);
             } catch (parseError) {
                 console.error('Failed to parse SSE data:', parseError);
                 if (onError) {
-                    onError(new Error('Failed to parse server response'));
+                    await onError(new Error('Failed to parse server response'));
                 }
             }
         };
 
-        eventSource.onerror = (error) => {
+        eventSource.onerror = async (error) => {
             console.error('EventSource error:', error);
             if (onError) {
-                onError(new Error('Stream connection failed'));
+                await onError(new Error('Stream connection failed'));
             }
             eventSource.close();
         };
 
-        eventSource.addEventListener('complete', () => {
+        eventSource.addEventListener('complete', async () => {
             if (onComplete) {
-                onComplete();
+                await onComplete();
             }
             eventSource.close();
         });
