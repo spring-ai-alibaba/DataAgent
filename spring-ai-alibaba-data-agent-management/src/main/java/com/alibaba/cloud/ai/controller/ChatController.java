@@ -22,6 +22,7 @@ import com.alibaba.cloud.ai.vo.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -112,10 +113,6 @@ public class ChatController {
 	public ResponseEntity<ApiResponse> pinSession(@PathVariable(value = "sessionId") String sessionId,
 			@RequestParam(value = "isPinned") Boolean isPinned) {
 		try {
-			if (isPinned == null) {
-				return ResponseEntity.badRequest().body(ApiResponse.error("isPinned参数不能为空"));
-			}
-
 			chatSessionService.pinSession(sessionId, isPinned);
 			String message = isPinned ? "会话已置顶" : "会话已取消置顶";
 			return ResponseEntity.ok(ApiResponse.success(message));
@@ -133,7 +130,7 @@ public class ChatController {
 	public ResponseEntity<ApiResponse> renameSession(@PathVariable(value = "sessionId") String sessionId,
 			@RequestParam(value = "title") String title) {
 		try {
-			if (title == null || title.trim().isEmpty()) {
+			if (!StringUtils.hasText(title)) {
 				return ResponseEntity.badRequest().body(ApiResponse.error("标题不能为空"));
 			}
 
