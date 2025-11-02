@@ -17,14 +17,17 @@
 package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
-import com.alibaba.cloud.ai.enums.StreamResponseType;
+import com.alibaba.cloud.ai.enums.TextType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.llm.LlmService;
+import com.alibaba.cloud.ai.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
-import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -91,9 +94,14 @@ public class PlannerNode implements NodeAction {
 				: PromptConstant.getPlannerPromptTemplate())
 			.render(params);
 
-		Flux<ChatResponse> chatResponseFlux = llmService.callUser(plannerPrompt);
-		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state,
-				v -> Map.of(PLANNER_NODE_OUTPUT, v), chatResponseFlux, StreamResponseType.PLAN_GENERATION);
+		Flux<ChatResponse> chatResponseFlux = Flux.concat(
+				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign())),
+				llmService.callUser(plannerPrompt),
+				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign())));
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, v -> Map.of(PLANNER_NODE_OUTPUT, v.substring(TextType.JSON.getStartSign().length(),
+						v.length() - TextType.JSON.getEndSign().length())),
+				chatResponseFlux);
 
 		return Map.of(PLANNER_NODE_OUTPUT, generator);
 	}

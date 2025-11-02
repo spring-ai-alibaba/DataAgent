@@ -16,7 +16,7 @@
 
 import axios from "axios";
 
-interface Agent {
+export interface Agent {
     id?: number;
     name?: string;
     description?: string;

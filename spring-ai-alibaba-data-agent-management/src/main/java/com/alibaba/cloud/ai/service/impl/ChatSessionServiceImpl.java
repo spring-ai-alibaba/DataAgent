@@ -43,14 +43,6 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 	}
 
 	/**
-	 * Get session by ID
-	 */
-	@Override
-	public ChatSession findById(String sessionId) {
-		return chatSessionMapper.selectBySessionId(sessionId);
-	}
-
-	/**
 	 * Create a new session
 	 */
 	@Override
@@ -61,16 +53,6 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 		chatSessionMapper.insert(session);
 
 		log.info("Created new chat session: {} for agent: {}", sessionId, agentId);
-		return session;
-	}
-
-	/**
-	 * Update session
-	 */
-	@Override
-	public ChatSession updateSession(ChatSession session) {
-		chatSessionMapper.updateById(session);
-		log.info("Updated chat session: {}", session.getId());
 		return session;
 	}
 

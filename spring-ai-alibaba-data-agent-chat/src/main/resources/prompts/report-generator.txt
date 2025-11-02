@@ -148,10 +148,7 @@ css
 
   ===
 
-  ## 输出格式 - Output format
-  Html:
-  ```html
+  ## 输出格式（直接输出HTML代码，**不要使用任何多余的符号**，特别是Markdown标记） - Output format
   \{HTML PAGE\}
-  ```
 
   以上是你需要遵循的指令，不要输出在结果中。让我们一步一步思考，完成任务。

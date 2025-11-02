@@ -15,21 +15,16 @@
  */
 package com.alibaba.cloud.ai.controller;
 
-import com.alibaba.cloud.ai.dto.ChatRequest;
 import com.alibaba.cloud.ai.entity.*;
 import com.alibaba.cloud.ai.service.*;
-import com.alibaba.cloud.ai.service.graph.GraphService;
 import com.alibaba.cloud.ai.service.ChatMessageService;
-import com.alibaba.cloud.ai.util.JsonUtil;
 import com.alibaba.cloud.ai.vo.ApiResponse;
-import com.alibaba.cloud.ai.vo.ChatResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -43,15 +38,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ChatController {
 
-	private final AgentService agentService;
-
 	private final ChatSessionService chatSessionService;
 
 	private final ChatMessageService chatMessageService;
-
-	private final GraphService graphService;
-
-	private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 
 	/**
 	 * Get session list for an agent
@@ -94,92 +83,6 @@ public class ChatController {
 	}
 
 	/**
-	 * Agent chat interface
-	 */
-	@PostMapping("/agent/{id}/chat")
-	public ResponseEntity<ChatResponse> chat(@PathVariable(value = "id") Integer id, @RequestBody ChatRequest request) {
-		try {
-			// Verify that the agent exists
-			Agent agent = agentService.findById(id.longValue());
-			if (agent == null) {
-				return ResponseEntity.notFound().build();
-			}
-
-			String sessionId = request.getSessionId();
-			String userMessage = request.getMessage();
-
-			// Create a new session if no sessionId is provided
-			if (sessionId == null || sessionId.trim().isEmpty()) {
-				ChatSession newSession = chatSessionService.createSession(id, "新对话", null);
-				sessionId = newSession.getId();
-			}
-			else {
-				// Update session activity time
-				chatSessionService.updateSessionTime(sessionId);
-			}
-
-			// Save user message
-			chatMessageService.saveUserMessage(sessionId, userMessage);
-
-			// Call the NL2SQL service to process the user message
-			ChatResponse response = new ChatResponse(sessionId, "", "text");
-
-			if (graphService != null) {
-				try {
-					// Use the NL2SQL service to generate SQL
-					String sql = graphService.nl2sql(userMessage);
-
-					// Create a response
-					response.setMessage("我为您生成了以下SQL查询：");
-					response.setMessageType("sql");
-					response.setSql(sql);
-
-					// Save assistant message containing SQL information
-					Map<String, Object> metadata = new HashMap<>();
-					metadata.put("sql", sql);
-					metadata.put("originalQuery", userMessage);
-
-					String metadataJson = objectMapper.writeValueAsString(metadata);
-					chatMessageService.saveAssistantMessage(sessionId, response.getMessage(), "sql", metadataJson);
-
-				}
-				catch (IllegalArgumentException e) {
-					// Handle cases where the intent is unclear or chitchat is refused
-					response.setMessage("抱歉，" + e.getMessage());
-					response.setMessageType("error");
-					response.setError(e.getMessage());
-
-					chatMessageService.saveAssistantMessage(sessionId, response.getMessage(), "error", null);
-				}
-				catch (Exception e) {
-					log.error("NL2SQL processing error for agent {}: {}", id, e.getMessage(), e);
-					response.setMessage("抱歉，处理您的请求时出现了错误，请稍后重试。");
-					response.setMessageType("error");
-					response.setError("系统内部错误");
-
-					chatMessageService.saveAssistantMessage(sessionId, response.getMessage(), "error", null);
-				}
-			}
-			else {
-				// NL2SQL服务不可用
-				response.setMessage("抱歉，NL2SQL服务当前不可用，请稍后重试。");
-				response.setMessageType("error");
-				response.setError("服务不可用");
-
-				chatMessageService.saveAssistantMessage(sessionId, response.getMessage(), "error", null);
-			}
-
-			return ResponseEntity.ok(response);
-
-		}
-		catch (Exception e) {
-			log.error("Chat processing error for agent {}: {}", id, e.getMessage(), e);
-			return ResponseEntity.internalServerError()
-				.body(new ChatResponse(request.getSessionId(), "系统错误，请稍后重试", "error"));
-		}
-	}
-
-	/**
 	 * Save message to session
 	 */
 	@PostMapping("/sessions/{sessionId}/messages")
@@ -208,13 +111,8 @@ public class ChatController {
 	 */
 	@PutMapping("/sessions/{sessionId}/pin")
 	public ResponseEntity<ApiResponse> pinSession(@PathVariable(value = "sessionId") String sessionId,
-			@RequestBody Map<String, Object> request) {
+			@RequestParam(value = "isPinned") Boolean isPinned) {
 		try {
-			Boolean isPinned = (Boolean) request.get("isPinned");
-			if (isPinned == null) {
-				return ResponseEntity.badRequest().body(ApiResponse.error("isPinned参数不能为空"));
-			}
-
 			chatSessionService.pinSession(sessionId, isPinned);
 			String message = isPinned ? "会话已置顶" : "会话已取消置顶";
 			return ResponseEntity.ok(ApiResponse.success(message));
@@ -230,14 +128,13 @@ public class ChatController {
 	 */
 	@PutMapping("/sessions/{sessionId}/rename")
 	public ResponseEntity<ApiResponse> renameSession(@PathVariable(value = "sessionId") String sessionId,
-			@RequestBody Map<String, Object> request) {
+			@RequestParam(value = "title") String title) {
 		try {
-			String newTitle = (String) request.get("title");
-			if (newTitle == null || newTitle.trim().isEmpty()) {
+			if (!StringUtils.hasText(title)) {
 				return ResponseEntity.badRequest().body(ApiResponse.error("标题不能为空"));
 			}
 
-			chatSessionService.renameSession(sessionId, newTitle.trim());
+			chatSessionService.renameSession(sessionId, title.trim());
 			return ResponseEntity.ok(ApiResponse.success("会话已重命名"));
 		}
 		catch (Exception e) {

@@ -17,14 +17,17 @@
 package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
+import com.alibaba.cloud.ai.enums.TextType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
-import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import com.google.common.util.concurrent.AtomicDouble;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -109,14 +112,15 @@ public class SqlGenerateNode implements NodeAction {
 		}
 
 		// Create display flux for user experience only
-		Flux<ChatResponse> preFlux = Flux.just(ChatResponseUtil.createCustomStatusResponse(displayMessage));
-		Flux<ChatResponse> displayFlux = preFlux.concatWith(sqlFlux.map(ChatResponseUtil::createCustomStatusResponse))
-			.concatWith(Flux.just(ChatResponseUtil.createCustomStatusResponse("SQL重新生成完成，准备执行")));
+		Flux<ChatResponse> preFlux = Flux.just(ChatResponseUtil.createResponse(displayMessage));
+		Flux<ChatResponse> displayFlux = preFlux.concatWith(sqlFlux.map(ChatResponseUtil::createResponse))
+			.concatWith(Flux.just(ChatResponseUtil.createResponse("SQL重新生成完成，准备执行")));
 
-		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state, v -> {
-			log.debug("resultMap: {}", result);
-			return result;
-		}, displayFlux);
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, v -> {
+					log.debug("resultMap: {}", result);
+					return result;
+				}, displayFlux);
 
 		return Map.of(SQL_GENERATE_OUTPUT, generator);
 	}
@@ -229,13 +233,15 @@ public class SqlGenerateNode implements NodeAction {
 							return this.get();
 						}
 					}));
-				return Flux.just("正在重新生成SQL...\n").concatWith(sqlFlux).concatWith(Flux.just("重新生成SQL完成..."));
+				return Flux.just("正在重新生成SQL...\n", TextType.SQL.getStartSign())
+					.concatWith(sqlFlux)
+					.concatWith(Flux.just(TextType.SQL.getEndSign(), "重新生成SQL完成..."));
 			}
 		};
 
 		Flux<String> sqlFlux = nl2SqlService.generateSql(evidenceList, input, schemaDTO, originalSql, exceptionMessage);
 		Mono<String> sqlMono = sqlFlux.collect(StringBuilder::new, StringBuilder::append).map(StringBuilder::toString);
-		return Flux.just("正在生成SQL...\n")
+		return Flux.just("正在生成SQL...\n", TextType.SQL.getStartSign())
 			.concatWith(sqlMono.flatMapMany(sql -> Flux.just(nl2SqlService.sqlTrim(sql)).expand(newSql -> {
 				if (checkSqlFunc.apply(newSql) || roundRef.getAndIncrement() > MAX_OPTIMIZATION_ROUNDS) {
 					String bestSql = bestSqlRef.get();
@@ -246,7 +252,7 @@ public class SqlGenerateNode implements NodeAction {
 					return reGenerateSupplier.get();
 				}
 			})))
-			.concatWith(Flux.just("SQL生成完成！\n"));
+			.concatWith(Flux.just(TextType.SQL.getEndSign(), "SQL生成完成！\n"));
 	}
 
 	/**

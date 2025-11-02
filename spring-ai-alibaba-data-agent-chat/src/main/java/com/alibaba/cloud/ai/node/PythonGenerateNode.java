@@ -18,15 +18,18 @@ package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.config.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
-import com.alibaba.cloud.ai.enums.StreamResponseType;
+import com.alibaba.cloud.ai.enums.TextType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
 import com.alibaba.cloud.ai.service.llm.LlmService;
+import com.alibaba.cloud.ai.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.MarkdownParserUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
-import com.alibaba.cloud.ai.util.StreamingChatGeneratorUtil;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -115,14 +118,19 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 
 		Flux<ChatResponse> pythonGenerateFlux = llmService.call(systemPrompt, userPrompt);
 
-		var generator = StreamingChatGeneratorUtil.createStreamingGeneratorWithMessages(this.getClass(), state, "", "",
-				aiResponse -> {
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, aiResponse -> {
 					// Some AI models still output Markdown markup (even though Prompt has
 					// emphasized this)
+					aiResponse = aiResponse.substring(TextType.PYTHON.getStartSign().length(),
+							aiResponse.length() - TextType.PYTHON.getEndSign().length());
 					aiResponse = MarkdownParserUtil.extractRawText(aiResponse);
 					log.info("Python Generate Code: {}", aiResponse);
 					return Map.of(PYTHON_GENERATE_NODE_OUTPUT, aiResponse, PYTHON_TRIES_COUNT, triesCount - 1);
-				}, pythonGenerateFlux, StreamResponseType.PYTHON_GENERATE);
+				},
+				Flux.concat(Flux.just(ChatResponseUtil.createPureResponse(TextType.PYTHON.getStartSign())),
+						pythonGenerateFlux,
+						Flux.just(ChatResponseUtil.createPureResponse(TextType.PYTHON.getEndSign()))));
 
 		return Map.of(PYTHON_GENERATE_NODE_OUTPUT, generator);
 	}

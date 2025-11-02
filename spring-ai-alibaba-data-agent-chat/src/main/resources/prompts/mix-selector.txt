@@ -2,7 +2,7 @@
 [Instruction]:
 1. 排除与用户问题完全不相关的table
 2. 保留可能对回答用户问题有帮助的表
-3. 结果以json形式输出，用```json和```包围起来
+3. 结果输出一个JSON数组，但**不要使用任何多余的符号**，特别是Markdown标记
 4. 直接输出结果，不要做多余的分析
 
 以下样例供你参考：
@@ -47,9 +47,7 @@ weekly_weather.station_id=station.id
 【问题】
 How many different services are provided by all stations?
 【Answer】
-```json
 ["station"]
-```
 
 ===============
 【DB_ID】 hr_1
@@ -121,9 +119,7 @@ locations.COUNTRY_ID=countries.COUNTRY_ID
 【问题】
 display the full name (first and last name ) of employee with ID and name of the country presently where (s)he is working.
 【Answer】
-```json
 ["employees", "departments", "countries", "locations"]
-```
 
 ===============
 {schema_info}

@@ -16,9 +16,16 @@
 
 package com.alibaba.cloud.ai.util;
 
+import com.alibaba.cloud.ai.graph.GraphResponse;
+import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.FluxConverter;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
+import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Map;
 import java.util.function.Function;
 
 /**
@@ -63,6 +70,47 @@ public final class FluxUtil {
 	public static <T, R> Flux<T> cascadeFlux(Flux<T> originFlux, Function<R, Flux<T>> nextFluxFunc,
 			Function<Flux<T>, Mono<R>> aggregator) {
 		return cascadeFlux(originFlux, nextFluxFunc, aggregator, Flux.empty(), Flux.empty(), Flux.empty());
+	}
+
+	/**
+	 * Quickly create streaming generator with start and end messages
+	 * @param nodeClass node class
+	 * @param state state
+	 * @param startMessage start message
+	 * @param completionMessage completion message
+	 * @param resultMapper result mapping function
+	 * @param sourceFlux source data stream
+	 * @return AsyncGenerator instance
+	 */
+	public static Flux<GraphResponse<StreamingOutput>> createStreamingGeneratorWithMessages(
+			Class<? extends NodeAction> nodeClass, OverAllState state, String startMessage, String completionMessage,
+			Function<String, Map<String, Object>> resultMapper, Flux<ChatResponse> sourceFlux) {
+		String nodeName = nodeClass.getSimpleName();
+
+		// Used to collect actual processing results
+		final StringBuilder collectedResult = new StringBuilder();
+
+		// wrapperFlux
+		Flux<ChatResponse> startFlux = (startMessage == null ? Flux.empty()
+				: Flux.just(ChatResponseUtil.createResponse(startMessage)));
+		Flux<ChatResponse> wrapperFlux = startFlux.concatWith(sourceFlux.doOnNext(chatResponse -> {
+			String text = ChatResponseUtil.getText(chatResponse);
+			collectedResult.append(text);
+		}));
+		if (completionMessage != null) {
+			wrapperFlux = wrapperFlux.concatWith(Flux.just(ChatResponseUtil.createResponse(completionMessage)));
+		}
+		return FluxConverter.builder()
+			.startingNode(nodeName)
+			.startingState(state)
+			.mapResult(r -> resultMapper.apply(collectedResult.toString()))
+			.build(wrapperFlux);
+	}
+
+	public static Flux<GraphResponse<StreamingOutput>> createStreamingGeneratorWithMessages(
+			Class<? extends NodeAction> nodeClass, OverAllState state,
+			Function<String, Map<String, Object>> resultMapper, Flux<ChatResponse> sourceFlux) {
+		return createStreamingGeneratorWithMessages(nodeClass, state, null, null, resultMapper, sourceFlux);
 	}
 
 }
