@@ -17,52 +17,34 @@
 package com.alibaba.cloud.ai.config;
 
 import com.alibaba.cloud.ai.config.file.FileStorageProperties;
-import com.alibaba.cloud.ai.dispatcher.HumanFeedbackDispatcher;
-import com.alibaba.cloud.ai.dispatcher.PlanExecutorDispatcher;
-import com.alibaba.cloud.ai.dispatcher.PythonExecutorDispatcher;
-import com.alibaba.cloud.ai.dispatcher.QueryRewriteDispatcher;
-import com.alibaba.cloud.ai.dispatcher.SQLExecutorDispatcher;
-import com.alibaba.cloud.ai.dispatcher.SemanticConsistenceDispatcher;
-import com.alibaba.cloud.ai.dispatcher.SqlGenerateDispatcher;
-import com.alibaba.cloud.ai.dispatcher.TableRelationDispatcher;
+import com.alibaba.cloud.ai.dispatcher.*;
 import com.alibaba.cloud.ai.graph.GraphRepresentation;
 import com.alibaba.cloud.ai.graph.KeyStrategy;
 import com.alibaba.cloud.ai.graph.KeyStrategyFactory;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
-import com.alibaba.cloud.ai.node.HumanFeedbackNode;
-import com.alibaba.cloud.ai.node.KeywordExtractNode;
-import com.alibaba.cloud.ai.node.PlanExecutorNode;
-import com.alibaba.cloud.ai.node.PlannerNode;
-import com.alibaba.cloud.ai.node.PythonAnalyzeNode;
-import com.alibaba.cloud.ai.node.PythonExecuteNode;
-import com.alibaba.cloud.ai.node.PythonGenerateNode;
-import com.alibaba.cloud.ai.node.QueryRewriteNode;
-import com.alibaba.cloud.ai.node.ReportGeneratorNode;
-import com.alibaba.cloud.ai.node.SchemaRecallNode;
-import com.alibaba.cloud.ai.node.SemanticConsistencyNode;
-import com.alibaba.cloud.ai.node.SqlExecuteNode;
-import com.alibaba.cloud.ai.node.SqlGenerateNode;
-import com.alibaba.cloud.ai.node.TableRelationNode;
-
+import com.alibaba.cloud.ai.node.*;
 import com.alibaba.cloud.ai.util.NodeBeanUtil;
 import com.knuddels.jtokkit.api.EncodingType;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.embedding.TokenCountBatchingStrategy;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.web.client.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
@@ -70,59 +52,13 @@ import reactor.netty.http.client.HttpClient;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.alibaba.cloud.ai.constant.Constant.AGENT_ID;
-import static com.alibaba.cloud.ai.constant.Constant.BUSINESS_KNOWLEDGE;
-import static com.alibaba.cloud.ai.constant.Constant.COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.EVIDENCES;
-import static com.alibaba.cloud.ai.constant.Constant.HUMAN_FEEDBACK_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.HUMAN_REVIEW_ENABLED;
-import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
-import static com.alibaba.cloud.ai.constant.Constant.IS_ONLY_NL2SQL;
-import static com.alibaba.cloud.ai.constant.Constant.KEYWORD_EXTRACT_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.KEYWORD_EXTRACT_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.NL2SQL_GRAPH_NAME;
-import static com.alibaba.cloud.ai.constant.Constant.ONLY_NL2SQL_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.PLANNER_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.PLANNER_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.PLAN_CURRENT_STEP;
-import static com.alibaba.cloud.ai.constant.Constant.PLAN_EXECUTOR_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.PLAN_NEXT_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.PLAN_REPAIR_COUNT;
-import static com.alibaba.cloud.ai.constant.Constant.PLAN_VALIDATION_ERROR;
-import static com.alibaba.cloud.ai.constant.Constant.PLAN_VALIDATION_STATUS;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_ANALYSIS_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_ANALYZE_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_EXECUTE_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_EXECUTE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_GENERATE_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_GENERATE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_IS_SUCCESS;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_TRIES_COUNT;
-import static com.alibaba.cloud.ai.constant.Constant.QUERY_REWRITE_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.QUERY_REWRITE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.REPORT_GENERATOR_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.RESULT;
-import static com.alibaba.cloud.ai.constant.Constant.SCHEMA_RECALL_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.SEMANTIC_CONSISTENCY_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.SEMANTIC_CONSISTENCY_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.SEMANTIC_MODEL;
-import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE_EXCEPTION_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.SQL_GENERATE_COUNT;
-import static com.alibaba.cloud.ai.constant.Constant.SQL_GENERATE_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.SQL_GENERATE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.SQL_GENERATE_SCHEMA_MISSING_ADVICE;
-import static com.alibaba.cloud.ai.constant.Constant.SQL_RESULT_LIST_MEMORY;
-import static com.alibaba.cloud.ai.constant.Constant.TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_EXCEPTION_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_NODE;
-import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_RETRY_COUNT;
+import static com.alibaba.cloud.ai.constant.Constant.*;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
 import static com.alibaba.cloud.ai.graph.StateGraph.START;
 import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
@@ -136,7 +72,12 @@ import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
 @Slf4j
 @Configuration
 @EnableConfigurationProperties({ CodeExecutorProperties.class, DataAgentProperties.class, FileStorageProperties.class })
-public class DataAgentConfiguration {
+public class DataAgentConfiguration implements DisposableBean {
+
+	/**
+	 * 专用线程池，用于数据库操作的并行处理
+	 */
+	private ExecutorService dbOperationExecutor;
 
 	@Bean
 	@ConditionalOnMissingBean(RestClientCustomizer.class)
@@ -292,8 +233,10 @@ public class DataAgentConfiguration {
 	 * <a href="https://springdoc.cn/spring-ai/api/vectordbs.html">...</a>
 	 * 根据自己想要的向量，在pom文件引入 Boot Starter 依赖即可。此处配置使用内存向量作为兜底配置
 	 */
+	@Primary
 	@Bean
 	@ConditionalOnMissingBean(VectorStore.class)
+	@ConditionalOnProperty(name = "spring.ai.vectorstore.type", havingValue = "simple", matchIfMissing = true)
 	public VectorStore simpleVectorStore(EmbeddingModel embeddingModel) {
 		return SimpleVectorStore.builder(embeddingModel).build();
 	}
@@ -301,9 +244,22 @@ public class DataAgentConfiguration {
 	@Bean
 	@ConditionalOnMissingBean(BatchingStrategy.class)
 	public BatchingStrategy customBatchingStrategy(DataAgentProperties properties) {
-		return new TokenCountBatchingStrategy(EncodingType.CL100K_BASE,
-				properties.getEmbeddingBatch().getMaxTokenCount(),
-				properties.getEmbeddingBatch().getReservePercentage());
+		// 使用增强的批处理策略，同时考虑token数量和文本数量限制
+		EncodingType encodingType;
+		try {
+			Optional<EncodingType> encodingTypeOptional = EncodingType
+				.fromName(properties.getEmbeddingBatch().getEncodingType());
+			encodingType = encodingTypeOptional.orElse(EncodingType.CL100K_BASE);
+		}
+		catch (Exception e) {
+			log.warn("Unknown encodingType '{}', falling back to CL100K_BASE",
+					properties.getEmbeddingBatch().getEncodingType());
+			encodingType = EncodingType.CL100K_BASE;
+		}
+
+		return new EnhancedTokenCountBatchingStrategy(encodingType, properties.getEmbeddingBatch().getMaxTokenCount(),
+				properties.getEmbeddingBatch().getReservePercentage(),
+				properties.getEmbeddingBatch().getMaxTextCount());
 	}
 
 	@Bean
@@ -312,10 +268,42 @@ public class DataAgentConfiguration {
 		return ChatClient.builder(chatModel).build();
 	}
 
-	@Bean
-	@ConditionalOnMissingBean(ExecutorService.class)
-	public ExecutorService executorService() {
-		return Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+	@Bean(name = "dbOperationExecutor")
+	public ExecutorService dbOperationExecutor() {
+		// 初始化专用线程池，用于数据库操作
+		// 线程数量设置为CPU核心数的2倍，但不少于4个，不超过16个
+		int threadCount = Math.max(4, Math.min(Runtime.getRuntime().availableProcessors() * 2, 16));
+		log.info("Database operation executor initialized with {} threads", threadCount);
+		dbOperationExecutor = Executors.newFixedThreadPool(threadCount, new ThreadFactory() {
+			private final AtomicInteger threadNumber = new AtomicInteger(1);
+
+			@Override
+			public Thread newThread(@NotNull Runnable r) {
+				Thread t = new Thread(r, "db-operation-" + threadNumber.getAndIncrement());
+				t.setDaemon(true);
+				return t;
+			}
+		});
+		return dbOperationExecutor;
+	}
+
+	@Override
+	public void destroy() {
+		if (dbOperationExecutor != null && !dbOperationExecutor.isShutdown()) {
+			log.info("Shutting down database operation executor");
+			dbOperationExecutor.shutdown();
+			try {
+				if (!dbOperationExecutor.awaitTermination(30, java.util.concurrent.TimeUnit.SECONDS)) {
+					log.warn("Database operation executor did not terminate gracefully, forcing shutdown");
+					dbOperationExecutor.shutdownNow();
+				}
+			}
+			catch (InterruptedException e) {
+				log.warn("Interrupted while waiting for database operation executor to terminate");
+				dbOperationExecutor.shutdownNow();
+				Thread.currentThread().interrupt();
+			}
+		}
 	}
 
 }

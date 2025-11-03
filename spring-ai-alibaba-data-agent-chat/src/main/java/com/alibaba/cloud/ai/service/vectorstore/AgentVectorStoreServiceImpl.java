@@ -15,28 +15,6 @@
  */
 package com.alibaba.cloud.ai.service.vectorstore;
 
-import static com.alibaba.cloud.ai.util.DocumentConverterUtil.convertColumnsToDocuments;
-import static com.alibaba.cloud.ai.util.DocumentConverterUtil.convertTablesToDocuments;
-
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-
-import jakarta.annotation.PreDestroy;
-import org.jetbrains.annotations.NotNull;
-import org.springframework.ai.document.Document;
-import org.springframework.ai.embedding.BatchingStrategy;
-import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
-
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
@@ -47,8 +25,24 @@ import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.request.AgentSearchRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.service.TableMetadataService;
-
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.embedding.BatchingStrategy;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
+
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
+
+import static com.alibaba.cloud.ai.util.DocumentConverterUtil.convertColumnsToDocuments;
+import static com.alibaba.cloud.ai.util.DocumentConverterUtil.convertTablesToDocuments;
 
 @Slf4j
 @Service
@@ -58,9 +52,6 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 	private final VectorStore vectorStore; // 由Spring Boot自动配置
 
-	/**
-	 * 专用线程池，用于数据库操作的并行处理
-	 */
 	private final ExecutorService dbOperationExecutor;
 
 	/**
@@ -69,7 +60,7 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	@Value("${spring.ai.vectorstore.similarityThreshold:0.2}")
 	protected double similarityThreshold;
 
-	@Value("${spring.ai.vectorstore.batch-topk-limit:9999}")
+	@Value("${spring.ai.vectorstore.batch-topk-limit:5000}")
 	protected int batchTopkLimit;
 
 	@Value("${spring.ai.vectorstore.agent-query-topk-limit:25}")
@@ -81,29 +72,15 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 	protected final TableMetadataService tableMetadataService;
 
-	public AgentVectorStoreServiceImpl(VectorStore vectorStore, BatchingStrategy batchingStrategy,
-			AccessorFactory accessorFactory, TableMetadataService tableMetadataService) {
+	public AgentVectorStoreServiceImpl(VectorStore vectorStore, ExecutorService dbOperationExecutor,
+			BatchingStrategy batchingStrategy, AccessorFactory accessorFactory,
+			TableMetadataService tableMetadataService) {
 		this.vectorStore = vectorStore;
+		this.dbOperationExecutor = dbOperationExecutor;
 		this.batchingStrategy = batchingStrategy;
 		this.accessorFactory = accessorFactory;
 		this.tableMetadataService = tableMetadataService;
-
-		// 初始化专用线程池，用于数据库操作
-		// 线程数量设置为CPU核心数的2倍，但不少于4个，不超过16个
-		int threadCount = Math.max(4, Math.min(Runtime.getRuntime().availableProcessors() * 2, 16));
-		this.dbOperationExecutor = Executors.newFixedThreadPool(threadCount, new ThreadFactory() {
-			private final AtomicInteger threadNumber = new AtomicInteger(1);
-
-			@Override
-			public Thread newThread(@NotNull Runnable r) {
-				Thread t = new Thread(r, "db-operation-" + threadNumber.getAndIncrement());
-				t.setDaemon(true);
-				return t;
-			}
-		});
-
 		log.info("VectorStore type: {}", vectorStore.getClass().getSimpleName());
-		log.info("Database operation executor initialized with {} threads", threadCount);
 	}
 
 	@Override
@@ -249,13 +226,12 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	}
 
 	protected void storeSchemaDocuments(List<Document> columns, List<Document> tables) {
-		// 使用批处理策略处理列文档
+		// 串行去批写入，并行流的时候有API限速了
 		List<List<Document>> columnBatches = batchingStrategy.batch(columns);
-		columnBatches.parallelStream().forEach(vectorStore::add);
+		columnBatches.forEach(vectorStore::add);
 
-		// 使用批处理策略处理表文档
 		List<List<Document>> tableBatches = batchingStrategy.batch(tables);
-		tableBatches.parallelStream().forEach(vectorStore::add);
+		tableBatches.forEach(vectorStore::add);
 
 	}
 

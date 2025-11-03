@@ -64,6 +64,7 @@
         <jsonschema.version>4.37.0</jsonschema.version>
         <h2.version>2.3.232</h2.version>
         <testcontainers.version>1.19.3</testcontainers.version>
+        <elasticsearch-client.version>8.18.0</elasticsearch-client.version>
     </properties>
 
     <dependencyManagement>
@@ -203,6 +204,20 @@
                 <version>${testcontainers.version}</version>
                 <scope>test</scope>
             </dependency>
+
+            <!-- Elasticsearch Client Dependencies -->
+            <dependency>
+                <groupId>co.elastic.clients</groupId>
+                <artifactId>elasticsearch-java</artifactId>
+                <version>${elasticsearch-client.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.elasticsearch.client</groupId>
+                <artifactId>elasticsearch-rest-client</artifactId>
+                <version>${elasticsearch-client.version}</version>
+            </dependency>
+
+
         </dependencies>
     </dependencyManagement>
 
