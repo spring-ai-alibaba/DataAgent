@@ -39,6 +39,6 @@ public interface QueryProcessingService {
 	 */
 	Flux<ChatResponse> expandQuestion(String query, Consumer<List<String>> resultConsumer);
 
-	Flux<ChatResponse> rewriteStream(String query, String agentId) throws Exception;
+	Flux<ChatResponse> rewriteStream(String query, String agentId, StringBuilder queryResultCollector) throws Exception;
 
 }

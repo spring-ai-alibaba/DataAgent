@@ -59,11 +59,13 @@ public class QueryRewriteNode implements NodeAction {
 		String agentId = StateUtil.getStringValue(state, AGENT_ID); // Get agent ID
 		log.info("[{}] Processing user input: {} for agentId: {}", this.getClass().getSimpleName(), input, agentId);
 
+		final StringBuilder queryResultCollector = new StringBuilder();
 		// Use streaming utility class for content collection and result mapping
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
-				state, "开始进行问题重写...", "\n\n问题重写完成！",
-				finalResult -> Map.of(QUERY_REWRITE_NODE_OUTPUT, finalResult, RESULT, finalResult),
-				queryProcessingService.rewriteStream(input, agentId));
+				state, "开始进行问题重写...", "\n\n问题重写完成！", finalResult -> {
+					finalResult = queryResultCollector.toString();
+					return Map.of(QUERY_REWRITE_NODE_OUTPUT, finalResult, RESULT, finalResult);
+				}, queryProcessingService.rewriteStream(input, agentId, queryResultCollector));
 
 		return Map.of(QUERY_REWRITE_NODE_OUTPUT, generator);
 	}
