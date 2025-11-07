@@ -151,7 +151,7 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 	}
 
 	@Override
-	public Flux<ChatResponse> rewriteStream(String query, String agentId) {
+	public Flux<ChatResponse> rewriteStream(String query, String agentId, StringBuilder queryResultCollector) {
 		return FluxUtil.<ChatResponse, String>cascadeFlux(processTimeExpressions(query), timeRewrittenQuery -> {
 
 			log.debug("Time rewritten query: {} -> {}", query, timeRewrittenQuery);
@@ -166,7 +166,9 @@ public abstract class AbstractQueryProcessingService implements QueryProcessingS
 						log.debug("SchemaDTO is {}", schemaDTO);
 						String prompt = PromptHelper.buildRewritePrompt(timeRewrittenQuery, schemaDTO, evidences);
 						log.debug("Built rewrite prompt for streaming, prompt is as follows \n {}", prompt);
-						return llmService.callUser(prompt);
+						return llmService.callUser(prompt)
+							.doOnNext(chatResponse -> queryResultCollector
+								.append(ChatResponseUtil.getText(chatResponse)));
 					}, flux -> Mono.just(""),
 					Flux.just(ChatResponseUtil.createResponse("正在选择合适的数据表...\n"),
 							ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign())),
