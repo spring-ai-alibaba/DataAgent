@@ -478,10 +478,13 @@
               continue;
             }
 
-            const response: any = await agentDatasourceService.initSchema(props.agentId, {
-              datasourceId: source.id,
-              tables: tablesData,
-            });
+            const response: ApiResponse<null> = await agentDatasourceService.initSchema(
+              props.agentId,
+              {
+                datasourceId: source.id,
+                tables: tablesData,
+              },
+            );
             if (response.success === undefined || response.success == null || !response.success) {
               ElMessage.error(`初始化数据源: ${source.name} 失败`);
               throw new Error('初始化数据源失败');

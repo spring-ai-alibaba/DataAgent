@@ -44,7 +44,7 @@ class BusinessKnowledgeService {
    * @param keyword 搜索关键词
    */
   async list(agentId?: number, keyword?: string): Promise<BusinessKnowledge[]> {
-    const params: Record<string, any> = {};
+    const params: { agentId?: string; keyword?: string } = {};
     if (agentId !== undefined) params.agentId = agentId.toString();
     if (keyword) params.keyword = keyword;
 

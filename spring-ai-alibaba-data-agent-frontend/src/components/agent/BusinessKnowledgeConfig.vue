@@ -195,12 +195,8 @@
           } else {
             ElMessage.error('删除失败');
           }
-        } catch (error) {
+        } catch {
           // 用户取消操作时不显示错误消息
-          if (!(error as any).cancelled) {
-            ElMessage.error('删除失败');
-            console.error('Failed to delete knowledge:', error);
-          }
         }
       };
 

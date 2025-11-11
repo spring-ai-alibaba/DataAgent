@@ -179,12 +179,8 @@
           } else {
             ElMessage.error('删除失败：智能体不存在');
           }
-        } catch (e) {
-          if (e.message === 'cancel') {
-            return;
-          }
-          console.error('删除智能体失败:', e);
-          ElMessage.error('删除失败：' + (e.message || '未知错误'));
+        } catch {
+          // 用户点击取消按钮，忽略此错误
         }
       };
 

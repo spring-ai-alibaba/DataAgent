@@ -350,11 +350,9 @@
               messageType: 'html',
             };
 
-            return ChatService.saveMessage(currentSession.value!.id, aiMessage).catch(
-              (error: any) => {
-                console.error('保存AI消息失败:', error);
-              },
-            );
+            return ChatService.saveMessage(currentSession.value!.id, aiMessage).catch(error => {
+              console.error('保存AI消息失败:', error);
+            });
           };
 
           // 发送流式请求
@@ -464,7 +462,7 @@
                 };
 
                 await ChatService.saveMessage(currentSession.value!.id, htmlReportMessage).catch(
-                  (error: any) => {
+                  error => {
                     ElMessage.error('保存HTML报告失败！');
                     console.error('保存HTML报告失败:', error);
                   },
@@ -479,7 +477,7 @@
                 };
 
                 await ChatService.saveMessage(currentSession.value!.id, markdownMessage).catch(
-                  (error: any) => {
+                  error => {
                     console.error('保存Markdown报告失败:', error);
                   },
                 );

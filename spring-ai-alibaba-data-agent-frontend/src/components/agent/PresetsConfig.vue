@@ -166,11 +166,8 @@
           } else {
             ElMessage.error('删除失败');
           }
-        } catch (error) {
-          if (!(error as any).cancelled) {
-            ElMessage.error('删除失败');
-            console.error('删除预设问题失败:', error);
-          }
+        } catch {
+          // 用户点击取消按钮，忽略此错误
         }
       };
 
