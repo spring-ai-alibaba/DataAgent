@@ -23,31 +23,25 @@ import lombok.extern.slf4j.Slf4j;
 import static com.alibaba.cloud.ai.constant.Constant.*;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
 
-/**
- * @author zhangshenghang
- */
 @Slf4j
-public class SqlGenerateDispatcher implements EdgeAction {
+public class FeasibilityAssessmentDispatcher implements EdgeAction {
 
 	@Override
-	public String apply(OverAllState state) {
-		String sqlGenerateOutput = (String) state.value(SQL_GENERATE_OUTPUT).orElseThrow();
-		log.info("SQL 生成结果: {}", sqlGenerateOutput);
-		return switch (sqlGenerateOutput) {
-			case END -> {
-				log.info("检测到流程结束标志: {}", END);
-				yield END;
-			}
-			// TODO 需要优化，不能简单跳转
-			case SQL_GENERATE_SCHEMA_MISSING -> {
-				log.warn("SQL生成缺少Schema，跳转到{}节点", FEASIBILITY_ASSESSMENT_NODE);
-				yield FEASIBILITY_ASSESSMENT_NODE;
-			}
-			default -> {
-				log.info("SQL生成成功，进入SQL执行节点: {}", SQL_EXECUTE_NODE);
-				yield SQL_EXECUTE_NODE;
-			}
-		};
+	public String apply(OverAllState state) throws Exception {
+		// value的值是和 resources/feasibility-assessment.txt的输出一致，例如
+		// 【需求类型】：《数据分析》
+		// 【语种类型】：《中文》
+		// 【需求内容】：查询所有“核心用户”的数量
+		String value = state.value(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, END);
+
+		if (value != null && value.contains("【需求类型】：《数据分析》")) {
+			log.info("[FeasibilityAssessmentNodeDispatcher]需求类型为数据分析，进入PlannerNode节点");
+			return PLANNER_NODE;
+		}
+		else {
+			log.info("[FeasibilityAssessmentNodeDispatcher]需求类型非数据分析，返回END节点");
+			return END;
+		}
 	}
 
 }

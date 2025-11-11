@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.util;
 
+import com.alibaba.cloud.ai.dto.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.document.Document;
@@ -23,6 +24,8 @@ import org.springframework.ai.document.Document;
 import java.util.HashMap;
 import java.util.List;
 import java.util.function.Supplier;
+
+import static com.alibaba.cloud.ai.constant.Constant.QUERY_ENHANCE_NODE_OUTPUT;
 
 /**
  * State management utility class, providing type-safe state getting methods
@@ -114,10 +117,13 @@ public class StateUtil {
 	}
 
 	/**
-	 * Get list of Document lists
+	 * Get canonical query
 	 */
-	public static List<List<Document>> getDocumentListList(OverAllState state, String key) {
-		return getListValue(state, key);
+	public static String getCanonicalQuery(OverAllState state) {
+		QueryEnhanceOutputDTO queryEnhanceOutputDTO = getObjectValue(state, QUERY_ENHANCE_NODE_OUTPUT,
+				QueryEnhanceOutputDTO.class);
+		// 获取canonical_query
+		return queryEnhanceOutputDTO.getCanonicalQuery();
 	}
 
 }

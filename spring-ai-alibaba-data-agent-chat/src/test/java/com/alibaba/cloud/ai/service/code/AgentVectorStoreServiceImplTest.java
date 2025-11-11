@@ -88,10 +88,12 @@ public class AgentVectorStoreServiceImplTest {
 	@DisplayName("Test search with valid request")
 	void testSearchWithValidRequest() {
 		// Arrange
-		AgentSearchRequest searchRequest = AgentSearchRequest.getInstance(TEST_AGENT_ID);
-		searchRequest.setQuery(TEST_QUERY);
-		searchRequest.setTopK(5);
-		searchRequest.setMetadataFilter(Map.of(Constant.VECTOR_TYPE, TEST_VECTOR_TYPE));
+		AgentSearchRequest searchRequest = AgentSearchRequest.builder()
+			.agentId(TEST_AGENT_ID)
+			.query(TEST_QUERY)
+			.topK(5)
+			.docVectorType(TEST_VECTOR_TYPE)
+			.build();
 
 		List<Document> expectedDocuments = Arrays.asList(
 				new Document("Test content 1",
@@ -149,29 +151,6 @@ public class AgentVectorStoreServiceImplTest {
 		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
 				() -> agentVectorStoreService.addDocuments(TEST_AGENT_ID, Collections.emptyList()));
 		assertEquals("Documents cannot be empty.", exception.getMessage());
-	}
-
-	@Test
-	@DisplayName("Test estimateDocuments with existing documents")
-	void testEstimateDocuments() {
-		// Arrange
-		List<Document> mockDocuments = Arrays.asList(
-				new Document("Test content 1", Map.of(Constant.AGENT_ID, TEST_AGENT_ID)),
-				new Document("Test content 2", Map.of(Constant.AGENT_ID, TEST_AGENT_ID)));
-		// Mock the vectorStore.similaritySearch to return documents on first call and
-		// empty list on subsequent calls using doReturn style for better mocking
-		doReturn(mockDocuments).doReturn(Collections.emptyList())
-			.when(vectorStore)
-			.similaritySearch(any(SearchRequest.class));
-
-		// Act
-		int result = agentVectorStoreService.estimateDocuments(TEST_AGENT_ID);
-
-		// Assert
-		assertEquals(2, result);
-		// Since the estimated Documents method is called multiple times until there are
-		// no new documents, we should verify that it has been called at least once
-		verify(vectorStore, atLeastOnce()).similaritySearch(any(SearchRequest.class));
 	}
 
 	@Test

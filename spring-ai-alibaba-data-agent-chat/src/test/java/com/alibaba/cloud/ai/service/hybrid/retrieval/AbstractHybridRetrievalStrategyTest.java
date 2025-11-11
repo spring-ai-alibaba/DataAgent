@@ -79,10 +79,12 @@ class AbstractHybridRetrievalStrategyTest {
 	@Test
 	void retrieve_ShouldFuseVectorAndKeywordResults_WhenKeywordsArePresent() {
 		// 1. 准备 (Arrange)
-		AgentSearchRequest request = AgentSearchRequest.getInstance("agent1");
-		request.setDocVectorType("test-type");
-		request.setKeywords(Arrays.asList("a", "b"));
-		request.setTopK(10);
+		AgentSearchRequest request = AgentSearchRequest.builder()
+			.agentId("agent1")
+			.docVectorType("test-type")
+			.keywords(Arrays.asList("a", "b"))
+			.topK(10)
+			.build();
 
 		List<Document> vectorResults = List.of(new Document("vec_doc1"), new Document("vec_doc2"));
 		List<Document> keywordResults = List.of(new Document("key_doc1"));
@@ -92,7 +94,7 @@ class AbstractHybridRetrievalStrategyTest {
 		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(vectorResults);
 		// 使用 spy 来 mock getDocumentsByKeywords 方法
 		org.mockito.Mockito.doReturn(keywordResults).when(retrievalStrategy).getDocumentsByKeywords(request);
-		when(fusionStrategy.fuseResults(vectorResults, keywordResults, 10)).thenReturn(fusedResults);
+		when(fusionStrategy.fuseResults(10, vectorResults, keywordResults)).thenReturn(fusedResults);
 
 		// 2. 执行 (Act)
 		// 因为我们用了 directExecutor，这里的调用会同步执行所有逻辑
@@ -106,9 +108,11 @@ class AbstractHybridRetrievalStrategyTest {
 	@Test
 	void retrieve_ShouldReturnOnlyVectorResults_WhenKeywordsAreEmpty() {
 		// 1. 准备 (Arrange)
-		AgentSearchRequest request = AgentSearchRequest.getInstance("agent1");
-		request.setDocVectorType("test-type");
-		request.setTopK(10);
+		AgentSearchRequest request = AgentSearchRequest.builder()
+			.agentId("agent1")
+			.docVectorType("test-type")
+			.topK(10)
+			.build();
 
 		List<Document> vectorResults = List.of(new Document("vec_doc1"), new Document("vec_doc2"));
 

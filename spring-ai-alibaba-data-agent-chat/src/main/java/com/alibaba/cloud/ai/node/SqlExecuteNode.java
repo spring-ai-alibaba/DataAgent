@@ -76,7 +76,6 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logNodeEntry();
 
 		ExecutionStep executionStep = getCurrentExecutionStep(state);
 		Integer currentStep = getCurrentStepNumber(state);

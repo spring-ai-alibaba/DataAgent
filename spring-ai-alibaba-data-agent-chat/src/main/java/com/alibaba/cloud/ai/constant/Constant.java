@@ -35,6 +35,12 @@ public final class Constant {
 
 	public static final String NL2SQL_GRAPH_NAME = "nl2sqlGraph";
 
+	public static final String INTENT_RECOGNITION_NODE_OUTPUT = "INTENT_RECOGNITION_NODE_OUTPUT";
+
+	public static final String QUERY_ENHANCE_NODE_OUTPUT = "QUERY_ENHANCE_NODE_OUTPUT";
+
+	public static final String FEASIBILITY_ASSESSMENT_NODE_OUTPUT = "FEASIBILITY_ASSESSMENT_NODE_OUTPUT";
+
 	public static final String QUERY_REWRITE_NODE_OUTPUT = "QUERY_REWRITE_NODE_OUTPUT";
 
 	public static final String KEYWORD_EXTRACT_NODE_OUTPUT = "KEYWORD_EXTRACT_NODE_OUTPUT";
@@ -45,7 +51,7 @@ public final class Constant {
 
 	public static final String SCHEMA_RECALL_NODE_OUTPUT = "SCHEMA_RECALL_NODE_OUTPUT";
 
-	public static final String COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT = "COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT";
+	public static final String COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT = "COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT";
 
 	public static final String TABLE_RELATION_OUTPUT = "TABLE_RELATION_OUTPUT";
 
@@ -92,6 +98,14 @@ public final class Constant {
 	public static final String PLANNER_NODE = "PLANNER_NODE";
 
 	public static final String PLAN_EXECUTOR_NODE = "PLAN_EXECUTOR_NODE";
+
+	public static final String INTENT_RECOGNITION_NODE = "INTENT_RECOGNITION_NODE";
+
+	public static final String EVIDENCE_RECALL_NODE = "EVIDENCE_RECALL_NODE";
+
+	public static final String QUERY_ENHANCE_NODE = "QUERY_ENHANCE_NODE";
+
+	public static final String FEASIBILITY_ASSESSMENT_NODE = "FEASIBILITY_ASSESSMENT_NODE";
 
 	public static final String QUERY_REWRITE_NODE = "QUERY_REWRITE_NODE";
 

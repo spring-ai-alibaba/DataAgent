@@ -18,12 +18,9 @@ package com.alibaba.cloud.ai.util;
 
 import com.alibaba.cloud.ai.graph.action.AsyncNodeAction;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import lombok.AllArgsConstructor;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * 管理Node Bean
@@ -32,17 +29,13 @@ import java.util.stream.Collectors;
  * @since 2025/9/28
  */
 @Component
+@AllArgsConstructor
 public class NodeBeanUtil {
 
-	private final Map<Class<? extends NodeAction>, ? extends NodeAction> nodeMap;
-
-	public NodeBeanUtil(List<? extends NodeAction> actions) {
-		this.nodeMap = actions.stream()
-			.collect(Collectors.toUnmodifiableMap(NodeAction::getClass, Function.identity()));
-	}
+	private final ApplicationContext context;
 
 	public <T extends NodeAction> NodeAction getNodeBean(Class<T> clazz) {
-		return nodeMap.get(clazz);
+		return context.getBean(clazz);
 	}
 
 	public <T extends NodeAction> AsyncNodeAction getNodeBeanAsync(Class<T> clazz) {

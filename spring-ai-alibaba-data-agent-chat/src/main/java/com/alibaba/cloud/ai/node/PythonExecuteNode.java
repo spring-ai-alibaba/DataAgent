@@ -61,7 +61,6 @@ public class PythonExecuteNode extends AbstractPlanBasedNode implements NodeActi
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		this.logNodeEntry();
 
 		try {
 			// Get context

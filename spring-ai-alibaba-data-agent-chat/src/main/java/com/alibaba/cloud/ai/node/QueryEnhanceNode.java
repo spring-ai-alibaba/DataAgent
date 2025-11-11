@@ -1,0 +1,94 @@
+/*
+ * Copyright 2025 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.alibaba.cloud.ai.node;
+
+import com.alibaba.cloud.ai.dto.QueryEnhanceOutputDTO;
+import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.prompt.PromptHelper;
+import com.alibaba.cloud.ai.service.llm.LlmService;
+import com.alibaba.cloud.ai.util.JsonUtil;
+import com.alibaba.cloud.ai.util.StateUtil;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+
+import java.util.List;
+import java.util.Map;
+
+import static com.alibaba.cloud.ai.constant.Constant.*;
+
+/**
+ * 查询处理节点，用于查询改写、分解和关键词提取
+ */
+@Slf4j
+@Component
+public class QueryEnhanceNode implements NodeAction {
+
+	private final LlmService llmService;
+
+	public QueryEnhanceNode(LlmService llmService) {
+		this.llmService = llmService;
+	}
+
+	@Override
+	public Map<String, Object> apply(OverAllState state) throws Exception {
+
+		// 获取用户输入
+		String userInput = StateUtil.getStringValue(state, INPUT_KEY);
+		log.info("User input for query enhance: {}", userInput);
+
+		List<String> evidences = StateUtil.getListValue(state, EVIDENCES);
+		// 把evidences 转换成字符串，以换行符分割
+		String evidencesString = String.join("\n", evidences);
+
+		// 构建查询处理提示，多轮对话暂时为空
+		String prompt = PromptHelper.buildQueryEnhancePrompt(null, userInput, evidencesString);
+		log.debug("Built query enhance prompt: {}", prompt);
+
+		// 调用LLM进行查询处理
+		Flux<ChatResponse> responseFlux = llmService.callUser(prompt);
+
+		// 收集响应结果
+		StringBuilder resultBuilder = new StringBuilder();
+		responseFlux.doOnNext(response -> {
+			String text = response.getResult().getOutput().getText();
+			resultBuilder.append(text);
+		}).blockLast();
+
+		// 获取处理结果
+		String enhanceResult = resultBuilder.toString().trim();
+		log.info("Query enhance result: {}", enhanceResult);
+
+		// 解析处理结果，转成 QueryProcessOutputDTO
+		QueryEnhanceOutputDTO queryEnhanceOutputDTO = null;
+		try {
+			queryEnhanceOutputDTO = JsonUtil.getObjectMapper().readValue(enhanceResult, QueryEnhanceOutputDTO.class);
+			log.info("Successfully parsed query enhance result: {}", queryEnhanceOutputDTO);
+		}
+		catch (Exception e) {
+			log.error("Failed to parse query enhance result: {}", enhanceResult, e);
+		}
+
+		if (queryEnhanceOutputDTO == null)
+			return Map.of();
+		// 返回处理结果
+		return Map.of(QUERY_ENHANCE_NODE_OUTPUT, queryEnhanceOutputDTO);
+	}
+
+}

@@ -51,7 +51,7 @@ class RrfFusionStrategyTest {
 		int topK = 5;
 
 		// 执行测试
-		List<Document> result = rrfFusionStrategy.fuseResults(vectorResults, keywordResults, topK);
+		List<Document> result = rrfFusionStrategy.fuseResults(topK, vectorResults, keywordResults);
 
 		// 验证结果
 		assertNotNull(result);
@@ -79,7 +79,7 @@ class RrfFusionStrategyTest {
 		int topK = 3;
 
 		// 执行测试
-		List<Document> result = rrfFusionStrategy.fuseResults(vectorResults, keywordResults, topK);
+		List<Document> result = rrfFusionStrategy.fuseResults(topK, vectorResults, keywordResults);
 
 		// 验证结果
 		assertNotNull(result);
@@ -98,7 +98,7 @@ class RrfFusionStrategyTest {
 		int topK = 3;
 
 		// 执行测试
-		List<Document> result = rrfFusionStrategy.fuseResults(vectorResults, keywordResults, topK);
+		List<Document> result = rrfFusionStrategy.fuseResults(topK, vectorResults, keywordResults);
 
 		// 验证结果
 		assertNotNull(result);
@@ -116,7 +116,7 @@ class RrfFusionStrategyTest {
 		int topK = 3;
 
 		// 执行测试
-		List<Document> result = rrfFusionStrategy.fuseResults(vectorResults, keywordResults, topK);
+		List<Document> result = rrfFusionStrategy.fuseResults(topK, vectorResults, keywordResults);
 
 		// 验证结果
 		assertNotNull(result);
@@ -134,7 +134,7 @@ class RrfFusionStrategyTest {
 		int topK = 0;
 
 		// 执行测试
-		List<Document> result = rrfFusionStrategy.fuseResults(vectorResults, keywordResults, topK);
+		List<Document> result = rrfFusionStrategy.fuseResults(topK, vectorResults, keywordResults);
 
 		// 验证结果
 		assertNotNull(result);
@@ -152,7 +152,7 @@ class RrfFusionStrategyTest {
 		int topK = 3;
 
 		// 执行测试
-		List<Document> result = rrfFusionStrategy.fuseResults(vectorResults, keywordResults, topK);
+		List<Document> result = rrfFusionStrategy.fuseResults(topK, vectorResults, keywordResults);
 
 		// 验证结果
 		assertNotNull(result);
@@ -170,13 +170,13 @@ class RrfFusionStrategyTest {
 		int topK = 3;
 
 		// 执行测试 - 应该处理null输入而不抛出异常
-		List<Document> result1 = rrfFusionStrategy.fuseResults(null, List.of(), topK);
+		List<Document> result1 = rrfFusionStrategy.fuseResults(topK, null, List.of());
 		assertNotNull(result1);
 
-		List<Document> result2 = rrfFusionStrategy.fuseResults(List.of(), null, topK);
+		List<Document> result2 = rrfFusionStrategy.fuseResults(topK, List.of(), null);
 		assertNotNull(result2);
 
-		List<Document> result3 = rrfFusionStrategy.fuseResults(null, null, topK);
+		List<Document> result3 = rrfFusionStrategy.fuseResults(topK, null, null);
 		assertNotNull(result3);
 	}
 
@@ -195,7 +195,7 @@ class RrfFusionStrategyTest {
 		int topK = 4; // 小于总文档数(6)
 
 		// 执行测试
-		List<Document> result = rrfFusionStrategy.fuseResults(vectorResults, keywordResults, topK);
+		List<Document> result = rrfFusionStrategy.fuseResults(topK, vectorResults, keywordResults);
 
 		// 验证结果
 		assertNotNull(result);

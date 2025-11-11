@@ -15,20 +15,21 @@
  */
 package com.alibaba.cloud.ai.util;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
-import com.alibaba.cloud.ai.entity.AgentKnowledge;
-import org.springframework.ai.document.Document;
-
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
+import com.alibaba.cloud.ai.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.request.EvidenceRequest;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.document.Document;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Utility class for converting business objects to Document objects. Provides common
  * document conversion functionality for vector store operations.
  */
+@Slf4j
 public class DocumentConverterUtil {
 
 	public static List<Document> convertColumnsToDocuments(String agentId, List<TableInfoBO> tables) {
@@ -68,7 +69,7 @@ public class DocumentConverterUtil {
 			metadata.put("samples", columnInfoBO.getSamples());
 		}
 
-		return new Document(columnInfoBO.getName(), text, metadata);
+		return new Document(text, metadata);
 	}
 
 	/**
@@ -86,7 +87,7 @@ public class DocumentConverterUtil {
 		metadata.put("primaryKey", Optional.ofNullable(tableInfoBO.getPrimaryKeys()).orElse(new ArrayList<>()));
 		metadata.put("vectorType", "table");
 		metadata.put("agentId", agentId);
-		return new Document(tableInfoBO.getName(), text, metadata);
+		return new Document(text, metadata);
 	}
 
 	public static List<Document> convertTablesToDocuments(String agentId, List<TableInfoBO> tables) {
@@ -108,7 +109,7 @@ public class DocumentConverterUtil {
 			metadata.put("vectorType", "evidence");
 
 			metadata.put("agentId", agentId);
-			return new Document(UUID.randomUUID().toString(), evidenceRequest.getContent(), metadata);
+			return new Document(evidenceRequest.getContent(), metadata);
 		}).toList();
 	}
 
@@ -116,7 +117,6 @@ public class DocumentConverterUtil {
 	 * Create Document from AgentKnowledge
 	 */
 	public static Document createDocumentFromKnowledge(String agentId, AgentKnowledge knowledge) {
-		String documentId = agentId + ":knowledge:" + knowledge.getId();
 		String content = knowledge.getContent();
 		if (content == null || content.trim().isEmpty()) {
 			content = knowledge.getTitle(); // If content is empty, use title
@@ -136,7 +136,7 @@ public class DocumentConverterUtil {
 		metadata.put("embeddingStatus", knowledge.getEmbeddingStatus());
 		metadata.put("createTime", knowledge.getCreateTime());
 
-		return new Document(documentId, content, metadata);
+		return new Document(content, metadata);
 	}
 
 	/**

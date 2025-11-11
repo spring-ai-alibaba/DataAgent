@@ -44,6 +44,7 @@ import static com.alibaba.cloud.ai.constant.Constant.RESULT;
  *
  * @author zhangshenghang
  */
+@Deprecated
 @Slf4j
 @Component
 @AllArgsConstructor
@@ -53,7 +54,6 @@ public class QueryRewriteNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		log.info("Entering {} node", this.getClass().getSimpleName());
 
 		String input = StateUtil.getStringValue(state, INPUT_KEY);
 		String agentId = StateUtil.getStringValue(state, AGENT_ID); // Get agent ID

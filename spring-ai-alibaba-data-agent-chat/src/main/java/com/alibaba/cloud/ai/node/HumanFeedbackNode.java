@@ -39,7 +39,6 @@ public class HumanFeedbackNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		log.info("Processing human feedback");
 		Map<String, Object> updated = new HashMap<>();
 
 		// 检查最大修复次数

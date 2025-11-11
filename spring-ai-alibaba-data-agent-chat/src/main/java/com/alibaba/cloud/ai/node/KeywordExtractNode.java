@@ -56,6 +56,7 @@ import static com.alibaba.cloud.ai.constant.Constant.*;
  *
  * @author zhangshenghang
  */
+@Deprecated
 @Slf4j
 @Component
 @AllArgsConstructor
@@ -130,7 +131,6 @@ public class KeywordExtractNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		log.info("Entering {} node", this.getClass().getSimpleName());
 
 		String input = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT,
 				StateUtil.getStringValue(state, INPUT_KEY));

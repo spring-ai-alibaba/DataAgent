@@ -56,7 +56,6 @@ public class PythonAnalyzeNode extends AbstractPlanBasedNode implements NodeActi
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		this.logNodeEntry();
 
 		// Get context
 		String userQuery = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT);

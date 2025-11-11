@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.service.hybrid.factory;
 
+import com.alibaba.cloud.ai.config.DataAgentProperties;
 import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.service.hybrid.fusion.FusionStrategy;
 import com.alibaba.cloud.ai.service.hybrid.retrieval.HybridRetrievalStrategy;
@@ -23,10 +24,10 @@ import com.alibaba.cloud.ai.service.hybrid.retrieval.impl.DefaultHybridRetrieval
 import com.alibaba.cloud.ai.service.hybrid.retrieval.impl.ElasticsearchHybridRetrievalStrategy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.FactoryBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ExecutorService;
 
@@ -34,44 +35,64 @@ import java.util.concurrent.ExecutorService;
  * 混合检索策略工厂类 根据配置条件创建并注册相应的 HybridRetrievalStrategy 实现类
  */
 @Slf4j
-@Configuration
-public class HybridRetrievalStrategyFactory {
+@Component
+public class HybridRetrievalStrategyFactory implements FactoryBean<HybridRetrievalStrategy> {
 
+	// spring ai 的官方属性
 	@Value("${spring.ai.vectorstore.type:simple}")
 	private String vectorStoreType;
 
+	// spring ai Elasticsearch VectorStore的官方属性
 	@Value("${spring.ai.vectorstore.elasticsearch.index-name:spring-ai-document-index}")
 	private String elasticsearchIndexName;
 
 	@Value("${" + Constant.PROJECT_PROPERTIES_PREFIX + ".elasticsearch-min-score:0.5}")
 	private Double minScore;
 
-	/**
-	 * 创建并注册 HybridRetrievalStrategy Bean
-	 * @param executorService 线程池执行器
-	 * @param vectorStore 向量存储
-	 * @param fusionStrategy 融合策略
-	 * @return HybridRetrievalStrategy 实例
-	 */
-	@Bean
-	@ConditionalOnMissingBean(HybridRetrievalStrategy.class)
-	public HybridRetrievalStrategy hybridRetrievalStrategy(ExecutorService executorService, VectorStore vectorStore,
-			FusionStrategy fusionStrategy) {
-		log.info("Creating HybridRetrievalStrategy with vectorStore type: {}", vectorStoreType);
+	@Autowired
+	private ExecutorService executorService;
 
+	@Autowired
+	private VectorStore vectorStore;
+
+	@Autowired
+	private FusionStrategy fusionStrategy;
+
+	@Autowired
+	private DataAgentProperties dataAgentProperties;
+
+	@Override
+	public HybridRetrievalStrategy getObject() throws Exception {
+
+		if (!dataAgentProperties.getVectorStore().isEnableHybridSearch()) {
+			log.warn("Hybrid search is disabled. Returning null HybridRetrievalStrategy.");
+			return null;
+		}
 		if ("elasticsearch".equalsIgnoreCase(vectorStoreType)) {
 			log.info("Creating ElasticsearchHybridRetrievalStrategy with index: {}", elasticsearchIndexName);
 			ElasticsearchHybridRetrievalStrategy strategy = new ElasticsearchHybridRetrievalStrategy(executorService,
 					vectorStore, fusionStrategy);
 			// 设置索引名称
 			strategy.setIndexName(elasticsearchIndexName);
-			strategy.setMinScore(minScore);
+			// 从DataAgentProperties获取最小分数
+			strategy.setMinScore(dataAgentProperties.getVectorStore().getElasticsearchMinScore());
 			return strategy;
 		}
 		else {
-			log.warn("Creating DefaultHybridRetrievalStrategy (default) without keyword-search ability");
+			log.warn(
+					"Creating DefaultHybridRetrievalStrategy (default) without keyword-search ability,maybe you should implement interface -> HybridRetrievalStrategy ");
 			return new DefaultHybridRetrievalStrategy(executorService, vectorStore, fusionStrategy);
 		}
+	}
+
+	@Override
+	public Class<?> getObjectType() {
+		return HybridRetrievalStrategy.class;
+	}
+
+	@Override
+	public boolean isSingleton() {
+		return true;
 	}
 
 }

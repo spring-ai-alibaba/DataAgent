@@ -38,8 +38,6 @@ public class ColumnDTO {
 
 	private String type;
 
-	private List<String> samples;
-
 	private List<String> data;
 
 	private Map<String, String> mapping;

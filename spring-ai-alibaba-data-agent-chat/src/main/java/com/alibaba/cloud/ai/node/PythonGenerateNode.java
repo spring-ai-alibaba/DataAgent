@@ -40,13 +40,7 @@ import reactor.core.publisher.Flux;
 import java.util.List;
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_EXECUTE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_GENERATE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_IS_SUCCESS;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_TRIES_COUNT;
-import static com.alibaba.cloud.ai.constant.Constant.QUERY_REWRITE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.SQL_RESULT_LIST_MEMORY;
-import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
+import static com.alibaba.cloud.ai.constant.Constant.*;
 
 /**
  * 生成Python代码的节点
@@ -77,7 +71,6 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		this.logNodeEntry();
 
 		// Get context
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
@@ -85,7 +78,7 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 		boolean codeRunSuccess = StateUtil.getObjectValue(state, PYTHON_IS_SUCCESS, Boolean.class, true);
 		int triesCount = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, MAX_TRIES_COUNT);
 
-		String userPrompt = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT);
+		String userPrompt = StateUtil.getCanonicalQuery(state);
 		if (!codeRunSuccess) {
 			// Last generated Python code failed to run, inform AI model of this
 			// information

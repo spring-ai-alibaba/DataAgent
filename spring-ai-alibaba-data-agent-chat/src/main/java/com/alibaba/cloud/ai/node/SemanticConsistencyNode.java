@@ -62,7 +62,6 @@ public class SemanticConsistencyNode extends AbstractPlanBasedNode {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logNodeEntry();
 
 		// Get necessary input parameters
 		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);

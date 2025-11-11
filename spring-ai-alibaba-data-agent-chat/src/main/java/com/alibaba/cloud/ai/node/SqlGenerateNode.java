@@ -77,7 +77,6 @@ public class SqlGenerateNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		log.info("Entering {} node", this.getClass().getSimpleName());
 
 		// Get necessary input parameters
 		String plannerNodeOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);

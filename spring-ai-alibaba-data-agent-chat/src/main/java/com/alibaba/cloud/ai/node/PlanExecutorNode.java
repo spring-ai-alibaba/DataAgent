@@ -67,7 +67,6 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logNodeEntry();
 
 		// 1. Validate the Plan
 		String plannerOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);

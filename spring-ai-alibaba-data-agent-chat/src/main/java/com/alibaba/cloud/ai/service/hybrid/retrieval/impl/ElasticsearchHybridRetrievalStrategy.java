@@ -32,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.elasticsearch.ElasticsearchVectorStore;
-import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -74,7 +74,7 @@ public class ElasticsearchHybridRetrievalStrategy extends AbstractHybridRetrieva
 		 * "term": { "metadata.vectorType": "table" } } ] } }, "size": 20, "_source": true
 		 * }
 		 */
-		if (CollectionUtils.isEmpty(agentSearchRequest.getKeywords()))
+		if (!StringUtils.hasText(agentSearchRequest.getQuery()))
 			return Collections.emptyList();
 
 		ElasticsearchVectorStore vectorStore = (ElasticsearchVectorStore) this.vectorStore;
@@ -99,10 +99,9 @@ public class ElasticsearchHybridRetrievalStrategy extends AbstractHybridRetrieva
 
 	private SearchRequest buildSearchRequest(AgentSearchRequest agentSearchRequest) {
 		// 拼接keywords 通过空格连接
-		String keywords = String.join(" ", agentSearchRequest.getKeywords());
-		log.debug("ElasticsearchClient search keywords: {}", keywords);
+		log.debug("ElasticsearchClient search with query: {}", agentSearchRequest.getQuery());
 
-		Query matchQuery = MatchQuery.of(m -> m.field("content").query(keywords))._toQuery();
+		Query matchQuery = MatchQuery.of(m -> m.field("content").query(agentSearchRequest.getQuery()))._toQuery();
 
 		// 创建元数据过滤条件
 		Query agentIdFilter = TermQuery.of(t -> t.field("metadata.agentId").value(agentSearchRequest.getAgentId()))
