@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS business_knowledge (
 CREATE TABLE IF NOT EXISTS semantic_model (
   id INT NOT NULL AUTO_INCREMENT,
   agent_id INT COMMENT '关联的智能体ID',
+  table_name VARCHAR(255) NOT NULL COMMENT '表名',
+  schema_name VARCHAR(255) COMMENT '数据库schema名(可选)',
   field_name VARCHAR(255) DEFAULT '' COMMENT '数据库字段名（数据库实际存储字，如"tbl_order.amt"）',
   conversation_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '对话中字段名称（对话中使用的逻辑标识，如"order_amount"）',
   synonyms TEXT COMMENT '字段名称同义词',
@@ -52,6 +54,7 @@ CREATE TABLE IF NOT EXISTS semantic_model (
   status TINYINT DEFAULT 0 COMMENT '启用状态（0 停用 1 启用）',
   PRIMARY KEY (id),
   INDEX idx_agent_id (agent_id),
+  INDEX idx_table_name (table_name),
   INDEX idx_field_name (field_name),
   INDEX idx_status (status),
   FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE SET NULL

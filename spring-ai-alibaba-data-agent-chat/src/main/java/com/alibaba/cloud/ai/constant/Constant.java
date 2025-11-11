@@ -41,10 +41,6 @@ public final class Constant {
 
 	public static final String FEASIBILITY_ASSESSMENT_NODE_OUTPUT = "FEASIBILITY_ASSESSMENT_NODE_OUTPUT";
 
-	public static final String QUERY_REWRITE_NODE_OUTPUT = "QUERY_REWRITE_NODE_OUTPUT";
-
-	public static final String KEYWORD_EXTRACT_NODE_OUTPUT = "KEYWORD_EXTRACT_NODE_OUTPUT";
-
 	public static final String EVIDENCES = "EVIDENCES";
 
 	public static final String TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT = "TABLE_DOCUMENTS_FOR_SCHEMA";
