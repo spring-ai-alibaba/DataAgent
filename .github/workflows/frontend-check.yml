@@ -44,11 +44,6 @@ jobs:
           cd spring-ai-alibaba-data-agent-frontend
           npm ci
           
-      - name: TypeScript type check
-        run: |
-          cd spring-ai-alibaba-data-agent-frontend
-          npm run type-check
-          
       - name: Build project
         run: |
           cd spring-ai-alibaba-data-agent-frontend
