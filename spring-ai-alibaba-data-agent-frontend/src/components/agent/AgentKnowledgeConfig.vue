@@ -16,25 +16,25 @@
 
 <template>
   <!-- todo: 后端开发完成后，补充前端页面 -->
-  <div style="max-width: 600px; margin: 40px auto 0;">
-    <el-alert title="相关功能正在开发中，请耐心等待..." type="primary" :closable="false" show-icon/>
+  <div style="max-width: 600px; margin: 40px auto 0">
+    <el-alert
+      title="相关功能正在开发中，请耐心等待..."
+      type="primary"
+      :closable="false"
+      show-icon
+    />
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent } from "vue"
+  import { defineComponent } from 'vue';
 
-export default defineComponent({
-  name: 'AgentKnowledgeConfig',
-  setup() {
-
-    return {
-
-    }
-  }
-})
+  export default defineComponent({
+    name: 'AgentKnowledgeConfig',
+    setup() {
+      return {};
+    },
+  });
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

@@ -14,57 +14,57 @@
  * limitations under the License.
  */
 
-/* ========================================
-   现代简约 + 科技轻盈感设计系统
-   ======================================== */
-
 /* CSS 变量定义 */
 :root {
   /* 主色系 - 淡蓝科技感 */
-  --primary-color: #5F70E1;
-  --primary-hover: #3A7AFE;
-  --primary-active: #4C63D2;
-  --primary-light: #E8EBFF;
-  --primary-lighter: #F5F6FF;
-  
+  --primary-color: #5f70e1;
+  --primary-hover: #3a7afe;
+  --primary-active: #4c63d2;
+  --primary-light: #e8ebff;
+  --primary-lighter: #f5f6ff;
+
   /* 辅助色 - 浅紫活泼点缀 */
-  --accent-color: #917DFE;
-  --accent-hover: #A794FF;
-  --accent-light: #F0EEFF;
-  
+  --accent-color: #917dfe;
+  --accent-hover: #a794ff;
+  --accent-light: #f0eeff;
+
   /* 功能色系 */
-  --success-color: #52C41A;
-  --success-light: #F6FFED;
-  --warning-color: #FAAD14;
-  --warning-light: #FFF7E6;
-  --error-color: #FF4D4F;
-  --error-light: #FFF2F0;
-  --info-color: #1890FF;
-  --info-light: #E6F7FF;
-  
+  --success-color: #52c41a;
+  --success-light: #f6ffed;
+  --warning-color: #faad14;
+  --warning-light: #fff7e6;
+  --error-color: #ff4d4f;
+  --error-light: #fff2f0;
+  --info-color: #1890ff;
+  --info-light: #e6f7ff;
+
   /* 中性色系 */
-  --text-primary: #1F1F1F;
+  --text-primary: #1f1f1f;
   --text-secondary: #666666;
   --text-tertiary: #999999;
-  --text-quaternary: #BFBFBF;
-  --text-disabled: #D9D9D9;
-  
+  --text-quaternary: #bfbfbf;
+  --text-disabled: #d9d9d9;
+
   /* 背景色系 */
-  --bg-primary: #FFFFFF;
-  --bg-secondary: #F5F6FA;
-  --bg-tertiary: #FAFBFC;
-  --bg-layout: #F8F9FA;
-  
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f6fa;
+  --bg-tertiary: #fafbfc;
+  --bg-layout: #f8f9fa;
+
   /* 边框色系 */
-  --border-primary: #EAEAEA;
-  --border-secondary: #F0F0F0;
-  --border-tertiary: #F5F5F5;
-  --border-color: #EAEAEA;
-  
+  --border-primary: #eaeaea;
+  --border-secondary: #f0f0f0;
+  --border-tertiary: #f5f5f5;
+  --border-color: #eaeaea;
+
   /* 字体系统 */
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-family-mono: 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', 'Source Code Pro', Menlo, Consolas, 'Ubuntu Mono', monospace;
-  
+  --font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-family-mono:
+    'SF Mono', Monaco, Inconsolata, 'Roboto Mono', 'Source Code Pro', Menlo, Consolas,
+    'Ubuntu Mono', monospace;
+
   /* 字体尺寸 */
   --font-size-xs: 12px;
   --font-size-sm: 14px;
@@ -74,14 +74,14 @@
   --font-size-2xl: 24px;
   --font-size-3xl: 30px;
   --font-size-4xl: 36px;
-  
+
   /* 字体重量 */
   --font-weight-light: 300;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  
+
   /* 间距系统 - 基于 4px */
   --space-xs: 4px;
   --space-sm: 8px;
@@ -92,7 +92,7 @@
   --space-2xl: 32px;
   --space-3xl: 48px;
   --space-4xl: 64px;
-  
+
   /* 圆角系统 */
   --radius-xs: 2px;
   --radius-sm: 4px;
@@ -103,7 +103,7 @@
   --radius-2xl: 20px;
   --radius-full: 50%;
   --radius: 6px;
-  
+
   /* 阴影系统 */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.04);
@@ -111,12 +111,12 @@
   --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
   --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.16);
-  
+
   /* 过渡动画 */
   --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  
+
   /* Z-index 层级 */
   --z-dropdown: 1000;
   --z-sticky: 1020;
@@ -516,7 +516,9 @@ body {
   width: 100%;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left var(--transition-slow), opacity var(--transition-base);
+  transition:
+    left var(--transition-slow),
+    opacity var(--transition-base);
   opacity: 0.8;
 }
 
@@ -1108,31 +1110,73 @@ body {
   justify-content: space-between;
 }
 
-.gap-xs { gap: var(--space-xs); }
-.gap-sm { gap: var(--space-sm); }
-.gap-base { gap: var(--space-base); }
-.gap-md { gap: var(--space-md); }
-.gap-lg { gap: var(--space-lg); }
-.gap-xl { gap: var(--space-xl); }
+.gap-xs {
+  gap: var(--space-xs);
+}
+.gap-sm {
+  gap: var(--space-sm);
+}
+.gap-base {
+  gap: var(--space-base);
+}
+.gap-md {
+  gap: var(--space-md);
+}
+.gap-lg {
+  gap: var(--space-lg);
+}
+.gap-xl {
+  gap: var(--space-xl);
+}
 
 /* 文字辅助类 */
-.text-primary { color: var(--text-primary); }
-.text-secondary { color: var(--text-secondary); }
-.text-tertiary { color: var(--text-tertiary); }
-.text-success { color: var(--success-color); }
-.text-warning { color: var(--warning-color); }
-.text-error { color: var(--error-color); }
-.text-info { color: var(--info-color); }
+.text-primary {
+  color: var(--text-primary);
+}
+.text-secondary {
+  color: var(--text-secondary);
+}
+.text-tertiary {
+  color: var(--text-tertiary);
+}
+.text-success {
+  color: var(--success-color);
+}
+.text-warning {
+  color: var(--warning-color);
+}
+.text-error {
+  color: var(--error-color);
+}
+.text-info {
+  color: var(--info-color);
+}
 
-.text-center { text-align: center; }
-.text-left { text-align: left; }
-.text-right { text-align: right; }
+.text-center {
+  text-align: center;
+}
+.text-left {
+  text-align: left;
+}
+.text-right {
+  text-align: right;
+}
 
-.font-weight-light { font-weight: var(--font-weight-light); }
-.font-weight-normal { font-weight: var(--font-weight-normal); }
-.font-weight-medium { font-weight: var(--font-weight-medium); }
-.font-weight-semibold { font-weight: var(--font-weight-semibold); }
-.font-weight-bold { font-weight: var(--font-weight-bold); }
+.font-weight-light {
+  font-weight: var(--font-weight-light);
+}
+.font-weight-normal {
+  font-weight: var(--font-weight-normal);
+}
+.font-weight-medium {
+  font-weight: var(--font-weight-medium);
+}
+.font-weight-semibold {
+  font-weight: var(--font-weight-semibold);
+}
+.font-weight-bold {
+  font-weight: var(--font-weight-bold);
+}
 
 /* 动画定义 */
 @keyframes spin {
@@ -1191,22 +1235,22 @@ body {
   .container {
     padding: 0 var(--space-md);
   }
-  
+
   .card {
     margin-bottom: var(--space-md);
   }
-  
+
   .card-header,
   .card-body,
   .card-footer {
     padding: var(--space-md);
   }
-  
+
   .table th,
   .table td {
     padding: var(--space-sm) var(--space-md);
   }
-  
+
   .btn-lg {
     padding: var(--space-sm) var(--space-lg);
     font-size: var(--font-size-sm);
@@ -1218,11 +1262,11 @@ body {
     width: 100%;
     justify-content: center;
   }
-  
+
   .d-flex {
     flex-direction: column;
   }
-  
+
   .gap-md {
     gap: var(--space-sm);
   }
@@ -1235,13 +1279,13 @@ body {
     --border-secondary: #000000;
     --text-tertiary: #000000;
   }
-  
+
   .card,
   .table,
   .form-control {
     border: 2px solid var(--border-primary);
   }
-  
+
   .btn {
     border: 2px solid currentColor;
   }
@@ -1256,7 +1300,7 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  
+
   .btn::before {
     display: none;
   }
@@ -1265,17 +1309,17 @@ body {
 /* 暗色模式支持 */
 @media (prefers-color-scheme: dark) {
   :root {
-    --text-primary: #FFFFFF;
-    --text-secondary: #B3B3B3;
+    --text-primary: #ffffff;
+    --text-secondary: #b3b3b3;
     --text-tertiary: #808080;
-    --text-quaternary: #4D4D4D;
-    --bg-primary: #1A1A1A;
-    --bg-secondary: #2D2D2D;
+    --text-quaternary: #4d4d4d;
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2d2d2d;
     --bg-tertiary: #404040;
-    --bg-layout: #0D0D0D;
+    --bg-layout: #0d0d0d;
     --border-primary: #404040;
-    --border-secondary: #2D2D2D;
-    --border-tertiary: #1A1A1A;
+    --border-secondary: #2d2d2d;
+    --border-tertiary: #1a1a1a;
   }
 }
 
@@ -1378,7 +1422,8 @@ body {
   max-width: 100% !important;
   overflow-x: auto !important;
   box-sizing: border-box !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
   font-size: 14px !important;
   line-height: 1.6 !important;
   white-space: normal !important;

@@ -17,18 +17,20 @@
 <template>
   <!-- todo: 添加分页以及模糊搜索（后端已实现） -->
   <div style="padding: 20px">
-    <div style="margin-bottom: 20px;">
+    <div style="margin-bottom: 20px">
       <h2>业务知识管理</h2>
     </div>
     <el-divider />
 
-    <div style="margin-bottom: 30px;">
-      <el-row style="display: flex; justify-content: space-between; align-items: center;">
+    <div style="margin-bottom: 30px">
+      <el-row style="display: flex; justify-content: space-between; align-items: center">
         <el-col :span="12">
           <h3>业务知识列表</h3>
         </el-col>
-        <el-col :span="12" style="text-align: right;">
-          <el-button @click="openCreateDialog" size="large" type="primary" round :icon="Plus">添加知识</el-button>
+        <el-col :span="12" style="text-align: right">
+          <el-button @click="openCreateDialog" size="large" type="primary" round :icon="Plus">
+            添加知识
+          </el-button>
         </el-col>
       </el-row>
     </div>
@@ -48,28 +50,32 @@
       <el-table-column prop="createTime" label="创建时间" min-width="120px" />
       <el-table-column label="操作" min-width="180px">
         <template #default="scope">
-          <el-button @click="editKnowledge(scope.row)" size="small" type="primary" round plain>编辑</el-button>
+          <el-button @click="editKnowledge(scope.row)" size="small" type="primary" round plain>
+            编辑
+          </el-button>
           <el-button
-              v-if="scope.row.isRecall"
-              @click="toggleRecall(scope.row, false)"
-              size="small"
-              type="warning"
-              round
-              plain
+            v-if="scope.row.isRecall"
+            @click="toggleRecall(scope.row, false)"
+            size="small"
+            type="warning"
+            round
+            plain
           >
             取消召回
           </el-button>
           <el-button
-              v-else
-              @click="toggleRecall(scope.row, true)"
-              size="small"
-              type="success"
-              round
-              plain
+            v-else
+            @click="toggleRecall(scope.row, true)"
+            size="small"
+            type="success"
+            round
+            plain
           >
             设为召回
           </el-button>
-          <el-button @click="deleteKnowledge(scope.row)" size="small" type="danger" round plain>删除</el-button>
+          <el-button @click="deleteKnowledge(scope.row)" size="small" type="danger" round plain>
+            删除
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -84,19 +90,19 @@
 
       <el-form-item label="描述" prop="description" required>
         <el-input
-            v-model="knowledgeForm.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入业务知识描述"
+          v-model="knowledgeForm.description"
+          type="textarea"
+          :rows="3"
+          placeholder="请输入业务知识描述"
         />
       </el-form-item>
 
       <el-form-item label="同义词" prop="synonyms">
         <el-input
-            v-model="knowledgeForm.synonyms"
-            type="textarea"
-            :rows="2"
-            placeholder="请输入同义词，多个同义词用逗号分隔"
+          v-model="knowledgeForm.synonyms"
+          type="textarea"
+          :rows="2"
+          placeholder="请输入同义词，多个同义词用逗号分隔"
         />
       </el-form-item>
 
@@ -106,7 +112,7 @@
     </el-form>
 
     <template #footer>
-      <div style="text-align: right;">
+      <div style="text-align: right">
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="saveKnowledge">
           {{ isEdit ? '更新' : '创建' }}
@@ -117,157 +123,151 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, Ref } from "vue"
-import { Plus } from '@element-plus/icons-vue'
-import businessKnowledgeService from '@/services/businessKnowledge'
-import { BusinessKnowledge, BusinessKnowledgeDTO } from '@/services/businessKnowledge'
-import { ElMessage, ElMessageBox } from 'element-plus'
+  import { defineComponent, ref, onMounted, Ref } from 'vue';
+  import { Plus } from '@element-plus/icons-vue';
+  import businessKnowledgeService from '@/services/businessKnowledge';
+  import { BusinessKnowledge, BusinessKnowledgeDTO } from '@/services/businessKnowledge';
+  import { ElMessage, ElMessageBox } from 'element-plus';
 
-export default defineComponent({
-  name: 'AgentKnowledgeConfig',
-  props: {
-    agentId: {
-      type: Number,
-      required: true
-    }
-  },
-  setup(props) {
-    const businessKnowledgeList: Ref<BusinessKnowledge[]> = ref([])
-    const dialogVisible: Ref<boolean> = ref(false)
-    const isEdit: Ref<boolean> = ref(false)
-    const knowledgeForm: Ref<BusinessKnowledge> = ref({
-      businessTerm: '',
-      description: '',
-      synonyms: '',
-      isRecall: false
-    } as BusinessKnowledge)
+  export default defineComponent({
+    name: 'AgentKnowledgeConfig',
+    props: {
+      agentId: {
+        type: Number,
+        required: true,
+      },
+    },
+    setup(props) {
+      const businessKnowledgeList: Ref<BusinessKnowledge[]> = ref([]);
+      const dialogVisible: Ref<boolean> = ref(false);
+      const isEdit: Ref<boolean> = ref(false);
+      const knowledgeForm: Ref<BusinessKnowledge> = ref({
+        businessTerm: '',
+        description: '',
+        synonyms: '',
+        isRecall: false,
+      } as BusinessKnowledge);
 
-    const currentEditId: Ref<number | null> = ref(null)
+      const currentEditId: Ref<number | null> = ref(null);
 
-    const openCreateDialog = () => {
-      isEdit.value = false
-      dialogVisible.value = true
-    }
+      const openCreateDialog = () => {
+        isEdit.value = false;
+        dialogVisible.value = true;
+      };
 
-    // 加载业务知识列表
-    const loadBusinessKnowledge = async () => {
-      try {
-        businessKnowledgeList.value = await businessKnowledgeService.list(props.agentId)
-      } catch (error) {
-        ElMessage.error('加载业务知识列表失败')
-        console.error('Failed to load business knowledge:', error)
-      }
-    }
+      // 加载业务知识列表
+      const loadBusinessKnowledge = async () => {
+        try {
+          businessKnowledgeList.value = await businessKnowledgeService.list(props.agentId);
+        } catch (error) {
+          ElMessage.error('加载业务知识列表失败');
+          console.error('Failed to load business knowledge:', error);
+        }
+      };
 
-    // 编辑业务知识
-    const editKnowledge = (knowledge: BusinessKnowledge) => {
-      isEdit.value = true
-      currentEditId.value = knowledge.id || null
-      knowledgeForm.value = { ...knowledge }
-      dialogVisible.value = true
-    }
+      // 编辑业务知识
+      const editKnowledge = (knowledge: BusinessKnowledge) => {
+        isEdit.value = true;
+        currentEditId.value = knowledge.id || null;
+        knowledgeForm.value = { ...knowledge };
+        dialogVisible.value = true;
+      };
 
-    // 删除业务知识
-    const deleteKnowledge = async (knowledge: BusinessKnowledge) => {
-      if (!knowledge.id) return
+      // 删除业务知识
+      const deleteKnowledge = async (knowledge: BusinessKnowledge) => {
+        if (!knowledge.id) return;
 
-      try {
-        await ElMessageBox.confirm(
+        try {
+          await ElMessageBox.confirm(
             `确定要删除业务知识 "${knowledge.businessTerm}" 吗？`,
             '确认删除',
             {
               confirmButtonText: '确定',
               cancelButtonText: '取消',
-              type: 'warning'
-            }
-        )
+              type: 'warning',
+            },
+          );
 
-        const result = await businessKnowledgeService.delete(knowledge.id)
-        if (result) {
-          ElMessage.success('删除成功')
-          await loadBusinessKnowledge()
-        } else {
-          ElMessage.error('删除失败')
-        }
-      } catch (error) {
-        // 用户取消操作时不显示错误消息
-        if (!(error as any).cancelled) {
-          ElMessage.error('删除失败')
-          console.error('Failed to delete knowledge:', error)
-        }
-      }
-    }
-
-    // 切换召回状态
-    const toggleRecall = async (knowledge: BusinessKnowledge, isRecall: boolean) => {
-      if (!knowledge.id) return
-
-      try {
-        const result = await businessKnowledgeService.recallKnowledge(knowledge.id, isRecall)
-        if (result) {
-          ElMessage.success(`${isRecall ? '设为召回' : '取消召回'}成功`)
-          knowledge.isRecall = isRecall
-        } else {
-          ElMessage.error(`${isRecall ? '设为召回' : '取消召回'}失败`)
-        }
-      } catch (error) {
-        ElMessage.error(`${isRecall ? '设为召回' : '取消召回'}失败`)
-        console.error('Failed to toggle recall:', error)
-      }
-    }
-
-    // 保存业务知识
-    const saveKnowledge = async () => {
-      try {
-        const formData: BusinessKnowledgeDTO = {
-          businessTerm: knowledgeForm.value.businessTerm,
-          description: knowledgeForm.value.description,
-          synonyms: knowledgeForm.value.synonyms,
-          isRecall: knowledgeForm.value.isRecall,
-          agentId: props.agentId
-        }
-
-        if (isEdit.value && currentEditId.value) {
-          const result = await businessKnowledgeService.update(currentEditId.value, formData)
+          const result = await businessKnowledgeService.delete(knowledge.id);
           if (result) {
-            ElMessage.success('更新成功')
+            ElMessage.success('删除成功');
+            await loadBusinessKnowledge();
           } else {
-            ElMessage.error('更新失败')
-            return
+            ElMessage.error('删除失败');
           }
-        } else {
-          await businessKnowledgeService.create(formData)
-          ElMessage.success('创建成功')
+        } catch {
+          // 用户取消操作时不显示错误消息
         }
+      };
 
-        dialogVisible.value = false
-        await loadBusinessKnowledge()
-      } catch (error) {
-        ElMessage.error(`${isEdit.value ? '更新' : '创建'}失败`)
-        console.error('Failed to save knowledge:', error)
-      }
-    }
+      // 切换召回状态
+      const toggleRecall = async (knowledge: BusinessKnowledge, isRecall: boolean) => {
+        if (!knowledge.id) return;
 
-    onMounted(() => {
-      loadBusinessKnowledge()
-    })
+        try {
+          const result = await businessKnowledgeService.recallKnowledge(knowledge.id, isRecall);
+          if (result) {
+            ElMessage.success(`${isRecall ? '设为召回' : '取消召回'}成功`);
+            knowledge.isRecall = isRecall;
+          } else {
+            ElMessage.error(`${isRecall ? '设为召回' : '取消召回'}失败`);
+          }
+        } catch (error) {
+          ElMessage.error(`${isRecall ? '设为召回' : '取消召回'}失败`);
+          console.error('Failed to toggle recall:', error);
+        }
+      };
 
-    return {
-      Plus,
-      businessKnowledgeList,
-      dialogVisible,
-      isEdit,
-      knowledgeForm,
-      openCreateDialog,
-      editKnowledge,
-      deleteKnowledge,
-      toggleRecall,
-      saveKnowledge
-    }
-  }
-})
+      // 保存业务知识
+      const saveKnowledge = async () => {
+        try {
+          const formData: BusinessKnowledgeDTO = {
+            businessTerm: knowledgeForm.value.businessTerm,
+            description: knowledgeForm.value.description,
+            synonyms: knowledgeForm.value.synonyms,
+            isRecall: knowledgeForm.value.isRecall,
+            agentId: props.agentId,
+          };
+
+          if (isEdit.value && currentEditId.value) {
+            const result = await businessKnowledgeService.update(currentEditId.value, formData);
+            if (result) {
+              ElMessage.success('更新成功');
+            } else {
+              ElMessage.error('更新失败');
+              return;
+            }
+          } else {
+            await businessKnowledgeService.create(formData);
+            ElMessage.success('创建成功');
+          }
+
+          dialogVisible.value = false;
+          await loadBusinessKnowledge();
+        } catch (error) {
+          ElMessage.error(`${isEdit.value ? '更新' : '创建'}失败`);
+          console.error('Failed to save knowledge:', error);
+        }
+      };
+
+      onMounted(() => {
+        loadBusinessKnowledge();
+      });
+
+      return {
+        Plus,
+        businessKnowledgeList,
+        dialogVisible,
+        isEdit,
+        knowledgeForm,
+        openCreateDialog,
+        editKnowledge,
+        deleteKnowledge,
+        toggleRecall,
+        saveKnowledge,
+      };
+    },
+  });
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

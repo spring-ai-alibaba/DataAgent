@@ -44,96 +44,90 @@
 </template>
 
 <script lang="ts">
-import { ref, defineComponent, PropType } from 'vue'
-import { type GraphRequest } from '../../services/graph'
-import { 
-  ChatDotRound,
-  Check,
-  Close
-} from '@element-plus/icons-vue'
+  import { ref, defineComponent, PropType } from 'vue';
+  import { type GraphRequest } from '../../services/graph';
+  import { ChatDotRound, Check, Close } from '@element-plus/icons-vue';
 
-export default defineComponent({
-  name: 'HumanFeedback',
-  components: {
-    ChatDotRound,
-    Check,
-    Close
-  },
-  props: {
-    request: {
-      type: Object as PropType<GraphRequest>,
-      required: true
+  export default defineComponent({
+    name: 'HumanFeedback',
+    components: {
+      ChatDotRound,
+      Check,
+      Close,
     },
-    handleFeedback: {
-      type: Function as PropType<(
-        request: GraphRequest, 
-        rejectedPlan: boolean, 
-        content: string
-      ) => Promise<void>>,
-      required: true 
-    }
-  },
-  setup(props) {
-    const feedbackInput = ref('')
+    props: {
+      request: {
+        type: Object as PropType<GraphRequest>,
+        required: true,
+      },
+      handleFeedback: {
+        type: Function as PropType<
+          (request: GraphRequest, rejectedPlan: boolean, content: string) => Promise<void>
+        >,
+        required: true,
+      },
+    },
+    setup(props) {
+      const feedbackInput = ref('');
 
-    const submitFeedback = (rejectedPlan: boolean) => {
-      // 准备反馈内容，如果用户输入为空则使用默认值
-      const feedbackContent = feedbackInput.value.trim() || 'Accept'
-      props.handleFeedback(props.request, rejectedPlan, feedbackContent);
-      // 重置输入
-      feedbackInput.value = ''
-    }
+      const submitFeedback = (rejectedPlan: boolean) => {
+        // 准备反馈内容，如果用户输入为空则使用默认值
+        const feedbackContent = feedbackInput.value.trim() || 'Accept';
+        props.handleFeedback(props.request, rejectedPlan, feedbackContent);
+        // 重置输入
+        feedbackInput.value = '';
+      };
 
-    return {
-      feedbackInput,
-      submitFeedback
-    }
-  }
-})
+      return {
+        feedbackInput,
+        submitFeedback,
+      };
+    },
+  });
 </script>
 
 <style scoped>
-.human-feedback-area {
-  background: #f8fbff;
-  border: 1px solid #e1f0ff;
-  border-radius: 12px;
-  padding: 20px;
-  margin: 16px 0;
-}
+  .human-feedback-area {
+    background: #f8fbff;
+    border: 1px solid #e1f0ff;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 16px 0;
+  }
 
-.feedback-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  color: #409eff;
-  font-size: 16px;
-  font-weight: 500;
-}
+  .feedback-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    color: #409eff;
+    font-size: 16px;
+    font-weight: 500;
+  }
 
-.feedback-header .el-icon {
-  color: #409eff;
-  font-size: 18px;
-}
+  .feedback-header .el-icon {
+    color: #409eff;
+    font-size: 18px;
+  }
 
-.feedback-input {
-  margin-bottom: 16px;
-}
+  .feedback-input {
+    margin-bottom: 16px;
+  }
 
-.feedback-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
   .feedback-actions {
-    flex-direction: column;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
   }
-  
-  .feedback-actions .el-button {
-    width: 100%;
+
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .feedback-actions {
+      flex-direction: column;
+    }
+
+    .feedback-actions .el-button {
+      width: 100%;
+    }
   }
-}
 </style>

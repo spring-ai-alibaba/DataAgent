@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { createApp } from 'vue'
-import App from '@/App.vue'
-import router from '@/router'
+import { createApp } from 'vue';
+import App from '@/App.vue';
+import router from '@/router';
 
 // 引入全局样式
-import '@/styles/global.css'
-import 'element-plus/dist/index.css'
-import ElementPlus from 'element-plus'
+import '@/styles/global.css';
+import 'element-plus/dist/index.css';
+import ElementPlus from 'element-plus';
 
 // 创建应用实例
-const app = createApp(App)
-app.use(router)
-app.use(ElementPlus)
-app.mount('#app')
+const app = createApp(App);
+app.use(router);
+app.use(ElementPlus);
+app.mount('#app');
