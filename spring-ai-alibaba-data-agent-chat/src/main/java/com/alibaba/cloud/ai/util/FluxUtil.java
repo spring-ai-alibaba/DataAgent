@@ -80,7 +80,7 @@ public final class FluxUtil {
 	 * @param completionMessage completion message
 	 * @param resultMapper result mapping function
 	 * @param sourceFlux source data stream
-	 * @return AsyncGenerator instance
+	 * @return Flux instance
 	 */
 	public static Flux<GraphResponse<StreamingOutput>> createStreamingGeneratorWithMessages(
 			Class<? extends NodeAction> nodeClass, OverAllState state, String startMessage, String completionMessage,
@@ -111,6 +111,30 @@ public final class FluxUtil {
 			Class<? extends NodeAction> nodeClass, OverAllState state,
 			Function<String, Map<String, Object>> resultMapper, Flux<ChatResponse> sourceFlux) {
 		return createStreamingGeneratorWithMessages(nodeClass, state, null, null, resultMapper, sourceFlux);
+	}
+
+	/**
+	 * create streaming generator with start and end flux
+	 * @param nodeClass node class
+	 * @param state state
+	 * @param sourceFlux source data stream
+	 * @param preFlux preFlux
+	 * @param sufFlux sufFlux
+	 * @param sourceMapper result of <code>sourceFlux</code> mapping function
+	 * @return Flux instance
+	 */
+	public static Flux<GraphResponse<StreamingOutput>> createStreamingGenerator(Class<? extends NodeAction> nodeClass,
+			OverAllState state, Flux<ChatResponse> sourceFlux, Flux<ChatResponse> preFlux, Flux<ChatResponse> sufFlux,
+			Function<String, Map<String, Object>> sourceMapper) {
+		String nodeName = nodeClass.getSimpleName();
+		// Used to collect actual processing results
+		final StringBuilder collectedResult = new StringBuilder();
+		sourceFlux = sourceFlux.doOnNext(r -> collectedResult.append(ChatResponseUtil.getText(r)));
+		return FluxConverter.builder()
+			.startingNode(nodeName)
+			.startingState(state)
+			.mapResult(r -> sourceMapper.apply(collectedResult.toString()))
+			.build(Flux.concat(preFlux, sourceFlux, sufFlux));
 	}
 
 }

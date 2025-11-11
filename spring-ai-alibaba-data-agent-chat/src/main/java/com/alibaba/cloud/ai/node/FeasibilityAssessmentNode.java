@@ -16,14 +16,17 @@
 package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.llm.LlmService;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -35,14 +38,10 @@ import static com.alibaba.cloud.ai.constant.Constant.*;
 // 可行性评估节点，看需求是 数据分析/需要澄清 或者最终确认为自由闲聊
 @Slf4j
 @Component
+@AllArgsConstructor
 public class FeasibilityAssessmentNode implements NodeAction {
 
 	private final LlmService llmService;
-
-	@Autowired
-	public FeasibilityAssessmentNode(LlmService llmService) {
-		this.llmService = llmService;
-	}
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -64,19 +63,15 @@ public class FeasibilityAssessmentNode implements NodeAction {
 		// 调用LLM进行可行性评估
 		Flux<ChatResponse> responseFlux = llmService.callUser(prompt);
 
-		// 收集响应结果
-		StringBuilder resultBuilder = new StringBuilder();
-		responseFlux.doOnNext(response -> {
-			String text = response.getResult().getOutput().getText();
-			resultBuilder.append(text);
-		}).blockLast();
-
-		// 获取评估结果
-		String assessmentResult = resultBuilder.toString().trim();
-		log.info("Feasibility assessment result: {}", assessmentResult);
-
-		// 返回评估结果
-		return Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, assessmentResult);
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, "正在进行可行性评估...", "可行性评估完成！", llmOutput -> {
+					// 获取评估结果
+					String assessmentResult = llmOutput.trim();
+					log.info("Feasibility assessment result: {}", assessmentResult);
+					// 返回评估结果
+					return Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, assessmentResult);
+				}, responseFlux);
+		return Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, generator);
 	}
 
 }

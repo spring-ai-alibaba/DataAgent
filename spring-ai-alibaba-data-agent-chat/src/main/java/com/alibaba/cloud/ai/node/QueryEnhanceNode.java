@@ -17,12 +17,18 @@
 package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.dto.QueryEnhanceOutputDTO;
+import com.alibaba.cloud.ai.enums.TextType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.llm.LlmService;
+import com.alibaba.cloud.ai.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.JsonUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
@@ -38,13 +44,10 @@ import static com.alibaba.cloud.ai.constant.Constant.*;
  */
 @Slf4j
 @Component
+@AllArgsConstructor
 public class QueryEnhanceNode implements NodeAction {
 
 	private final LlmService llmService;
-
-	public QueryEnhanceNode(LlmService llmService) {
-		this.llmService = llmService;
-	}
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -64,15 +67,20 @@ public class QueryEnhanceNode implements NodeAction {
 		// 调用LLM进行查询处理
 		Flux<ChatResponse> responseFlux = llmService.callUser(prompt);
 
-		// 收集响应结果
-		StringBuilder resultBuilder = new StringBuilder();
-		responseFlux.doOnNext(response -> {
-			String text = response.getResult().getOutput().getText();
-			resultBuilder.append(text);
-		}).blockLast();
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGenerator(this.getClass(), state,
+				responseFlux,
+				Flux.just(ChatResponseUtil.createResponse("正在进行问题增强..."),
+						ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign())),
+				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
+						ChatResponseUtil.createResponse("\n问题增强完成！")),
+				this::handleQueryEnhance);
 
+		return Map.of(QUERY_ENHANCE_NODE_OUTPUT, generator);
+	}
+
+	private Map<String, Object> handleQueryEnhance(String llmOutput) {
 		// 获取处理结果
-		String enhanceResult = resultBuilder.toString().trim();
+		String enhanceResult = llmOutput.trim();
 		log.info("Query enhance result: {}", enhanceResult);
 
 		// 解析处理结果，转成 QueryProcessOutputDTO

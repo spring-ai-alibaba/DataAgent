@@ -19,6 +19,7 @@ package com.alibaba.cloud.ai.dispatcher;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
 import com.alibaba.cloud.ai.util.JsonUtil;
+import com.alibaba.cloud.ai.util.MarkdownParserUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -45,7 +46,8 @@ public class IntentRecognitionDispatcher implements EdgeAction {
 
 		try {
 			// 解析JSON格式的意图识别结果
-			JsonNode jsonNode = JsonUtil.getObjectMapper().readTree(intentResult);
+			JsonNode jsonNode = JsonUtil.getObjectMapper()
+				.readTree(MarkdownParserUtil.extractText(intentResult.trim()));
 			String classification = jsonNode.path("classification").asText();
 
 			// 根据分类结果决定下一个节点

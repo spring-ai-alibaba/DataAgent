@@ -15,11 +15,17 @@
  */
 package com.alibaba.cloud.ai.node;
 
+import com.alibaba.cloud.ai.enums.TextType;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.llm.LlmService;
+import com.alibaba.cloud.ai.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
@@ -35,13 +41,10 @@ import static com.alibaba.cloud.ai.constant.Constant.INTENT_RECOGNITION_NODE_OUT
  */
 @Slf4j
 @Component
+@AllArgsConstructor
 public class IntentRecognitionNode implements NodeAction {
 
 	private final LlmService llmService;
-
-	public IntentRecognitionNode(LlmService llmService) {
-		this.llmService = llmService;
-	}
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -57,19 +60,14 @@ public class IntentRecognitionNode implements NodeAction {
 		// 调用LLM进行意图识别
 		Flux<ChatResponse> responseFlux = llmService.callUser(prompt);
 
-		// 收集响应结果
-		StringBuilder resultBuilder = new StringBuilder();
-		responseFlux.doOnNext(response -> {
-			String text = response.getResult().getOutput().getText();
-			resultBuilder.append(text);
-		}).blockLast();
-
-		// 获取识别结果
-		String recognitionResult = resultBuilder.toString().trim();
-		log.info("Intent recognition result: {}", recognitionResult);
-
-		// 返回识别结果
-		return Map.of(INTENT_RECOGNITION_NODE_OUTPUT, recognitionResult);
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGenerator(this.getClass(), state,
+				responseFlux,
+				Flux.just(ChatResponseUtil.createResponse("正在进行意图识别..."),
+						ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign())),
+				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
+						ChatResponseUtil.createResponse("\n意图识别完成！")),
+				result -> Map.of(INTENT_RECOGNITION_NODE_OUTPUT, result));
+		return Map.of(INTENT_RECOGNITION_NODE_OUTPUT, generator);
 	}
 
 }
