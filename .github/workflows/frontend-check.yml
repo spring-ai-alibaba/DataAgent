@@ -1,0 +1,58 @@
+#
+# Copyright 2024-2025 the original author or authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+name: Frontend Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  frontend-check:
+    name: Frontend Build and Code Quality Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: spring-ai-alibaba-data-agent-frontend/package-lock.json
+      - name: Install dependencies
+        run: |
+          cd spring-ai-alibaba-data-agent-frontend
+          npm ci
+      - name: Build project
+        run: |
+          cd spring-ai-alibaba-data-agent-frontend
+          npm run build
+      - name: ESLint check
+        run: |
+          cd spring-ai-alibaba-data-agent-frontend
+          npm run lint:check
+      - name: Prettier format check
+        run: |
+          cd spring-ai-alibaba-data-agent-frontend
+          npm run format:check
+      - name: Unused code check
+        run: |
+          cd spring-ai-alibaba-data-agent-frontend
+          npm run unused

@@ -19,7 +19,7 @@ const routes = [
   // 首页重定向
   {
     path: '/',
-    redirect: '/agents'
+    redirect: '/agents',
   },
 
   // 智能体管理模块
@@ -29,8 +29,8 @@ const routes = [
     component: () => import('@/views/AgentList.vue'),
     meta: {
       title: '智能体列表',
-      module: 'agent'
-    }
+      module: 'agent',
+    },
   },
   {
     path: '/agent/create',
@@ -38,8 +38,8 @@ const routes = [
     component: () => import('@/views/AgentCreate.vue'),
     meta: {
       title: '创建智能体',
-      module: 'agent'
-    }
+      module: 'agent',
+    },
   },
   {
     path: '/agent/:id',
@@ -47,8 +47,8 @@ const routes = [
     component: () => import('@/views/AgentDetail.vue'),
     meta: {
       title: '智能体详情',
-      module: 'agent'
-    }
+      module: 'agent',
+    },
   },
 
   {
@@ -57,8 +57,8 @@ const routes = [
     component: () => import('@/views/AgentRun.vue'),
     meta: {
       title: '运行智能体',
-      module: 'agent'
-    }
+      module: 'agent',
+    },
   },
 
   // 404页面
@@ -68,9 +68,9 @@ const routes = [
     component: () => import('@/views/NotFound.vue'),
     meta: {
       title: '页面未找到',
-      module: 'error'
-    }
-  }
-]
+      module: 'error',
+    },
+  },
+];
 
-export default routes
+export default routes;

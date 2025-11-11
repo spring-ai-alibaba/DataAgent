@@ -14,81 +14,79 @@
  * limitations under the License.
  */
 
-import axios from "axios"
+import axios from 'axios';
 
 interface PresetQuestion {
-    id?: number;
-    agentId: number;
-    question: string;
-    sortOrder?: number;
-    isActive?: boolean;
-    createTime?: string;
-    updateTime?: string;
+  id?: number;
+  agentId: number;
+  question: string;
+  sortOrder?: number;
+  isActive?: boolean;
+  createTime?: string;
+  updateTime?: string;
 }
 
 interface PresetQuestionDTO {
-    question: string;
-    isActive?: boolean;
+  question: string;
+  isActive?: boolean;
 }
 
 const API_BASE_URL = '/api/agent';
 
 class PresetQuestionService {
-    /**
-     * 获取预设问题列表
-     * @param agentId 
-     * @returns 
-     */
-    async list(agentId: number): Promise<PresetQuestion[]> {
-        try {
-            const response = await axios.get<PresetQuestion[]>(
-                `${API_BASE_URL}/${agentId}/preset-questions`
-            );
-            return response.data;
-        } catch (error) {
-            console.error('获取预设问题列表失败:', error);
-            throw error;
-        }
+  /**
+   * 获取预设问题列表
+   * @param agentId
+   * @returns
+   */
+  async list(agentId: number): Promise<PresetQuestion[]> {
+    try {
+      const response = await axios.get<PresetQuestion[]>(
+        `${API_BASE_URL}/${agentId}/preset-questions`,
+      );
+      return response.data;
+    } catch (error) {
+      console.error('获取预设问题列表失败:', error);
+      throw error;
     }
+  }
 
-    /**
-     * 批量保存预设问题
-     * @param agentId Agent ID
-     * @param questions 问题列表
-     */
-    async batchSave(agentId: number, questions: PresetQuestionDTO[]): Promise<boolean> {
-        try {
-            const questionsData = questions.map(q => ({
-                question: q.question,
-                isActive: q.isActive ?? true
-            }));
-            const response = await axios.post(
-                `${API_BASE_URL}/${agentId}/preset-questions`,
-                questionsData
-            );
-            return response.status === 200 || response.status === 201;
-        } catch (error) {
-            console.error('保存预设问题失败:', error);
-            throw error;
-        }
+  /**
+   * 批量保存预设问题
+   * @param agentId Agent ID
+   * @param questions 问题列表
+   */
+  async batchSave(agentId: number, questions: PresetQuestionDTO[]): Promise<boolean> {
+    try {
+      const questionsData = questions.map(q => ({
+        question: q.question,
+        isActive: q.isActive ?? true,
+      }));
+      const response = await axios.post(
+        `${API_BASE_URL}/${agentId}/preset-questions`,
+        questionsData,
+      );
+      return response.status === 200 || response.status === 201;
+    } catch (error) {
+      console.error('保存预设问题失败:', error);
+      throw error;
     }
+  }
 
-    /**
-     * 删除预设问题
-     * @param agentId Agent ID
-     * @param questionId 问题 ID
-     */
-    async delete(agentId: number, questionId: number): Promise<boolean> {
-        try {
-            await axios.delete(
-                `${API_BASE_URL}/${agentId}/preset-questions/${questionId}`
-            );
-            return true;
-        } catch (error) {
-            console.error('删除预设问题失败:', error);
-            throw error;
-        }
+  /**
+   * 删除预设问题
+   * @param agentId Agent ID
+   * @param questionId 问题 ID
+   */
+  async delete(agentId: number, questionId: number): Promise<boolean> {
+    try {
+      await axios.delete(`${API_BASE_URL}/${agentId}/preset-questions/${questionId}`);
+      return true;
+    } catch (error) {
+      console.error('删除预设问题失败:', error);
+      throw error;
     }
+  }
 }
 
 export { PresetQuestion, PresetQuestionDTO };
