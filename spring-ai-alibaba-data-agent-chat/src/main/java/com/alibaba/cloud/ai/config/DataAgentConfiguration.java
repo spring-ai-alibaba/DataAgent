@@ -116,10 +116,7 @@ public class DataAgentConfiguration implements DisposableBean {
 			keyStrategyHashMap.put(BUSINESS_KNOWLEDGE, new ReplaceStrategy());
 			// Semantic model
 			keyStrategyHashMap.put(SEMANTIC_MODEL, new ReplaceStrategy());
-			// queryWrite节点输出
-			keyStrategyHashMap.put(QUERY_REWRITE_NODE_OUTPUT, new ReplaceStrategy());
-			// keyword extract节点输出
-			keyStrategyHashMap.put(KEYWORD_EXTRACT_NODE_OUTPUT, new ReplaceStrategy());
+
 			keyStrategyHashMap.put(EVIDENCES, new ReplaceStrategy());
 			// schema recall节点输出
 			keyStrategyHashMap.put(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, new ReplaceStrategy());

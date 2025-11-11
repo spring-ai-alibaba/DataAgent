@@ -32,11 +32,7 @@ import reactor.core.publisher.Flux;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.constant.Constant.PLAN_CURRENT_STEP;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_ANALYSIS_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_EXECUTE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.QUERY_REWRITE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.constant.Constant.*;
 
 /**
  * 根据Python代码的运行结果做总结分析
@@ -58,7 +54,7 @@ public class PythonAnalyzeNode extends AbstractPlanBasedNode implements NodeActi
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
 		// Get context
-		String userQuery = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT);
+		String userQuery = StateUtil.getCanonicalQuery(state);
 		String pythonOutput = StateUtil.getStringValue(state, PYTHON_EXECUTE_NODE_OUTPUT);
 		int currentStep = this.getCurrentStepNumber(state);
 		@SuppressWarnings("unchecked")

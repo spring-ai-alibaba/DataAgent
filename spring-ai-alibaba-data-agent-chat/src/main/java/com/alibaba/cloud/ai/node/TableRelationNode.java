@@ -100,8 +100,7 @@ public class TableRelationNode implements NodeAction {
 			// Extract business knowledge and semantic model
 			businessKnowledges = businessKnowledgeService.getKnowledgeDtoRecalled(Long.parseLong(agentIdStr));
 			// todo: 等待SemanticModelService写完再打开
-			// semanticModel =
-			// semanticModelService.getEnabledByAgentId(Long.parseLong(agentIdStr));
+			semanticModel = semanticModelService.getEnabledByAgentId(Long.parseLong(agentIdStr));
 		}
 		catch (DataAccessException e) {
 			log.warn("Database query failed (attempt {}): {}", retryCount + 1, e.getMessage());
