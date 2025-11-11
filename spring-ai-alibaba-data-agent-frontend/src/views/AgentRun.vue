@@ -87,7 +87,11 @@
                 <span>智能体正在处理中...</span>
               </div>
               <div class="agent-response-container">
-                <div v-for="nodeBlock in nodeBlocks" v-html="generateNodeHtml(nodeBlock)"></div>
+                <div
+                  v-for="(nodeBlock, index) in nodeBlocks"
+                  :key="index"
+                  v-html="generateNodeHtml(nodeBlock)"
+                ></div>
               </div>
             </div>
           </div>
@@ -176,17 +180,7 @@
   import { ref, defineComponent, onMounted, nextTick, computed } from 'vue';
   import { useRoute } from 'vue-router';
   import { ElMessage } from 'element-plus';
-  import {
-    ArrowLeft,
-    Plus,
-    Delete,
-    Star,
-    StarFilled,
-    Loading,
-    Promotion,
-    Document,
-    Download,
-  } from '@element-plus/icons-vue';
+  import { Loading, Promotion, Document, Download } from '@element-plus/icons-vue';
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github.css';
   // 导入并注册语言
@@ -215,11 +209,6 @@
     name: 'AgentRun',
     components: {
       BaseLayout,
-      ArrowLeft,
-      Plus,
-      Delete,
-      Star,
-      StarFilled,
       Loading,
       Promotion,
       Document,
@@ -344,7 +333,6 @@
           let currentNodeName: string | null = null;
           let currentBlockIndex: number = -1;
           const pendingSavePromises: Promise<void>[] = [];
-          let currentTextType: TextType = TextType.TEXT;
 
           // 重置报告状态
           resetReportState();
@@ -429,7 +417,6 @@
                   nodeBlocks.value.push([newBlock]);
                   currentBlockIndex = nodeBlocks.value.length - 1;
                   currentNodeName = response.nodeName;
-                  currentTextType = response.textType;
                 } else {
                   // 继续当前节点的内容
                   if (currentBlockIndex >= 0 && nodeBlocks.value[currentBlockIndex]) {
@@ -447,7 +434,6 @@
                     nodeBlocks.value.push([newBlock]);
                     currentBlockIndex = nodeBlocks.value.length - 1;
                     currentNodeName = response.nodeName;
-                    currentTextType = response.textType;
                   }
                 }
               }

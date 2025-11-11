@@ -178,7 +178,7 @@
     Delete,
     Search,
     Refresh,
-    Plus
+    Plus,
   } from '@element-plus/icons-vue';
   import BaseLayout from '@/layouts/BaseLayout.vue';
   import agentService from '@/services/agent';
@@ -333,7 +333,7 @@
         handleDeleteAgent,
         Search,
         Refresh,
-        Plus
+        Plus,
       };
     },
   });

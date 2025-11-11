@@ -63,13 +63,6 @@ npm run lint
 npm run lint:check
 ```
 
-### 类型检查
-
-```bash
-# TypeScript 类型检查
-npm run type-check
-```
-
 ### 未使用代码检查
 
 ```bash
@@ -81,7 +74,7 @@ npm run unused
 
 ```bash
 # 完整的代码质量检查
-npm run lint:check && npm run format:check && npm run type-check && npm run unused
+npm run lint:check && npm run format:check && npm run unused
 ```
 
 ## 推荐的开发流程
@@ -93,28 +86,13 @@ npm run lint:check && npm run format:check && npm run type-check && npm run unus
 2. 提交前检查：
 
    ```bash
-   npm run lint && npm run format && npm run type-check
+   npm run lint && npm run format
    ```
 
 3. 定期清理：
    ```bash
    npm run unused
    ```
-
-## VS Code 配置建议
-
-在 `.vscode/settings.json` 中添加：
-
-```json
-{
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true
-  },
-  "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact", "vue"]
-}
-```
 
 ## 规则说明
 
