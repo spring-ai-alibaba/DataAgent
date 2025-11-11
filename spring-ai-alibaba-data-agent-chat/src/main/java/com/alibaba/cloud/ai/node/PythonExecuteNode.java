@@ -97,7 +97,7 @@ public class PythonExecuteNode extends AbstractPlanBasedNode implements NodeActi
 				emitter.next(ChatResponseUtil.createResponse("标准输出："));
 				emitter.next(ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()));
 				emitter.next(ChatResponseUtil.createResponse(finalStdout));
-				emitter.next(ChatResponseUtil.createResponse(TextType.JSON.getEndSign()));
+				emitter.next(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()));
 				emitter.next(ChatResponseUtil.createResponse("Python代码执行成功！"));
 				emitter.complete();
 			});
