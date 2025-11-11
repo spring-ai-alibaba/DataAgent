@@ -35,6 +35,10 @@ public class SemanticModel {
 
 	private Long agentId;
 
+	private String schemaName;
+
+	private String tableName;
+
 	private String fieldName;
 
 	private String conversationName;
@@ -52,8 +56,8 @@ public class SemanticModel {
 	private Integer status;
 
 	public String getPromptInfo() {
-		return String.format("对话字段名称: %s, 数据库字段名: %s, 字段同义词: %s, 字段描述: %s, 字段类型: %s", conversationName, fieldName,
-				synonyms, description, type);
+		return String.format("对话字段名称: %s, 模式名: %s, 表名: %s, 数据库字段名: %s, 字段同义词: %s, 字段描述: %s, 字段类型: %s", conversationName,
+				schemaName, tableName, fieldName, synonyms, description, type);
 	}
 
 }
