@@ -31,38 +31,36 @@
 </template>
 
 <script>
-import { useRouter } from 'vue-router'
-import { House, ArrowLeft } from '@element-plus/icons-vue'
+  import { useRouter } from 'vue-router';
+  import { House, ArrowLeft } from '@element-plus/icons-vue';
 
-export default {
-  name: 'NotFound',
-  components: {
-    House,
-    ArrowLeft
-  },
-  setup() {
-    const router = useRouter()
+  export default {
+    name: 'NotFound',
+    components: {
+      House,
+      ArrowLeft,
+    },
+    setup() {
+      const router = useRouter();
 
-    const goBack = () => {
-      if (window.history.length > 1) {
-        router.go(-1)
-      } else {
-        goHome()
-      }
-    }
+      const goBack = () => {
+        if (window.history.length > 1) {
+          router.go(-1);
+        } else {
+          goHome();
+        }
+      };
 
-    const goHome = () => {
-      router.push('/agents')
-    }
+      const goHome = () => {
+        router.push('/agents');
+      };
 
-    return {
-      goBack,
-      goHome
-    }
-  }
-}
+      return {
+        goBack,
+        goHome,
+      };
+    },
+  };
 </script>
 
-<style scoped>
-
-</style>
+<style scoped></style>

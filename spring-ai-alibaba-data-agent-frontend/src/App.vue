@@ -20,13 +20,13 @@
 </template>
 
 <script>
-export default {
-  name: 'App'
-}
+  export default {
+    name: 'App',
+  };
 </script>
 
 <style>
-#app {
-  min-height: 100vh;
-}
+  #app {
+    min-height: 100vh;
+  }
 </style>

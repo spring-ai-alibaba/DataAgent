@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { createRouter, createWebHistory } from 'vue-router'
-import routes from '@/router/routes'
+import { createRouter, createWebHistory } from 'vue-router';
+import routes from '@/router/routes';
 
 // 创建路由实例
 const router = createRouter({
@@ -24,31 +24,31 @@ const router = createRouter({
   scrollBehavior(to, from, savedPosition) {
     // 路由切换时滚动到顶部
     if (savedPosition) {
-      return savedPosition
+      return savedPosition;
     } else {
-      return { top: 0 }
+      return { top: 0 };
     }
-  }
-})
+  },
+});
 
 // 全局路由守卫
 router.beforeEach((to, from, next) => {
   // 设置页面标题
   if (to.meta?.title) {
-    document.title = `${to.meta.title} - Spring AI Alibaba Data Agent`
+    document.title = `${to.meta.title} - Spring AI Alibaba Data Agent`;
   } else {
-    document.title = 'Spring AI Alibaba Data Agent'
+    document.title = 'Spring AI Alibaba Data Agent';
   }
 
   // 可以在这里添加权限验证、登录检查等逻辑
-  console.log(`导航到: ${to.path} (${to.name})`)
-  
-  next()
-})
+  console.log(`导航到: ${to.path} (${to.name})`);
+
+  next();
+});
 
 router.afterEach((to, from) => {
   // 路由切换后的处理
-  console.log(`导航完成: ${to.path}`)
-})
+  console.log(`导航完成: ${to.path} ${from.path}`);
+});
 
-export default router
+export default router;

@@ -16,7 +16,7 @@
 
 // 定义通用响应结构
 export interface ApiResponse<T = any> {
-    success: boolean;
-    message: string;
-    data?: T;
+  success: boolean;
+  message: string;
+  data?: T;
 }

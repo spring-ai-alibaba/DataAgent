@@ -99,20 +99,20 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8065', // 修改为实际的后端地址
-        changeOrigin: true
+        changeOrigin: true,
       },
       '/nl2sql': {
         target: 'http://localhost:8065', // 修改为实际的后端地址
         target: 'http://your-backend-host:port', // 修改为你的后端地址
-        changeOrigin: true
+        changeOrigin: true,
       },
       '/nl2sql': {
         target: 'http://your-backend-host:port', // 修改为你的后端地址
-        changeOrigin: true
-      }
-    }
-  }
-})
+        changeOrigin: true,
+      },
+    },
+  },
+});
 ```
 
 ## 功能说明
@@ -120,7 +120,7 @@ export default defineConfig({
 ### 首页 - NL2SQL演示
 
 - **功能**: 输入自然语言问题，系统自动转换为SQL查询
-- **特性**: 
+- **特性**:
   - 实时流式响应显示
   - 数据源初始化
   - 查询结果可视化
@@ -130,7 +130,7 @@ export default defineConfig({
 ### 业务知识管理
 
 - **功能**: 管理企业知识库，配置业务术语和同义词
-- **操作**: 
+- **操作**:
   - 新增/编辑/删除业务知识
   - 搜索功能
   - 默认召回配置
@@ -198,20 +198,20 @@ npm run build
 server {
     listen 80;
     server_name your-domain.com;
-    
+
     # 前端静态文件
     location / {
         root /path/to/dist;
         try_files $uri $uri/ /index.html;
     }
-    
+
     # API 代理
     location /api/ {
         proxy_pass http://backend-server:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
-    
+
     location /nl2sql/ {
         proxy_pass http://backend-server:8080;
         proxy_set_header Host $host;
@@ -258,6 +258,7 @@ server {
 - **语义模型配置页面**: 在 `src/views/SemanticModel.vue` 中设置 `useMockData = true`
 
 模拟数据模式下：
+
 - 所有 CRUD 操作使用本地模拟数据
 - 模拟网络延迟效果
 - 无需启动后端服务即可测试界面功能
@@ -265,6 +266,7 @@ server {
 ### 切换到生产模式
 
 当后端服务可用时：
+
 1. 确保后端服务运行在 `http://localhost:8065`
 2. 将相应页面中的 `useMockData` 设置为 `false`
 3. 重新启动开发服务器
