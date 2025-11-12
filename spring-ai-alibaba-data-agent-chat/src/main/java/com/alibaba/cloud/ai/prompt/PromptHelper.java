@@ -282,8 +282,24 @@ public class PromptHelper {
 
 	public static String buildBusinessKnowledgePrompt(List<BusinessKnowledgeDTO> businessKnowledgeDTOS) {
 		Map<String, Object> params = new HashMap<>();
-		String businessKnowledge = CollectionUtils.isEmpty(businessKnowledgeDTOS) ? ""
-				: StringUtils.join(businessKnowledgeDTOS, ";\n");
+		String businessKnowledge = "";
+
+		if (!CollectionUtils.isEmpty(businessKnowledgeDTOS)) {
+			StringBuilder sb = new StringBuilder();
+			for (BusinessKnowledgeDTO dto : businessKnowledgeDTOS) {
+				sb.append("业务名词: ").append(dto.getBusinessTerm()).append("\n");
+				sb.append("说明: ").append(dto.getDescription()).append("\n");
+				if (StringUtils.isNotBlank(dto.getSynonyms())) {
+					sb.append("同义词: ").append(dto.getSynonyms()).append("\n");
+				}
+				else {
+					sb.append("同义词: 无\n");
+				}
+				sb.append("---\n");
+			}
+			businessKnowledge = sb.toString();
+		}
+
 		params.put("businessKnowledge", businessKnowledge);
 		return PromptConstant.getBusinessKnowledgePromptTemplate().render(params);
 	}
