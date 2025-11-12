@@ -23,16 +23,13 @@ import com.alibaba.cloud.ai.graph.streaming.FluxConverter;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
 import com.alibaba.cloud.ai.service.llm.LlmService;
-import com.alibaba.cloud.ai.service.processing.QueryProcessingService;
-import com.alibaba.cloud.ai.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.util.FluxUtil;
-import com.alibaba.cloud.ai.util.JsonUtil;
-import com.alibaba.cloud.ai.util.MarkdownParserUtil;
-import com.alibaba.cloud.ai.util.StateUtil;
+import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
+import com.alibaba.cloud.ai.util.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 import reactor.core.publisher.Flux;
@@ -41,10 +38,9 @@ import reactor.core.publisher.Sinks;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-import static com.alibaba.cloud.ai.constant.Constant.AGENT_ID;
-import static com.alibaba.cloud.ai.constant.Constant.EVIDENCES;
-import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
+import static com.alibaba.cloud.ai.constant.Constant.*;
 
 @Slf4j
 @Component
@@ -53,7 +49,7 @@ public class EvidenceRecallNode implements NodeAction {
 
 	private final LlmService llmService;
 
-	private final QueryProcessingService queryProcessingService;
+	private final AgentVectorStoreService vectorStoreService;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -124,7 +120,7 @@ public class EvidenceRecallNode implements NodeAction {
 			sink.tryEmitNext("正在获取证据...");
 
 			// 调用QueryProcessingService获取evidence
-			List<String> evidences = queryProcessingService.extractEvidences(keywordsString, agentId);
+			List<String> evidences = this.extractEvidences(keywordsString, agentId);
 			log.info("Retrieved {} evidences", evidences != null ? evidences.size() : 0);
 
 			if (null == evidences || evidences.isEmpty()) {
@@ -143,6 +139,15 @@ public class EvidenceRecallNode implements NodeAction {
 		finally {
 			sink.tryEmitComplete();
 		}
+	}
+
+	private List<String> extractEvidences(String query, String agentId) {
+		log.debug("Extracting evidences for query: {} with agentId: {}", query, agentId);
+		Assert.notNull(agentId, "AgentId cannot be null");
+		List<Document> evidenceDocuments = vectorStoreService.getDocumentsForAgent(agentId, query, "evidence");
+		List<String> evidences = evidenceDocuments.stream().map(Document::getText).collect(Collectors.toList());
+		log.debug("Extracted {} evidences: {}", evidences.size(), evidences);
+		return evidences;
 	}
 
 }
