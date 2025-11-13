@@ -205,7 +205,10 @@
             <artifactId>elasticsearch-rest-client</artifactId>
             <version>${elasticsearch-client.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
     </dependencies>
     <repositories>
         <repository>
