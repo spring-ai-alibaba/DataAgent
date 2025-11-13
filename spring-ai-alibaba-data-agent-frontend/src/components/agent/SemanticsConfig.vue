@@ -15,7 +15,7 @@
 -->
 
 <template>
-  <!-- todo: 添加分页以及模糊搜索 -->
+  <!-- todo: 添加分页 -->
   <div style="padding: 20px">
     <div style="margin-bottom: 20px">
       <h2>语义模型管理</h2>
@@ -28,6 +28,19 @@
           <h3>语义模型列表</h3>
         </el-col>
         <el-col :span="12" style="text-align: right">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="请输入关键词，并按回车搜索"
+            style="width: 250px; margin-right: 10px"
+            clearable
+            @clear="handleSearch"
+            @keyup.enter="handleSearch"
+            size="large"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
           <el-button @click="openCreateDialog" size="large" type="primary" round :icon="Plus">
             添加语义模型
           </el-button>
@@ -143,7 +156,7 @@
 
 <script lang="ts">
   import { defineComponent, ref, onMounted, Ref } from 'vue';
-  import { Plus } from '@element-plus/icons-vue';
+  import { Plus, Search } from '@element-plus/icons-vue';
   import semanticModelService, {
     SemanticModel,
     SemanticModelAddDto,
@@ -152,6 +165,9 @@
 
   export default defineComponent({
     name: 'AgentSemanticsConfig',
+    components: {
+      Search,
+    },
     props: {
       agentId: {
         type: Number,
@@ -162,6 +178,7 @@
       const semanticModelList: Ref<SemanticModel[]> = ref([]);
       const dialogVisible: Ref<boolean> = ref(false);
       const isEdit: Ref<boolean> = ref(false);
+      const searchKeyword: Ref<string> = ref('');
       const modelForm: Ref<SemanticModel> = ref({
         tableName: '',
         columnName: '',
@@ -192,10 +209,18 @@
         dialogVisible.value = true;
       };
 
+      // 处理搜索
+      const handleSearch = () => {
+        loadSemanticModels();
+      };
+
       // 加载语义模型列表
       const loadSemanticModels = async () => {
         try {
-          semanticModelList.value = await semanticModelService.list(props.agentId);
+          semanticModelList.value = await semanticModelService.list(
+            props.agentId,
+            searchKeyword.value || undefined,
+          );
         } catch (error) {
           ElMessage.error('加载语义模型列表失败');
           console.error('Failed to load semantic models:', error);
@@ -312,15 +337,18 @@
 
       return {
         Plus,
+        Search,
         semanticModelList,
         dialogVisible,
         isEdit,
+        searchKeyword,
         modelForm,
         openCreateDialog,
         editModel,
         deleteModel,
         toggleStatus,
         saveModel,
+        handleSearch,
       };
     },
   });

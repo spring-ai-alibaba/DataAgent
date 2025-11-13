@@ -124,3 +124,4 @@ class BusinessKnowledgeService {
 }
 
 export default new BusinessKnowledgeService();
+export type { BusinessKnowledge, BusinessKnowledgeDTO };
