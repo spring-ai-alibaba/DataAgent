@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.util;
 
 import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.request.AgentSearchRequest;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.filter.Filter;
@@ -68,7 +69,8 @@ public class SearchUtil {
 
 	public static Filter.Expression buildFilter(String agentId, String docVectorType) {
 		FilterExpressionBuilder b = new FilterExpressionBuilder();
-		return b.and(b.eq(Constant.VECTOR_TYPE, docVectorType), b.eq(Constant.AGENT_ID, agentId)).build();
+		return b.and(b.eq(DocumentMetadataConstant.VECTOR_TYPE, docVectorType), b.eq(Constant.AGENT_ID, agentId))
+			.build();
 	}
 
 	/**
@@ -159,7 +161,9 @@ public class SearchUtil {
 		// 'products']
 		StringBuilder expression = new StringBuilder();
 		expression.append("agentId == '").append(escapeStringLiteral(agentId)).append("'");
-		expression.append(" && vectorType == '").append(escapeStringLiteral(Constant.TABLE)).append("'");
+		expression.append(" && vectorType == '")
+			.append(escapeStringLiteral(DocumentMetadataConstant.TABLE))
+			.append("'");
 
 		// 添加tableNames的IN条件（如果列表不为空）
 		if (tableNames != null && !tableNames.isEmpty()) {
@@ -186,7 +190,9 @@ public class SearchUtil {
 		expression.append(" && tableName == '").append(escapeStringLiteral(upstreamTableName)).append("'");
 
 		// 添加 vectorType 条件（固定为 column）
-		expression.append(" && vectorType == '").append(escapeStringLiteral(Constant.COLUMN)).append("'");
+		expression.append(" && vectorType == '")
+			.append(escapeStringLiteral(DocumentMetadataConstant.COLUMN))
+			.append("'");
 
 		// 添加 columnNames 的 IN 条件（如果列表不为空）
 		if (columnNames != null && !columnNames.isEmpty()) {

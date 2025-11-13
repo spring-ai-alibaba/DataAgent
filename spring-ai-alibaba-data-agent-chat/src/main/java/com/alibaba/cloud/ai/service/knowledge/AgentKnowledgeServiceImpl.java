@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.service.knowledge;
 
 import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.mapper.AgentKnowledgeMapper;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
@@ -159,7 +160,7 @@ public class AgentKnowledgeServiceImpl implements AgentKnowledgeService {
 		try {
 			String agentIdStr = String.valueOf(agentId);
 			Map<String, Object> metadata = new HashMap<>(Map.ofEntries(Map.entry(Constant.AGENT_ID, agentIdStr),
-					Map.entry(Constant.KNOWLEDGE_ID, knowledgeId)));
+					Map.entry(DocumentMetadataConstant.KNOWLEDGE_ID, knowledgeId)));
 
 			vectorStoreService.deleteDocumentsByMetedata(agentIdStr, metadata);
 

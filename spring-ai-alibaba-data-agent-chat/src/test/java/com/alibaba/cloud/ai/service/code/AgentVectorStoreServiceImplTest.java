@@ -23,6 +23,7 @@ import com.alibaba.cloud.ai.connector.bo.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.request.AgentSearchRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.service.hybrid.retrieval.HybridRetrievalStrategy;
@@ -231,9 +232,10 @@ class AgentVectorStoreServiceImplTest {
 
 		List<Document> mockDocuments = Arrays.asList(
 				new Document("Test content 1",
-						Map.of(Constant.AGENT_ID, TEST_AGENT_ID, Constant.VECTOR_TYPE, TEST_VECTOR_TYPE)),
-				new Document("Test content 2",
-						Map.of(Constant.AGENT_ID, TEST_AGENT_ID, Constant.VECTOR_TYPE, TEST_VECTOR_TYPE)));
+						Map.of(Constant.AGENT_ID, TEST_AGENT_ID, DocumentMetadataConstant.VECTOR_TYPE,
+								TEST_VECTOR_TYPE)),
+				new Document("Test content 2", Map.of(Constant.AGENT_ID, TEST_AGENT_ID,
+						DocumentMetadataConstant.VECTOR_TYPE, TEST_VECTOR_TYPE)));
 		// Mock the vectorStore.similaritySearch to return documents on first call and
 		// empty list on subsequent calls
 		when(simpleVectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(mockDocuments)

@@ -17,7 +17,7 @@ package com.alibaba.cloud.ai.service.schema;
 
 import com.alibaba.cloud.ai.config.DataAgentProperties;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dto.schema.TableDTO;
@@ -117,7 +117,7 @@ public class SchemaServiceImpl implements SchemaService {
 	@Override
 	public List<Document> getTableDocumentsForAgent(String agentId, String query) {
 		Assert.notNull(agentId, "agentId cannot be null");
-		return vectorStoreService.getDocumentsForAgent(agentId, query, Constant.TABLE);
+		return vectorStoreService.getDocumentsForAgent(agentId, query, DocumentMetadataConstant.TABLE);
 	}
 
 	/**
@@ -131,7 +131,7 @@ public class SchemaServiceImpl implements SchemaService {
 
 		List<List<Document>> allResults = new ArrayList<>();
 		for (String kw : keywords) {
-			List<Document> docs = vectorStoreService.getDocumentsForAgent(agentId, kw, Constant.COLUMN);
+			List<Document> docs = vectorStoreService.getDocumentsForAgent(agentId, kw, DocumentMetadataConstant.COLUMN);
 			if (CollectionUtils.isEmpty(docs)) {
 				continue;
 			}
@@ -246,7 +246,7 @@ public class SchemaServiceImpl implements SchemaService {
 
 	private void loadMissingColumnsDocument(String agentId, String missingColumnName, List<Document> existingColumns) {
 		List<Document> documentsForAgent = vectorStoreService.getDocumentsForAgent(agentId, missingColumnName,
-				Constant.COLUMN);
+				DocumentMetadataConstant.COLUMN);
 		if (CollectionUtils.isEmpty(documentsForAgent))
 			return;
 

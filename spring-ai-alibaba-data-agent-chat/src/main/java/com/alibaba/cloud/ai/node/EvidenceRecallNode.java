@@ -119,7 +119,7 @@ public class EvidenceRecallNode implements NodeAction {
 			log.debug("Joined keywords string: {}", keywordsString);
 			sink.tryEmitNext("正在获取证据...");
 
-			// 调用QueryProcessingService获取evidence
+			// 获取evidence
 			List<String> evidences = this.extractEvidences(keywordsString, agentId);
 			log.info("Retrieved {} evidences", evidences != null ? evidences.size() : 0);
 

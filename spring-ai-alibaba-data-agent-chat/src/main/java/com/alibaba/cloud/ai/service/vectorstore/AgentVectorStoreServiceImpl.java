@@ -23,6 +23,7 @@ import com.alibaba.cloud.ai.connector.bo.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.request.AgentSearchRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.service.TableMetadataService;
@@ -238,8 +239,8 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	}
 
 	protected void clearSchemaDataForAgent(String agentId) throws Exception {
-		deleteDocumentsByVectorType(agentId, Constant.COLUMN);
-		deleteDocumentsByVectorType(agentId, Constant.TABLE);
+		deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.COLUMN);
+		deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.TABLE);
 	}
 
 	@Override
@@ -247,8 +248,8 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 		Assert.notNull(agentId, "AgentId cannot be null.");
 		Assert.notNull(vectorType, "VectorType cannot be null.");
 
-		Map<String, Object> metadata = new HashMap<>(
-				Map.ofEntries(Map.entry(Constant.AGENT_ID, agentId), Map.entry(Constant.VECTOR_TYPE, vectorType)));
+		Map<String, Object> metadata = new HashMap<>(Map.ofEntries(Map.entry(Constant.AGENT_ID, agentId),
+				Map.entry(DocumentMetadataConstant.VECTOR_TYPE, vectorType)));
 
 		return this.deleteDocumentsByMetedata(agentId, metadata);
 	}
