@@ -34,7 +34,6 @@ import java.util.List;
 @RequestMapping("/api/semantic-model")
 @CrossOrigin(origins = "*")
 @AllArgsConstructor
-// todo: 完成后与前端对接
 public class SemanticModelController {
 
 	private final SemanticModelService semanticModelService;
