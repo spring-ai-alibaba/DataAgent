@@ -22,6 +22,7 @@ import com.alibaba.cloud.ai.vo.ApiResponse;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -61,7 +62,7 @@ public class SemanticModelController {
 	}
 
 	@PostMapping
-	public ApiResponse create(@RequestBody SemanticModelAddDto semanticModelAddDto) {
+	public ApiResponse create(@RequestBody @Validated SemanticModelAddDto semanticModelAddDto) {
 		boolean success = semanticModelService.addSemanticModel(semanticModelAddDto);
 		if (success) {
 			return ApiResponse.success("Semantic model created successfully");
