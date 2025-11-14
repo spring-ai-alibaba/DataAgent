@@ -19,12 +19,15 @@ package com.alibaba.cloud.ai.node;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.util.FluxUtil;
+import com.alibaba.cloud.ai.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
@@ -45,14 +48,10 @@ import static com.alibaba.cloud.ai.constant.Constant.*;
  */
 @Slf4j
 @Component
-public class SemanticConsistencyNode extends AbstractPlanBasedNode {
+@AllArgsConstructor
+public class SemanticConsistencyNode implements NodeAction {
 
 	private final Nl2SqlService nl2SqlService;
-
-	public SemanticConsistencyNode(Nl2SqlService nl2SqlService) {
-		super();
-		this.nl2SqlService = nl2SqlService;
-	}
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -62,8 +61,8 @@ public class SemanticConsistencyNode extends AbstractPlanBasedNode {
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 
 		// Get current execution step and SQL query
-		ExecutionStep executionStep = getCurrentExecutionStep(state);
-		Integer currentStep = getCurrentStepNumber(state);
+		ExecutionStep executionStep = PlanProcessUtil.getCurrentExecutionStep(state);
+		Integer currentStep = PlanProcessUtil.getCurrentStepNumber(state);
 		ExecutionStep.ToolParameters toolParameters = executionStep.getToolParameters();
 		String sqlQuery = toolParameters.getSqlQuery();
 

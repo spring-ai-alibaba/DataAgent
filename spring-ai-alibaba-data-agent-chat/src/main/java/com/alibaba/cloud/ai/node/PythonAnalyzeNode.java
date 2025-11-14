@@ -23,8 +23,10 @@ import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
 import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.util.FluxUtil;
+import com.alibaba.cloud.ai.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
-import com.alibaba.cloud.ai.util.StepResultUtil;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -40,15 +42,12 @@ import static com.alibaba.cloud.ai.constant.Constant.*;
  * @author vlsmb
  * @since 2025/7/30
  */
+@Slf4j
 @Component
-public class PythonAnalyzeNode extends AbstractPlanBasedNode implements NodeAction {
+@AllArgsConstructor
+public class PythonAnalyzeNode implements NodeAction {
 
 	private final LlmService llmService;
-
-	public PythonAnalyzeNode(LlmService llmService) {
-		super();
-		this.llmService = llmService;
-	}
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -56,7 +55,7 @@ public class PythonAnalyzeNode extends AbstractPlanBasedNode implements NodeActi
 		// Get context
 		String userQuery = StateUtil.getCanonicalQuery(state);
 		String pythonOutput = StateUtil.getStringValue(state, PYTHON_EXECUTE_NODE_OUTPUT);
-		int currentStep = this.getCurrentStepNumber(state);
+		int currentStep = PlanProcessUtil.getCurrentStepNumber(state);
 		@SuppressWarnings("unchecked")
 		Map<String, String> sqlExecuteResult = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
 				new HashMap<>());
@@ -69,9 +68,9 @@ public class PythonAnalyzeNode extends AbstractPlanBasedNode implements NodeActi
 
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, "正在分析代码运行结果...\n", "\n结果分析完成。", aiResponse -> {
-					Map<String, String> updatedSqlResult = StepResultUtil.addStepResult(sqlExecuteResult, currentStep,
+					Map<String, String> updatedSqlResult = PlanProcessUtil.addStepResult(sqlExecuteResult, currentStep,
 							aiResponse);
-					this.logNodeOutput("python_analysis_result", aiResponse);
+					log.info("python analyze result: {}", aiResponse);
 					return Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedSqlResult, PLAN_CURRENT_STEP, currentStep + 1);
 				}, pythonAnalyzeFlux);
 

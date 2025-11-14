@@ -24,6 +24,7 @@ import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.service.code.CodePoolExecutorService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.FluxUtil;
+import com.alibaba.cloud.ai.util.JsonUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -47,16 +48,15 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_RESULT_LIST_MEMORY;
  */
 @Slf4j
 @Component
-public class PythonExecuteNode extends AbstractPlanBasedNode implements NodeAction {
+public class PythonExecuteNode implements NodeAction {
 
 	private final CodePoolExecutorService codePoolExecutor;
 
 	private final ObjectMapper objectMapper;
 
 	public PythonExecuteNode(CodePoolExecutorService codePoolExecutor) {
-		super();
 		this.codePoolExecutor = codePoolExecutor;
-		this.objectMapper = new ObjectMapper();
+		this.objectMapper = JsonUtil.getObjectMapper();
 	}
 
 	@Override

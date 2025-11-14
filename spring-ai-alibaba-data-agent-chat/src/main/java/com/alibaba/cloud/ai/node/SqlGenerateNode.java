@@ -27,18 +27,17 @@ import com.alibaba.cloud.ai.pojo.Plan;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.FluxUtil;
+import com.alibaba.cloud.ai.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.google.common.util.concurrent.AtomicDouble;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.converter.BeanOutputConverter;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -61,30 +60,19 @@ import static com.alibaba.cloud.ai.constant.Constant.*;
  */
 @Slf4j
 @Component
+@AllArgsConstructor
 public class SqlGenerateNode implements NodeAction {
 
 	private static final int MAX_OPTIMIZATION_ROUNDS = 3;
 
 	private final Nl2SqlService nl2SqlService;
 
-	private final BeanOutputConverter<Plan> converter;
-
-	public SqlGenerateNode(Nl2SqlService nl2SqlService) {
-		this.nl2SqlService = nl2SqlService;
-		this.converter = new BeanOutputConverter<>(new ParameterizedTypeReference<>() {
-		});
-	}
-
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
 		// Get necessary input parameters
-		String plannerNodeOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);
-		Plan plan = converter.convert(plannerNodeOutput);
-		Integer currentStep = StateUtil.getObjectValue(state, PLAN_CURRENT_STEP, Integer.class, 1);
-
-		List<ExecutionStep> executionPlan = Optional.ofNullable(plan).orElseThrow().getExecutionPlan();
-		ExecutionStep executionStep = executionPlan.get(currentStep - 1);
+		Plan plan = PlanProcessUtil.getPlan(state);
+		ExecutionStep executionStep = PlanProcessUtil.getCurrentExecutionStep(state);
 		ExecutionStep.ToolParameters toolParameters = executionStep.getToolParameters();
 
 		// Execute business logic first - determine what needs to be regenerated

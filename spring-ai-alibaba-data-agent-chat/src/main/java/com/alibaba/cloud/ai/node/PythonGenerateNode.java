@@ -29,6 +29,7 @@ import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.MarkdownParserUtil;
+import com.alibaba.cloud.ai.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,7 +51,7 @@ import static com.alibaba.cloud.ai.constant.Constant.*;
  */
 @Slf4j
 @Component
-public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAction {
+public class PythonGenerateNode implements NodeAction {
 
 	private static final int SAMPLE_DATA_NUMBER = 5;
 
@@ -63,7 +64,6 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 	private final LlmService llmService;
 
 	public PythonGenerateNode(CodeExecutorProperties codeExecutorProperties, LlmService llmService) {
-		super();
 		this.codeExecutorProperties = codeExecutorProperties;
 		this.llmService = llmService;
 		this.objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
@@ -97,7 +97,7 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 					""", lastCode, lastError);
 		}
 
-		ExecutionStep executionStep = this.getCurrentExecutionStep(state);
+		ExecutionStep executionStep = PlanProcessUtil.getCurrentExecutionStep(state);
 
 		ExecutionStep.ToolParameters toolParameters = executionStep.getToolParameters();
 
