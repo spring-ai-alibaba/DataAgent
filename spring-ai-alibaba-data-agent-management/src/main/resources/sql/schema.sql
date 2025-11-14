@@ -28,14 +28,14 @@ CREATE TABLE IF NOT EXISTS business_knowledge (
   description TEXT COMMENT '描述',
   synonyms TEXT COMMENT '同义词',
   is_recall INT DEFAULT 0 COMMENT '是否召回',
-  agent_id INT COMMENT '关联的智能体ID',
+  agent_id INT NOT NULL COMMENT '关联的智能体ID',
   created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
   INDEX idx_business_term (business_term),
   INDEX idx_agent_id (agent_id),
   INDEX idx_is_recall (is_recall),
-  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE SET NULL
+  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '业务知识表';
 
 -- 语义模型表
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS `semantic_model` (
   KEY `idx_field_name` (`business_name`) USING BTREE,
   KEY `idx_status` (`status`) USING BTREE,
   CONSTRAINT `fk_semantic_model_agent` FOREIGN KEY (`agent_id`) REFERENCES `agent` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC COMMENT='语义模型表'
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC COMMENT='语义模型表';
 
 
 -- 智能体知识表
