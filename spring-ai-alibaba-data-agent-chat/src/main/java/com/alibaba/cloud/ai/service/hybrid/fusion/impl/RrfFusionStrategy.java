@@ -28,36 +28,31 @@ import java.util.stream.Collectors;
 @Slf4j
 public class RrfFusionStrategy implements FusionStrategy {
 
+	@SuppressWarnings("unchecked")
 	@Override
-	public List<Document> fuseResults(List<Document> vectorResults, List<Document> keywordResults, int topK) {
-		if (vectorResults == null) {
-			vectorResults = List.of();
-		}
-		if (keywordResults == null) {
-			keywordResults = List.of();
-		}
-
-		if (vectorResults.isEmpty() && keywordResults.isEmpty()) {
+	public List<Document> fuseResults(int topK, List<Document>... resultLists) {
+		if (resultLists == null || resultLists.length == 0) {
 			return List.of();
 		}
 
 		// RRF参数配置
 		int k = 60;
 
-		// 将两个结果列表组合
-		List<List<Document>> results = List.of(vectorResults, keywordResults);
-
 		// 使用Map存储每个文档的RRF分数
 		Map<String, Double> rrfScores = new HashMap<>();
 		// 使用Map存储文档ID到Document对象的映射
 		Map<String, Document> documentMap = new HashMap<>();
 
-		// 遍历每个结果列表
-		for (List<Document> resultList : results) {
+		for (List<Document> resultList : resultLists) {
+			if (resultList == null) {
+				continue;
+			}
+
 			for (int i = 0; i < resultList.size(); i++) {
 				Document doc = resultList.get(i);
 				// 排名从1开始
 				int rank = i + 1;
+				// 假设 getDocumentId 方法能稳定获取唯一ID
 				String docId = getDocumentId(doc);
 
 				// 计算并累加RRF分数: score = 1 / (k + rank)
@@ -67,6 +62,11 @@ public class RrfFusionStrategy implements FusionStrategy {
 			}
 		}
 
+		// 如果处理完所有列表后没有任何文档，提前返回
+		if (rrfScores.isEmpty()) {
+			return List.of();
+		}
+
 		// 按RRF分数降序排序，取topK个
 		return rrfScores.entrySet()
 			.stream()
@@ -74,6 +74,7 @@ public class RrfFusionStrategy implements FusionStrategy {
 			.limit(topK)
 			.map(entry -> documentMap.get(entry.getKey()))
 			.collect(Collectors.toList());
+
 	}
 
 	private String getDocumentId(Document document) {

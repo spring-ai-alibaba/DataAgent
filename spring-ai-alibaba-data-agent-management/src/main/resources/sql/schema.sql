@@ -28,34 +28,37 @@ CREATE TABLE IF NOT EXISTS business_knowledge (
   description TEXT COMMENT '描述',
   synonyms TEXT COMMENT '同义词',
   is_recall INT DEFAULT 0 COMMENT '是否召回',
-  agent_id INT COMMENT '关联的智能体ID',
+  agent_id INT NOT NULL COMMENT '关联的智能体ID',
   created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
   INDEX idx_business_term (business_term),
   INDEX idx_agent_id (agent_id),
   INDEX idx_is_recall (is_recall),
-  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE SET NULL
+  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '业务知识表';
 
 -- 语义模型表
-CREATE TABLE IF NOT EXISTS semantic_model (
-  id INT NOT NULL AUTO_INCREMENT,
-  agent_id INT COMMENT '关联的智能体ID',
-  field_name VARCHAR(255) DEFAULT '' COMMENT '数据库字段名（数据库实际存储字，如"tbl_order.amt"）',
-  conversation_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '对话中字段名称（对话中使用的逻辑标识，如"order_amount"）',
-  synonyms TEXT COMMENT '字段名称同义词',
-  description TEXT COMMENT '字段描述',
-  type VARCHAR(255) DEFAULT '' COMMENT '字段类型 (integer, varchar....)',
-  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  status TINYINT DEFAULT 0 COMMENT '启用状态（0 停用 1 启用）',
-  PRIMARY KEY (id),
-  INDEX idx_agent_id (agent_id),
-  INDEX idx_field_name (field_name),
-  INDEX idx_status (status),
-  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE SET NULL
-) ENGINE = InnoDB COMMENT = '语义模型表';
+CREATE TABLE IF NOT EXISTS `semantic_model` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `agent_id` int(11) NOT NULL COMMENT '关联的智能体ID',
+  `datasource_id` int(11) NOT NULL COMMENT '关联的数据源ID',
+  `table_name` varchar(255) COLLATE utf8mb4_bin NOT NULL COMMENT '关联的表名',
+  `column_name` varchar(255) COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '数据库中的物理字段名 (例如: csat_score)',
+  `business_name` varchar(255) COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '业务名/别名 (例如: 客户满意度分数)',
+  `synonyms` text COLLATE utf8mb4_bin COMMENT '业务名的同义词 (例如: 满意度,客户评分)',
+  `business_description` text COLLATE utf8mb4_bin COMMENT '业务描述 (用于向LLM解释字段的业务含义)',
+  `column_comment` varchar(255) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '数据库中的物理字段的原始注释 ',
+  `data_type` varchar(255) COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '物理数据类型 (例如: int, varchar(20))',
+  `status` tinyint(4) NOT NULL DEFAULT '1' COMMENT '0 停用 1 启用',
+  `created_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  KEY `idx_agent_id` (`agent_id`) USING BTREE,
+  KEY `idx_field_name` (`business_name`) USING BTREE,
+  KEY `idx_status` (`status`) USING BTREE,
+  CONSTRAINT `fk_semantic_model_agent` FOREIGN KEY (`agent_id`) REFERENCES `agent` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC COMMENT='语义模型表';
 
 
 -- 智能体知识表

@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 /**
- * 适合测试使用，无关键词搜索能力
+ * 适合测试以及没有继承实现AbstractHybridRetrievalStrategy的向量库（如Pg,milvus）使用，无关键词搜索能力
  */
 @Slf4j
 public class DefaultHybridRetrievalStrategy extends AbstractHybridRetrievalStrategy {

@@ -26,21 +26,12 @@ public interface SchemaService {
 
 	List<Document> getTableDocumentsForAgent(String agentId, String query);
 
-	List<List<Document>> getColumnDocumentsByKeywordsForAgent(String agentId, List<String> keywords);
+	List<Document> getColumnDocumentsByKeywordsForAgent(String agentId, List<String> keywords,
+			List<Document> tableDocuments);
 
 	void extractDatabaseName(SchemaDTO schemaDTO, DbConfig dbConfig);
 
-	void buildSchemaFromDocuments(String agentId, List<List<Document>> columnDocumentList,
-			List<Document> tableDocuments, SchemaDTO schemaDTO);
-
-	SchemaDTO mixRagForAgent(String agentId, String query, List<String> keywords, DbConfig dbConfig);
-
-	default List<Document> getTableDocuments(String query) {
-		return getTableDocumentsForAgent(null, query);
-	}
-
-	default List<List<Document>> getColumnDocumentsByKeywords(List<String> keywords) {
-		return getColumnDocumentsByKeywordsForAgent(null, keywords);
-	}
+	void buildSchemaFromDocuments(String agentId, List<Document> columnDocumentList, List<Document> tableDocuments,
+			SchemaDTO schemaDTO);
 
 }

@@ -18,12 +18,12 @@ package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.StateGraph;
+import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
+import com.alibaba.cloud.ai.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.converter.BeanOutputConverter;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -34,7 +34,6 @@ import static com.alibaba.cloud.ai.constant.Constant.HUMAN_FEEDBACK_NODE;
 import static com.alibaba.cloud.ai.constant.Constant.IS_ONLY_NL2SQL;
 import static com.alibaba.cloud.ai.constant.Constant.HUMAN_REVIEW_ENABLED;
 import static com.alibaba.cloud.ai.constant.Constant.ONLY_NL2SQL_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.PLANNER_NODE_OUTPUT;
 import static com.alibaba.cloud.ai.constant.Constant.PLAN_CURRENT_STEP;
 import static com.alibaba.cloud.ai.constant.Constant.PLAN_NEXT_NODE;
 import static com.alibaba.cloud.ai.constant.Constant.PLAN_REPAIR_COUNT;
@@ -52,29 +51,19 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE;
  */
 @Slf4j
 @Component
-public class PlanExecutorNode extends AbstractPlanBasedNode {
+public class PlanExecutorNode implements NodeAction {
 
 	// Supported node types
 	private static final Set<String> SUPPORTED_NODES = Set.of(SQL_EXECUTE_NODE, PYTHON_GENERATE_NODE,
 			REPORT_GENERATOR_NODE);
 
-	private final BeanOutputConverter<Plan> converter;
-
-	public PlanExecutorNode() {
-		this.converter = new BeanOutputConverter<>(new ParameterizedTypeReference<>() {
-		});
-	}
-
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logNodeEntry();
-
 		// 1. Validate the Plan
-		String plannerOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);
 		try {
-			Plan plan = converter.convert(plannerOutput);
+			Plan plan = PlanProcessUtil.getPlan(state);
 
-			if (plan == null || plan.getExecutionPlan() == null || plan.getExecutionPlan().isEmpty()) {
+			if (plan.getExecutionPlan() == null || plan.getExecutionPlan().isEmpty()) {
 				return buildValidationResult(state, false,
 						"Validation failed: The generated plan is empty or has no execution steps.");
 			}
@@ -115,8 +104,8 @@ public class PlanExecutorNode extends AbstractPlanBasedNode {
 			return Map.of(PLAN_VALIDATION_STATUS, true, PLAN_NEXT_NODE, HUMAN_FEEDBACK_NODE);
 		}
 
-		Plan plan = getPlan(state);
-		Integer currentStep = getCurrentStepNumber(state);
+		Plan plan = PlanProcessUtil.getPlan(state);
+		int currentStep = PlanProcessUtil.getCurrentStepNumber(state);
 		List<ExecutionStep> executionPlan = plan.getExecutionPlan();
 
 		// Check if the plan is completed

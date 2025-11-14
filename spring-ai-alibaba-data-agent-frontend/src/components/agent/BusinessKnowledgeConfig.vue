@@ -15,7 +15,7 @@
 -->
 
 <template>
-  <!-- todo: 添加分页以及模糊搜索（后端已实现） -->
+  <!-- todo: 添加分页 -->
   <div style="padding: 20px">
     <div style="margin-bottom: 20px">
       <h2>业务知识管理</h2>
@@ -28,6 +28,19 @@
           <h3>业务知识列表</h3>
         </el-col>
         <el-col :span="12" style="text-align: right">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="请输入关键词，并按回车搜索"
+            style="width: 250px; margin-right: 10px"
+            clearable
+            @clear="handleSearch"
+            @keyup.enter="handleSearch"
+            size="large"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
           <el-button @click="openCreateDialog" size="large" type="primary" round :icon="Plus">
             添加知识
           </el-button>
@@ -124,13 +137,18 @@
 
 <script lang="ts">
   import { defineComponent, ref, onMounted, Ref } from 'vue';
-  import { Plus } from '@element-plus/icons-vue';
-  import businessKnowledgeService from '@/services/businessKnowledge';
-  import { BusinessKnowledge, BusinessKnowledgeDTO } from '@/services/businessKnowledge';
+  import { Plus, Search } from '@element-plus/icons-vue';
+  import businessKnowledgeService, {
+    BusinessKnowledge,
+    BusinessKnowledgeDTO,
+  } from '@/services/businessKnowledge';
   import { ElMessage, ElMessageBox } from 'element-plus';
 
   export default defineComponent({
     name: 'AgentKnowledgeConfig',
+    components: {
+      Search,
+    },
     props: {
       agentId: {
         type: Number,
@@ -141,6 +159,7 @@
       const businessKnowledgeList: Ref<BusinessKnowledge[]> = ref([]);
       const dialogVisible: Ref<boolean> = ref(false);
       const isEdit: Ref<boolean> = ref(false);
+      const searchKeyword: Ref<string> = ref('');
       const knowledgeForm: Ref<BusinessKnowledge> = ref({
         businessTerm: '',
         description: '',
@@ -155,10 +174,18 @@
         dialogVisible.value = true;
       };
 
+      // 处理搜索
+      const handleSearch = () => {
+        loadBusinessKnowledge();
+      };
+
       // 加载业务知识列表
       const loadBusinessKnowledge = async () => {
         try {
-          businessKnowledgeList.value = await businessKnowledgeService.list(props.agentId);
+          businessKnowledgeList.value = await businessKnowledgeService.list(
+            props.agentId,
+            searchKeyword.value || undefined,
+          );
         } catch (error) {
           ElMessage.error('加载业务知识列表失败');
           console.error('Failed to load business knowledge:', error);
@@ -256,15 +283,18 @@
 
       return {
         Plus,
+        Search,
         businessKnowledgeList,
         dialogVisible,
         isEdit,
+        searchKeyword,
         knowledgeForm,
         openCreateDialog,
         editKnowledge,
         deleteKnowledge,
         toggleRecall,
         saveKnowledge,
+        handleSearch,
       };
     },
   });

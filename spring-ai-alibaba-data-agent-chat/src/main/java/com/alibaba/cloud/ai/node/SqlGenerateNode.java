@@ -27,18 +27,17 @@ import com.alibaba.cloud.ai.pojo.Plan;
 import com.alibaba.cloud.ai.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.FluxUtil;
+import com.alibaba.cloud.ai.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.google.common.util.concurrent.AtomicDouble;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.converter.BeanOutputConverter;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -61,31 +60,19 @@ import static com.alibaba.cloud.ai.constant.Constant.*;
  */
 @Slf4j
 @Component
+@AllArgsConstructor
 public class SqlGenerateNode implements NodeAction {
 
 	private static final int MAX_OPTIMIZATION_ROUNDS = 3;
 
 	private final Nl2SqlService nl2SqlService;
 
-	private final BeanOutputConverter<Plan> converter;
-
-	public SqlGenerateNode(Nl2SqlService nl2SqlService) {
-		this.nl2SqlService = nl2SqlService;
-		this.converter = new BeanOutputConverter<>(new ParameterizedTypeReference<>() {
-		});
-	}
-
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		log.info("Entering {} node", this.getClass().getSimpleName());
 
 		// Get necessary input parameters
-		String plannerNodeOutput = StateUtil.getStringValue(state, PLANNER_NODE_OUTPUT);
-		Plan plan = converter.convert(plannerNodeOutput);
-		Integer currentStep = StateUtil.getObjectValue(state, PLAN_CURRENT_STEP, Integer.class, 1);
-
-		List<ExecutionStep> executionPlan = Optional.ofNullable(plan).orElseThrow().getExecutionPlan();
-		ExecutionStep executionStep = executionPlan.get(currentStep - 1);
+		Plan plan = PlanProcessUtil.getPlan(state);
+		ExecutionStep executionStep = PlanProcessUtil.getCurrentExecutionStep(state);
 		ExecutionStep.ToolParameters toolParameters = executionStep.getToolParameters();
 
 		// Execute business logic first - determine what needs to be regenerated
@@ -133,11 +120,11 @@ public class SqlGenerateNode implements NodeAction {
 		String sqlException = StateUtil.getStringValue(state, SQL_EXECUTE_NODE_EXCEPTION_OUTPUT);
 		log.info("Detected SQL execution exception, starting to regenerate SQL: {}", sqlException);
 
-		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);
+		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 
-		return regenerateSql(state, toolParameters.toJsonStr(), evidenceList, schemaDTO,
-				SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, toolParameters.getSqlQuery(), finalSqlConsumer);
+		return regenerateSql(state, toolParameters.toJsonStr(), evidence, schemaDTO, SQL_EXECUTE_NODE_EXCEPTION_OUTPUT,
+				toolParameters.getSqlQuery(), finalSqlConsumer);
 	}
 
 	/**
@@ -147,10 +134,10 @@ public class SqlGenerateNode implements NodeAction {
 			ExecutionStep.ToolParameters toolParameters, Consumer<String> finalSqlConsumer) {
 		log.info("Semantic consistency validation failed, starting to regenerate SQL");
 
-		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);
+		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 
-		return regenerateSql(state, toolParameters.toJsonStr(), evidenceList, schemaDTO,
+		return regenerateSql(state, toolParameters.toJsonStr(), evidence, schemaDTO,
 				SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT, toolParameters.getSqlQuery(), finalSqlConsumer);
 	}
 
@@ -167,7 +154,7 @@ public class SqlGenerateNode implements NodeAction {
 	 * @param finalSqlConsumer 处理最终生成SQL的消费者，如果失败，则sql为null
 	 * @return AI中间输出过程的Flux
 	 */
-	private Flux<String> regenerateSql(OverAllState state, String input, List<String> evidenceList, SchemaDTO schemaDTO,
+	private Flux<String> regenerateSql(OverAllState state, String input, String evidence, SchemaDTO schemaDTO,
 			String exceptionOutputKey, String originalSql, Consumer<String> finalSqlConsumer) {
 		String exceptionMessage = StateUtil.getStringValue(state, exceptionOutputKey);
 		log.info("开始增强SQL生成流程 - 原始SQL: {}, 异常信息: {}", originalSql, exceptionMessage);
@@ -239,7 +226,7 @@ public class SqlGenerateNode implements NodeAction {
 			}
 		};
 
-		Flux<String> sqlFlux = nl2SqlService.generateSql(evidenceList, input, schemaDTO, originalSql, exceptionMessage);
+		Flux<String> sqlFlux = nl2SqlService.generateSql(evidence, input, schemaDTO, originalSql, exceptionMessage);
 		Mono<String> sqlMono = sqlFlux.collect(StringBuilder::new, StringBuilder::append).map(StringBuilder::toString);
 		return Flux.just("正在生成SQL...\n", TextType.SQL.getStartSign())
 			.concatWith(sqlMono.flatMapMany(sql -> Flux.just(nl2SqlService.sqlTrim(sql)).expand(newSql -> {

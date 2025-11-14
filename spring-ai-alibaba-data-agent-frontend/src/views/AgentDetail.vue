@@ -138,6 +138,7 @@
           ></BusinessKnowledgeConfig>
           <AgentSemanticsConfig
             v-else-if="activeMenuIndex === 'semantic-model'"
+            :agent-id="agent.id"
           ></AgentSemanticsConfig>
           <AgentPresetsConfig
             v-else-if="activeMenuIndex === 'preset-questions'"

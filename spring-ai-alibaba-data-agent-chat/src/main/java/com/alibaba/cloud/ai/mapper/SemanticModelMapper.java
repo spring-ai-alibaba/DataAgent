@@ -51,9 +51,9 @@ public interface SemanticModelMapper {
 	 */
 	@Select("""
 			SELECT * FROM semantic_model
-			WHERE field_name LIKE CONCAT('%', #{keyword}, '%')
-			   OR conversation_name LIKE CONCAT('%', #{keyword}, '%')
-			   OR description LIKE CONCAT('%', #{keyword}, '%')
+			WHERE column_name LIKE CONCAT('%', #{keyword}, '%')
+			   OR business_name LIKE CONCAT('%', #{keyword}, '%')
+			   OR business_description LIKE CONCAT('%', #{keyword}, '%')
 			   OR synonyms LIKE CONCAT('%', #{keyword}, '%')
 			ORDER BY created_time DESC
 			""")
@@ -92,9 +92,9 @@ public interface SemanticModelMapper {
 
 	@Insert("""
 			INSERT INTO semantic_model
-			(agent_id, field_name, conversation_name, synonyms, description, type, created_time, updated_time, status)
+			(agent_id, datasource_id, table_name, column_name, business_name, synonyms, business_description, column_comment, data_type, created_time, updated_time, status)
 			VALUES
-			(#{agentId}, #{fieldName}, #{conversationName}, #{synonyms}, #{description}, #{type}, NOW(), NOW(), #{status})
+			(#{agentId}, #{datasourceId}, #{tableName}, #{columnName}, #{businessName}, #{synonyms}, #{businessDescription}, #{columnComment}, #{dataType}, NOW(), NOW(), #{status})
 			""")
 	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
 	int insert(SemanticModel model);
@@ -104,11 +104,14 @@ public interface SemanticModelMapper {
 			UPDATE semantic_model
 			<set>
 			    <if test="agentId != null">agent_id = #{agentId},</if>
-				<if test="fieldName != null">field_name = #{fieldName},</if>
-				<if test="conversationName != null">conversation_name = #{conversationName},</if>
+			    <if test="datasourceId != null">datasource_id = #{datasourceId},</if>
+			    <if test="tableName != null">table_name = #{tableName},</if>
+				<if test="columnName != null">column_name = #{columnName},</if>
+				<if test="businessName != null">business_name = #{businessName},</if>
 				<if test="synonyms != null">synonyms = #{synonyms},</if>
-				<if test="description != null">description = #{description},</if>
-				<if test="type != null">type = #{type},</if>
+				<if test="businessDescription != null">business_description = #{businessDescription},</if>
+				<if test="columnComment != null">column_comment = #{columnComment},</if>
+				<if test="dataType != null">data_type = #{dataType},</if>
 				<if test="status != null">status = #{status},</if>
 				updated_time = NOW()
 			</set>
@@ -122,5 +125,23 @@ public interface SemanticModelMapper {
 			WHERE id = #{id}
 			""")
 	int deleteById(@Param("id") Long id);
+
+	/**
+	 * Query semantic models by datasource ID, status and table names
+	 */
+	@Select("""
+			<script>
+			SELECT * FROM semantic_model
+			WHERE datasource_id = #{datasourceId}
+			  AND status = 1
+			  AND table_name IN
+			  <foreach item='tableName' index='index' collection='tableNames' open='(' separator=',' close=')'>
+			    #{tableName}
+			  </foreach>
+			ORDER BY created_time DESC
+			</script>
+			""")
+	List<SemanticModel> selectByDatasourceIdAndTableNames(@Param("datasourceId") Integer datasourceId,
+			@Param("tableNames") List<String> tableNames);
 
 }

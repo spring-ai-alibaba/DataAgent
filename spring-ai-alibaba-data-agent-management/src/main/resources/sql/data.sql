@@ -8,10 +8,10 @@ INSERT IGNORE INTO `business_knowledge` (`id`, `business_term`, `description`, `
 (3, 'Customer Retention Rate', 'The percentage of customers who continue to use a service over a given period.', 'retention, customer loyalty', 0, 2, NOW(), NOW());
 
 -- 语义模型示例数据
-INSERT IGNORE INTO `semantic_model` (`id`, `agent_id`, `field_name`, `conversation_name`, `synonyms`, `description`, `type`, `created_time`, `updated_time`, `status`) VALUES
-(1, 1, 'csat_score', 'customerSatisfactionScore', 'satisfaction score, customer rating', 'Customer satisfaction rating from 1-10', 'integer', NOW(), NOW(), 0),
-(2, 1, 'nps_value', 'netPromoterScore', 'NPS, promoter score', 'Net Promoter Score from -100 to 100', 'integer', NOW(), NOW(), 0),
-(3, 2, 'retention_pct', 'customerRetentionRate', 'retention rate, loyalty rate', 'Percentage of retained customers', 'decimal', NOW(), NOW(), 0);
+INSERT IGNORE INTO `semantic_model` (`id`, `agent_id`, `datasource_id`, `table_name`, `column_name`, `business_name`, `synonyms`, `business_description`, `column_comment`, `data_type`, `created_time`, `updated_time`, `status`) VALUES
+(1, 1, 2, 'customer_feedback', 'csat_score', 'customerSatisfactionScore', 'satisfaction score, customer rating', 'Customer satisfaction rating from 1-10', '客户满意度评分', 'integer', NOW(), NOW(), 0),
+(2, 1, 2, 'customer_feedback', 'nps_value', 'netPromoterScore', 'NPS, promoter score', 'Net Promoter Score from -100 to 100', '净推荐值', 'integer', NOW(), NOW(), 0),
+(3, 2, 1, 'customer_metrics', 'retention_pct', 'customerRetentionRate', 'retention rate, loyalty rate', 'Percentage of retained customers', '客户保留率', 'decimal', NOW(), NOW(), 0);
 
 -- 智能体示例数据
 INSERT IGNORE INTO `agent` (`id`, `name`, `description`, `avatar`, `status`, `prompt`, `category`, `admin_id`, `tags`, `create_time`, `update_time`, `human_review_enabled`) VALUES 

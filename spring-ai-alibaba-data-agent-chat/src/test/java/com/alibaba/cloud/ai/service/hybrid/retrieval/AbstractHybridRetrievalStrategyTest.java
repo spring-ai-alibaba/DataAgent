@@ -27,7 +27,6 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.testcontainers.shaded.com.google.common.util.concurrent.MoreExecutors;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -77,12 +76,14 @@ class AbstractHybridRetrievalStrategyTest {
 	}
 
 	@Test
-	void retrieve_ShouldFuseVectorAndKeywordResults_WhenKeywordsArePresent() {
+	void retrieve_ShouldFuseVectorAndKeywordResults_WhenQueryIsPresent() {
 		// 1. 准备 (Arrange)
-		AgentSearchRequest request = AgentSearchRequest.getInstance("agent1");
-		request.setDocVectorType("test-type");
-		request.setKeywords(Arrays.asList("a", "b"));
-		request.setTopK(10);
+		AgentSearchRequest request = AgentSearchRequest.builder()
+			.agentId("agent1")
+			.docVectorType("test-type")
+			.query("test query")
+			.topK(10)
+			.build();
 
 		List<Document> vectorResults = List.of(new Document("vec_doc1"), new Document("vec_doc2"));
 		List<Document> keywordResults = List.of(new Document("key_doc1"));
@@ -92,7 +93,7 @@ class AbstractHybridRetrievalStrategyTest {
 		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(vectorResults);
 		// 使用 spy 来 mock getDocumentsByKeywords 方法
 		org.mockito.Mockito.doReturn(keywordResults).when(retrievalStrategy).getDocumentsByKeywords(request);
-		when(fusionStrategy.fuseResults(vectorResults, keywordResults, 10)).thenReturn(fusedResults);
+		when(fusionStrategy.fuseResults(10, vectorResults, keywordResults)).thenReturn(fusedResults);
 
 		// 2. 执行 (Act)
 		// 因为我们用了 directExecutor，这里的调用会同步执行所有逻辑
@@ -104,21 +105,32 @@ class AbstractHybridRetrievalStrategyTest {
 	}
 
 	@Test
-	void retrieve_ShouldReturnOnlyVectorResults_WhenKeywordsAreEmpty() {
+	void retrieve_ShouldReturnOnlyVectorResults_WhenQueryIsEmpty() {
 		// 1. 准备 (Arrange)
-		AgentSearchRequest request = AgentSearchRequest.getInstance("agent1");
-		request.setDocVectorType("test-type");
-		request.setTopK(10);
+		AgentSearchRequest request = AgentSearchRequest.builder()
+			.agentId("agent1")
+			.docVectorType("test-type")
+			.query("") // 空查询字符串
+			.topK(10)
+			.build();
 
-		List<Document> vectorResults = List.of(new Document("vec_doc1"), new Document("vec_doc2"));
+		Document doc1 = new Document("vec_doc1");
+		Document doc2 = new Document("vec_doc2");
+		List<Document> vectorResults = List.of(doc1, doc2);
+		List<Document> keywordResults = Collections.emptyList(); // 空查询应该返回空结果
+		List<Document> fusedResults = List.of(doc1, doc2); // 融合后应该只有向量结果
 
+		// 定义 mock 对象的行为
 		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(vectorResults);
+		// 使用 spy 来 mock getDocumentsByKeywords 方法
+		org.mockito.Mockito.doReturn(keywordResults).when(retrievalStrategy).getDocumentsByKeywords(request);
+		when(fusionStrategy.fuseResults(10, vectorResults, keywordResults)).thenReturn(fusedResults);
 
 		// 2. 执行 (Act)
 		List<Document> finalDocuments = retrievalStrategy.retrieve(request);
 
 		// 3. 断言 (Assert)
-		assertEquals(vectorResults.size(), finalDocuments.size());
+		assertEquals(fusedResults.size(), finalDocuments.size());
 		assertEquals(vectorResults, finalDocuments);
 	}
 

@@ -37,6 +37,8 @@ public class DataAgentProperties {
 	 */
 	private EmbeddingBatch embeddingBatch = new EmbeddingBatch();
 
+	private VectorStoreProperties vectorStore = new VectorStoreProperties();
+
 	@Getter
 	@Setter
 	public static class EmbeddingBatch {
@@ -60,6 +62,37 @@ public class DataAgentProperties {
 		 * 每批次最大文本数量 适用于DashScope等有文本数量限制的API DashScope限制为10
 		 */
 		private int maxTextCount = 10;
+
+	}
+
+	@Getter
+	@Setter
+	public static class VectorStoreProperties {
+
+		/**
+		 * 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档
+		 */
+		private double similarityThreshold = 0.2;
+
+		/**
+		 * 一次删除操作中，最多删除的文档数量
+		 */
+		private int batchDelTopkLimit = 5000;
+
+		/**
+		 * 查询时返回的最大文档数量
+		 */
+		private int topkLimit = 30;
+
+		/**
+		 * 是否启用混合搜索
+		 */
+		private boolean enableHybridSearch = false;
+
+		/**
+		 * Elasticsearch最小分数阈值，用于es执行关键词搜索时过滤相关性较低的文档
+		 */
+		private double elasticsearchMinScore = 0.5;
 
 	}
 

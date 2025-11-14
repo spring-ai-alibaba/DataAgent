@@ -13,21 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.alibaba.cloud.ai.service.code;
 
-import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.config.DataAgentProperties;
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
+import com.alibaba.cloud.ai.connector.config.DbConfig;
+import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.request.AgentSearchRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.service.TableMetadataService;
+import com.alibaba.cloud.ai.service.hybrid.retrieval.HybridRetrievalStrategy;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreServiceImpl;
-import com.alibaba.cloud.ai.util.DocumentConverterUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,28 +40,37 @@ import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.testcontainers.shaded.com.google.common.util.concurrent.MoreExecutors;
 
 import java.util.*;
+import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for {@link AgentVectorStoreServiceImpl}
- */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("AgentVectorStoreService Tests")
-public class AgentVectorStoreServiceImplTest {
+class AgentVectorStoreServiceImplTest {
+
+	private static final String TEST_AGENT_ID = "test-agent-id";
+
+	private static final String TEST_VECTOR_TYPE = "test-vector-type";
+
+	private static final String TEST_QUERY = "test query";
 
 	@Mock
 	private VectorStore vectorStore;
 
-	@Mock
-	private BatchingStrategy batchingStrategy;
+	private ExecutorService directExecutor;
 
 	@Mock
-	private TableMetadataService tableMetadataService;
+	private Optional<HybridRetrievalStrategy> hybridRetrievalStrategy;
+
+	@Mock(lenient = true)
+	private DataAgentProperties dataAgentProperties;
+
+	@Mock
+	private BatchingStrategy batchingStrategy;
 
 	@Mock
 	private AccessorFactory accessorFactory;
@@ -72,37 +81,36 @@ public class AgentVectorStoreServiceImplTest {
 	@InjectMocks
 	private AgentVectorStoreServiceImpl agentVectorStoreService;
 
-	private final String TEST_AGENT_ID = "test-agent-id";
-
-	private final String TEST_QUERY = "test query";
-
-	private final String TEST_VECTOR_TYPE = "column";
-
 	@BeforeEach
 	void setUp() {
-		// Set similarity threshold for testing
-		ReflectionTestUtils.setField(agentVectorStoreService, "similarityThreshold", 0.2);
+		// 使用 MoreExecutors.newDirectExecutorService() 创建单线程线程池
+		directExecutor = MoreExecutors.newDirectExecutorService();
+
+		// Setup dataAgentProperties mock
+		DataAgentProperties.VectorStoreProperties vectorStoreProperties = new DataAgentProperties.VectorStoreProperties();
+		vectorStoreProperties.setEnableHybridSearch(false);
+		vectorStoreProperties.setTopkLimit(10);
+		vectorStoreProperties.setSimilarityThreshold(0.7);
+		vectorStoreProperties.setBatchDelTopkLimit(100);
+		when(dataAgentProperties.getVectorStore()).thenReturn(vectorStoreProperties);
 	}
 
 	@Test
 	@DisplayName("Test search with valid request")
 	void testSearchWithValidRequest() {
 		// Arrange
-		AgentSearchRequest searchRequest = AgentSearchRequest.getInstance(TEST_AGENT_ID);
-		searchRequest.setQuery(TEST_QUERY);
-		searchRequest.setTopK(5);
-		searchRequest.setMetadataFilter(Map.of(Constant.VECTOR_TYPE, TEST_VECTOR_TYPE));
+		AgentSearchRequest searchRequest = AgentSearchRequest.builder()
+			.agentId(TEST_AGENT_ID)
+			.docVectorType(TEST_VECTOR_TYPE)
+			.query(TEST_QUERY)
+			.topK(5)
+			.similarityThreshold(0.8)
+			.build();
 
-		List<Document> expectedDocuments = Arrays.asList(
-				new Document("Test content 1",
-						Map.of(Constant.AGENT_ID, TEST_AGENT_ID, Constant.VECTOR_TYPE, TEST_VECTOR_TYPE)),
-				new Document("Test content 2",
-						Map.of(Constant.AGENT_ID, TEST_AGENT_ID, Constant.VECTOR_TYPE, TEST_VECTOR_TYPE)));
+		List<Document> expectedDocuments = Arrays.asList(new Document("Document 1 content", Map.of("key1", "value1")),
+				new Document("Document 2 content", Map.of("key2", "value2")));
 
-		// Mock the vectorStore.similaritySearch to return documents on first call and
-		// empty list on subsequent calls
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(expectedDocuments)
-			.thenReturn(Collections.emptyList());
+		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(expectedDocuments);
 
 		// Act
 		List<Document> result = agentVectorStoreService.search(searchRequest);
@@ -115,13 +123,49 @@ public class AgentVectorStoreServiceImplTest {
 	}
 
 	@Test
+	@DisplayName("Test search with hybrid search enabled")
+	void testSearchWithHybridSearchEnabled() {
+		// Arrange
+		DataAgentProperties.VectorStoreProperties vectorStoreProperties = new DataAgentProperties.VectorStoreProperties();
+		vectorStoreProperties.setEnableHybridSearch(true);
+		when(dataAgentProperties.getVectorStore()).thenReturn(vectorStoreProperties);
+
+		HybridRetrievalStrategy mockStrategy = mock(HybridRetrievalStrategy.class);
+		// 正确地mock Optional<HybridRetrievalStrategy>
+		when(hybridRetrievalStrategy.isPresent()).thenReturn(true);
+		when(hybridRetrievalStrategy.get()).thenReturn(mockStrategy);
+
+		AgentSearchRequest searchRequest = AgentSearchRequest.builder()
+			.agentId(TEST_AGENT_ID)
+			.docVectorType(TEST_VECTOR_TYPE)
+			.query(TEST_QUERY)
+			.topK(5)
+			.similarityThreshold(0.8)
+			.build();
+
+		List<Document> expectedDocuments = Arrays.asList(new Document("Hybrid result 1", Map.of("key1", "value1")),
+				new Document("Hybrid result 2", Map.of("key2", "value2")));
+
+		when(mockStrategy.retrieve(any(AgentSearchRequest.class))).thenReturn(expectedDocuments);
+
+		// Act
+		List<Document> result = agentVectorStoreService.search(searchRequest);
+
+		// Assert
+		assertNotNull(result);
+		assertEquals(2, result.size());
+		assertEquals(expectedDocuments, result);
+		verify(mockStrategy).retrieve(searchRequest);
+		verify(vectorStore, never()).similaritySearch(any(SearchRequest.class));
+	}
+
+	@Test
 	@DisplayName("Test addDocuments with valid input")
 	void testAddDocuments() {
-		Map<String, Object> metadata = new HashMap<>();
-		metadata.put(Constant.AGENT_ID, TEST_AGENT_ID);
 		// Arrange
-		List<Document> documents = Arrays.asList(new Document("Test content 1", metadata),
-				new Document("Test content 2", metadata));
+		List<Document> documents = Arrays.asList(
+				new Document("Document 1", Map.of(Constant.AGENT_ID, TEST_AGENT_ID, "key1", "value1")),
+				new Document("Document 2", Map.of(Constant.AGENT_ID, TEST_AGENT_ID, "key2", "value2")));
 
 		// Act
 		agentVectorStoreService.addDocuments(TEST_AGENT_ID, documents);
@@ -134,7 +178,7 @@ public class AgentVectorStoreServiceImplTest {
 	@DisplayName("Test addDocuments with null agentId should throw exception")
 	void testAddDocumentsWithNullAgentId() {
 		// Arrange
-		List<Document> documents = Arrays.asList(new Document("Test content"));
+		List<Document> documents = Arrays.asList(new Document("Document 1", Map.of(Constant.AGENT_ID, TEST_AGENT_ID)));
 
 		// Act & Assert
 		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
@@ -152,90 +196,49 @@ public class AgentVectorStoreServiceImplTest {
 	}
 
 	@Test
-	@DisplayName("Test estimateDocuments with existing documents")
-	void testEstimateDocuments() {
+	@DisplayName("Test addDocuments with document missing agentId in metadata should throw exception")
+	void testAddDocumentsWithMissingAgentIdInMetadata() {
 		// Arrange
-		List<Document> mockDocuments = Arrays.asList(
-				new Document("Test content 1", Map.of(Constant.AGENT_ID, TEST_AGENT_ID)),
-				new Document("Test content 2", Map.of(Constant.AGENT_ID, TEST_AGENT_ID)));
-		// Mock the vectorStore.similaritySearch to return documents on first call and
-		// empty list on subsequent calls using doReturn style for better mocking
-		doReturn(mockDocuments).doReturn(Collections.emptyList())
-			.when(vectorStore)
-			.similaritySearch(any(SearchRequest.class));
+		List<Document> documents = Arrays.asList(new Document("Document 1", Map.of("key1", "value1")));
 
-		// Act
-		int result = agentVectorStoreService.estimateDocuments(TEST_AGENT_ID);
-
-		// Assert
-		assertEquals(2, result);
-		// Since the estimated Documents method is called multiple times until there are
-		// no new documents, we should verify that it has been called at least once
-		verify(vectorStore, atLeastOnce()).similaritySearch(any(SearchRequest.class));
+		// Act & Assert
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> agentVectorStoreService.addDocuments(TEST_AGENT_ID, documents));
+		assertEquals("Document metadata must contain agentId.", exception.getMessage());
 	}
 
 	@Test
-	@DisplayName("Test hasDocuments with existing documents returns true")
-	void testHasDocumentsWithExistingDocuments() {
+	@DisplayName("Test addDocuments with document having different agentId in metadata should throw exception")
+	void testAddDocumentsWithDifferentAgentIdInMetadata() {
 		// Arrange
-		List<Document> mockDocuments = Arrays
-			.asList(new Document("Test content", Map.of(Constant.AGENT_ID, TEST_AGENT_ID)));
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(mockDocuments);
+		List<Document> documents = Arrays
+			.asList(new Document("Document 1", Map.of(Constant.AGENT_ID, "different-agent-id")));
 
-		// Act
-		boolean result = agentVectorStoreService.hasDocuments(TEST_AGENT_ID);
-
-		// Assert
-		assertTrue(result);
-		verify(vectorStore).similaritySearch(any(SearchRequest.class));
-	}
-
-	@Test
-	@DisplayName("Test hasDocuments with no documents returns false")
-	void testHasDocumentsWithNoDocuments() {
-		// Arrange
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(Collections.emptyList());
-
-		// Act
-		boolean result = agentVectorStoreService.hasDocuments(TEST_AGENT_ID);
-
-		// Assert
-		assertFalse(result);
-		verify(vectorStore).similaritySearch(any(SearchRequest.class));
-	}
-
-	@Test
-	@DisplayName("Test getDocumentsForAgent")
-	void testGetDocumentsForAgent() {
-		// Arrange
-		List<Document> expectedDocuments = Arrays.asList(new Document("Test content",
-				Map.of(Constant.AGENT_ID, TEST_AGENT_ID, Constant.VECTOR_TYPE, TEST_VECTOR_TYPE)));
-
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(expectedDocuments);
-
-		// Act
-		List<Document> result = agentVectorStoreService.getDocumentsForAgent(TEST_AGENT_ID, TEST_QUERY,
-				TEST_VECTOR_TYPE);
-
-		// Assert
-		assertNotNull(result);
-		assertEquals(1, result.size());
-		assertEquals(expectedDocuments, result);
-		verify(vectorStore).similaritySearch(any(SearchRequest.class));
+		// Act & Assert
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> agentVectorStoreService.addDocuments(TEST_AGENT_ID, documents));
+		assertEquals("Document metadata agentId does not match.", exception.getMessage());
 	}
 
 	@Test
 	@DisplayName("Test deleteDocumentsByVectorType")
 	void testDeleteDocumentsByVectorType() throws Exception {
 		// Arrange
+		// 创建一个新的测试实例，使用SimpleVectorStore类型的mock
+		VectorStore simpleVectorStore = mock(org.springframework.ai.vectorstore.SimpleVectorStore.class);
+
+		// 使用反射设置vectorStore字段为SimpleVectorStore类型的mock
+		ReflectionTestUtils.setField(agentVectorStoreService, "vectorStore", simpleVectorStore);
+
 		List<Document> mockDocuments = Arrays.asList(
 				new Document("Test content 1",
-						Map.of(Constant.AGENT_ID, TEST_AGENT_ID, Constant.VECTOR_TYPE, TEST_VECTOR_TYPE)),
-				new Document("Test content 2",
-						Map.of(Constant.AGENT_ID, TEST_AGENT_ID, Constant.VECTOR_TYPE, TEST_VECTOR_TYPE)));
+						Map.of(Constant.AGENT_ID, TEST_AGENT_ID, DocumentMetadataConstant.VECTOR_TYPE,
+								TEST_VECTOR_TYPE)),
+				new Document("Test content 2", Map.of(Constant.AGENT_ID, TEST_AGENT_ID,
+						DocumentMetadataConstant.VECTOR_TYPE, TEST_VECTOR_TYPE)));
 		// Mock the vectorStore.similaritySearch to return documents on first call and
 		// empty list on subsequent calls
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(mockDocuments)
+		when(simpleVectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(mockDocuments)
 			.thenReturn(Collections.emptyList());
 
 		// Act
@@ -243,7 +246,7 @@ public class AgentVectorStoreServiceImplTest {
 
 		// Assert
 		assertTrue(result);
-		verify(vectorStore, times(2)).similaritySearch(any(SearchRequest.class));
+		verify(simpleVectorStore, times(2)).similaritySearch(any(SearchRequest.class));
 	}
 
 	@Test
@@ -272,13 +275,19 @@ public class AgentVectorStoreServiceImplTest {
 		metadata.put("key1", "value1");
 		metadata.put("key2", 123);
 
+		// 创建一个新的测试实例，使用SimpleVectorStore类型的mock
+		VectorStore simpleVectorStore = mock(org.springframework.ai.vectorstore.SimpleVectorStore.class);
+
+		// 使用反射设置vectorStore字段为SimpleVectorStore类型的mock
+		ReflectionTestUtils.setField(agentVectorStoreService, "vectorStore", simpleVectorStore);
+
 		List<Document> mockDocuments = Arrays.asList(
 				new Document("Test content 1", Map.of(Constant.AGENT_ID, TEST_AGENT_ID, "key1", "value1", "key2", 123)),
 				new Document("Test content 2",
 						Map.of(Constant.AGENT_ID, TEST_AGENT_ID, "key1", "value1", "key2", 123)));
 		// Mock the vectorStore.similaritySearch to return documents on first call and
 		// empty list on subsequent calls
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(mockDocuments)
+		when(simpleVectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(mockDocuments)
 			.thenReturn(Collections.emptyList());
 
 		// Act
@@ -286,7 +295,7 @@ public class AgentVectorStoreServiceImplTest {
 
 		// Assert
 		assertTrue(result);
-		verify(vectorStore, times(2)).similaritySearch(any(SearchRequest.class));
+		verify(simpleVectorStore, times(2)).similaritySearch(any(SearchRequest.class));
 	}
 
 	@Test
@@ -298,7 +307,7 @@ public class AgentVectorStoreServiceImplTest {
 		// Act & Assert
 		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
 				() -> agentVectorStoreService.deleteDocumentsByMetedata(null, metadata));
-		assertEquals("AgentId cannot be null.", exception.getMessage());
+		assertEquals("AgentId cannot be empty.", exception.getMessage());
 	}
 
 	@Test
@@ -308,59 +317,6 @@ public class AgentVectorStoreServiceImplTest {
 		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
 				() -> agentVectorStoreService.deleteDocumentsByMetedata(TEST_AGENT_ID, null));
 		assertEquals("Metadata cannot be null.", exception.getMessage());
-	}
-
-	@Test
-	@DisplayName("Test schema with valid input")
-	void testSchemaWithValidInput() throws Exception {
-		// Arrange
-		SchemaInitRequest schemaInitRequest = new SchemaInitRequest();
-		DbConfig dbConfig = new DbConfig();
-		dbConfig.setSchema("test-schema");
-		schemaInitRequest.setDbConfig(dbConfig);
-		schemaInitRequest.setTables(Arrays.asList("table1", "table2"));
-
-		List<ForeignKeyInfoBO> foreignKeys = Arrays.asList(new ForeignKeyInfoBO("table1", "col1", "table2", "col2"));
-
-		// 创建带有列信息的表数据
-		List<ColumnInfoBO> columns1 = Arrays.asList(ColumnInfoBO.builder()
-			.name("id")
-			.type("BIGINT")
-			.description("Primary key")
-			.primary(true)
-			.notnull(true)
-			.build(), ColumnInfoBO.builder().name("name").type("VARCHAR").description("Name column").build());
-		List<ColumnInfoBO> columns2 = Arrays.asList(ColumnInfoBO.builder()
-			.name("id")
-			.type("BIGINT")
-			.description("Primary key")
-			.primary(true)
-			.notnull(true)
-			.build(), ColumnInfoBO.builder().name("value").type("INTEGER").description("Value column").build());
-
-		List<TableInfoBO> tables = Arrays.asList(createTableInfoBO("table1", "Description 1", columns1),
-				createTableInfoBO("table2", "Description 2", columns2));
-
-		when(accessorFactory.getAccessorByDbConfig(any(DbConfig.class))).thenReturn(accessor);
-		when(accessor.showForeignKeys(any(DbConfig.class), any())).thenReturn(foreignKeys);
-		when(accessor.fetchTables(any(DbConfig.class), any())).thenReturn(tables);
-
-		// 模拟DocumentConverterUtil.convertColumnsToDocuments和convertTablesToDocuments的返回值
-		List<Document> columnDocs = DocumentConverterUtil.convertColumnsToDocuments(TEST_AGENT_ID, tables);
-		List<Document> tableDocs = DocumentConverterUtil.convertTablesToDocuments(TEST_AGENT_ID, tables);
-
-		// 模拟批处理策略返回文档列表
-		when(batchingStrategy.batch(any())).thenReturn(Arrays.asList(columnDocs, tableDocs));
-
-		// Act
-		Boolean result = agentVectorStoreService.schema(TEST_AGENT_ID, schemaInitRequest);
-
-		// Assert
-		assertTrue(result);
-		verify(accessorFactory).getAccessorByDbConfig(dbConfig);
-		verify(accessor).showForeignKeys(eq(dbConfig), any());
-		verify(accessor).fetchTables(eq(dbConfig), any());
-		verify(vectorStore, atLeastOnce()).add(any());
 	}
 
 	@Test
@@ -380,64 +336,6 @@ public class AgentVectorStoreServiceImplTest {
 		// Assert
 		assertFalse(result);
 		verify(accessorFactory).getAccessorByDbConfig(dbConfig);
-	}
-
-	@Test
-	@DisplayName("Test buildFilterExpressionString with null map")
-	void testBuildFilterExpressionStringWithNullMap() {
-		// Act
-		String result = (String) ReflectionTestUtils.invokeMethod(agentVectorStoreService,
-				"buildFilterExpressionString", (Map<String, Object>) null);
-
-		// Assert
-		assertNull(result);
-	}
-
-	@Test
-	@DisplayName("Test buildFilterExpressionString with empty map")
-	void testBuildFilterExpressionStringWithEmptyMap() {
-		// Act
-		String result = (String) ReflectionTestUtils.invokeMethod(agentVectorStoreService,
-				"buildFilterExpressionString", new HashMap<>());
-
-		// Assert
-		assertNull(result);
-	}
-
-	@Test
-	@DisplayName("Test buildFilterExpressionString with valid map")
-	void testBuildFilterExpressionStringWithValidMap() {
-		// Arrange
-		Map<String, Object> filterMap = new HashMap<>();
-		filterMap.put("key1", "value1");
-		filterMap.put("key2", 123);
-		filterMap.put("key3", true);
-		filterMap.put("key4", null);
-
-		// Act
-		String result = (String) ReflectionTestUtils.invokeMethod(agentVectorStoreService,
-				"buildFilterExpressionString", filterMap);
-
-		// Assert
-		assertNotNull(result);
-		assertTrue(result.contains("key1 == 'value1'"));
-		assertTrue(result.contains("key2 == 123"));
-		assertTrue(result.contains("key3 == true"));
-		assertTrue(result.contains("key4 == null"));
-		assertTrue(result.contains(" && "));
-	}
-
-	@Test
-	@DisplayName("Test buildFilterExpressionString with invalid key should throw exception")
-	void testBuildFilterExpressionStringWithInvalidKey() {
-		// Arrange
-		Map<String, Object> filterMap = new HashMap<>();
-		filterMap.put("invalid-key", "value1");
-
-		// Act & Assert
-		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> ReflectionTestUtils
-			.invokeMethod(agentVectorStoreService, "buildFilterExpressionString", filterMap));
-		assertTrue(exception.getMessage().contains("Invalid key name: invalid-key"));
 	}
 
 	@Test
@@ -469,22 +367,185 @@ public class AgentVectorStoreServiceImplTest {
 	}
 
 	@Test
-	@DisplayName("Test escapeStringLiteral")
-	void testEscapeStringLiteral() {
-		// Test null input
-		String result1 = (String) ReflectionTestUtils.invokeMethod(agentVectorStoreService, "escapeStringLiteral",
-				(String) null);
-		assertEquals("", result1);
+	@DisplayName("Test partitionList")
+	void testPartitionList() {
+		// Arrange
+		List<String> list = Arrays.asList("item1", "item2", "item3", "item4", "item5");
+		int batchSize = 2;
 
-		// Test normal string
-		String result2 = (String) ReflectionTestUtils.invokeMethod(agentVectorStoreService, "escapeStringLiteral",
-				"normal string");
-		assertEquals("normal string", result2);
+		// Act
+		@SuppressWarnings("unchecked")
+		List<List<String>> result = (List<List<String>>) ReflectionTestUtils.invokeMethod(agentVectorStoreService,
+				"partitionList", list, batchSize);
 
-		// Test string with special characters
-		String result3 = (String) ReflectionTestUtils.invokeMethod(agentVectorStoreService, "escapeStringLiteral",
-				"string'with\\special\nchars");
-		assertEquals("string\\'with\\\\special\\nchars", result3);
+		// Assert
+		assertNotNull(result);
+		assertEquals(3, result.size());
+		assertEquals(2, result.get(0).size());
+		assertEquals(2, result.get(1).size());
+		assertEquals(1, result.get(2).size());
+		assertEquals("item1", result.get(0).get(0));
+		assertEquals("item2", result.get(0).get(1));
+		assertEquals("item3", result.get(1).get(0));
+		assertEquals("item4", result.get(1).get(1));
+		assertEquals("item5", result.get(2).get(0));
+	}
+
+	@Test
+	@DisplayName("Test getDocumentsForAgent")
+	void testGetDocumentsForAgent() {
+		// Arrange
+		AgentSearchRequest searchRequest = AgentSearchRequest.builder()
+			.agentId(TEST_AGENT_ID)
+			.docVectorType(TEST_VECTOR_TYPE)
+			.query(TEST_QUERY)
+			.topK(10)
+			.similarityThreshold(0.7)
+			.build();
+
+		List<Document> expectedDocuments = Arrays.asList(new Document("Document 1 content", Map.of("key1", "value1")),
+				new Document("Document 2 content", Map.of("key2", "value2")));
+
+		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(expectedDocuments);
+
+		// Act
+		List<Document> result = agentVectorStoreService.getDocumentsForAgent(TEST_AGENT_ID, TEST_QUERY,
+				TEST_VECTOR_TYPE);
+
+		// Assert
+		assertNotNull(result);
+		assertEquals(2, result.size());
+		assertEquals(expectedDocuments, result);
+		verify(vectorStore).similaritySearch(any(SearchRequest.class));
+	}
+
+	@Test
+	@DisplayName("Test getDocumentsOnlyByFilter")
+	void testGetDocumentsOnlyByFilter() {
+		// Arrange
+		String filterExpression = "agentId == 'test-agent-id' && vectorType == 'test-vector-type'";
+		int topK = 5;
+
+		List<Document> expectedDocuments = Arrays.asList(new Document("Document 1 content", Map.of("key1", "value1")),
+				new Document("Document 2 content", Map.of("key2", "value2")));
+
+		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(expectedDocuments);
+
+		// Act
+		List<Document> result = agentVectorStoreService.getDocumentsOnlyByFilter(filterExpression, topK);
+
+		// Assert
+		assertNotNull(result);
+		assertEquals(2, result.size());
+		assertEquals(expectedDocuments, result);
+		verify(vectorStore).similaritySearch(any(SearchRequest.class));
+	}
+
+	@Test
+	@DisplayName("Test getTableDocuments")
+	void testGetTableDocuments() {
+		// Arrange
+		List<String> tableNames = Arrays.asList("table1", "table2");
+
+		List<Document> expectedDocuments = Arrays.asList(new Document("Table 1 content", Map.of("key1", "value1")),
+				new Document("Table 2 content", Map.of("key2", "value2")));
+
+		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(expectedDocuments);
+
+		// Act
+		List<Document> result = agentVectorStoreService.getTableDocuments(TEST_AGENT_ID, tableNames);
+
+		// Assert
+		assertNotNull(result);
+		assertEquals(2, result.size());
+		assertEquals(expectedDocuments, result);
+		verify(vectorStore).similaritySearch(any(SearchRequest.class));
+	}
+
+	@Test
+	@DisplayName("Test getTableDocuments with empty table names")
+	void testGetTableDocumentsWithEmptyTableNames() {
+		// Arrange
+		List<String> tableNames = Collections.emptyList();
+
+		// Act
+		List<Document> result = agentVectorStoreService.getTableDocuments(TEST_AGENT_ID, tableNames);
+
+		// Assert
+		assertNotNull(result);
+		assertTrue(result.isEmpty());
+		verify(vectorStore, never()).similaritySearch(any(SearchRequest.class));
+	}
+
+	@Test
+	@DisplayName("Test getColumnDocuments")
+	void testGetColumnDocuments() {
+		// Arrange
+		String upstreamTableName = "table1";
+		List<String> columnNames = Arrays.asList("col1", "col2");
+
+		List<Document> expectedDocuments = Arrays.asList(new Document("Column 1 content", Map.of("key1", "value1")),
+				new Document("Column 2 content", Map.of("key2", "value2")));
+
+		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(expectedDocuments);
+
+		// Act
+		List<Document> result = agentVectorStoreService.getColumnDocuments(TEST_AGENT_ID, upstreamTableName,
+				columnNames);
+
+		// Assert
+		assertNotNull(result);
+		assertEquals(2, result.size());
+		assertEquals(expectedDocuments, result);
+		verify(vectorStore).similaritySearch(any(SearchRequest.class));
+	}
+
+	@Test
+	@DisplayName("Test getColumnDocuments with empty column names")
+	void testGetColumnDocumentsWithEmptyColumnNames() {
+		// Arrange
+		String upstreamTableName = "table1";
+		List<String> columnNames = Collections.emptyList();
+
+		// Act
+		List<Document> result = agentVectorStoreService.getColumnDocuments(TEST_AGENT_ID, upstreamTableName,
+				columnNames);
+
+		// Assert
+		assertNotNull(result);
+		assertTrue(result.isEmpty());
+		verify(vectorStore, never()).similaritySearch(any(SearchRequest.class));
+	}
+
+	@Test
+	@DisplayName("Test hasDocuments with existing documents")
+	void testHasDocumentsWithExistingDocuments() {
+		// Arrange
+		List<Document> mockDocuments = Arrays
+			.asList(new Document("Test content", Map.of(Constant.AGENT_ID, TEST_AGENT_ID)));
+
+		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(mockDocuments);
+
+		// Act
+		boolean result = agentVectorStoreService.hasDocuments(TEST_AGENT_ID);
+
+		// Assert
+		assertTrue(result);
+		verify(vectorStore).similaritySearch(any(SearchRequest.class));
+	}
+
+	@Test
+	@DisplayName("Test hasDocuments with no documents")
+	void testHasDocumentsWithNoDocuments() {
+		// Arrange
+		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(Collections.emptyList());
+
+		// Act
+		boolean result = agentVectorStoreService.hasDocuments(TEST_AGENT_ID);
+
+		// Assert
+		assertFalse(result);
+		verify(vectorStore).similaritySearch(any(SearchRequest.class));
 	}
 
 	/**

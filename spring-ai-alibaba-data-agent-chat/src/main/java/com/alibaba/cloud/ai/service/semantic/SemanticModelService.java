@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.service.semantic;
 
+import com.alibaba.cloud.ai.dto.SemanticModelAddDTO;
 import com.alibaba.cloud.ai.entity.SemanticModel;
 
 import java.util.List;
@@ -26,9 +27,13 @@ public interface SemanticModelService {
 
 	List<SemanticModel> getEnabledByAgentId(Long agentId);
 
+	List<SemanticModel> getByAgentIdAndTableNames(Integer agentId, List<String> tableNames);
+
 	SemanticModel getById(Long id);
 
 	void addSemanticModel(SemanticModel semanticModel);
+
+	boolean addSemanticModel(SemanticModelAddDTO dto);
 
 	void enableSemanticModel(Long id);
 

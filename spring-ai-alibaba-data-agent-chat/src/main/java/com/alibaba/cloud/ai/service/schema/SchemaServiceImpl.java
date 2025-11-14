@@ -15,12 +15,14 @@
  */
 package com.alibaba.cloud.ai.service.schema;
 
-import com.alibaba.cloud.ai.constant.Constant;
-import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.config.DataAgentProperties;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
+import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dto.schema.TableDTO;
+import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.service.hybrid.fusion.FusionStrategy;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,13 +34,7 @@ import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -58,38 +54,13 @@ public class SchemaServiceImpl implements SchemaService {
 	 */
 	private final AgentVectorStoreService vectorStoreService;
 
-	/**
-	 * Build schema based on RAG - supports agent isolation
-	 * @param agentId agent ID
-	 * @param query query
-	 * @param keywords keyword list
-	 * @param dbConfig Database configuration
-	 * @return SchemaDTO
-	 */
-	@Override
-	public SchemaDTO mixRagForAgent(String agentId, String query, List<String> keywords, DbConfig dbConfig) {
-		SchemaDTO schemaDTO = new SchemaDTO();
-		extractDatabaseName(schemaDTO, dbConfig); // Set database name or schema name
+	private final FusionStrategy fusionStrategy;
 
-		// Get table documents
-		List<Document> tableDocuments = new ArrayList<>(getTableDocumentsForAgent(agentId, query));
-
-		// Get column documents
-		List<List<Document>> columnDocumentList = getColumnDocumentsByKeywordsForAgent(agentId, keywords);
-
-		buildSchemaFromDocuments(agentId, columnDocumentList, tableDocuments, schemaDTO);
-
-		return schemaDTO;
-	}
+	private final DataAgentProperties dataAgentProperties;
 
 	@Override
-	public void buildSchemaFromDocuments(String agentId, List<List<Document>> columnDocumentList,
+	public void buildSchemaFromDocuments(String agentId, List<Document> currentColumnDocuments,
 			List<Document> tableDocuments, SchemaDTO schemaDTO) {
-		// Process column weights and sort by table association
-		updateAndSortColumnScoresByTableWeights(columnDocumentList, tableDocuments);
-
-		// Initialize column selector, TODO upper limit 100 has issues
-		Map<String, Document> weightedColumns = selectColumnsByRoundRobin(columnDocumentList, 100);
 
 		// 如果外键关系是"订单表.订单ID=订单详情表.订单ID"，那么 relatedNamesFromForeignKeys
 		// 将包含"订单表.订单ID"和"订单详情表.订单ID"
@@ -100,10 +71,10 @@ public class SchemaServiceImpl implements SchemaService {
 
 		// Supplement missing foreign key corresponding tables
 		expandTableDocumentsWithForeignKeys(agentId, tableDocuments, relatedNamesFromForeignKeys);
-		expandColumnDocumentsWithForeignKeys(agentId, weightedColumns, relatedNamesFromForeignKeys);
+		expandColumnDocumentsWithForeignKeys(agentId, currentColumnDocuments, relatedNamesFromForeignKeys);
 
-		// Attach weighted columns to corresponding tables
-		attachColumnsToTables(weightedColumns, tableList);
+		// Attach columns to corresponding tables
+		attachColumnsToTables(currentColumnDocuments, tableList);
 
 		// Finally assemble SchemaDTO
 		schemaDTO.setTable(tableList);
@@ -122,40 +93,94 @@ public class SchemaServiceImpl implements SchemaService {
 	@Override
 	public List<Document> getTableDocumentsForAgent(String agentId, String query) {
 		Assert.notNull(agentId, "agentId cannot be null");
-		return vectorStoreService.getDocumentsForAgent(agentId, query, Constant.TABLE);
+		return vectorStoreService.getDocumentsForAgent(agentId, query, DocumentMetadataConstant.TABLE);
 	}
 
 	/**
 	 * Get all column documents by keywords for specified agent
 	 */
 	@Override
-	public List<List<Document>> getColumnDocumentsByKeywordsForAgent(String agentId, List<String> keywords) {
+	public List<Document> getColumnDocumentsByKeywordsForAgent(String agentId, List<String> keywords,
+			List<Document> tableDocuments) {
 
-		Assert.notNull(agentId, "agentId cannot be null");
+		Assert.hasText(agentId, "agentId cannot be empty");
 
-		return keywords.stream()
-			.map(kw -> vectorStoreService.getDocumentsForAgent(agentId, kw, Constant.COLUMN))
-			.collect(Collectors.toList());
+		List<List<Document>> allResults = new ArrayList<>();
+		for (String kw : keywords) {
+			List<Document> docs = vectorStoreService.getDocumentsForAgent(agentId, kw, DocumentMetadataConstant.COLUMN);
+			if (CollectionUtils.isEmpty(docs)) {
+				continue;
+			}
+			List<Document> filterDocs = filterColumnsWithMatchingTables(docs, tableDocuments);
+			if (CollectionUtils.isNotEmpty(filterDocs))
+				allResults.add(filterDocs);
+
+		}
+
+		List<Document>[] resultArray = allResults.toArray(new List[0]);
+		return fusionStrategy.fuseResults(dataAgentProperties.getVectorStore().getTopkLimit(), resultArray);
+
 	}
 
 	/**
 	 * Expand column documents (supplement missing columns through foreign keys)
 	 */
-	private void expandColumnDocumentsWithForeignKeys(String agentId, Map<String, Document> weightedColumns,
+	private void expandColumnDocumentsWithForeignKeys(String agentId, List<Document> currentColumns,
 			Set<String> foreignKeySet) {
+		// 提取已存在的列名，格式为 tableName.columnName
+		Set<String> existingColumnNames = currentColumns.stream()
+			.map(doc -> (String) doc.getMetadata().get("tableName") + "." + (String) doc.getMetadata().get("name"))
+			.collect(Collectors.toSet());
 
-		Set<String> existingColumnNames = weightedColumns.keySet();
-		Set<String> missingColumns = new HashSet<>();
+		// 找出缺少的列
+		Set<String> missingColumnNames = new HashSet<>();
 		for (String key : foreignKeySet) {
 			if (!existingColumnNames.contains(key)) {
-				missingColumns.add(key);
+				missingColumnNames.add(key);
 			}
 		}
 
-		for (String columnName : missingColumns) {
-			addColumnsDocument(agentId, weightedColumns, columnName);
+		if (missingColumnNames.isEmpty()) {
+			return;
 		}
 
+		// 按表名分组缺少的列
+		Map<String, List<String>> missingColumnsByTable = new HashMap<>();
+		for (String columnFullName : missingColumnNames) {
+			String[] parts = columnFullName.split("\\.");
+			if (parts.length == 2) {
+				String tableName = parts[0];
+				String columnName = parts[1];
+				missingColumnsByTable.computeIfAbsent(tableName, k -> new ArrayList<>()).add(columnName);
+			}
+		}
+
+		// 为每个表批量获取缺少的列文档
+		for (Map.Entry<String, List<String>> entry : missingColumnsByTable.entrySet()) {
+			String tableName = entry.getKey();
+			List<String> columnNames = entry.getValue();
+
+			List<Document> foundColumnDocs = vectorStoreService.getColumnDocuments(agentId, tableName, columnNames);
+
+			// 添加到当前列列表中
+			if (!foundColumnDocs.isEmpty())
+				currentColumns.addAll(foundColumnDocs);
+
+			// 记录日志
+			if (foundColumnDocs.size() < columnNames.size()) {
+				Set<String> foundColumnNames = foundColumnDocs.stream()
+					.map(doc -> (String) doc.getMetadata().get("name"))
+					.collect(Collectors.toSet());
+
+				Set<String> notFoundColumns = new HashSet<>(columnNames);
+				notFoundColumns.removeAll(foundColumnNames);
+
+				log.warn("When we search from vector store,agentId: {} - columns not found in table {}: {}", agentId,
+						tableName, notFoundColumns);
+			}
+		}
+
+		log.debug("Finish expanding column documents with foreign keys: {}", missingColumnNames);
 	}
 
 	/**
@@ -178,68 +203,21 @@ public class SchemaServiceImpl implements SchemaService {
 			}
 		}
 
-		for (String tableName : missingTables) {
-			addTableDocument(agentId, tableDocuments, tableName);
-		}
-	}
-
-	protected void addTableDocument(String agentId, List<Document> tableDocuments, String tableName) {
-		List<Document> documentsForAgent = vectorStoreService.getDocumentsForAgent(agentId, tableName, Constant.TABLE);
-		if (documentsForAgent != null && !documentsForAgent.isEmpty())
-			tableDocuments.addAll(documentsForAgent);
-	}
-
-	protected void addColumnsDocument(String agentId, Map<String, Document> weightedColumns, String columnName) {
-		List<Document> documentsForAgent = vectorStoreService.getDocumentsForAgent(agentId, columnName,
-				Constant.COLUMN);
-		if (documentsForAgent != null && !documentsForAgent.isEmpty()) {
-			for (Document document : documentsForAgent)
-				weightedColumns.putIfAbsent(document.getId(), document);
-		}
-	}
-
-	/**
-	 * Select up to maxCount columns by weight using a round-robin approach to ensure
-	 * balanced selection across different tables
-	 */
-	protected Map<String, Document> selectColumnsByRoundRobin(List<List<Document>> columnDocumentList, int maxCount) {
-		Map<String, Document> selectedColumns = new HashMap<>();
-		int currentRound = 0;
-
-		// Continue selecting columns until we reach maxCount or exhaust all columns
-		while (selectedColumns.size() < maxCount) {
-			boolean hasMoreColumnsInAnyList = false;
-
-			// Process each table's column list in the current round
-			for (List<Document> tableColumns : columnDocumentList) {
-				if (currentRound < tableColumns.size()) {
-					// Get the column at current position (already sorted by weight)
-					Document column = tableColumns.get(currentRound);
-					String columnId = column.getId();
-
-					// Add to selection if not already selected
-					if (!selectedColumns.containsKey(columnId)) {
-						selectedColumns.put(columnId, column);
-
-						// Stop if we've reached the maximum count
-						if (selectedColumns.size() >= maxCount) {
-							break;
-						}
-					}
-
-					hasMoreColumnsInAnyList = true;
-				}
-			}
-
-			// If no more columns in any list, exit the loop
-			if (!hasMoreColumnsInAnyList) {
-				break;
-			}
-
-			currentRound++;
+		if (!CollectionUtils.isEmpty(missingTables)) {
+			log.debug("Expand table documents with foreign keys: {}", missingTables);
+			loadMissingTableDocument(agentId, tableDocuments, new ArrayList<>(missingTables));
 		}
 
-		return selectedColumns;
+	}
+
+	private void loadMissingTableDocument(String agentId, List<Document> tableDocuments,
+			List<String> missingtableNames) {
+		List<Document> foundTableDocs = vectorStoreService.getTableDocuments(agentId, missingtableNames);
+		if (foundTableDocs.size() > missingtableNames.size())
+			log.error("When we search missing tables:{},  more than expected tables for agent: {}", missingtableNames,
+					agentId);
+		if (!foundTableDocs.isEmpty())
+			tableDocuments.addAll(foundTableDocs);
 	}
 
 	/**
@@ -438,12 +416,12 @@ public class SchemaServiceImpl implements SchemaService {
 	/**
 	 * Attach column documents to corresponding tables
 	 */
-	protected void attachColumnsToTables(Map<String, Document> weightedColumns, List<TableDTO> tableList) {
-		if (CollectionUtils.isEmpty(weightedColumns.values())) {
+	private void attachColumnsToTables(List<Document> columns, List<TableDTO> tableList) {
+		if (CollectionUtils.isEmpty(columns)) {
 			return;
 		}
 
-		for (Document columnDoc : weightedColumns.values()) {
+		for (Document columnDoc : columns) {
 			Map<String, Object> meta = columnDoc.getMetadata();
 			ColumnDTO columnDTO = new ColumnDTO();
 			columnDTO.setName((String) meta.get("name"));

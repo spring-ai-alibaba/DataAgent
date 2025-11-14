@@ -108,22 +108,23 @@ public class DataAgentConfiguration implements DisposableBean {
 			keyStrategyHashMap.put(INPUT_KEY, new ReplaceStrategy());
 			// Agent ID
 			keyStrategyHashMap.put(AGENT_ID, new ReplaceStrategy());
-			// Business knowledge
-			keyStrategyHashMap.put(BUSINESS_KNOWLEDGE, new ReplaceStrategy());
+			// Intent recognition
+			keyStrategyHashMap.put(INTENT_RECOGNITION_NODE_OUTPUT, new ReplaceStrategy());
+			// QUERY_ENHANCE_NODE节点输出
+			keyStrategyHashMap.put(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
 			// Semantic model
-			keyStrategyHashMap.put(SEMANTIC_MODEL, new ReplaceStrategy());
-			// queryWrite节点输出
-			keyStrategyHashMap.put(QUERY_REWRITE_NODE_OUTPUT, new ReplaceStrategy());
-			// keyword extract节点输出
-			keyStrategyHashMap.put(KEYWORD_EXTRACT_NODE_OUTPUT, new ReplaceStrategy());
-			keyStrategyHashMap.put(EVIDENCES, new ReplaceStrategy());
+			keyStrategyHashMap.put(GENEGRATED_SEMANTIC_MODEL_PROMPT, new ReplaceStrategy());
+			// EVIDENCE节点输出
+			keyStrategyHashMap.put(EVIDENCE, new ReplaceStrategy());
 			// schema recall节点输出
 			keyStrategyHashMap.put(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
-			keyStrategyHashMap.put(COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT, new ReplaceStrategy());
+			keyStrategyHashMap.put(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
 			// table relation节点输出
 			keyStrategyHashMap.put(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
 			keyStrategyHashMap.put(TABLE_RELATION_EXCEPTION_OUTPUT, new ReplaceStrategy());
 			keyStrategyHashMap.put(TABLE_RELATION_RETRY_COUNT, new ReplaceStrategy());
+			// Feasibility Assessment 节点输出
+			keyStrategyHashMap.put(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, new ReplaceStrategy());
 			// sql generate节点输出
 			keyStrategyHashMap.put(SQL_GENERATE_SCHEMA_MISSING_ADVICE, new ReplaceStrategy());
 			keyStrategyHashMap.put(SQL_GENERATE_OUTPUT, new ReplaceStrategy());
@@ -160,10 +161,12 @@ public class DataAgentConfiguration implements DisposableBean {
 		};
 
 		StateGraph stateGraph = new StateGraph(NL2SQL_GRAPH_NAME, keyStrategyFactory)
-			.addNode(QUERY_REWRITE_NODE, nodeBeanUtil.getNodeBeanAsync(QueryRewriteNode.class))
-			.addNode(KEYWORD_EXTRACT_NODE, nodeBeanUtil.getNodeBeanAsync(KeywordExtractNode.class))
+			.addNode(INTENT_RECOGNITION_NODE, nodeBeanUtil.getNodeBeanAsync(IntentRecognitionNode.class))
+			.addNode(EVIDENCE_RECALL_NODE, nodeBeanUtil.getNodeBeanAsync(EvidenceRecallNode.class))
+			.addNode(QUERY_ENHANCE_NODE, nodeBeanUtil.getNodeBeanAsync(QueryEnhanceNode.class))
 			.addNode(SCHEMA_RECALL_NODE, nodeBeanUtil.getNodeBeanAsync(SchemaRecallNode.class))
 			.addNode(TABLE_RELATION_NODE, nodeBeanUtil.getNodeBeanAsync(TableRelationNode.class))
+			.addNode(FEASIBILITY_ASSESSMENT_NODE, nodeBeanUtil.getNodeBeanAsync(FeasibilityAssessmentNode.class))
 			.addNode(SQL_GENERATE_NODE, nodeBeanUtil.getNodeBeanAsync(SqlGenerateNode.class))
 			.addNode(PLANNER_NODE, nodeBeanUtil.getNodeBeanAsync(PlannerNode.class))
 			.addNode(PLAN_EXECUTOR_NODE, nodeBeanUtil.getNodeBeanAsync(PlanExecutorNode.class))
@@ -175,13 +178,19 @@ public class DataAgentConfiguration implements DisposableBean {
 			.addNode(SEMANTIC_CONSISTENCY_NODE, nodeBeanUtil.getNodeBeanAsync(SemanticConsistencyNode.class))
 			.addNode(HUMAN_FEEDBACK_NODE, nodeBeanUtil.getNodeBeanAsync(HumanFeedbackNode.class));
 
-		stateGraph.addEdge(START, QUERY_REWRITE_NODE)
-			.addConditionalEdges(QUERY_REWRITE_NODE, edge_async(new QueryRewriteDispatcher()),
-					Map.of(KEYWORD_EXTRACT_NODE, KEYWORD_EXTRACT_NODE, END, END))
-			.addEdge(KEYWORD_EXTRACT_NODE, SCHEMA_RECALL_NODE)
+		stateGraph.addEdge(START, INTENT_RECOGNITION_NODE)
+			.addConditionalEdges(INTENT_RECOGNITION_NODE, edge_async(new IntentRecognitionDispatcher()),
+					Map.of(EVIDENCE_RECALL_NODE, EVIDENCE_RECALL_NODE, END, END))
+			.addEdge(EVIDENCE_RECALL_NODE, QUERY_ENHANCE_NODE)
+			.addConditionalEdges(QUERY_ENHANCE_NODE, edge_async(new QueryEnhanceDispatcher()),
+					Map.of(SCHEMA_RECALL_NODE, SCHEMA_RECALL_NODE, END, END))
 			.addEdge(SCHEMA_RECALL_NODE, TABLE_RELATION_NODE)
 			.addConditionalEdges(TABLE_RELATION_NODE, edge_async(new TableRelationDispatcher()),
-					Map.of(PLANNER_NODE, PLANNER_NODE, END, END, TABLE_RELATION_NODE, TABLE_RELATION_NODE)) // retry
+					Map.of(FEASIBILITY_ASSESSMENT_NODE, FEASIBILITY_ASSESSMENT_NODE, END, END, TABLE_RELATION_NODE,
+							TABLE_RELATION_NODE)) // retry
+			.addConditionalEdges(FEASIBILITY_ASSESSMENT_NODE, edge_async(new FeasibilityAssessmentDispatcher()),
+					Map.of(PLANNER_NODE, PLANNER_NODE, END, END))
+
 			// The edge from PlannerNode now goes to PlanExecutorNode for validation and
 			// execution
 			.addEdge(PLANNER_NODE, PLAN_EXECUTOR_NODE)
@@ -214,16 +223,15 @@ public class DataAgentConfiguration implements DisposableBean {
 			.addConditionalEdges(SQL_EXECUTE_NODE, edge_async(new SQLExecutorDispatcher()),
 					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, SEMANTIC_CONSISTENCY_NODE, SEMANTIC_CONSISTENCY_NODE))
 			.addConditionalEdges(SQL_GENERATE_NODE, edge_async(new SqlGenerateDispatcher()),
-					Map.of(KEYWORD_EXTRACT_NODE, KEYWORD_EXTRACT_NODE, END, END, SQL_EXECUTE_NODE, SQL_EXECUTE_NODE))
+					Map.of(FEASIBILITY_ASSESSMENT_NODE, FEASIBILITY_ASSESSMENT_NODE, END, END, SQL_EXECUTE_NODE,
+							SQL_EXECUTE_NODE))
 			.addConditionalEdges(SEMANTIC_CONSISTENCY_NODE, edge_async(new SemanticConsistenceDispatcher()),
 					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, PLAN_EXECUTOR_NODE, PLAN_EXECUTOR_NODE));
 
 		GraphRepresentation graphRepresentation = stateGraph.getGraph(GraphRepresentation.Type.PLANTUML,
 				"workflow graph");
 
-		log.info("\n\n");
-		log.info(graphRepresentation.content());
-		log.info("\n\n");
+		log.info("workflow in PlantUML format as follows \n\n" + graphRepresentation.content() + "\n\n");
 
 		return stateGraph;
 	}

@@ -23,8 +23,9 @@ import java.util.List;
 
 public class WeightedAverageStrategy implements FusionStrategy {
 
+	@SuppressWarnings("unchecked")
 	@Override
-	public List<Document> fuseResults(List<Document> vectorResults, List<Document> keywordResults, int topK) {
+	public List<Document> fuseResults(int topK, List<Document>... resultLists) {
 		throw new UnsupportedOperationException("Not implemented");
 	}
 

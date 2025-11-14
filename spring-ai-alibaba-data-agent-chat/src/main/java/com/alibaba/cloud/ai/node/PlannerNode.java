@@ -36,14 +36,7 @@ import reactor.core.publisher.Flux;
 
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.constant.Constant.BUSINESS_KNOWLEDGE;
-import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
-import static com.alibaba.cloud.ai.constant.Constant.IS_ONLY_NL2SQL;
-import static com.alibaba.cloud.ai.constant.Constant.PLANNER_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.PLAN_VALIDATION_ERROR;
-import static com.alibaba.cloud.ai.constant.Constant.QUERY_REWRITE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.SEMANTIC_MODEL;
-import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
+import static com.alibaba.cloud.ai.constant.Constant.*;
 
 /**
  * @author zhangshenghang
@@ -57,11 +50,9 @@ public class PlannerNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		String input = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT,
-				StateUtil.getStringValue(state, INPUT_KEY));
-		// 使用经过时间表达式处理的重写查询，如果没有则回退到原始输入
-		String processedQuery = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT, input);
-		log.info("Using processed query for planning: {}", processedQuery);
+		// 获取查询增强节点的输出
+		String canonicalQuery = StateUtil.getCanonicalQuery(state);
+		log.info("Using processed query for planning: {}", canonicalQuery);
 
 		// 是否为NL2SQL模式
 		Boolean onlyNl2sql = state.value(IS_ONLY_NL2SQL, false);
@@ -76,24 +67,23 @@ public class PlannerNode implements NodeAction {
 		}
 
 		// 构建提示参数
-		String businessKnowledge = (String) state.value(BUSINESS_KNOWLEDGE).orElse("");
-		String semanticModel = (String) state.value(SEMANTIC_MODEL).orElse("");
+		String semanticModel = (String) state.value(GENEGRATED_SEMANTIC_MODEL_PROMPT).orElse("");
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 		String schemaStr = PromptHelper.buildMixMacSqlDbPrompt(schemaDTO, true);
 
 		// 构建用户提示
-		String userPrompt = buildUserPrompt(processedQuery, validationError, state);
+		String userPrompt = buildUserPrompt(canonicalQuery, validationError, state);
+		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 
 		// 构建模板参数
-		Map<String, Object> params = Map.of("user_question", userPrompt, "schema", schemaStr, "business_knowledge",
-				businessKnowledge, "semantic_model", semanticModel, "plan_validation_error",
-				formatValidationError(validationError));
+		Map<String, Object> params = Map.of("user_question", userPrompt, "schema", schemaStr, "evidence", evidence,
+				"semantic_model", semanticModel, "plan_validation_error", formatValidationError(validationError));
 
 		// 生成计划
 		String plannerPrompt = (onlyNl2sql ? PromptConstant.getPlannerNl2sqlOnlyTemplate()
 				: PromptConstant.getPlannerPromptTemplate())
 			.render(params);
-
+		log.debug("Planner prompt: as follows \n{}\n", plannerPrompt);
 		Flux<ChatResponse> chatResponseFlux = Flux.concat(
 				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign())),
 				llmService.callUser(plannerPrompt),

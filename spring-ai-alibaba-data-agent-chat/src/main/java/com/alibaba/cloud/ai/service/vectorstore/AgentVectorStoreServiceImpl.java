@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.service.vectorstore;
 
+import com.alibaba.cloud.ai.config.DataAgentProperties;
 import com.alibaba.cloud.ai.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.connector.bo.DbQueryParameter;
@@ -22,27 +23,29 @@ import com.alibaba.cloud.ai.connector.bo.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.request.AgentSearchRequest;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.service.TableMetadataService;
-import jakarta.annotation.PreDestroy;
+import com.alibaba.cloud.ai.service.hybrid.retrieval.HybridRetrievalStrategy;
+import com.alibaba.cloud.ai.util.SearchUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.BatchingStrategy;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
 
 import static com.alibaba.cloud.ai.util.DocumentConverterUtil.convertColumnsToDocuments;
 import static com.alibaba.cloud.ai.util.DocumentConverterUtil.convertTablesToDocuments;
+import static com.alibaba.cloud.ai.util.SearchUtil.buildFilterExpressionString;
 
 @Slf4j
 @Service
@@ -50,21 +53,13 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 	private static final String DEFAULT = "default";
 
-	private final VectorStore vectorStore; // 由Spring Boot自动配置
+	private final VectorStore vectorStore;
 
 	private final ExecutorService dbOperationExecutor;
 
-	/**
-	 * 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档
-	 */
-	@Value("${spring.ai.vectorstore.similarityThreshold:0.2}")
-	protected double similarityThreshold;
+	private final Optional<HybridRetrievalStrategy> hybridRetrievalStrategy;
 
-	@Value("${spring.ai.vectorstore.batch-topk-limit:5000}")
-	protected int batchTopkLimit;
-
-	@Value("${spring.ai.vectorstore.agent-query-topk-limit:25}")
-	protected int agentQueryTopkLimit;
+	private final DataAgentProperties dataAgentProperties;
 
 	protected final AccessorFactory accessorFactory;
 
@@ -73,10 +68,13 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	protected final TableMetadataService tableMetadataService;
 
 	public AgentVectorStoreServiceImpl(VectorStore vectorStore, ExecutorService dbOperationExecutor,
+			Optional<HybridRetrievalStrategy> hybridRetrievalStrategy, DataAgentProperties dataAgentProperties,
 			BatchingStrategy batchingStrategy, AccessorFactory accessorFactory,
 			TableMetadataService tableMetadataService) {
 		this.vectorStore = vectorStore;
 		this.dbOperationExecutor = dbOperationExecutor;
+		this.hybridRetrievalStrategy = hybridRetrievalStrategy;
+		this.dataAgentProperties = dataAgentProperties;
 		this.batchingStrategy = batchingStrategy;
 		this.accessorFactory = accessorFactory;
 		this.tableMetadataService = tableMetadataService;
@@ -85,23 +83,16 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 	@Override
 	public List<Document> search(AgentSearchRequest searchRequest) {
-		Assert.notNull(searchRequest, "SearchRequest cannot be null");
-		Assert.notNull(searchRequest.getAgentId(), "agentId  cannot be null");
-		org.springframework.ai.vectorstore.SearchRequest.Builder builder = org.springframework.ai.vectorstore.SearchRequest
-			.builder();
-
-		if (StringUtils.hasText(searchRequest.getQuery()))
-			builder.query(searchRequest.getQuery());
-
-		if (Objects.nonNull(searchRequest.getTopK()))
-			builder.topK(searchRequest.getTopK());
-
-		String filterFormatted = buildFilterExpressionString(searchRequest.getMetadataFilter());
-		if (StringUtils.hasText(filterFormatted))
-			builder.filterExpression(filterFormatted);
-		builder.similarityThreshold(similarityThreshold);
-		List<Document> results = vectorStore.similaritySearch(builder.build());
-		log.info("Search completed. Found {} documents for SearchRequest: {}", results.size(), searchRequest);
+		Assert.hasText(searchRequest.getAgentId(), "AgentId cannot be empty");
+		Assert.hasText(searchRequest.getDocVectorType(), "DocVectorType cannot be empty");
+		if (dataAgentProperties.getVectorStore().isEnableHybridSearch() && hybridRetrievalStrategy.isPresent()) {
+			return hybridRetrievalStrategy.get().retrieve(searchRequest);
+		}
+		log.debug("Hybrid search is not enabled. use vector-search only");
+		SearchRequest vectorSearchRequest = SearchUtil.buildVectorSearchRequest(searchRequest);
+		List<Document> results = vectorStore.similaritySearch(vectorSearchRequest);
+		log.debug("Search completed with vectorType: {}, found {} documents for SearchRequest: {}",
+				searchRequest.getDocVectorType(), results.size(), searchRequest);
 		return results;
 
 	}
@@ -248,8 +239,8 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	}
 
 	protected void clearSchemaDataForAgent(String agentId) throws Exception {
-		deleteDocumentsByVectorType(agentId, Constant.COLUMN);
-		deleteDocumentsByVectorType(agentId, Constant.TABLE);
+		deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.COLUMN);
+		deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.TABLE);
 	}
 
 	@Override
@@ -257,8 +248,8 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 		Assert.notNull(agentId, "AgentId cannot be null.");
 		Assert.notNull(vectorType, "VectorType cannot be null.");
 
-		Map<String, Object> metadata = new HashMap<>(
-				Map.ofEntries(Map.entry(Constant.AGENT_ID, agentId), Map.entry(Constant.VECTOR_TYPE, vectorType)));
+		Map<String, Object> metadata = new HashMap<>(Map.ofEntries(Map.entry(Constant.AGENT_ID, agentId),
+				Map.entry(DocumentMetadataConstant.VECTOR_TYPE, vectorType)));
 
 		return this.deleteDocumentsByMetedata(agentId, metadata);
 	}
@@ -279,74 +270,21 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	}
 
 	@Override
-	public int estimateDocuments(String agentId) {
-		Assert.notNull(agentId, "AgentId cannot be null.");
-
-		// 使用相似度搜索来估计文档数量
-		int totalCount = 0;
-		Set<String> seenDocumentIds = new HashSet<>();
-		int newDocumentsCount;
-		int maxIterations = 100; // 设置最大迭代次数，防止死循环
-		int currentIteration = 0;
-
-		do {
-			currentIteration++;
-			if (currentIteration > maxIterations) {
-				log.warn("Reached maximum iterations ({}) while estimating documents for agent: {}", maxIterations,
-						agentId);
-				break;
-			}
-
-			// 使用不同的查询字符串来获取不同的文档集合
-			// 使用迭代次数作为查询的一部分，确保每次查询略有不同
-			String query = currentIteration == 1 ? "" : "iteration_" + currentIteration;
-
-			List<Document> batch = vectorStore
-				.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
-					.query(query)
-					.filterExpression(buildFilterExpressionString(Map.of(Constant.AGENT_ID, agentId)))
-					.topK(batchTopkLimit)
-					.similarityThreshold(0.0) // 设置最低相似度阈值以获取所有文档
-					.build());
-
-			// 计算新文档数量
-			newDocumentsCount = 0;
-			for (Document doc : batch) {
-				if (seenDocumentIds.add(doc.getId())) {
-					// 如果add返回true，表示这是一个新的文档ID
-					newDocumentsCount++;
-				}
-			}
-
-			totalCount += newDocumentsCount;
-
-			// 如果这批文档数量小于batchSize，说明已经获取了所有文档
-			// 或者没有新文档，也说明已经获取了所有文档
-			if (batch.size() < batchTopkLimit || newDocumentsCount == 0) {
-				break;
-			}
-
-		}
-		while (newDocumentsCount > 0); // 只有当获取到新文档时才继续循环
-
-		log.info("Estimated {} documents for agent: {} after {} iterations", totalCount, agentId, currentIteration);
-		return totalCount;
-	}
-
-	@Override
 	public Boolean deleteDocumentsByMetedata(String agentId, Map<String, Object> metadata) throws Exception {
-		Assert.notNull(agentId, "AgentId cannot be null.");
+		Assert.hasText(agentId, "AgentId cannot be empty.");
 		Assert.notNull(metadata, "Metadata cannot be null.");
 		// 添加agentId元数据过滤条件, 用于删除指定agentId下的所有数据，因为metadata中用户调用可能忘记添加agentId
 		metadata.put(Constant.AGENT_ID, agentId);
 		String filterExpression = buildFilterExpressionString(metadata);
 
-		// TODO 后续改成getVectorStore().delete(filterExpression);
-		// TODO 目前不支持通过元数据删除，使用会抛出UnsupportedOperationException，后续spring
-		// TODO ai发布1.1.0正式版本后再修改，现在是通过id删除
-
-		// 搜索和删除文档
-		batchDelDocumentsWithFilter(filterExpression);
+		// es的可以直接元数据删除
+		if (vectorStore instanceof SimpleVectorStore) {
+			// 目前SimpleVectorStore不支持通过元数据删除，使用会抛出UnsupportedOperationException,现在是通过id删除
+			batchDelDocumentsWithFilter(filterExpression);
+		}
+		else {
+			vectorStore.delete(filterExpression);
+		}
 
 		return true;
 	}
@@ -363,7 +301,7 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 				.query(DEFAULT)// 使用默认的查询字符串，因为有的嵌入模型不支持空字符串
 				.filterExpression(filterExpression)
 				.similarityThreshold(0.0)// 设置最低相似度阈值以获取元数据匹配的所有文档
-				.topK(batchTopkLimit)
+				.topK(dataAgentProperties.getVectorStore().getBatchDelTopkLimit())
 				.build());
 
 			// 过滤掉已经处理过的文档，只删除未处理的文档
@@ -390,91 +328,49 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 		log.info("Deleted {} documents with filter expression: {}", totalDeleted, filterExpression);
 	}
 
-	/**
-	 * 构建过滤表达式字符串，目前FilterExpressionBuilder 不支持链式拼接元数据过滤，所以只能使用字符串拼接
-	 * @param filterMap
-	 * @return
-	 */
-	protected final String buildFilterExpressionString(Map<String, Object> filterMap) {
-		if (filterMap == null || filterMap.isEmpty()) {
-			return null;
-		}
-
-		// 验证键名是否合法（只包含字母、数字和下划线）
-		for (String key : filterMap.keySet()) {
-			if (!key.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
-				throw new IllegalArgumentException("Invalid key name: " + key
-						+ ". Keys must start with a letter or underscore and contain only alphanumeric characters and underscores.");
-			}
-		}
-
-		return filterMap.entrySet().stream().map(entry -> {
-			String key = entry.getKey();
-			Object value = entry.getValue();
-
-			// 处理空值
-			if (value == null) {
-				return key + " == null";
-			}
-
-			// 根据值的类型决定如何格式化
-			if (value instanceof String) {
-				// 转义字符串中的特殊字符
-				String escapedValue = escapeStringLiteral((String) value);
-				return key + " == '" + escapedValue + "'";
-			}
-			else if (value instanceof Number) {
-				// 数字类型直接使用
-				return key + " == " + value;
-			}
-			else if (value instanceof Boolean) {
-				// 布尔值使用小写形式
-				return key + " == " + ((Boolean) value).toString().toLowerCase();
-			}
-			else if (value instanceof Enum) {
-				// 枚举类型，转换为字符串并转义
-				String enumValue = ((Enum<?>) value).name();
-				String escapedValue = escapeStringLiteral(enumValue);
-				return key + " == '" + escapedValue + "'";
-			}
-			else {
-				// 其他类型尝试转换为字符串并转义
-				String stringValue = value.toString();
-				String escapedValue = escapeStringLiteral(stringValue);
-				return key + " == '" + escapedValue + "'";
-			}
-		}).collect(Collectors.joining(" && "));
-	}
-
-	/**
-	 * 转义字符串字面量中的特殊字符
-	 */
-	private String escapeStringLiteral(String input) {
-		if (input == null) {
-			return "";
-		}
-
-		// 转义反斜杠和单引号
-		String escaped = input.replace("\\", "\\\\").replace("'", "\\'");
-
-		// 转义其他特殊字符
-		escaped = escaped.replace("\n", "\\n")
-			.replace("\r", "\\r")
-			.replace("\t", "\\t")
-			.replace("\b", "\\b")
-			.replace("\f", "\\f");
-
-		return escaped;
+	@Override
+	public List<Document> getDocumentsForAgent(String agentId, String query, String vectorType) {
+		AgentSearchRequest searchRequest = AgentSearchRequest.builder()
+			.agentId(agentId)
+			.docVectorType(vectorType)
+			.query(query)
+			.topK(dataAgentProperties.getVectorStore().getTopkLimit())
+			.similarityThreshold(dataAgentProperties.getVectorStore().getSimilarityThreshold())
+			.build();
+		return search(searchRequest);
 	}
 
 	@Override
-	public List<Document> getDocumentsForAgent(String agentId, String query, String vectorType) {
-		AgentSearchRequest searchRequest = AgentSearchRequest.getInstance(agentId);
-		searchRequest.setQuery(query);
-		searchRequest.setTopK(agentQueryTopkLimit);
-		searchRequest.setMetadataFilter(Map.of(Constant.VECTOR_TYPE, vectorType));
+	public List<Document> getDocumentsOnlyByFilter(String filterExpression, int topK) {
+		Assert.hasText(filterExpression, "filterExpression cannot be empty.");
+		SearchRequest searchRequest = SearchRequest.builder()
+			.query(DEFAULT)
+			.topK(topK)
+			.filterExpression(filterExpression)
+			.similarityThreshold(0.0)
+			.build();
+		return vectorStore.similaritySearch(searchRequest);
+	}
 
-		return search(searchRequest);
+	@Override
+	public List<Document> getTableDocuments(String agentId, List<String> tableNames) {
+		Assert.hasText(agentId, "AgentId cannot be empty.");
+		if (tableNames.isEmpty())
+			return Collections.emptyList();
+		// 通过元数据过滤查找目标表
+		String filterExpression = SearchUtil.buildFilterExpressionForSearchTables(agentId, tableNames);
+		return this.getDocumentsOnlyByFilter(filterExpression, tableNames.size() + 5);
+	}
+
+	@Override
+	public List<Document> getColumnDocuments(String agentId, String upstreamTableName, List<String> columnNames) {
+		Assert.hasText(agentId, "AgentId cannot be empty.");
+		Assert.hasText(upstreamTableName, "UpstreamTableName cannot be empty.");
+		if (columnNames.isEmpty())
+			return Collections.emptyList();
+		String filterExpression = SearchUtil.buildFilterExpressionForSearchColumns(agentId, upstreamTableName,
+				columnNames);
+		return this.getDocumentsOnlyByFilter(filterExpression, columnNames.size() + 5);
 	}
 
 	@Override
@@ -487,29 +383,6 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 			.similarityThreshold(0.0)
 			.build());
 		return !docs.isEmpty();
-	}
-
-	/**
-	 * 销毁方法，在Spring容器销毁bean时调用，用于关闭线程池
-	 */
-	@PreDestroy
-	public void destroy() {
-		if (dbOperationExecutor != null && !dbOperationExecutor.isShutdown()) {
-			log.info("Shutting down database operation executor");
-			dbOperationExecutor.shutdown();
-			try {
-				// 等待正在执行的任务完成，最多等待30秒
-				if (!dbOperationExecutor.awaitTermination(30, java.util.concurrent.TimeUnit.SECONDS)) {
-					log.warn("Database operation executor did not terminate gracefully, forcing shutdown");
-					dbOperationExecutor.shutdownNow();
-				}
-			}
-			catch (InterruptedException e) {
-				log.warn("Interrupted while waiting for database operation executor to terminate");
-				dbOperationExecutor.shutdownNow();
-				Thread.currentThread().interrupt();
-			}
-		}
 	}
 
 }

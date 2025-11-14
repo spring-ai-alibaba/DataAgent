@@ -168,24 +168,27 @@ public class MappersTest {
 	public void testSemanticModelCrud() {
 		Long agentId = createAgent("semantic-holder");
 		SemanticModel m = new SemanticModel();
-		m.setAgentId(agentId);
-		m.setFieldName("origin_tc");
-		m.setConversationName("显示名");
+		m.setAgentId(Math.toIntExact(agentId));
+		m.setDatasourceId(1); // 添加数据源ID
+		m.setTableName("test_table"); // 添加表名
+		m.setColumnName("origin_tc");
+		m.setBusinessName("显示名");
 		m.setSynonyms("别名A,别名B");
-		m.setDescription("desc");
-		m.setType("VARCHAR");
+		m.setBusinessDescription("desc");
+		m.setColumnComment("字段注释"); // 添加字段注释
+		m.setDataType("VARCHAR");
 		m.setStatus(1);
 		int ins = semanticModelMapper.insert(m);
 		Assertions.assertEquals(1, ins);
 		Assertions.assertNotNull(m.getId());
 
-		List<SemanticModel> query = semanticModelMapper.selectByAgentId(m.getAgentId());
+		List<SemanticModel> query = semanticModelMapper.selectByAgentId(Long.valueOf(m.getAgentId()));
 		Assertions.assertTrue(query.stream().anyMatch(x -> x.getId().equals(m.getId())));
 
 		semanticModelMapper.disableById(m.getId());
 		semanticModelMapper.enableById(m.getId());
 
-		m.setDescription("desc2");
+		m.setBusinessDescription("desc2");
 		int upd = semanticModelMapper.updateById(m);
 		Assertions.assertEquals(1, upd);
 

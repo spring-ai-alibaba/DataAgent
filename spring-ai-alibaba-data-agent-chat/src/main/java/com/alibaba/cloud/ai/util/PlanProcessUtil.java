@@ -14,36 +14,40 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.node;
+package com.alibaba.cloud.ai.util;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
-import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.pojo.Plan;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.ParameterizedTypeReference;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import static com.alibaba.cloud.ai.constant.Constant.PLAN_CURRENT_STEP;
 import static com.alibaba.cloud.ai.constant.Constant.PLANNER_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.constant.Constant.PLAN_CURRENT_STEP;
 
 /**
- * Abstract base class for plan-based execution nodes Provides common functionality for
- * nodes that execute based on predefined plans
+ * util class for plan-based execution nodes Provides common functionality for nodes that
+ * execute based on predefined plans
  *
  * @author zhangshenghang
  */
-// todo: 改为工具类，注入到Node实现类中
-@Slf4j
-public abstract class AbstractPlanBasedNode implements NodeAction {
+public final class PlanProcessUtil {
 
-	private final BeanOutputConverter<Plan> converter;
+	private static final BeanOutputConverter<Plan> converter;
 
-	protected AbstractPlanBasedNode() {
-		this.converter = new BeanOutputConverter<>(new ParameterizedTypeReference<>() {
+	private static final String STEP_PREFIX = "step_";
+
+	static {
+		converter = new BeanOutputConverter<>(new ParameterizedTypeReference<>() {
 		});
+	}
+
+	private PlanProcessUtil() {
+
 	}
 
 	/**
@@ -53,16 +57,9 @@ public abstract class AbstractPlanBasedNode implements NodeAction {
 	 * @throws IllegalStateException if plan output is empty, plan parsing fails, or step
 	 * index is out of range
 	 */
-	protected ExecutionStep getCurrentExecutionStep(OverAllState state) {
-		String plannerNodeOutput = (String) state.value(PLANNER_NODE_OUTPUT)
-			.orElseThrow(() -> new IllegalStateException("计划节点输出为空"));
-
-		Plan plan = converter.convert(plannerNodeOutput);
-		if (plan == null) {
-			throw new IllegalStateException("计划解析失败");
-		}
-
-		Integer currentStep = state.value(PLAN_CURRENT_STEP, 1);
+	public static ExecutionStep getCurrentExecutionStep(OverAllState state) {
+		Plan plan = getPlan(state);
+		int currentStep = getCurrentStepNumber(state);
 
 		List<ExecutionStep> executionPlan = plan.getExecutionPlan();
 		if (executionPlan == null || executionPlan.isEmpty()) {
@@ -83,7 +80,7 @@ public abstract class AbstractPlanBasedNode implements NodeAction {
 	 * @return the parsed plan object
 	 * @throws IllegalStateException if plan output is empty or plan parsing fails
 	 */
-	protected Plan getPlan(OverAllState state) {
+	public static Plan getPlan(OverAllState state) {
 		String plannerNodeOutput = (String) state.value(PLANNER_NODE_OUTPUT)
 			.orElseThrow(() -> new IllegalStateException("计划节点输出为空"));
 		Plan plan = converter.convert(plannerNodeOutput);
@@ -98,22 +95,22 @@ public abstract class AbstractPlanBasedNode implements NodeAction {
 	 * @param state the overall state
 	 * @return the current step number (defaults to 1 if not set)
 	 */
-	protected Integer getCurrentStepNumber(OverAllState state) {
+	public static int getCurrentStepNumber(OverAllState state) {
 		return state.value(PLAN_CURRENT_STEP, 1);
 	}
 
 	/**
-	 * Log node entry
+	 * Add step result
+	 * @param existingResults existing result collection
+	 * @param stepNumber step number
+	 * @param result result content
+	 * @return updated result collection
 	 */
-	protected void logNodeEntry() {
-		log.info("Entering {} node", this.getClass().getSimpleName());
-	}
-
-	/**
-	 * Log node output
-	 */
-	protected void logNodeOutput(String outputKey, Object output) {
-		log.info("{} node output {}: {}", this.getClass().getSimpleName(), outputKey, output);
+	public static Map<String, String> addStepResult(Map<String, String> existingResults, Integer stepNumber,
+			String result) {
+		Map<String, String> updatedResults = new HashMap<>(existingResults);
+		updatedResults.put(STEP_PREFIX + stepNumber, result);
+		return updatedResults;
 	}
 
 }

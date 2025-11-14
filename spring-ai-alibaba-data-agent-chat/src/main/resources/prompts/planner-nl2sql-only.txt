@@ -28,6 +28,12 @@ Based on the user's question, the following relevant database schemas have been 
 ```sql
 {schema}
 ```
+【Reference information】
+{evidence}
+
+# SEMANTIC MODEL
+
+{semantic_model}
 
 # DATA-CENTRIC CHAIN OF THOUGHT (Internal Monologue)
 

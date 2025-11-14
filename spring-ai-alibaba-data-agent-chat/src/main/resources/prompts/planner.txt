@@ -42,6 +42,13 @@ Based on the user's question, the following relevant database schemas have been 
 {schema}
 ```
 
+【Reference information】
+{evidence}
+
+# SEMANTIC MODEL
+
+{semantic_model}
+
 # DATA-CENTRIC CHAIN OF THOUGHT (Internal Monologue)
 
 1.  **Understand Goal**: What is the user's ultimate business question? (e.g., "Analyze lead conversion quality").

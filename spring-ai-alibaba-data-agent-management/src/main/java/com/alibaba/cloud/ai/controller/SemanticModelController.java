@@ -15,11 +15,14 @@
  */
 package com.alibaba.cloud.ai.controller;
 
+import com.alibaba.cloud.ai.dto.SemanticModelAddDTO;
 import com.alibaba.cloud.ai.entity.SemanticModel;
 import com.alibaba.cloud.ai.service.semantic.SemanticModelService;
+import com.alibaba.cloud.ai.vo.ApiResponse;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,13 +35,12 @@ import java.util.List;
 @RequestMapping("/api/semantic-model")
 @CrossOrigin(origins = "*")
 @AllArgsConstructor
-// todo: 完成后与前端对接
 public class SemanticModelController {
 
 	private final SemanticModelService semanticModelService;
 
 	@GetMapping
-	public ResponseEntity<List<SemanticModel>> list(@RequestParam(value = "keyword", required = false) String keyword,
+	public ApiResponse list(@RequestParam(value = "keyword", required = false) String keyword,
 			@RequestParam(value = "agentId", required = false) Long agentId) {
 		List<SemanticModel> result;
 		if (keyword != null && !keyword.trim().isEmpty()) {
@@ -50,55 +52,57 @@ public class SemanticModelController {
 		else {
 			result = semanticModelService.getAll();
 		}
-		return ResponseEntity.ok(result);
+		return ApiResponse.success("success list semanticModel", result);
 	}
 
 	@GetMapping("/{id}")
-	public ResponseEntity<SemanticModel> get(@PathVariable(value = "id") Long id) {
+	public ApiResponse get(@PathVariable(value = "id") Long id) {
 		SemanticModel model = semanticModelService.getById(id);
-		if (model == null) {
-			return ResponseEntity.notFound().build();
-		}
-		return ResponseEntity.ok(model);
+		return ApiResponse.success("success retrieve semanticModel", model);
 	}
 
 	@PostMapping
-	public ResponseEntity<SemanticModel> create(@RequestBody SemanticModel model) {
-		semanticModelService.addSemanticModel(model);
-		return ResponseEntity.ok(model);
+	public ApiResponse create(@RequestBody @Validated SemanticModelAddDTO semanticModelAddDto) {
+		boolean success = semanticModelService.addSemanticModel(semanticModelAddDto);
+		if (success) {
+			return ApiResponse.success("Semantic model created successfully");
+		}
+		else {
+			return ApiResponse.error("Failed to create semantic model");
+		}
 	}
 
 	@PutMapping("/{id}")
-	public ResponseEntity<SemanticModel> update(@PathVariable(value = "id") Long id, @RequestBody SemanticModel model) {
+	public ApiResponse update(@PathVariable(value = "id") Long id, @RequestBody SemanticModel model) {
 		if (semanticModelService.getById(id) == null) {
-			return ResponseEntity.notFound().build();
+			return ApiResponse.error("Semantic model not found");
 		}
 		model.setId(id);
 		semanticModelService.updateSemanticModel(id, model);
-		return ResponseEntity.ok(model);
+		return ApiResponse.success("Semantic model updated successfully", model);
 	}
 
 	@DeleteMapping("/{id}")
-	public ResponseEntity<Void> delete(@PathVariable(value = "id") Long id) {
+	public ApiResponse delete(@PathVariable(value = "id") Long id) {
 		if (semanticModelService.getById(id) == null) {
-			return ResponseEntity.notFound().build();
+			return ApiResponse.error("Semantic model not found");
 		}
 		semanticModelService.deleteSemanticModel(id);
-		return ResponseEntity.ok().build();
+		return ApiResponse.success("Semantic model deleted successfully");
 	}
 
 	// Enable
 	@PutMapping("/enable")
-	public ResponseEntity<Void> enableFields(@RequestBody List<Long> ids) {
+	public ApiResponse enableFields(@RequestBody @NotEmpty(message = "ID列表不能为空") List<Long> ids) {
 		semanticModelService.enableSemanticModels(ids);
-		return ResponseEntity.ok().build();
+		return ApiResponse.success("Semantic models enabled successfully");
 	}
 
 	// Disable
 	@PutMapping("/disable")
-	public ResponseEntity<Void> disableFields(@RequestBody List<Long> ids) {
-		semanticModelService.deleteSemanticModels(ids);
-		return ResponseEntity.ok().build();
+	public ApiResponse disableFields(@RequestBody @NotEmpty(message = "ID列表不能为空") List<Long> ids) {
+		ids.forEach(semanticModelService::disableSemanticModel);
+		return ApiResponse.success("Semantic models disabled successfully");
 	}
 
 }

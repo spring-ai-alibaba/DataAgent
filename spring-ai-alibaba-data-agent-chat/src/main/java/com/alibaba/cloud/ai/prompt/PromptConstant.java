@@ -30,6 +30,20 @@ public class PromptConstant {
 		return new PromptTemplate(PromptLoader.loadPrompt("init-rewrite"));
 	}
 
+	// intent-recognition
+	public static PromptTemplate getIntentRecognitionPromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("intent-recognition"));
+	}
+
+	public static PromptTemplate getQueryEnhancementPromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("query-enhancement"));
+	}
+
+	// feasibility-assessment
+	public static PromptTemplate getFeasibilityAssessmentPromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("feasibility-assessment"));
+	}
+
 	public static PromptTemplate getQuestionToKeywordsPromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("question-to-keywords"));
 	}

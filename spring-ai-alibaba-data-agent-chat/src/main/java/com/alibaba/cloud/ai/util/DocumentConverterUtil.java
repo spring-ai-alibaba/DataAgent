@@ -15,20 +15,23 @@
  */
 package com.alibaba.cloud.ai.util;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
-import com.alibaba.cloud.ai.entity.AgentKnowledge;
-import org.springframework.ai.document.Document;
-
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
-import com.alibaba.cloud.ai.request.EvidenceRequest;
+import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
+import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
+import com.alibaba.cloud.ai.entity.AgentKnowledge;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.document.Document;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Utility class for converting business objects to Document objects. Provides common
  * document conversion functionality for vector store operations.
  */
+@Slf4j
 public class DocumentConverterUtil {
 
 	public static List<Document> convertColumnsToDocuments(String agentId, List<TableInfoBO> tables) {
@@ -68,7 +71,7 @@ public class DocumentConverterUtil {
 			metadata.put("samples", columnInfoBO.getSamples());
 		}
 
-		return new Document(columnInfoBO.getName(), text, metadata);
+		return new Document(text, metadata);
 	}
 
 	/**
@@ -86,7 +89,7 @@ public class DocumentConverterUtil {
 		metadata.put("primaryKey", Optional.ofNullable(tableInfoBO.getPrimaryKeys()).orElse(new ArrayList<>()));
 		metadata.put("vectorType", "table");
 		metadata.put("agentId", agentId);
-		return new Document(tableInfoBO.getName(), text, metadata);
+		return new Document(text, metadata);
 	}
 
 	public static List<Document> convertTablesToDocuments(String agentId, List<TableInfoBO> tables) {
@@ -95,28 +98,28 @@ public class DocumentConverterUtil {
 			.collect(Collectors.toList());
 	}
 
-	/**
-	 * Converts evidence requests to Documents for vector storage.
-	 * @param evidenceRequests list of evidence requests
-	 * @return list of Document objects
-	 */
-	public static List<Document> convertEvidenceToDocumentsForAgent(String agentId,
-			List<EvidenceRequest> evidenceRequests) {
-		return evidenceRequests.stream().map(evidenceRequest -> {
-			Map<String, Object> metadata = new HashMap<>();
-			metadata.put("evidenceType", evidenceRequest.getType());
-			metadata.put("vectorType", "evidence");
+	public static Document convertBusinessTermToDocument(BusinessKnowledgeDTO dto, String dbRecoredId) {
+		// 构建文档内容，包含业务名词、说明和同义词
+		String businessTerm = Optional.ofNullable(dto.getBusinessTerm()).orElse("无");
+		String description = Optional.ofNullable(dto.getDescription()).orElse("无");
+		String synonyms = Optional.ofNullable(dto.getSynonyms()).orElse("无");
 
-			metadata.put("agentId", agentId);
-			return new Document(UUID.randomUUID().toString(), evidenceRequest.getContent(), metadata);
-		}).toList();
+		String content = String.format("业务名词: %s, 说明: %s, 同义词: %s", businessTerm, description, synonyms);
+
+		// 构建元数据
+		Map<String, Object> metadata = new HashMap<>();
+		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM);
+		metadata.put(Constant.AGENT_ID, dto.getAgentId().toString());
+		metadata.put(DocumentMetadataConstant.DB_RECORD_ID, dbRecoredId);
+		metadata.put(DocumentMetadataConstant.IS_RECALL, dto.getIsRecall());
+
+		return new Document(content, metadata);
 	}
 
 	/**
 	 * Create Document from AgentKnowledge
 	 */
 	public static Document createDocumentFromKnowledge(String agentId, AgentKnowledge knowledge) {
-		String documentId = agentId + ":knowledge:" + knowledge.getId();
 		String content = knowledge.getContent();
 		if (content == null || content.trim().isEmpty()) {
 			content = knowledge.getTitle(); // If content is empty, use title
@@ -136,7 +139,7 @@ public class DocumentConverterUtil {
 		metadata.put("embeddingStatus", knowledge.getEmbeddingStatus());
 		metadata.put("createTime", knowledge.getCreateTime());
 
-		return new Document(documentId, content, metadata);
+		return new Document(content, metadata);
 	}
 
 	/**

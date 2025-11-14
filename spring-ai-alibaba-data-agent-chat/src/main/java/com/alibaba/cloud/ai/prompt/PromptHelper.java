@@ -15,19 +15,17 @@
  */
 package com.alibaba.cloud.ai.prompt;
 
-import com.alibaba.cloud.ai.entity.SemanticModel;
-import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dto.schema.TableDTO;
+import com.alibaba.cloud.ai.entity.SemanticModel;
 import com.alibaba.cloud.ai.entity.UserPromptConfig;
-
+import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.prompt.PromptTemplate;
-import org.apache.commons.collections.CollectionUtils;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -44,6 +42,7 @@ public class PromptHelper {
 		for (TableDTO tableDTO : schemaDTO.getTable()) {
 			dbContent.append(buildMacSqlTablePrompt(tableDTO)).append("\n");
 		}
+		// TODO 待完善多轮输入
 		StringBuilder multiTurn = new StringBuilder();
 		multiTurn.append("<最新>").append("用户: ").append(query);
 
@@ -88,13 +87,15 @@ public class PromptHelper {
 		return PromptConstant.getQuestionToKeywordsPromptTemplate().render(params);
 	}
 
-	public static String buildMixSelectorPrompt(List<String> evidences, String question, SchemaDTO schemaDTO) {
+	public static String buildMixSelectorPrompt(String evidence, String question, SchemaDTO schemaDTO) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		Map<String, Object> params = new HashMap<>();
 		params.put("schema_info", schemaInfo);
 		params.put("question", question);
-		String evidence = CollectionUtils.isEmpty(evidences) ? "" : StringUtils.join(evidences, ";\n");
-		params.put("evidence", evidence);
+		if (StringUtils.isBlank(evidence))
+			params.put("evidence", "无");
+		else
+			params.put("evidence", evidence);
 		return PromptConstant.getMixSelectorPromptTemplate().render(params);
 	}
 
@@ -170,15 +171,7 @@ public class PromptHelper {
 				List<String> data = new ArrayList<>(enumData.subList(0, Math.min(3, enumData.size())));
 				line.append(StringUtils.join(data, ",")).append("]");
 			}
-			else if (CollectionUtils.isNotEmpty(columnDTO.getSamples())) {
-				List<String> data = columnDTO.getSamples().subList(0, Math.min(3, columnDTO.getSamples().size()));
-				data = data.stream().filter(item -> StringUtils.isNotBlank(item)).collect(Collectors.toList());
-				if (CollectionUtils.isNotEmpty(data)) {
-					line.append(", Examples: [");
-					data = processSamples(data, columnDTO);
-					line.append(StringUtils.join(data, ",")).append("]");
-				}
-			}
+
 			line.append(")");
 			columnLines.add(line.toString());
 		}
@@ -212,8 +205,7 @@ public class PromptHelper {
 	}
 
 	public static List<String> buildMixSqlGeneratorPrompt(String question, DbConfig dbConfig, SchemaDTO schemaDTO,
-			List<String> evidenceList) {
-		String evidence = StringUtils.join(evidenceList, ";\n");
+			String evidence) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
 		Map<String, Object> params = new HashMap<>();
@@ -271,8 +263,7 @@ public class PromptHelper {
 	}
 
 	public static String buildSqlErrorFixerPrompt(String question, DbConfig dbConfig, SchemaDTO schemaDTO,
-			List<String> evidenceList, String errorSql, String errorMessage) {
-		String evidence = StringUtils.join(evidenceList, ";\n");
+			String evidence, String errorSql, String errorMessage) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
 
@@ -287,11 +278,12 @@ public class PromptHelper {
 		return PromptConstant.getSqlErrorFixerPromptTemplate().render(params);
 	}
 
-	public static String buildBusinessKnowledgePrompt(List<BusinessKnowledgeDTO> businessKnowledgeDTOS) {
+	public static String buildBusinessKnowledgePrompt(String businessTerms) {
 		Map<String, Object> params = new HashMap<>();
-		String businessKnowledge = CollectionUtils.isEmpty(businessKnowledgeDTOS) ? ""
-				: StringUtils.join(businessKnowledgeDTOS, ";\n");
-		params.put("businessKnowledge", businessKnowledge);
+		if (StringUtils.isNotBlank(businessTerms))
+			params.put("businessKnowledge", businessTerms);
+		else
+			params.put("businessKnowledge", "无");
 		return PromptConstant.getBusinessKnowledgePromptTemplate().render(params);
 	}
 
@@ -327,6 +319,56 @@ public class PromptHelper {
 		}
 
 		return result.toString().trim();
+	}
+
+	/**
+	 * 构建意图识别提示词
+	 * @param multiTurn 多轮对话历史
+	 * @param latestQuery 最新用户输入
+	 * @return 意图识别提示词
+	 */
+	public static String buildIntentRecognitionPrompt(String multiTurn, String latestQuery) {
+		Map<String, Object> params = new HashMap<>();
+		params.put("multi_turn", multiTurn != null ? multiTurn : "(无)");
+		params.put("latest_query", latestQuery);
+		return PromptConstant.getIntentRecognitionPromptTemplate().render(params);
+	}
+
+	/**
+	 * 构建查询处理提示词
+	 * @param multiTurn 多轮对话历史
+	 * @param latestQuery 最新用户输入
+	 * @return 查询处理提示词
+	 */
+	public static String buildQueryEnhancePrompt(String multiTurn, String latestQuery, String evidence) {
+		Map<String, Object> params = new HashMap<>();
+		params.put("multi_turn", multiTurn != null ? multiTurn : "(无)");
+		params.put("latest_query", latestQuery);
+		if (StringUtils.isEmpty(evidence))
+			params.put("evidence", "无");
+		else
+			params.put("evidence", evidence);
+		params.put("current_time_info", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+		return PromptConstant.getQueryEnhancementPromptTemplate().render(params);
+	}
+
+	/**
+	 * 构建可行性评估提示词
+	 * @param canonicalQuery 规范化查询
+	 * @param recalledSchema 召回的数据库Schema
+	 * @param evidence 参考信息
+	 * @param multiTurn 多轮对话历史
+	 * @return 可行性评估提示词
+	 */
+	public static String buildFeasibilityAssessmentPrompt(String canonicalQuery, SchemaDTO recalledSchema,
+			String evidence, String multiTurn) {
+		Map<String, Object> params = new HashMap<>();
+		String schemaInfo = buildMixMacSqlDbPrompt(recalledSchema, true);
+		params.put("canonical_query", canonicalQuery != null ? canonicalQuery : "");
+		params.put("recalled_schema", schemaInfo);
+		params.put("evidence", evidence != null ? evidence : "");
+		params.put("multi_turn", multiTurn != null ? multiTurn : "(无)");
+		return PromptConstant.getFeasibilityAssessmentPromptTemplate().render(params);
 	}
 
 	/**

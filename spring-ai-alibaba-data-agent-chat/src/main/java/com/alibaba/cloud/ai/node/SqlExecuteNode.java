@@ -26,6 +26,7 @@ import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.enums.TextType;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.service.datasource.DatasourceService;
@@ -33,8 +34,8 @@ import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.FluxUtil;
+import com.alibaba.cloud.ai.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
-import com.alibaba.cloud.ai.util.StepResultUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
@@ -58,7 +59,7 @@ import static com.alibaba.cloud.ai.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
  */
 @Slf4j
 @Component
-public class SqlExecuteNode extends AbstractPlanBasedNode {
+public class SqlExecuteNode implements NodeAction {
 
 	// todo: 根据数据库配置动态获取Accessor
 	private final Accessor dbAccessor;
@@ -68,7 +69,6 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 	private final DbConfig dbConfig;
 
 	public SqlExecuteNode(AccessorFactory accessorFactory, DatasourceService datasourceService, DbConfig dbConfig) {
-		super();
 		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 		this.datasourceService = datasourceService;
 		this.dbConfig = dbConfig;
@@ -76,10 +76,9 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		logNodeEntry();
 
-		ExecutionStep executionStep = getCurrentExecutionStep(state);
-		Integer currentStep = getCurrentStepNumber(state);
+		ExecutionStep executionStep = PlanProcessUtil.getCurrentExecutionStep(state);
+		Integer currentStep = PlanProcessUtil.getCurrentStepNumber(state);
 
 		ExecutionStep.ToolParameters toolParameters = executionStep.getToolParameters();
 		String sqlQuery = toolParameters.getSqlQuery();
@@ -199,7 +198,7 @@ public class SqlExecuteNode extends AbstractPlanBasedNode {
 			// Update step results with the query output
 			Map<String, String> existingResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
 					new HashMap<>());
-			Map<String, String> updatedResults = StepResultUtil.addStepResult(existingResults, currentStep, jsonStr);
+			Map<String, String> updatedResults = PlanProcessUtil.addStepResult(existingResults, currentStep, jsonStr);
 
 			log.info("SQL execution successful, result count: {}",
 					resultSetBO.getData() != null ? resultSetBO.getData().size() : 0);

@@ -23,30 +23,25 @@ import lombok.extern.slf4j.Slf4j;
 import static com.alibaba.cloud.ai.constant.Constant.*;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
 
-/**
- * @author zhangshenghang
- */
 @Slf4j
-public class QueryRewriteDispatcher implements EdgeAction {
+public class FeasibilityAssessmentDispatcher implements EdgeAction {
 
 	@Override
-	public String apply(OverAllState state) {
-		// value的值是和 resources/init-rewrite.txt的输出一致，例如
-		// 需求类型：《自由闲聊》.........
-		// 语种类型：《中文》
-		// 需求内容：2025-10-17天气如何
-		String value = state.value(QUERY_REWRITE_NODE_OUTPUT, END);
-		log.info("[QueryRewriteDispatcher]apply方法被调用，QUERY_REWRITE_NODE_OUTPUT的value如下\n {}", value);
+	public String apply(OverAllState state) throws Exception {
+		// value的值是和 resources/feasibility-assessment.txt的输出一致，例如
+		// 【需求类型】：《数据分析》
+		// 【语种类型】：《中文》
+		// 【需求内容】：查询所有“核心用户”的数量
+		String value = state.value(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, END);
 
-		if (value != null && value.contains("需求类型：《数据分析》")) {
-			log.info("[QueryRewriteDispatcher]需求类型为数据分析，进入KEYWORD_EXTRACT_NODE节点");
-			return KEYWORD_EXTRACT_NODE;
+		if (value != null && value.contains("【需求类型】：《数据分析》")) {
+			log.info("[FeasibilityAssessmentNodeDispatcher]需求类型为数据分析，进入PlannerNode节点");
+			return PLANNER_NODE;
 		}
 		else {
-			log.info("[QueryRewriteDispatcher]需求类型非数据分析，返回END节点");
+			log.info("[FeasibilityAssessmentNodeDispatcher]需求类型非数据分析，返回END节点");
 			return END;
 		}
-
 	}
 
 }

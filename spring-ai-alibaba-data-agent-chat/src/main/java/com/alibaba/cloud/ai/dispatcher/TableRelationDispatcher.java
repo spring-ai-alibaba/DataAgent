@@ -46,7 +46,7 @@ public class TableRelationDispatcher implements EdgeAction {
 
 		Optional<String> tableRelationOutput = state.value(TABLE_RELATION_OUTPUT);
 		if (tableRelationOutput.isPresent()) {
-			return PLANNER_NODE; // next node is planner
+			return FEASIBILITY_ASSESSMENT_NODE;
 		}
 
 		// no output, end

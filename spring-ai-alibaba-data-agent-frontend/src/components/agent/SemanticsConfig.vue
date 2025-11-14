@@ -15,24 +15,341 @@
 -->
 
 <template>
-  <!-- todo: 后端开发完成后，补充前端页面 -->
-  <div style="max-width: 600px; margin: 40px auto 0">
-    <el-alert
-      title="相关功能正在开发中，请耐心等待..."
-      type="primary"
-      :closable="false"
-      show-icon
-    />
+  <!-- todo: 添加分页 -->
+  <div style="padding: 20px">
+    <div style="margin-bottom: 20px">
+      <h2>语义模型管理</h2>
+    </div>
+    <el-divider />
+
+    <div style="margin-bottom: 30px">
+      <el-row style="display: flex; justify-content: space-between; align-items: center">
+        <el-col :span="12">
+          <h3>语义模型列表</h3>
+        </el-col>
+        <el-col :span="12" style="text-align: right">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="请输入关键词，并按回车搜索"
+            style="width: 250px; margin-right: 10px"
+            clearable
+            @clear="handleSearch"
+            @keyup.enter="handleSearch"
+            size="large"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+          <el-button @click="openCreateDialog" size="large" type="primary" round :icon="Plus">
+            添加语义模型
+          </el-button>
+        </el-col>
+      </el-row>
+    </div>
+
+    <el-table :data="semanticModelList" style="width: 100%" border>
+      <el-table-column prop="id" label="ID" min-width="60px" />
+      <el-table-column prop="tableName" label="表名" min-width="120px" />
+      <el-table-column prop="columnName" label="数据库字段名" min-width="120px" />
+      <el-table-column prop="businessName" label="业务名称" min-width="120px" />
+      <el-table-column prop="synonyms" label="同义词" min-width="120px" />
+      <el-table-column prop="dataType" label="数据类型" min-width="80px" />
+      <el-table-column label="状态" min-width="80px">
+        <template #default="scope">
+          <el-tag :type="scope.row.status === 1 ? 'success' : 'info'" round>
+            {{ scope.row.status === 1 ? '启用' : '停用' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="createTime" label="创建时间" min-width="120px" />
+      <el-table-column label="操作" min-width="180px">
+        <template #default="scope">
+          <el-button @click="editModel(scope.row)" size="small" type="primary" round plain>
+            编辑
+          </el-button>
+          <el-button
+            v-if="scope.row.status === 0"
+            @click="toggleStatus(scope.row, 1)"
+            size="small"
+            type="success"
+            round
+            plain
+          >
+            启用
+          </el-button>
+          <el-button
+            v-else
+            @click="toggleStatus(scope.row, 0)"
+            size="small"
+            type="warning"
+            round
+            plain
+          >
+            停用
+          </el-button>
+          <el-button @click="deleteModel(scope.row)" size="small" type="danger" round plain>
+            删除
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
   </div>
+
+  <!-- 添加/编辑语义模型Dialog -->
+  <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑语义模型' : '添加语义模型'" width="800">
+    <el-form :model="modelForm" label-width="120px" ref="modelFormRef">
+      <el-form-item label="表名" prop="tableName" required>
+        <el-input v-model="modelForm.tableName" placeholder="请输入表名" />
+      </el-form-item>
+
+      <el-form-item label="数据库字段名" prop="columnName" required>
+        <el-input v-model="modelForm.columnName" placeholder="请输入数据库字段名" />
+      </el-form-item>
+
+      <el-form-item label="业务名称" prop="businessName" required>
+        <el-input v-model="modelForm.businessName" placeholder="请输入业务名称" />
+      </el-form-item>
+
+      <el-form-item label="同义词" prop="synonyms">
+        <el-input
+          v-model="modelForm.synonyms"
+          type="textarea"
+          :rows="2"
+          placeholder="请输入同义词，多个同义词用逗号分隔"
+        />
+      </el-form-item>
+
+      <el-form-item label="业务描述" prop="businessDescription">
+        <el-input
+          v-model="modelForm.businessDescription"
+          type="textarea"
+          :rows="3"
+          placeholder="请输入业务描述，用于向LLM解释字段的业务含义"
+        />
+      </el-form-item>
+
+      <el-form-item label="字段注释" prop="columnComment">
+        <el-input
+          v-model="modelForm.columnComment"
+          type="textarea"
+          :rows="2"
+          placeholder="请输入数据库字段的原始注释"
+        />
+      </el-form-item>
+
+      <el-form-item label="数据类型" prop="dataType" required>
+        <el-input v-model="modelForm.dataType" placeholder="请输入数据类型，如：int, varchar(20)" />
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div style="text-align: right">
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveModel">
+          {{ isEdit ? '更新' : '创建' }}
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
 </template>
 
 <script lang="ts">
-  import { defineComponent } from 'vue';
+  import { defineComponent, ref, onMounted, Ref } from 'vue';
+  import { Plus, Search } from '@element-plus/icons-vue';
+  import semanticModelService, {
+    SemanticModel,
+    SemanticModelAddDto,
+  } from '@/services/semanticModel';
+  import { ElMessage, ElMessageBox } from 'element-plus';
 
   export default defineComponent({
     name: 'AgentSemanticsConfig',
-    setup() {
-      return {};
+    components: {
+      Search,
+    },
+    props: {
+      agentId: {
+        type: Number,
+        required: true,
+      },
+    },
+    setup(props) {
+      const semanticModelList: Ref<SemanticModel[]> = ref([]);
+      const dialogVisible: Ref<boolean> = ref(false);
+      const isEdit: Ref<boolean> = ref(false);
+      const searchKeyword: Ref<string> = ref('');
+      const modelForm: Ref<SemanticModel> = ref({
+        tableName: '',
+        columnName: '',
+        businessName: '',
+        synonyms: '',
+        businessDescription: '',
+        columnComment: '',
+        dataType: '',
+        status: 1,
+        agentId: props.agentId,
+      } as SemanticModel);
+
+      const currentEditId: Ref<number | null> = ref(null);
+
+      const openCreateDialog = () => {
+        isEdit.value = false;
+        modelForm.value = {
+          tableName: '',
+          columnName: '',
+          businessName: '',
+          synonyms: '',
+          businessDescription: '',
+          columnComment: '',
+          dataType: '',
+          status: 1,
+          agentId: props.agentId,
+        } as SemanticModel;
+        dialogVisible.value = true;
+      };
+
+      // 处理搜索
+      const handleSearch = () => {
+        loadSemanticModels();
+      };
+
+      // 加载语义模型列表
+      const loadSemanticModels = async () => {
+        try {
+          semanticModelList.value = await semanticModelService.list(
+            props.agentId,
+            searchKeyword.value || undefined,
+          );
+        } catch (error) {
+          ElMessage.error('加载语义模型列表失败');
+          console.error('Failed to load semantic models:', error);
+        }
+      };
+
+      // 编辑语义模型
+      const editModel = (model: SemanticModel) => {
+        isEdit.value = true;
+        currentEditId.value = model.id || null;
+        modelForm.value = { ...model };
+        dialogVisible.value = true;
+      };
+
+      // 删除语义模型
+      const deleteModel = async (model: SemanticModel) => {
+        if (!model.id) return;
+
+        try {
+          await ElMessageBox.confirm(
+            `确定要删除语义模型 "${model.businessName}" 吗？`,
+            '确认删除',
+            {
+              confirmButtonText: '确定',
+              cancelButtonText: '取消',
+              type: 'warning',
+            },
+          );
+
+          const result = await semanticModelService.delete(model.id);
+          if (result) {
+            ElMessage.success('删除成功');
+            await loadSemanticModels();
+          } else {
+            ElMessage.error('删除失败');
+          }
+        } catch {
+          // 用户取消操作时不显示错误消息
+        }
+      };
+
+      // 切换状态
+      const toggleStatus = async (model: SemanticModel, status: number) => {
+        if (!model.id) return;
+
+        try {
+          const ids = [model.id];
+          let result = false;
+
+          if (status === 1) {
+            result = await semanticModelService.enable(ids);
+          } else {
+            result = await semanticModelService.disable(ids);
+          }
+
+          if (result) {
+            ElMessage.success(`${status === 1 ? '启用' : '停用'}成功`);
+            model.status = status;
+          } else {
+            ElMessage.error(`${status === 1 ? '启用' : '停用'}失败`);
+          }
+        } catch (error) {
+          ElMessage.error(`${status === 1 ? '启用' : '停用'}失败`);
+          console.error('Failed to toggle status:', error);
+        }
+      };
+
+      // 保存语义模型
+      const saveModel = async () => {
+        try {
+          if (isEdit.value && currentEditId.value) {
+            const formData: SemanticModel = {
+              ...modelForm.value,
+              id: currentEditId.value,
+            };
+            const result = await semanticModelService.update(currentEditId.value, formData);
+            if (result) {
+              ElMessage.success('更新成功');
+            } else {
+              ElMessage.error('更新失败');
+              return;
+            }
+          } else {
+            const formData: SemanticModelAddDto = {
+              agentId: props.agentId,
+              tableName: modelForm.value.tableName,
+              columnName: modelForm.value.columnName,
+              businessName: modelForm.value.businessName,
+              synonyms: modelForm.value.synonyms,
+              businessDescription: modelForm.value.businessDescription,
+              columnComment: modelForm.value.columnComment,
+              dataType: modelForm.value.dataType,
+            };
+            const result = await semanticModelService.create(formData);
+            if (result) {
+              ElMessage.success('创建成功');
+            } else {
+              ElMessage.error('创建失败');
+              return;
+            }
+          }
+
+          dialogVisible.value = false;
+          await loadSemanticModels();
+        } catch (error) {
+          ElMessage.error(`${isEdit.value ? '更新' : '创建'}失败`);
+          console.error('Failed to save model:', error);
+        }
+      };
+
+      onMounted(() => {
+        loadSemanticModels();
+      });
+
+      return {
+        Plus,
+        Search,
+        semanticModelList,
+        dialogVisible,
+        isEdit,
+        searchKeyword,
+        modelForm,
+        openCreateDialog,
+        editModel,
+        deleteModel,
+        toggleStatus,
+        saveModel,
+        handleSearch,
+      };
     },
   });
 </script>

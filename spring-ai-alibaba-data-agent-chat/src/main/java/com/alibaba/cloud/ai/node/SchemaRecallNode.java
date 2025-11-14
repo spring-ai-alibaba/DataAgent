@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.node;
 
+import com.alibaba.cloud.ai.dto.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -35,13 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.constant.Constant.COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.AGENT_ID;
-import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
-import static com.alibaba.cloud.ai.constant.Constant.KEYWORD_EXTRACT_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.QUERY_REWRITE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.SCHEMA_RECALL_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT;
+import static com.alibaba.cloud.ai.constant.Constant.*;
 
 /**
  * Schema recall node that retrieves relevant database schema information based on
@@ -62,50 +57,68 @@ public class SchemaRecallNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		log.info("Entering {} node", this.getClass().getSimpleName());
 
-		String input = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT,
-				StateUtil.getStringValue(state, INPUT_KEY));
-		List<String> keywords = StateUtil.getListValue(state, KEYWORD_EXTRACT_NODE_OUTPUT);
+		// get input information
+		QueryEnhanceOutputDTO queryEnhanceOutputDTO = StateUtil.getObjectValue(state, QUERY_ENHANCE_NODE_OUTPUT,
+				QueryEnhanceOutputDTO.class);
+		String input = queryEnhanceOutputDTO.getCanonicalQuery();
+		List<String> keywords = queryEnhanceOutputDTO.getConsolidatedKeywords();
 		String agentId = StateUtil.getStringValue(state, AGENT_ID);
 
 		// Execute business logic first - recall schema information immediately
-		List<Document> tableDocuments;
-		List<List<Document>> columnDocumentsByKeywords;
+		List<Document> tableDocuments = new ArrayList<>(schemaService.getTableDocumentsForAgent(agentId, input));
+		List<Document> columnDocumentsByKeywords = schemaService.getColumnDocumentsByKeywordsForAgent(agentId, keywords,
+				tableDocuments);
 
-		// If agentId exists, use agent-specific search, otherwise use global search
-		if (agentId != null && !agentId.trim().isEmpty()) {
-			log.info("Using agent-specific schema recall for agent: {}", agentId);
-			tableDocuments = new ArrayList<>(schemaService.getTableDocumentsForAgent(agentId, input));
-			columnDocumentsByKeywords = schemaService.getColumnDocumentsByKeywordsForAgent(agentId, keywords);
-		}
-		else {
-			log.info("Using global schema recall (no agentId provided)");
-			tableDocuments = schemaService.getTableDocuments(input);
-			columnDocumentsByKeywords = schemaService.getColumnDocumentsByKeywords(keywords);
-		}
-
-		log.info("[{}] Schema recall results - table documents count: {}, keyword-related column document groups: {}",
-				this.getClass().getSimpleName(), tableDocuments.size(), columnDocumentsByKeywords.size());
+		// extract table names
+		List<String> recallTableNames = extractTableName(tableDocuments);
+		// extract column names
+		List<String> recallColumnNames = extractColumnName(columnDocumentsByKeywords);
 
 		Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
-			emitter.next(ChatResponseUtil.createResponse("开始召回Schema信息..."));
-			emitter.next(ChatResponseUtil.createResponse("表信息召回完成，数量: " + tableDocuments.size()));
-			emitter.next(ChatResponseUtil.createResponse("列信息召回完成，数量: " + columnDocumentsByKeywords.size()));
-			emitter.next(ChatResponseUtil.createResponse("Schema信息召回完成."));
+			emitter.next(ChatResponseUtil.createResponse("开始初步召回Schema信息..."));
+			emitter.next(ChatResponseUtil.createResponse(
+					"初步表信息召回完成，数量: " + tableDocuments.size() + "，表名: " + String.join(", ", recallTableNames)));
+			emitter.next(ChatResponseUtil.createResponse("初步列信息召回完成，数量: " + columnDocumentsByKeywords.size() + "，列名: "
+					+ String.join(", ", recallColumnNames)));
+			emitter.next(ChatResponseUtil.createResponse("初步Schema信息召回完成."));
 			emitter.complete();
 		});
 
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, currentState -> {
-					log.info("Table document details: {}", tableDocuments);
-					log.info("Keyword-related column document details: {}", columnDocumentsByKeywords);
 					return Map.of(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocuments,
-							COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT, columnDocumentsByKeywords);
+							COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, columnDocumentsByKeywords);
 				}, displayFlux);
 
 		// Return the processing result
 		return Map.of(SCHEMA_RECALL_NODE_OUTPUT, generator);
+	}
+
+	private static List<String> extractTableName(List<Document> tableDocuments) {
+		List<String> tableNames = new ArrayList<>();
+		// metadata中的name字段
+		for (Document document : tableDocuments) {
+			String name = (String) document.getMetadata().get("name");
+			if (name != null && !name.isEmpty())
+				tableNames.add(name);
+		}
+		log.info("At this SchemaRecallNode, Recall tables are: {}", tableNames);
+		return tableNames;
+
+	}
+
+	private static List<String> extractColumnName(List<Document> columnDocuments) {
+		// metadata中的 tableName + . + name字段
+		List<String> columnNames = new ArrayList<>();
+		for (Document document : columnDocuments) {
+			String name = (String) document.getMetadata().get("name");
+			String tableName = (String) document.getMetadata().get("tableName");
+			if (name != null && !name.isEmpty() && tableName != null && !tableName.isEmpty())
+				columnNames.add(tableName + "." + name);
+		}
+		log.info("At this SchemaRecallNode, Recall columns are: {}", columnNames);
+		return columnNames;
 	}
 
 }

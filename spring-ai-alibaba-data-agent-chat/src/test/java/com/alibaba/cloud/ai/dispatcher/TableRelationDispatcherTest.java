@@ -53,7 +53,7 @@ class TableRelationDispatcherTest {
 		String result = dispatcher.apply(state);
 
 		// Verify routing decision
-		assertEquals(PLANNER_NODE, result);
+		assertEquals(FEASIBILITY_ASSESSMENT_NODE, result);
 	}
 
 	@Test
@@ -181,7 +181,7 @@ class TableRelationDispatcherTest {
 				TABLE_RELATION_RETRY_COUNT, 0));
 
 		String result = dispatcher.apply(state);
-		assertEquals(PLANNER_NODE, result);
+		assertEquals(FEASIBILITY_ASSESSMENT_NODE, result);
 	}
 
 }

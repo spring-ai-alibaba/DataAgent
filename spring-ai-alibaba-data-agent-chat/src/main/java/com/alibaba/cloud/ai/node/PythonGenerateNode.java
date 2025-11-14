@@ -29,6 +29,7 @@ import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.util.FluxUtil;
 import com.alibaba.cloud.ai.util.MarkdownParserUtil;
+import com.alibaba.cloud.ai.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.util.StateUtil;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,13 +41,7 @@ import reactor.core.publisher.Flux;
 import java.util.List;
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_EXECUTE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_GENERATE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_IS_SUCCESS;
-import static com.alibaba.cloud.ai.constant.Constant.PYTHON_TRIES_COUNT;
-import static com.alibaba.cloud.ai.constant.Constant.QUERY_REWRITE_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.constant.Constant.SQL_RESULT_LIST_MEMORY;
-import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
+import static com.alibaba.cloud.ai.constant.Constant.*;
 
 /**
  * 生成Python代码的节点
@@ -56,7 +51,7 @@ import static com.alibaba.cloud.ai.constant.Constant.TABLE_RELATION_OUTPUT;
  */
 @Slf4j
 @Component
-public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAction {
+public class PythonGenerateNode implements NodeAction {
 
 	private static final int SAMPLE_DATA_NUMBER = 5;
 
@@ -69,7 +64,6 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 	private final LlmService llmService;
 
 	public PythonGenerateNode(CodeExecutorProperties codeExecutorProperties, LlmService llmService) {
-		super();
 		this.codeExecutorProperties = codeExecutorProperties;
 		this.llmService = llmService;
 		this.objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
@@ -77,7 +71,6 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
-		this.logNodeEntry();
 
 		// Get context
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
@@ -85,7 +78,7 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 		boolean codeRunSuccess = StateUtil.getObjectValue(state, PYTHON_IS_SUCCESS, Boolean.class, true);
 		int triesCount = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, MAX_TRIES_COUNT);
 
-		String userPrompt = StateUtil.getStringValue(state, QUERY_REWRITE_NODE_OUTPUT);
+		String userPrompt = StateUtil.getCanonicalQuery(state);
 		if (!codeRunSuccess) {
 			// Last generated Python code failed to run, inform AI model of this
 			// information
@@ -104,7 +97,7 @@ public class PythonGenerateNode extends AbstractPlanBasedNode implements NodeAct
 					""", lastCode, lastError);
 		}
 
-		ExecutionStep executionStep = this.getCurrentExecutionStep(state);
+		ExecutionStep executionStep = PlanProcessUtil.getCurrentExecutionStep(state);
 
 		ExecutionStep.ToolParameters toolParameters = executionStep.getToolParameters();
 

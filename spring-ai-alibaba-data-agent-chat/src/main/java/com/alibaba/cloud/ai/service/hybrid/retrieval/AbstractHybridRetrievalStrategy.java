@@ -16,16 +16,12 @@
 
 package com.alibaba.cloud.ai.service.hybrid.retrieval;
 
-import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.request.AgentSearchRequest;
 import com.alibaba.cloud.ai.service.hybrid.fusion.FusionStrategy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.ai.vectorstore.filter.Filter;
-import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
-import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -33,6 +29,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+
+import static com.alibaba.cloud.ai.util.SearchUtil.buildVectorSearchRequest;
 
 @Slf4j
 public abstract class AbstractHybridRetrievalStrategy implements HybridRetrievalStrategy {
@@ -67,40 +65,34 @@ public abstract class AbstractHybridRetrievalStrategy implements HybridRetrieval
 		if (Objects.isNull(request.getTopK()))
 			throw new IllegalArgumentException("topK cannot be null");
 
-		SearchRequest vectorSearchRequest = buildVectorSearchRequest(request);
+		SearchRequest vectorSearchRequest = buildVectorSearchRequest(request, true);
 
 		// 异步执行向量搜索
 		CompletableFuture<List<Document>> vectorSearchFuture = CompletableFuture.supplyAsync(() -> {
 			List<Document> vectorResults = vectorStore.similaritySearch(vectorSearchRequest);
-			log.info("Vector Search completed. Found {} documents for SearchRequest: {}", vectorResults.size(),
+			log.debug("Vector Search completed. Found {} documents for SearchRequest: {}", vectorResults.size(),
 					vectorSearchRequest);
 			return vectorResults;
 		}, executorService);
 
 		// 异步执行关键词搜索
-		CompletableFuture<List<Document>> keywordSearchFuture = null;
-		if (!CollectionUtils.isEmpty(request.getKeywords())) {
-			keywordSearchFuture = CompletableFuture.supplyAsync(() -> {
-				List<Document> results = getDocumentsByKeywords(request);
-				log.info("Keyword Search completed. Found {} documents, using keywords: {}", results.size(),
-						request.getKeywords());
-				return results;
-			}, executorService);
-		}
+		CompletableFuture<List<Document>> keywordSearchFuture = CompletableFuture.supplyAsync(() -> {
+			List<Document> results = getDocumentsByKeywords(request);
+			log.debug("Keyword Search completed. Found {} documents, with query: {}", results.size(),
+					request.getQuery());
+			return results;
+		}, executorService);
 
 		try {
 			List<Document> vectorResults = vectorSearchFuture.get();
-			if (keywordSearchFuture == null) {
-				return vectorResults;
-			}
 
 			// 等待关键词搜索完成
 			List<Document> keywordResults = keywordSearchFuture.get();
 
 			// 融合结果
-			List<Document> finalDocuments = fusionStrategy.fuseResults(vectorResults, keywordResults,
-					request.getTopK());
-			log.info("Fusion completed. Found {} documents", finalDocuments.size());
+			List<Document> finalDocuments = fusionStrategy.fuseResults(request.getTopK(), vectorResults,
+					keywordResults);
+			log.debug("Fusion completed. Found {} documents", finalDocuments.size());
 			return finalDocuments;
 		}
 		catch (InterruptedException e) {
@@ -111,24 +103,6 @@ public abstract class AbstractHybridRetrievalStrategy implements HybridRetrieval
 			throw new RuntimeException("Error during parallel search execution", e);
 		}
 
-	}
-
-	private SearchRequest buildVectorSearchRequest(AgentSearchRequest request) {
-		SearchRequest.Builder builder = SearchRequest.builder();
-		if (StringUtils.hasText(request.getQuery()))
-			builder.query(request.getQuery());
-
-		// 和keyword查找一样设置2倍topK去查找，因为后续需要和keyword的查找融合返回topK条
-		builder.topK(request.getTopK() * 2);
-
-		FilterExpressionBuilder b = new FilterExpressionBuilder();
-		Filter.Expression expression = b
-			.and(b.eq(Constant.VECTOR_TYPE, request.getDocVectorType()), b.eq(Constant.AGENT_ID, request.getAgentId()))
-			.build();
-		builder.filterExpression(expression);
-
-		builder.similarityThreshold(request.getSimilarityThreshold());
-		return builder.build();
 	}
 
 	public abstract List<Document> getDocumentsByKeywords(AgentSearchRequest agentSearchRequest);

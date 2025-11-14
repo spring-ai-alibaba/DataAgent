@@ -22,6 +22,7 @@ import java.util.List;
 /*融合策略接口*/
 public interface FusionStrategy {
 
-	List<Document> fuseResults(List<Document> vectorResults, List<Document> keywordResults, int topK);
+	@SuppressWarnings("unchecked")
+	List<Document> fuseResults(int topK, List<Document>... resultLists);
 
 }

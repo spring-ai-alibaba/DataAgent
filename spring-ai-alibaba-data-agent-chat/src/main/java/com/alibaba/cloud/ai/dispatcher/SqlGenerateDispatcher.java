@@ -38,9 +38,10 @@ public class SqlGenerateDispatcher implements EdgeAction {
 				log.info("检测到流程结束标志: {}", END);
 				yield END;
 			}
+			// TODO 需要优化，不能简单跳转
 			case SQL_GENERATE_SCHEMA_MISSING -> {
-				log.warn("SQL生成缺少Schema，跳转到{}节点", KEYWORD_EXTRACT_NODE);
-				yield KEYWORD_EXTRACT_NODE;
+				log.warn("SQL生成缺少Schema，跳转到{}节点", FEASIBILITY_ASSESSMENT_NODE);
+				yield FEASIBILITY_ASSESSMENT_NODE;
 			}
 			default -> {
 				log.info("SQL生成成功，进入SQL执行节点: {}", SQL_EXECUTE_NODE);

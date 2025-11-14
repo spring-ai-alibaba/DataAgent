@@ -35,17 +35,19 @@ public final class Constant {
 
 	public static final String NL2SQL_GRAPH_NAME = "nl2sqlGraph";
 
-	public static final String QUERY_REWRITE_NODE_OUTPUT = "QUERY_REWRITE_NODE_OUTPUT";
+	public static final String INTENT_RECOGNITION_NODE_OUTPUT = "INTENT_RECOGNITION_NODE_OUTPUT";
 
-	public static final String KEYWORD_EXTRACT_NODE_OUTPUT = "KEYWORD_EXTRACT_NODE_OUTPUT";
+	public static final String QUERY_ENHANCE_NODE_OUTPUT = "QUERY_ENHANCE_NODE_OUTPUT";
 
-	public static final String EVIDENCES = "EVIDENCES";
+	public static final String FEASIBILITY_ASSESSMENT_NODE_OUTPUT = "FEASIBILITY_ASSESSMENT_NODE_OUTPUT";
+
+	public static final String EVIDENCE = "EVIDENCE";
 
 	public static final String TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT = "TABLE_DOCUMENTS_FOR_SCHEMA";
 
 	public static final String SCHEMA_RECALL_NODE_OUTPUT = "SCHEMA_RECALL_NODE_OUTPUT";
 
-	public static final String COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT = "COLUMN_DOCUMENTS_BY_KEYWORDS_OUTPUT";
+	public static final String COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT = "COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT";
 
 	public static final String TABLE_RELATION_OUTPUT = "TABLE_RELATION_OUTPUT";
 
@@ -53,9 +55,7 @@ public final class Constant {
 
 	public static final String TABLE_RELATION_RETRY_COUNT = "TABLE_RELATION_RETRY_COUNT";
 
-	public static final String BUSINESS_KNOWLEDGE = "BUSINESS_KNOWLEDGE";
-
-	public static final String SEMANTIC_MODEL = "SEMANTIC_MODEL";
+	public static final String GENEGRATED_SEMANTIC_MODEL_PROMPT = "GENEGRATED_SEMANTIC_MODEL_PROMPT";
 
 	public static final String SQL_GENERATE_OUTPUT = "SQL_GENERATE_OUTPUT";
 
@@ -92,6 +92,14 @@ public final class Constant {
 	public static final String PLANNER_NODE = "PLANNER_NODE";
 
 	public static final String PLAN_EXECUTOR_NODE = "PLAN_EXECUTOR_NODE";
+
+	public static final String INTENT_RECOGNITION_NODE = "INTENT_RECOGNITION_NODE";
+
+	public static final String EVIDENCE_RECALL_NODE = "EVIDENCE_RECALL_NODE";
+
+	public static final String QUERY_ENHANCE_NODE = "QUERY_ENHANCE_NODE";
+
+	public static final String FEASIBILITY_ASSESSMENT_NODE = "FEASIBILITY_ASSESSMENT_NODE";
 
 	public static final String QUERY_REWRITE_NODE = "QUERY_REWRITE_NODE";
 
@@ -143,17 +151,5 @@ public final class Constant {
 
 	// 人类复核相关
 	public static final String HUMAN_REVIEW_ENABLED = "HUMAN_REVIEW_ENABLED";
-
-	// column
-	public static final String COLUMN = "column";
-
-	// table
-	public static final String TABLE = "table";
-
-	// vectorType
-	public static final String VECTOR_TYPE = "vectorType";
-
-	// knowledgeId
-	public static final String KNOWLEDGE_ID = "knowledgeId";
 
 }
