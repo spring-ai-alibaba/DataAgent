@@ -168,7 +168,7 @@ public class MappersTest {
 	public void testSemanticModelCrud() {
 		Long agentId = createAgent("semantic-holder");
 		SemanticModel m = new SemanticModel();
-		m.setAgentId(agentId);
+		m.setAgentId(Math.toIntExact(agentId));
 		m.setDatasourceId(1); // 添加数据源ID
 		m.setTableName("test_table"); // 添加表名
 		m.setColumnName("origin_tc");
@@ -182,7 +182,7 @@ public class MappersTest {
 		Assertions.assertEquals(1, ins);
 		Assertions.assertNotNull(m.getId());
 
-		List<SemanticModel> query = semanticModelMapper.selectByAgentId(m.getAgentId());
+		List<SemanticModel> query = semanticModelMapper.selectByAgentId(Long.valueOf(m.getAgentId()));
 		Assertions.assertTrue(query.stream().anyMatch(x -> x.getId().equals(m.getId())));
 
 		semanticModelMapper.disableById(m.getId());
