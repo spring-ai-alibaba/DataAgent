@@ -117,7 +117,13 @@ spring-ai-alibaba-nl2sql/
 
 将表和数据导入到你的MySQL数据库中。
 
-### 2. 配置management数据库
+
+
+### 2. 配置
+
+#### 2.1 配置management数据库
+
+
 
 在`spring-ai-alibaba-nl2sql-management/src/main/resources/application.yml`中配置你的MySQL数据库连接信息。
 
@@ -133,7 +139,9 @@ spring:
     type: com.alibaba.druid.pool.DruidDataSource
 ```
 
-### 2.1 可选：启用/关闭自动初始化（schema.sql + data.sql）
+#### 2.2 可选：启用/关闭自动初始化（schema.sql + data.sql）
+
+
 
 - 默认配置：`application.yml` 中已设置为开启
 
@@ -162,7 +170,7 @@ spring:
 ![Snipaste_2025-09-18_14-35-29.jpg](img/Snipaste_2025-09-18_14-35-29.jpg)
 
 
-### 3. 配置 API Key
+#### 2.3 配置 API Key
 
 ```yaml
 spring:
@@ -178,15 +186,52 @@ spring:
 ```
 
 
-### 4. 启动管理端
+
+#### 2.4 嵌入模型批处理策略配置
+
+
+
+| 属性                                                        | 说明                                                         | 默认值      |
+| ----------------------------------------------------------- | ------------------------------------------------------------ | ----------- |
+| spring.ai.alibaba.nl2sql.embedding-batch.encoding-type      | 文本编码类型，可参考com.knuddels.jtokkit.api.EncodingType    | cl100k_base |
+| spring.ai.alibaba.nl2sql.embedding-batch.max-token-count    | 每批次最大令牌数 值越小，每批次文档越少，但更安全 值越大，处理效率越高，但可能超出API限制 建议值：2000-8000，根据实际API限制调整 | 2000        |
+| spring.ai.alibaba.nl2sql.embedding-batch.reserve-percentage | 预留百分比 用于预留缓冲空间，避免超出限制 建议值：0.1-0.2（10%-20%） | 0.2         |
+| spring.ai.alibaba.nl2sql.embedding-batch.max-text-count     | 每批次最大文本数量 适用于DashScope等有文本数量限制的API DashScope限制为10 | 10          |
+
+
+
+#### 2.5 向量库配置
+
+
+
+| 属性                                                         | 说明                                                         | 默认值    |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | --------- |
+| spring.ai.alibaba.nl2sql.vector-store.similarity-threshold   | 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档       | 0.2       |
+| spring.ai.alibaba.nl2sql.vector-store.batch-del-topk-limit   | 一次删除操作中，最多删除的文档数量                           | 5000      |
+| spring.ai.alibaba.nl2sql.vector-store.topk-limit             | 查询返回最大文档数                                           | 30        |
+| **spring.ai.alibaba.nl2sql.vector-store.enable-hybrid-search** | 是否启用混合搜索。**注意**：**项目目前默认只提供ES的混合检索能力，<br />如需要扩展其他向量库可自行继承重写 com.alibaba.cloud.ai.service.hybrid.retrieval<br />.AbstractHybridRetrievalStrategy#retrieve 该方法**<br />**并且修改com.alibaba.cloud.ai.service.hybrid.<br />factory.HybridRetrievalStrategyFactory#getObject<br />注册相应的bean** | **false** |
+| spring.ai.alibaba.nl2sql.vector-store.elasticsearch-min-score | Elasticsearch最小分数阈值，用于es执行关键词搜索时过滤相关性较低的文档。<br />**开发时使用的es服务端版本 8.15.0** | 0.5       |
+
+
+
+#### 2.6 检索融合策略
+
+| 属性                                     | 说明                 | 默认值 |
+| ---------------------------------------- | -------------------- | ------ |
+| spring.ai.alibaba.nl2sql.fusion-strategy | 多路召回结果融合策略 | rrf    |
+|                                          |                      |        |
+
+
+
+### 3. 启动管理端
 
 在`spring-ai-alibaba-nl2sql-management`目录下，运行 `spring-ai-alibaba-nl2sql/spring-ai-alibaba-nl2sql-management/src/main/java/com/alibaba/cloud/ai/DataAgentApplication.java` 类。
 
-### 5. 启动WEB页面
+### 4. 启动WEB页面
 
 进入 `spring-ai-alibaba-nl2sql/spring-ai-alibaba-nl2sql-web-ui` 目录
 
-#### 安装依赖
+#### 4.1 安装依赖
 
 
 ```bash
@@ -197,7 +242,7 @@ npm install
 yarn install
 ```
 
-### 启动服务
+#### 4.2 启动服务
 
 ```bash
 # 使用 npm

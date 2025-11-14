@@ -90,7 +90,7 @@ public class DataAgentProperties {
 		private boolean enableHybridSearch = false;
 
 		/**
-		 * Elasticsearch最小分数阈值，用于过滤相关性较低的文档
+		 * Elasticsearch最小分数阈值，用于es执行关键词搜索时过滤相关性较低的文档
 		 */
 		private double elasticsearchMinScore = 0.5;
 
