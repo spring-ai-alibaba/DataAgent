@@ -58,30 +58,6 @@ public class SchemaServiceImpl implements SchemaService {
 
 	private final DataAgentProperties dataAgentProperties;
 
-	/**
-	 * Build schema based on RAG - supports agent isolation
-	 * @param agentId agent ID
-	 * @param query query
-	 * @param keywords keyword list
-	 * @param dbConfig Database configuration
-	 * @return SchemaDTO
-	 */
-	@Override
-	public SchemaDTO mixRagForAgent(String agentId, String query, List<String> keywords, DbConfig dbConfig) {
-		SchemaDTO schemaDTO = new SchemaDTO();
-		extractDatabaseName(schemaDTO, dbConfig); // Set database name or schema name
-
-		// Get table documents
-		List<Document> tableDocuments = new ArrayList<>(getTableDocumentsForAgent(agentId, query));
-
-		// Get column documents
-		List<Document> columnDocumentList = getColumnDocumentsByKeywordsForAgent(agentId, keywords, tableDocuments);
-
-		buildSchemaFromDocuments(agentId, columnDocumentList, tableDocuments, schemaDTO);
-
-		return schemaDTO;
-	}
-
 	@Override
 	public void buildSchemaFromDocuments(String agentId, List<Document> currentColumnDocuments,
 			List<Document> tableDocuments, SchemaDTO schemaDTO) {
@@ -135,9 +111,9 @@ public class SchemaServiceImpl implements SchemaService {
 			if (CollectionUtils.isEmpty(docs)) {
 				continue;
 			}
-			List<Document> documents = filterColumnsWithMatchingTables(docs, tableDocuments);
-			if (CollectionUtils.isNotEmpty(documents))
-				allResults.add(docs);
+			List<Document> filterDocs = filterColumnsWithMatchingTables(docs, tableDocuments);
+			if (CollectionUtils.isNotEmpty(filterDocs))
+				allResults.add(filterDocs);
 
 		}
 
@@ -242,66 +218,6 @@ public class SchemaServiceImpl implements SchemaService {
 					agentId);
 		if (!foundTableDocs.isEmpty())
 			tableDocuments.addAll(foundTableDocs);
-	}
-
-	private void loadMissingColumnsDocument(String agentId, String missingColumnName, List<Document> existingColumns) {
-		List<Document> documentsForAgent = vectorStoreService.getDocumentsForAgent(agentId, missingColumnName,
-				DocumentMetadataConstant.COLUMN);
-		if (CollectionUtils.isEmpty(documentsForAgent))
-			return;
-
-		// missingColumnName = tableName.columnName
-		// docId = agentId:{missingColumnName}
-		String targetMissingColumnId = agentId + ":" + missingColumnName;
-		documentsForAgent.stream()
-			.filter(doc -> doc.getId().equals(targetMissingColumnId))
-			.findFirst()
-			.ifPresent(existingColumns::add);
-
-	}
-
-	/**
-	 * Select up to maxCount columns by weight using a round-robin approach to ensure
-	 * balanced selection across different tables
-	 */
-	protected Map<String, Document> selectColumnsByRoundRobin(List<List<Document>> columnDocumentList, int maxCount) {
-		Map<String, Document> selectedColumns = new HashMap<>();
-		int currentRound = 0;
-
-		// Continue selecting columns until we reach maxCount or exhaust all columns
-		while (selectedColumns.size() < maxCount) {
-			boolean hasMoreColumnsInAnyList = false;
-
-			// Process each table's column list in the current round
-			for (List<Document> tableColumns : columnDocumentList) {
-				if (currentRound < tableColumns.size()) {
-					// Get the column at current position (already sorted by weight)
-					Document column = tableColumns.get(currentRound);
-					String columnId = column.getId();
-
-					// Add to selection if not already selected
-					if (!selectedColumns.containsKey(columnId)) {
-						selectedColumns.put(columnId, column);
-
-						// Stop if we've reached the maximum count
-						if (selectedColumns.size() >= maxCount) {
-							break;
-						}
-					}
-
-					hasMoreColumnsInAnyList = true;
-				}
-			}
-
-			// If no more columns in any list, exit the loop
-			if (!hasMoreColumnsInAnyList) {
-				break;
-			}
-
-			currentRound++;
-		}
-
-		return selectedColumns;
 	}
 
 	/**

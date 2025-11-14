@@ -34,6 +34,4 @@ public interface SchemaService {
 	void buildSchemaFromDocuments(String agentId, List<Document> columnDocumentList, List<Document> tableDocuments,
 			SchemaDTO schemaDTO);
 
-	SchemaDTO mixRagForAgent(String agentId, String query, List<String> keywords, DbConfig dbConfig);
-
 }

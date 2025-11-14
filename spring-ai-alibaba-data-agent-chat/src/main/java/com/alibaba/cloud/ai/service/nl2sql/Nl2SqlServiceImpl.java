@@ -196,12 +196,14 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 					}
 					if (tableList != null && !tableList.isEmpty()) {
 						selectedTables.addAll(tableList.stream().map(String::toLowerCase).collect(Collectors.toSet()));
-						int originalTableCount = schemaDTO.getTable() != null ? schemaDTO.getTable().size() : 0;
-						assert schemaDTO.getTable() != null;
-						schemaDTO.getTable().removeIf(table -> !selectedTables.contains(table.getName().toLowerCase()));
-						int finalTableCount = schemaDTO.getTable() != null ? schemaDTO.getTable().size() : 0;
-						log.debug("Fine selection completed: {} -> {} tables, selected tables: {}", originalTableCount,
-								finalTableCount, selectedTables);
+						if (schemaDTO.getTable() != null) {
+							int originalTableCount = schemaDTO.getTable().size();
+							schemaDTO.getTable()
+								.removeIf(table -> !selectedTables.contains(table.getName().toLowerCase()));
+							int finalTableCount = schemaDTO.getTable().size();
+							log.debug("Fine selection completed: {} -> {} tables, selected tables: {}",
+									originalTableCount, finalTableCount, selectedTables);
+						}
 					}
 				}
 				dtoConsumer.accept(schemaDTO);
