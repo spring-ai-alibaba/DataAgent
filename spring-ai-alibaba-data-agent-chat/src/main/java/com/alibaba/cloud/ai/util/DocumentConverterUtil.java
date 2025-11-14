@@ -17,8 +17,10 @@ package com.alibaba.cloud.ai.util;
 
 import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
+import com.alibaba.cloud.ai.constant.Constant;
+import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
+import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
-import com.alibaba.cloud.ai.request.EvidenceRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 
@@ -96,21 +98,22 @@ public class DocumentConverterUtil {
 			.collect(Collectors.toList());
 	}
 
-	/**
-	 * Converts evidence requests to Documents for vector storage.
-	 * @param evidenceRequests list of evidence requests
-	 * @return list of Document objects
-	 */
-	public static List<Document> convertEvidenceToDocumentsForAgent(String agentId,
-			List<EvidenceRequest> evidenceRequests) {
-		return evidenceRequests.stream().map(evidenceRequest -> {
-			Map<String, Object> metadata = new HashMap<>();
-			metadata.put("evidenceType", evidenceRequest.getType());
-			metadata.put("vectorType", "evidence");
+	public static Document convertBusinessTermToDocument(BusinessKnowledgeDTO dto, String dbRecoredId) {
+		// 构建文档内容，包含业务名词、说明和同义词
+		String businessTerm = Optional.ofNullable(dto.getBusinessTerm()).orElse("无");
+		String description = Optional.ofNullable(dto.getDescription()).orElse("无");
+		String synonyms = Optional.ofNullable(dto.getSynonyms()).orElse("无");
 
-			metadata.put("agentId", agentId);
-			return new Document(evidenceRequest.getContent(), metadata);
-		}).toList();
+		String content = String.format("业务名词: %s, 说明: %s, 同义词: %s", businessTerm, description, synonyms);
+
+		// 构建元数据
+		Map<String, Object> metadata = new HashMap<>();
+		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM);
+		metadata.put(Constant.AGENT_ID, dto.getAgentId().toString());
+		metadata.put(DocumentMetadataConstant.DB_RECORD_ID, dbRecoredId);
+		metadata.put(DocumentMetadataConstant.IS_RECALL, dto.getIsRecall());
+
+		return new Document(content, metadata);
 	}
 
 	/**

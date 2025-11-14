@@ -41,7 +41,7 @@ public final class Constant {
 
 	public static final String FEASIBILITY_ASSESSMENT_NODE_OUTPUT = "FEASIBILITY_ASSESSMENT_NODE_OUTPUT";
 
-	public static final String EVIDENCES = "EVIDENCES";
+	public static final String EVIDENCE = "EVIDENCE";
 
 	public static final String TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT = "TABLE_DOCUMENTS_FOR_SCHEMA";
 
@@ -55,9 +55,7 @@ public final class Constant {
 
 	public static final String TABLE_RELATION_RETRY_COUNT = "TABLE_RELATION_RETRY_COUNT";
 
-	public static final String BUSINESS_KNOWLEDGE = "BUSINESS_KNOWLEDGE";
-
-	public static final String SEMANTIC_MODEL = "SEMANTIC_MODEL";
+	public static final String GENEGRATED_SEMANTIC_MODEL_PROMPT = "GENEGRATED_SEMANTIC_MODEL_PROMPT";
 
 	public static final String SQL_GENERATE_OUTPUT = "SQL_GENERATE_OUTPUT";
 

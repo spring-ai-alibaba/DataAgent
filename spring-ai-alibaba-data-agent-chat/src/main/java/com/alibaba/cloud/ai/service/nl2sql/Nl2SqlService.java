@@ -22,19 +22,17 @@ import com.alibaba.cloud.ai.util.MarkdownParserUtil;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 
-import java.util.List;
 import java.util.function.Consumer;
 
 public interface Nl2SqlService {
 
 	Flux<ChatResponse> semanticConsistencyStream(String sql, String queryPrompt);
 
-	Flux<String> generateSql(List<String> evidenceList, String query, SchemaDTO schemaDTO, String sql,
-			String exceptionMessage);
+	Flux<String> generateSql(String evidence, String query, SchemaDTO schemaDTO, String sql, String exceptionMessage);
 
 	Flux<String> generateOptimizedSql(String previousSql, String exceptionMessage, int round);
 
-	Flux<ChatResponse> fineSelect(SchemaDTO schemaDTO, String query, List<String> evidenceList,
+	Flux<ChatResponse> fineSelect(SchemaDTO schemaDTO, String query, String evidence,
 			String sqlGenerateSchemaMissingAdvice, DbConfig specificDbConfig, Consumer<SchemaDTO> dtoConsumer);
 
 	default String sqlTrim(String sql) {

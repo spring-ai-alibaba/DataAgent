@@ -65,7 +65,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 	}
 
 	@Override
-	public Flux<String> generateSql(List<String> evidenceList, String query, SchemaDTO schemaDTO, String sql,
+	public Flux<String> generateSql(String evidence, String query, SchemaDTO schemaDTO, String sql,
 			String exceptionMessage) {
 		log.info("Generating SQL for query: {}, hasExistingSql: {}", query, sql != null && !sql.isEmpty());
 
@@ -73,15 +73,15 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 		if (sql != null && !sql.isEmpty()) {
 			// Use professional SQL error repair prompt
 			log.debug("Using SQL error fixer for existing SQL: {}", sql);
-			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(query, dbConfig, schemaDTO, evidenceList,
-					sql, exceptionMessage);
+			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(query, dbConfig, schemaDTO, evidence, sql,
+					exceptionMessage);
 			newSqlFlux = llmService.toStringFlux(llmService.callUser(errorFixerPrompt));
 			log.info("SQL error fixing completed");
 		}
 		else {
 			// Normal SQL generation process
 			log.debug("Generating new SQL from scratch");
-			List<String> prompts = PromptHelper.buildMixSqlGeneratorPrompt(query, dbConfig, schemaDTO, evidenceList);
+			List<String> prompts = PromptHelper.buildMixSqlGeneratorPrompt(query, dbConfig, schemaDTO, evidence);
 			newSqlFlux = llmService.toStringFlux(llmService.call(prompts.get(0), prompts.get(1)));
 			log.info("New SQL generation completed");
 		}
@@ -156,13 +156,13 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 	}
 
 	@Override
-	public Flux<ChatResponse> fineSelect(SchemaDTO schemaDTO, String query, List<String> evidenceList,
+	public Flux<ChatResponse> fineSelect(SchemaDTO schemaDTO, String query, String evidence,
 			String sqlGenerateSchemaMissingAdvice, DbConfig specificDbConfig, Consumer<SchemaDTO> dtoConsumer) {
-		log.debug("Fine selecting schema for query: {} with {} evidences and specificDbConfig: {}", query,
-				evidenceList.size(), specificDbConfig != null ? specificDbConfig.getUrl() : "default");
+		log.debug("Fine selecting schema for query: {} with evidences and specificDbConfig: {}", query,
+				specificDbConfig != null ? specificDbConfig.getUrl() : "default");
 
-		String prompt = buildMixSelectorPrompt(evidenceList, query, schemaDTO);
-		log.debug("Calling LLM for schema fine selection");
+		String prompt = buildMixSelectorPrompt(evidence, query, schemaDTO);
+		log.debug("Built schema fine selection prompt as follows \n {} \n", prompt);
 
 		Set<String> selectedTables = new HashSet<>();
 

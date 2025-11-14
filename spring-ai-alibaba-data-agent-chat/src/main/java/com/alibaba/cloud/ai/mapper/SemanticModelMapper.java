@@ -126,4 +126,22 @@ public interface SemanticModelMapper {
 			""")
 	int deleteById(@Param("id") Long id);
 
+	/**
+	 * Query semantic models by datasource ID, status and table names
+	 */
+	@Select("""
+			<script>
+			SELECT * FROM semantic_model
+			WHERE datasource_id = #{datasourceId}
+			  AND status = 1
+			  AND table_name IN
+			  <foreach item='tableName' index='index' collection='tableNames' open='(' separator=',' close=')'>
+			    #{tableName}
+			  </foreach>
+			ORDER BY created_time DESC
+			</script>
+			""")
+	List<SemanticModel> selectByDatasourceIdAndTableNames(@Param("datasourceId") Integer datasourceId,
+			@Param("tableNames") List<String> tableNames);
+
 }

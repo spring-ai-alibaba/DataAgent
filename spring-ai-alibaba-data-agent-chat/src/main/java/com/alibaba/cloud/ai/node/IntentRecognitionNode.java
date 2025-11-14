@@ -55,7 +55,7 @@ public class IntentRecognitionNode implements NodeAction {
 
 		// 构建意图识别提示，多轮对话暂时为空
 		String prompt = PromptHelper.buildIntentRecognitionPrompt(null, userInput);
-		log.debug("Built intent recognition prompt");
+		log.debug("Built intent recognition prompt as follows \n {} \n", prompt);
 
 		// 调用LLM进行意图识别
 		Flux<ChatResponse> responseFlux = llmService.callUser(prompt);

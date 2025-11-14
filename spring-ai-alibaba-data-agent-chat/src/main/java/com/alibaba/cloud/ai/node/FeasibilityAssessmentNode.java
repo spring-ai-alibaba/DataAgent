@@ -30,7 +30,6 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.alibaba.cloud.ai.constant.Constant.*;
@@ -52,13 +51,11 @@ public class FeasibilityAssessmentNode implements NodeAction {
 		SchemaDTO recalledSchema = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 
 		// 获取证据信息
-		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);
-		log.info("Evidence list size: {}", evidenceList.size());
-		String evidence = String.join("\n", evidenceList);
+		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 
 		// 构建可行性评估提示词，多轮对话暂时为空
 		String prompt = PromptHelper.buildFeasibilityAssessmentPrompt(canonicalQuery, recalledSchema, evidence, null);
-		log.debug("Built feasibility assessment prompt");
+		log.debug("Built feasibility assessment prompt as follows \n {} \n", prompt);
 
 		// 调用LLM进行可行性评估
 		Flux<ChatResponse> responseFlux = llmService.callUser(prompt);

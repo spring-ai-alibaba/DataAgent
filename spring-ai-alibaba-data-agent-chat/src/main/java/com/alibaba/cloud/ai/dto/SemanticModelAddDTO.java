@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dto.semantic;
+package com.alibaba.cloud.ai.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -30,13 +30,13 @@ import jakarta.validation.constraints.NotNull;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SemanticModelAddDto {
+public class SemanticModelAddDTO {
 
 	/**
 	 * 关联的智能体ID
 	 */
 	@NotNull(message = "智能体ID不能为空")
-	private Long agentId;
+	private Integer agentId;
 
 	/**
 	 * 关联的表名

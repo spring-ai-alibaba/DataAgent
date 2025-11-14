@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.service.semantic;
 
-import com.alibaba.cloud.ai.dto.semantic.SemanticModelAddDto;
+import com.alibaba.cloud.ai.dto.SemanticModelAddDTO;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.entity.SemanticModel;
 import com.alibaba.cloud.ai.mapper.AgentDatasourceMapper;
@@ -45,6 +45,17 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 	}
 
 	@Override
+	public List<SemanticModel> getByAgentIdAndTableNames(Integer agentId, List<String> tableNames) {
+		Integer datasourceId = findDatasourceIdByAgentId(agentId);
+
+		if (datasourceId == null || tableNames == null || tableNames.isEmpty()) {
+			return List.of();
+		}
+
+		return semanticModelMapper.selectByDatasourceIdAndTableNames(datasourceId, tableNames);
+	}
+
+	@Override
 	public SemanticModel getById(Long id) {
 		return semanticModelMapper.selectById(id);
 	}
@@ -55,7 +66,7 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 	}
 
 	@Override
-	public boolean addSemanticModel(SemanticModelAddDto dto) {
+	public boolean addSemanticModel(SemanticModelAddDTO dto) {
 		// 根据agentId查询关联的datasourceId
 		Integer datasourceId = findDatasourceIdByAgentId(dto.getAgentId());
 
@@ -82,8 +93,8 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 	/**
 	 * 根据agentId查找关联的datasourceId 如果有多个数据源，返回第一个启用的数据源
 	 */
-	private Integer findDatasourceIdByAgentId(Long agentId) {
-		List<AgentDatasource> agentDatasources = agentDatasourceMapper.selectByAgentId(Math.toIntExact(agentId));
+	private Integer findDatasourceIdByAgentId(Integer agentId) {
+		List<AgentDatasource> agentDatasources = agentDatasourceMapper.selectByAgentId(agentId);
 
 		if (agentDatasources.isEmpty()) {
 			throw new RuntimeException("No datasource found for Agent ID " + agentId);

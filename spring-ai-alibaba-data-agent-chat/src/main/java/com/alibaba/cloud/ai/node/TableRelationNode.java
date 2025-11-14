@@ -17,8 +17,8 @@
 package com.alibaba.cloud.ai.node;
 
 import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
+import com.alibaba.cloud.ai.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.entity.SemanticModel;
 import com.alibaba.cloud.ai.enums.TextType;
@@ -49,7 +49,6 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import static com.alibaba.cloud.ai.constant.Constant.*;
-import static com.alibaba.cloud.ai.prompt.PromptHelper.buildBusinessKnowledgePrompt;
 import static com.alibaba.cloud.ai.prompt.PromptHelper.buildSemanticModelPrompt;
 
 /**
@@ -80,12 +79,10 @@ public class TableRelationNode implements NodeAction {
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
-		int retryCount = StateUtil.getObjectValue(state, TABLE_RELATION_RETRY_COUNT, Integer.class, 0);
-
 		// Get necessary input parameters
 		String canonicalQuery = StateUtil.getCanonicalQuery(state);
 
-		List<String> evidenceList = StateUtil.getListValue(state, EVIDENCES);
+		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 		List<Document> tableDocuments = StateUtil.getDocumentList(state, TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT);
 		List<Document> columnDocuments = StateUtil.getDocumentList(state, COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT);
 		String agentIdStr = StateUtil.getStringValue(state, AGENT_ID);
@@ -94,33 +91,24 @@ public class TableRelationNode implements NodeAction {
 		DbConfig agentDbConfig = getAgentDbConfig(Integer.valueOf(agentIdStr));
 		SchemaDTO initialSchema = buildInitialSchema(agentIdStr, columnDocuments, tableDocuments, agentDbConfig);
 
-		List<BusinessKnowledgeDTO> businessKnowledges;
-		List<SemanticModel> semanticModel;
-		try {
-			// Extract business knowledge and semantic model
-			// TODO businessKnowledges需要重新设计
-			businessKnowledges = businessKnowledgeService.getKnowledgeDtoRecalled(Long.parseLong(agentIdStr));
-			semanticModel = semanticModelService.getEnabledByAgentId(Long.parseLong(agentIdStr));
-		}
-		catch (DataAccessException e) {
-			log.warn("Database query failed (attempt {}): {}", retryCount + 1, e.getMessage());
+		Map<String, Object> resultMap = new HashMap<>();
 
-			String errorType = classifyDatabaseError(e);
-			return Map.of(TABLE_RELATION_EXCEPTION_OUTPUT, errorType + ": " + e.getMessage(),
-					TABLE_RELATION_RETRY_COUNT, retryCount + 1);
-		}
-		// load prompt template
-		String businessKnowledgePrompt = buildBusinessKnowledgePrompt(businessKnowledges);
-		String semanticModelPrompt = buildSemanticModelPrompt(semanticModel);
-
-		Map<String, Object> resultMap = new HashMap<>(
-				Map.of(BUSINESS_KNOWLEDGE, businessKnowledgePrompt, SEMANTIC_MODEL, semanticModelPrompt));
-
-		Flux<ChatResponse> schemaFlux = processSchemaSelection(initialSchema, canonicalQuery, evidenceList, state,
+		Flux<ChatResponse> schemaFlux = processSchemaSelection(initialSchema, canonicalQuery, evidence, state,
 				agentDbConfig, result -> {
 					log.info("[{}] Schema processing result: {}", this.getClass().getSimpleName(), result);
 					// 将处理后的SchemaDTO存储到resultMap中
 					resultMap.put(TABLE_RELATION_OUTPUT, result);
+
+					// 从最终的SchemaDTO中获取表名列表
+					List<String> tableNames = result.getTable().stream().map(TableDTO::getName).toList();
+
+					// 根据agentId和表名列表获取语义模型
+					List<SemanticModel> semanticModels = semanticModelService
+						.getByAgentIdAndTableNames(Integer.valueOf(agentIdStr), tableNames);
+
+					// 构建语义模型提示并存储到resultMap中
+					String semanticModelPrompt = buildSemanticModelPrompt(semanticModels);
+					resultMap.put(GENEGRATED_SEMANTIC_MODEL_PROMPT, semanticModelPrompt);
 				});
 
 		// Create display stream for user experience only
@@ -141,8 +129,8 @@ public class TableRelationNode implements NodeAction {
 				state, v -> resultMap, displayFlux);
 
 		// need to reset retry count and exception
-		return Map.of(TABLE_RELATION_OUTPUT, generator, BUSINESS_KNOWLEDGE, businessKnowledgePrompt, SEMANTIC_MODEL,
-				semanticModelPrompt, TABLE_RELATION_RETRY_COUNT, 0, TABLE_RELATION_EXCEPTION_OUTPUT, "");
+		return Map.of(TABLE_RELATION_OUTPUT, generator, TABLE_RELATION_RETRY_COUNT, 0, TABLE_RELATION_EXCEPTION_OUTPUT,
+				"");
 
 	}
 
@@ -186,7 +174,7 @@ public class TableRelationNode implements NodeAction {
 	/**
 	 * Processes schema selection based on input, evidence, and optional advice.
 	 */
-	private Flux<ChatResponse> processSchemaSelection(SchemaDTO schemaDTO, String input, List<String> evidenceList,
+	private Flux<ChatResponse> processSchemaSelection(SchemaDTO schemaDTO, String input, String evidence,
 			OverAllState state, DbConfig agentDbConfig, Consumer<SchemaDTO> dtoConsumer) {
 		String schemaAdvice = StateUtil.getStringValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE, null);
 
@@ -194,12 +182,11 @@ public class TableRelationNode implements NodeAction {
 		if (schemaAdvice != null) {
 			log.info("[{}] Processing with schema supplement advice: {}", this.getClass().getSimpleName(),
 					schemaAdvice);
-			schemaFlux = nl2SqlService.fineSelect(schemaDTO, input, evidenceList, schemaAdvice, agentDbConfig,
-					dtoConsumer);
+			schemaFlux = nl2SqlService.fineSelect(schemaDTO, input, evidence, schemaAdvice, agentDbConfig, dtoConsumer);
 		}
 		else {
 			log.info("[{}] Executing regular schema selection", this.getClass().getSimpleName());
-			schemaFlux = nl2SqlService.fineSelect(schemaDTO, input, evidenceList, null, agentDbConfig, dtoConsumer);
+			schemaFlux = nl2SqlService.fineSelect(schemaDTO, input, evidence, null, agentDbConfig, dtoConsumer);
 		}
 		return Flux
 			.just(ChatResponseUtil.createResponse("正在选择合适的数据表...\n"),

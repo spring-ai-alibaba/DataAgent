@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.controller;
 
-import com.alibaba.cloud.ai.dto.semantic.SemanticModelAddDto;
+import com.alibaba.cloud.ai.dto.SemanticModelAddDTO;
 import com.alibaba.cloud.ai.entity.SemanticModel;
 import com.alibaba.cloud.ai.service.semantic.SemanticModelService;
 import com.alibaba.cloud.ai.vo.ApiResponse;
@@ -62,7 +62,7 @@ public class SemanticModelController {
 	}
 
 	@PostMapping
-	public ApiResponse create(@RequestBody @Validated SemanticModelAddDto semanticModelAddDto) {
+	public ApiResponse create(@RequestBody @Validated SemanticModelAddDTO semanticModelAddDto) {
 		boolean success = semanticModelService.addSemanticModel(semanticModelAddDto);
 		if (success) {
 			return ApiResponse.success("Semantic model created successfully");

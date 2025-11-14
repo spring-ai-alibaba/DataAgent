@@ -15,19 +15,17 @@
  */
 package com.alibaba.cloud.ai.prompt;
 
-import com.alibaba.cloud.ai.entity.SemanticModel;
-import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dto.schema.TableDTO;
+import com.alibaba.cloud.ai.entity.SemanticModel;
 import com.alibaba.cloud.ai.entity.UserPromptConfig;
-
+import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.prompt.PromptTemplate;
-import org.apache.commons.collections.CollectionUtils;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -89,13 +87,15 @@ public class PromptHelper {
 		return PromptConstant.getQuestionToKeywordsPromptTemplate().render(params);
 	}
 
-	public static String buildMixSelectorPrompt(List<String> evidences, String question, SchemaDTO schemaDTO) {
+	public static String buildMixSelectorPrompt(String evidence, String question, SchemaDTO schemaDTO) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		Map<String, Object> params = new HashMap<>();
 		params.put("schema_info", schemaInfo);
 		params.put("question", question);
-		String evidence = CollectionUtils.isEmpty(evidences) ? "" : StringUtils.join(evidences, ";\n");
-		params.put("evidence", evidence);
+		if (StringUtils.isBlank(evidence))
+			params.put("evidence", "无");
+		else
+			params.put("evidence", evidence);
 		return PromptConstant.getMixSelectorPromptTemplate().render(params);
 	}
 
@@ -205,8 +205,7 @@ public class PromptHelper {
 	}
 
 	public static List<String> buildMixSqlGeneratorPrompt(String question, DbConfig dbConfig, SchemaDTO schemaDTO,
-			List<String> evidenceList) {
-		String evidence = StringUtils.join(evidenceList, ";\n");
+			String evidence) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
 		Map<String, Object> params = new HashMap<>();
@@ -264,8 +263,7 @@ public class PromptHelper {
 	}
 
 	public static String buildSqlErrorFixerPrompt(String question, DbConfig dbConfig, SchemaDTO schemaDTO,
-			List<String> evidenceList, String errorSql, String errorMessage) {
-		String evidence = StringUtils.join(evidenceList, ";\n");
+			String evidence, String errorSql, String errorMessage) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
 
@@ -280,27 +278,12 @@ public class PromptHelper {
 		return PromptConstant.getSqlErrorFixerPromptTemplate().render(params);
 	}
 
-	public static String buildBusinessKnowledgePrompt(List<BusinessKnowledgeDTO> businessKnowledgeDTOS) {
+	public static String buildBusinessKnowledgePrompt(String businessTerms) {
 		Map<String, Object> params = new HashMap<>();
-		String businessKnowledge = "";
-
-		if (!CollectionUtils.isEmpty(businessKnowledgeDTOS)) {
-			StringBuilder sb = new StringBuilder();
-			for (BusinessKnowledgeDTO dto : businessKnowledgeDTOS) {
-				sb.append("业务名词: ").append(dto.getBusinessTerm()).append("\n");
-				sb.append("说明: ").append(dto.getDescription()).append("\n");
-				if (StringUtils.isNotBlank(dto.getSynonyms())) {
-					sb.append("同义词: ").append(dto.getSynonyms()).append("\n");
-				}
-				else {
-					sb.append("同义词: 无\n");
-				}
-				sb.append("---\n");
-			}
-			businessKnowledge = sb.toString();
-		}
-
-		params.put("businessKnowledge", businessKnowledge);
+		if (StringUtils.isNotBlank(businessTerms))
+			params.put("businessKnowledge", businessTerms);
+		else
+			params.put("businessKnowledge", "无");
 		return PromptConstant.getBusinessKnowledgePromptTemplate().render(params);
 	}
 

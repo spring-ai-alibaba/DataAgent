@@ -34,7 +34,6 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.alibaba.cloud.ai.constant.Constant.*;
@@ -56,13 +55,11 @@ public class QueryEnhanceNode implements NodeAction {
 		String userInput = StateUtil.getStringValue(state, INPUT_KEY);
 		log.info("User input for query enhance: {}", userInput);
 
-		List<String> evidences = StateUtil.getListValue(state, EVIDENCES);
-		// 把evidences 转换成字符串，以换行符分割
-		String evidencesString = String.join("\n", evidences);
+		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 
 		// 构建查询处理提示，多轮对话暂时为空
-		String prompt = PromptHelper.buildQueryEnhancePrompt(null, userInput, evidencesString);
-		log.debug("Built query enhance prompt: {}", prompt);
+		String prompt = PromptHelper.buildQueryEnhancePrompt(null, userInput, evidence);
+		log.debug("Built query enhance prompt as follows \n {} \n", prompt);
 
 		// 调用LLM进行查询处理
 		Flux<ChatResponse> responseFlux = llmService.callUser(prompt);

@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.node;
 
+import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.enums.TextType;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -22,12 +23,14 @@ import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.FluxConverter;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.prompt.PromptConstant;
+import com.alibaba.cloud.ai.prompt.PromptHelper;
 import com.alibaba.cloud.ai.service.llm.LlmService;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.util.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
@@ -64,7 +67,7 @@ public class EvidenceRecallNode implements NodeAction {
 
 		// 构建关键词提取提示词
 		String prompt = PromptConstant.getQuestionToKeywordsPromptTemplate().render(Map.of("question", question));
-		log.debug("Built evidence keyword extraction prompt");
+		log.debug("Built evidence keyword extraction prompt as follows \n {} \n", prompt);
 
 		// 调用LLM提取关键词
 		Flux<ChatResponse> responseFlux = llmService.callUser(prompt);
@@ -87,28 +90,17 @@ public class EvidenceRecallNode implements NodeAction {
 			.startingState(state)
 			.mapResult(r -> resultMap)
 			.build(evidenceDisplaySink.asFlux().map(ChatResponseUtil::createPureResponse));
-		return Map.of(EVIDENCES, generator.concatWith(evidenceFlux));
+		return Map.of(EVIDENCE, generator.concatWith(evidenceFlux));
 	}
 
 	private Map<String, Object> getEvidences(String llmOutput, String agentId, Sinks.Many<String> sink) {
 		try {
-			// 解析关键词列表
-			List<String> keywords;
-			try {
-				String content = MarkdownParserUtil.extractText(llmOutput.trim());
-				keywords = JsonUtil.getObjectMapper().readValue(content, new TypeReference<List<String>>() {
-				});
-				log.info("For getting evidence keyword,extracted {} keywords: {}",
-						keywords != null ? keywords.size() : 0, keywords);
-			}
-			catch (Exception e) {
-				log.error("Failed to parse keywords from LLM response", e);
-				keywords = List.of(); // 使用空列表作为默认值
-			}
+			List<String> keywords = extractKeywords(llmOutput);
 
 			if (null == keywords || keywords.isEmpty()) {
+				log.debug("No keywords extracted from LLM output");
 				sink.tryEmitNext("未找到关键词！\n");
-				return Map.of(EVIDENCES, List.of());
+				return Map.of(EVIDENCE, "无");
 			}
 
 			// 将关键词列表用空格拼接成字符串
@@ -119,35 +111,61 @@ public class EvidenceRecallNode implements NodeAction {
 			log.debug("Joined keywords string: {}", keywordsString);
 			sink.tryEmitNext("正在获取证据...");
 
-			// 获取evidence
-			List<String> evidences = this.extractEvidences(keywordsString, agentId);
-			log.info("Retrieved {} evidences", evidences != null ? evidences.size() : 0);
+			// 获取业务知识和智能体的知识
+			List<Document> businessTermDocuments = vectorStoreService
+				.getDocumentsForAgent(agentId, keywordsString, DocumentMetadataConstant.BUSINESS_TERM)
+				.stream()
+				.filter(doc -> Boolean.TRUE.equals(doc.getMetadata().get(DocumentMetadataConstant.IS_RECALL)))
+				.toList();
 
-			if (null == evidences || evidences.isEmpty()) {
+			// 检查是否有证据文档
+			if (businessTermDocuments.isEmpty()) {
+				log.debug("No evidence documents found for agent: {} with keywords: {}", agentId, keywordsString);
 				sink.tryEmitNext("未找到证据！\n");
-				return Map.of(EVIDENCES, List.of());
+				return Map.of(EVIDENCE, "无");
 			}
-			sink.tryEmitNext("：\n");
-			evidences.forEach(evidence -> sink.tryEmitNext(evidence + "\n"));
+
+			// 构建业务知识提示
+			String businessKnowledgePrompt = PromptHelper.buildBusinessKnowledgePrompt(
+					businessTermDocuments.stream().map(Document::getText).collect(Collectors.joining(";\n")));
+			// TODO 根据知识库模板渲染智能体的知识，然后拼接成EVIDENCE。 businessKnowledgePrompt + "\n\n" +
+			// agentKnowledgePrompt;
+			String evidence = businessKnowledgePrompt + "\n\n";
+
+			// 输出证据内容
+			sink.tryEmitNext("证据内容：\n");
+			businessTermDocuments.forEach(e -> sink.tryEmitNext(e.getText() + "\n"));
+			// TODO agentKnowledge.forEach
+
 			// 返回结果
-			return Map.of(EVIDENCES, evidences);
+			return Map.of(EVIDENCE, evidence);
 		}
 		catch (Exception e) {
+			log.error("Error occurred while getting evidences", e);
 			sink.tryEmitError(e);
-			return Map.of(EVIDENCES, List.of());
+			return Map.of(EVIDENCE, "");
 		}
 		finally {
 			sink.tryEmitComplete();
 		}
 	}
 
-	private List<String> extractEvidences(String query, String agentId) {
-		log.debug("Extracting evidences for query: {} with agentId: {}", query, agentId);
-		Assert.notNull(agentId, "AgentId cannot be null");
-		List<Document> evidenceDocuments = vectorStoreService.getDocumentsForAgent(agentId, query, "evidence");
-		List<String> evidences = evidenceDocuments.stream().map(Document::getText).collect(Collectors.toList());
-		log.debug("Extracted {} evidences: {}", evidences.size(), evidences);
-		return evidences;
+	@Nullable
+	private static List<String> extractKeywords(String llmOutput) {
+		// 解析关键词列表
+		List<String> keywords;
+		try {
+			String content = MarkdownParserUtil.extractText(llmOutput.trim());
+			keywords = JsonUtil.getObjectMapper().readValue(content, new TypeReference<List<String>>() {
+			});
+			log.info("For getting evidence keyword,extracted {} keywords: {}", keywords != null ? keywords.size() : 0,
+					keywords);
+		}
+		catch (Exception e) {
+			log.error("Failed to parse keywords from LLM response", e);
+			keywords = List.of(); // 使用空列表作为默认值
+		}
+		return keywords;
 	}
 
 }

@@ -39,7 +39,7 @@ public class SemanticModel {
 	/**
 	 * 关联的智能体ID
 	 */
-	private Long agentId;
+	private Integer agentId;
 
 	/**
 	 * 关联的数据源ID

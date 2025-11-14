@@ -52,7 +52,6 @@ public class PlannerNode implements NodeAction {
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 		// 获取查询增强节点的输出
 		String canonicalQuery = StateUtil.getCanonicalQuery(state);
-
 		log.info("Using processed query for planning: {}", canonicalQuery);
 
 		// 是否为NL2SQL模式
@@ -68,24 +67,23 @@ public class PlannerNode implements NodeAction {
 		}
 
 		// 构建提示参数
-		String businessKnowledge = (String) state.value(BUSINESS_KNOWLEDGE).orElse("");
-		String semanticModel = (String) state.value(SEMANTIC_MODEL).orElse("");
+		String semanticModel = (String) state.value(GENEGRATED_SEMANTIC_MODEL_PROMPT).orElse("");
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 		String schemaStr = PromptHelper.buildMixMacSqlDbPrompt(schemaDTO, true);
 
 		// 构建用户提示
 		String userPrompt = buildUserPrompt(canonicalQuery, validationError, state);
+		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 
 		// 构建模板参数
-		Map<String, Object> params = Map.of("user_question", userPrompt, "schema", schemaStr, "business_knowledge",
-				businessKnowledge, "semantic_model", semanticModel, "plan_validation_error",
-				formatValidationError(validationError));
+		Map<String, Object> params = Map.of("user_question", userPrompt, "schema", schemaStr, "evidence", evidence,
+				"semantic_model", semanticModel, "plan_validation_error", formatValidationError(validationError));
 
 		// 生成计划
 		String plannerPrompt = (onlyNl2sql ? PromptConstant.getPlannerNl2sqlOnlyTemplate()
 				: PromptConstant.getPlannerPromptTemplate())
 			.render(params);
-
+		log.debug("Planner prompt: as follows \n{}\n", plannerPrompt);
 		Flux<ChatResponse> chatResponseFlux = Flux.concat(
 				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign())),
 				llmService.callUser(plannerPrompt),
