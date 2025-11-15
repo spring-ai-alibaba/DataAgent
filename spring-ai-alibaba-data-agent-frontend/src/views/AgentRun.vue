@@ -216,6 +216,27 @@
       HumanFeedback,
       ChatSessionSidebar,
     },
+    created() {
+      window.copyTextToClipboard = btn => {
+        const text = btn.previousElementSibling.textContent;
+        const originalText = btn.textContent;
+
+        navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            btn.textContent = '已复制!';
+            setTimeout(() => {
+              btn.textContent = originalText;
+            }, 3000);
+          })
+          .catch(() => {
+            btn.textContent = '复制失败';
+            setTimeout(() => {
+              btn.textContent = originalText;
+            }, 3000);
+          });
+      };
+    },
     setup() {
       const route = useRoute();
 
@@ -573,7 +594,7 @@
               // 使用 highlight.js 进行代码高亮
               const language = node[idx].textType.toLowerCase();
               const highlighted = hljs.highlight(pre, { language });
-              content += `<pre><code class="hljs ${language}">${highlighted.value}</code></pre>`;
+              content += `<pre><div style="display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 8px 12px; border-bottom: none; font-family: system-ui, sans-serif; font-size: 14px;"><span style="color: #666;">${language}</span><span hidden>${pre}</span><button onclick='copyTextToClipboard(this)' style="background: #f8f9fa; border: none; padding: 4px 12px; border-radius: 12px; font-size: 13px; cursor: pointer; transition: background 0.2s;">复制</button></div><code class="hljs ${language}">${highlighted.value}</code></pre>`;
             } catch (error) {
               // 如果高亮失败，返回原始代码
               content += `<pre><code>${pre}</code></pre>`;
