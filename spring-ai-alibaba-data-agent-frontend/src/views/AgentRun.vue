@@ -604,6 +604,8 @@
             } else {
               break;
             }
+          } else if(node[idx].textType === TextType.RESULT_SET) {
+            // todo: 渲染结果集
           } else {
             console.warn(`不支持的 textType: ${node[idx].textType}`);
             content += node[idx].text;

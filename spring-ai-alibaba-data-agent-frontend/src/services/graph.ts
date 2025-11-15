@@ -41,6 +41,7 @@ export enum TextType {
   SQL = 'SQL',
   HTML = 'HTML',
   MARK_DOWN = 'MARK_DOWN',
+  RESULT_SET = 'RESULT_SET',
   TEXT = 'TEXT',
 }
 
