@@ -33,6 +33,8 @@ public enum TextType {
 
 	MARK_DOWN("```", "```"),
 
+	RESULT_SET("```result_set", "```"),
+
 	TEXT(null, null);
 
 	private final String startSign;

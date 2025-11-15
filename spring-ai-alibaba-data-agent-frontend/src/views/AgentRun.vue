@@ -149,6 +149,25 @@
                 <span class="switch-label">自动Scroll</span>
                 <el-switch v-model="autoScroll" />
               </div>
+              <div class="switch-item">
+                <span class="switch-label">显示SQL结果</span>
+                <el-tooltip
+                  content="启用本功能会将SQL查询结果存储到DataAgent项目的数据库中，如果数据量较大不建议开启本功能"
+                  placement="top"
+                >
+                  <el-switch v-model="resultSetDisplayConfig.showSqlResults" />
+                </el-tooltip>
+              </div>
+              <div class="switch-item">
+                <span class="switch-label">每页数量</span>
+                <el-select v-model="resultSetDisplayConfig.pageSize" style="width: 80px">
+                  <el-option label="5" :value="5" />
+                  <el-option label="10" :value="10" />
+                  <el-option label="20" :value="20" />
+                  <el-option label="50" :value="50" />
+                  <el-option label="100" :value="100" />
+                </el-select>
+              </div>
             </div>
           </div>
           <div class="input-container">
@@ -201,9 +220,18 @@
     TextType,
   } from '@/services/graph';
   import { type Agent } from '@/services/agent';
+  import { type ResultSetData, type ResultSetDisplayConfig } from '@/services/resultSet';
   import HumanFeedback from '@/components/run/HumanFeedback.vue';
   import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
   // todo: 添加预设问题子件
+
+  // 扩展Window接口以包含自定义方法
+  declare global {
+    interface Window {
+      copyTextToClipboard: (btn: HTMLElement) => void;
+      handleResultSetPagination: (btn: HTMLElement, direction: 'prev' | 'next') => void;
+    }
+  }
 
   export default defineComponent({
     name: 'AgentRun',
@@ -215,6 +243,65 @@
       Download,
       HumanFeedback,
       ChatSessionSidebar,
+    },
+    created() {
+      window.copyTextToClipboard = btn => {
+        const text = btn.previousElementSibling.textContent;
+        const originalText = btn.textContent;
+
+        navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            btn.textContent = '已复制!';
+            setTimeout(() => {
+              btn.textContent = originalText;
+            }, 3000);
+          })
+          .catch(() => {
+            btn.textContent = '复制失败';
+            setTimeout(() => {
+              btn.textContent = originalText;
+            }, 3000);
+          });
+      };
+
+      // 结果集翻页事件处理
+      window.handleResultSetPagination = (btn: HTMLElement, direction: 'prev' | 'next') => {
+        const container = btn.closest('.result-set-container');
+        if (!container) return;
+
+        const currentPageElement = container.querySelector('.result-set-current-page');
+        const prevBtn = container.querySelector('.result-set-pagination-prev') as HTMLButtonElement;
+        const nextBtn = container.querySelector('.result-set-pagination-next') as HTMLButtonElement;
+        const pages = container.querySelectorAll('.result-set-page');
+
+        if (!currentPageElement || !prevBtn || !nextBtn || pages.length === 0) return;
+
+        let currentPage = parseInt(currentPageElement.textContent || '1');
+        const totalPages = pages.length;
+
+        if (direction === 'prev' && currentPage > 1) {
+          currentPage--;
+        } else if (direction === 'next' && currentPage < totalPages) {
+          currentPage++;
+        }
+
+        // 更新页面显示
+        pages.forEach((page: Element) => {
+          page.classList.remove('result-set-page-active');
+        });
+        const targetPage = container.querySelector(`.result-set-page[data-page="${currentPage}"]`);
+        if (targetPage) {
+          targetPage.classList.add('result-set-page-active');
+        }
+
+        // 更新页码显示
+        currentPageElement.textContent = currentPage.toString();
+
+        // 更新按钮状态
+        prevBtn.disabled = currentPage === 1;
+        nextBtn.disabled = currentPage === totalPages;
+      };
     },
     setup() {
       const route = useRoute();
@@ -252,6 +339,12 @@
       // 人工反馈相关数据
       const showHumanFeedback = ref(false);
       const lastRequest = ref<GraphRequest | null>(null);
+
+      // 结果集显示配置
+      const resultSetDisplayConfig = ref<ResultSetDisplayConfig>({
+        showSqlResults: false,
+        pageSize: 20,
+      });
 
       const agentId = computed(() => route.params.id as string);
 
@@ -573,7 +666,7 @@
               // 使用 highlight.js 进行代码高亮
               const language = node[idx].textType.toLowerCase();
               const highlighted = hljs.highlight(pre, { language });
-              content += `<pre><code class="hljs ${language}">${highlighted.value}</code></pre>`;
+              content += `<pre><div style="display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 8px 12px; border-bottom: none; font-family: system-ui, sans-serif; font-size: 14px;"><span style="color: #666;">${language}</span><span hidden>${pre}</span><button onclick='copyTextToClipboard(this)' style="background: #f8f9fa; border: none; padding: 4px 12px; border-radius: 12px; font-size: 13px; cursor: pointer; transition: background 0.2s;">复制</button></div><code class="hljs ${language}">${highlighted.value}</code></pre>`;
             } catch (error) {
               // 如果高亮失败，返回原始代码
               content += `<pre><code>${pre}</code></pre>`;
@@ -582,6 +675,44 @@
               idx = p - 1;
             } else {
               break;
+            }
+          } else if (node[idx].textType === TextType.RESULT_SET) {
+            // 渲染结果集
+            if (!resultSetDisplayConfig.value.showSqlResults) {
+              // 如果用户关闭了显示SQL结果，直接忽略这个节点
+              continue;
+            }
+
+            try {
+              // 解析JSON字符串
+              const resultSetData: ResultSetData = JSON.parse(node[idx].text);
+
+              // 检查是否有错误信息
+              if (resultSetData.errorMsg) {
+                content += `<div class="result-set-error">错误: ${resultSetData.errorMsg}</div>`;
+                continue;
+              }
+
+              // 检查数据是否为空
+              if (
+                !resultSetData.column ||
+                resultSetData.column.length === 0 ||
+                !resultSetData.data ||
+                resultSetData.data.length === 0
+              ) {
+                content += `<div class="result-set-empty">查询结果为空</div>`;
+                continue;
+              }
+
+              // 生成表格HTML
+              const tableHtml = generateResultSetTable(
+                resultSetData,
+                resultSetDisplayConfig.value.pageSize,
+              );
+              content += tableHtml;
+            } catch (error) {
+              console.error('解析结果集JSON失败:', error);
+              content += `<div class="result-set-error">解析结果集数据失败: ${error.message}</div>`;
             }
           } else {
             console.warn(`不支持的 textType: ${node[idx].textType}`);
@@ -627,6 +758,61 @@
         await sendGraphRequest(newRequest, rejectedPlan);
       };
 
+      // 生成结果集表格HTML
+      const generateResultSetTable = (resultSetData: ResultSetData, pageSize: number): string => {
+        const columns = resultSetData.column || [];
+        const allData = resultSetData.data || [];
+        const total = allData.length;
+
+        // 分页逻辑 - 生成所有页面的HTML，通过CSS控制显示
+        const totalPages = Math.ceil(total / pageSize);
+
+        let tableHtml = `<div class="result-set-container"><div class="result-set-header"><div class="result-set-info"><span>查询结果 (共 ${total} 条记录)</span><div class="result-set-pagination-controls"><span class="result-set-pagination-info">第 <span class="result-set-current-page">1</span> 页，共 ${totalPages} 页</span><div class="result-set-pagination-buttons"><button class="result-set-pagination-btn result-set-pagination-prev" onclick="handleResultSetPagination(this, 'prev')" disabled>上一页</button><button class="result-set-pagination-btn result-set-pagination-next" onclick="handleResultSetPagination(this, 'next')" ${totalPages > 1 ? '' : 'disabled'}>下一页</button></div></div></div></div><div class="result-set-table-container">`;
+
+        // 生成所有页面的表格
+        for (let page = 1; page <= totalPages; page++) {
+          const startIndex = (page - 1) * pageSize;
+          const endIndex = Math.min(startIndex + pageSize, total);
+          const currentPageData = allData.slice(startIndex, endIndex);
+
+          tableHtml += `<div class="result-set-page ${page === 1 ? 'result-set-page-active' : ''}" data-page="${page}"><table class="result-set-table"><thead><tr>`;
+
+          // 添加表头
+          columns.forEach(column => {
+            tableHtml += `<th>${escapeHtml(column)}</th>`;
+          });
+
+          tableHtml += `</tr></thead><tbody>`;
+
+          // 添加表格数据
+          if (currentPageData.length === 0) {
+            tableHtml += `<tr><td colspan="${columns.length}" class="result-set-empty-cell">暂无数据</td></tr>`;
+          } else {
+            currentPageData.forEach(row => {
+              tableHtml += `<tr>`;
+              columns.forEach(column => {
+                const value = row[column] || '';
+                tableHtml += `<td>${escapeHtml(value)}</td>`;
+              });
+              tableHtml += `</tr>`;
+            });
+          }
+
+          tableHtml += `</tbody></table></div>`;
+        }
+
+        tableHtml += `</div></div>`;
+
+        return tableHtml;
+      };
+
+      // HTML转义函数
+      const escapeHtml = (text: string): string => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      };
+
       // 生命周期
       onMounted(async () => {
         await loadAgent();
@@ -645,6 +831,7 @@
         agentId,
         showHumanFeedback,
         lastRequest,
+        resultSetDisplayConfig,
         selectSession,
         sendMessage,
         formatMessageContent,
@@ -934,6 +1121,146 @@
 
     .input-container {
       flex-direction: column;
+    }
+  }
+</style>
+
+<style>
+  /* 结果集表格样式 */
+  .result-set-container {
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+
+  .result-set-header {
+    background: #f8f9fa;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e8e8e8;
+  }
+
+  .result-set-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    color: #606266;
+  }
+
+  .result-set-pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .result-set-pagination-info {
+    font-size: 14px;
+    color: #606266;
+  }
+
+  .result-set-pagination-buttons {
+    display: flex;
+    gap: 8px;
+  }
+
+  .result-set-pagination-btn {
+    padding: 6px 12px;
+    border: 1px solid #dcdfe6;
+    background: white;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .result-set-pagination-btn:hover:not(:disabled) {
+    background: #f5f7fa;
+    border-color: #c6e2ff;
+  }
+
+  .result-set-pagination-btn:disabled {
+    color: #c0c4cc;
+    cursor: not-allowed;
+    background: #f5f7fa;
+  }
+
+  .result-set-table-container {
+    overflow-x: auto;
+    position: relative;
+  }
+
+  .result-set-page {
+    display: none;
+  }
+
+  .result-set-page-active {
+    display: block;
+  }
+
+  .result-set-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .result-set-table th {
+    background: #f5f7fa;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #606266;
+    border-bottom: 1px solid #e8e8e8;
+    white-space: nowrap;
+  }
+
+  .result-set-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    word-break: break-word;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .result-set-table tr:hover {
+    background: #f5f7fa;
+  }
+
+  .result-set-empty-cell {
+    text-align: center;
+    color: #909399;
+    padding: 20px;
+  }
+
+  .result-set-error {
+    background: #fef0f0;
+    color: #f56c6c;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin: 8px 0;
+    border: 1px solid #fbc4c4;
+  }
+
+  .result-set-empty {
+    background: #f4f4f5;
+    color: #909399;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin: 8px 0;
+    text-align: center;
+  }
+
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .result-set-table-container {
+      font-size: 12px;
+    }
+
+    .result-set-table th,
+    .result-set-table td {
+      padding: 6px 8px;
     }
   }
 </style>

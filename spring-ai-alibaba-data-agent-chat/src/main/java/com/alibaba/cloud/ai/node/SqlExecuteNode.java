@@ -210,13 +210,17 @@ public class SqlExecuteNode implements NodeAction {
 
 			// Create display flux for user experience only
 			Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
+				// todo: 先返回Flux流，再去执行SQL查询
 				emitter.next(ChatResponseUtil.createResponse("开始执行SQL..."));
 				emitter.next(ChatResponseUtil.createResponse("执行SQL查询"));
 				emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign()));
 				emitter.next(ChatResponseUtil.createResponse(sqlQuery));
 				emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()));
 				emitter.next(ChatResponseUtil.createResponse("执行SQL完成"));
-				// todo: 输出SQL执行结果
+				emitter.next(ChatResponseUtil.createResponse("SQL查询结果："));
+				emitter.next(ChatResponseUtil.createPureResponse(TextType.RESULT_SET.getStartSign()));
+				emitter.next(ChatResponseUtil.createPureResponse(jsonStr));
+				emitter.next(ChatResponseUtil.createPureResponse(TextType.RESULT_SET.getEndSign()));
 				emitter.complete();
 			});
 
