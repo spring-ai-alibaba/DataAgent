@@ -27,17 +27,21 @@ public interface AgentDatasourceService {
 	 */
 	Boolean initializeSchemaForAgentWithDatasource(Long agentId, Integer datasourceId, List<String> tables);
 
-	/**
-	 * Get datasource tables
-	 */
-	List<String> getDatasourceTables(Integer datasourceId) throws Exception;
-
 	List<AgentDatasource> getAgentDatasource(Integer agentId);
+
+	default AgentDatasource getCurrentAgentDatasource(Integer agentId) {
+		return getAgentDatasource(agentId).stream()
+			.filter(a -> a.getIsActive() != 0)
+			.findFirst()
+			.orElseThrow(() -> new IllegalStateException("Agent " + agentId + " has no active datasource"));
+	}
 
 	AgentDatasource addDatasourceToAgent(Integer agentId, Integer datasourceId);
 
 	void removeDatasourceFromAgent(Integer agentId, Integer datasourceId);
 
 	AgentDatasource toggleDatasourceForAgent(Integer agentId, Integer datasourceId, Boolean isActive);
+
+	void updateDatasourceTables(Integer agentId, Integer datasourceId, List<String> tables);
 
 }

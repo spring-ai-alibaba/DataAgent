@@ -462,33 +462,10 @@
             return;
           }
 
-          // todo: 支持每一个数据源选择指定的数据表进行初始化（需要后端的配合）
-          for (const source of usedDatasource) {
-            ElMessage.primary(`正在初始化数据源: ${source.name}...`);
-            const tables: ApiResponse<string[]> = await agentDatasourceService.getDatasourceTables(
-              props.agentId,
-              source.id,
-            );
-            if (tables === null || tables.data === null || !tables.success) {
-              throw new Error('获取数据源表失败');
-            }
-            const tablesData: string[] = tables.data;
-            if (tablesData.length === 0) {
-              ElMessage.warning(`数据源: ${source.name} 没有数据表`);
-              continue;
-            }
-
-            const response: ApiResponse<null> = await agentDatasourceService.initSchema(
-              props.agentId,
-              {
-                datasourceId: source.id,
-                tables: tablesData,
-              },
-            );
-            if (response.success === undefined || response.success == null || !response.success) {
-              ElMessage.error(`初始化数据源: ${source.name} 失败`);
-              throw new Error('初始化数据源失败');
-            }
+          const response: ApiResponse<null> = await agentDatasourceService.initSchema(props.agentId);
+          if (response.success === undefined || response.success == null || !response.success) {
+            ElMessage.error(`初始化数据源失败`);
+            throw new Error('初始化数据源失败');
           }
 
           ElMessage.success('初始化当前智能体的数据源成功');

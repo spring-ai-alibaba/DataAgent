@@ -44,6 +44,7 @@ export interface AgentDatasource {
   createTime?: string;
   updateTime?: string;
   datasource?: Datasource;
+  selectTables?: string[];
 }
 
 const API_BASE_URL = '/api/datasource';
@@ -74,25 +75,38 @@ class DatasourceService {
     }
   }
 
-  // 3. 创建数据源
+  // 3. 获取数据源的表列表
+  async getDatasourceTables(id: number): Promise<string[]> {
+    try {
+      const response = await axios.get<string[]>(`${API_BASE_URL}/${id}/tables`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 400) {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  // 4. 创建数据源
   async createDatasource(datasource: Datasource): Promise<Datasource> {
     const response = await axios.post<Datasource>(API_BASE_URL, datasource);
     return response.data;
   }
 
-  // 4. 更新数据源
+  // 5. 更新数据源
   async updateDatasource(id: number, datasource: Datasource): Promise<Datasource> {
     const response = await axios.put<Datasource>(`${API_BASE_URL}/${id}`, datasource);
     return response.data;
   }
 
-  // 5. 删除数据源
+  // 6. 删除数据源
   async deleteDatasource(id: number): Promise<ApiResponse<void>> {
     const response = await axios.delete<ApiResponse<void>>(`${API_BASE_URL}/${id}`);
     return response.data;
   }
 
-  // 6. 测试数据源连接
+  // 7. 测试数据源连接
   async testConnection(id: number): Promise<ApiResponse<boolean>> {
     const response = await axios.post<ApiResponse<boolean>>(`${API_BASE_URL}/${id}/test`);
     return response.data;

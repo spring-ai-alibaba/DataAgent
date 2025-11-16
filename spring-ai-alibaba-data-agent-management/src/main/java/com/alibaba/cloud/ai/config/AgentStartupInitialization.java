@@ -156,7 +156,7 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 
 			Integer datasourceId = activeDatasource.getDatasourceId();
 
-			List<String> tables = datasourceService.getDatasourceTables(datasourceId);
+			List<String> tables = activeDatasource.getSelectTables();
 
 			if (tables.isEmpty()) {
 				log.warn("Datasource {} has no tables available for agent {}", datasourceId, agentId);
