@@ -50,7 +50,9 @@ class AgentDatasourceService {
    */
   async getAgentDatasource(agentId: number): Promise<AgentDatasource[]> {
     try {
-      const response = await axios.get<ApiResponse<AgentDatasource[]>>(BASE_URL_FUNC(String(agentId)));
+      const response = await axios.get<ApiResponse<AgentDatasource[]>>(
+        BASE_URL_FUNC(String(agentId)),
+      );
       if (response.data.success) {
         return response.data.data || [];
       }
@@ -127,10 +129,7 @@ class AgentDatasourceService {
     dto: UpdateDatasourceTablesDto,
   ): Promise<ApiResponse<null>> {
     try {
-      const response = await axios.post<ApiResponse<null>>(
-        `${BASE_URL_FUNC(agentId)}/tables`,
-        dto,
-      );
+      const response = await axios.post<ApiResponse<null>>(`${BASE_URL_FUNC(agentId)}/tables`, dto);
       return response.data;
     } catch (error) {
       throw new Error(`更新数据源表列表失败: ${error}`);

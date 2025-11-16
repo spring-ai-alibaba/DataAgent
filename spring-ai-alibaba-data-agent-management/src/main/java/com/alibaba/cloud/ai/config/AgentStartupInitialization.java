@@ -134,7 +134,8 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 				return true;
 			}
 
-			AgentDatasource activeDatasource = agentDatasourceService.getCurrentAgentDatasource(Math.toIntExact(agentId));
+			AgentDatasource activeDatasource = agentDatasourceService
+				.getCurrentAgentDatasource(Math.toIntExact(agentId));
 
 			Integer datasourceId = activeDatasource.getDatasourceId();
 

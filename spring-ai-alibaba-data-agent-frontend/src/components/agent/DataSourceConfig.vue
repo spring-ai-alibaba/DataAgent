@@ -45,156 +45,158 @@
       </el-row>
     </div>
 
-      <el-table 
-        :data="datasource" 
-        style="width: 100%" 
-        border
-        @expand-change="handleExpandChange"
-      >
-        <el-table-column type="expand" width="60">
-          <template #default="scope">
-            <div v-if="scope.row.status === 'active'" style="padding: 20px; background: #f8f9fa; border-radius: 8px;">
-              <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
-                <h4 style="margin: 0;">数据表管理</h4>
-                <el-button 
-                  @click="loadDatasourceTables(scope.row)" 
-                  size="small" 
-                  type="primary" 
-                  :loading="tableLoadingStates[scope.row.id]"
+    <el-table :data="datasource" style="width: 100%" border @expand-change="handleExpandChange">
+      <el-table-column type="expand" width="60">
+        <template #default="scope">
+          <div
+            v-if="scope.row.status === 'active'"
+            style="padding: 20px; background: #f8f9fa; border-radius: 8px"
+          >
+            <div
+              style="
+                margin-bottom: 15px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <h4 style="margin: 0">数据表管理</h4>
+              <el-button
+                @click="loadDatasourceTables(scope.row)"
+                size="small"
+                type="primary"
+                :loading="tableLoadingStates[scope.row.id]"
+                round
+              >
+                刷新表列表
+              </el-button>
+            </div>
+
+            <div v-if="tableLists[scope.row.id] && tableLists[scope.row.id].length > 0">
+              <el-checkbox-group v-model="selectedTables[scope.row.id]">
+                <el-row :gutter="10">
+                  <el-col
+                    v-for="table in tableLists[scope.row.id]"
+                    :key="table"
+                    :span="6"
+                    style="margin-bottom: 10px"
+                  >
+                    <el-checkbox :label="table" size="large">
+                      {{ table }}
+                    </el-checkbox>
+                  </el-col>
+                </el-row>
+              </el-checkbox-group>
+
+              <div style="margin-top: 20px; text-align: right">
+                <el-button
+                  @click="updateDatasourceTables(scope.row)"
+                  size="small"
+                  type="success"
+                  :loading="updateLoadingStates[scope.row.id]"
                   round
                 >
-                  刷新表列表
+                  更新数据表
+                </el-button>
+                <el-button
+                  @click="selectAllTables(scope.row)"
+                  size="small"
+                  type="primary"
+                  round
+                  plain
+                >
+                  全选
+                </el-button>
+                <el-button @click="clearAllTables(scope.row)" size="small" type="info" round plain>
+                  清空
                 </el-button>
               </div>
-              
-              <div v-if="tableLists[scope.row.id] && tableLists[scope.row.id].length > 0">
-                <el-checkbox-group v-model="selectedTables[scope.row.id]">
-                  <el-row :gutter="10">
-                    <el-col 
-                      v-for="table in tableLists[scope.row.id]" 
-                      :key="table" 
-                      :span="6" 
-                      style="margin-bottom: 10px;"
-                    >
-                      <el-checkbox :label="table" size="large">
-                        {{ table }}
-                      </el-checkbox>
-                    </el-col>
-                  </el-row>
-                </el-checkbox-group>
-                
-                <div style="margin-top: 20px; text-align: right;">
-                  <el-button 
-                    @click="updateDatasourceTables(scope.row)" 
-                    size="small" 
-                    type="success" 
-                    :loading="updateLoadingStates[scope.row.id]"
-                    round
-                  >
-                    更新数据表
-                  </el-button>
-                  <el-button 
-                    @click="selectAllTables(scope.row)" 
-                    size="small" 
-                    type="primary" 
-                    round
-                    plain
-                  >
-                    全选
-                  </el-button>
-                  <el-button 
-                    @click="clearAllTables(scope.row)" 
-                    size="small" 
-                    type="info" 
-                    round
-                    plain
-                  >
-                    清空
-                  </el-button>
-                </div>
-              </div>
-              <div v-else-if="tableLoadingStates[scope.row.id]" style="text-align: center; padding: 20px;">
-                <el-icon class="is-loading" style="font-size: 24px;"><Loading /></el-icon>
-                <div style="margin-top: 10px; color: #666;">正在加载表列表...</div>
-              </div>
-              <div v-else style="text-align: center; padding: 20px; color: #999;">
-                <el-icon style="font-size: 24px;"><FolderOpened /></el-icon>
-                <div style="margin-top: 10px;">暂无表数据，请点击刷新表列表</div>
-              </div>
             </div>
-            <div v-else style="padding: 20px; text-align: center; color: #999;">
-              <el-icon style="font-size: 24px;"><Lock /></el-icon>
-              <div style="margin-top: 10px;">请先启用数据源以管理表</div>
+            <div
+              v-else-if="tableLoadingStates[scope.row.id]"
+              style="text-align: center; padding: 20px"
+            >
+              <el-icon class="is-loading" style="font-size: 24px"><Loading /></el-icon>
+              <div style="margin-top: 10px; color: #666">正在加载表列表...</div>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="name" label="数据源名称" min-width="120px" />
-        <el-table-column prop="type" label="数据源类型" min-width="100px" />
-        <el-table-column prop="connectionUrl" label="连接地址" min-width="200px">
-          <template #default="scope">
-            <el-tooltip
-              :content="scope.row.connectionUrl"
-              placement="top"
-              :disabled="!scope.row.connectionUrl || scope.row.connectionUrl.length <= 50"
-            >
-              <span class="connection-url-text">
-                {{ scope.row.connectionUrl ? truncateText(scope.row.connectionUrl, 50) : '-' }}
-              </span>
-            </el-tooltip>
-          </template>
-        </el-table-column>
-        <el-table-column label="连接状态" min-width="50px">
-          <template #default="scope">
-            <el-tag :type="scope.row.testStatus === 'success' ? 'success' : 'danger'" round>
-              {{ scope.row.testStatus === 'success' ? '连接成功' : '连接失败' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" min-width="40px">
-          <template #default="scope">
-            <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'" round>
-              {{ scope.row.status === 'active' ? '启用' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" min-width="100px" />
-        <el-table-column label="操作" min-width="120px">
-          <template #default="scope">
-            <el-button
-              v-if="scope.row.status === 'active'"
-              @click="changeDatasource(scope.row, false)"
-              size="small"
-              type="warning"
-              round
-              plain
-            >
-              禁用
-            </el-button>
-            <el-button
-              v-else
-              @click="changeDatasource(scope.row, true)"
-              size="small"
-              type="success"
-              round
-              plain
-            >
-              启用
-            </el-button>
-            <el-button @click="testConnection(scope.row)" size="small" type="primary" round plain>
-              测试连接
-            </el-button>
-            <el-button
-              @click="removeAgentDatasource(scope.row)"
-              size="small"
-              type="danger"
-              round
-              plain
-            >
-              移除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+            <div v-else style="text-align: center; padding: 20px; color: #999">
+              <el-icon style="font-size: 24px"><FolderOpened /></el-icon>
+              <div style="margin-top: 10px">暂无表数据，请点击刷新表列表</div>
+            </div>
+          </div>
+          <div v-else style="padding: 20px; text-align: center; color: #999">
+            <el-icon style="font-size: 24px"><Lock /></el-icon>
+            <div style="margin-top: 10px">请先启用数据源以管理表</div>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column prop="name" label="数据源名称" min-width="120px" />
+      <el-table-column prop="type" label="数据源类型" min-width="100px" />
+      <el-table-column prop="connectionUrl" label="连接地址" min-width="200px">
+        <template #default="scope">
+          <el-tooltip
+            :content="scope.row.connectionUrl"
+            placement="top"
+            :disabled="!scope.row.connectionUrl || scope.row.connectionUrl.length <= 50"
+          >
+            <span class="connection-url-text">
+              {{ scope.row.connectionUrl ? truncateText(scope.row.connectionUrl, 50) : '-' }}
+            </span>
+          </el-tooltip>
+        </template>
+      </el-table-column>
+      <el-table-column label="连接状态" min-width="50px">
+        <template #default="scope">
+          <el-tag :type="scope.row.testStatus === 'success' ? 'success' : 'danger'" round>
+            {{ scope.row.testStatus === 'success' ? '连接成功' : '连接失败' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="状态" min-width="40px">
+        <template #default="scope">
+          <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'" round>
+            {{ scope.row.status === 'active' ? '启用' : '禁用' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="createTime" label="创建时间" min-width="100px" />
+      <el-table-column label="操作" min-width="120px">
+        <template #default="scope">
+          <el-button
+            v-if="scope.row.status === 'active'"
+            @click="changeDatasource(scope.row, false)"
+            size="small"
+            type="warning"
+            round
+            plain
+          >
+            禁用
+          </el-button>
+          <el-button
+            v-else
+            @click="changeDatasource(scope.row, true)"
+            size="small"
+            type="success"
+            round
+            plain
+          >
+            启用
+          </el-button>
+          <el-button @click="testConnection(scope.row)" size="small" type="primary" round plain>
+            测试连接
+          </el-button>
+          <el-button
+            @click="removeAgentDatasource(scope.row)"
+            size="small"
+            type="danger"
+            round
+            plain
+          >
+            移除
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
   </div>
 
   <!-- 添加数据源Dialog -->
@@ -525,12 +527,12 @@
           datasource.value = agentDatasource.map(item => {
             const datasourceItem = { ...item.datasource };
             datasourceItem.status = item.isActive === 1 ? 'active' : 'inactive';
-            
+
             // 初始化已选择的表
             if (item.selectTables && item.datasource?.id) {
               selectedTables.value[item.datasource.id] = [...item.selectTables];
             }
-            
+
             return datasourceItem;
           });
         } catch (error) {
@@ -570,7 +572,9 @@
             return;
           }
 
-          const response: ApiResponse<null> = await agentDatasourceService.initSchema(props.agentId);
+          const response: ApiResponse<null> = await agentDatasourceService.initSchema(
+            props.agentId,
+          );
           if (response.success === undefined || response.success == null || !response.success) {
             ElMessage.error(`初始化数据源失败`);
             throw new Error('初始化数据源失败');
@@ -803,20 +807,20 @@
       // 加载数据源的表列表
       const loadDatasourceTables = async (datasource: Datasource) => {
         if (!datasource.id) return;
-        
+
         tableLoadingStates.value[datasource.id] = true;
         try {
           const tables = await datasourceService.getDatasourceTables(datasource.id);
           tableLists.value[datasource.id] = tables;
-          
+
           // 如果没有初始化已选择的表，则使用当前已选择的表
           if (!selectedTables.value[datasource.id]) {
             const agentDatasource = agentDatasourceList.value.find(
-              item => item.datasource?.id === datasource.id
+              item => item.datasource?.id === datasource.id,
             );
             selectedTables.value[datasource.id] = agentDatasource?.selectTables || [];
           }
-          
+
           ElMessage.success(`成功加载 ${tables.length} 个表`);
         } catch (error) {
           ElMessage.error('加载表列表失败');
@@ -829,22 +833,22 @@
       // 更新数据源的表列表
       const updateDatasourceTables = async (datasource: Datasource) => {
         if (!datasource.id) return;
-        
+
         updateLoadingStates.value[datasource.id] = true;
         try {
           const response = await agentDatasourceService.updateDatasourceTables(
             String(props.agentId),
             {
               datasourceId: datasource.id,
-              tables: selectedTables.value[datasource.id] || []
-            }
+              tables: selectedTables.value[datasource.id] || [],
+            },
           );
-          
+
           if (response.success) {
             ElMessage.success('数据表更新成功');
             // 更新本地存储的已选择表
             const agentDatasource = agentDatasourceList.value.find(
-              item => item.datasource?.id === datasource.id
+              item => item.datasource?.id === datasource.id,
             );
             if (agentDatasource) {
               agentDatasource.selectTables = [...(selectedTables.value[datasource.id] || [])];
