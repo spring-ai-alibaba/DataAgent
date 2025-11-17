@@ -23,6 +23,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_REVIEW_ENABLED;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLANNER_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_CURRENT_STEP;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_EXECUTOR_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_NEXT_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_REPAIR_COUNT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_VALIDATION_ERROR;
 import static org.junit.jupiter.api.Assertions.*;
 
 class HumanFeedbackNodeTest {
