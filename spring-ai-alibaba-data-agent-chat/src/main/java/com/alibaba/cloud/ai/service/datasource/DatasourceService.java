@@ -71,6 +71,8 @@ public interface DatasourceService {
 	/**
 	 * Get data source list associated with agent
 	 */
+	// 应该使用 AgentDatasourceService 中的方法
+	@Deprecated
 	List<AgentDatasource> getAgentDatasource(Integer agentId);
 
 	List<String> getDatasourceTables(Integer datasourceId) throws Exception;

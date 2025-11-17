@@ -45,10 +45,106 @@
       </el-row>
     </div>
 
-    <el-table :data="datasource" style="width: 100%" border>
+    <el-table :data="datasource" style="width: 100%" border @expand-change="handleExpandChange">
+      <el-table-column type="expand" width="100" label="选择数据表">
+        <template #default="scope">
+          <div
+            v-if="scope.row.status === 'active'"
+            style="padding: 20px; background: #f8f9fa; border-radius: 8px"
+          >
+            <div
+              style="
+                margin-bottom: 15px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <h4 style="margin: 0">数据表管理</h4>
+              <el-button
+                @click="loadDatasourceTables(scope.row)"
+                size="small"
+                type="primary"
+                :loading="tableLoadingStates[scope.row.id]"
+                round
+              >
+                刷新表列表
+              </el-button>
+            </div>
+
+            <div v-if="tableLists[scope.row.id] && tableLists[scope.row.id].length > 0">
+              <el-checkbox-group v-model="selectedTables[scope.row.id]">
+                <el-row :gutter="10">
+                  <el-col
+                    v-for="table in tableLists[scope.row.id]"
+                    :key="table"
+                    :span="6"
+                    style="margin-bottom: 10px"
+                  >
+                    <el-checkbox :label="table" size="large">
+                      {{ table }}
+                    </el-checkbox>
+                  </el-col>
+                </el-row>
+              </el-checkbox-group>
+
+              <div style="margin-top: 20px; text-align: right">
+                <el-button
+                  @click="updateDatasourceTables(scope.row)"
+                  size="small"
+                  type="success"
+                  :loading="updateLoadingStates[scope.row.id]"
+                  round
+                >
+                  更新数据表
+                </el-button>
+                <el-button
+                  @click="selectAllTables(scope.row)"
+                  size="small"
+                  type="primary"
+                  round
+                  plain
+                >
+                  全选
+                </el-button>
+                <el-button @click="clearAllTables(scope.row)" size="small" type="info" round plain>
+                  清空
+                </el-button>
+              </div>
+            </div>
+            <div
+              v-else-if="tableLoadingStates[scope.row.id]"
+              style="text-align: center; padding: 20px"
+            >
+              <el-icon class="is-loading" style="font-size: 24px"><Loading /></el-icon>
+              <div style="margin-top: 10px; color: #666">正在加载表列表...</div>
+            </div>
+            <div v-else style="text-align: center; padding: 20px; color: #999">
+              <el-icon style="font-size: 24px"><FolderOpened /></el-icon>
+              <div style="margin-top: 10px">暂无表数据，请点击刷新表列表</div>
+            </div>
+          </div>
+          <div v-else style="padding: 20px; text-align: center; color: #999">
+            <el-icon style="font-size: 24px"><Lock /></el-icon>
+            <div style="margin-top: 10px">请先启用数据源以管理表</div>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column prop="name" label="数据源名称" min-width="120px" />
       <el-table-column prop="type" label="数据源类型" min-width="100px" />
-      <el-table-column prop="connectionUrl" label="连接地址" min-width="200px" />
+      <el-table-column prop="connectionUrl" label="连接地址" min-width="200px">
+        <template #default="scope">
+          <el-tooltip
+            :content="scope.row.connectionUrl"
+            placement="top"
+            :disabled="!scope.row.connectionUrl || scope.row.connectionUrl.length <= 50"
+          >
+            <span class="connection-url-text">
+              {{ scope.row.connectionUrl ? truncateText(scope.row.connectionUrl, 50) : '-' }}
+            </span>
+          </el-tooltip>
+        </template>
+      </el-table-column>
       <el-table-column label="连接状态" min-width="50px">
         <template #default="scope">
           <el-tag :type="scope.row.testStatus === 'success' ? 'success' : 'danger'" round>
@@ -379,7 +475,7 @@
 
 <script lang="ts">
   import { defineComponent, ref, onMounted, Ref, watch } from 'vue';
-  import { Plus, UploadFilled } from '@element-plus/icons-vue';
+  import { Plus, UploadFilled, Loading, FolderOpened, Lock } from '@element-plus/icons-vue';
   import datasourceService from '@/services/datasource';
   import { Datasource, AgentDatasource } from '@/services/datasource';
   import { ApiResponse } from '@/services/common';
@@ -407,6 +503,13 @@
       const editDialogVisible: Ref<boolean> = ref(false);
       const editingDatasource: Ref<Datasource> = ref({} as Datasource);
 
+      // 数据表管理相关状态
+      const tableLists: Ref<Record<number, string[]>> = ref({});
+      const selectedTables: Ref<Record<number, string[]>> = ref({});
+      const tableLoadingStates: Ref<Record<number, boolean>> = ref({});
+      const updateLoadingStates: Ref<Record<number, boolean>> = ref({});
+      const agentDatasourceList: Ref<AgentDatasource[]> = ref([]);
+
       watch(dialogVisible, newValue => {
         if (newValue) {
           loadAllDatasource();
@@ -419,10 +522,17 @@
         selectedDatasourceId.value = null;
         try {
           const response = await agentDatasourceService.getAgentDatasource(props.agentId);
+          agentDatasourceList.value = response || [];
           const agentDatasource: AgentDatasource[] = response || [];
           datasource.value = agentDatasource.map(item => {
             const datasourceItem = { ...item.datasource };
             datasourceItem.status = item.isActive === 1 ? 'active' : 'inactive';
+
+            // 初始化已选择的表
+            if (item.selectTables && item.datasource?.id) {
+              selectedTables.value[item.datasource.id] = [...item.selectTables];
+            }
+
             return datasourceItem;
           });
         } catch (error) {
@@ -453,42 +563,38 @@
       const initAgentDatasource = async () => {
         initStatus.value = true;
         try {
-          // 获取智能体配置的启用数据源
-          const usedDatasource: Datasource[] = datasource.value.filter(
-            item => item.status === 'active',
-          );
-          if (!usedDatasource || usedDatasource.length === 0) {
-            ElMessage.warning('当前智能体未启用任何数据源');
+          try {
+            // 获取智能体配置的启用数据源
+            const usedDatasource: AgentDatasource =
+              await agentDatasourceService.getActiveAgentDatasource(props.agentId);
+
+            if (usedDatasource.datasource == null && usedDatasource.datasourceId == null) {
+              ElMessage.warning(
+                '当前智能体没有启用的数据源！请添加一个新数据源，或者启用已有的数据源',
+              );
+              return;
+            } else if (
+              usedDatasource.selectTables == null ||
+              usedDatasource.selectTables.length === 0
+            ) {
+              ElMessage.warning(
+                '当前启用的数据源没有选择相应的数据表！请点击相应数据源左侧按钮，选择相应数据表并更新！',
+              );
+              return;
+            }
+          } catch {
+            ElMessage.warning(
+              '当前智能体没有启用的数据源！请添加一个新数据源，或者启用已有的数据源',
+            );
             return;
           }
 
-          // todo: 支持每一个数据源选择指定的数据表进行初始化（需要后端的配合）
-          for (const source of usedDatasource) {
-            ElMessage.primary(`正在初始化数据源: ${source.name}...`);
-            const tables: ApiResponse<string[]> = await agentDatasourceService.getDatasourceTables(
-              props.agentId,
-              source.id,
-            );
-            if (tables === null || tables.data === null || !tables.success) {
-              throw new Error('获取数据源表失败');
-            }
-            const tablesData: string[] = tables.data;
-            if (tablesData.length === 0) {
-              ElMessage.warning(`数据源: ${source.name} 没有数据表`);
-              continue;
-            }
-
-            const response: ApiResponse<null> = await agentDatasourceService.initSchema(
-              props.agentId,
-              {
-                datasourceId: source.id,
-                tables: tablesData,
-              },
-            );
-            if (response.success === undefined || response.success == null || !response.success) {
-              ElMessage.error(`初始化数据源: ${source.name} 失败`);
-              throw new Error('初始化数据源失败');
-            }
+          const response: ApiResponse<null> = await agentDatasourceService.initSchema(
+            props.agentId,
+          );
+          if (response.success === undefined || response.success == null || !response.success) {
+            ElMessage.error(`初始化数据源失败`);
+            throw new Error('初始化数据源失败');
           }
 
           ElMessage.success('初始化当前智能体的数据源成功');
@@ -715,6 +821,94 @@
         }
       };
 
+      // 加载数据源的表列表
+      const loadDatasourceTables = async (datasource: Datasource) => {
+        if (!datasource.id) return;
+
+        tableLoadingStates.value[datasource.id] = true;
+        try {
+          const tables = await datasourceService.getDatasourceTables(datasource.id);
+          tableLists.value[datasource.id] = tables;
+
+          // 如果没有初始化已选择的表，则使用当前已选择的表
+          if (!selectedTables.value[datasource.id]) {
+            const agentDatasource = agentDatasourceList.value.find(
+              item => item.datasource?.id === datasource.id,
+            );
+            selectedTables.value[datasource.id] = agentDatasource?.selectTables || [];
+          }
+
+          ElMessage.success(`成功加载 ${tables.length} 个表`);
+        } catch (error) {
+          ElMessage.error('加载表列表失败');
+          console.error('Failed to load datasource tables:', error);
+        } finally {
+          tableLoadingStates.value[datasource.id] = false;
+        }
+      };
+
+      // 更新数据源的表列表
+      const updateDatasourceTables = async (datasource: Datasource) => {
+        if (!datasource.id) return;
+
+        updateLoadingStates.value[datasource.id] = true;
+        try {
+          const response = await agentDatasourceService.updateDatasourceTables(
+            String(props.agentId),
+            {
+              datasourceId: datasource.id,
+              tables: selectedTables.value[datasource.id] || [],
+            },
+          );
+
+          if (response.success) {
+            ElMessage.success('数据表更新成功');
+            // 更新本地存储的已选择表
+            const agentDatasource = agentDatasourceList.value.find(
+              item => item.datasource?.id === datasource.id,
+            );
+            if (agentDatasource) {
+              agentDatasource.selectTables = [...(selectedTables.value[datasource.id] || [])];
+            }
+          } else {
+            ElMessage.error('数据表更新失败');
+          }
+        } catch (error) {
+          ElMessage.error('数据表更新失败');
+          console.error('Failed to update datasource tables:', error);
+        } finally {
+          updateLoadingStates.value[datasource.id] = false;
+        }
+      };
+
+      // 全选表
+      const selectAllTables = (datasource: Datasource) => {
+        if (!datasource.id || !tableLists.value[datasource.id]) return;
+        selectedTables.value[datasource.id] = [...tableLists.value[datasource.id]];
+      };
+
+      // 清空选择的表
+      const clearAllTables = (datasource: Datasource) => {
+        if (!datasource.id) return;
+        selectedTables.value[datasource.id] = [];
+      };
+
+      // 文本截断函数
+      const truncateText = (text: string, maxLength: number): string => {
+        if (!text || text.length <= maxLength) {
+          return text;
+        }
+        return text.substring(0, maxLength) + '...';
+      };
+
+      // 处理表格展开事件
+      const handleExpandChange = (row: Datasource, expandedRows: Datasource[]) => {
+        // 如果当前行被展开（在expandedRows数组中），则自动加载表列表
+        if (expandedRows.includes(row) && row.status === 'active' && row.id) {
+          loadDatasourceTables(row);
+        }
+      };
+
       onMounted(() => {
         loadAgentDatasource();
       });
@@ -723,6 +917,9 @@
         props,
         Plus,
         UploadFilled,
+        Loading,
+        FolderOpened,
+        Lock,
         datasource,
         initStatus,
         dialogVisible,
@@ -731,6 +928,10 @@
         newDatasource,
         editDialogVisible,
         editingDatasource,
+        tableLists,
+        selectedTables,
+        tableLoadingStates,
+        updateLoadingStates,
         initAgentDatasource,
         changeDatasource,
         testConnection,
@@ -742,6 +943,12 @@
         editDatasource,
         saveEditDatasource,
         deleteDatasource,
+        loadDatasourceTables,
+        updateDatasourceTables,
+        selectAllTables,
+        clearAllTables,
+        truncateText,
+        handleExpandChange,
       };
     },
   });

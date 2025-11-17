@@ -21,21 +21,17 @@
       <ChatSessionSidebar
         :agent="agent"
         :handleSetCurrentSession="
-          (session: ChatSession | null) => {
-            currentSession.value = session;
+          async (session: ChatSession | null) => {
+            currentSession = session;
+            await selectSession(session);
           }
         "
         :handleGetCurrentSession="
           () => {
-            return currentSession.value;
+            return currentSession;
           }
         "
         :handleSelectSession="selectSession"
-        :handleClearMessage="
-          () => {
-            currentMessages.value = [];
-          }
-        "
       />
 
       <!-- 右侧对话栏 -->
@@ -155,12 +151,19 @@
                   content="启用本功能会将SQL查询结果存储到DataAgent项目的数据库中，如果数据量较大不建议开启本功能"
                   placement="top"
                 >
-                  <el-switch v-model="resultSetDisplayConfig.showSqlResults" />
+                  <el-switch
+                    v-model="resultSetDisplayConfig.showSqlResults"
+                    :disabled="isStreaming || showHumanFeedback"
+                  />
                 </el-tooltip>
               </div>
               <div class="switch-item">
                 <span class="switch-label">每页数量</span>
-                <el-select v-model="resultSetDisplayConfig.pageSize" style="width: 80px">
+                <el-select
+                  v-model="resultSetDisplayConfig.pageSize"
+                  :disabled="isStreaming || showHumanFeedback"
+                  style="width: 80px"
+                >
                   <el-option label="5" :value="5" />
                   <el-option label="10" :value="10" />
                   <el-option label="20" :value="20" />
@@ -362,11 +365,15 @@
         }
       };
 
-      const selectSession = async (session: ChatSession) => {
+      const selectSession = async (session: ChatSession | null) => {
         currentSession.value = session;
         nodeBlocks.value = [];
         isStreaming.value = false;
         try {
+          if (session === null) {
+            currentMessages.value = [];
+            return;
+          }
           currentMessages.value = await ChatService.getSessionMessages(session.id);
           scrollToBottom();
         } catch (error) {
@@ -461,6 +468,25 @@
 
               // 检查是否是报告节点
               if (response.nodeName === 'ReportGeneratorNode') {
+                const isNewNode: boolean =
+                  currentNodeName === null || response.nodeName !== currentNodeName;
+
+                if (isNewNode) {
+                  // 保存上一个节点的消息（如果有）
+                  if (currentBlockIndex >= 0 && nodeBlocks.value[currentBlockIndex]) {
+                    const savePromise = saveNodeMessage(nodeBlocks.value[currentBlockIndex]);
+                    pendingSavePromises.push(savePromise);
+                  }
+
+                  // 创建新的节点块
+                  const newBlock: GraphNodeResponse = {
+                    ...response,
+                    text: response.text,
+                  };
+                  nodeBlocks.value.push([newBlock]);
+                  currentBlockIndex = nodeBlocks.value.length - 1;
+                  currentNodeName = response.nodeName;
+                }
                 // 处理HTML报告
                 if (response.textType === 'HTML') {
                   htmlReportContent.value += response.text;
@@ -536,8 +562,13 @@
             async (error: Error) => {
               ElMessage.error(`流式请求失败: ${error.message}`);
               console.error('error: ' + error);
+              // 等待所有待处理的保存操作完成
+              if (pendingSavePromises.length > 0) {
+                await Promise.all(pendingSavePromises);
+              }
               isStreaming.value = false;
               currentNodeName = null;
+              await selectSession(currentSession.value);
             },
             async () => {
               // 等待所有待处理的保存操作完成

@@ -15,14 +15,12 @@
  */
 package com.alibaba.cloud.ai.service.schema;
 
-import com.alibaba.cloud.ai.config.DataAgentProperties;
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.enums.BizDataSourceTypeEnum;
-import com.alibaba.cloud.ai.service.hybrid.fusion.FusionStrategy;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,10 +51,6 @@ public class SchemaServiceImpl implements SchemaService {
 	 * Vector storage service
 	 */
 	private final AgentVectorStoreService vectorStoreService;
-
-	private final FusionStrategy fusionStrategy;
-
-	private final DataAgentProperties dataAgentProperties;
 
 	@Override
 	public void buildSchemaFromDocuments(String agentId, List<Document> currentColumnDocuments,
@@ -105,7 +99,7 @@ public class SchemaServiceImpl implements SchemaService {
 
 		Assert.hasText(agentId, "agentId cannot be empty");
 
-		List<List<Document>> allResults = new ArrayList<>();
+		List<Document> allResults = new ArrayList<>();
 		for (String kw : keywords) {
 			List<Document> docs = vectorStoreService.getDocumentsForAgent(agentId, kw, DocumentMetadataConstant.COLUMN);
 			if (CollectionUtils.isEmpty(docs)) {
@@ -113,13 +107,11 @@ public class SchemaServiceImpl implements SchemaService {
 			}
 			List<Document> filterDocs = filterColumnsWithMatchingTables(docs, tableDocuments);
 			if (CollectionUtils.isNotEmpty(filterDocs))
-				allResults.add(filterDocs);
+				allResults.addAll(filterDocs);
 
 		}
 
-		List<Document>[] resultArray = allResults.toArray(new List[0]);
-		return fusionStrategy.fuseResults(dataAgentProperties.getVectorStore().getTopkLimit(), resultArray);
-
+		return allResults;
 	}
 
 	/**

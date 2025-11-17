@@ -15,17 +15,19 @@
  */
 package com.alibaba.cloud.ai.controller;
 
-import com.alibaba.cloud.ai.dto.InitSchemaDto;
 import com.alibaba.cloud.ai.dto.ToggleDatasourceDto;
+import com.alibaba.cloud.ai.dto.UpdateDatasourceTablesDto;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
 import com.alibaba.cloud.ai.service.AgentDatasourceService;
 import com.alibaba.cloud.ai.vo.ApiResponse;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Agent Schema Initialization Controller Handles agent's database Schema initialization
@@ -45,21 +47,22 @@ public class AgentDatasourceController {
 	 * Information Source" function on the frontend
 	 */
 	@PostMapping("/init")
-	public ResponseEntity<ApiResponse> initSchema(@PathVariable(value = "agentId") Long agentId,
-			@RequestBody InitSchemaDto dto) {
+	public ResponseEntity<ApiResponse> initSchema(@PathVariable(value = "agentId") Long agentId) {
+		// 防止前端恶意请求，dto数据应该在后端获取
 		try {
+			AgentDatasource agentDatasource = agentDatasourceService.getCurrentAgentDatasource(agentId.intValue());
 			log.info("Initializing schema for agent: {}", agentId);
 
 			// Extract data source ID and table list from request
-			Integer datasourceId = dto.getDatasourceId();
-			List<String> tables = dto.getTables();
+			Integer datasourceId = agentDatasource.getDatasourceId();
+			List<String> tables = Optional.ofNullable(agentDatasource.getSelectTables()).orElse(List.of());
 
 			// Validate request parameters
 			if (datasourceId == null) {
 				return ResponseEntity.badRequest().body(ApiResponse.error("数据源ID不能为空"));
 			}
 
-			if (tables == null || tables.isEmpty()) {
+			if (tables.isEmpty()) {
 				return ResponseEntity.badRequest().body(ApiResponse.error("表列表不能为空"));
 			}
 
@@ -98,21 +101,16 @@ public class AgentDatasourceController {
 		}
 	}
 
-	/**
-	 * Get table list of data source
-	 */
-	@GetMapping("/{datasourceId}/tables")
-	public ResponseEntity<ApiResponse> getDatasourceTables(@PathVariable(value = "datasourceId") Integer datasourceId) {
+	@GetMapping("/active")
+	public ResponseEntity<ApiResponse> getActiveAgentDatasource(@PathVariable(value = "agentId") Long agentId) {
 		try {
-			log.info("Getting tables for datasource: {}", datasourceId);
-			List<String> tables = agentDatasourceService.getDatasourceTables(datasourceId);
-			log.info("Successfully retrieved {} tables for datasource: {}", tables.size(), datasourceId);
-			return ResponseEntity.ok(ApiResponse.success("操作成功", tables));
-
+			log.info("Getting active datasource for agent: {}", agentId);
+			AgentDatasource datasource = agentDatasourceService.getCurrentAgentDatasource(Math.toIntExact(agentId));
+			return ResponseEntity.ok(ApiResponse.success("操作成功", datasource));
 		}
 		catch (Exception e) {
-			log.error("Failed to get tables for datasource: {}", datasourceId, e);
-			return ResponseEntity.badRequest().body(ApiResponse.error("获取表列表失败：" + e.getMessage(), List.of()));
+			log.error("Failed to get active datasource for agent: {}", agentId, e);
+			return ResponseEntity.badRequest().body(ApiResponse.error("获取数据源失败：" + e.getMessage()));
 		}
 	}
 
@@ -132,6 +130,22 @@ public class AgentDatasourceController {
 		}
 		catch (Exception e) {
 			return ResponseEntity.badRequest().body(ApiResponse.error("添加失败：" + e.getMessage()));
+		}
+	}
+
+	// 更新选择的数据表
+	@PostMapping("/tables")
+	public ResponseEntity<ApiResponse> updateDatasourceTables(@PathVariable("agentId") String agentId,
+			@RequestBody @Validated UpdateDatasourceTablesDto dto) {
+		try {
+			dto.setTables(Optional.ofNullable(dto.getTables()).orElse(List.of()));
+			agentDatasourceService.updateDatasourceTables(Integer.parseInt(agentId), dto.getDatasourceId(),
+					dto.getTables());
+			return ResponseEntity.ok(ApiResponse.success("更新成功"));
+		}
+		catch (Exception e) {
+			log.error("Error: ", e);
+			return ResponseEntity.badRequest().body(ApiResponse.error("更新失败：" + e.getMessage()));
 		}
 	}
 

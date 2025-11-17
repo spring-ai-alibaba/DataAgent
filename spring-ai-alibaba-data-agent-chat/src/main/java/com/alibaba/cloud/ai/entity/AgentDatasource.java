@@ -20,6 +20,8 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
+import java.util.List;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -47,6 +49,9 @@ public class AgentDatasource {
 
 	// Associated data source object (for joint query)
 	private Datasource datasource;
+
+	// 当前数据源选中的表
+	private List<String> selectTables;
 
 	public AgentDatasource(Integer agentId, Integer datasourceId) {
 		this.agentId = agentId;
