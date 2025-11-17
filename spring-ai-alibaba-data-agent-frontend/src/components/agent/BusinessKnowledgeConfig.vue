@@ -41,9 +41,17 @@
               <el-icon><Search /></el-icon>
             </template>
           </el-input>
-          <el-button @click="refreshVectorStore" size="large" type="success" round :icon="Document">
+          <el-button
+            @click="refreshVectorStore"
+            v-if="!refreshLoading"
+            size="large"
+            type="success"
+            round
+            :icon="Document"
+          >
             同步到向量库
           </el-button>
+          <el-button v-else size="large" type="success" round loading>同步中...</el-button>
           <el-button @click="openCreateDialog" size="large" type="primary" round :icon="Plus">
             添加知识
           </el-button>
@@ -167,6 +175,7 @@
       } as BusinessKnowledge);
 
       const currentEditId: Ref<number | null> = ref(null);
+      const refreshLoading: Ref<boolean> = ref(false);
 
       const openCreateDialog = () => {
         isEdit.value = false;
@@ -289,6 +298,7 @@
             },
           );
 
+          refreshLoading.value = true;
           const result = await businessKnowledgeService.refreshAllKnowledgeToVectorStore(
             props.agentId.toString(),
           );
@@ -302,6 +312,8 @@
             ElMessage.error('同步到向量库失败');
             console.error('Failed to refresh vector store:', error);
           }
+        } finally {
+          refreshLoading.value = false;
         }
       };
 
@@ -318,6 +330,7 @@
         isEdit,
         searchKeyword,
         knowledgeForm,
+        refreshLoading,
         openCreateDialog,
         editKnowledge,
         deleteKnowledge,
