@@ -209,7 +209,7 @@ spring:
 | spring.ai.alibaba.nl2sql.vector-store.similarity-threshold   | 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档       | 0.2       |
 | spring.ai.alibaba.nl2sql.vector-store.batch-del-topk-limit   | 一次删除操作中，最多删除的文档数量                           | 5000      |
 | spring.ai.alibaba.nl2sql.vector-store.topk-limit             | 查询返回最大文档数                                           | 30        |
-| **spring.ai.alibaba.nl2sql.vector-store.enable-hybrid-search** | 是否启用混合搜索。**注意**：**项目目前默认只提供ES的混合检索能力，<br />如需要扩展其他向量库可自行继承重写 com.alibaba.cloud.ai.service.hybrid.retrieval<br />.AbstractHybridRetrievalStrategy#retrieve 该方法**<br />**并且修改com.alibaba.cloud.ai.service.hybrid.<br />factory.HybridRetrievalStrategyFactory#getObject<br />注册相应的bean** | **false** |
+| **spring.ai.alibaba.nl2sql.vector-store.enable-hybrid-search** | 是否启用混合搜索。**注意**：**项目目前默认只提供ES的混合检索能力，<br />如需要扩展其他向量库可自行继承重写 com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval<br />.AbstractHybridRetrievalStrategy#retrieve 该方法**<br />**并且修改com.alibaba.cloud.ai.service.hybrid.<br />factory.HybridRetrievalStrategyFactory#getObject<br />注册相应的bean** | **false** |
 | spring.ai.alibaba.nl2sql.vector-store.elasticsearch-min-score | Elasticsearch最小分数阈值，用于es执行关键词搜索时过滤相关性较低的文档。<br />**开发时使用的es服务端版本 8.15.0** | 0.5       |
 
 

@@ -504,12 +504,12 @@ note right of sc : 语义一致性检查
 
 ```java
 
-import com.alibaba.cloud.ai.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
-import com.alibaba.cloud.ai.request.SchemaInitRequest;
+import com.alibaba.cloud.ai.dataagent.common.request.SchemaInitRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -523,8 +523,8 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.alibaba.cloud.ai.constant.Constant.INPUT_KEY;
-import static com.alibaba.cloud.ai.constant.Constant.RESULT;
+import static constant.com.alibaba.cloud.ai.dataagent.Constant.INPUT_KEY;
+import static constant.com.alibaba.cloud.ai.dataagent.Constant.RESULT;
 
 @RestController
 @RequestMapping("nl2sql")

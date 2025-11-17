@@ -198,7 +198,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>com.alibaba.cloud.ai.DataAgentApplication</mainClass>
+                    <mainClass>com.alibaba.cloud.ai.dataagent.DataAgentApplication</mainClass>
                 </configuration>
                 <executions>
                     <execution>
