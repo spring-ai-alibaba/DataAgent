@@ -16,13 +16,15 @@
 
 package com.alibaba.cloud.ai.dto;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.List;
 
 @Data
-public class InitSchemaDto {
+public class UpdateDatasourceTablesDto {
 
+	@NotNull(message = "datasourceId cannot be null")
 	private Integer datasourceId;
 
 	private List<String> tables;

@@ -71,6 +71,17 @@ public class DatasourceController {
 		}
 	}
 
+	@GetMapping("/{id}/tables")
+	public ResponseEntity<List<String>> getDatasourceTables(@PathVariable(value = "id") Integer id) {
+		try {
+			List<String> tables = datasourceService.getDatasourceTables(id);
+			return ResponseEntity.ok(tables);
+		}
+		catch (Exception e) {
+			return ResponseEntity.badRequest().build();
+		}
+	}
+
 	/**
 	 * Create data source
 	 */

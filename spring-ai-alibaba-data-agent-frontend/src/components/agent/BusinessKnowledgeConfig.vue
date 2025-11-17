@@ -118,10 +118,6 @@
           placeholder="请输入同义词，多个同义词用逗号分隔"
         />
       </el-form-item>
-
-      <el-form-item label="是否召回" prop="isRecall">
-        <el-switch v-model="knowledgeForm.isRecall" />
-      </el-form-item>
     </el-form>
 
     <template #footer>

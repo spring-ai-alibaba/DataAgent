@@ -134,29 +134,12 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 				return true;
 			}
 
-			List<AgentDatasource> agentDatasources = datasourceService.getAgentDatasource(agentId.intValue());
-
-			if (agentDatasources.isEmpty()) {
-				log.warn("Agent {} has no associated datasources", agentId);
-				return false;
-			}
-
-			AgentDatasource activeDatasource = null;
-			for (AgentDatasource agentDatasource : agentDatasources) {
-				if (agentDatasource.getIsActive() != null && agentDatasource.getIsActive() == 1) {
-					activeDatasource = agentDatasource;
-					break;
-				}
-			}
-
-			if (activeDatasource == null) {
-				log.warn("Agent {} has no active datasource", agentId);
-				return false;
-			}
+			AgentDatasource activeDatasource = agentDatasourceService
+				.getCurrentAgentDatasource(Math.toIntExact(agentId));
 
 			Integer datasourceId = activeDatasource.getDatasourceId();
 
-			List<String> tables = datasourceService.getDatasourceTables(datasourceId);
+			List<String> tables = activeDatasource.getSelectTables();
 
 			if (tables.isEmpty()) {
 				log.warn("Datasource {} has no tables available for agent {}", datasourceId, agentId);

@@ -18,21 +18,26 @@ package com.alibaba.cloud.ai.service.impl;
 
 import com.alibaba.cloud.ai.connector.config.DbConfig;
 import com.alibaba.cloud.ai.entity.AgentDatasource;
+import com.alibaba.cloud.ai.entity.Datasource;
 import com.alibaba.cloud.ai.mapper.AgentDatasourceMapper;
+import com.alibaba.cloud.ai.mapper.AgentDatasourceTablesMapper;
 import com.alibaba.cloud.ai.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.service.AgentDatasourceService;
 import com.alibaba.cloud.ai.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.util.SchemaProcessorUtil;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
+@AllArgsConstructor
 public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 
 	private final DatasourceService datasourceService;
@@ -41,12 +46,7 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 
 	private final AgentDatasourceMapper agentDatasourceMapper;
 
-	public AgentDatasourceServiceImpl(DatasourceService datasourceService, AgentVectorStoreService vectorStoreService,
-			AgentDatasourceMapper agentDatasourceMapper) {
-		this.datasourceService = datasourceService;
-		this.vectorStoreService = vectorStoreService;
-		this.agentDatasourceMapper = agentDatasourceMapper;
-	}
+	private final AgentDatasourceTablesMapper tablesMapper;
 
 	@Override
 	public Boolean initializeSchemaForAgentWithDatasource(Long agentId, Integer datasourceId, List<String> tables) {
@@ -85,15 +85,24 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 	}
 
 	@Override
-	public List<String> getDatasourceTables(Integer datasourceId) throws Exception {
-		Assert.notNull(datasourceId, "Datasource ID cannot be null");
-		return datasourceService.getDatasourceTables(datasourceId);
-	}
-
-	@Override
 	public List<AgentDatasource> getAgentDatasource(Integer agentId) {
 		Assert.notNull(agentId, "Agent ID cannot be null");
-		return datasourceService.getAgentDatasource(agentId);
+		List<AgentDatasource> adentDatasources = agentDatasourceMapper.selectByAgentIdWithDatasource(agentId);
+
+		// Manually fill in the data source information (since MyBatis Plus does not
+		// directly support complex join query result mapping)
+		for (AgentDatasource agentDatasource : adentDatasources) {
+			if (agentDatasource.getDatasourceId() != null) {
+				Datasource datasource = datasourceService.getDatasourceById(agentDatasource.getDatasourceId());
+				agentDatasource.setDatasource(datasource);
+			}
+			// 获取选中的数据表
+			int id = agentDatasource.getId();
+			List<String> tables = tablesMapper.getAgentDatasourceTables(id);
+			agentDatasource.setSelectTables(Optional.ofNullable(tables).orElse(List.of()));
+		}
+
+		return adentDatasources;
 	}
 
 	@Override
@@ -106,20 +115,26 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 		// Check if an association already exists
 		AgentDatasource existing = agentDatasourceMapper.selectByAgentIdAndDatasourceId(agentId, datasourceId);
 
+		AgentDatasource result;
 		if (existing != null) {
 			// If it exists, activate the association
 			agentDatasourceMapper.enableRelation(agentId, datasourceId);
 
+			// 删除已有的表
+			tablesMapper.removeAllTables(existing.getId());
+
 			// Query and return the updated association
-			return agentDatasourceMapper.selectByAgentIdAndDatasourceId(agentId, datasourceId);
+			result = agentDatasourceMapper.selectByAgentIdAndDatasourceId(agentId, datasourceId);
 		}
 		else {
 			// If it does not exist, create a new association
 			AgentDatasource agentDatasource = new AgentDatasource(agentId, datasourceId);
 			agentDatasource.setIsActive(1);
 			agentDatasourceMapper.createNewRelationEnabled(agentId, datasourceId);
-			return agentDatasource;
+			result = agentDatasource;
 		}
+		result.setSelectTables(List.of());
+		return result;
 	}
 
 	@Override
@@ -146,6 +161,24 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 
 		// Return the updated association record
 		return agentDatasourceMapper.selectByAgentIdAndDatasourceId(agentId, datasourceId);
+	}
+
+	@Override
+	@Transactional
+	public void updateDatasourceTables(Integer agentId, Integer datasourceId, List<String> tables) {
+		if (agentId == null || datasourceId == null || tables == null) {
+			throw new IllegalArgumentException("参数不能为空");
+		}
+		AgentDatasource datasource = agentDatasourceMapper.selectByAgentIdAndDatasourceId(agentId, datasourceId);
+		if (datasource == null) {
+			throw new IllegalArgumentException("未找到对应的数据源关联记录");
+		}
+		if (tables.isEmpty()) {
+			tablesMapper.removeAllTables(datasource.getId());
+		}
+		else {
+			tablesMapper.updateAgentDatasourceTables(datasource.getId(), tables);
+		}
 	}
 
 }

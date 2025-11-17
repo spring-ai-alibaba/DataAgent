@@ -202,3 +202,18 @@ CREATE TABLE IF NOT EXISTS user_prompt_config (
   INDEX idx_prompt_type_enabled_priority (prompt_type, enabled, priority DESC),
   INDEX idx_display_order (display_order ASC)
 ) ENGINE = InnoDB COMMENT = '用户Prompt配置表';
+
+create table if not exists agent_datasource_tables
+(
+    id                  int auto_increment primary key,
+    agent_datasource_id int                                 not null comment '智能体数据源ID',
+    table_name          varchar(255)                        not null comment '数据表名',
+    create_time         timestamp default CURRENT_TIMESTAMP null comment '创建时间',
+    update_time         timestamp default CURRENT_TIMESTAMP null comment '更新时间',
+    constraint agent_datasource_tables_agent_datasource_id_table_name_uindex
+        unique (agent_datasource_id, table_name),
+    constraint agent_datasource_tables_agent_datasource_id_fk
+        foreign key (agent_datasource_id) references agent_datasource (id)
+            on update cascade on delete cascade
+)
+    comment '某个智能体某个数据源所选中的数据表';
