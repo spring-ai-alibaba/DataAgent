@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.service.business;
 
+import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.entity.BusinessKnowledge;
 import com.alibaba.cloud.ai.mapper.BusinessKnowledgeMapper;
@@ -224,6 +225,26 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 			businessKnowledgeMapper.updateById(knowledge);
 			vectorStore.delete(List
 				.of(DocumentConverterUtil.generateFixedBusinessKnowledgeDocId(knowledge.getAgentId().toString(), id)));
+		}
+	}
+
+	@Override
+	public void refreshAllKnowledgeToVectorStore(String agentId) throws Exception {
+		agentVectorStoreService.deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.BUSINESS_TERM);
+
+		// 获取所有 isRecall 等于 1 的 BusinessKnowledge
+		List<BusinessKnowledge> allKnowledge = businessKnowledgeMapper.selectAll();
+		List<BusinessKnowledge> recalledKnowledge = allKnowledge.stream()
+			.filter(knowledge -> knowledge.getIsRecall() != null && knowledge.getIsRecall() == 1)
+			.filter(knowledge -> agentId.equals(knowledge.getAgentId().toString()))
+			.toList();
+
+		// 转换为 Document 并插入到 vectorStore
+		if (!recalledKnowledge.isEmpty()) {
+			List<Document> documents = recalledKnowledge.stream()
+				.map(DocumentConverterUtil::convertBusinessKnowledgeToDocument)
+				.toList();
+			vectorStore.add(documents);
 		}
 	}
 

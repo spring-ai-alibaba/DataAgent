@@ -98,4 +98,20 @@ public class BusinessKnowledgeController {
 		return ResponseEntity.ok().body(true);
 	}
 
+	@PostMapping("/refresh-vector-store")
+	public ResponseEntity<Boolean> refreshAllKnowledgeToVectorStore(@RequestParam(value = "agentId") String agentId) {
+		// 校验 agentId 不为空和空字符串
+		if (!StringUtils.hasText(agentId)) {
+			return ResponseEntity.badRequest().body(false);
+		}
+
+		try {
+			businessKnowledgeService.refreshAllKnowledgeToVectorStore(agentId);
+			return ResponseEntity.ok().body(true);
+		}
+		catch (Exception e) {
+			return ResponseEntity.internalServerError().body(false);
+		}
+	}
+
 }
