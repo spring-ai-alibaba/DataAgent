@@ -20,6 +20,7 @@ import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.entity.BusinessKnowledge;
 import com.alibaba.cloud.ai.service.business.BusinessKnowledgeService;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 // TODO 需要优化返回结果为ApiResponse
+@Slf4j
 @RestController
 @RequestMapping("/api/business-knowledge")
 @CrossOrigin(origins = "*")
@@ -110,6 +112,7 @@ public class BusinessKnowledgeController {
 			return ResponseEntity.ok().body(true);
 		}
 		catch (Exception e) {
+			log.error("Failed to refresh vector store for agentId: {}", agentId, e);
 			return ResponseEntity.internalServerError().body(false);
 		}
 	}
