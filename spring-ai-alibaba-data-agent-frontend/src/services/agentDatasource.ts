@@ -61,6 +61,28 @@ class AgentDatasourceService {
       throw new Error(`获取数据源列表失败: ${error}`);
     }
   }
+
+  /**
+   * 获取当前激活的智能体
+   * @param agentId 智能体ID
+   */
+  async getActiveAgentDatasource(agentId: number): Promise<AgentDatasource> {
+    try {
+      const response = await axios.get<ApiResponse<AgentDatasource>>(
+        BASE_URL_FUNC(String(agentId)) + '/active',
+      );
+      if (response.data.success) {
+        if (response.data.data === undefined) {
+          throw new Error('后端错误');
+        }
+        return response.data.data;
+      }
+      throw new Error(response.data.message);
+    } catch (error) {
+      throw new Error(`获取数据源列表失败: ${error}`);
+    }
+  }
+
   /**
    * 为智能体添加数据源
    * @param agentId 智能体ID

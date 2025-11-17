@@ -101,6 +101,19 @@ public class AgentDatasourceController {
 		}
 	}
 
+	@GetMapping("/active")
+	public ResponseEntity<ApiResponse> getActiveAgentDatasource(@PathVariable(value = "agentId") Long agentId) {
+		try {
+			log.info("Getting active datasource for agent: {}", agentId);
+			AgentDatasource datasource = agentDatasourceService.getCurrentAgentDatasource(Math.toIntExact(agentId));
+			return ResponseEntity.ok(ApiResponse.success("操作成功", datasource));
+		}
+		catch (Exception e) {
+			log.error("Failed to get active datasource for agent: {}", agentId, e);
+			return ResponseEntity.badRequest().body(ApiResponse.error("获取数据源失败：" + e.getMessage()));
+		}
+	}
+
 	/**
 	 * Add data source for agent
 	 */
