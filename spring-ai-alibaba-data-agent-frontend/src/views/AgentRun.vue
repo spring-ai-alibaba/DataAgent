@@ -151,12 +151,19 @@
                   content="启用本功能会将SQL查询结果存储到DataAgent项目的数据库中，如果数据量较大不建议开启本功能"
                   placement="top"
                 >
-                  <el-switch v-model="resultSetDisplayConfig.showSqlResults" />
+                  <el-switch
+                    v-model="resultSetDisplayConfig.showSqlResults"
+                    :disabled="isStreaming || showHumanFeedback"
+                  />
                 </el-tooltip>
               </div>
               <div class="switch-item">
                 <span class="switch-label">每页数量</span>
-                <el-select v-model="resultSetDisplayConfig.pageSize" style="width: 80px">
+                <el-select
+                  v-model="resultSetDisplayConfig.pageSize"
+                  :disabled="isStreaming || showHumanFeedback"
+                  style="width: 80px"
+                >
                   <el-option label="5" :value="5" />
                   <el-option label="10" :value="10" />
                   <el-option label="20" :value="20" />
