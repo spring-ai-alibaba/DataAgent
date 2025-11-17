@@ -41,20 +41,20 @@ public class BusinessKnowledge {
 	private String synonyms; // Synonyms, comma-separated
 
 	@Builder.Default
-	private Boolean isRecall = true; // is recall
+	private Integer isRecall = 1; // Whether to recall (0: not recall, 1: recall)
 
 	private Long agentId; // Associated agent ID
 
-	private LocalDateTime createTime;
+	private LocalDateTime createdTime;
 
-	private LocalDateTime updateTime;
+	private LocalDateTime updatedTime;
 
 	public BusinessKnowledgeDTO toDTO() {
 		return BusinessKnowledgeDTO.builder()
 			.businessTerm(this.businessTerm)
 			.description(this.description)
 			.synonyms(this.synonyms)
-			.isRecall(this.isRecall)
+			.isRecall(this.isRecall != null && this.isRecall == 1)
 			.agentId(this.agentId)
 			.build();
 	}

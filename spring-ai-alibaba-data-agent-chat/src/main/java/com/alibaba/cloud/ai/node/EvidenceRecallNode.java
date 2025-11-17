@@ -115,7 +115,6 @@ public class EvidenceRecallNode implements NodeAction {
 			List<Document> businessTermDocuments = vectorStoreService
 				.getDocumentsForAgent(agentId, keywordsString, DocumentMetadataConstant.BUSINESS_TERM)
 				.stream()
-				.filter(doc -> Boolean.TRUE.equals(doc.getMetadata().get(DocumentMetadataConstant.IS_RECALL)))
 				.toList();
 
 			// 检查是否有证据文档

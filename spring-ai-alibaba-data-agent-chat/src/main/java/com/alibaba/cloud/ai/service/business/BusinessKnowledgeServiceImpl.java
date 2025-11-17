@@ -16,8 +16,6 @@
 
 package com.alibaba.cloud.ai.service.business;
 
-import com.alibaba.cloud.ai.constant.Constant;
-import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.entity.BusinessKnowledge;
 import com.alibaba.cloud.ai.mapper.BusinessKnowledgeMapper;
@@ -29,9 +27,7 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Service
@@ -79,7 +75,6 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 	@Transactional(rollbackFor = Exception.class)
 	public Long addKnowledge(BusinessKnowledgeDTO knowledgeDTO) {
 		BusinessKnowledge entity = knowledgeDTO.toEntity();
-
 		// 插入数据库
 		if (businessKnowledgeMapper.insert(entity) <= 0) {
 			throw new RuntimeException("Failed to add knowledge to database");
@@ -87,8 +82,7 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 
 		try {
 			// 转换为文档并插入向量库
-			Document document = DocumentConverterUtil.convertBusinessTermToDocument(knowledgeDTO,
-					entity.getId().toString());
+			Document document = DocumentConverterUtil.convertBusinessKnowledgeToDocument(entity);
 			vectorStore.add(List.of(document));
 			return entity.getId();
 		}
@@ -108,28 +102,84 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void updateKnowledge(Long id, BusinessKnowledgeDTO knowledgeDTO) {
-		BusinessKnowledge entity = knowledgeDTO.toEntity();
-		entity.setId(id);
+		// 从数据库获取原始数据
+		BusinessKnowledge oldKnowledge = businessKnowledgeMapper.selectById(id);
+		if (oldKnowledge == null) {
+			log.warn("Knowledge not found with id: " + id);
+			return;
+		}
 
-		// 更新数据库
-		if (businessKnowledgeMapper.updateById(entity) <= 0) {
+		BusinessKnowledge newKnowledge = knowledgeDTO.toEntity();
+		newKnowledge.setId(id);
+
+		// 先更新数据库
+		updateDatabase(newKnowledge);
+
+		// 更新向量库
+		updateVectorStore(oldKnowledge, newKnowledge);
+	}
+
+	/**
+	 * 更新数据库中的知识记录
+	 */
+	private void updateDatabase(BusinessKnowledge newKnowledge) {
+		if (businessKnowledgeMapper.updateById(newKnowledge) <= 0) {
 			throw new RuntimeException("Failed to update knowledge in database");
 		}
+	}
 
+	/**
+	 * 更新向量库中的知识向量
+	 */
+	private void updateVectorStore(BusinessKnowledge oldKnowledge, BusinessKnowledge newKnowledge) {
 		try {
-			// 更新向量库中的文档
-			Map<String, Object> metadata = new HashMap<>();
-			metadata.put(Constant.AGENT_ID, entity.getAgentId());
-			metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM);
-			metadata.put(DocumentMetadataConstant.DB_RECORD_ID, id.toString());
-			agentVectorStoreService.deleteDocumentsByMetedata(knowledgeDTO.getAgentId().toString(), metadata);
+			String fixedBusinessKnowledgeDocId = DocumentConverterUtil
+				.generateFixedBusinessKnowledgeDocId(oldKnowledge.getAgentId().toString(), oldKnowledge.getId());
 
-			Document document = DocumentConverterUtil.convertBusinessTermToDocument(knowledgeDTO, id.toString());
-			vectorStore.add(List.of(document));
+			// 先删除旧的向量数据
+			vectorStore.delete(List.of(fixedBusinessKnowledgeDocId));
+
+			// 添加新的向量数据
+			Document newDocument = DocumentConverterUtil.convertBusinessKnowledgeToDocument(newKnowledge);
+			vectorStore.add(List.of(newDocument));
+
+			log.info("Successfully updated vector store for knowledge id: {}", newKnowledge.getId());
 		}
 		catch (Exception e) {
-			throw new RuntimeException("Failed to update knowledge in vector store: " + e.getMessage(), e);
+			// 向量库更新失败，尝试回滚数据库更改
+			rollbackDatabaseChanges(oldKnowledge, e);
 		}
+	}
+
+	/**
+	 * 回滚数据库更改并抛出异常
+	 */
+	private void rollbackDatabaseChanges(BusinessKnowledge oldKnowledge, Exception originalException) {
+		Long id = oldKnowledge.getId();
+		log.error("Failed to update vector store for knowledge id: {}, attempting to rollback database changes", id);
+
+		try {
+			// 回滚数据库更改
+			if (businessKnowledgeMapper.updateById(oldKnowledge) <= 0) {
+				log.error(
+						"Critical: Failed to rollback database changes for knowledge id: {}. Manual intervention required.",
+						id);
+			}
+			else {
+				log.info("Successfully rolled back database changes for knowledge id: {}", id);
+			}
+		}
+		catch (Exception rollbackException) {
+			log.error("Failed to rollback database changes for knowledge id: {}: {}", id,
+					rollbackException.getMessage());
+		}
+
+		// 记录详细的错误信息，以便后续可能的补偿操作
+		log.error("Vector store update failed for knowledge id: {}: {}", id, originalException.getMessage());
+
+		throw new RuntimeException(
+				"Failed to update knowledge in vector store. Database changes have been rolled back.",
+				originalException);
 	}
 
 	@Override
@@ -142,20 +192,14 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 			return;
 		}
 
-		try {
-			// 从向量库删除文档
-			Map<String, Object> metadata = new HashMap<>();
-			metadata.put(Constant.AGENT_ID, knowledge.getAgentId());
-			metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM);
-			metadata.put(DocumentMetadataConstant.DB_RECORD_ID, id.toString());
-			agentVectorStoreService.deleteDocumentsByMetedata(knowledge.getAgentId().toString(), metadata);
-		}
-		catch (Exception e) {
-			log.warn("Failed to delete document from vector store: {}", e.getMessage());
-		}
+		String documentId = DocumentConverterUtil.generateFixedBusinessKnowledgeDocId(knowledge.getAgentId().toString(),
+				id);
+		vectorStore.delete(List.of(documentId));
 
 		// 从数据库删除记录
 		if (businessKnowledgeMapper.deleteById(id) <= 0) {
+			// 重新添加修复被删除的记录
+			vectorStore.add(List.of(DocumentConverterUtil.convertBusinessKnowledgeToDocument(knowledge)));
 			throw new RuntimeException("Failed to delete knowledge from database");
 		}
 	}
@@ -169,31 +213,17 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 			throw new RuntimeException("Knowledge not found with id: " + id);
 		}
 
-		// 更新数据库中的召回状态
-		if (businessKnowledgeMapper.changeRecall(id, isRecall) <= 0) {
-			throw new RuntimeException("Failed to change recall status in database");
+		// 召回是要添加到向量库，取消召回是从向量库删除
+		if (isRecall) {
+			knowledge.setIsRecall(1);
+			businessKnowledgeMapper.updateById(knowledge);
+			vectorStore.add(List.of(DocumentConverterUtil.convertBusinessKnowledgeToDocument(knowledge)));
 		}
-
-		try {
-			// 更新向量库中的文档
-			Map<String, Object> metadata = new HashMap<>();
-			metadata.put(Constant.AGENT_ID, knowledge.getAgentId());
-			metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM);
-			metadata.put(DocumentMetadataConstant.DB_RECORD_ID, id.toString());
-			agentVectorStoreService.deleteDocumentsByMetedata(knowledge.getAgentId().toString(), metadata);
-
-			BusinessKnowledgeDTO dto = new BusinessKnowledgeDTO();
-			dto.setBusinessTerm(knowledge.getBusinessTerm());
-			dto.setDescription(knowledge.getDescription());
-			dto.setSynonyms(knowledge.getSynonyms());
-			dto.setAgentId(knowledge.getAgentId());
-			dto.setIsRecall(isRecall);
-
-			Document document = DocumentConverterUtil.convertBusinessTermToDocument(dto, id.toString());
-			vectorStore.add(List.of(document));
-		}
-		catch (Exception e) {
-			throw new RuntimeException("Failed to update recall status in vector store: " + e.getMessage(), e);
+		else {
+			knowledge.setIsRecall(0);
+			businessKnowledgeMapper.updateById(knowledge);
+			vectorStore.delete(List
+				.of(DocumentConverterUtil.generateFixedBusinessKnowledgeDocId(knowledge.getAgentId().toString(), id)));
 		}
 	}
 

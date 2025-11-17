@@ -78,9 +78,6 @@ public class BusinessKnowledgeController {
 	@PutMapping("/{id}")
 	public ResponseEntity<BusinessKnowledge> update(@PathVariable(value = "id") Long id,
 			@RequestBody BusinessKnowledgeDTO knowledge) {
-		if (businessKnowledgeService.getKnowledgeById(id) == null) {
-			return ResponseEntity.notFound().build();
-		}
 		businessKnowledgeService.updateKnowledge(id, knowledge);
 		return ResponseEntity.ok(businessKnowledgeService.getKnowledgeById(id));
 	}
