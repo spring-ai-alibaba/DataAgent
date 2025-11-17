@@ -115,8 +115,8 @@ public class DocumentConverterUtil {
 		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM);
 		metadata.put(Constant.AGENT_ID, businessKnowledge.getAgentId().toString());
 		metadata.put(DocumentMetadataConstant.DB_RECORD_ID, businessKnowledge.getId());
-		metadata.put(DocumentMetadataConstant.IS_RECALL, businessKnowledge.getIsRecall().toString());
-
+		metadata.put(DocumentMetadataConstant.IS_RECALL,
+				Optional.ofNullable(businessKnowledge.getIsRecall()).orElse(0).toString());
 		String docId = generateFixedBusinessKnowledgeDocId(businessKnowledge.getAgentId().toString(),
 				businessKnowledge.getId());
 		return new Document(docId, content, metadata);

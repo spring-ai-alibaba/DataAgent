@@ -106,8 +106,7 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 		// 从数据库获取原始数据
 		BusinessKnowledge oldKnowledge = businessKnowledgeMapper.selectById(id);
 		if (oldKnowledge == null) {
-			log.warn("Knowledge not found with id: " + id);
-			return;
+			throw new RuntimeException("Knowledge not found with id: " + id);
 		}
 
 		BusinessKnowledge newKnowledge = knowledgeDTO.toEntity();
@@ -129,13 +128,19 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 		}
 	}
 
+	// TODO 2025/11/17 后续可优化改造事务性发件箱模式以确保最终一致性
 	/**
 	 * 更新向量库中的知识向量
 	 */
 	private void updateVectorStore(BusinessKnowledge oldKnowledge, BusinessKnowledge newKnowledge) {
+		String fixedBusinessKnowledgeDocId = DocumentConverterUtil
+			.generateFixedBusinessKnowledgeDocId(oldKnowledge.getAgentId().toString(), oldKnowledge.getId());
+
+		// 保存旧的文档，以便在添加新文档失败时回滚
+		Document oldDocument = null;
 		try {
-			String fixedBusinessKnowledgeDocId = DocumentConverterUtil
-				.generateFixedBusinessKnowledgeDocId(oldKnowledge.getAgentId().toString(), oldKnowledge.getId());
+			// 获取旧文档内容，用于回滚
+			oldDocument = DocumentConverterUtil.convertBusinessKnowledgeToDocument(oldKnowledge);
 
 			// 先删除旧的向量数据
 			vectorStore.delete(List.of(fixedBusinessKnowledgeDocId));
@@ -147,40 +152,52 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 			log.info("Successfully updated vector store for knowledge id: {}", newKnowledge.getId());
 		}
 		catch (Exception e) {
-			// 向量库更新失败，尝试回滚数据库更改
-			rollbackDatabaseChanges(oldKnowledge, e);
+			// 向量库更新失败，尝试回滚向量库更改
+			rollbackVectorStoreChanges(oldDocument, fixedBusinessKnowledgeDocId, e);
 		}
 	}
 
 	/**
-	 * 回滚数据库更改并抛出异常
+	 * 回滚向量库更改并抛出异常
 	 */
-	private void rollbackDatabaseChanges(BusinessKnowledge oldKnowledge, Exception originalException) {
-		Long id = oldKnowledge.getId();
-		log.error("Failed to update vector store for knowledge id: {}, attempting to rollback database changes", id);
+	private void rollbackVectorStoreChanges(Document oldDocument, String documentId, Exception originalException) {
+		log.error("Failed to update vector store for document id: {}, attempting to rollback vector store changes",
+				documentId);
 
-		try {
-			// 回滚数据库更改
-			if (businessKnowledgeMapper.updateById(oldKnowledge) <= 0) {
-				log.error(
-						"Critical: Failed to rollback database changes for knowledge id: {}. Manual intervention required.",
-						id);
+		boolean rollbackSuccessful = false;
+		if (oldDocument != null) {
+			try {
+				// 回滚向量库更改 - 重新添加旧的文档
+				vectorStore.add(List.of(oldDocument));
+				rollbackSuccessful = true;
+				log.info("Successfully rolled back vector store changes for document id: {}", documentId);
 			}
-			else {
-				log.info("Successfully rolled back database changes for knowledge id: {}", id);
+			catch (Exception rollbackException) {
+				log.error("Failed to rollback vector store changes for document id: {}: {}", documentId,
+						rollbackException.getMessage());
+				// 回滚失败，记录严重错误
+				log.error(
+						"CRITICAL: Both vector store update and rollback failed for document id: {}. Manual intervention required.",
+						documentId);
 			}
 		}
-		catch (Exception rollbackException) {
-			log.error("Failed to rollback database changes for knowledge id: {}: {}", id,
-					rollbackException.getMessage());
+		else {
+			log.error("Cannot rollback vector store changes for document id: {}: old document is null", documentId);
 		}
 
 		// 记录详细的错误信息，以便后续可能的补偿操作
-		log.error("Vector store update failed for knowledge id: {}: {}", id, originalException.getMessage());
+		log.error("Vector store update failed for document id: {}: {}", documentId, originalException.getMessage());
 
-		throw new RuntimeException(
-				"Failed to update knowledge in vector store. Database changes have been rolled back.",
-				originalException);
+		// 根据回滚是否成功，提供不同的错误消息
+		String errorMessage;
+		if (rollbackSuccessful) {
+			errorMessage = "Failed to update knowledge in vector store. Vector store changes have been rolled back.";
+		}
+		else {
+			errorMessage = "Failed to update knowledge in vector store. Rollback attempt also failed. Manual intervention required.";
+		}
+
+		throw new RuntimeException(errorMessage, originalException);
 	}
 
 	@Override
