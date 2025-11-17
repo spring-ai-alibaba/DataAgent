@@ -41,6 +41,17 @@
               <el-icon><Search /></el-icon>
             </template>
           </el-input>
+          <el-button
+            @click="refreshVectorStore"
+            v-if="!refreshLoading"
+            size="large"
+            type="success"
+            round
+            :icon="Document"
+          >
+            同步到向量库
+          </el-button>
+          <el-button v-else size="large" type="success" round loading>同步中...</el-button>
           <el-button @click="openCreateDialog" size="large" type="primary" round :icon="Plus">
             添加知识
           </el-button>
@@ -133,7 +144,7 @@
 
 <script lang="ts">
   import { defineComponent, ref, onMounted, Ref } from 'vue';
-  import { Plus, Search } from '@element-plus/icons-vue';
+  import { Plus, Search, Document } from '@element-plus/icons-vue';
   import businessKnowledgeService, {
     BusinessKnowledge,
     BusinessKnowledgeDTO,
@@ -164,6 +175,7 @@
       } as BusinessKnowledge);
 
       const currentEditId: Ref<number | null> = ref(null);
+      const refreshLoading: Ref<boolean> = ref(false);
 
       const openCreateDialog = () => {
         isEdit.value = false;
@@ -273,6 +285,38 @@
         }
       };
 
+      // 刷新向量存储
+      const refreshVectorStore = async () => {
+        try {
+          await ElMessageBox.confirm(
+            '确定要同步所有业务知识到向量库吗？这可能需要一些时间。',
+            '确认同步',
+            {
+              confirmButtonText: '确定',
+              cancelButtonText: '取消',
+              type: 'warning',
+            },
+          );
+
+          refreshLoading.value = true;
+          const result = await businessKnowledgeService.refreshAllKnowledgeToVectorStore(
+            props.agentId.toString(),
+          );
+          if (result) {
+            ElMessage.success('同步到向量库成功');
+          } else {
+            ElMessage.error('同步到向量库失败');
+          }
+        } catch (error) {
+          if (error !== 'cancel') {
+            ElMessage.error('同步到向量库失败');
+            console.error('Failed to refresh vector store:', error);
+          }
+        } finally {
+          refreshLoading.value = false;
+        }
+      };
+
       onMounted(() => {
         loadBusinessKnowledge();
       });
@@ -280,17 +324,20 @@
       return {
         Plus,
         Search,
+        Document,
         businessKnowledgeList,
         dialogVisible,
         isEdit,
         searchKeyword,
         knowledgeForm,
+        refreshLoading,
         openCreateDialog,
         editKnowledge,
         deleteKnowledge,
         toggleRecall,
         saveKnowledge,
         handleSearch,
+        refreshVectorStore,
       };
     },
   });

@@ -121,6 +121,17 @@ class BusinessKnowledgeService {
     });
     return response.data;
   }
+
+  /**
+   * 刷新所有业务知识到向量存储
+   * @param agentId Agent ID
+   */
+  async refreshAllKnowledgeToVectorStore(agentId: string): Promise<boolean> {
+    const response = await axios.post<boolean>(`${API_BASE_URL}/refresh-vector-store`, null, {
+      params: { agentId },
+    });
+    return response.data;
+  }
 }
 
 export default new BusinessKnowledgeService();

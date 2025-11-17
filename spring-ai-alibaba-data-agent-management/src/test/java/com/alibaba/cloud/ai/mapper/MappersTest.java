@@ -271,7 +271,7 @@ public class MappersTest {
 		k.setBusinessTerm("term_ut");
 		k.setDescription("desc_ut");
 		k.setSynonyms("a,b");
-		k.setIsRecall(true);
+		k.setIsRecall(1);
 		k.setAgentId(agentId);
 		int ins = businessKnowledgeMapper.insert(k);
 		Assertions.assertEquals(1, ins);

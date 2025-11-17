@@ -49,8 +49,26 @@
         @click="handleSelectSession(session)"
       >
         <div class="session-header">
-          <span class="session-title">{{ session.title || '新会话' }}</span>
+          <span
+            class="session-title"
+            @dblclick="startEditSessionTitle(session)"
+            v-if="!session.editing"
+          >
+            {{ session.title || '新会话' }}
+          </span>
+          <el-input
+            v-else
+            v-model="session.editingTitle"
+            size="small"
+            @blur="saveSessionTitle(session)"
+            @keyup.enter="saveSessionTitle(session)"
+            @keyup.esc="cancelEditSessionTitle(session)"
+            ref="sessionTitleInputRef"
+          />
           <div class="session-actions">
+            <el-button type="text" size="small" @click.stop="startEditSessionTitle(session)">
+              <el-icon><Edit /></el-icon>
+            </el-button>
             <el-button type="text" size="small" @click.stop="togglePinSession(session)">
               <el-icon>
                 <StarFilled v-if="session.isPinned" />
@@ -62,9 +80,6 @@
             </el-button>
           </div>
         </div>
-        <div class="session-preview">
-          {{ getSessionPreview(session) }}
-        </div>
         <div class="session-time">
           {{ formatTime(session.updateTime || session.createTime) }}
         </div>
@@ -75,13 +90,19 @@
 
 <script lang="ts">
   import { defineComponent, PropType } from 'vue';
-  import { ref, onMounted, computed } from 'vue';
+  import { ref, onMounted, computed, nextTick } from 'vue';
   import { useRouter, useRoute } from 'vue-router';
   import { ElMessage, ElMessageBox } from 'element-plus';
   import ChatService from '../../services/chat';
-  import { ArrowLeft, Plus, Delete, Star, StarFilled } from '@element-plus/icons-vue';
+  import { ArrowLeft, Plus, Delete, Star, StarFilled, Edit } from '@element-plus/icons-vue';
   import { type Agent } from '../../services/agent';
   import { type ChatSession } from '../../services/chat';
+
+  // 扩展ChatSession接口以包含编辑相关属性
+  interface ExtendedChatSession extends ChatSession {
+    editing?: boolean;
+    editingTitle?: string;
+  }
 
   export default defineComponent({
     name: 'ChatSessionSidebar',
@@ -91,6 +112,7 @@
       Delete,
       Star,
       StarFilled,
+      Edit,
     },
     props: {
       agent: {
@@ -111,20 +133,57 @@
       },
     },
     setup(props) {
-      const sessions = ref<ChatSession[]>([]);
+      const sessions = ref<ExtendedChatSession[]>([]);
 
       const router = useRouter();
       const route = useRoute();
-
-      const getSessionPreview = (session: ChatSession) => {
-        // todo: 这里应该从消息中获取预览，暂时返回标题
-        return session.title;
-      };
 
       const formatTime = (time: Date | string | undefined) => {
         if (!time) return '';
         const date = new Date(time);
         return date.toLocaleString('zh-CN');
+      };
+
+      // 开始编辑会话标题
+      const startEditSessionTitle = (session: ExtendedChatSession) => {
+        session.editing = true;
+        session.editingTitle = session.title || '新会话';
+        nextTick(() => {
+          const input = document.querySelector('.el-input__inner') as HTMLInputElement;
+          if (input) {
+            input.focus();
+            input.select();
+          }
+        });
+      };
+
+      // 保存会话标题
+      const saveSessionTitle = async (session: ExtendedChatSession) => {
+        if (!session.editingTitle || session.editingTitle.trim() === '') {
+          ElMessage.warning('会话标题不能为空');
+          return;
+        }
+
+        const newTitle = session.editingTitle.trim();
+        if (newTitle === session.title) {
+          session.editing = false;
+          return;
+        }
+
+        try {
+          await ChatService.renameSession(session.id, newTitle);
+          session.title = newTitle;
+          session.editing = false;
+          ElMessage.success('会话标题已更新');
+        } catch (error) {
+          ElMessage.error('更新会话标题失败');
+          console.error('更新会话标题失败:', error);
+        }
+      };
+
+      // 取消编辑会话标题
+      const cancelEditSessionTitle = (session: ExtendedChatSession) => {
+        session.editing = false;
       };
 
       // 计算属性
@@ -220,13 +279,15 @@
 
       return {
         sessions,
-        getSessionPreview,
         formatTime,
         goBack,
         createNewSession,
         togglePinSession,
         deleteSession,
         clearAllSessions,
+        startEditSessionTitle,
+        saveSessionTitle,
+        cancelEditSessionTitle,
       };
     },
   });
@@ -298,16 +359,6 @@
     display: flex;
     gap: 4px;
     flex-shrink: 0;
-  }
-
-  .session-preview {
-    font-size: 13px;
-    color: #606266;
-    margin-bottom: 4px;
-    line-height: 1.4;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .session-time {

@@ -19,8 +19,8 @@ import com.alibaba.cloud.ai.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.constant.Constant;
 import com.alibaba.cloud.ai.constant.DocumentMetadataConstant;
-import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.entity.AgentKnowledge;
+import com.alibaba.cloud.ai.entity.BusinessKnowledge;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 
@@ -71,7 +71,9 @@ public class DocumentConverterUtil {
 			metadata.put("samples", columnInfoBO.getSamples());
 		}
 
-		return new Document(text, metadata);
+		String docId = DocumentMetadataConstant.COLUMN + ":" + agentId + ":" + tableInfoBO.getName() + ":"
+				+ columnInfoBO.getName();
+		return new Document(docId, text, metadata);
 	}
 
 	/**
@@ -89,7 +91,8 @@ public class DocumentConverterUtil {
 		metadata.put("primaryKey", Optional.ofNullable(tableInfoBO.getPrimaryKeys()).orElse(new ArrayList<>()));
 		metadata.put("vectorType", "table");
 		metadata.put("agentId", agentId);
-		return new Document(text, metadata);
+		String docId = DocumentMetadataConstant.TABLE + ":" + agentId + ":" + tableInfoBO.getName();
+		return new Document(docId, text, metadata);
 	}
 
 	public static List<Document> convertTablesToDocuments(String agentId, List<TableInfoBO> tables) {
@@ -98,22 +101,29 @@ public class DocumentConverterUtil {
 			.collect(Collectors.toList());
 	}
 
-	public static Document convertBusinessTermToDocument(BusinessKnowledgeDTO dto, String dbRecoredId) {
+	public static Document convertBusinessKnowledgeToDocument(BusinessKnowledge businessKnowledge) {
+
 		// 构建文档内容，包含业务名词、说明和同义词
-		String businessTerm = Optional.ofNullable(dto.getBusinessTerm()).orElse("无");
-		String description = Optional.ofNullable(dto.getDescription()).orElse("无");
-		String synonyms = Optional.ofNullable(dto.getSynonyms()).orElse("无");
+		String businessTerm = Optional.ofNullable(businessKnowledge.getBusinessTerm()).orElse("无");
+		String description = Optional.ofNullable(businessKnowledge.getDescription()).orElse("无");
+		String synonyms = Optional.ofNullable(businessKnowledge.getSynonyms()).orElse("无");
 
 		String content = String.format("业务名词: %s, 说明: %s, 同义词: %s", businessTerm, description, synonyms);
 
 		// 构建元数据
 		Map<String, Object> metadata = new HashMap<>();
 		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM);
-		metadata.put(Constant.AGENT_ID, dto.getAgentId().toString());
-		metadata.put(DocumentMetadataConstant.DB_RECORD_ID, dbRecoredId);
-		metadata.put(DocumentMetadataConstant.IS_RECALL, dto.getIsRecall());
+		metadata.put(Constant.AGENT_ID, businessKnowledge.getAgentId().toString());
+		metadata.put(DocumentMetadataConstant.DB_RECORD_ID, businessKnowledge.getId());
+		metadata.put(DocumentMetadataConstant.IS_RECALL,
+				Optional.ofNullable(businessKnowledge.getIsRecall()).orElse(0).toString());
+		String docId = generateFixedBusinessKnowledgeDocId(businessKnowledge.getAgentId().toString(),
+				businessKnowledge.getId());
+		return new Document(docId, content, metadata);
+	}
 
-		return new Document(content, metadata);
+	public static String generateFixedBusinessKnowledgeDocId(String agentId, Long businessKnowledgeId) {
+		return DocumentMetadataConstant.BUSINESS_TERM + ":" + agentId + ":" + businessKnowledgeId;
 	}
 
 	/**

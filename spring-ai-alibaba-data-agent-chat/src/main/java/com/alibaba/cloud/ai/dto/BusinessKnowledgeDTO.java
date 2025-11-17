@@ -41,7 +41,7 @@ public class BusinessKnowledgeDTO {
 	private String synonyms; // Synonyms, comma separated
 
 	@Builder.Default
-	private Boolean isRecall = true; // is recall
+	private Boolean isRecall = true; // Whether to recall
 
 	@NotNull(message = "Agent ID cannot be Null")
 	private Long agentId; // Associated agent ID
@@ -51,7 +51,7 @@ public class BusinessKnowledgeDTO {
 			.businessTerm(businessTerm)
 			.description(description)
 			.synonyms(synonyms)
-			.isRecall(isRecall)
+			.isRecall(isRecall != null && isRecall ? 1 : 0)
 			.agentId(agentId)
 			.build();
 	}

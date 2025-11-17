@@ -45,4 +45,6 @@ public interface BusinessKnowledgeService {
 
 	void recallKnowledge(Long id, boolean isRecall);
 
+	void refreshAllKnowledgeToVectorStore(String agentId) throws Exception;
+
 }

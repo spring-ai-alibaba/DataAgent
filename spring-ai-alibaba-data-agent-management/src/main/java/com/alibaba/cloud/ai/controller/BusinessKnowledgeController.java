@@ -20,6 +20,7 @@ import com.alibaba.cloud.ai.dto.BusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.entity.BusinessKnowledge;
 import com.alibaba.cloud.ai.service.business.BusinessKnowledgeService;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 // TODO 需要优化返回结果为ApiResponse
+@Slf4j
 @RestController
 @RequestMapping("/api/business-knowledge")
 @CrossOrigin(origins = "*")
@@ -78,9 +80,6 @@ public class BusinessKnowledgeController {
 	@PutMapping("/{id}")
 	public ResponseEntity<BusinessKnowledge> update(@PathVariable(value = "id") Long id,
 			@RequestBody BusinessKnowledgeDTO knowledge) {
-		if (businessKnowledgeService.getKnowledgeById(id) == null) {
-			return ResponseEntity.notFound().build();
-		}
 		businessKnowledgeService.updateKnowledge(id, knowledge);
 		return ResponseEntity.ok(businessKnowledgeService.getKnowledgeById(id));
 	}
@@ -99,6 +98,23 @@ public class BusinessKnowledgeController {
 			@RequestParam(value = "isRecall") boolean isRecall) {
 		businessKnowledgeService.recallKnowledge(id, isRecall);
 		return ResponseEntity.ok().body(true);
+	}
+
+	@PostMapping("/refresh-vector-store")
+	public ResponseEntity<Boolean> refreshAllKnowledgeToVectorStore(@RequestParam(value = "agentId") String agentId) {
+		// 校验 agentId 不为空和空字符串
+		if (!StringUtils.hasText(agentId)) {
+			return ResponseEntity.badRequest().body(false);
+		}
+
+		try {
+			businessKnowledgeService.refreshAllKnowledgeToVectorStore(agentId);
+			return ResponseEntity.ok().body(true);
+		}
+		catch (Exception e) {
+			log.error("Failed to refresh vector store for agentId: {}", agentId, e);
+			return ResponseEntity.internalServerError().body(false);
+		}
 	}
 
 }
