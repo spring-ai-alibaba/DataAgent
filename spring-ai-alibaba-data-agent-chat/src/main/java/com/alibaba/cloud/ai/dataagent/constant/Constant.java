@@ -25,7 +25,7 @@ public final class Constant {
 
 	}
 
-	public static final String PROJECT_PROPERTIES_PREFIX = "spring.ai.alibaba.nl2sql";
+	public static final String PROJECT_PROPERTIES_PREFIX = "spring.ai.alibaba.data-agent";
 
 	public static final String INPUT_KEY = "input";
 

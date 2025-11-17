@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.dataagent.config;
+package com.alibaba.cloud.ai.dataagent.strategy;
 
 import com.knuddels.jtokkit.api.EncodingType;
 import org.springframework.ai.document.Document;

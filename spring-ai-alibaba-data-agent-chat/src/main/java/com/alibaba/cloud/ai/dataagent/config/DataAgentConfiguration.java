@@ -43,6 +43,7 @@ import com.alibaba.cloud.ai.dataagent.node.SemanticConsistencyNode;
 import com.alibaba.cloud.ai.dataagent.node.SqlExecuteNode;
 import com.alibaba.cloud.ai.dataagent.node.SqlGenerateNode;
 import com.alibaba.cloud.ai.dataagent.node.TableRelationNode;
+import com.alibaba.cloud.ai.dataagent.strategy.EnhancedTokenCountBatchingStrategy;
 import com.alibaba.cloud.ai.graph.GraphRepresentation;
 import com.alibaba.cloud.ai.graph.KeyStrategy;
 import com.alibaba.cloud.ai.graph.KeyStrategyFactory;

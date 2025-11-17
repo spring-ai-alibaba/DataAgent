@@ -30,10 +30,10 @@ public class DataAgentProperties {
 	private LlmServiceEnum llmServiceType = LlmServiceEnum.STREAM;
 
 	/**
-	 * spring.ai.alibaba.nl2sql.embedding-batch.encoding-type=cl100k_base
-	 * spring.ai.alibaba.nl2sql.embedding-batch.max-token-count=2000
-	 * spring.ai.alibaba.nl2sql.embedding-batch.reserve-percentage=0.2
-	 * spring.ai.alibaba.nl2sql.embedding-batch.max-text-count=10
+	 * spring.ai.alibaba.data-agent.embedding-batch.encoding-type=cl100k_base
+	 * spring.ai.alibaba.data-agent.embedding-batch.max-token-count=2000
+	 * spring.ai.alibaba.data-agent.embedding-batch.reserve-percentage=0.2
+	 * spring.ai.alibaba.data-agent.embedding-batch.max-text-count=10
 	 */
 	private EmbeddingBatch embeddingBatch = new EmbeddingBatch();
 
