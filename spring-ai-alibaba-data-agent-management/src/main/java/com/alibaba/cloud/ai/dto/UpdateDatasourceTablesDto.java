@@ -27,7 +27,6 @@ public class UpdateDatasourceTablesDto {
 	@NotNull(message = "datasourceId cannot be null")
 	private Integer datasourceId;
 
-	@NotNull(message = "tables cannot be null")
 	private List<String> tables;
 
 }

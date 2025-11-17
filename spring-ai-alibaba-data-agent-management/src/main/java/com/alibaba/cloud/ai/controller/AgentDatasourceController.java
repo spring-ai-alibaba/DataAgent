@@ -138,6 +138,7 @@ public class AgentDatasourceController {
 	public ResponseEntity<ApiResponse> updateDatasourceTables(@PathVariable("agentId") String agentId,
 			@RequestBody @Validated UpdateDatasourceTablesDto dto) {
 		try {
+			dto.setTables(Optional.ofNullable(dto.getTables()).orElse(List.of()));
 			agentDatasourceService.updateDatasourceTables(Integer.parseInt(agentId), dto.getDatasourceId(),
 					dto.getTables());
 			return ResponseEntity.ok(ApiResponse.success("更新成功"));

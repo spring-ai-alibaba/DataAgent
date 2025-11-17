@@ -49,8 +49,11 @@ public interface AgentDatasourceTablesMapper {
 			+ "</foreach>" + "</if>" + "</script>")
 	int insertNewTables(@Param("agentDatasourceId") int agentDatasourceId, @Param("tables") List<String> tables);
 
-	// 更新用户的选择
+	// 更新用户的选择（tables不能为空）
 	default int updateAgentDatasourceTables(int agentDatasourceId, List<String> tables) {
+		if (tables.isEmpty()) {
+			throw new IllegalArgumentException("tables cannot be empty");
+		}
 		int deleteCount = removeExpireTables(agentDatasourceId, tables);
 		int insertCount = insertNewTables(agentDatasourceId, tables);
 		return deleteCount + insertCount;

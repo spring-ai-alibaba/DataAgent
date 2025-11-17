@@ -46,7 +46,7 @@
     </div>
 
     <el-table :data="datasource" style="width: 100%" border @expand-change="handleExpandChange">
-      <el-table-column type="expand" width="60">
+      <el-table-column type="expand" width="100" label="选择数据表">
         <template #default="scope">
           <div
             v-if="scope.row.status === 'active'"
@@ -563,21 +563,28 @@
       const initAgentDatasource = async () => {
         initStatus.value = true;
         try {
-          // 获取智能体配置的启用数据源
-          const usedDatasource: AgentDatasource =
-            await agentDatasourceService.getActiveAgentDatasource(props.agentId);
+          try {
+            // 获取智能体配置的启用数据源
+            const usedDatasource: AgentDatasource =
+              await agentDatasourceService.getActiveAgentDatasource(props.agentId);
 
-          if (usedDatasource.datasource == null && usedDatasource.datasourceId == null) {
+            if (usedDatasource.datasource == null && usedDatasource.datasourceId == null) {
+              ElMessage.warning(
+                '当前智能体没有启用的数据源！请添加一个新数据源，或者启用已有的数据源',
+              );
+              return;
+            } else if (
+              usedDatasource.selectTables == null ||
+              usedDatasource.selectTables.length === 0
+            ) {
+              ElMessage.warning(
+                '当前启用的数据源没有选择相应的数据表！请点击相应数据源左侧按钮，选择相应数据表并更新！',
+              );
+              return;
+            }
+          } catch {
             ElMessage.warning(
               '当前智能体没有启用的数据源！请添加一个新数据源，或者启用已有的数据源',
-            );
-            return;
-          } else if (
-            usedDatasource.selectTables == null ||
-            usedDatasource.selectTables.length > 0
-          ) {
-            ElMessage.warning(
-              '当前启用的数据源没有选择相应的数据表！请点击相应数据源左侧按钮，选择相应数据表并更新！',
             );
             return;
           }

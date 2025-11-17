@@ -173,7 +173,12 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 		if (datasource == null) {
 			throw new IllegalArgumentException("未找到对应的数据源关联记录");
 		}
-		tablesMapper.updateAgentDatasourceTables(datasource.getId(), tables);
+		if (tables.isEmpty()) {
+			tablesMapper.removeAllTables(datasource.getId());
+		}
+		else {
+			tablesMapper.updateAgentDatasourceTables(datasource.getId(), tables);
+		}
 	}
 
 }
