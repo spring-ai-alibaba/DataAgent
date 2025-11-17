@@ -21,21 +21,17 @@
       <ChatSessionSidebar
         :agent="agent"
         :handleSetCurrentSession="
-          (session: ChatSession | null) => {
-            currentSession.value = session;
+          async (session: ChatSession | null) => {
+            currentSession = session;
+            await selectSession(session);
           }
         "
         :handleGetCurrentSession="
           () => {
-            return currentSession.value;
+            return currentSession;
           }
         "
         :handleSelectSession="selectSession"
-        :handleClearMessage="
-          () => {
-            currentMessages.value = [];
-          }
-        "
       />
 
       <!-- 右侧对话栏 -->
@@ -362,11 +358,15 @@
         }
       };
 
-      const selectSession = async (session: ChatSession) => {
+      const selectSession = async (session: ChatSession | null) => {
         currentSession.value = session;
         nodeBlocks.value = [];
         isStreaming.value = false;
         try {
+          if (session === null) {
+            currentMessages.value = [];
+            return;
+          }
           currentMessages.value = await ChatService.getSessionMessages(session.id);
           scrollToBottom();
         } catch (error) {
@@ -461,6 +461,25 @@
 
               // 检查是否是报告节点
               if (response.nodeName === 'ReportGeneratorNode') {
+                const isNewNode: boolean =
+                  currentNodeName === null || response.nodeName !== currentNodeName;
+
+                if (isNewNode) {
+                  // 保存上一个节点的消息（如果有）
+                  if (currentBlockIndex >= 0 && nodeBlocks.value[currentBlockIndex]) {
+                    const savePromise = saveNodeMessage(nodeBlocks.value[currentBlockIndex]);
+                    pendingSavePromises.push(savePromise);
+                  }
+
+                  // 创建新的节点块
+                  const newBlock: GraphNodeResponse = {
+                    ...response,
+                    text: response.text,
+                  };
+                  nodeBlocks.value.push([newBlock]);
+                  currentBlockIndex = nodeBlocks.value.length - 1;
+                  currentNodeName = response.nodeName;
+                }
                 // 处理HTML报告
                 if (response.textType === 'HTML') {
                   htmlReportContent.value += response.text;
@@ -536,8 +555,13 @@
             async (error: Error) => {
               ElMessage.error(`流式请求失败: ${error.message}`);
               console.error('error: ' + error);
+              // 等待所有待处理的保存操作完成
+              if (pendingSavePromises.length > 0) {
+                await Promise.all(pendingSavePromises);
+              }
               isStreaming.value = false;
               currentNodeName = null;
+              await selectSession(currentSession.value);
             },
             async () => {
               // 等待所有待处理的保存操作完成

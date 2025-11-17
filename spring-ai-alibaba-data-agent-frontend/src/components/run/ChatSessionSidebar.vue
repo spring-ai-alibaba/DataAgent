@@ -98,15 +98,11 @@
         required: true,
       },
       handleSetCurrentSession: {
-        type: Function as PropType<(session: ChatSession | null) => void>,
+        type: Function as PropType<(session: ChatSession | null) => Promise<void>>,
         required: true,
       },
       handleGetCurrentSession: {
-        type: Function as PropType<() => ChatSession>,
-        required: true,
-      },
-      handleClearMessage: {
-        type: Function as PropType<() => void>,
+        type: Function as PropType<() => ChatSession | null>,
         required: true,
       },
       handleSelectSession: {
@@ -186,9 +182,8 @@
           });
           await ChatService.deleteSession(session.id);
           sessions.value = sessions.value.filter((s: ChatSession) => s.id !== session.id);
-          if (props.handleGetCurrentSession()?.id === session.id) {
-            props.handleSetCurrentSession(null);
-            props.handleClearMessage();
+          if (props.handleGetCurrentSession() == session) {
+            await props.handleSetCurrentSession(null);
           }
           ElMessage.success('会话删除成功');
         } catch (error) {
@@ -208,8 +203,7 @@
           });
           await ChatService.clearAgentSessions(parseInt(agentId.value));
           sessions.value = [];
-          props.handleSetCurrentSession(null);
-          props.handleClearMessage();
+          await props.handleSetCurrentSession(null);
           ElMessage.success('所有会话已清空');
         } catch (error) {
           if (error !== 'cancel') {
