@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.mapper;
 
+import com.alibaba.cloud.ai.dataagent.MySqlContainerConfiguration;
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
 import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.dataagent.entity.AgentPresetQuestion;
