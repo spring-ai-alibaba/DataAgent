@@ -100,14 +100,23 @@ public class SchemaServiceImpl implements SchemaService {
 		Assert.hasText(agentId, "agentId cannot be empty");
 
 		List<Document> allResults = new ArrayList<>();
+		Set<String> seenDocumentIds = new HashSet<>();
 		for (String kw : keywords) {
 			List<Document> docs = vectorStoreService.getDocumentsForAgent(agentId, kw, DocumentMetadataConstant.COLUMN);
 			if (CollectionUtils.isEmpty(docs)) {
 				continue;
 			}
+
 			List<Document> filterDocs = filterColumnsWithMatchingTables(docs, tableDocuments);
-			if (CollectionUtils.isNotEmpty(filterDocs))
-				allResults.addAll(filterDocs);
+			if (CollectionUtils.isEmpty(filterDocs))
+				continue;
+
+			for (Document doc : filterDocs) {
+				String docId = doc.getId();
+				if (seenDocumentIds.add(docId)) {
+					allResults.add(doc);
+				}
+			}
 
 		}
 
