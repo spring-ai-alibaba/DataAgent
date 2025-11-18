@@ -98,41 +98,36 @@ spring:
 这个项目分为三个部分：
 
 ```
-spring-ai-alibaba-nl2sql/
-├── spring-ai-alibaba-nl2sql-management    # 管理端（可直接启动的Web应用）
-├── spring-ai-alibaba-nl2sql-chat         # 核心功能（不能独立启动，供集成使用）
-└── spring-ai-alibaba-nl2sql-common       # 公共代码
+spring-ai-alibaba-data-agent/
+├── spring-ai-alibaba-data-agent-management    # 管理端（可直接启动的Web应用）
+├── spring-ai-alibaba-data-agent-chat         # 核心功能（不能独立启动，供集成使用）
+└── spring-ai-alibaba-data-agent-common       # 公共代码
 ```
 
 ## 快速启动
 
-项目进行本地测试是在spring-ai-alibaba-nl2sql-management中进行
+项目进行本地测试是在spring-ai-alibaba-data-agent-management中进行
 
 ### 1. 业务数据库准备
 
-可以在spring-ai-alibaba-example项目仓库获取测试表和数据：
+可以在项目仓库获取测试表和数据：
 
-- Schema：https://github.com/springaialibaba/spring-ai-alibaba-examples/blob/main/spring-ai-alibaba-nl2sql-example/chat/sql/schema.sql
-- Data：https://github.com/springaialibaba/spring-ai-alibaba-examples/blob/main/spring-ai-alibaba-nl2sql-example/chat/sql/insert.sql
+文件在：`spring-ai-alibaba-data-agent-management/src/main/resources/sql`，里面有两个文件：`schema.sql` 和 `data.sql`
 
 将表和数据导入到你的MySQL数据库中。
-
-
 
 ### 2. 配置
 
 #### 2.1 配置management数据库
 
-
-
-在`spring-ai-alibaba-nl2sql-management/src/main/resources/application.yml`中配置你的MySQL数据库连接信息。
+在`spring-ai-alibaba-data-agent-management/src/main/resources/application.yml`中配置你的MySQL数据库连接信息。
 
 > 初始化行为说明：默认开启自动创建表并插入示例数据（`spring.sql.init.mode: always`）。生产环境建议关闭，避免示例数据回填覆盖你的业务数据。
 
 ```yaml
 spring:
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/nl2sql?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://127.0.0.1:3306/saa_data_agent?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -193,10 +188,10 @@ spring:
 
 | 属性                                                        | 说明                                                         | 默认值      |
 | ----------------------------------------------------------- | ------------------------------------------------------------ | ----------- |
-| spring.ai.alibaba.nl2sql.embedding-batch.encoding-type      | 文本编码类型，可参考com.knuddels.jtokkit.api.EncodingType    | cl100k_base |
-| spring.ai.alibaba.nl2sql.embedding-batch.max-token-count    | 每批次最大令牌数 值越小，每批次文档越少，但更安全 值越大，处理效率越高，但可能超出API限制 建议值：2000-8000，根据实际API限制调整 | 2000        |
-| spring.ai.alibaba.nl2sql.embedding-batch.reserve-percentage | 预留百分比 用于预留缓冲空间，避免超出限制 建议值：0.1-0.2（10%-20%） | 0.2         |
-| spring.ai.alibaba.nl2sql.embedding-batch.max-text-count     | 每批次最大文本数量 适用于DashScope等有文本数量限制的API DashScope限制为10 | 10          |
+| spring.ai.alibaba.data-agent.embedding-batch.encoding-type      | 文本编码类型，可参考com.knuddels.jtokkit.api.EncodingType    | cl100k_base |
+| spring.ai.alibaba.data-agent.embedding-batch.max-token-count    | 每批次最大令牌数 值越小，每批次文档越少，但更安全 值越大，处理效率越高，但可能超出API限制 建议值：2000-8000，根据实际API限制调整 | 2000        |
+| spring.ai.alibaba.data-agent.embedding-batch.reserve-percentage | 预留百分比 用于预留缓冲空间，避免超出限制 建议值：0.1-0.2（10%-20%） | 0.2         |
+| spring.ai.alibaba.data-agent.embedding-batch.max-text-count     | 每批次最大文本数量 适用于DashScope等有文本数量限制的API DashScope限制为10 | 10          |
 
 
 
@@ -206,11 +201,11 @@ spring:
 
 | 属性                                                         | 说明                                                         | 默认值    |
 | ------------------------------------------------------------ | ------------------------------------------------------------ | --------- |
-| spring.ai.alibaba.nl2sql.vector-store.similarity-threshold   | 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档       | 0.2       |
-| spring.ai.alibaba.nl2sql.vector-store.batch-del-topk-limit   | 一次删除操作中，最多删除的文档数量                           | 5000      |
-| spring.ai.alibaba.nl2sql.vector-store.topk-limit             | 查询返回最大文档数                                           | 30        |
-| **spring.ai.alibaba.nl2sql.vector-store.enable-hybrid-search** | 是否启用混合搜索。**注意**：**项目目前默认只提供ES的混合检索能力，<br />如需要扩展其他向量库可自行继承重写 com.alibaba.cloud.ai.service.hybrid.retrieval<br />.AbstractHybridRetrievalStrategy#retrieve 该方法**<br />**并且修改com.alibaba.cloud.ai.service.hybrid.<br />factory.HybridRetrievalStrategyFactory#getObject<br />注册相应的bean** | **false** |
-| spring.ai.alibaba.nl2sql.vector-store.elasticsearch-min-score | Elasticsearch最小分数阈值，用于es执行关键词搜索时过滤相关性较低的文档。<br />**开发时使用的es服务端版本 8.15.0** | 0.5       |
+| spring.ai.alibaba.data-agent.vector-store.similarity-threshold   | 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档       | 0.2       |
+| spring.ai.alibaba.data-agent.vector-store.batch-del-topk-limit   | 一次删除操作中，最多删除的文档数量                           | 5000      |
+| spring.ai.alibaba.data-agent.vector-store.topk-limit             | 查询返回最大文档数                                           | 30        |
+| **spring.ai.alibaba.data-agent.vector-store.enable-hybrid-search** | 是否启用混合搜索。**注意**：**项目目前默认只提供ES的混合检索能力，<br />如需要扩展其他向量库可自行继承重写 com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval<br />.AbstractHybridRetrievalStrategy#retrieve 该方法**<br />**并且修改com.alibaba.cloud.ai.service.hybrid.<br />factory.HybridRetrievalStrategyFactory#getObject<br />注册相应的bean** | **false** |
+| spring.ai.alibaba.data-agent.vector-store.elasticsearch-min-score | Elasticsearch最小分数阈值，用于es执行关键词搜索时过滤相关性较低的文档。<br />**开发时使用的es服务端版本 8.15.0** | 0.5       |
 
 
 
@@ -218,18 +213,18 @@ spring:
 
 | 属性                                     | 说明                 | 默认值 |
 | ---------------------------------------- | -------------------- | ------ |
-| spring.ai.alibaba.nl2sql.fusion-strategy | 多路召回结果融合策略 | rrf    |
+| spring.ai.alibaba.data-agent.fusion-strategy | 多路召回结果融合策略 | rrf    |
 |                                          |                      |        |
 
 
 
 ### 3. 启动管理端
 
-在`spring-ai-alibaba-nl2sql-management`目录下，运行 `spring-ai-alibaba-nl2sql/spring-ai-alibaba-nl2sql-management/src/main/java/com/alibaba/cloud/ai/DataAgentApplication.java` 类。
+在`spring-ai-alibaba-data-agent-management`目录下，运行 `DataAgentApplication.java` 类。
 
 ### 4. 启动WEB页面
 
-进入 `spring-ai-alibaba-nl2sql/spring-ai-alibaba-nl2sql-web-ui` 目录
+进入 `spring-ai-alibaba-data-agent-frontend` 目录
 
 #### 4.1 安装依赖
 

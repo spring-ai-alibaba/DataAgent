@@ -103,7 +103,7 @@ mybatis-plus:
   # Mapper XML 文件位置（如果有的话）
   mapper-locations: classpath*:/mapper/**/*.xml
   # 实体扫描，多个package用逗号或者分号分隔
-  type-aliases-package: com.alibaba.cloud.ai.entity
+  type-aliases-package: com.alibaba.cloud.ai.dataagent.entity
 
 # 日志配置
 logging:

@@ -32,7 +32,7 @@ spring:
         options:
           model: text-embedding-v4
     alibaba:
-      nl2sql:
+      data-agent:
         llm-service-type: stream
         code-executor:
           # 运行Python代码的环境（生产环境建议使用docker，不建议使用local）
