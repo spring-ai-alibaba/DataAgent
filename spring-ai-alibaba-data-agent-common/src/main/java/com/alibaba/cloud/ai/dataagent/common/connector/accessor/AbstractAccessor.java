@@ -28,8 +28,8 @@ import com.alibaba.cloud.ai.dataagent.common.connector.bo.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.common.connector.bo.SchemaInfoBO;
 import com.alibaba.cloud.ai.dataagent.common.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.util.List;
@@ -38,19 +38,13 @@ import java.util.List;
  * @author yuluo
  * @author <a href="mailto:yuluo08290126@gmail.com">yuluo</a>
  */
-
+@Slf4j
+@AllArgsConstructor
 public abstract class AbstractAccessor implements Accessor {
-
-	private static final Logger logger = LoggerFactory.getLogger(AbstractAccessor.class);
 
 	private final DdlFactory ddlFactory;
 
 	private final DBConnectionPool dbConnectionPool;
-
-	protected AbstractAccessor(DdlFactory ddlFactory, DBConnectionPool dbConnectionPool) {
-		this.ddlFactory = ddlFactory;
-		this.dbConnectionPool = dbConnectionPool;
-	}
 
 	public <T> T accessDb(DbConfig dbConfig, String method, DbQueryParameter param) throws Exception {
 
@@ -84,7 +78,7 @@ public abstract class AbstractAccessor implements Accessor {
 		}
 		catch (Exception e) {
 
-			logger.error("Error accessing database with method: {}, reason: {}", method, e.getMessage());
+			log.error("Error accessing database with method: {}, reason: {}", method, e.getMessage());
 			throw e;
 		}
 	}

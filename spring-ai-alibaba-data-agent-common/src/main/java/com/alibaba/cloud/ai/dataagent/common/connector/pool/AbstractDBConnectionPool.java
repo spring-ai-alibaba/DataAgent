@@ -21,8 +21,7 @@ import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.druid.pool.DruidDataSourceFactory;
 import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -34,9 +33,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 public abstract class AbstractDBConnectionPool implements DBConnectionPool {
-
-	private static final Logger log = LoggerFactory.getLogger(AbstractDBConnectionPool.class);
 
 	/**
 	 * DataSource cache to ensure that each configuration creates DataSource only once.
@@ -53,13 +51,16 @@ public abstract class AbstractDBConnectionPool implements DBConnectionPool {
 	 */
 	public abstract ErrorCodeEnum errorMapping(String sqlState);
 
+	protected String getSelectSchemaSQL(String schema) {
+		return String.format("SELECT count(*) FROM information_schema.schemata WHERE schema_name = '%s'", schema);
+	}
+
 	public ErrorCodeEnum ping(DbConfig config) {
 		String jdbcUrl = config.getUrl();
 		try (Connection connection = DriverManager.getConnection(jdbcUrl, config.getUsername(), config.getPassword());
 				Statement stmt = connection.createStatement();) {
 			if (BizDataSourceTypeEnum.isPgDialect(config.getConnectionType())) {
-				String sql = "SELECT count(*) FROM information_schema.schemata WHERE schema_name = '%s'";
-				ResultSet rs = stmt.executeQuery(String.format(sql, config.getSchema()));
+				ResultSet rs = stmt.executeQuery(getSelectSchemaSQL(config.getSchema()));
 				if (rs.next()) {
 					int count = rs.getInt(1);
 					rs.close();

@@ -16,8 +16,10 @@
 
 package com.alibaba.cloud.ai.dataagent.node;
 
+import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -66,6 +68,8 @@ public class SqlGenerateNode implements NodeAction {
 	private static final int MAX_OPTIMIZATION_ROUNDS = 3;
 
 	private final Nl2SqlService nl2SqlService;
+
+	private final DatabaseUtil databaseUtil;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -156,6 +160,11 @@ public class SqlGenerateNode implements NodeAction {
 	 */
 	private Flux<String> regenerateSql(OverAllState state, String input, String evidence, SchemaDTO schemaDTO,
 			String exceptionOutputKey, String originalSql, Consumer<String> finalSqlConsumer) {
+
+		String agentIdStr = state.value(AGENT_ID, String.class).orElseThrow(IllegalStateException::new);
+		Integer agentId = Integer.parseInt(agentIdStr);
+		DbConfig dbConfig = databaseUtil.getAgentDbConfig(agentId);
+
 		String exceptionMessage = StateUtil.getStringValue(state, exceptionOutputKey);
 		log.info("开始增强SQL生成流程 - 原始SQL: {}, 异常信息: {}", originalSql, exceptionMessage);
 
@@ -226,7 +235,8 @@ public class SqlGenerateNode implements NodeAction {
 			}
 		};
 
-		Flux<String> sqlFlux = nl2SqlService.generateSql(evidence, input, schemaDTO, originalSql, exceptionMessage);
+		Flux<String> sqlFlux = nl2SqlService.generateSql(evidence, input, schemaDTO, originalSql, exceptionMessage,
+				dbConfig);
 		Mono<String> sqlMono = sqlFlux.collect(StringBuilder::new, StringBuilder::append).map(StringBuilder::toString);
 		return Flux.just("正在生成SQL...\n", TextType.SQL.getStartSign())
 			.concatWith(sqlMono.flatMapMany(sql -> Flux.just(nl2SqlService.sqlTrim(sql)).expand(newSql -> {

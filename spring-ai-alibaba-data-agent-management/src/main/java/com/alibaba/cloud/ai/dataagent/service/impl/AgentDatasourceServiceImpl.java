@@ -22,10 +22,9 @@ import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceTablesMapper;
 import com.alibaba.cloud.ai.dataagent.common.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.dataagent.service.AgentDatasourceService;
+import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
-import com.alibaba.cloud.ai.dataagent.util.SchemaProcessorUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -65,7 +64,7 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 			}
 
 			// Create database configuration
-			DbConfig dbConfig = SchemaProcessorUtil.createDbConfigFromDatasource(datasource);
+			DbConfig dbConfig = datasourceService.getDbConfig(datasource);
 
 			// Create SchemaInitRequest
 			SchemaInitRequest schemaInitRequest = new SchemaInitRequest();

@@ -292,7 +292,7 @@
               <label>数据库名 *</label>
               <el-input
                 v-model="newDatasource.databaseName"
-                placeholder="请输入数据库名称"
+                placeholder="请输入数据库（schema）名称"
                 size="large"
               />
             </div>
@@ -409,7 +409,7 @@
           <label>数据库名 *</label>
           <el-input
             v-model="editingDatasource.databaseName"
-            placeholder="请输入数据库名称"
+            placeholder="请输入数据库（schema）名称"
             size="large"
           />
         </div>

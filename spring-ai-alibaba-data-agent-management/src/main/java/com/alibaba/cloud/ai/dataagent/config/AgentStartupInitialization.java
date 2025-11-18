@@ -17,9 +17,8 @@ package com.alibaba.cloud.ai.dataagent.config;
 
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
-import com.alibaba.cloud.ai.dataagent.service.AgentDatasourceService;
+import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.AgentService;
-import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +30,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Slf4j
 @Service
@@ -44,9 +42,7 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 
 	private final AgentDatasourceService agentDatasourceService;
 
-	private final DatasourceService datasourceService;
-
-	private final ExecutorService executorService = Executors.newFixedThreadPool(3);
+	private final ExecutorService executorService;
 
 	@Override
 	public void run(ApplicationArguments args) {

@@ -19,27 +19,23 @@ package com.alibaba.cloud.ai.dataagent.node;
 import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
-import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import com.alibaba.cloud.ai.dataagent.service.business.BusinessKnowledgeService;
-import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
 import com.alibaba.cloud.ai.dataagent.service.semantic.SemanticModelService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.util.SchemaProcessorUtil;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
-import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -70,11 +66,9 @@ public class TableRelationNode implements NodeAction {
 
 	private final Nl2SqlService nl2SqlService;
 
-	private final BusinessKnowledgeService businessKnowledgeService;
-
 	private final SemanticModelService semanticModelService;
 
-	private final DatasourceService datasourceService;
+	private final DatabaseUtil databaseUtil;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -88,7 +82,7 @@ public class TableRelationNode implements NodeAction {
 		String agentIdStr = StateUtil.getStringValue(state, AGENT_ID);
 
 		// Execute business logic first - get final result immediately
-		DbConfig agentDbConfig = getAgentDbConfig(Integer.valueOf(agentIdStr));
+		DbConfig agentDbConfig = databaseUtil.getAgentDbConfig(Integer.valueOf(agentIdStr));
 		SchemaDTO initialSchema = buildInitialSchema(agentIdStr, columnDocuments, tableDocuments, agentDbConfig);
 
 		Map<String, Object> resultMap = new HashMap<>();
@@ -134,17 +128,6 @@ public class TableRelationNode implements NodeAction {
 
 	}
 
-	private String classifyDatabaseError(DataAccessException e) {
-		String message = e.getMessage();
-		if (message != null) {
-			// timeout, connection, network can be retried
-			if (message.contains("timeout") || message.contains("connection") || message.contains("network")) {
-				return "RETRYABLE";
-			}
-		}
-		return "NON_RETRYABLE";
-	}
-
 	/**
 	 * Builds initial schema from column and table documents.
 	 */
@@ -155,20 +138,6 @@ public class TableRelationNode implements NodeAction {
 		schemaService.extractDatabaseName(schemaDTO, agentDbConfig);
 		schemaService.buildSchemaFromDocuments(agentId, columnDocuments, tableDocuments, schemaDTO);
 		return schemaDTO;
-	}
-
-	private DbConfig getAgentDbConfig(Integer agentId) {
-		// Get the enabled data source for the agent
-		Datasource agentDatasource = datasourceService.getActiveDatasourceByAgentId(agentId);
-		if (agentDatasource == null)
-			throw new RuntimeException("No active datasource found for agent " + agentId);
-
-		// Convert to DbConfig
-		DbConfig dbConfig = SchemaProcessorUtil.createDbConfigFromDatasource(agentDatasource);
-		log.debug("Successfully created DbConfig for agent {}: url={}, schema={}, type={}", agentId, dbConfig.getUrl(),
-				dbConfig.getSchema(), dbConfig.getDialectType());
-
-		return dbConfig;
 	}
 
 	/**

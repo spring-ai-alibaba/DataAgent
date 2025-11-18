@@ -20,9 +20,9 @@ import java.util.stream.Collectors;
 
 import com.alibaba.cloud.ai.dataagent.common.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.common.connector.accessor.AccessorFactory;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import com.alibaba.cloud.ai.dataagent.common.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.common.connector.bo.DbQueryParameter;
@@ -38,17 +38,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 @Slf4j
 @Service
+@AllArgsConstructor
 public class TableMetadataService {
 
 	private final AccessorFactory accessorFactory;
 
 	private final ObjectMapper objectMapper;
-
-	@Autowired
-	public TableMetadataService(AccessorFactory accessorFactory, ObjectMapper objectMapper) {
-		this.accessorFactory = accessorFactory;
-		this.objectMapper = objectMapper;
-	}
 
 	/**
 	 * 批量处理多个表的元数据，提高性能

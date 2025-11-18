@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.dataagent.controller;
 import com.alibaba.cloud.ai.dataagent.dto.ToggleDatasourceDto;
 import com.alibaba.cloud.ai.dataagent.dto.UpdateDatasourceTablesDto;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
-import com.alibaba.cloud.ai.dataagent.service.AgentDatasourceService;
+import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
