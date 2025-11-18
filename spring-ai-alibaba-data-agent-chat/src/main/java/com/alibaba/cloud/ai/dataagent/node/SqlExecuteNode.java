@@ -17,32 +17,29 @@
 package com.alibaba.cloud.ai.dataagent.node;
 
 import com.alibaba.cloud.ai.dataagent.common.connector.accessor.Accessor;
-import com.alibaba.cloud.ai.dataagent.common.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dataagent.common.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.common.connector.bo.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.constant.Constant;
 
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.dataagent.pojo.ExecutionStep;
-import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
-import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
-import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
 import com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE_EXCEPTION_OUTPUT;
@@ -59,20 +56,10 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE_
  */
 @Slf4j
 @Component
+@AllArgsConstructor
 public class SqlExecuteNode implements NodeAction {
 
-	// todo: 根据数据库配置动态获取Accessor
-	private final Accessor dbAccessor;
-
-	private final DatasourceService datasourceService;
-
-	private final DbConfig dbConfig;
-
-	public SqlExecuteNode(AccessorFactory accessorFactory, DatasourceService datasourceService, DbConfig dbConfig) {
-		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
-		this.datasourceService = datasourceService;
-		this.dbConfig = dbConfig;
-	}
+	private final DatabaseUtil databaseUtil;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -86,88 +73,18 @@ public class SqlExecuteNode implements NodeAction {
 		log.info("Executing SQL query: {}", sqlQuery);
 		log.info("Step description: {}", toolParameters.getDescription());
 
+		// Get the agent ID from the state
+		String agentIdStr = StateUtil.getStringValue(state, Constant.AGENT_ID);
+		if (agentIdStr == null || agentIdStr.trim().isEmpty()) {
+			throw new IllegalStateException("Agent ID cannot be empty.");
+		}
+
+		Integer agentId = Integer.valueOf(agentIdStr);
+
 		// Dynamically get the data source configuration for an agent
-		DbConfig dbConfig = getAgentDbConfig(state);
+		DbConfig dbConfig = databaseUtil.getAgentDbConfig(agentId);
 
-		return executeSqlQuery(state, currentStep, sqlQuery, dbConfig);
-	}
-
-	/**
-	 * Dynamically get the data source configuration for an agent
-	 * @param state The state object containing the agent ID
-	 * @return The database configuration corresponding to the agent
-	 * @throws RuntimeException If the agent has no enabled data source configured
-	 */
-	private DbConfig getAgentDbConfig(OverAllState state) {
-		try {
-			// Get the agent ID from the state
-			String agentIdStr = StateUtil.getStringValue(state, Constant.AGENT_ID);
-			if (agentIdStr == null || agentIdStr.trim().isEmpty()) {
-				// 返回默认数据源
-				return dbConfig;
-			}
-
-			Integer agentId = Integer.valueOf(agentIdStr);
-			log.info("Getting datasource config for agent: {}", agentId);
-
-			// Get the enabled data source for the agent
-			List<AgentDatasource> agentDatasources = datasourceService.getAgentDatasource(agentId);
-			if (agentDatasources.size() == 0) {
-				// TODO 调试AgentID不一致，暂时手动处理
-				agentDatasources = datasourceService.getAgentDatasource(agentId - 999999);
-			}
-			AgentDatasource activeDatasource = agentDatasources.stream()
-				.filter(ad -> ad.getIsActive() == 1)
-				.findFirst()
-				.orElseThrow(() -> new RuntimeException("智能体 " + agentId + " 未配置启用的数据源"));
-
-			// Convert to DbConfig
-			DbConfig dbConfig = createDbConfigFromDatasource(activeDatasource.getDatasource());
-			log.info("Successfully created DbConfig for agent {}: url={}, schema={}, type={}", agentId,
-					dbConfig.getUrl(), dbConfig.getSchema(), dbConfig.getDialectType());
-
-			return dbConfig;
-		}
-		catch (Exception e) {
-			log.error("Failed to get agent datasource config", e);
-			throw new RuntimeException("获取智能体数据源配置失败: " + e.getMessage(), e);
-		}
-	}
-
-	/**
-	 * Create database configuration from data source entity
-	 * @param datasource The data source entity
-	 * @return The database configuration object
-	 */
-	private DbConfig createDbConfigFromDatasource(Datasource datasource) {
-		DbConfig dbConfig = new DbConfig();
-
-		// Set basic connection information
-		dbConfig.setUrl(datasource.getConnectionUrl());
-		dbConfig.setUsername(datasource.getUsername());
-		dbConfig.setPassword(datasource.getPassword());
-
-		// Set database type
-		if ("mysql".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("mysql");
-		}
-		else if ("postgresql".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("postgresql");
-		}
-		else if ("h2".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("h2");
-		}
-		else {
-			throw new RuntimeException("不支持的数据库类型: " + datasource.getType());
-		}
-
-		// Set Schema to the database name of the data source
-		dbConfig.setSchema(datasource.getDatabaseName());
-
-		return dbConfig;
+		return executeSqlQuery(state, currentStep, sqlQuery, dbConfig, agentId);
 	}
 
 	/**
@@ -180,15 +97,18 @@ public class SqlExecuteNode implements NodeAction {
 	 * @param currentStep The current step number in the execution plan
 	 * @param sqlQuery The SQL query to execute
 	 * @param dbConfig The database configuration to use for execution
+	 * @param agentId The agent ID
 	 * @return Map containing the generator for streaming output
 	 */
 	@SuppressWarnings("unchecked")
 	private Map<String, Object> executeSqlQuery(OverAllState state, Integer currentStep, String sqlQuery,
-			DbConfig dbConfig) {
+			DbConfig dbConfig, Integer agentId) {
 		// Execute business logic first - actual SQL execution
 		DbQueryParameter dbQueryParameter = new DbQueryParameter();
 		dbQueryParameter.setSql(sqlQuery);
 		dbQueryParameter.setSchema(dbConfig.getSchema());
+
+		Accessor dbAccessor = databaseUtil.getAgentAccessor(agentId);
 
 		try {
 			// Execute SQL query and get results immediately

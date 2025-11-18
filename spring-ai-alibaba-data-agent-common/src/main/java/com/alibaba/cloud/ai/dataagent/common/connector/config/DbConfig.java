@@ -15,9 +15,6 @@
  */
 package com.alibaba.cloud.ai.dataagent.common.connector.config;
 
-import org.springframework.stereotype.Component;
-
-@Component
 public class DbConfig {
 
 	private String schema;

@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.datasource;
 
+import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 
@@ -77,6 +78,6 @@ public interface DatasourceService {
 
 	List<String> getDatasourceTables(Integer datasourceId) throws Exception;
 
-	Datasource getActiveDatasourceByAgentId(Integer agentId);
+	DbConfig getDbConfig(Datasource datasource);
 
 }

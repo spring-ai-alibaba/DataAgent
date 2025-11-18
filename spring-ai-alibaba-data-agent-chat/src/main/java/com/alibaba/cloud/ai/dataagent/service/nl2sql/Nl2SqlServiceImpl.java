@@ -15,8 +15,6 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.nl2sql;
 
-import com.alibaba.cloud.ai.dataagent.common.connector.accessor.Accessor;
-import com.alibaba.cloud.ai.dataagent.common.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
@@ -25,6 +23,7 @@ import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
 import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.util.MarkdownParserUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
@@ -42,20 +41,10 @@ import static com.alibaba.cloud.ai.dataagent.prompt.PromptHelper.buildMixSelecto
 
 @Slf4j
 @Service
+@AllArgsConstructor
 public class Nl2SqlServiceImpl implements Nl2SqlService {
 
 	public final LlmService llmService;
-
-	// todo: Accessor应根据数据源动态获取
-	protected final Accessor dbAccessor;
-
-	protected final DbConfig dbConfig;
-
-	public Nl2SqlServiceImpl(LlmService llmService, AccessorFactory accessorFactory, DbConfig dbConfig) {
-		this.llmService = llmService;
-		this.dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
-		this.dbConfig = dbConfig;
-	}
 
 	@Override
 	public Flux<ChatResponse> semanticConsistencyStream(String sql, String queryPrompt) {
@@ -66,7 +55,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 
 	@Override
 	public Flux<String> generateSql(String evidence, String query, SchemaDTO schemaDTO, String sql,
-			String exceptionMessage) {
+			String exceptionMessage, DbConfig dbConfig) {
 		log.info("Generating SQL for query: {}, hasExistingSql: {}", query, sql != null && !sql.isEmpty());
 
 		Flux<String> newSqlFlux;

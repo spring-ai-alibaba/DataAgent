@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.dataagent.service;
+package com.alibaba.cloud.ai.dataagent.service.datasource;
 
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 

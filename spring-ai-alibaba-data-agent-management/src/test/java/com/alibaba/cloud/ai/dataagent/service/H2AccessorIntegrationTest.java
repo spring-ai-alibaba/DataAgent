@@ -22,12 +22,12 @@ import com.alibaba.cloud.ai.dataagent.common.connector.bo.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.common.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.common.connector.impls.h2.H2DBAccessor;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 
@@ -37,7 +37,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * H2数据库集成测试类 用于验证H2数据库配置和初始化脚本是否正确
  */
 @SpringBootTest
-@ActiveProfiles("h2")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @EnabledIfEnvironmentVariable(named = "AI_DASHSCOPE_API_KEY", matches = ".*")
 public class H2AccessorIntegrationTest {
@@ -45,8 +44,19 @@ public class H2AccessorIntegrationTest {
 	@Autowired
 	private H2DBAccessor dbAccessor;
 
-	@Autowired
 	private DbConfig dbConfig;
+
+	@BeforeEach
+	public void setUp() {
+		dbConfig = new DbConfig();
+		dbConfig.setConnectionType("jdbc");
+		dbConfig.setDialectType("h2");
+		dbConfig.setUrl(
+				"jdbc:h2:mem:nl2sql_database;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=true;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE");
+		dbConfig.setUsername("root");
+		dbConfig.setPassword("root");
+		dbConfig.setSchema("product_db");
+	}
 
 	@Test
 	public void testShowTables() throws Exception {

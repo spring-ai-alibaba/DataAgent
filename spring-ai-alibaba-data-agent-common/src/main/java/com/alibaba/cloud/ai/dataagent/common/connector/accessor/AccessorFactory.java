@@ -48,14 +48,14 @@ public class AccessorFactory {
 
 	public Accessor getAccessorByDbConfig(DbConfig dbConfig) {
 		if (dbConfig == null) {
-			return getAccessorByDbTypeEnum(BizDataSourceTypeEnum.MYSQL);
+			throw new IllegalArgumentException("dbConfig cannot be null");
 		}
-		// FIXME: 目前默认使用mysql，因为用户配置中暂时没有dbConfig的配置
 		BizDataSourceTypeEnum typeEnum = Arrays.stream(BizDataSourceTypeEnum.values())
-			.filter(e -> e.getDialect().equals(dbConfig.getDialectType()))
-			.filter(e -> e.getProtocol().equals(dbConfig.getConnectionType()))
+			.filter(e -> e.getDialect().equalsIgnoreCase(dbConfig.getDialectType()))
+			.filter(e -> e.getProtocol().equalsIgnoreCase(dbConfig.getConnectionType()))
 			.findFirst()
-			.orElse(BizDataSourceTypeEnum.MYSQL);
+			.orElseThrow(() -> new IllegalStateException(
+					"no accessor registered for dialect: " + dbConfig.getDialectType()));
 		return getAccessorByDbTypeEnum(typeEnum);
 	}
 

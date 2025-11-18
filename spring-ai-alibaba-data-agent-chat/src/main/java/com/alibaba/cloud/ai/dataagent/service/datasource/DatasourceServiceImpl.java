@@ -28,7 +28,6 @@ import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum;
 import com.alibaba.cloud.ai.dataagent.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
-import com.alibaba.cloud.ai.dataagent.util.SchemaProcessorUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -208,7 +207,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 		}
 
 		// Create database configuration
-		DbConfig dbConfig = SchemaProcessorUtil.createDbConfigFromDatasource(datasource);
+		DbConfig dbConfig = getDbConfig(datasource);
 
 		// Create query parameters
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
@@ -230,15 +229,36 @@ public class DatasourceServiceImpl implements DatasourceService {
 	}
 
 	@Override
-	public Datasource getActiveDatasourceByAgentId(Integer agentId) {
-		AgentDatasource agentDatasource = getAgentDatasource(agentId).stream()
-			.filter(a -> a.getIsActive() == 1)
-			.findFirst()
-			.orElse(null);
-		if (agentDatasource == null) {
-			return null;
+	public DbConfig getDbConfig(Datasource datasource) {
+		DbConfig dbConfig = new DbConfig();
+
+		// Set basic connection information
+		dbConfig.setUrl(datasource.getConnectionUrl());
+		dbConfig.setUsername(datasource.getUsername());
+		dbConfig.setPassword(datasource.getPassword());
+
+		// Set database type
+		// todo: 定义枚举或者策略接口
+		if ("mysql".equalsIgnoreCase(datasource.getType())) {
+			dbConfig.setConnectionType("jdbc");
+			dbConfig.setDialectType("mysql");
 		}
-		return agentDatasource.getDatasource();
+		else if ("postgresql".equalsIgnoreCase(datasource.getType())) {
+			dbConfig.setConnectionType("jdbc");
+			dbConfig.setDialectType("postgresql");
+		}
+		else if ("h2".equalsIgnoreCase(datasource.getType())) {
+			dbConfig.setConnectionType("jdbc");
+			dbConfig.setDialectType("h2");
+		}
+		else {
+			throw new RuntimeException("不支持的数据库类型: " + datasource.getType());
+		}
+
+		// Set Schema to the database name of the data source
+		dbConfig.setSchema(datasource.getDatabaseName());
+
+		return dbConfig;
 	}
 
 }
