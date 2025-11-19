@@ -16,10 +16,9 @@
 
 package com.alibaba.cloud.ai.dataagent.service.llm;
 
+import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
-
-import java.util.Optional;
 
 public interface LlmService {
 
@@ -37,7 +36,7 @@ public interface LlmService {
 	}
 
 	default Flux<String> toStringFlux(Flux<ChatResponse> responseFlux) {
-		return responseFlux.map(r -> r.getResult().getOutput()).map(r -> Optional.ofNullable(r.getText()).orElse(""));
+		return responseFlux.map(ChatResponseUtil::getText);
 	}
 
 }
