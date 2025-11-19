@@ -38,7 +38,8 @@ public class ChatResponseUtil {
 	}
 
 	public static String getText(ChatResponse chatResponse) {
-		return chatResponse.getResult().getOutput().getText();
+		Generation result = chatResponse.getResult();
+		return result != null ? result.getOutput().getText() : "";
 	}
 
 }
