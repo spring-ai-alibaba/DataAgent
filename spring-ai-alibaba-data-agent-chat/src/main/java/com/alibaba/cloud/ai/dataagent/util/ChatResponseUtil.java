@@ -39,7 +39,14 @@ public class ChatResponseUtil {
 
 	public static String getText(ChatResponse chatResponse) {
 		Generation result = chatResponse.getResult();
-		return result != null ? result.getOutput().getText() : "";
+		if (result == null) {
+			return "";
+		}
+		AssistantMessage output = result.getOutput();
+		if (output == null) {
+			return "";
+		}
+		return output.getText() == null ? "" : output.getText();
 	}
 
 }
