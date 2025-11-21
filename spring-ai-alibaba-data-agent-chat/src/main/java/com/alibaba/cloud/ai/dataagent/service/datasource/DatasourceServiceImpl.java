@@ -142,9 +142,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 		DbConfig config = new DbConfig();
 		String originalUrl = datasource.getConnectionUrl();
 
-		// Check if URL contains serverTimezone parameter, add default timezone if not,
-		// otherwise it will throw an exception
-		if (StringUtils.isNotBlank(originalUrl)) {
+		if (StringUtils.isNotBlank(originalUrl) && "mysql".equalsIgnoreCase(datasource.getType())) {
 			String lowerUrl = originalUrl.toLowerCase();
 
 			if (!lowerUrl.contains("servertimezone=")) {
@@ -156,7 +154,6 @@ public class DatasourceServiceImpl implements DatasourceService {
 				}
 			}
 
-			// Check if it contains useSSL parameter, add useSSL=false if not
 			if (!lowerUrl.contains("usessl=")) {
 				if (originalUrl.contains("?")) {
 					originalUrl += "&useSSL=false";
@@ -250,6 +247,10 @@ public class DatasourceServiceImpl implements DatasourceService {
 		else if ("h2".equalsIgnoreCase(datasource.getType())) {
 			dbConfig.setConnectionType("jdbc");
 			dbConfig.setDialectType("h2");
+		}
+		else if ("dameng".equalsIgnoreCase(datasource.getType())) {
+			dbConfig.setConnectionType("jdbc");
+			dbConfig.setDialectType("dameng");
 		}
 		else {
 			throw new RuntimeException("不支持的数据库类型: " + datasource.getType());
