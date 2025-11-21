@@ -42,223 +42,224 @@ import java.util.List;
 @AllArgsConstructor
 public class DatasourceServiceImpl implements DatasourceService {
 
-	private final DatasourceMapper datasourceMapper;
+    private final DatasourceMapper datasourceMapper;
 
-	private final AgentDatasourceMapper agentDatasourceMapper;
+    private final AgentDatasourceMapper agentDatasourceMapper;
 
-	private final DBConnectionPoolFactory poolFactory;
+    private final DBConnectionPoolFactory poolFactory;
 
-	private final AccessorFactory accessorFactory;
+    private final AccessorFactory accessorFactory;
 
-	@Override
-	public List<Datasource> getAllDatasource() {
-		return datasourceMapper.selectAll();
-	}
+    @Override
+    public List<Datasource> getAllDatasource() {
+        return datasourceMapper.selectAll();
+    }
 
-	@Override
-	public List<Datasource> getDatasourceByStatus(String status) {
-		return datasourceMapper.selectByStatus(status);
-	}
+    @Override
+    public List<Datasource> getDatasourceByStatus(String status) {
+        return datasourceMapper.selectByStatus(status);
+    }
 
-	@Override
-	public List<Datasource> getDatasourceByType(String type) {
-		return datasourceMapper.selectByType(type);
-	}
+    @Override
+    public List<Datasource> getDatasourceByType(String type) {
+        return datasourceMapper.selectByType(type);
+    }
 
-	@Override
-	public Datasource getDatasourceById(Integer id) {
-		return datasourceMapper.selectById(id);
-	}
+    @Override
+    public Datasource getDatasourceById(Integer id) {
+        return datasourceMapper.selectById(id);
+    }
 
-	@Override
-	public Datasource createDatasource(Datasource datasource) {
-		// Generate connection URL
-		datasource.generateConnectionUrl();
+    @Override
+    public Datasource createDatasource(Datasource datasource) {
+        // Generate connection URL
+        datasource.generateConnectionUrl();
 
-		// Set default values
-		if (datasource.getStatus() == null) {
-			datasource.setStatus("active");
-		}
-		if (datasource.getTestStatus() == null) {
-			datasource.setTestStatus("unknown");
-		}
+        // Set default values
+        if (datasource.getStatus() == null) {
+            datasource.setStatus("active");
+        }
+        if (datasource.getTestStatus() == null) {
+            datasource.setTestStatus("unknown");
+        }
 
-		datasourceMapper.insert(datasource);
-		return datasource;
-	}
+        datasourceMapper.insert(datasource);
+        return datasource;
+    }
 
-	@Override
-	public Datasource updateDatasource(Integer id, Datasource datasource) {
-		// Regenerate connection URL
-		datasource.generateConnectionUrl();
-		datasource.setId(id);
+    @Override
+    public Datasource updateDatasource(Integer id, Datasource datasource) {
+        // Regenerate connection URL
+        datasource.generateConnectionUrl();
+        datasource.setId(id);
 
-		datasourceMapper.updateById(datasource);
-		return datasource;
-	}
+        datasourceMapper.updateById(datasource);
+        return datasource;
+    }
 
-	@Override
-	@Transactional
-	public void deleteDatasource(Integer id) {
-		// First, delete the associations
-		agentDatasourceMapper.deleteAllByDatasourceId(id);
+    @Override
+    @Transactional
+    public void deleteDatasource(Integer id) {
+        // First, delete the associations
+        agentDatasourceMapper.deleteAllByDatasourceId(id);
 
-		// Then, delete the data source
-		datasourceMapper.deleteById(id);
-	}
+        // Then, delete the data source
+        datasourceMapper.deleteById(id);
+    }
 
-	@Override
-	public void updateTestStatus(Integer id, String testStatus) {
-		datasourceMapper.updateTestStatusById(id, testStatus);
-	}
+    @Override
+    public void updateTestStatus(Integer id, String testStatus) {
+        datasourceMapper.updateTestStatusById(id, testStatus);
+    }
 
-	@Override
-	public boolean testConnection(Integer id) {
-		Datasource datasource = getDatasourceById(id);
-		if (datasource == null) {
-			return false;
-		}
-		try {
-			// ping测试
-			boolean connectionSuccess = realConnectionTest(datasource);
-			log.info(datasource.getName() + " test connection result: " + connectionSuccess);
-			// Update test status
-			updateTestStatus(id, connectionSuccess ? "success" : "failed");
+    @Override
+    public boolean testConnection(Integer id) {
+        Datasource datasource = getDatasourceById(id);
+        if (datasource == null) {
+            return false;
+        }
+        try {
+            // ping测试
+            boolean connectionSuccess = realConnectionTest(datasource);
+            log.info(datasource.getName() + " test connection result: " + connectionSuccess);
+            // Update test status
+            updateTestStatus(id, connectionSuccess ? "success" : "failed");
 
-			return connectionSuccess;
-		}
-		catch (Exception e) {
-			updateTestStatus(id, "failed");
-			log.error("Error testing connection for datasource ID " + id + ": " + e.getMessage(), e);
-			return false;
-		}
-	}
+            return connectionSuccess;
+        }
+        catch (Exception e) {
+            updateTestStatus(id, "failed");
+            log.error("Error testing connection for datasource ID " + id + ": " + e.getMessage(), e);
+            return false;
+        }
+    }
 
-	/**
-	 * Actual connection test method
-	 */
-	private boolean realConnectionTest(Datasource datasource) {
-		// Convert Datasource to DbConfig
-		DbConfig config = new DbConfig();
-		String originalUrl = datasource.getConnectionUrl();
+    /**
+     * Actual connection test method
+     */
+    private boolean realConnectionTest(Datasource datasource) {
+        // Convert Datasource to DbConfig
+        DbConfig config = new DbConfig();
+        String originalUrl = datasource.getConnectionUrl();
 
-		// Check if URL contains serverTimezone parameter, add default timezone if not,
-		// otherwise it will throw an exception
-		if (StringUtils.isNotBlank(originalUrl)) {
-			String lowerUrl = originalUrl.toLowerCase();
+        if (StringUtils.isNotBlank(originalUrl) && "mysql".equalsIgnoreCase(datasource.getType())) {
+            String lowerUrl = originalUrl.toLowerCase();
 
-			if (!lowerUrl.contains("servertimezone=")) {
-				if (originalUrl.contains("?")) {
-					originalUrl += "&serverTimezone=Asia/Shanghai";
-				}
-				else {
-					originalUrl += "?serverTimezone=Asia/Shanghai";
-				}
-			}
+            if (!lowerUrl.contains("servertimezone=")) {
+                if (originalUrl.contains("?")) {
+                    originalUrl += "&serverTimezone=Asia/Shanghai";
+                }
+                else {
+                    originalUrl += "?serverTimezone=Asia/Shanghai";
+                }
+            }
 
-			// Check if it contains useSSL parameter, add useSSL=false if not
-			if (!lowerUrl.contains("usessl=")) {
-				if (originalUrl.contains("?")) {
-					originalUrl += "&useSSL=false";
-				}
-				else {
-					originalUrl += "?useSSL=false";
-				}
-			}
-		}
-		config.setUrl(originalUrl);
-		config.setUsername(datasource.getUsername());
-		config.setPassword(datasource.getPassword());
+            if (!lowerUrl.contains("usessl=")) {
+                if (originalUrl.contains("?")) {
+                    originalUrl += "&useSSL=false";
+                }
+                else {
+                    originalUrl += "?useSSL=false";
+                }
+            }
+        }
+        config.setUrl(originalUrl);
+        config.setUsername(datasource.getUsername());
+        config.setPassword(datasource.getPassword());
 
-		DBConnectionPool pool = poolFactory.getPoolByType(datasource.getType());
-		if (pool == null) {
-			return false;
-		}
+        DBConnectionPool pool = poolFactory.getPoolByType(datasource.getType());
+        if (pool == null) {
+            return false;
+        }
 
-		ErrorCodeEnum result = pool.ping(config);
-		return result == ErrorCodeEnum.SUCCESS;
+        ErrorCodeEnum result = pool.ping(config);
+        return result == ErrorCodeEnum.SUCCESS;
 
-	}
+    }
 
-	@Override
-	public List<AgentDatasource> getAgentDatasource(Integer agentId) {
-		List<AgentDatasource> adentDatasources = agentDatasourceMapper.selectByAgentIdWithDatasource(agentId);
+    @Override
+    public List<AgentDatasource> getAgentDatasource(Integer agentId) {
+        List<AgentDatasource> adentDatasources = agentDatasourceMapper.selectByAgentIdWithDatasource(agentId);
 
-		// Manually fill in the data source information (since MyBatis Plus does not
-		// directly support complex join query result mapping)
-		for (AgentDatasource agentDatasource : adentDatasources) {
-			if (agentDatasource.getDatasourceId() != null) {
-				Datasource datasource = datasourceMapper.selectById(agentDatasource.getDatasourceId());
-				agentDatasource.setDatasource(datasource);
-			}
-		}
+        // Manually fill in the data source information (since MyBatis Plus does not
+        // directly support complex join query result mapping)
+        for (AgentDatasource agentDatasource : adentDatasources) {
+            if (agentDatasource.getDatasourceId() != null) {
+                Datasource datasource = datasourceMapper.selectById(agentDatasource.getDatasourceId());
+                agentDatasource.setDatasource(datasource);
+            }
+        }
 
-		return adentDatasources;
-	}
+        return adentDatasources;
+    }
 
-	@Override
-	public List<String> getDatasourceTables(Integer datasourceId) throws Exception {
-		log.info("Getting tables for datasource: {}", datasourceId);
+    @Override
+    public List<String> getDatasourceTables(Integer datasourceId) throws Exception {
+        log.info("Getting tables for datasource: {}", datasourceId);
 
-		// Get data source information
-		Datasource datasource = this.getDatasourceById(datasourceId);
-		if (datasource == null) {
-			throw new RuntimeException("Datasource not found with id: " + datasourceId);
-		}
+        // Get data source information
+        Datasource datasource = this.getDatasourceById(datasourceId);
+        if (datasource == null) {
+            throw new RuntimeException("Datasource not found with id: " + datasourceId);
+        }
 
-		// Create database configuration
-		DbConfig dbConfig = getDbConfig(datasource);
+        // Create database configuration
+        DbConfig dbConfig = getDbConfig(datasource);
 
-		// Create query parameters
-		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
-		queryParam.setSchema(datasource.getDatabaseName());
+        // Create query parameters
+        DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
+        queryParam.setSchema(datasource.getDatabaseName());
 
-		// Query table list
-		Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
-		List<TableInfoBO> tableInfoList = dbAccessor.showTables(dbConfig, queryParam);
+        // Query table list
+        Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
+        List<TableInfoBO> tableInfoList = dbAccessor.showTables(dbConfig, queryParam);
 
-		// Extract table names
-		List<String> tableNames = tableInfoList.stream()
-			.map(TableInfoBO::getName)
-			.filter(name -> name != null && !name.trim().isEmpty())
-			.sorted()
-			.toList();
+        // Extract table names
+        List<String> tableNames = tableInfoList.stream()
+                .map(TableInfoBO::getName)
+                .filter(name -> name != null && !name.trim().isEmpty())
+                .sorted()
+                .toList();
 
-		log.info("Found {} tables for datasource: {}", tableNames.size(), datasourceId);
-		return tableNames;
-	}
+        log.info("Found {} tables for datasource: {}", tableNames.size(), datasourceId);
+        return tableNames;
+    }
 
-	@Override
-	public DbConfig getDbConfig(Datasource datasource) {
-		DbConfig dbConfig = new DbConfig();
+    @Override
+    public DbConfig getDbConfig(Datasource datasource) {
+        DbConfig dbConfig = new DbConfig();
 
-		// Set basic connection information
-		dbConfig.setUrl(datasource.getConnectionUrl());
-		dbConfig.setUsername(datasource.getUsername());
-		dbConfig.setPassword(datasource.getPassword());
+        // Set basic connection information
+        dbConfig.setUrl(datasource.getConnectionUrl());
+        dbConfig.setUsername(datasource.getUsername());
+        dbConfig.setPassword(datasource.getPassword());
 
-		// Set database type
-		// todo: 定义枚举或者策略接口
-		if ("mysql".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("mysql");
-		}
-		else if ("postgresql".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("postgresql");
-		}
-		else if ("h2".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("h2");
-		}
-		else {
-			throw new RuntimeException("不支持的数据库类型: " + datasource.getType());
-		}
+        // Set database type
+        // todo: 定义枚举或者策略接口
+        if ("mysql".equalsIgnoreCase(datasource.getType())) {
+            dbConfig.setConnectionType("jdbc");
+            dbConfig.setDialectType("mysql");
+        }
+        else if ("postgresql".equalsIgnoreCase(datasource.getType())) {
+            dbConfig.setConnectionType("jdbc");
+            dbConfig.setDialectType("postgresql");
+        }
+        else if ("h2".equalsIgnoreCase(datasource.getType())) {
+            dbConfig.setConnectionType("jdbc");
+            dbConfig.setDialectType("h2");
+        }
+        else if ("dameng".equalsIgnoreCase(datasource.getType())) {
+            dbConfig.setConnectionType("jdbc");
+            dbConfig.setDialectType("dameng");
+        }
+        else {
+            throw new RuntimeException("不支持的数据库类型: " + datasource.getType());
+        }
 
-		// Set Schema to the database name of the data source
-		dbConfig.setSchema(datasource.getDatabaseName());
+        // Set Schema to the database name of the data source
+        dbConfig.setSchema(datasource.getDatabaseName());
 
-		return dbConfig;
-	}
+        return dbConfig;
+    }
 
 }
