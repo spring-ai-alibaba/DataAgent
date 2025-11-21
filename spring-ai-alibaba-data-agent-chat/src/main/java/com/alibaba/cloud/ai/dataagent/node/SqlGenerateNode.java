@@ -76,7 +76,7 @@ public class SqlGenerateNode implements NodeAction {
 
 		// Get necessary input parameters
 		Plan plan = PlanProcessUtil.getPlan(state);
-		ExecutionStep executionStep = PlanProcessUtil.getCurrentExecutionStep(state);
+		ExecutionStep executionStep = PlanProcessUtil.getCurrentExecutionStep(plan, PlanProcessUtil.getCurrentStepNumber(state));
 		ExecutionStep.ToolParameters toolParameters = executionStep.getToolParameters();
 
 		// Execute business logic first - determine what needs to be regenerated
@@ -223,7 +223,7 @@ public class SqlGenerateNode implements NodeAction {
 						if (checkSqlFunc.apply(newSql) || roundRef.getAndIncrement() > MAX_OPTIMIZATION_ROUNDS) {
 							String bestSql = bestSqlRef.get();
 							bestSqlConsumer.accept(bestSql);
-							return Flux.just(bestSql);
+							return Flux.empty();
 						}
 						else {
 							return this.get();
@@ -243,7 +243,7 @@ public class SqlGenerateNode implements NodeAction {
 				if (checkSqlFunc.apply(newSql) || roundRef.getAndIncrement() > MAX_OPTIMIZATION_ROUNDS) {
 					String bestSql = bestSqlRef.get();
 					bestSqlConsumer.accept(bestSql);
-					return Flux.just(bestSql);
+					return Flux.empty();
 				}
 				else {
 					return reGenerateSupplier.get();
