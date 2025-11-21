@@ -25,29 +25,30 @@ import static com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum.OTHERS;
 @Service("damengJdbcConnectionPool")
 public class DamengJdbcConnectionPool extends AbstractDBConnectionPool {
 
-    private static final String DRIVER = "dm.jdbc.driver.DmDriver";
+	private static final String DRIVER = "dm.jdbc.driver.DmDriver";
 
-    @Override
-    public String getDriver() {
-        return DRIVER;
-    }
+	@Override
+	public String getDriver() {
+		return DRIVER;
+	}
 
-    @Override
-    public ErrorCodeEnum errorMapping(String sqlState) {
-        ErrorCodeEnum ret = ErrorCodeEnum.fromCode(sqlState);
-        if (ret != null && ret != OTHERS) {
-            return ret;
-        }
-        return OTHERS;
-    }
+	@Override
+	public ErrorCodeEnum errorMapping(String sqlState) {
+		ErrorCodeEnum ret = ErrorCodeEnum.fromCode(sqlState);
+		if (ret != null && ret != OTHERS) {
+			return ret;
+		}
+		return OTHERS;
+	}
 
-    @Override
-    public boolean supportedDataSourceType(String type) {
-        return BizDataSourceTypeEnum.DAMENG.getTypeName().equals(type);
-    }
+	@Override
+	public boolean supportedDataSourceType(String type) {
+		return BizDataSourceTypeEnum.DAMENG.getTypeName().equals(type);
+	}
 
-    @Override
-    public String getConnectionPoolType() {
-        return BizDataSourceTypeEnum.DAMENG.getTypeName();
-    }
+	@Override
+	public String getConnectionPoolType() {
+		return BizDataSourceTypeEnum.DAMENG.getTypeName();
+	}
+
 }

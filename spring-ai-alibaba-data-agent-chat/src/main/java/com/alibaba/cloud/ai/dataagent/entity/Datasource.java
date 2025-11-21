@@ -32,76 +32,76 @@ import org.springframework.util.StringUtils;
 @Builder
 public class Datasource {
 
-    private Integer id;
+	private Integer id;
 
-    private String name;
+	private String name;
 
-    private String type;
+	private String type;
 
-    private String host;
+	private String host;
 
-    private Integer port;
+	private Integer port;
 
-    private String databaseName;
+	private String databaseName;
 
-    private String username;
+	private String username;
 
-    private String password;
+	private String password;
 
-    private String connectionUrl;
+	private String connectionUrl;
 
-    private String status;
+	private String status;
 
-    private String testStatus;
+	private String testStatus;
 
-    private String description;
+	private String description;
 
-    private Long creatorId;
+	private Long creatorId;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime createTime;
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	@DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	private LocalDateTime createTime;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime updateTime;
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	@DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	private LocalDateTime updateTime;
 
-    /**
-     * Generate connection URL
-     */
-    // todo: 改为策略模式
-    public void generateConnectionUrl() {
-        if (StringUtils.hasText(connectionUrl)) {
-            return;
-        }
-        if (host != null && port != null && databaseName != null) {
-            if ("mysql".equalsIgnoreCase(type)) {
-                this.connectionUrl = String.format(
-                        "jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai",
-                        host, port, databaseName);
-            }
-            else if ("postgresql".equalsIgnoreCase(type)) {
-                this.connectionUrl = String.format(
-                        "jdbc:postgresql://%s:%d/%s?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai",
-                        host, port, databaseName);
-            }
-            else if ("h2".equalsIgnoreCase(type)) {
-                this.connectionUrl = String.format(
-                        "jdbc:h2:mem:%s;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=true;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE",
-                        databaseName);
-            }
-            else if ("dameng".equalsIgnoreCase(type)) {
-                this.connectionUrl = String.format("jdbc:dm://%s:%d", host, port);
-            }
-        }
-    }
+	/**
+	 * Generate connection URL
+	 */
+	// todo: 改为策略模式
+	public void generateConnectionUrl() {
+		if (StringUtils.hasText(connectionUrl)) {
+			return;
+		}
+		if (host != null && port != null && databaseName != null) {
+			if ("mysql".equalsIgnoreCase(type)) {
+				this.connectionUrl = String.format(
+						"jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai",
+						host, port, databaseName);
+			}
+			else if ("postgresql".equalsIgnoreCase(type)) {
+				this.connectionUrl = String.format(
+						"jdbc:postgresql://%s:%d/%s?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai",
+						host, port, databaseName);
+			}
+			else if ("h2".equalsIgnoreCase(type)) {
+				this.connectionUrl = String.format(
+						"jdbc:h2:mem:%s;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=true;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE",
+						databaseName);
+			}
+			else if ("dameng".equalsIgnoreCase(type)) {
+				this.connectionUrl = String.format("jdbc:dm://%s:%d", host, port);
+			}
+		}
+	}
 
-    @Override
-    public String toString() {
-        return "Datasource{" + "id=" + id + ", name='" + name + '\'' + ", type='" + type + '\'' + ", host='" + host
-                + '\'' + ", port=" + port + ", databaseName='" + databaseName + '\'' + ", status='" + status + '\''
-                + ", testStatus='" + testStatus + '\'' + ", createTime=" + createTime + ", updateTime=" + updateTime
-                + '}';
-    }
+	@Override
+	public String toString() {
+		return "Datasource{" + "id=" + id + ", name='" + name + '\'' + ", type='" + type + '\'' + ", host='" + host
+				+ '\'' + ", port=" + port + ", databaseName='" + databaseName + '\'' + ", status='" + status + '\''
+				+ ", testStatus='" + testStatus + '\'' + ", createTime=" + createTime + ", updateTime=" + updateTime
+				+ '}';
+	}
 
 }

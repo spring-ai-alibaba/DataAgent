@@ -47,8 +47,6 @@ public enum BizDataSourceTypeEnum {
 	POSTGRESQL_VIRTUAL(52, "postgresql-virtual", DatabaseDialectEnum.POSTGRESQL.getCode(),
 			DbAccessTypeEnum.MEMORY.getCode());
 
-
-
 	public final Integer code;
 
 	public final String typeName;
