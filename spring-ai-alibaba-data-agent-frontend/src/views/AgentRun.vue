@@ -40,6 +40,12 @@
         <div class="chat-container" ref="chatContainer">
           <div v-if="!currentSession" class="empty-state">
             <el-empty description="请选择一个会话或创建新会话开始对话" />
+            <PresetQuestions
+              v-if="agent.id"
+              :agentId="agent.id"
+              :onQuestionClick="handlePresetQuestionClick"
+              class="empty-state-preset"
+            />
           </div>
           <div v-else class="messages-area">
             <div
@@ -98,6 +104,13 @@
           v-if="showHumanFeedback"
           :request="lastRequest"
           :handleFeedback="handleHumanFeedback"
+        />
+
+        <!-- 预设问题区域 -->
+        <PresetQuestions
+          v-if="currentSession && agent.id"
+          :agentId="agent.id"
+          :onQuestionClick="handlePresetQuestionClick"
         />
 
         <!-- 输入区域 -->
@@ -226,7 +239,7 @@
   import { type ResultSetData, type ResultSetDisplayConfig } from '@/services/resultSet';
   import HumanFeedback from '@/components/run/HumanFeedback.vue';
   import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
-  // todo: 添加预设问题子件
+  import PresetQuestions from '@/components/run/PresetQuestions.vue';
 
   // 扩展Window接口以包含自定义方法
   declare global {
@@ -246,6 +259,7 @@
       Download,
       HumanFeedback,
       ChatSessionSidebar,
+      PresetQuestions,
     },
     created() {
       window.copyTextToClipboard = btn => {
@@ -789,6 +803,23 @@
         await sendGraphRequest(newRequest, rejectedPlan);
       };
 
+      // 处理预设问题点击
+      const handlePresetQuestionClick = (question: string) => {
+        if (!currentSession.value) {
+          ElMessage.warning('请先选择或创建一个会话');
+          return;
+        }
+        if (isStreaming.value) {
+          ElMessage.warning('智能体正在处理中，请稍后...');
+          return;
+        }
+        userInput.value = question;
+        // 自动发送消息
+        nextTick(() => {
+          sendMessage();
+        });
+      };
+
       // 生成结果集表格HTML
       const generateResultSetTable = (resultSetData: ResultSetData, pageSize: number): string => {
         const columns = resultSetData.column || [];
@@ -873,6 +904,7 @@
         markdownToHtml,
         resetReportState,
         handleHumanFeedback,
+        handlePresetQuestionClick,
       };
     },
   });
@@ -891,9 +923,16 @@
 
   .empty-state {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 200px;
+    gap: 24px;
+    padding: 40px 20px;
+  }
+
+  .empty-state-preset {
+    width: 100%;
+    max-width: 800px;
   }
 
   .messages-area {
