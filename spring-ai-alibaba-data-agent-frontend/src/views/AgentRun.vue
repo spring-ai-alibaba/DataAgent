@@ -804,15 +804,24 @@
       };
 
       // 处理预设问题点击
-      const handlePresetQuestionClick = (question: string) => {
-        if (!currentSession.value) {
-          ElMessage.warning('请先选择或创建一个会话');
-          return;
-        }
+      const handlePresetQuestionClick = async (question: string) => {
         if (isStreaming.value) {
           ElMessage.warning('智能体正在处理中，请稍后...');
           return;
         }
+
+        // 如果没有会话，先创建新会话
+        if (!currentSession.value) {
+          try {
+            const newSession = await ChatService.createSession(parseInt(agentId.value), '新会话');
+            currentSession.value = newSession;
+            ElMessage.success('新会话创建成功');
+          } catch (error) {
+            ElMessage.error('创建会话失败');
+            return;
+          }
+        }
+
         userInput.value = question;
         // 自动发送消息
         nextTick(() => {

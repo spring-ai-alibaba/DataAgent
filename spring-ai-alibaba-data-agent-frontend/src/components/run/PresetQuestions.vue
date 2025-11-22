@@ -21,19 +21,19 @@
         <el-icon class="header-icon"><ChatLineRound /></el-icon>
         <span class="header-title">预设问题</span>
       </div>
-      
+
       <div v-if="loading" class="questions-loading">
         <el-icon class="is-loading"><Loading /></el-icon>
         <span>加载中...</span>
       </div>
-      
+
       <div v-else-if="activeQuestions.length === 0" class="questions-empty">
         <span>暂无预设问题</span>
       </div>
-      
+
       <div v-else class="questions-list">
         <div
-          v-for="question in activeQuestions.slice(0, 4)"
+          v-for="question in activeQuestions"
           :key="question.id"
           class="question-item"
           @click="handleQuestionClick(question)"
@@ -49,13 +49,12 @@
 <script lang="ts">
   import { defineComponent, ref, onMounted, computed, PropType } from 'vue';
   import { ElMessage } from 'element-plus';
-  import { ChatDotRound, ChatLineRound, ArrowRight, Loading } from '@element-plus/icons-vue';
+  import { ChatLineRound, ArrowRight, Loading } from '@element-plus/icons-vue';
   import PresetQuestionService, { type PresetQuestion } from '@/services/presetQuestion';
 
   export default defineComponent({
     name: 'PresetQuestions',
     components: {
-      ChatDotRound,
       ChatLineRound,
       ArrowRight,
       Loading,
@@ -82,7 +81,6 @@
         try {
           questions.value = await PresetQuestionService.list(props.agentId);
         } catch (error) {
-          console.error('加载预设问题失败:', error);
           ElMessage.error('加载预设问题失败');
         } finally {
           loading.value = false;
@@ -169,6 +167,8 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    max-height: calc(3 * (28px + 8px));
+    overflow-y: auto;
   }
 
   .question-item {
