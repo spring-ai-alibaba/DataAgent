@@ -135,9 +135,9 @@
                   content="该功能在NL2SQL模式下不能使用"
                   placement="top"
                 >
-                  <el-switch 
-                    v-model="requestOptions.plainReport" 
-                    :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback" 
+                  <el-switch
+                    v-model="requestOptions.plainReport"
+                    :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback"
                   />
                 </el-tooltip> -->
               </div>
@@ -434,6 +434,9 @@
           let currentBlockIndex: number = -1;
           const pendingSavePromises: Promise<void>[] = [];
 
+          // 在函数开始时就固定会话ID，避免在异步操作中引用可能变化的currentSession
+          const sessionId = currentSession.value!.id;
+
           // 重置报告状态
           resetReportState();
 
@@ -444,13 +447,13 @@
             const nodeHtml = generateNodeHtml(node);
 
             const aiMessage: ChatMessage = {
-              sessionId: currentSession.value!.id,
+              sessionId: sessionId,
               role: 'assistant',
               content: nodeHtml,
               messageType: 'html',
             };
 
-            return ChatService.saveMessage(currentSession.value!.id, aiMessage).catch(error => {
+            return ChatService.saveMessage(sessionId, aiMessage).catch(error => {
               console.error('保存AI消息失败:', error);
             });
           };
@@ -579,13 +582,13 @@
               // 保存报告到后端
               if (htmlReportContent.value) {
                 const htmlReportMessage: ChatMessage = {
-                  sessionId: currentSession.value!.id,
+                  sessionId: sessionId,
                   role: 'assistant',
                   content: htmlReportContent.value,
                   messageType: 'html-report',
                 };
 
-                await ChatService.saveMessage(currentSession.value!.id, htmlReportMessage).catch(
+                await ChatService.saveMessage(sessionId, htmlReportMessage).catch(
                   error => {
                     ElMessage.error('保存HTML报告失败！');
                     console.error('保存HTML报告失败:', error);
@@ -594,13 +597,13 @@
               } else if (markdownReportContent.value) {
                 const markdownHtml = markdownToHtml(markdownReportContent.value);
                 const markdownMessage: ChatMessage = {
-                  sessionId: currentSession.value!.id,
+                  sessionId: sessionId,
                   role: 'assistant',
                   content: markdownHtml,
                   messageType: 'html',
                 };
 
-                await ChatService.saveMessage(currentSession.value!.id, markdownMessage).catch(
+                await ChatService.saveMessage(sessionId, markdownMessage).catch(
                   error => {
                     console.error('保存Markdown报告失败:', error);
                   },
