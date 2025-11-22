@@ -60,7 +60,18 @@ public final class PlanProcessUtil {
 	public static ExecutionStep getCurrentExecutionStep(OverAllState state) {
 		Plan plan = getPlan(state);
 		int currentStep = getCurrentStepNumber(state);
+		return getCurrentExecutionStep(plan, currentStep);
+	}
 
+	/**
+	 * Get the current execution step from the plan
+	 * @param plan the plan object
+	 * @param currentStep current step
+	 * @return the current execution step
+	 * @throws IllegalStateException if plan output is empty, plan parsing fails, or step
+	 * index is out of range
+	 */
+	public static ExecutionStep getCurrentExecutionStep(Plan plan, Integer currentStep) {
 		List<ExecutionStep> executionPlan = plan.getExecutionPlan();
 		if (executionPlan == null || executionPlan.isEmpty()) {
 			throw new IllegalStateException("执行计划为空");
