@@ -266,12 +266,9 @@
             type: 'warning',
           });
           await ChatService.clearAgentSessions(parseInt(agentId.value));
-
-          // 删除所有会话的运行时状态
           sessions.value.forEach((session: ChatSession) => {
             props.handleDeleteSessionState(session.id);
           });
-
           sessions.value = [];
           await props.handleSetCurrentSession(null);
           ElMessage.success('所有会话已清空');

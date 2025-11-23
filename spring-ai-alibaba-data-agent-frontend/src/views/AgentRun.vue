@@ -430,8 +430,8 @@
       };
 
       const sendGraphRequest = async (request: GraphRequest, rejectedPlan: boolean) => {
-        // 固定sessionId，避免在之后流式请求的异步回调中引用可能变化的currentSession
         const sessionId = currentSession.value!.id;
+        const sessionTitle = currentSession.value!.title;
         const sessionState = getSessionState(sessionId);
         try {
           lastRequest.value = request;
@@ -605,10 +605,22 @@
                   messageType: 'html-report',
                 };
 
-                await ChatService.saveMessage(sessionId, htmlReportMessage).catch(error => {
-                  ElMessage.error('保存HTML报告失败！');
-                  console.error('保存HTML报告失败:', error);
-                });
+                await ChatService.saveMessage(sessionId, htmlReportMessage)
+                  .then(savedMessage => {
+                    if (currentSession.value?.id === sessionId) {
+                      currentMessages.value.push(savedMessage);
+                    }
+                  })
+                  .catch(error => {
+                    ElMessage.error('保存HTML报告失败！');
+                    console.error('保存HTML报告失败:', error);
+                  });
+                // 对话的HTML报告保存后结束流式响应，并判断是否需要同步页面
+                sessionState.isStreaming = false;
+                if (currentSession.value?.id === sessionId) {
+                  isStreaming.value = false;
+                  nodeBlocks.value = [];
+                }
               } else if (sessionState.markdownReportContent) {
                 const markdownHtml = markdownToHtml(sessionState.markdownReportContent);
                 const markdownMessage: ChatMessage = {
@@ -618,9 +630,21 @@
                   messageType: 'html',
                 };
 
-                await ChatService.saveMessage(sessionId, markdownMessage).catch(error => {
-                  console.error('保存Markdown报告失败:', error);
-                });
+                await ChatService.saveMessage(sessionId, markdownMessage)
+                  .then(savedMessage => {
+                    if (currentSession.value?.id === sessionId) {
+                      currentMessages.value.push(savedMessage);
+                    }
+                  })
+                  .catch(error => {
+                    console.error('保存Markdown报告失败:', error);
+                  });
+
+                sessionState.isStreaming = false;
+                if (currentSession.value?.id === sessionId) {
+                  isStreaming.value = false;
+                  nodeBlocks.value = [];
+                }
               } else {
                 // 其他节点，可能是错误或人类反馈模式
                 // 保存最后一个节点的消息（如果有）
@@ -641,7 +665,7 @@
                 }
               }
 
-              ElMessage.success('处理完成');
+              ElMessage.success(`会话[${sessionTitle}]处理完成`);
               currentNodeName = null;
               closeStream();
               // 只有当前会话才重新加载消息
