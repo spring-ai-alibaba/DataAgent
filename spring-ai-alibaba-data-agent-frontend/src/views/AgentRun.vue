@@ -430,6 +430,9 @@
       };
 
       const sendGraphRequest = async (request: GraphRequest, rejectedPlan: boolean) => {
+        // 固定sessionId，避免在之后流式请求的异步回调中引用可能变化的currentSession
+        const sessionId = currentSession.value!.id;
+        const sessionState = getSessionState(sessionId);
         try {
           lastRequest.value = request;
           // 准备流式请求
@@ -440,9 +443,6 @@
           let currentBlockIndex: number = -1;
           const pendingSavePromises: Promise<void>[] = [];
 
-          // 固定sessionId，避免在之后流式请求的异步回调中引用可能变化的currentSession
-          const sessionId = currentSession.value!.id;
-          const sessionState = getSessionState(sessionId);
           // 重置报告状态
           resetReportState(sessionState, request);
 
@@ -473,7 +473,9 @@
                 return;
               }
 
-              sessionState.lastRequest.threadId = response.threadId;
+              if (sessionState.lastRequest) {
+                sessionState.lastRequest.threadId = response.threadId;
+              }
 
               // 检查是否是报告节点
               if (response.nodeName === 'ReportGeneratorNode') {
@@ -580,6 +582,7 @@
                 await Promise.all(pendingSavePromises);
               }
               sessionState.isStreaming = false;
+              sessionState.closeStream = null;
               currentNodeName = null;
               // 出错时只有当前会话才重新加载
               if (currentSession.value?.id === sessionId) {
@@ -652,10 +655,8 @@
         } catch (error) {
           ElMessage.error('发送消息失败');
           console.error('发送消息失败:', error);
-          const sessionId = currentSession.value!.id;
-          const sessionState = getSessionState(sessionId);
           sessionState.isStreaming = false;
-          // 如果是当前显示的会话，同步到视图
+          sessionState.closeStream = null;
           if (currentSession.value?.id === sessionId) {
             isStreaming.value = false;
           }
