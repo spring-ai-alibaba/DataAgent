@@ -41,6 +41,12 @@
         <div class="chat-container" ref="chatContainer">
           <div v-if="!currentSession" class="empty-state">
             <el-empty description="请选择一个会话或创建新会话开始对话" />
+            <PresetQuestions
+              v-if="agent.id"
+              :agentId="agent.id"
+              :onQuestionClick="handlePresetQuestionClick"
+              class="empty-state-preset"
+            />
           </div>
           <div v-else class="messages-area">
             <div
@@ -99,6 +105,13 @@
           v-if="showHumanFeedback"
           :request="lastRequest"
           :handleFeedback="handleHumanFeedback"
+        />
+
+        <!-- 预设问题区域 -->
+        <PresetQuestions
+          v-if="currentSession && agent.id"
+          :agentId="agent.id"
+          :onQuestionClick="handlePresetQuestionClick"
         />
 
         <!-- 输入区域 -->
@@ -228,7 +241,7 @@
   import { SessionRuntimeState, useSessionStateManager } from '@/services/sessionStateManager';
   import HumanFeedback from '@/components/run/HumanFeedback.vue';
   import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
-  // todo: 添加预设问题子件
+  import PresetQuestions from '@/components/run/PresetQuestions.vue';
 
   // 扩展Window接口以包含自定义方法
   declare global {
@@ -248,6 +261,7 @@
       Download,
       HumanFeedback,
       ChatSessionSidebar,
+      PresetQuestions,
     },
     created() {
       window.copyTextToClipboard = btn => {
@@ -316,10 +330,8 @@
       const currentSession = ref<ChatSession | null>(null);
       const currentMessages = ref<ChatMessage[]>([]);
       const userInput = ref('');
-
       const { getSessionState, syncStateToView, saveViewToState, deleteSessionState } =
         useSessionStateManager();
-
       const isStreaming = ref(false);
       const nodeBlocks = ref<GraphNodeResponse[][]>([]);
       const requestOptions = ref({
@@ -844,6 +856,32 @@
         await sendGraphRequest(newRequest, rejectedPlan);
       };
 
+      // 处理预设问题点击
+      const handlePresetQuestionClick = async (question: string) => {
+        if (isStreaming.value) {
+          ElMessage.warning('智能体正在处理中，请稍后...');
+          return;
+        }
+
+        // 如果没有会话，先创建新会话
+        if (!currentSession.value) {
+          try {
+            const newSession = await ChatService.createSession(parseInt(agentId.value), '新会话');
+            currentSession.value = newSession;
+            ElMessage.success('新会话创建成功');
+          } catch (error) {
+            ElMessage.error('创建会话失败');
+            return;
+          }
+        }
+
+        userInput.value = question;
+        // 自动发送消息
+        nextTick(() => {
+          sendMessage();
+        });
+      };
+
       // 生成结果集表格HTML
       const generateResultSetTable = (resultSetData: ResultSetData, pageSize: number): string => {
         const columns = resultSetData.column || [];
@@ -926,7 +964,9 @@
         handleNl2sqlOnlyChange,
         downloadHtmlReportFromMessage,
         markdownToHtml,
+        resetReportState,
         handleHumanFeedback,
+        handlePresetQuestionClick,
         deleteSessionState,
       };
     },
@@ -946,9 +986,16 @@
 
   .empty-state {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 200px;
+    gap: 24px;
+    padding: 40px 20px;
+  }
+
+  .empty-state-preset {
+    width: 100%;
+    max-width: 800px;
   }
 
   .messages-area {
