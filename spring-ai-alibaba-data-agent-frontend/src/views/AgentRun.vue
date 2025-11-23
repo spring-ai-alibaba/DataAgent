@@ -32,6 +32,7 @@
           }
         "
         :handleSelectSession="selectSession"
+        :handleDeleteSessionState="deleteSessionState"
       />
 
       <!-- 右侧对话栏 -->
@@ -224,6 +225,7 @@
   } from '@/services/graph';
   import { type Agent } from '@/services/agent';
   import { type ResultSetData, type ResultSetDisplayConfig } from '@/services/resultSet';
+  import { SessionRuntimeState, useSessionStateManager } from '@/services/sessionStateManager';
   import HumanFeedback from '@/components/run/HumanFeedback.vue';
   import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
   // todo: 添加预设问题子件
@@ -314,6 +316,10 @@
       const currentSession = ref<ChatSession | null>(null);
       const currentMessages = ref<ChatMessage[]>([]);
       const userInput = ref('');
+
+      const { getSessionState, syncStateToView, saveViewToState, deleteSessionState } =
+        useSessionStateManager();
+
       const isStreaming = ref(false);
       const nodeBlocks = ref<GraphNodeResponse[][]>([]);
       const requestOptions = ref({
@@ -332,12 +338,6 @@
       };
       const autoScroll = ref(true);
       const chatContainer = ref<HTMLElement | null>(null);
-
-      // 报告相关数据
-      const htmlReportContent = ref('');
-      const htmlReportSize = ref(0);
-      const isHtmlReportComplete = ref(false);
-      const markdownReportContent = ref('');
 
       // 人工反馈相关数据
       const showHumanFeedback = ref(false);
@@ -366,14 +366,20 @@
       };
 
       const selectSession = async (session: ChatSession | null) => {
+        // 将源会话状态保存，然后切换到目标会话
+        if (currentSession.value) {
+          saveViewToState(currentSession.value.id, { isStreaming, nodeBlocks });
+        }
         currentSession.value = session;
-        nodeBlocks.value = [];
-        isStreaming.value = false;
+
         try {
           if (session === null) {
             currentMessages.value = [];
+            nodeBlocks.value = [];
+            isStreaming.value = false;
             return;
           }
+          syncStateToView(session.id, { isStreaming, nodeBlocks });
           currentMessages.value = await ChatService.getSessionMessages(session.id);
           scrollToBottom();
         } catch (error) {
@@ -434,11 +440,11 @@
           let currentBlockIndex: number = -1;
           const pendingSavePromises: Promise<void>[] = [];
 
-          // 在函数开始时就固定会话ID，避免在异步操作中引用可能变化的currentSession
+          // 固定sessionId，避免在之后流式请求的异步回调中引用可能变化的currentSession
           const sessionId = currentSession.value!.id;
-
+          const sessionState = getSessionState(sessionId);
           // 重置报告状态
-          resetReportState();
+          resetReportState(sessionState, request);
 
           const saveNodeMessage = (node: GraphNodeResponse[]): Promise<void> => {
             if (!node || !node.length) return Promise.resolve();
@@ -467,7 +473,7 @@
                 return;
               }
 
-              lastRequest.value.threadId = response.threadId;
+              sessionState.lastRequest.threadId = response.threadId;
 
               // 检查是否是报告节点
               if (response.nodeName === 'ReportGeneratorNode') {
@@ -476,8 +482,8 @@
 
                 if (isNewNode) {
                   // 保存上一个节点的消息（如果有）
-                  if (currentBlockIndex >= 0 && nodeBlocks.value[currentBlockIndex]) {
-                    const savePromise = saveNodeMessage(nodeBlocks.value[currentBlockIndex]);
+                  if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
+                    const savePromise = saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]);
                     pendingSavePromises.push(savePromise);
                   }
 
@@ -486,29 +492,29 @@
                     ...response,
                     text: response.text,
                   };
-                  nodeBlocks.value.push([newBlock]);
-                  currentBlockIndex = nodeBlocks.value.length - 1;
+                  sessionState.nodeBlocks.push([newBlock]);
+                  currentBlockIndex = sessionState.nodeBlocks.length - 1;
                   currentNodeName = response.nodeName;
                 }
                 // 处理HTML报告
                 if (response.textType === 'HTML') {
-                  htmlReportContent.value += response.text;
-                  htmlReportSize.value = htmlReportContent.value.length;
+                  sessionState.htmlReportContent += response.text;
+                  sessionState.htmlReportSize = sessionState.htmlReportContent.length;
 
                   // 更新显示：当前已经收集了多少字节的报告
-                  const reportNode: GraphNodeResponse[] = nodeBlocks.value.find(
+                  const reportNode: GraphNodeResponse[] = sessionState.nodeBlocks.find(
                     (block: GraphNodeResponse[]) =>
                       block.length > 0 &&
                       block[0].nodeName === 'ReportGeneratorNode' &&
                       block[0].textType === 'HTML',
                   );
                   if (reportNode) {
-                    reportNode[0].text = `正在收集HTML报告... 已收集 ${htmlReportSize.value} 字节`;
+                    reportNode[0].text = `正在收集HTML报告... 已收集 ${sessionState.htmlReportSize} 字节`;
                   } else {
-                    nodeBlocks.value.push([
+                    sessionState.nodeBlocks.push([
                       {
                         ...response,
-                        text: `正在收集HTML报告... 已收集 ${htmlReportSize.value} 字节`,
+                        text: `正在收集HTML报告... 已收集 ${sessionState.htmlReportSize} 字节`,
                       },
                     ]);
                   }
@@ -524,8 +530,8 @@
 
                 if (isNewNode) {
                   // 保存上一个节点的消息（如果有）
-                  if (currentBlockIndex >= 0 && nodeBlocks.value[currentBlockIndex]) {
-                    const savePromise = saveNodeMessage(nodeBlocks.value[currentBlockIndex]);
+                  if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
+                    const savePromise = saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]);
                     pendingSavePromises.push(savePromise);
                   }
 
@@ -534,32 +540,36 @@
                     ...response,
                     text: response.text,
                   };
-                  nodeBlocks.value.push([newBlock]);
-                  currentBlockIndex = nodeBlocks.value.length - 1;
+                  sessionState.nodeBlocks.push([newBlock]);
+                  currentBlockIndex = sessionState.nodeBlocks.length - 1;
                   currentNodeName = response.nodeName;
                 } else {
                   // 继续当前节点的内容
-                  if (currentBlockIndex >= 0 && nodeBlocks.value[currentBlockIndex]) {
+                  if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
                     const newBlock: GraphNodeResponse = {
                       ...response,
                       text: response.text,
                     };
-                    nodeBlocks.value[currentBlockIndex].push(newBlock);
+                    sessionState.nodeBlocks[currentBlockIndex].push(newBlock);
                   } else {
                     // 创建新的节点块
                     const newBlock: GraphNodeResponse = {
                       ...response,
                       text: response.text,
                     };
-                    nodeBlocks.value.push([newBlock]);
-                    currentBlockIndex = nodeBlocks.value.length - 1;
+                    sessionState.nodeBlocks.push([newBlock]);
+                    currentBlockIndex = sessionState.nodeBlocks.length - 1;
                     currentNodeName = response.nodeName;
                   }
                 }
               }
 
-              if (autoScroll.value) {
-                scrollToBottom();
+              // 如果是当前显示的会话，同步到视图并滚动
+              if (currentSession.value?.id === sessionId) {
+                nodeBlocks.value = sessionState.nodeBlocks;
+                if (autoScroll.value) {
+                  scrollToBottom();
+                }
               }
             },
             async (error: Error) => {
@@ -569,9 +579,13 @@
               if (pendingSavePromises.length > 0) {
                 await Promise.all(pendingSavePromises);
               }
-              isStreaming.value = false;
+              sessionState.isStreaming = false;
               currentNodeName = null;
-              await selectSession(currentSession.value);
+              // 出错时只有当前会话才重新加载
+              if (currentSession.value?.id === sessionId) {
+                isStreaming.value = false;
+                await selectSession(currentSession.value);
+              }
             },
             async () => {
               // 等待所有待处理的保存操作完成
@@ -580,22 +594,20 @@
               }
 
               // 保存报告到后端
-              if (htmlReportContent.value) {
+              if (sessionState.htmlReportContent) {
                 const htmlReportMessage: ChatMessage = {
                   sessionId: sessionId,
                   role: 'assistant',
-                  content: htmlReportContent.value,
+                  content: sessionState.htmlReportContent,
                   messageType: 'html-report',
                 };
 
-                await ChatService.saveMessage(sessionId, htmlReportMessage).catch(
-                  error => {
-                    ElMessage.error('保存HTML报告失败！');
-                    console.error('保存HTML报告失败:', error);
-                  },
-                );
-              } else if (markdownReportContent.value) {
-                const markdownHtml = markdownToHtml(markdownReportContent.value);
+                await ChatService.saveMessage(sessionId, htmlReportMessage).catch(error => {
+                  ElMessage.error('保存HTML报告失败！');
+                  console.error('保存HTML报告失败:', error);
+                });
+              } else if (sessionState.markdownReportContent) {
+                const markdownHtml = markdownToHtml(sessionState.markdownReportContent);
                 const markdownMessage: ChatMessage = {
                   sessionId: sessionId,
                   role: 'assistant',
@@ -603,16 +615,14 @@
                   messageType: 'html',
                 };
 
-                await ChatService.saveMessage(sessionId, markdownMessage).catch(
-                  error => {
-                    console.error('保存Markdown报告失败:', error);
-                  },
-                );
+                await ChatService.saveMessage(sessionId, markdownMessage).catch(error => {
+                  console.error('保存Markdown报告失败:', error);
+                });
               } else {
                 // 其他节点，可能是错误或人类反馈模式
                 // 保存最后一个节点的消息（如果有）
-                if (currentBlockIndex >= 0 && nodeBlocks.value[currentBlockIndex]) {
-                  await saveNodeMessage(nodeBlocks.value[currentBlockIndex]);
+                if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
+                  await saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]);
                 }
 
                 // 如果是人工反馈模式，显示反馈组件
@@ -620,20 +630,35 @@
                   showHumanFeedback.value = true;
                 } else {
                   // 所有节点处理完成
-                  isStreaming.value = false;
+                  sessionState.isStreaming = false;
+                  // 如果是当前显示的会话，同步到视图
+                  if (currentSession.value?.id === sessionId) {
+                    isStreaming.value = false;
+                  }
                 }
               }
 
               ElMessage.success('处理完成');
               currentNodeName = null;
               closeStream();
-              await selectSession(currentSession.value);
+              // 只有当前会话才重新加载消息
+              if (currentSession.value?.id === sessionId) {
+                await selectSession(currentSession.value);
+              }
             },
           );
+          // 保存closeStream函数到会话状态
+          sessionState.closeStream = closeStream;
         } catch (error) {
           ElMessage.error('发送消息失败');
           console.error('发送消息失败:', error);
-          isStreaming.value = false;
+          const sessionId = currentSession.value!.id;
+          const sessionState = getSessionState(sessionId);
+          sessionState.isStreaming = false;
+          // 如果是当前显示的会话，同步到视图
+          if (currentSession.value?.id === sessionId) {
+            isStreaming.value = false;
+          }
         }
       };
 
@@ -764,11 +789,13 @@
       };
 
       // 重置报告状态
-      const resetReportState = () => {
-        htmlReportContent.value = '';
-        htmlReportSize.value = 0;
-        isHtmlReportComplete.value = false;
-        markdownReportContent.value = '';
+      const resetReportState = (sessionState: SessionRuntimeState, request: GraphRequest) => {
+        sessionState.isStreaming = true;
+        sessionState.nodeBlocks = [];
+        sessionState.lastRequest = request;
+        sessionState.htmlReportContent = '';
+        sessionState.htmlReportSize = 0;
+        sessionState.markdownReportContent = '';
       };
 
       const scrollToBottom = () => {
@@ -874,8 +901,8 @@
         handleNl2sqlOnlyChange,
         downloadHtmlReportFromMessage,
         markdownToHtml,
-        resetReportState,
         handleHumanFeedback,
+        deleteSessionState,
       };
     },
   });
