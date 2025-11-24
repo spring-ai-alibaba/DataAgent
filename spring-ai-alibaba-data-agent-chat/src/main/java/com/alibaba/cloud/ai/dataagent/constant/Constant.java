@@ -65,6 +65,20 @@ public final class Constant {
 
 	public static final String SQL_GENERATE_COUNT = "SQL_GENERATE_COUNT";
 
+	// 重新生成SQL的原因
+	public static final String SQL_REGENERATE_REASON = "SQL_REGENERATE_REASON";
+
+	// SQL优化
+	public static final String SQL_OPTIMIZE_COUNT = "SQL_OPTIMIZE_COUNT";
+
+	public static final String SQL_OPTIMIZE_BEST_SQL = "SQL_OPTIMIZE_BEST_SQL";
+
+	public static final String SQL_OPTIMIZE_BEST_SCORE = "SQL_OPTIMIZE_BEST_SCORE";
+
+	public static final String SQL_OPTIMIZE_FINISHED = "SQL_OPTIMIZE_FINISHED";
+
+	public static final String SQL_OPTIMIZE_NODE = "SQL_OPTIMIZE_NODE";
+
 	public static final String SEMANTIC_CONSISTENCY_NODE_OUTPUT = "SEMANTIC_CONSISTENCY_NODE_OUTPUT";
 
 	public static final String SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT = "SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT";
@@ -101,11 +115,7 @@ public final class Constant {
 
 	public static final String FEASIBILITY_ASSESSMENT_NODE = "FEASIBILITY_ASSESSMENT_NODE";
 
-	public static final String QUERY_REWRITE_NODE = "QUERY_REWRITE_NODE";
-
 	public static final String REPORT_GENERATOR_NODE = "REPORT_GENERATOR_NODE";
-
-	public static final String KEYWORD_EXTRACT_NODE = "KEYWORD_EXTRACT_NODE";
 
 	public static final String SCHEMA_RECALL_NODE = "SCHEMA_RECALL_NODE";
 
@@ -118,10 +128,6 @@ public final class Constant {
 	public static final String SEMANTIC_CONSISTENCY_NODE = "SEMANTIC_CONSISTENCY_NODE";
 
 	public static final String HUMAN_FEEDBACK_NODE = "HUMAN_FEEDBACK_NODE";
-
-	public static final String SMALL_TALK_REJECT = "闲聊拒识";
-
-	public static final String INTENT_UNCLEAR = "意图模糊需要澄清";
 
 	// Keys related to Python code execution
 	public static final String PYTHON_GENERATE_NODE = "PYTHON_GENERATE_NODE";

@@ -49,6 +49,9 @@ spring:
             endpoint: ${OSS_ENDPOINT:}
             bucket-name: ${OSS_BUCKET_NAME:}
             custom-domain: ${OSS_CUSTOM_DOMAIN:}
+        max-sql-retry-count: 10
+        max-sql-optimize-count: 10
+        sql-score-threshold: 0.95
   servlet:
     multipart:
       max-file-size: 10MB

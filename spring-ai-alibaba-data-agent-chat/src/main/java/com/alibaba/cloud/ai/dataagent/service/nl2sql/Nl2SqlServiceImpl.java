@@ -84,6 +84,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 	@Override
 	public Flux<String> generateOptimizedSql(String previousSql, String exceptionMessage, int round) {
 		try {
+			// todo: 写一个Prompt文件
 			StringBuilder prompt = new StringBuilder();
 			prompt.append("请对以下SQL进行第").append(round).append("轮优化:\n\n");
 			prompt.append("当前SQL:\n").append(previousSql).append("\n\n");

@@ -42,6 +42,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_VALIDATION_S
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PYTHON_GENERATE_NODE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.REPORT_GENERATOR_NODE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_NODE;
 
 /**
  * Plan execution and validation node, decides next execution node based on plan, and
@@ -54,7 +55,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE;
 public class PlanExecutorNode implements NodeAction {
 
 	// Supported node types
-	private static final Set<String> SUPPORTED_NODES = Set.of(SQL_EXECUTE_NODE, PYTHON_GENERATE_NODE,
+	private static final Set<String> SUPPORTED_NODES = Set.of(SQL_GENERATE_NODE, PYTHON_GENERATE_NODE,
 			REPORT_GENERATOR_NODE);
 
 	@Override
