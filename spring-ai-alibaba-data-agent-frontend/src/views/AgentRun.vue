@@ -465,7 +465,7 @@
             const nodeHtml = generateNodeHtml(node);
 
             const aiMessage: ChatMessage = {
-              sessionId: sessionId,
+              sessionId,
               role: 'assistant',
               content: nodeHtml,
               messageType: 'html',
@@ -611,7 +611,7 @@
               // 保存报告到后端
               if (sessionState.htmlReportContent) {
                 const htmlReportMessage: ChatMessage = {
-                  sessionId: sessionId,
+                  sessionId,
                   role: 'assistant',
                   content: sessionState.htmlReportContent,
                   messageType: 'html-report',
@@ -636,7 +636,7 @@
               } else if (sessionState.markdownReportContent) {
                 const markdownHtml = markdownToHtml(sessionState.markdownReportContent);
                 const markdownMessage: ChatMessage = {
-                  sessionId: sessionId,
+                  sessionId,
                   role: 'assistant',
                   content: markdownHtml,
                   messageType: 'html',
