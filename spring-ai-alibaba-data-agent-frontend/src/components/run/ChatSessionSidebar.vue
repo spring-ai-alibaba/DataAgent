@@ -131,6 +131,10 @@
         type: Function as PropType<(session: ChatSession) => Promise<void>>,
         required: true,
       },
+      handleDeleteSessionState: {
+        type: Function as PropType<(sessionId: string) => void>,
+        required: true,
+      },
     },
     setup(props) {
       const sessions = ref<ExtendedChatSession[]>([]);
@@ -240,6 +244,7 @@
             type: 'warning',
           });
           await ChatService.deleteSession(session.id);
+          props.handleDeleteSessionState(session.id);
           sessions.value = sessions.value.filter((s: ChatSession) => s.id !== session.id);
           if (props.handleGetCurrentSession() == session) {
             await props.handleSetCurrentSession(null);
@@ -261,6 +266,9 @@
             type: 'warning',
           });
           await ChatService.clearAgentSessions(parseInt(agentId.value));
+          sessions.value.forEach((session: ChatSession) => {
+            props.handleDeleteSessionState(session.id);
+          });
           sessions.value = [];
           await props.handleSetCurrentSession(null);
           ElMessage.success('所有会话已清空');
