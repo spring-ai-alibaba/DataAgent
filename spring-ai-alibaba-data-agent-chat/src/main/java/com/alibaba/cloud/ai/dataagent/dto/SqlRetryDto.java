@@ -16,35 +16,18 @@
 
 package com.alibaba.cloud.ai.dataagent.dto;
 
-import lombok.Getter;
-
-@Getter
-public class SqlRetryDto {
-
-	private String reason;
-
-	private boolean semanticFail;
-
-	private boolean sqlExecuteFail;
+public record SqlRetryDto(String reason, boolean semanticFail, boolean sqlExecuteFail) {
 
 	public static SqlRetryDto semantic(String reason) {
-		SqlRetryDto retryDto = new SqlRetryDto();
-		retryDto.reason = reason;
-		retryDto.semanticFail = true;
-		return retryDto;
+		return new SqlRetryDto(reason, true, false);
 	}
 
 	public static SqlRetryDto sqlExecute(String reason) {
-		SqlRetryDto retryDto = new SqlRetryDto();
-		retryDto.reason = reason;
-		retryDto.sqlExecuteFail = true;
-		return retryDto;
+		return new SqlRetryDto(reason, false, true);
 	}
 
 	public static SqlRetryDto empty() {
-		SqlRetryDto retryDto = new SqlRetryDto();
-		retryDto.reason = "";
-		return retryDto;
+		return new SqlRetryDto("", false, false);
 	}
 
 }

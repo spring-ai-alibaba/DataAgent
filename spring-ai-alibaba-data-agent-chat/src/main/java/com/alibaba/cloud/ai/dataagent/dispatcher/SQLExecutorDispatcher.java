@@ -33,7 +33,7 @@ public class SQLExecutorDispatcher implements EdgeAction {
 	@Override
 	public String apply(OverAllState state) {
 		SqlRetryDto retryDto = StateUtil.getObjectValue(state, SQL_REGENERATE_REASON, SqlRetryDto.class);
-		if (retryDto.isSqlExecuteFail()) {
+		if (retryDto.sqlExecuteFail()) {
 			log.warn("SQL运行失败，需要重新生成！");
 			return SQL_GENERATE_NODE;
 		}

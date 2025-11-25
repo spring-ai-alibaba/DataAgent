@@ -58,7 +58,7 @@ public class SqlOptimizeNode implements NodeAction {
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 		// 获取优化轮次和上次SQL
-		int count = state.value(SQL_OPTIMIZE_COUNT, properties.getMaxSqlOptimizeCount());
+		int count = state.value(SQL_OPTIMIZE_COUNT, 0);
 		String bestSql = StateUtil.getStringValue(state, SQL_OPTIMIZE_BEST_SQL, "");
 		if (count >= properties.getMaxSqlOptimizeCount()) {
 			log.info("optimize sql count reach max count");
