@@ -22,13 +22,13 @@ import com.alibaba.cloud.ai.dataagent.common.connector.bo.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.constant.Constant;
 
+import com.alibaba.cloud.ai.dataagent.dto.SqlRetryDto;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import com.alibaba.cloud.ai.dataagent.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
 import com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil;
@@ -42,8 +42,10 @@ import reactor.core.publisher.Flux;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE_EXCEPTION_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_REGENERATE_REASON;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_RESULT_LIST_MEMORY;
 
 /**
  * SQL execution node that executes SQL queries against the database.
@@ -64,14 +66,11 @@ public class SqlExecuteNode implements NodeAction {
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
-		ExecutionStep executionStep = PlanProcessUtil.getCurrentExecutionStep(state);
 		Integer currentStep = PlanProcessUtil.getCurrentStepNumber(state);
 
-		ExecutionStep.ToolParameters toolParameters = executionStep.getToolParameters();
-		String sqlQuery = toolParameters.getSqlQuery();
+		String sqlQuery = StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT);
 
 		log.info("Executing SQL query: {}", sqlQuery);
-		log.info("Step description: {}", toolParameters.getDescription());
 
 		// Get the agent ID from the state
 		String agentIdStr = StateUtil.getStringValue(state, Constant.AGENT_ID);
@@ -109,69 +108,59 @@ public class SqlExecuteNode implements NodeAction {
 		dbQueryParameter.setSchema(dbConfig.getSchema());
 
 		Accessor dbAccessor = databaseUtil.getAgentAccessor(agentId);
+		final Map<String, Object> result = new HashMap<>();
 
-		try {
-			// Execute SQL query and get results immediately
-			ResultSetBO resultSetBO = dbAccessor.executeSqlAndReturnObject(dbConfig, dbQueryParameter);
-			String jsonStr = resultSetBO.toJsonStr();
+		// 先返回流式数据，在执行数据库查询
+		Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
+			emitter.next(ChatResponseUtil.createResponse("开始执行SQL..."));
+			emitter.next(ChatResponseUtil.createResponse("执行SQL查询："));
+			emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign()));
+			emitter.next(ChatResponseUtil.createResponse(sqlQuery));
+			emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()));
 
-			// Update step results with the query output
-			Map<String, String> existingResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
-					new HashMap<>());
-			Map<String, String> updatedResults = PlanProcessUtil.addStepResult(existingResults, currentStep, jsonStr);
+			try {
+				// Execute SQL query and get results immediately
+				ResultSetBO resultSetBO = dbAccessor.executeSqlAndReturnObject(dbConfig, dbQueryParameter);
+				String jsonStr = resultSetBO.toJsonStr();
 
-			log.info("SQL execution successful, result count: {}",
-					resultSetBO.getData() != null ? resultSetBO.getData().size() : 0);
-
-			// Prepare the final result object
-			// Store List of SQL query results for use by code execution node
-			Map<String, Object> result = Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedResults,
-					SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, "", Constant.SQL_RESULT_LIST_MEMORY, resultSetBO.getData());
-
-			// Create display flux for user experience only
-			Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
-				// todo: 先返回Flux流，再去执行SQL查询
-				emitter.next(ChatResponseUtil.createResponse("开始执行SQL..."));
-				emitter.next(ChatResponseUtil.createResponse("执行SQL查询"));
-				emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign()));
-				emitter.next(ChatResponseUtil.createResponse(sqlQuery));
-				emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()));
+				// 数据执行成功
 				emitter.next(ChatResponseUtil.createResponse("执行SQL完成"));
 				emitter.next(ChatResponseUtil.createResponse("SQL查询结果："));
 				emitter.next(ChatResponseUtil.createPureResponse(TextType.RESULT_SET.getStartSign()));
 				emitter.next(ChatResponseUtil.createPureResponse(jsonStr));
 				emitter.next(ChatResponseUtil.createPureResponse(TextType.RESULT_SET.getEndSign()));
-				emitter.complete();
-			});
 
-			// Create generator using utility class, returning pre-computed business logic
-			// result
-			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil
-				.createStreamingGeneratorWithMessages(this.getClass(), state, v -> result, displayFlux);
+				// Update step results with the query output
+				Map<String, String> existingResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,
+						Map.class, new HashMap<>());
+				Map<String, String> updatedResults = PlanProcessUtil.addStepResult(existingResults, currentStep,
+						jsonStr);
 
-			return Map.of(SQL_EXECUTE_NODE_OUTPUT, generator);
-		}
-		catch (Exception e) {
-			String errorMessage = e.getMessage();
-			log.error("SQL execution failed - SQL: [{}] ", sqlQuery, e);
+				log.info("SQL execution successful, result count: {}",
+						resultSetBO.getData() != null ? resultSetBO.getData().size() : 0);
 
-			// Prepare error result
-			Map<String, Object> errorResult = Map.of(SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, errorMessage);
-
-			// Create error display flux
-			Flux<ChatResponse> errorDisplayFlux = Flux.create(emitter -> {
-				emitter.next(ChatResponseUtil.createResponse("开始执行SQL..."));
-				emitter.next(ChatResponseUtil.createResponse("执行SQL查询"));
+				// Prepare the final result object
+				// Store List of SQL query results for use by code execution node
+				result.putAll(Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedResults, SQL_REGENERATE_REASON,
+						SqlRetryDto.empty(), SQL_RESULT_LIST_MEMORY, resultSetBO.getData()));
+			}
+			catch (Exception e) {
+				String errorMessage = e.getMessage();
+				log.error("SQL execution failed - SQL: [{}] ", sqlQuery, e);
+				result.put(SQL_REGENERATE_REASON, SqlRetryDto.sqlExecute(errorMessage));
 				emitter.next(ChatResponseUtil.createResponse("SQL执行失败: " + errorMessage));
+			}
+			finally {
 				emitter.complete();
-			});
+			}
+		});
 
-			// Create error generator using utility class
-			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil
-				.createStreamingGeneratorWithMessages(this.getClass(), state, v -> errorResult, errorDisplayFlux);
+		// Create generator using utility class, returning pre-computed business logic
+		// result
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, v -> result, displayFlux);
 
-			return Map.of(SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, generator);
-		}
+		return Map.of(SQL_EXECUTE_NODE_OUTPUT, generator);
 	}
 
 }

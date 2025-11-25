@@ -47,7 +47,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_NO
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_REVIEW_ENABLED;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.INPUT_KEY;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.IS_ONLY_NL2SQL;
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.ONLY_NL2SQL_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_OUTPUT;
 
 @Slf4j
 @Service
@@ -71,7 +71,7 @@ public class GraphServiceImpl implements GraphService {
 			.call(Map.of(IS_ONLY_NL2SQL, true, INPUT_KEY, naturalQuery, AGENT_ID, agentId),
 					RunnableConfig.builder().build())
 			.orElseThrow();
-		return state.value(ONLY_NL2SQL_OUTPUT, "");
+		return state.value(SQL_GENERATE_OUTPUT, "");
 	}
 
 	@Override

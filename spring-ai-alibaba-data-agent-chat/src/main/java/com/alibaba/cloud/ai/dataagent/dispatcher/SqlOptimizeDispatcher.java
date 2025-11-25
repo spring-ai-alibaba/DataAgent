@@ -16,29 +16,20 @@
 
 package com.alibaba.cloud.ai.dataagent.dispatcher;
 
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
-import lombok.extern.slf4j.Slf4j;
 
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
-
-/**
- * @author zhangshenghang
- */
-@Slf4j
-public class SemanticConsistenceDispatcher implements EdgeAction {
+public class SqlOptimizeDispatcher implements EdgeAction {
 
 	@Override
-	public String apply(OverAllState state) {
-		Boolean validate = (Boolean) state.value(SEMANTIC_CONSISTENCY_NODE_OUTPUT).orElse(false);
-		log.info("语义一致性校验结果: {}，跳转节点配置", validate);
-		if (validate) {
-			log.info("语义一致性校验通过，跳转到SQL运行节点。");
-			return SQL_EXECUTE_NODE;
+	public String apply(OverAllState state) throws Exception {
+		Boolean b = state.value(Constant.SQL_OPTIMIZE_FINISHED, false);
+		if (b) {
+			return Constant.SEMANTIC_CONSISTENCY_NODE;
 		}
 		else {
-			log.info("语义一致性校验未通过，跳转到SQL生成节点。");
-			return SQL_GENERATE_NODE;
+			return Constant.SQL_OPTIMIZE_NODE;
 		}
 	}
 

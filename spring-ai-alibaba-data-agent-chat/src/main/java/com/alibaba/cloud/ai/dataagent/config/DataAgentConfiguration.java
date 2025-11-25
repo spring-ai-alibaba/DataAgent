@@ -26,6 +26,7 @@ import com.alibaba.cloud.ai.dataagent.dispatcher.QueryEnhanceDispatcher;
 import com.alibaba.cloud.ai.dataagent.dispatcher.SQLExecutorDispatcher;
 import com.alibaba.cloud.ai.dataagent.dispatcher.SemanticConsistenceDispatcher;
 import com.alibaba.cloud.ai.dataagent.dispatcher.SqlGenerateDispatcher;
+import com.alibaba.cloud.ai.dataagent.dispatcher.SqlOptimizeDispatcher;
 import com.alibaba.cloud.ai.dataagent.dispatcher.TableRelationDispatcher;
 import com.alibaba.cloud.ai.dataagent.node.EvidenceRecallNode;
 import com.alibaba.cloud.ai.dataagent.node.FeasibilityAssessmentNode;
@@ -42,6 +43,7 @@ import com.alibaba.cloud.ai.dataagent.node.SchemaRecallNode;
 import com.alibaba.cloud.ai.dataagent.node.SemanticConsistencyNode;
 import com.alibaba.cloud.ai.dataagent.node.SqlExecuteNode;
 import com.alibaba.cloud.ai.dataagent.node.SqlGenerateNode;
+import com.alibaba.cloud.ai.dataagent.node.SqlOptimizeNode;
 import com.alibaba.cloud.ai.dataagent.node.TableRelationNode;
 import com.alibaba.cloud.ai.dataagent.strategy.EnhancedTokenCountBatchingStrategy;
 import com.alibaba.cloud.ai.graph.GraphRepresentation;
@@ -49,7 +51,6 @@ import com.alibaba.cloud.ai.graph.KeyStrategy;
 import com.alibaba.cloud.ai.graph.KeyStrategyFactory;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
-import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import com.alibaba.cloud.ai.dataagent.util.NodeBeanUtil;
 import com.knuddels.jtokkit.api.EncodingType;
 import lombok.extern.slf4j.Slf4j;
@@ -130,58 +131,60 @@ public class DataAgentConfiguration implements DisposableBean {
 		KeyStrategyFactory keyStrategyFactory = () -> {
 			HashMap<String, KeyStrategy> keyStrategyHashMap = new HashMap<>();
 			// User input
-			keyStrategyHashMap.put(INPUT_KEY, new ReplaceStrategy());
+			keyStrategyHashMap.put(INPUT_KEY, KeyStrategy.REPLACE);
 			// Agent ID
-			keyStrategyHashMap.put(AGENT_ID, new ReplaceStrategy());
+			keyStrategyHashMap.put(AGENT_ID, KeyStrategy.REPLACE);
 			// Intent recognition
-			keyStrategyHashMap.put(INTENT_RECOGNITION_NODE_OUTPUT, new ReplaceStrategy());
+			keyStrategyHashMap.put(INTENT_RECOGNITION_NODE_OUTPUT, KeyStrategy.REPLACE);
 			// QUERY_ENHANCE_NODE节点输出
-			keyStrategyHashMap.put(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
+			keyStrategyHashMap.put(QUERY_ENHANCE_NODE_OUTPUT, KeyStrategy.REPLACE);
 			// Semantic model
-			keyStrategyHashMap.put(GENEGRATED_SEMANTIC_MODEL_PROMPT, new ReplaceStrategy());
+			keyStrategyHashMap.put(GENEGRATED_SEMANTIC_MODEL_PROMPT, KeyStrategy.REPLACE);
 			// EVIDENCE节点输出
-			keyStrategyHashMap.put(EVIDENCE, new ReplaceStrategy());
+			keyStrategyHashMap.put(EVIDENCE, KeyStrategy.REPLACE);
 			// schema recall节点输出
-			keyStrategyHashMap.put(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
-			keyStrategyHashMap.put(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
+			keyStrategyHashMap.put(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, KeyStrategy.REPLACE);
 			// table relation节点输出
-			keyStrategyHashMap.put(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
-			keyStrategyHashMap.put(TABLE_RELATION_EXCEPTION_OUTPUT, new ReplaceStrategy());
-			keyStrategyHashMap.put(TABLE_RELATION_RETRY_COUNT, new ReplaceStrategy());
+			keyStrategyHashMap.put(TABLE_RELATION_OUTPUT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(TABLE_RELATION_EXCEPTION_OUTPUT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(TABLE_RELATION_RETRY_COUNT, KeyStrategy.REPLACE);
 			// Feasibility Assessment 节点输出
-			keyStrategyHashMap.put(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, new ReplaceStrategy());
+			keyStrategyHashMap.put(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, KeyStrategy.REPLACE);
 			// sql generate节点输出
-			keyStrategyHashMap.put(SQL_GENERATE_SCHEMA_MISSING_ADVICE, new ReplaceStrategy());
-			keyStrategyHashMap.put(SQL_GENERATE_OUTPUT, new ReplaceStrategy());
-			keyStrategyHashMap.put(SQL_GENERATE_COUNT, new ReplaceStrategy());
+			keyStrategyHashMap.put(SQL_GENERATE_SCHEMA_MISSING_ADVICE, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(SQL_GENERATE_OUTPUT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(SQL_GENERATE_COUNT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(SQL_REGENERATE_REASON, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(SQL_OPTIMIZE_COUNT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(SQL_OPTIMIZE_BEST_SQL, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(SQL_OPTIMIZE_BEST_SCORE, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(SQL_OPTIMIZE_FINISHED, KeyStrategy.REPLACE);
 			// Semantic consistence节点输出
-			keyStrategyHashMap.put(SEMANTIC_CONSISTENCY_NODE_OUTPUT, new ReplaceStrategy());
-			keyStrategyHashMap.put(SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT, new ReplaceStrategy());
+			keyStrategyHashMap.put(SEMANTIC_CONSISTENCY_NODE_OUTPUT, KeyStrategy.REPLACE);
 			// Planner 节点输出
-			keyStrategyHashMap.put(PLANNER_NODE_OUTPUT, new ReplaceStrategy());
+			keyStrategyHashMap.put(PLANNER_NODE_OUTPUT, KeyStrategy.REPLACE);
 			// PlanExecutorNode
-			keyStrategyHashMap.put(PLAN_CURRENT_STEP, new ReplaceStrategy());
-			keyStrategyHashMap.put(PLAN_NEXT_NODE, new ReplaceStrategy());
-			keyStrategyHashMap.put(PLAN_VALIDATION_STATUS, new ReplaceStrategy());
-			keyStrategyHashMap.put(PLAN_VALIDATION_ERROR, new ReplaceStrategy());
-			keyStrategyHashMap.put(PLAN_REPAIR_COUNT, new ReplaceStrategy());
+			keyStrategyHashMap.put(PLAN_CURRENT_STEP, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(PLAN_NEXT_NODE, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(PLAN_VALIDATION_STATUS, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(PLAN_VALIDATION_ERROR, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(PLAN_REPAIR_COUNT, KeyStrategy.REPLACE);
 			// SQL Execute 节点输出
-			keyStrategyHashMap.put(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
-			keyStrategyHashMap.put(SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, new ReplaceStrategy());
+			keyStrategyHashMap.put(SQL_EXECUTE_NODE_OUTPUT, KeyStrategy.REPLACE);
 			// Python代码运行相关
-			keyStrategyHashMap.put(SQL_RESULT_LIST_MEMORY, new ReplaceStrategy());
-			keyStrategyHashMap.put(PYTHON_IS_SUCCESS, new ReplaceStrategy());
-			keyStrategyHashMap.put(PYTHON_TRIES_COUNT, new ReplaceStrategy());
-			keyStrategyHashMap.put(PYTHON_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
-			keyStrategyHashMap.put(PYTHON_GENERATE_NODE_OUTPUT, new ReplaceStrategy());
-			keyStrategyHashMap.put(PYTHON_ANALYSIS_NODE_OUTPUT, new ReplaceStrategy());
+			keyStrategyHashMap.put(SQL_RESULT_LIST_MEMORY, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(PYTHON_IS_SUCCESS, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(PYTHON_TRIES_COUNT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(PYTHON_EXECUTE_NODE_OUTPUT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(PYTHON_GENERATE_NODE_OUTPUT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(PYTHON_ANALYSIS_NODE_OUTPUT, KeyStrategy.REPLACE);
 			// NL2SQL相关
-			keyStrategyHashMap.put(IS_ONLY_NL2SQL, new ReplaceStrategy());
-			keyStrategyHashMap.put(ONLY_NL2SQL_OUTPUT, new ReplaceStrategy());
+			keyStrategyHashMap.put(IS_ONLY_NL2SQL, KeyStrategy.REPLACE);
 			// Human Review keys
-			keyStrategyHashMap.put(HUMAN_REVIEW_ENABLED, new ReplaceStrategy());
+			keyStrategyHashMap.put(HUMAN_REVIEW_ENABLED, KeyStrategy.REPLACE);
 			// Final result
-			keyStrategyHashMap.put(RESULT, new ReplaceStrategy());
+			keyStrategyHashMap.put(RESULT, KeyStrategy.REPLACE);
 			return keyStrategyHashMap;
 		};
 
@@ -196,6 +199,7 @@ public class DataAgentConfiguration implements DisposableBean {
 			.addNode(PLANNER_NODE, nodeBeanUtil.getNodeBeanAsync(PlannerNode.class))
 			.addNode(PLAN_EXECUTOR_NODE, nodeBeanUtil.getNodeBeanAsync(PlanExecutorNode.class))
 			.addNode(SQL_EXECUTE_NODE, nodeBeanUtil.getNodeBeanAsync(SqlExecuteNode.class))
+			.addNode(SQL_OPTIMIZE_NODE, nodeBeanUtil.getNodeBeanAsync(SqlOptimizeNode.class))
 			.addNode(PYTHON_GENERATE_NODE, nodeBeanUtil.getNodeBeanAsync(PythonGenerateNode.class))
 			.addNode(PYTHON_EXECUTE_NODE, nodeBeanUtil.getNodeBeanAsync(PythonExecuteNode.class))
 			.addNode(PYTHON_ANALYZE_NODE, nodeBeanUtil.getNodeBeanAsync(PythonAnalyzeNode.class))
@@ -230,7 +234,7 @@ public class DataAgentConfiguration implements DisposableBean {
 					// If validation fails, go back to PlannerNode to repair
 					PLANNER_NODE, PLANNER_NODE,
 					// If validation passes, proceed to the correct execution node
-					SQL_EXECUTE_NODE, SQL_EXECUTE_NODE, PYTHON_GENERATE_NODE, PYTHON_GENERATE_NODE,
+					SQL_GENERATE_NODE, SQL_GENERATE_NODE, PYTHON_GENERATE_NODE, PYTHON_GENERATE_NODE,
 					REPORT_GENERATOR_NODE, REPORT_GENERATOR_NODE,
 					// If human review is enabled, go to human_feedback node
 					HUMAN_FEEDBACK_NODE, HUMAN_FEEDBACK_NODE,
@@ -245,12 +249,15 @@ public class DataAgentConfiguration implements DisposableBean {
 					// If max repair attempts are reached, end the process
 					END, END))
 			.addEdge(REPORT_GENERATOR_NODE, END)
-			.addConditionalEdges(SQL_EXECUTE_NODE, edge_async(new SQLExecutorDispatcher()),
-					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, SEMANTIC_CONSISTENCY_NODE, SEMANTIC_CONSISTENCY_NODE))
-			.addConditionalEdges(SQL_GENERATE_NODE, edge_async(new SqlGenerateDispatcher()),
-					Map.of(FEASIBILITY_ASSESSMENT_NODE, FEASIBILITY_ASSESSMENT_NODE, END, END, SQL_EXECUTE_NODE,
-							SQL_EXECUTE_NODE))
+			// sql generate and sql execute node
+			.addConditionalEdges(SQL_GENERATE_NODE, nodeBeanUtil.getEdgeBeanAsync(SqlGenerateDispatcher.class),
+					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, FEASIBILITY_ASSESSMENT_NODE,
+							FEASIBILITY_ASSESSMENT_NODE, END, END, SQL_OPTIMIZE_NODE, SQL_OPTIMIZE_NODE))
+			.addConditionalEdges(SQL_OPTIMIZE_NODE, edge_async(new SqlOptimizeDispatcher()),
+					Map.of(SEMANTIC_CONSISTENCY_NODE, SEMANTIC_CONSISTENCY_NODE, SQL_OPTIMIZE_NODE, SQL_OPTIMIZE_NODE))
 			.addConditionalEdges(SEMANTIC_CONSISTENCY_NODE, edge_async(new SemanticConsistenceDispatcher()),
+					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, SQL_EXECUTE_NODE, SQL_EXECUTE_NODE))
+			.addConditionalEdges(SQL_EXECUTE_NODE, edge_async(new SQLExecutorDispatcher()),
 					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, PLAN_EXECUTOR_NODE, PLAN_EXECUTOR_NODE));
 
 		GraphRepresentation graphRepresentation = stateGraph.getGraph(GraphRepresentation.Type.PLANTUML,

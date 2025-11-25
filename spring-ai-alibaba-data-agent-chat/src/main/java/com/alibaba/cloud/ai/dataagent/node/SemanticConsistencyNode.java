@@ -16,12 +16,12 @@
 
 package com.alibaba.cloud.ai.dataagent.node;
 
+import com.alibaba.cloud.ai.dataagent.dto.SqlRetryDto;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import com.alibaba.cloud.ai.dataagent.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
@@ -61,16 +61,13 @@ public class SemanticConsistencyNode implements NodeAction {
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 
 		// Get current execution step and SQL query
-		ExecutionStep executionStep = PlanProcessUtil.getCurrentExecutionStep(state);
 		Integer currentStep = PlanProcessUtil.getCurrentStepNumber(state);
-		ExecutionStep.ToolParameters toolParameters = executionStep.getToolParameters();
-		String sqlQuery = toolParameters.getSqlQuery();
+		String sql = StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT);
+		String userQuery = StateUtil.getCanonicalQuery(state);
 
-		log.info("Starting semantic consistency validation - SQL: {}", sqlQuery);
-		log.info("Step description: {}", toolParameters.getDescription());
+		log.info("Starting semantic consistency validation - SQL: {}", sql);
 
-		Flux<ChatResponse> validationResultFlux = performSemanticValidationStream(schemaDTO, evidence, toolParameters,
-				sqlQuery);
+		Flux<ChatResponse> validationResultFlux = performSemanticValidationStream(schemaDTO, evidence, userQuery, sql);
 
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, "开始语义一致性校验", "语义一致性校验完成", validationResult -> {
@@ -87,11 +84,11 @@ public class SemanticConsistencyNode implements NodeAction {
 	/**
 	 * Perform streaming semantic consistency validation
 	 */
-	private Flux<ChatResponse> performSemanticValidationStream(SchemaDTO schemaDTO, String evidence,
-			ExecutionStep.ToolParameters toolParameters, String sqlQuery) throws Exception {
+	private Flux<ChatResponse> performSemanticValidationStream(SchemaDTO schemaDTO, String evidence, String userQuery,
+			String sqlQuery) {
 		// Build validation context
 		String schema = PromptHelper.buildMixMacSqlDbPrompt(schemaDTO, true);
-		String context = String.join("\n", schema, evidence, toolParameters.getDescription());
+		String context = String.join("\n", schema, evidence, userQuery);
 
 		// Execute semantic consistency check
 		return nl2SqlService.semanticConsistencyStream(sqlQuery, context);
@@ -105,8 +102,8 @@ public class SemanticConsistencyNode implements NodeAction {
 			return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, true, PLAN_CURRENT_STEP, currentStep + 1);
 		}
 		else {
-			return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, false, SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT,
-					validationResult);
+			return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, false, SQL_REGENERATE_REASON,
+					SqlRetryDto.semantic(validationResult));
 		}
 	}
 
