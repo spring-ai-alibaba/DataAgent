@@ -258,6 +258,7 @@
               >
                 <el-option key="mysql" label="MySQL" value="mysql" />
                 <el-option key="postgresql" label="PostgreSQL" value="postgresql" />
+                <el-option key="dameng" label="达梦(Dameng)" value="dameng" />
               </el-select>
             </div>
           </el-col>
@@ -375,6 +376,7 @@
           >
             <el-option key="mysql" label="MySQL" value="mysql" />
             <el-option key="postgresql" label="PostgreSQL" value="postgresql" />
+            <el-option key="dameng" label="达梦(Dameng)" value="dameng" />
           </el-select>
         </div>
       </el-col>

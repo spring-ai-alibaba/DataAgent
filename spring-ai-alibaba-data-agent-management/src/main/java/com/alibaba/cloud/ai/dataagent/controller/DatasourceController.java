@@ -132,7 +132,8 @@ public class DatasourceController {
 	public ResponseEntity<ApiResponse> testConnection(@PathVariable(value = "id") Integer id) {
 		try {
 			boolean success = datasourceService.testConnection(id);
-			return ResponseEntity.ok(ApiResponse.success(success ? "连接测试成功" : "连接测试失败"));
+			ApiResponse response = success ? ApiResponse.success("连接测试成功") : ApiResponse.error("连接测试失败");
+			return ResponseEntity.ok(response);
 		}
 		catch (Exception e) {
 			return ResponseEntity.badRequest().body(ApiResponse.error("测试失败：" + e.getMessage()));

@@ -29,7 +29,6 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -165,13 +164,26 @@ public abstract class AbstractDBConnectionPool implements DBConnectionPool {
 
 	public DataSource createdDataSource(String url, String username, String password) throws Exception {
 
-		DruidDataSource dataSource = (DruidDataSource) DruidDataSourceFactory.createDataSource(
-				Map.of(DruidDataSourceFactory.PROP_DRIVERCLASSNAME, getDriver(), DruidDataSourceFactory.PROP_URL, url,
-						DruidDataSourceFactory.PROP_USERNAME, username, DruidDataSourceFactory.PROP_PASSWORD, password,
-						DruidDataSourceFactory.PROP_INITIALSIZE, "5", DruidDataSourceFactory.PROP_MINIDLE, "5",
-						DruidDataSourceFactory.PROP_MAXACTIVE, "20", DruidDataSourceFactory.PROP_MAXWAIT, "10000",
-						DruidDataSourceFactory.PROP_TIMEBETWEENEVICTIONRUNSMILLIS, "60000",
-						DruidDataSourceFactory.PROP_FILTERS, "wall,stat"));
+		String driver = getDriver();
+
+		String filters = "wall,stat";
+		if (driver != null && driver.toLowerCase().contains("dm.jdbc.driver.dmdriver")) {
+			filters = "stat";
+		}
+
+		java.util.Map<String, String> props = new java.util.HashMap<>();
+		props.put(DruidDataSourceFactory.PROP_DRIVERCLASSNAME, driver);
+		props.put(DruidDataSourceFactory.PROP_URL, url);
+		props.put(DruidDataSourceFactory.PROP_USERNAME, username);
+		props.put(DruidDataSourceFactory.PROP_PASSWORD, password);
+		props.put(DruidDataSourceFactory.PROP_INITIALSIZE, "5");
+		props.put(DruidDataSourceFactory.PROP_MINIDLE, "5");
+		props.put(DruidDataSourceFactory.PROP_MAXACTIVE, "20");
+		props.put(DruidDataSourceFactory.PROP_MAXWAIT, "10000");
+		props.put(DruidDataSourceFactory.PROP_TIMEBETWEENEVICTIONRUNSMILLIS, "60000");
+		props.put(DruidDataSourceFactory.PROP_FILTERS, filters);
+
+		DruidDataSource dataSource = (DruidDataSource) DruidDataSourceFactory.createDataSource(props);
 		dataSource.setBreakAfterAcquireFailure(Boolean.TRUE);
 		dataSource.setConnectionErrorRetryAttempts(2);
 

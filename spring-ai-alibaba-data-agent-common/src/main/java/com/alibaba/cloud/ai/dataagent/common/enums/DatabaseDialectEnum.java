@@ -25,7 +25,9 @@ public enum DatabaseDialectEnum {
 
 	POSTGRESQL("PostgreSQL"),
 
-	H2("H2");
+	H2("H2"),
+
+	DAMENG("Dameng");
 
 	public final String code;
 

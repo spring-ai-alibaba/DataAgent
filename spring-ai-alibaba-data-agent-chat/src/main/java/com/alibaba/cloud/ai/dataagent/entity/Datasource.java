@@ -90,6 +90,9 @@ public class Datasource {
 						"jdbc:h2:mem:%s;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=true;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE",
 						databaseName);
 			}
+			else if ("dameng".equalsIgnoreCase(type)) {
+				this.connectionUrl = String.format("jdbc:dm://%s:%d", host, port);
+			}
 		}
 	}
 
