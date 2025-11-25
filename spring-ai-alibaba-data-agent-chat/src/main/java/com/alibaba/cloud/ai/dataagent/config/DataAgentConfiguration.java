@@ -181,7 +181,6 @@ public class DataAgentConfiguration implements DisposableBean {
 			keyStrategyHashMap.put(PYTHON_ANALYSIS_NODE_OUTPUT, KeyStrategy.REPLACE);
 			// NL2SQL相关
 			keyStrategyHashMap.put(IS_ONLY_NL2SQL, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(ONLY_NL2SQL_OUTPUT, KeyStrategy.REPLACE);
 			// Human Review keys
 			keyStrategyHashMap.put(HUMAN_REVIEW_ENABLED, KeyStrategy.REPLACE);
 			// Final result
