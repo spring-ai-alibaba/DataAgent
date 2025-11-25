@@ -42,7 +42,6 @@ import reactor.core.publisher.Flux;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE_EXCEPTION_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_REGENERATE_REASON;
@@ -142,14 +141,13 @@ public class SqlExecuteNode implements NodeAction {
 
 				// Prepare the final result object
 				// Store List of SQL query results for use by code execution node
-				result.putAll(Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedResults, SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, "",
-						SQL_RESULT_LIST_MEMORY, resultSetBO.getData()));
+				result.putAll(Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedResults, SQL_REGENERATE_REASON,
+						SqlRetryDto.empty(), SQL_RESULT_LIST_MEMORY, resultSetBO.getData()));
 			}
 			catch (Exception e) {
 				String errorMessage = e.getMessage();
 				log.error("SQL execution failed - SQL: [{}] ", sqlQuery, e);
-				result.putAll(Map.of(SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, errorMessage, SQL_REGENERATE_REASON,
-						SqlRetryDto.sqlExecute(errorMessage)));
+				result.put(SQL_REGENERATE_REASON, SqlRetryDto.sqlExecute(errorMessage));
 				emitter.next(ChatResponseUtil.createResponse("SQL执行失败: " + errorMessage));
 			}
 			finally {

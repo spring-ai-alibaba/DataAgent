@@ -162,7 +162,6 @@ public class DataAgentConfiguration implements DisposableBean {
 			keyStrategyHashMap.put(SQL_OPTIMIZE_FINISHED, KeyStrategy.REPLACE);
 			// Semantic consistence节点输出
 			keyStrategyHashMap.put(SEMANTIC_CONSISTENCY_NODE_OUTPUT, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT, KeyStrategy.REPLACE);
 			// Planner 节点输出
 			keyStrategyHashMap.put(PLANNER_NODE_OUTPUT, KeyStrategy.REPLACE);
 			// PlanExecutorNode
@@ -173,7 +172,6 @@ public class DataAgentConfiguration implements DisposableBean {
 			keyStrategyHashMap.put(PLAN_REPAIR_COUNT, KeyStrategy.REPLACE);
 			// SQL Execute 节点输出
 			keyStrategyHashMap.put(SQL_EXECUTE_NODE_OUTPUT, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(SQL_EXECUTE_NODE_EXCEPTION_OUTPUT, KeyStrategy.REPLACE);
 			// Python代码运行相关
 			keyStrategyHashMap.put(SQL_RESULT_LIST_MEMORY, KeyStrategy.REPLACE);
 			keyStrategyHashMap.put(PYTHON_IS_SUCCESS, KeyStrategy.REPLACE);

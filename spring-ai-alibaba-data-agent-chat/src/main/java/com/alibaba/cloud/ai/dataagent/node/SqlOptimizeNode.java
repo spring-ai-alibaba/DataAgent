@@ -1,3 +1,19 @@
+/*
+ * Copyright 2025 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.alibaba.cloud.ai.dataagent.node;
 
 import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
@@ -26,7 +42,9 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_OPTIMIZE_COUN
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_OPTIMIZE_FINISHED;
 
 /**
- * 优化SQL生成结果
+ * 优化SQL生成结果，直到分数满足要求或者达到最大次数
+ *
+ * @author vlsmb
  */
 @Slf4j
 @Component
@@ -39,22 +57,30 @@ public class SqlOptimizeNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
+		// 获取优化轮次和上次SQL
 		int count = state.value(SQL_OPTIMIZE_COUNT, properties.getMaxSqlOptimizeCount());
 		String bestSql = StateUtil.getStringValue(state, SQL_OPTIMIZE_BEST_SQL, "");
 		if (count >= properties.getMaxSqlOptimizeCount()) {
 			log.info("optimize sql count reach max count");
 			return Map.of(SQL_OPTIMIZE_FINISHED, true, SQL_GENERATE_OUTPUT, performFinalValidation(bestSql));
 		}
+
+		// 获取上次的分数
 		double bestScore = StateUtil.getObjectValue(state, SQL_OPTIMIZE_BEST_SCORE, Double.class);
 		Map<String, Object> result = new HashMap<>(Map.of(SQL_OPTIMIZE_FINISHED, false, SQL_OPTIMIZE_COUNT, count + 1));
 		log.info("optimize sql count: {}, best sql: {}, best score: {}", count, bestSql, bestScore);
+
+		// 生成优化SQL
 		StringBuilder sqlCollector = new StringBuilder();
 		Flux<String> sqlFlux = nl2SqlService.generateOptimizedSql(bestSql, null, count).doOnNext(sqlCollector::append);
+
+		// 创建返回Flux
 		Flux<ChatResponse> displayFlux = Flux
 			.just(ChatResponseUtil.createResponse("正在进行第 " + (count + 1) + " 次优化SQL..."),
 					ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign()))
 			.concatWith(sqlFlux.map(r -> ChatResponseUtil.createTrimResponse(r, TextType.SQL)))
 			.concatWith(Flux.defer(() -> {
+				// 计算SQL分数
 				String sql = sqlCollector.toString();
 				SqlQualityScore score = evaluateSqlQuality(sql);
 				return Flux.just(ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()),
@@ -65,10 +91,12 @@ public class SqlOptimizeNode implements NodeAction {
 					String sql = sqlCollector.toString();
 					SqlQualityScore score = evaluateSqlQuality(sql);
 					if (score.totalScore > bestScore) {
+						// 替换为新的SQL
 						log.info("optimize sql score: {}, sql: {}", score.totalScore, sql);
 						result.put(SQL_OPTIMIZE_BEST_SQL, sql);
 						result.put(SQL_OPTIMIZE_BEST_SCORE, score.totalScore);
 						if (score.totalScore > properties.getSqlScoreThreshold()) {
+							// 满足要求，结束
 							result.putAll(Map.of(SQL_OPTIMIZE_FINISHED, true, SQL_GENERATE_OUTPUT,
 									performFinalValidation(sql)));
 						}

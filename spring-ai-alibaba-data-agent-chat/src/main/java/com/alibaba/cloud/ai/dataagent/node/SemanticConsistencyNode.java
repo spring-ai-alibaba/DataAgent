@@ -102,8 +102,8 @@ public class SemanticConsistencyNode implements NodeAction {
 			return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, true, PLAN_CURRENT_STEP, currentStep + 1);
 		}
 		else {
-			return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, false, SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT,
-					validationResult, SQL_REGENERATE_REASON, SqlRetryDto.semantic(validationResult));
+			return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, false, SQL_REGENERATE_REASON,
+					SqlRetryDto.semantic(validationResult));
 		}
 	}
 

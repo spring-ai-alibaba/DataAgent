@@ -72,9 +72,7 @@ public class SqlGenerateNode implements NodeAction {
 			return Map.of(SQL_GENERATE_OUTPUT, StateGraph.END);
 		}
 
-		// Execute business logic first - determine what needs to be regenerated
-		Map<String, Object> result = new HashMap<>(Map.of(SQL_GENERATE_OUTPUT, StateGraph.END, SQL_GENERATE_COUNT,
-				count + 1, SQL_OPTIMIZE_COUNT, 0, SQL_OPTIMIZE_BEST_SCORE, 0.0));
+		// 准备生成SQL
 		String displayMessage;
 		Flux<String> sqlFlux;
 		SqlRetryDto retryDto = state.value(SQL_REGENERATE_REASON, SqlRetryDto.empty());
@@ -93,6 +91,11 @@ public class SqlGenerateNode implements NodeAction {
 			displayMessage = "开始生成SQL...";
 			sqlFlux = handleGenerateSql(state);
 		}
+
+		// 准备返回结果，同时需要清除一些状态数据
+		Map<String, Object> result = new HashMap<>(
+				Map.of(SQL_GENERATE_OUTPUT, StateGraph.END, SQL_GENERATE_COUNT, count + 1, SQL_OPTIMIZE_COUNT, 0,
+						SQL_OPTIMIZE_BEST_SCORE, 0.0, SQL_REGENERATE_REASON, SqlRetryDto.empty()));
 
 		// Create display flux for user experience only
 		StringBuilder sqlCollector = new StringBuilder();
