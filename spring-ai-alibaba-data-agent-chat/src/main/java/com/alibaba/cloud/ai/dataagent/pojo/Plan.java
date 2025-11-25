@@ -56,7 +56,7 @@ public class Plan {
 		plan.setThoughtProcess("根据问题生成SQL");
 		plan.setExecutionPlan(List.of(step));
 		try {
-			NL2SQL_PLAN_JSON = JsonUtil.getObjectMapper().writeValueAsString(plan);
+			NL2SQL_PLAN_JSON = JsonUtil.getObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(plan);
 		}
 		catch (JsonProcessingException e) {
 			throw new RuntimeException(e);

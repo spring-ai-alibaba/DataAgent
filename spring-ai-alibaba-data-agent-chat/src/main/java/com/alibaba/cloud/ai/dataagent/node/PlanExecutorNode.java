@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.dataagent.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.dataagent.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.dataagent.pojo.Plan;
@@ -31,6 +32,7 @@ import java.util.Set;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_NODE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_REVIEW_ENABLED;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.IS_ONLY_NL2SQL;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_CURRENT_STEP;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_NEXT_NODE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_REPAIR_COUNT;
@@ -97,10 +99,13 @@ public class PlanExecutorNode implements NodeAction {
 		int currentStep = PlanProcessUtil.getCurrentStepNumber(state);
 		List<ExecutionStep> executionPlan = plan.getExecutionPlan();
 
+		boolean isOnlyNl2Sql = state.value(IS_ONLY_NL2SQL, false);
+
 		// Check if the plan is completed
 		if (currentStep > executionPlan.size()) {
 			log.info("Plan completed, current step: {}, total steps: {}", currentStep, executionPlan.size());
-			return Map.of(PLAN_CURRENT_STEP, 1, PLAN_NEXT_NODE, REPORT_GENERATOR_NODE, PLAN_VALIDATION_STATUS, true);
+			return Map.of(PLAN_CURRENT_STEP, 1, PLAN_NEXT_NODE, isOnlyNl2Sql ? StateGraph.END : REPORT_GENERATOR_NODE,
+					PLAN_VALIDATION_STATUS, true);
 		}
 
 		// Get current step and determine next node
