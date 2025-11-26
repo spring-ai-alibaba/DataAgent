@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.node;
 
 import com.alibaba.cloud.ai.dataagent.dto.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.util.LlmResponseUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -78,16 +79,17 @@ public class QueryEnhanceNode implements NodeAction {
 	private Map<String, Object> handleQueryEnhance(String llmOutput) {
 		// 获取处理结果
 		String enhanceResult = llmOutput.trim();
-		log.info("Query enhance result: {}", enhanceResult);
+		String extractJson = LlmResponseUtil.extractJson(enhanceResult);
+		log.info("Query enhance result: {}", extractJson);
 
 		// 解析处理结果，转成 QueryProcessOutputDTO
 		QueryEnhanceOutputDTO queryEnhanceOutputDTO = null;
 		try {
-			queryEnhanceOutputDTO = JsonUtil.getObjectMapper().readValue(enhanceResult, QueryEnhanceOutputDTO.class);
+			queryEnhanceOutputDTO = JsonUtil.getObjectMapper().readValue(extractJson, QueryEnhanceOutputDTO.class);
 			log.info("Successfully parsed query enhance result: {}", queryEnhanceOutputDTO);
 		}
 		catch (Exception e) {
-			log.error("Failed to parse query enhance result: {}", enhanceResult, e);
+			log.error("Failed to parse query enhance result: {}", extractJson, e);
 		}
 
 		if (queryEnhanceOutputDTO == null)
