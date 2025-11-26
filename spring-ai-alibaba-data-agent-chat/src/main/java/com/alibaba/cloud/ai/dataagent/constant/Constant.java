@@ -65,15 +65,25 @@ public final class Constant {
 
 	public static final String SQL_GENERATE_COUNT = "SQL_GENERATE_COUNT";
 
-	public static final String SEMANTIC_CONSISTENCY_NODE_OUTPUT = "SEMANTIC_CONSISTENCY_NODE_OUTPUT";
+	// 重新生成SQL的原因
+	public static final String SQL_REGENERATE_REASON = "SQL_REGENERATE_REASON";
 
-	public static final String SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT = "SEMANTIC_CONSISTENCY_NODE_RECOMMEND_OUTPUT";
+	// SQL优化
+	public static final String SQL_OPTIMIZE_COUNT = "SQL_OPTIMIZE_COUNT";
+
+	public static final String SQL_OPTIMIZE_BEST_SQL = "SQL_OPTIMIZE_BEST_SQL";
+
+	public static final String SQL_OPTIMIZE_BEST_SCORE = "SQL_OPTIMIZE_BEST_SCORE";
+
+	public static final String SQL_OPTIMIZE_FINISHED = "SQL_OPTIMIZE_FINISHED";
+
+	public static final String SQL_OPTIMIZE_NODE = "SQL_OPTIMIZE_NODE";
+
+	public static final String SEMANTIC_CONSISTENCY_NODE_OUTPUT = "SEMANTIC_CONSISTENCY_NODE_OUTPUT";
 
 	public static final String PLANNER_NODE_OUTPUT = "PLANNER_NODE_OUTPUT";
 
 	public static final String SQL_EXECUTE_NODE_OUTPUT = "SQL_EXECUTE_NODE_OUTPUT";
-
-	public static final String SQL_EXECUTE_NODE_EXCEPTION_OUTPUT = "SQL_EXECUTE_NODE_EXCEPTION_OUTPUT";
 
 	// Plan当前需要执行的步骤编号
 	public static final String PLAN_CURRENT_STEP = "PLAN_CURRENT_STEP";
@@ -101,11 +111,7 @@ public final class Constant {
 
 	public static final String FEASIBILITY_ASSESSMENT_NODE = "FEASIBILITY_ASSESSMENT_NODE";
 
-	public static final String QUERY_REWRITE_NODE = "QUERY_REWRITE_NODE";
-
 	public static final String REPORT_GENERATOR_NODE = "REPORT_GENERATOR_NODE";
-
-	public static final String KEYWORD_EXTRACT_NODE = "KEYWORD_EXTRACT_NODE";
 
 	public static final String SCHEMA_RECALL_NODE = "SCHEMA_RECALL_NODE";
 
@@ -118,10 +124,6 @@ public final class Constant {
 	public static final String SEMANTIC_CONSISTENCY_NODE = "SEMANTIC_CONSISTENCY_NODE";
 
 	public static final String HUMAN_FEEDBACK_NODE = "HUMAN_FEEDBACK_NODE";
-
-	public static final String SMALL_TALK_REJECT = "闲聊拒识";
-
-	public static final String INTENT_UNCLEAR = "意图模糊需要澄清";
 
 	// Keys related to Python code execution
 	public static final String PYTHON_GENERATE_NODE = "PYTHON_GENERATE_NODE";
@@ -146,8 +148,6 @@ public final class Constant {
 
 	// nl2sql接口预留相关
 	public static final String IS_ONLY_NL2SQL = "IS_ONLY_NL2SQL";
-
-	public static final String ONLY_NL2SQL_OUTPUT = "ONLY_NL2SQL_OUTPUT";
 
 	// 人类复核相关
 	public static final String HUMAN_REVIEW_ENABLED = "HUMAN_REVIEW_ENABLED";

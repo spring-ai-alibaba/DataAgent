@@ -16,9 +16,14 @@
 
 package com.alibaba.cloud.ai.dataagent.dispatcher;
 
+import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.util.Optional;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
@@ -27,11 +32,26 @@ import static com.alibaba.cloud.ai.graph.StateGraph.END;
  * @author zhangshenghang
  */
 @Slf4j
+@Component
+@AllArgsConstructor
 public class SqlGenerateDispatcher implements EdgeAction {
+
+	private final DataAgentProperties properties;
 
 	@Override
 	public String apply(OverAllState state) {
-		String sqlGenerateOutput = (String) state.value(SQL_GENERATE_OUTPUT).orElseThrow();
+		Optional<Object> optional = state.value(SQL_GENERATE_OUTPUT);
+		if (optional.isEmpty()) {
+			int currentCount = state.value(SQL_GENERATE_COUNT, properties.getMaxSqlRetryCount());
+			// 生成失败，重新生成
+			if (currentCount < properties.getMaxSqlRetryCount()) {
+				log.info("SQL 生成失败，开始重试，当前次数: {}", currentCount);
+				return SQL_GENERATE_NODE;
+			}
+			log.error("SQL 生成失败，达到最大重试次数，结束流程");
+			return END;
+		}
+		String sqlGenerateOutput = (String) optional.get();
 		log.info("SQL 生成结果: {}", sqlGenerateOutput);
 		return switch (sqlGenerateOutput) {
 			case END -> {
@@ -44,8 +64,8 @@ public class SqlGenerateDispatcher implements EdgeAction {
 				yield FEASIBILITY_ASSESSMENT_NODE;
 			}
 			default -> {
-				log.info("SQL生成成功，进入SQL执行节点: {}", SQL_EXECUTE_NODE);
-				yield SQL_EXECUTE_NODE;
+				log.info("SQL生成成功，进入SQL检查节点: {}", SQL_OPTIMIZE_NODE);
+				yield SQL_OPTIMIZE_NODE;
 			}
 		};
 	}

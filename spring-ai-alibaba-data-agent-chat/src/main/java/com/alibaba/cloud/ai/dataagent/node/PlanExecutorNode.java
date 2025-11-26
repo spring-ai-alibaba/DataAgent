@@ -31,9 +31,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_NODE;
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.IS_ONLY_NL2SQL;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_REVIEW_ENABLED;
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.ONLY_NL2SQL_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.IS_ONLY_NL2SQL;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_CURRENT_STEP;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_NEXT_NODE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_REPAIR_COUNT;
@@ -41,7 +40,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_VALIDATION_E
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_VALIDATION_STATUS;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PYTHON_GENERATE_NODE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.REPORT_GENERATOR_NODE;
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_NODE;
 
 /**
  * Plan execution and validation node, decides next execution node based on plan, and
@@ -54,7 +53,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE;
 public class PlanExecutorNode implements NodeAction {
 
 	// Supported node types
-	private static final Set<String> SUPPORTED_NODES = Set.of(SQL_EXECUTE_NODE, PYTHON_GENERATE_NODE,
+	private static final Set<String> SUPPORTED_NODES = Set.of(SQL_GENERATE_NODE, PYTHON_GENERATE_NODE,
 			REPORT_GENERATOR_NODE);
 
 	@Override
@@ -80,14 +79,6 @@ public class PlanExecutorNode implements NodeAction {
 				}
 			}
 
-			// NL2SQL模式只能有一个计划且为SQL_EXECUTE_NODE（用于判断生成的SQL是否正确）
-			Boolean onlyNl2sql = state.value(IS_ONLY_NL2SQL, false);
-			if (onlyNl2sql && (plan.getExecutionPlan().size() != 1
-					|| !SQL_EXECUTE_NODE.equals(plan.getExecutionPlan().get(0).getToolToUse()))) {
-				return buildValidationResult(state, false,
-						"Validation failed: The generated plan is not fit with prompt.");
-			}
-
 			log.info("Plan validation successful.");
 
 		}
@@ -108,18 +99,13 @@ public class PlanExecutorNode implements NodeAction {
 		int currentStep = PlanProcessUtil.getCurrentStepNumber(state);
 		List<ExecutionStep> executionPlan = plan.getExecutionPlan();
 
+		boolean isOnlyNl2Sql = state.value(IS_ONLY_NL2SQL, false);
+
 		// Check if the plan is completed
 		if (currentStep > executionPlan.size()) {
 			log.info("Plan completed, current step: {}, total steps: {}", currentStep, executionPlan.size());
-			// 如果为nl2sql模式，则将结果保存，直接走向END
-			Boolean onlyNl2sql = state.value(IS_ONLY_NL2SQL, false);
-			if (onlyNl2sql) {
-				String resultSql = executionPlan.get(0).getToolParameters().getSqlQuery();
-				log.info("Nl2sql Result: {}", resultSql);
-				return Map.of(PLAN_CURRENT_STEP, 1, PLAN_NEXT_NODE, StateGraph.END, PLAN_VALIDATION_STATUS, true,
-						ONLY_NL2SQL_OUTPUT, resultSql);
-			}
-			return Map.of(PLAN_CURRENT_STEP, 1, PLAN_NEXT_NODE, REPORT_GENERATOR_NODE, PLAN_VALIDATION_STATUS, true);
+			return Map.of(PLAN_CURRENT_STEP, 1, PLAN_NEXT_NODE, isOnlyNl2Sql ? StateGraph.END : REPORT_GENERATOR_NODE,
+					PLAN_VALIDATION_STATUS, true);
 		}
 
 		// Get current step and determine next node

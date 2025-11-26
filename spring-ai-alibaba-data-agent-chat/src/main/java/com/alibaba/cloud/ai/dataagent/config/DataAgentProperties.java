@@ -39,6 +39,21 @@ public class DataAgentProperties {
 
 	private VectorStoreProperties vectorStore = new VectorStoreProperties();
 
+	/**
+	 * sql执行失败重试次数
+	 */
+	private int maxSqlRetryCount = 10;
+
+	/**
+	 * sql优化最多次数
+	 */
+	private int maxSqlOptimizeCount = 10;
+
+	/**
+	 * sql优化分数阈值
+	 */
+	private double sqlScoreThreshold = 0.95;
+
 	@Getter
 	@Setter
 	public static class EmbeddingBatch {

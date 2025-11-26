@@ -17,9 +17,9 @@
 package com.alibaba.cloud.ai.dataagent.pojo;
 
 import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -42,14 +42,29 @@ public class Plan {
 		return "Plan{" + "thoughtProcess='" + thoughtProcess + '\'' + ", executionPlan=" + executionPlan + '}';
 	}
 
-	public String toJsonStr() {
-		ObjectMapper objectMapper = JsonUtil.getObjectMapper();
+	// 为NL2SQL模式准备的Plan，只走SQL生成
+	private static final String NL2SQL_PLAN_JSON;
+
+	static {
+		ExecutionStep step = new ExecutionStep();
+		ExecutionStep.ToolParameters parameters = new ExecutionStep.ToolParameters();
+		parameters.setDescription("SQL生成");
+		step.setStep(1);
+		step.setToolToUse(Constant.SQL_GENERATE_NODE);
+		step.setToolParameters(parameters);
+		Plan plan = new Plan();
+		plan.setThoughtProcess("根据问题生成SQL");
+		plan.setExecutionPlan(List.of(step));
 		try {
-			return objectMapper.writeValueAsString(this);
+			NL2SQL_PLAN_JSON = JsonUtil.getObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(plan);
 		}
 		catch (JsonProcessingException e) {
-			throw new RuntimeException("Failed to convert object to JSON string", e);
+			throw new RuntimeException(e);
 		}
+	}
+
+	public static String nl2SqlPlan() {
+		return NL2SQL_PLAN_JSON;
 	}
 
 }

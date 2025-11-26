@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.node;
 
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.pojo.Plan;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -50,12 +51,26 @@ public class PlannerNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
+		// 是否为NL2SQL模式
+		Boolean onlyNl2sql = state.value(IS_ONLY_NL2SQL, false);
+
+		Flux<ChatResponse> flux = onlyNl2sql ? handleNl2SqlOnly() : handlePlanGenerate(state);
+
+		Flux<ChatResponse> chatResponseFlux = Flux.concat(
+				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign())), flux,
+				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign())));
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, v -> Map.of(PLANNER_NODE_OUTPUT, v.substring(TextType.JSON.getStartSign().length(),
+						v.length() - TextType.JSON.getEndSign().length())),
+				chatResponseFlux);
+
+		return Map.of(PLANNER_NODE_OUTPUT, generator);
+	}
+
+	private Flux<ChatResponse> handlePlanGenerate(OverAllState state) {
 		// 获取查询增强节点的输出
 		String canonicalQuery = StateUtil.getCanonicalQuery(state);
 		log.info("Using processed query for planning: {}", canonicalQuery);
-
-		// 是否为NL2SQL模式
-		Boolean onlyNl2sql = state.value(IS_ONLY_NL2SQL, false);
 
 		// 检查是否为修复模式
 		String validationError = StateUtil.getStringValue(state, PLAN_VALIDATION_ERROR, null);
@@ -80,20 +95,15 @@ public class PlannerNode implements NodeAction {
 				"semantic_model", semanticModel, "plan_validation_error", formatValidationError(validationError));
 
 		// 生成计划
-		String plannerPrompt = (onlyNl2sql ? PromptConstant.getPlannerNl2sqlOnlyTemplate()
-				: PromptConstant.getPlannerPromptTemplate())
-			.render(params);
+		String plannerPrompt = PromptConstant.getPlannerPromptTemplate().render(params);
 		log.debug("Planner prompt: as follows \n{}\n", plannerPrompt);
-		Flux<ChatResponse> chatResponseFlux = Flux.concat(
-				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign())),
-				llmService.callUser(plannerPrompt),
-				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign())));
-		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
-				state, v -> Map.of(PLANNER_NODE_OUTPUT, v.substring(TextType.JSON.getStartSign().length(),
-						v.length() - TextType.JSON.getEndSign().length())),
-				chatResponseFlux);
 
-		return Map.of(PLANNER_NODE_OUTPUT, generator);
+		// 调用LLM生成计划
+		return llmService.callUser(plannerPrompt);
+	}
+
+	private Flux<ChatResponse> handleNl2SqlOnly() {
+		return Flux.just(ChatResponseUtil.createPureResponse(Plan.nl2SqlPlan()));
 	}
 
 	private String buildUserPrompt(String input, String validationError, OverAllState state) {
