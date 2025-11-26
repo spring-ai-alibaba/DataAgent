@@ -20,10 +20,12 @@ import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.dto.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.QUERY_ENHANCE_NODE_OUTPUT;
@@ -107,7 +109,14 @@ public class StateUtil {
 	 * Check if state value exists
 	 */
 	public static boolean hasValue(OverAllState state, String key) {
-		return state.value(key).isPresent() && !((String) state.value(key).get()).isEmpty();
+		Optional<Object> value = state.value(key);
+		if (value.isPresent()) {
+			if (value.get() instanceof String content) {
+				return StringUtils.isNotEmpty(content);
+			}
+			return true;
+		}
+		return false;
 	}
 
 	/**
