@@ -18,7 +18,6 @@ package com.alibaba.cloud.ai.dataagent.util;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
 public class LlmResponseUtil {
 
 	public static String extractJson(String rawResponse) {
