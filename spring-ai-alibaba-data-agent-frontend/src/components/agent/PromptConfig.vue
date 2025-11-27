@@ -327,7 +327,9 @@
         try {
           this.loading = true;
           const query = this.agentId ? `?agentId=${this.agentId}` : '';
-          const response = await fetch(`/api/prompt-config/list-by-type/${this.promptType}${query}`);
+          const response = await fetch(
+            `/api/prompt-config/list-by-type/${this.promptType}${query}`,
+          );
           const result = await response.json();
           if (result.success) {
             this.optimizationConfigs = result.data || [];
