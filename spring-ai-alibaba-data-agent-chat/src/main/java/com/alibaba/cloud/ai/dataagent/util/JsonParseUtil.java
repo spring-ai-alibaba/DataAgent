@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.dataagent.util;
 
 import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.prompt.PromptConstant;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,6 +27,8 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 import reactor.core.publisher.Flux;
+
+import java.util.Map;
 
 /**
  * JSON解析工具类，支持自动修复格式错误的JSON
@@ -38,24 +41,6 @@ public class JsonParseUtil {
 	private LlmService llmService;
 
 	private static final int MAX_RETRY_COUNT = 3;
-
-	private static final String JSON_FIX_PROMPT = """
-			你是一个JSON格式修复专家。用户提供了一个格式错误的JSON字符串，请帮助修复它。
-
-			要求：
-			1. 只输出修复后的JSON，不要包含任何解释或其他内容
-			2. 保持原始数据的语义不变
-			3. 确保输出是有效的JSON格式
-			4. 移除任何非JSON内容（如XML标签、推理过程等）
-
-			错误的JSON字符串：
-			{json_string}
-
-			错误信息：
-			{error_message}
-
-			请输出修复后的JSON：
-			""";
 
 	public <T> T tryConvertToObject(String json, Class<T> clazz) {
 		Assert.hasText(json, "Input JSON string cannot be null or empty");
@@ -97,7 +82,8 @@ public class JsonParseUtil {
 
 	private String callLlmToFix(String json, String errorMessage) {
 		try {
-			String prompt = JSON_FIX_PROMPT.replace("{json_string}", json).replace("{error_message}", errorMessage);
+			String prompt = PromptConstant.getJsonFixPromptTemplate()
+				.render(Map.of("json_string", json, "error_message", errorMessage));
 
 			Flux<ChatResponse> responseFlux = llmService.callUser(prompt);
 			String fixedJson = llmService.toStringFlux(responseFlux)
