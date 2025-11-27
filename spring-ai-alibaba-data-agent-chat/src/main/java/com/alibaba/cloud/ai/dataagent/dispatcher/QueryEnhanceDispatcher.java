@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.dispatcher;
 
-import com.alibaba.cloud.ai.dataagent.dto.QueryEnhanceOutputDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;

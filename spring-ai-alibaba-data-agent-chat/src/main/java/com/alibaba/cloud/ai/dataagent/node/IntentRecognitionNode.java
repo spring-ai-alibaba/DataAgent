@@ -15,7 +15,9 @@
  */
 package com.alibaba.cloud.ai.dataagent.node;
 
+import com.alibaba.cloud.ai.dataagent.dto.prompt.IntentRecognitionOutputDTO;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -46,6 +48,8 @@ public class IntentRecognitionNode implements NodeAction {
 
 	private final LlmService llmService;
 
+	private final JsonParseUtil jsonParseUtil;
+
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
@@ -66,7 +70,12 @@ public class IntentRecognitionNode implements NodeAction {
 						ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign())),
 				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
 						ChatResponseUtil.createResponse("\n意图识别完成！")),
-				result -> Map.of(INTENT_RECOGNITION_NODE_OUTPUT, result));
+				result -> {
+					// 使用JsonParseUtil解析JSON并转换为IntentRecognitionOutputDTO对象
+					IntentRecognitionOutputDTO intentRecognitionOutput = jsonParseUtil.tryConvertToObject(result,
+							IntentRecognitionOutputDTO.class);
+					return Map.of(INTENT_RECOGNITION_NODE_OUTPUT, intentRecognitionOutput);
+				});
 		return Map.of(INTENT_RECOGNITION_NODE_OUTPUT, generator);
 	}
 

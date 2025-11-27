@@ -17,7 +17,7 @@
 package com.alibaba.cloud.ai.dataagent.util;
 
 import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
-import com.alibaba.cloud.ai.dataagent.dto.QueryEnhanceOutputDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
