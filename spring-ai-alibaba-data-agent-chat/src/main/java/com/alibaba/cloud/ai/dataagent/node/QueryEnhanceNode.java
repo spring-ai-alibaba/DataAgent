@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.node;
 
 import com.alibaba.cloud.ai.dataagent.dto.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -26,7 +27,6 @@ import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +47,8 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 public class QueryEnhanceNode implements NodeAction {
 
 	private final LlmService llmService;
+
+	private final JsonParseUtil jsonParseUtil;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -83,7 +85,7 @@ public class QueryEnhanceNode implements NodeAction {
 		// 解析处理结果，转成 QueryProcessOutputDTO
 		QueryEnhanceOutputDTO queryEnhanceOutputDTO = null;
 		try {
-			queryEnhanceOutputDTO = JsonUtil.getObjectMapper().readValue(enhanceResult, QueryEnhanceOutputDTO.class);
+			queryEnhanceOutputDTO = jsonParseUtil.tryConvertToObject(enhanceResult, QueryEnhanceOutputDTO.class);
 			log.info("Successfully parsed query enhance result: {}", queryEnhanceOutputDTO);
 		}
 		catch (Exception e) {

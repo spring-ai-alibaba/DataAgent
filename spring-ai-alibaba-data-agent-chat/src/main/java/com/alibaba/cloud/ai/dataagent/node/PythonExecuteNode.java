@@ -17,6 +17,7 @@
 package com.alibaba.cloud.ai.dataagent.node;
 
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -55,9 +56,12 @@ public class PythonExecuteNode implements NodeAction {
 
 	private final ObjectMapper objectMapper;
 
-	public PythonExecuteNode(CodePoolExecutorService codePoolExecutor) {
+	private final JsonParseUtil jsonParseUtil;
+
+	public PythonExecuteNode(CodePoolExecutorService codePoolExecutor, JsonParseUtil jsonParseUtil) {
 		this.codePoolExecutor = codePoolExecutor;
 		this.objectMapper = JsonUtil.getObjectMapper();
+		this.jsonParseUtil = jsonParseUtil;
 	}
 
 	@Override
@@ -82,12 +86,9 @@ public class PythonExecuteNode implements NodeAction {
 
 			// Python输出的JSON字符串可能有Unicode转义形式，需要解析回汉字
 			String stdout = taskResponse.stdOut();
-			try {
-				Object value = objectMapper.readValue(stdout, Object.class);
+			Object value = jsonParseUtil.tryConvertToObject(stdout, Object.class);
+			if (value != null) {
 				stdout = objectMapper.writeValueAsString(value);
-			}
-			catch (Exception e) {
-				stdout = taskResponse.stdOut();
 			}
 			String finalStdout = stdout;
 
