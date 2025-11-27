@@ -130,6 +130,7 @@
           ></AgentDataSourceConfig>
           <AgentPromptConfig
             v-else-if="activeMenuIndex === 'prompt'"
+            :agent-id="agent.id"
             :agent-prompt="agent.prompt"
           ></AgentPromptConfig>
           <BusinessKnowledgeConfig

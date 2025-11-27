@@ -48,6 +48,7 @@ public class UserPromptServiceImpl implements UserPromptService {
 			config = userPromptConfigMapper.selectById(configDTO.id());
 			if (config != null) {
 				config.setName(configDTO.name());
+				config.setAgentId(configDTO.agentId());
 				config.setSystemPrompt(configDTO.optimizationPrompt());
 				config.setEnabled(configDTO.enabled());
 				config.setDescription(configDTO.description());
@@ -61,6 +62,7 @@ public class UserPromptServiceImpl implements UserPromptService {
 				config.setId(configDTO.id());
 				config.setName(configDTO.name());
 				config.setPromptType(configDTO.promptType());
+				config.setAgentId(configDTO.agentId());
 				config.setSystemPrompt(configDTO.optimizationPrompt());
 				config.setEnabled(configDTO.enabled());
 				config.setDescription(configDTO.description());
@@ -76,6 +78,7 @@ public class UserPromptServiceImpl implements UserPromptService {
 			config.setId(UUID.randomUUID().toString());
 			config.setName(configDTO.name());
 			config.setPromptType(configDTO.promptType());
+			config.setAgentId(configDTO.agentId());
 			config.setSystemPrompt(configDTO.optimizationPrompt());
 			config.setEnabled(configDTO.enabled());
 			config.setDescription(configDTO.description());
@@ -100,13 +103,13 @@ public class UserPromptServiceImpl implements UserPromptService {
 	}
 
 	@Override
-	public List<UserPromptConfig> getActiveConfigsByType(String promptType) {
-		return userPromptConfigMapper.getActiveConfigsByType(promptType);
+	public List<UserPromptConfig> getActiveConfigsByType(String promptType, Long agentId) {
+		return userPromptConfigMapper.getActiveConfigsByType(promptType, agentId);
 	}
 
 	@Override
-	public UserPromptConfig getActiveConfigByType(String promptType) {
-		return userPromptConfigMapper.selectActiveByPromptType(promptType);
+	public UserPromptConfig getActiveConfigByType(String promptType, Long agentId) {
+		return userPromptConfigMapper.selectActiveByPromptType(promptType, agentId);
 	}
 
 	@Override
@@ -115,8 +118,8 @@ public class UserPromptServiceImpl implements UserPromptService {
 	}
 
 	@Override
-	public List<UserPromptConfig> getConfigsByType(String promptType) {
-		return userPromptConfigMapper.getConfigsByType(promptType);
+	public List<UserPromptConfig> getConfigsByType(String promptType, Long agentId) {
+		return userPromptConfigMapper.getConfigsByType(promptType, agentId);
 	}
 
 	@Override
@@ -158,8 +161,8 @@ public class UserPromptServiceImpl implements UserPromptService {
 	}
 
 	@Override
-	public List<UserPromptConfig> getOptimizationConfigs(String promptType) {
-		return getActiveConfigsByType(promptType);
+	public List<UserPromptConfig> getOptimizationConfigs(String promptType, Long agentId) {
+		return getActiveConfigsByType(promptType, agentId);
 	}
 
 	@Override

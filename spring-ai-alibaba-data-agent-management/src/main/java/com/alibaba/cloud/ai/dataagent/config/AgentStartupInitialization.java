@@ -49,6 +49,7 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 		log.info("Starting automatic initialization of published agents...");
 
 		try {
+			// 因为异步可以让初始化过程在后台运行，不会阻塞Spring启动主线程，提高启动速度和响应性；即使初始化很耗时也不会影响主程序正常启动。
 			CompletableFuture.runAsync(this::initializePublishedAgents, executorService).exceptionally(throwable -> {
 				log.error("Error during agent initialization: {}", throwable.getMessage());
 				return null;
