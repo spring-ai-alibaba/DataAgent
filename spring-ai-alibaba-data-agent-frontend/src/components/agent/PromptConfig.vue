@@ -264,7 +264,7 @@
     props: {
       agentId: {
         type: [String, Number],
-        required: false,
+        required: true,
       },
       promptType: {
         type: String,
