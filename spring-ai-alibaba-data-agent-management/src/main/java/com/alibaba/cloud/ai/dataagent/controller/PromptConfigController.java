@@ -129,8 +129,7 @@ public class PromptConfigController {
 	 * @return currently enabled configuration
 	 */
 	@GetMapping("/active/{promptType}")
-	public ResponseEntity<Map<String, Object>> getActiveConfig(
-			@PathVariable(value = "promptType") String promptType,
+	public ResponseEntity<Map<String, Object>> getActiveConfig(@PathVariable(value = "promptType") String promptType,
 			@RequestParam(value = "agentId", required = false) Long agentId) {
 		UserPromptConfig config = promptConfigService.getActiveConfigByType(promptType, agentId);
 
@@ -149,8 +148,7 @@ public class PromptConfigController {
 	 * @return 启用的优化配置列表
 	 */
 	@GetMapping("/active-all/{promptType}")
-	public ResponseEntity<Map<String, Object>> getActiveConfigs(
-			@PathVariable(value = "promptType") String promptType,
+	public ResponseEntity<Map<String, Object>> getActiveConfigs(@PathVariable(value = "promptType") String promptType,
 			@RequestParam(value = "agentId", required = false) Long agentId) {
 		List<UserPromptConfig> configs = promptConfigService.getActiveConfigsByType(promptType, agentId);
 

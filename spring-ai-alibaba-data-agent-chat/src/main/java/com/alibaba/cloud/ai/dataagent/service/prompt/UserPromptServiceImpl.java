@@ -48,7 +48,7 @@ public class UserPromptServiceImpl implements UserPromptService {
 			config = userPromptConfigMapper.selectById(configDTO.id());
 			if (config != null) {
 				config.setName(configDTO.name());
-					config.setAgentId(configDTO.agentId());
+				config.setAgentId(configDTO.agentId());
 				config.setSystemPrompt(configDTO.optimizationPrompt());
 				config.setEnabled(configDTO.enabled());
 				config.setDescription(configDTO.description());

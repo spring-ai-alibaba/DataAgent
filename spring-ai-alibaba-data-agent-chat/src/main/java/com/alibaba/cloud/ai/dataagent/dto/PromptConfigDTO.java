@@ -22,7 +22,7 @@ package com.alibaba.cloud.ai.dataagent.dto;
  * @author Makoto
  */
 
- public record PromptConfigDTO(String id, // Configuration ID (required for update)
+public record PromptConfigDTO(String id, // Configuration ID (required for update)
 		String name, // Configuration name
 		String promptType, // Prompt type
 		Long agentId, // Associated agent ID, null means global
