@@ -18,9 +18,9 @@ package com.alibaba.cloud.ai.dataagent.node;
 import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.dataagent.util.MarkdownParserUtil;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -57,6 +57,8 @@ public class EvidenceRecallNode implements NodeAction {
 	private final LlmService llmService;
 
 	private final AgentVectorStoreService vectorStoreService;
+
+	private final JsonParseUtil jsonParseUtil;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -154,12 +156,12 @@ public class EvidenceRecallNode implements NodeAction {
 	}
 
 	@Nullable
-	private static List<String> extractKeywords(String llmOutput) {
+	private List<String> extractKeywords(String llmOutput) {
 		// 解析关键词列表
 		List<String> keywords;
 		try {
 			String content = MarkdownParserUtil.extractText(llmOutput.trim());
-			keywords = JsonUtil.getObjectMapper().readValue(content, new TypeReference<List<String>>() {
+			keywords = jsonParseUtil.tryConvertToObject(content, new TypeReference<List<String>>() {
 			});
 			log.info("For getting evidence keyword,extracted {} keywords: {}", keywords != null ? keywords.size() : 0,
 					keywords);

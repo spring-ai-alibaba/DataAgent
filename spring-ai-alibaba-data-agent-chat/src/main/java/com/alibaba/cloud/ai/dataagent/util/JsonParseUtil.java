@@ -20,6 +20,7 @@ import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptConstant;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,15 +47,38 @@ public class JsonParseUtil {
 		Assert.hasText(json, "Input JSON string cannot be null or empty");
 		Assert.notNull(clazz, "Target class cannot be null");
 
+		return tryConvertToObjectInternal(json, (mapper, currentJson) -> mapper.readValue(currentJson, clazz));
+	}
+
+	/**
+	 * 尝试将JSON字符串转换为指定类型，支持TypeReference（如List<String>等复杂类型）
+	 * @param json JSON字符串
+	 * @param typeReference 类型引用
+	 * @return 转换后的对象
+	 */
+	public <T> T tryConvertToObject(String json, TypeReference<T> typeReference) {
+		Assert.hasText(json, "Input JSON string cannot be null or empty");
+		Assert.notNull(typeReference, "TypeReference cannot be null");
+
+		return tryConvertToObjectInternal(json, (mapper, currentJson) -> mapper.readValue(currentJson, typeReference));
+	}
+
+	/**
+	 * 内部通用方法，用于JSON解析和修复
+	 * @param json JSON字符串
+	 * @param parser 解析器函数
+	 * @return 转换后的对象
+	 */
+	private <T> T tryConvertToObjectInternal(String json, JsonParserFunction<T> parser) {
 		String currentJson = json;
 		Exception lastException = null;
 		ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 
 		try {
-			return objectMapper.readValue(json, clazz);
+			return parser.parse(objectMapper, currentJson);
 		}
 		catch (JsonProcessingException e) {
-			log.warn("首次解析失败,准备调用LLM: {}", e.getMessage());
+			log.warn("Initial parsing failed, preparing to call LLM: {}", e.getMessage());
 		}
 
 		for (int i = 0; i < MAX_RETRY_COUNT; i++) {
@@ -62,21 +86,30 @@ public class JsonParseUtil {
 				currentJson = callLlmToFix(currentJson,
 						lastException != null ? lastException.getMessage() : "Unknown error");
 
-				return objectMapper.readValue(currentJson, clazz);
+				return parser.parse(objectMapper, currentJson);
 			}
 			catch (JsonProcessingException e) {
 				lastException = e;
-				log.warn("第 {} 次修复后仍然失败: {}", i + 1, e.getMessage());
+				log.warn("Still failed after {} fix attempt: {}", i + 1, e.getMessage());
 
 				if (i == MAX_RETRY_COUNT - 1) {
-					log.error("经过 {} 次修复尝试后最终失败", MAX_RETRY_COUNT);
-					log.warn("最后一次修复结果: {}", currentJson);
+					log.error("Finally failed after {} fix attempts", MAX_RETRY_COUNT);
+					log.warn("Last fix result: {}", currentJson);
 				}
 			}
 		}
 
-		throw new IllegalArgumentException(String.format("无法解析JSON，经过 %d 次LLM修复尝试后仍然失败", MAX_RETRY_COUNT),
-				lastException);
+		throw new IllegalArgumentException(
+				String.format("Failed to parse JSON after %d LLM fix attempts", MAX_RETRY_COUNT), lastException);
+	}
+
+	/**
+	 * 函数式接口，用于JSON解析
+	 */
+	@FunctionalInterface
+	private interface JsonParserFunction<T> {
+
+		T parse(ObjectMapper mapper, String json) throws JsonProcessingException;
 
 	}
 
@@ -91,12 +124,19 @@ public class JsonParseUtil {
 				.map(StringBuilder::toString)
 				.block();
 
+			// 检查fixedJson是否为null
+			if (fixedJson == null) {
+				log.warn("LLM fix returned null, using original JSON");
+				return json;
+			}
+
 			String cleanedJson = MarkdownParserUtil.extractRawText(fixedJson);
 
-			return cleanedJson;
+			// 确保返回的JSON不为null
+			return cleanedJson != null ? cleanedJson : json;
 		}
 		catch (Exception e) {
-			log.error("调用 LLM 修复服务时发生异常", e);
+			log.error("Exception occurred while calling LLM fix service", e);
 			return json;
 		}
 	}
