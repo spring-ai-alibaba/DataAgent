@@ -19,6 +19,7 @@ import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
+import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
 import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.util.MarkdownParserUtil;
@@ -31,7 +32,6 @@ import reactor.core.publisher.Flux;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -198,7 +198,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 				}
 				dtoConsumer.accept(schemaDTO);
 			});
-		}, flux -> flux.map(r -> Optional.ofNullable(r.getResult().getOutput().getText()).orElse(""))
+		}, flux -> flux.map(ChatResponseUtil::getText)
 			.collect(StringBuilder::new, StringBuilder::append)
 			.map(StringBuilder::toString));
 	}
