@@ -173,11 +173,12 @@ public class GraphServiceImpl implements GraphService {
 		if (context != null && context.getSink() != null) {
 			// 检查 sink 是否还有订阅者
 			if (context.getSink().currentSubscriberCount() > 0) {
-				context.getSink().tryEmitNext(ServerSentEvent
-					.builder(
-							GraphNodeResponse.error(agentId, threadId, "Error in stream processing: " + error.getMessage()))
-					.event("error")
-					.build());
+				context.getSink()
+					.tryEmitNext(ServerSentEvent
+						.builder(GraphNodeResponse.error(agentId, threadId,
+								"Error in stream processing: " + error.getMessage()))
+						.event("error")
+						.build());
 				context.getSink().tryEmitComplete();
 			}
 			// 清理资源
@@ -194,8 +195,10 @@ public class GraphServiceImpl implements GraphService {
 		if (context != null && context.getSink() != null) {
 			// 检查 sink 是否还有订阅者
 			if (context.getSink().currentSubscriberCount() > 0) {
-				context.getSink().tryEmitNext(
-						ServerSentEvent.builder(GraphNodeResponse.complete(agentId, threadId)).event("complete").build());
+				context.getSink()
+					.tryEmitNext(ServerSentEvent.builder(GraphNodeResponse.complete(agentId, threadId))
+						.event("complete")
+						.build());
 				context.getSink().tryEmitComplete();
 			}
 			// 清理资源
