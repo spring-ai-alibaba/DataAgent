@@ -197,13 +197,23 @@
               @keydown.enter.exact.prevent="sendMessage"
             />
             <el-button
+              v-if="!isStreaming"
               type="primary"
               @click="sendMessage"
-              :loading="isStreaming || showHumanFeedback"
+              :disabled="showHumanFeedback"
               circle
               class="send-button"
             >
               <el-icon><Promotion /></el-icon>
+            </el-button>
+            <el-button
+              v-else
+              type="danger"
+              @click="stopStreaming"
+              circle
+              class="send-button stop-button-inline"
+            >
+              <el-icon><CircleClose /></el-icon>
             </el-button>
           </div>
         </div>
@@ -216,7 +226,7 @@
   import { ref, defineComponent, onMounted, nextTick, computed } from 'vue';
   import { useRoute } from 'vue-router';
   import { ElMessage } from 'element-plus';
-  import { Loading, Promotion, Document, Download } from '@element-plus/icons-vue';
+  import { Loading, Promotion, Document, Download, CircleClose } from '@element-plus/icons-vue';
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github.css';
   // 导入并注册语言
@@ -259,6 +269,7 @@
       Promotion,
       Document,
       Download,
+      CircleClose,
       HumanFeedback,
       ChatSessionSidebar,
       PresetQuestions,
@@ -882,6 +893,83 @@
         });
       };
 
+      // 停止流式响应
+      const stopStreaming = async () => {
+        if (!currentSession.value) {
+          ElMessage.warning('当前没有活动的会话');
+          return;
+        }
+
+        const sessionId = currentSession.value.id;
+        const sessionState = getSessionState(sessionId);
+
+        try {
+          // 检查是否有活动的流式连接
+          if (!sessionState.closeStream) {
+            ElMessage.warning('没有正在进行的对话');
+            return;
+          }
+
+          // 关闭 EventSource 连接
+          sessionState.closeStream();
+          sessionState.closeStream = null;
+
+          // 保存已接收的节点消息
+          if (sessionState.nodeBlocks && sessionState.nodeBlocks.length > 0) {
+            const saveNodeMessage = (node: GraphNodeResponse[]): Promise<void> => {
+              if (!node || !node.length) return Promise.resolve();
+
+              const nodeHtml = generateNodeHtml(node);
+
+              const aiMessage: ChatMessage = {
+                sessionId,
+                role: 'assistant',
+                content: nodeHtml,
+                messageType: 'html',
+              };
+
+              return ChatService.saveMessage(sessionId, aiMessage).catch(error => {
+                console.error('保存AI消息失败:', error);
+              });
+            };
+
+            // 保存所有未保存的节点块
+            const savePromises = sessionState.nodeBlocks.map(block => saveNodeMessage(block));
+            await Promise.all(savePromises).catch(error => {
+              console.error('保存节点消息时出错:', error);
+            });
+          }
+
+          // 清理流式状态
+          sessionState.isStreaming = false;
+          sessionState.nodeBlocks = [];
+          sessionState.htmlReportContent = '';
+          sessionState.htmlReportSize = 0;
+          sessionState.markdownReportContent = '';
+
+          // 如果是当前显示的会话，同步更新视图
+          if (currentSession.value?.id === sessionId) {
+            isStreaming.value = false;
+            nodeBlocks.value = [];
+          }
+
+          // 重新加载会话消息以刷新显示
+          await selectSession(currentSession.value);
+
+          ElMessage.success('已停止对话');
+        } catch (error) {
+          console.error('停止对话时出错:', error);
+          ElMessage.error('停止对话失败');
+          // 确保状态清理总是执行
+          sessionState.isStreaming = false;
+          sessionState.closeStream = null;
+          if (currentSession.value?.id === sessionId) {
+            isStreaming.value = false;
+            nodeBlocks.value = [];
+          }
+        }
+      };
+
       // 生成结果集表格HTML
       const generateResultSetTable = (resultSetData: ResultSetData, pageSize: number): string => {
         const columns = resultSetData.column || [];
@@ -967,6 +1055,7 @@
         resetReportState,
         handleHumanFeedback,
         handlePresetQuestionClick,
+        stopStreaming,
         deleteSessionState,
       };
     },
@@ -1082,6 +1171,11 @@
   .streaming-header span {
     font-weight: 500;
     color: #409eff;
+  }
+
+  .stop-button-inline {
+    width: 48px;
+    height: 48px;
   }
 
   /* 节点容器样式 */
