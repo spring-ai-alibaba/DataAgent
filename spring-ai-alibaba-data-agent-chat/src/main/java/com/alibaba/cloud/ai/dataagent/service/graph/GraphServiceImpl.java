@@ -35,6 +35,8 @@ import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
+import reactor.core.Disposable;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -59,6 +61,10 @@ public class GraphServiceImpl implements GraphService {
 
 	private final ConcurrentHashMap<String, TextType> stateMap = new ConcurrentHashMap<>();
 
+	private final ConcurrentHashMap<String, Disposable> disposableMap = new ConcurrentHashMap<>();
+
+	private final ConcurrentHashMap<String, Sinks.Many<ServerSentEvent<GraphNodeResponse>>> sinkMap = new ConcurrentHashMap<>();
+
 	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService) throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
 		this.compiledGraph.setMaxIterations(100);
@@ -76,6 +82,12 @@ public class GraphServiceImpl implements GraphService {
 
 	@Override
 	public void graphStreamProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
+		if (!StringUtils.hasText(graphRequest.getThreadId())) {
+			graphRequest.setThreadId(UUID.randomUUID().toString());
+		}
+		String threadId = graphRequest.getThreadId();
+		// 保存 sink 引用，用于后续检查状态
+		sinkMap.put(threadId, sink);
 		if (StringUtils.hasText(graphRequest.getHumanFeedbackContent())) {
 			handleHumanFeedback(sink, graphRequest);
 		}
@@ -84,10 +96,33 @@ public class GraphServiceImpl implements GraphService {
 		}
 	}
 
-	private void handleNewProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
-		if (!StringUtils.hasText(graphRequest.getThreadId())) {
-			graphRequest.setThreadId(UUID.randomUUID().toString());
+	/**
+	 * 停止指定 threadId 的流式处理
+	 * @param threadId 线程ID
+	 */
+	public void stopStreamProcessing(String threadId) {
+		if (!StringUtils.hasText(threadId)) {
+			return;
 		}
+		log.info("Stopping stream processing for threadId: {}", threadId);
+		// 取消订阅
+		Disposable disposable = disposableMap.remove(threadId);
+		if (disposable != null && !disposable.isDisposed()) {
+			disposable.dispose();
+			log.info("Disposed subscription for threadId: {}", threadId);
+		}
+		// 关闭 sink
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = sinkMap.remove(threadId);
+		if (sink != null) {
+			sink.tryEmitComplete();
+			log.info("Closed sink for threadId: {}", threadId);
+		}
+		// 清理状态
+		stateMap.remove(threadId);
+		log.info("Cleaned up state for threadId: {}", threadId);
+	}
+
+	private void handleNewProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
 		String query = graphRequest.getQuery();
 		String agentId = graphRequest.getAgentId();
 		String threadId = graphRequest.getThreadId();
@@ -99,10 +134,13 @@ public class GraphServiceImpl implements GraphService {
 		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query,
 				AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled),
 				RunnableConfig.builder().threadId(threadId).build());
-		CompletableFuture
-			.runAsync(() -> nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output, sink),
+		CompletableFuture.runAsync(() -> {
+			Disposable disposable = nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output, sink),
 					error -> handleStreamError(agentId, threadId, error, sink),
-					() -> handleStreamComplete(agentId, threadId, sink)), executor);
+					() -> handleStreamComplete(agentId, threadId, sink));
+			// 保存 Disposable 以便后续取消
+			disposableMap.put(threadId, disposable);
+		}, executor);
 	}
 
 	private void handleHumanFeedback(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
@@ -122,10 +160,13 @@ public class GraphServiceImpl implements GraphService {
 
 		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStreamFromInitialNode(resumeState,
 				RunnableConfig.builder().threadId(threadId).build());
-		CompletableFuture
-			.runAsync(() -> nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output, sink),
+		CompletableFuture.runAsync(() -> {
+			Disposable disposable = nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output, sink),
 					error -> handleStreamError(agentId, threadId, error, sink),
-					() -> handleStreamComplete(agentId, threadId, sink)), executor);
+					() -> handleStreamComplete(agentId, threadId, sink));
+			// 保存 Disposable 以便后续取消
+			disposableMap.put(threadId, disposable);
+		}, executor);
 	}
 
 	/**
@@ -133,12 +174,19 @@ public class GraphServiceImpl implements GraphService {
 	 */
 	private void handleStreamError(String agentId, String threadId, Throwable error,
 			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink) {
-		log.error("Error in stream processing: ", error);
-		sink.tryEmitNext(ServerSentEvent
-			.builder(GraphNodeResponse.error(agentId, threadId, "Error in stream processing: " + error.getMessage()))
-			.event("error")
-			.build());
-		sink.tryEmitComplete();
+		log.error("Error in stream processing for threadId: {}: ", threadId, error);
+		// 检查 sink 是否还有订阅者
+		if (sink.currentSubscriberCount() > 0) {
+			sink.tryEmitNext(ServerSentEvent
+				.builder(
+						GraphNodeResponse.error(agentId, threadId, "Error in stream processing: " + error.getMessage()))
+				.event("error")
+				.build());
+			sink.tryEmitComplete();
+		}
+		// 清理资源
+		disposableMap.remove(threadId);
+		sinkMap.remove(threadId);
 		stateMap.remove(threadId);
 	}
 
@@ -147,10 +195,16 @@ public class GraphServiceImpl implements GraphService {
 	 */
 	private void handleStreamComplete(String agentId, String threadId,
 			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink) {
-		log.info("Stream processing completed successfully");
-		sink.tryEmitNext(
-				ServerSentEvent.builder(GraphNodeResponse.complete(agentId, threadId)).event("complete").build());
-		sink.tryEmitComplete();
+		log.info("Stream processing completed successfully for threadId: {}", threadId);
+		// 检查 sink 是否还有订阅者
+		if (sink.currentSubscriberCount() > 0) {
+			sink.tryEmitNext(
+					ServerSentEvent.builder(GraphNodeResponse.complete(agentId, threadId)).event("complete").build());
+			sink.tryEmitComplete();
+		}
+		// 清理资源
+		disposableMap.remove(threadId);
+		sinkMap.remove(threadId);
 		stateMap.remove(threadId);
 	}
 
@@ -167,12 +221,18 @@ public class GraphServiceImpl implements GraphService {
 
 	private void handleStreamNodeOutput(GraphRequest request, StreamingOutput output,
 			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink) {
+		String threadId = request.getThreadId();
+		// 检查是否已经停止处理
+		if (!sinkMap.containsKey(threadId)) {
+			log.debug("Stream processing already stopped for threadId: {}, skipping output", threadId);
+			return;
+		}
 		String node = output.node();
 		String chunk = output.chunk();
 		log.debug("Received Stream output: {}", chunk);
 		AtomicBoolean typeSign = new AtomicBoolean(false);
 		// 如果是文本标记符号，则更新文本类型
-		TextType textType = stateMap.compute(request.getThreadId(), (k, originType) -> {
+		TextType textType = stateMap.compute(threadId, (k, originType) -> {
 			if (originType == null) {
 				TextType type = TextType.getTypeByStratSign(chunk);
 				if (type != TextType.TEXT) {
@@ -190,12 +250,19 @@ public class GraphServiceImpl implements GraphService {
 		if (!typeSign.get()) {
 			GraphNodeResponse response = GraphNodeResponse.builder()
 				.agentId(request.getAgentId())
-				.threadId(request.getThreadId())
+				.threadId(threadId)
 				.nodeName(node)
 				.text(chunk)
 				.textType(textType)
 				.build();
-			sink.tryEmitNext(ServerSentEvent.builder(response).build());
+			// 检查发送是否成功，如果失败说明客户端已断开
+			Sinks.EmitResult result = sink.tryEmitNext(ServerSentEvent.builder(response).build());
+			if (result.isFailure()) {
+				log.warn("Failed to emit data to sink for threadId: {}, result: {}. Stopping stream processing.",
+						threadId, result);
+				// 如果发送失败，停止处理
+				stopStreamProcessing(threadId);
+			}
 		}
 	}
 
