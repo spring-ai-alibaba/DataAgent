@@ -43,6 +43,8 @@ public class JsonParseUtil {
 
 	private static final int MAX_RETRY_COUNT = 3;
 
+	private static final String THINK_END_TAG = "</think>";
+
 	public <T> T tryConvertToObject(String json, Class<T> clazz) {
 		Assert.hasText(json, "Input JSON string cannot be null or empty");
 		Assert.notNull(clazz, "Target class cannot be null");
@@ -70,7 +72,8 @@ public class JsonParseUtil {
 	 * @return 转换后的对象
 	 */
 	private <T> T tryConvertToObjectInternal(String json, JsonParserFunction<T> parser) {
-		String currentJson = json;
+		log.info("Trying to convert JSON to object: {}", json);
+		String currentJson = removeThinkTags(json);
 		Exception lastException = null;
 		ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 
@@ -130,7 +133,15 @@ public class JsonParseUtil {
 				return json;
 			}
 
-			String cleanedJson = MarkdownParserUtil.extractRawText(fixedJson);
+			log.debug("LLM original return content: {}", fixedJson);
+
+			// 移除think标签
+			String cleanedJson = removeThinkTags(fixedJson);
+			log.debug("Content after removing think tags: {}", cleanedJson);
+
+			// 提取可能输出在Markdown代码块中的内容
+			cleanedJson = MarkdownParserUtil.extractRawText(cleanedJson);
+			log.debug("Content after extracting Markdown code blocks: {}", cleanedJson);
 
 			// 确保返回的JSON不为null
 			return cleanedJson != null ? cleanedJson : json;
@@ -139,6 +150,36 @@ public class JsonParseUtil {
 			log.error("Exception occurred while calling LLM fix service", e);
 			return json;
 		}
+	}
+
+	/**
+	 * 移除 </think> 标签及其之前的所有内容 逻辑：找到最后一个 </think> 结束标签，只保留它之后的部分
+	 */
+	private String removeThinkTags(String text) {
+		if (text == null || text.isEmpty()) {
+			return text;
+		}
+
+		// 1. 查找最后一个结束标签的位置
+		int lastEndTagIndex = text.lastIndexOf(THINK_END_TAG);
+
+		if (lastEndTagIndex != -1) {
+			log.debug("Found </think> tag, index position: {}", lastEndTagIndex);
+
+			// 2. 计算截取点：结束标签的位置 + 标签本身的长度
+			int contentStartIndex = lastEndTagIndex + THINK_END_TAG.length();
+
+			// 3. 截取该点之后的所有内容
+			String finalResult = text.substring(contentStartIndex).trim();
+
+			log.debug("Content after truncating think tags: {}", finalResult);
+
+			return finalResult;
+		}
+
+		// 如果没找到结束标签，说明可能没有思考过程，直接返回原文本（去除首尾空格）
+		log.debug("Think end tag not found, returning original text");
+		return text.trim();
 	}
 
 }
