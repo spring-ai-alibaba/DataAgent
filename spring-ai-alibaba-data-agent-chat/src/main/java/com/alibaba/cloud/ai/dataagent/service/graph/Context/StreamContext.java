@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.graph.Context;
+package com.alibaba.cloud.ai.dataagent.service.graph.context;
 
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
@@ -21,6 +21,8 @@ import lombok.Data;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.Disposable;
 import reactor.core.publisher.Sinks;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 流式处理上下文，封装每个 threadId 的所有相关状态
@@ -38,15 +40,47 @@ public class StreamContext {
 	private TextType textType;
 
 	/**
-	 * 清理所有资源
+	 * 标记是否已经清理，用于防止重复清理
+	 */
+	private final AtomicBoolean cleaned = new AtomicBoolean(false);
+
+	/**
+	 * 清理所有资源 线程安全：使用 AtomicBoolean 确保只执行一次
 	 */
 	public void cleanup() {
-		if (disposable != null && !disposable.isDisposed()) {
-			disposable.dispose();
+		// 使用 compareAndSet 确保只执行一次清理
+		if (!cleaned.compareAndSet(false, true)) {
+			return;
 		}
-		if (sink != null) {
-			sink.tryEmitComplete();
+
+		// 清理 Disposable
+		Disposable localDisposable = disposable;
+		if (localDisposable != null && !localDisposable.isDisposed()) {
+			try {
+				localDisposable.dispose();
+			}
+			catch (Exception e) {
+				// 忽略清理过程中的异常
+			}
 		}
+
+		// 清理 Sink
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> localSink = sink;
+		if (localSink != null) {
+			try {
+				localSink.tryEmitComplete();
+			}
+			catch (Exception e) {
+				// 忽略清理过程中的异常
+			}
+		}
+	}
+
+	/**
+	 * 检查是否已经清理
+	 */
+	public boolean isCleaned() {
+		return cleaned.get();
 	}
 
 }
