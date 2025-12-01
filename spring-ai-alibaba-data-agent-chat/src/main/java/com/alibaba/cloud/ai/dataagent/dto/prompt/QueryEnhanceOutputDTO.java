@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.dto;
+package com.alibaba.cloud.ai.dataagent.dto.prompt;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;

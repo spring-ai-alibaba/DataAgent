@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.node;
 
-import com.alibaba.cloud.ai.dataagent.dto.QueryEnhanceOutputDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;

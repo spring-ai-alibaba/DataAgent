@@ -187,6 +187,7 @@ CREATE TABLE IF NOT EXISTS user_prompt_config (
   id VARCHAR(36) NOT NULL COMMENT '配置ID（UUID）',
   name VARCHAR(255) NOT NULL COMMENT '配置名称',
   prompt_type VARCHAR(100) NOT NULL COMMENT 'Prompt类型（如report-generator, planner等）',
+  agent_id INT COMMENT '关联的智能体ID，为空表示全局配置',
   system_prompt TEXT NOT NULL COMMENT '用户自定义系统Prompt内容',
   enabled TINYINT DEFAULT 1 COMMENT '是否启用该配置：0-禁用，1-启用',
   description TEXT COMMENT '配置描述',
@@ -197,9 +198,10 @@ CREATE TABLE IF NOT EXISTS user_prompt_config (
   creator VARCHAR(255) COMMENT '创建者',
   PRIMARY KEY (id),
   INDEX idx_prompt_type (prompt_type),
+  INDEX idx_agent_id (agent_id),
   INDEX idx_enabled (enabled),
   INDEX idx_create_time (create_time),
-  INDEX idx_prompt_type_enabled_priority (prompt_type, enabled, priority DESC),
+  INDEX idx_prompt_type_enabled_priority (prompt_type, agent_id, enabled, priority DESC),
   INDEX idx_display_order (display_order ASC)
 ) ENGINE = InnoDB COMMENT = '用户Prompt配置表';
 

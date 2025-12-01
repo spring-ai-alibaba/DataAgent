@@ -32,20 +32,42 @@ public interface UserPromptConfigMapper {
 	/**
 	 * Query configuration list by prompt type
 	 */
-	@Select("SELECT * FROM user_prompt_config WHERE prompt_type = #{promptType} ORDER BY update_time DESC")
-	List<UserPromptConfig> selectByPromptType(@Param("promptType") String promptType);
+	@Select("""
+			<script>
+			SELECT * FROM user_prompt_config
+			WHERE prompt_type = #{promptType}
+			<if test='agentId != null'> AND agent_id = #{agentId}</if>
+			ORDER BY update_time DESC
+			</script>
+			""")
+	List<UserPromptConfig> selectByPromptType(@Param("promptType") String promptType, @Param("agentId") Long agentId);
 
 	/**
 	 * Query enabled configuration by prompt type
 	 */
-	@Select("SELECT * FROM user_prompt_config WHERE prompt_type = #{promptType} AND enabled = 1 LIMIT 1")
-	UserPromptConfig selectActiveByPromptType(@Param("promptType") String promptType);
+	@Select("""
+			<script>
+			SELECT * FROM user_prompt_config
+			WHERE prompt_type = #{promptType}
+			  AND enabled = 1
+			<if test='agentId != null'> AND agent_id = #{agentId}</if>
+			LIMIT 1
+			</script>
+			""")
+	UserPromptConfig selectActiveByPromptType(@Param("promptType") String promptType, @Param("agentId") Long agentId);
 
 	/**
 	 * Disable all configurations of a specified type
 	 */
-	@Update("UPDATE user_prompt_config SET enabled = 0 WHERE prompt_type = #{promptType}")
-	int disableAllByPromptType(@Param("promptType") String promptType);
+	@Update("""
+			<script>
+			UPDATE user_prompt_config
+			SET enabled = 0
+			WHERE prompt_type = #{promptType}
+			<if test='agentId != null'> AND agent_id = #{agentId}</if>
+			</script>
+			""")
+	int disableAllByPromptType(@Param("promptType") String promptType, @Param("agentId") Long agentId);
 
 	/**
 	 * Enable a specified configuration
@@ -68,6 +90,7 @@ public interface UserPromptConfigMapper {
 			<set>
 			  <if test='name != null'>name = #{name},</if>
 			  <if test='promptType != null'>prompt_type = #{promptType},</if>
+			  <if test='agentId != null'>agent_id = #{agentId},</if>
 			  <if test='systemPrompt != null'>system_prompt = #{systemPrompt},</if>
 			  <if test='enabled != null'>enabled = #{enabled},</if>
 			  <if test='description != null'>description = #{description},</if>
@@ -82,22 +105,32 @@ public interface UserPromptConfigMapper {
 
 	@Insert("""
 			INSERT INTO user_prompt_config
-			(id, name, prompt_type, system_prompt, enabled, description, priority, display_order, create_time, update_time, creator)
-			VALUES (#{id}, #{name}, #{promptType}, #{systemPrompt}, #{enabled}, #{description}, #{priority}, #{displayOrder}, NOW(), NOW(), #{creator})
+			(id, name, prompt_type, agent_id, system_prompt, enabled, description, priority, display_order, create_time, update_time, creator)
+			VALUES (#{id}, #{name}, #{promptType}, #{agentId}, #{systemPrompt}, #{enabled}, #{description}, #{priority}, #{displayOrder}, NOW(), NOW(), #{creator})
 			""")
 	int insert(UserPromptConfig config);
 
 	@Select("""
-			SELECT * FROM user_prompt_config WHERE prompt_type = #{promptType} AND enabled = true
+			<script>
+			SELECT * FROM user_prompt_config
+			WHERE prompt_type = #{promptType}
+			  AND enabled = true
+			<if test='agentId != null'> AND agent_id = #{agentId}</if>
 			ORDER BY priority DESC, display_order, update_time DESC
+			</script>
 			""")
-	List<UserPromptConfig> getActiveConfigsByType(String promptType);
+	List<UserPromptConfig> getActiveConfigsByType(@Param("promptType") String promptType,
+			@Param("agentId") Long agentId);
 
 	@Select("""
-			SELECT * FROM user_prompt_config WHERE prompt_type = #{promptType}
+			<script>
+			SELECT * FROM user_prompt_config
+			WHERE prompt_type = #{promptType}
+			<if test='agentId != null'> AND agent_id = #{agentId}</if>
 			ORDER BY priority DESC, display_order, update_time DESC
+			</script>
 			""")
-	List<UserPromptConfig> getConfigsByType(String promptType);
+	List<UserPromptConfig> getConfigsByType(@Param("promptType") String promptType, @Param("agentId") Long agentId);
 
 	@Select("SELECT * FROM user_prompt_config ORDER BY priority DESC, display_order, update_time DESC")
 	List<UserPromptConfig> selectAll();

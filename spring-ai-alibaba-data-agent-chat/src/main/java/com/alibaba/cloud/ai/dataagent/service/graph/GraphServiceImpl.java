@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.graph;
 
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.service.graph.context.StreamContext;
 import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.NodeOutput;
@@ -35,12 +36,13 @@ import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
+import reactor.core.Disposable;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.AGENT_ID;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_NODE;
@@ -57,7 +59,7 @@ public class GraphServiceImpl implements GraphService {
 
 	private final ExecutorService executor;
 
-	private final ConcurrentHashMap<String, TextType> stateMap = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, StreamContext> streamContextMap = new ConcurrentHashMap<>();
 
 	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService) throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
@@ -76,18 +78,39 @@ public class GraphServiceImpl implements GraphService {
 
 	@Override
 	public void graphStreamProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
-		if (StringUtils.hasText(graphRequest.getHumanFeedbackContent())) {
-			handleHumanFeedback(sink, graphRequest);
-		}
-		else {
-			handleNewProcess(sink, graphRequest);
-		}
-	}
-
-	private void handleNewProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
 		if (!StringUtils.hasText(graphRequest.getThreadId())) {
 			graphRequest.setThreadId(UUID.randomUUID().toString());
 		}
+		String threadId = graphRequest.getThreadId();
+		// 创建或获取 StreamContext
+		StreamContext context = streamContextMap.computeIfAbsent(threadId, k -> new StreamContext());
+		context.setSink(sink);
+		if (StringUtils.hasText(graphRequest.getHumanFeedbackContent())) {
+			handleHumanFeedback(graphRequest);
+		}
+		else {
+			handleNewProcess(graphRequest);
+		}
+	}
+
+	/**
+	 * 停止指定 threadId 的流式处理 线程安全：使用 remove 操作确保只有一个线程能获取到 context
+	 * @param threadId 线程ID
+	 */
+	@Override
+	public void stopStreamProcessing(String threadId) {
+		if (!StringUtils.hasText(threadId)) {
+			return;
+		}
+		log.info("Stopping stream processing for threadId: {}", threadId);
+		StreamContext context = streamContextMap.remove(threadId);
+		if (context != null) {
+			context.cleanup();
+			log.info("Cleaned up stream context for threadId: {}", threadId);
+		}
+	}
+
+	private void handleNewProcess(GraphRequest graphRequest) {
 		String query = graphRequest.getQuery();
 		String agentId = graphRequest.getAgentId();
 		String threadId = graphRequest.getThreadId();
@@ -96,21 +119,35 @@ public class GraphServiceImpl implements GraphService {
 		if (!StringUtils.hasText(threadId) || !StringUtils.hasText(agentId) || !StringUtils.hasText(query)) {
 			throw new IllegalArgumentException("Invalid arguments");
 		}
+		StreamContext context = streamContextMap.get(threadId);
+		if (context == null || context.getSink() == null) {
+			throw new IllegalStateException("StreamContext not found for threadId: " + threadId);
+		}
+		// 检查是否已经清理，如果已清理则不再启动新的流
+		if (context.isCleaned()) {
+			log.warn("StreamContext already cleaned for threadId: {}, skipping stream start", threadId);
+			return;
+		}
 		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query,
 				AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled),
 				RunnableConfig.builder().threadId(threadId).build());
-		CompletableFuture
-			.runAsync(() -> nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output, sink),
-					error -> handleStreamError(agentId, threadId, error, sink),
-					() -> handleStreamComplete(agentId, threadId, sink)), executor);
+		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
 	}
 
-	private void handleHumanFeedback(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
+	private void handleHumanFeedback(GraphRequest graphRequest) {
 		String agentId = graphRequest.getAgentId();
 		String threadId = graphRequest.getThreadId();
 		String feedbackContent = graphRequest.getHumanFeedbackContent();
 		if (!StringUtils.hasText(threadId) || !StringUtils.hasText(agentId) || !StringUtils.hasText(feedbackContent)) {
 			throw new IllegalArgumentException("Invalid arguments");
+		}
+		StreamContext context = streamContextMap.get(threadId);
+		if (context == null || context.getSink() == null) {
+			throw new IllegalStateException("StreamContext not found for threadId: " + threadId);
+		}
+		if (context.isCleaned()) {
+			log.warn("StreamContext already cleaned for threadId: {}, skipping stream start", threadId);
+			return;
 		}
 		Map<String, Object> feedbackData = Map.of("feedback", !graphRequest.isRejectedPlan(), "feedback_content",
 				feedbackContent);
@@ -122,80 +159,140 @@ public class GraphServiceImpl implements GraphService {
 
 		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStreamFromInitialNode(resumeState,
 				RunnableConfig.builder().threadId(threadId).build());
-		CompletableFuture
-			.runAsync(() -> nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output, sink),
-					error -> handleStreamError(agentId, threadId, error, sink),
-					() -> handleStreamComplete(agentId, threadId, sink)), executor);
+		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
 	}
 
 	/**
-	 * 处理流式错误
+	 * 订阅 Flux 并原子性地设置 Disposable 线程安全：使用 synchronized 确保 Disposable 设置的原子性
+	 * @param context 流式处理上下文
+	 * @param nodeOutputFlux 节点输出流
+	 * @param graphRequest 图请求
+	 * @param agentId 代理ID
+	 * @param threadId 线程ID
 	 */
-	private void handleStreamError(String agentId, String threadId, Throwable error,
-			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink) {
-		log.error("Error in stream processing: ", error);
-		sink.tryEmitNext(ServerSentEvent
-			.builder(GraphNodeResponse.error(agentId, threadId, "Error in stream processing: " + error.getMessage()))
-			.event("error")
-			.build());
-		sink.tryEmitComplete();
-		stateMap.remove(threadId);
+	private void subscribeToFlux(StreamContext context, Flux<NodeOutput> nodeOutputFlux, GraphRequest graphRequest,
+			String agentId, String threadId) {
+		CompletableFuture.runAsync(() -> {
+			// 在订阅之前检查上下文是否仍然有效
+			if (context.isCleaned()) {
+				log.debug("StreamContext cleaned before subscription for threadId: {}", threadId);
+				return;
+			}
+			Disposable disposable = nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output),
+					error -> handleStreamError(agentId, threadId, error),
+					() -> handleStreamComplete(agentId, threadId));
+			// 原子性地设置 Disposable，如果已经清理则立即释放
+			synchronized (context) {
+				if (context.isCleaned()) {
+					// 如果已经清理，立即释放刚创建的 Disposable
+					if (disposable != null && !disposable.isDisposed()) {
+						disposable.dispose();
+					}
+				}
+				else {
+					// 只有在未清理的情况下才设置 Disposable
+					context.setDisposable(disposable);
+				}
+			}
+		}, executor);
 	}
 
 	/**
-	 * 处理流式完成
+	 * 处理流式错误 线程安全：使用 remove 操作确保只有一个线程能获取到 context
 	 */
-	private void handleStreamComplete(String agentId, String threadId,
-			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink) {
-		log.info("Stream processing completed successfully");
-		sink.tryEmitNext(
-				ServerSentEvent.builder(GraphNodeResponse.complete(agentId, threadId)).event("complete").build());
-		sink.tryEmitComplete();
-		stateMap.remove(threadId);
+	private void handleStreamError(String agentId, String threadId, Throwable error) {
+		log.error("Error in stream processing for threadId: {}: ", threadId, error);
+		StreamContext context = streamContextMap.remove(threadId);
+		if (context != null && !context.isCleaned() && context.getSink() != null) {
+			// 检查 sink 是否还有订阅者
+			if (context.getSink().currentSubscriberCount() > 0) {
+				context.getSink()
+					.tryEmitNext(ServerSentEvent
+						.builder(GraphNodeResponse.error(agentId, threadId,
+								"Error in stream processing: " + error.getMessage()))
+						.event("error")
+						.build());
+				context.getSink().tryEmitComplete();
+			}
+			// 清理资源（cleanup 内部已经保证只执行一次）
+			context.cleanup();
+		}
+	}
+
+	/**
+	 * 处理流式完成 线程安全：使用 remove 操作确保只有一个线程能获取到 context
+	 */
+	private void handleStreamComplete(String agentId, String threadId) {
+		log.info("Stream processing completed successfully for threadId: {}", threadId);
+		StreamContext context = streamContextMap.remove(threadId);
+		if (context != null && !context.isCleaned() && context.getSink() != null) {
+			if (context.getSink().currentSubscriberCount() > 0) {
+				context.getSink()
+					.tryEmitNext(ServerSentEvent.builder(GraphNodeResponse.complete(agentId, threadId))
+						.event("complete")
+						.build());
+				context.getSink().tryEmitComplete();
+			}
+			context.cleanup();
+		}
 	}
 
 	/**
 	 * 处理节点输出
 	 */
-	private void handleNodeOutput(GraphRequest request, NodeOutput output,
-			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink) {
+	private void handleNodeOutput(GraphRequest request, NodeOutput output) {
 		log.debug("Received output: {}", output.getClass().getSimpleName());
 		if (output instanceof StreamingOutput streamingOutput) {
-			handleStreamNodeOutput(request, streamingOutput, sink);
+			handleStreamNodeOutput(request, streamingOutput);
 		}
 	}
 
-	private void handleStreamNodeOutput(GraphRequest request, StreamingOutput output,
-			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink) {
+	private void handleStreamNodeOutput(GraphRequest request, StreamingOutput output) {
+		String threadId = request.getThreadId();
+		StreamContext context = streamContextMap.get(threadId);
+		// 检查是否已经停止处理
+		if (context == null || context.getSink() == null) {
+			log.debug("Stream processing already stopped for threadId: {}, skipping output", threadId);
+			return;
+		}
 		String node = output.node();
 		String chunk = output.chunk();
 		log.debug("Received Stream output: {}", chunk);
-		AtomicBoolean typeSign = new AtomicBoolean(false);
 		// 如果是文本标记符号，则更新文本类型
-		TextType textType = stateMap.compute(request.getThreadId(), (k, originType) -> {
-			if (originType == null) {
-				TextType type = TextType.getTypeByStratSign(chunk);
-				if (type != TextType.TEXT) {
-					typeSign.set(true);
-				}
-				return type;
+		TextType originType = context.getTextType();
+		TextType textType;
+		boolean isTypeSign = false;
+		if (originType == null) {
+			textType = TextType.getTypeByStratSign(chunk);
+			if (textType != TextType.TEXT) {
+				isTypeSign = true;
 			}
-			TextType newType = TextType.getType(originType, chunk);
-			if (newType != originType) {
-				typeSign.set(true);
+			context.setTextType(textType);
+		}
+		else {
+			textType = TextType.getType(originType, chunk);
+			if (textType != originType) {
+				isTypeSign = true;
 			}
-			return newType;
-		});
+			context.setTextType(textType);
+		}
 		// 文本标记符号不返回给前端
-		if (!typeSign.get()) {
+		if (!isTypeSign) {
 			GraphNodeResponse response = GraphNodeResponse.builder()
 				.agentId(request.getAgentId())
-				.threadId(request.getThreadId())
+				.threadId(threadId)
 				.nodeName(node)
 				.text(chunk)
 				.textType(textType)
 				.build();
-			sink.tryEmitNext(ServerSentEvent.builder(response).build());
+			// 检查发送是否成功，如果失败说明客户端已断开
+			Sinks.EmitResult result = context.getSink().tryEmitNext(ServerSentEvent.builder(response).build());
+			if (result.isFailure()) {
+				log.warn("Failed to emit data to sink for threadId: {}, result: {}. Stopping stream processing.",
+						threadId, result);
+				// 如果发送失败，停止处理
+				stopStreamProcessing(threadId);
+			}
 		}
 	}
 

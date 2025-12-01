@@ -104,13 +104,15 @@ public class PromptConfigController {
 	}
 
 	/**
-	 * Get configuration list by prompt type
+	 * Get configuration list by prompt type and agent
 	 * @param promptType prompt type
+	 * @param agentId agent id, optional
 	 * @return configuration list
 	 */
 	@GetMapping("/list-by-type/{promptType}")
-	public ResponseEntity<Map<String, Object>> getConfigsByType(@PathVariable(value = "promptType") String promptType) {
-		List<UserPromptConfig> configs = promptConfigService.getConfigsByType(promptType);
+	public ResponseEntity<Map<String, Object>> getConfigsByType(@PathVariable(value = "promptType") String promptType,
+			@RequestParam(value = "agentId", required = false) Long agentId) {
+		List<UserPromptConfig> configs = promptConfigService.getConfigsByType(promptType, agentId);
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("success", true);
@@ -121,13 +123,15 @@ public class PromptConfigController {
 	}
 
 	/**
-	 * Get currently enabled configuration
+	 * Get currently enabled configuration by prompt type and agent
 	 * @param promptType prompt type
+	 * @param agentId agent id, optional
 	 * @return currently enabled configuration
 	 */
 	@GetMapping("/active/{promptType}")
-	public ResponseEntity<Map<String, Object>> getActiveConfig(@PathVariable(value = "promptType") String promptType) {
-		UserPromptConfig config = promptConfigService.getActiveConfigByType(promptType);
+	public ResponseEntity<Map<String, Object>> getActiveConfig(@PathVariable(value = "promptType") String promptType,
+			@RequestParam(value = "agentId", required = false) Long agentId) {
+		UserPromptConfig config = promptConfigService.getActiveConfigByType(promptType, agentId);
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("success", true);
@@ -138,13 +142,15 @@ public class PromptConfigController {
 	}
 
 	/**
-	 * 获取某个类型的所有启用的优化配置
+	 * 获取某个类型和智能体的所有启用的优化配置
 	 * @param promptType 提示词类型
+	 * @param agentId 智能体ID，可选
 	 * @return 启用的优化配置列表
 	 */
 	@GetMapping("/active-all/{promptType}")
-	public ResponseEntity<Map<String, Object>> getActiveConfigs(@PathVariable(value = "promptType") String promptType) {
-		List<UserPromptConfig> configs = promptConfigService.getActiveConfigsByType(promptType);
+	public ResponseEntity<Map<String, Object>> getActiveConfigs(@PathVariable(value = "promptType") String promptType,
+			@RequestParam(value = "agentId", required = false) Long agentId) {
+		List<UserPromptConfig> configs = promptConfigService.getActiveConfigsByType(promptType, agentId);
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("success", true);

@@ -76,10 +76,20 @@ public class GraphController {
 		graphService.graphStreamProcess(sink, request);
 
 		return sink.asFlux()
-			.doOnSubscribe(subscription -> log.info("Client subscribed to stream"))
-			.doOnCancel(() -> log.info("Client disconnected from stream"))
-			.doOnError(e -> log.error("Error occurred during streaming: ", e))
-			.doOnComplete(() -> log.info("Stream completed successfully"));
+			.doOnSubscribe(subscription -> log.info("Client subscribed to stream, threadId: {}", request.getThreadId()))
+			.doOnCancel(() -> {
+				log.info("Client disconnected from stream, threadId: {}", request.getThreadId());
+				if (request.getThreadId() != null) {
+					graphService.stopStreamProcessing(request.getThreadId());
+				}
+			})
+			.doOnError(e -> {
+				log.error("Error occurred during streaming, threadId: {}: ", request.getThreadId(), e);
+				if (request.getThreadId() != null) {
+					graphService.stopStreamProcessing(request.getThreadId());
+				}
+			})
+			.doOnComplete(() -> log.info("Stream completed successfully, threadId: {}", request.getThreadId()));
 	}
 
 }

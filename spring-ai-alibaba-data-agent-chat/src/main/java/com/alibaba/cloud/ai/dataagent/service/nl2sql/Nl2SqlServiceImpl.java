@@ -16,11 +16,13 @@
 package com.alibaba.cloud.ai.dataagent.service.nl2sql;
 
 import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
+import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.dataagent.util.MarkdownParserUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
@@ -31,7 +33,6 @@ import reactor.core.publisher.Flux;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -45,6 +46,8 @@ import static com.alibaba.cloud.ai.dataagent.prompt.PromptHelper.buildMixSelecto
 public class Nl2SqlServiceImpl implements Nl2SqlService {
 
 	public final LlmService llmService;
+
+	private final JsonParseUtil jsonParseUtil;
 
 	@Override
 	public Flux<ChatResponse> semanticConsistencyStream(String sql, String queryPrompt) {
@@ -170,9 +173,8 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 					String jsonContent = MarkdownParserUtil.extractText(content);
 					List<String> tableList;
 					try {
-						tableList = JsonUtil.getObjectMapper()
-							.readValue(jsonContent, new TypeReference<List<String>>() {
-							});
+						tableList = jsonParseUtil.tryConvertToObject(jsonContent, new TypeReference<List<String>>() {
+						});
 					}
 					catch (Exception e) {
 						// Some scenarios may prompt exceptions, such as:
@@ -198,7 +200,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 				}
 				dtoConsumer.accept(schemaDTO);
 			});
-		}, flux -> flux.map(r -> Optional.ofNullable(r.getResult().getOutput().getText()).orElse(""))
+		}, flux -> flux.map(ChatResponseUtil::getText)
 			.collect(StringBuilder::new, StringBuilder::append)
 			.map(StringBuilder::toString));
 	}

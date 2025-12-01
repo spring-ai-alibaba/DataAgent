@@ -38,18 +38,20 @@ public interface UserPromptService {
 	UserPromptConfig getConfigById(String id);
 
 	/**
-	 * 根据提示词类型获取所有启用的配置
+	 * 根据提示词类型和智能体获取所有启用的配置
 	 * @param promptType 提示词类型
+	 * @param agentId 智能体ID，为空表示不按智能体过滤
 	 * @return 配置列表
 	 */
-	List<UserPromptConfig> getActiveConfigsByType(String promptType);
+	List<UserPromptConfig> getActiveConfigsByType(String promptType, Long agentId);
 
 	/**
-	 * Get enabled configuration by prompt type
+	 * Get enabled configuration by prompt type and agent
 	 * @param promptType prompt type
+	 * @param agentId agent id, null means not filtered by agent
 	 * @return configuration object, returns null if not exists
 	 */
-	UserPromptConfig getActiveConfigByType(String promptType);
+	UserPromptConfig getActiveConfigByType(String promptType, Long agentId);
 
 	/**
 	 * Get all configurations
@@ -58,11 +60,12 @@ public interface UserPromptService {
 	List<UserPromptConfig> getAllConfigs();
 
 	/**
-	 * Get all configurations by prompt type
+	 * Get all configurations by prompt type and agent
 	 * @param promptType prompt type
+	 * @param agentId agent id, null means not filtered by agent
 	 * @return configuration list
 	 */
-	List<UserPromptConfig> getConfigsByType(String promptType);
+	List<UserPromptConfig> getConfigsByType(String promptType, Long agentId);
 
 	/**
 	 * Delete configuration
@@ -86,11 +89,12 @@ public interface UserPromptService {
 	boolean disableConfig(String id);
 
 	/**
-	 * Get optimization configurations by prompt type
+	 * Get optimization configurations by prompt type and agent
 	 * @param promptType prompt type
+	 * @param agentId agent id, null means not filtered by agent
 	 * @return optimization configuration list
 	 */
-	List<UserPromptConfig> getOptimizationConfigs(String promptType);
+	List<UserPromptConfig> getOptimizationConfigs(String promptType, Long agentId);
 
 	/**
 	 * 批量启用配置

@@ -262,6 +262,10 @@
   export default {
     name: 'AgentPromptConfig',
     props: {
+      agentId: {
+        type: [String, Number],
+        required: true,
+      },
       promptType: {
         type: String,
         default: 'report-generator',
@@ -322,7 +326,10 @@
       async loadOptimizationConfigs() {
         try {
           this.loading = true;
-          const response = await fetch(`/api/prompt-config/list-by-type/${this.promptType}`);
+          const query = this.agentId ? `?agentId=${this.agentId}` : '';
+          const response = await fetch(
+            `/api/prompt-config/list-by-type/${this.promptType}${query}`,
+          );
           const result = await response.json();
           if (result.success) {
             this.optimizationConfigs = result.data || [];
@@ -345,6 +352,7 @@
           const configData = {
             ...this.formData,
             promptType: this.promptType,
+            agentId: this.agentId ? Number(this.agentId) : null,
             enabled: true,
             creator: 'user',
             priority: this.formData.priority || 0,

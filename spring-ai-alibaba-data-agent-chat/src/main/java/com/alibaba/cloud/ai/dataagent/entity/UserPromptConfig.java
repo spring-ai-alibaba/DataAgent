@@ -44,6 +44,11 @@ public class UserPromptConfig {
 	private String promptType;
 
 	/**
+	 * Associated agent ID, null means global configuration
+	 */
+	private Long agentId;
+
+	/**
 	 * User-defined system prompt content
 	 */
 	private String systemPrompt;

@@ -88,9 +88,21 @@ public class ReportGeneratorNode implements NodeAction {
 		ExecutionStep executionStep = getCurrentExecutionStep(plan, currentStep);
 		String summaryAndRecommendations = executionStep.getToolParameters().getSummaryAndRecommendations();
 
+		// Get agent id from state
+		String agentIdStr = StateUtil.getStringValue(state, AGENT_ID);
+		Long agentId = null;
+		try {
+			if (agentIdStr != null) {
+				agentId = Long.parseLong(agentIdStr);
+			}
+		}
+		catch (NumberFormatException ignore) {
+			// ignore parse error, treat as global config
+		}
+
 		// Generate report streaming flux
 		Flux<ChatResponse> reportGenerationFlux = generateReport(userInput, plan, executionResults,
-				summaryAndRecommendations);
+				summaryAndRecommendations, agentId);
 
 		// Use utility class to create streaming generator with content collection
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
@@ -131,15 +143,16 @@ public class ReportGeneratorNode implements NodeAction {
 	 * Generates the analysis report.
 	 */
 	private Flux<ChatResponse> generateReport(String userInput, Plan plan, HashMap<String, String> executionResults,
-			String summaryAndRecommendations) {
+			String summaryAndRecommendations, Long agentId) {
 		// Build user requirements and plan description
 		String userRequirementsAndPlan = buildUserRequirementsAndPlan(userInput, plan);
 
 		// Build analysis steps and data results description
 		String analysisStepsAndData = buildAnalysisStepsAndData(plan, executionResults);
 
-		// Get optimization configs if available
-		List<UserPromptConfig> optimizationConfigs = promptConfigService.getOptimizationConfigs("report-generator");
+		// Get optimization configs if available (优先按智能体加载)
+		List<UserPromptConfig> optimizationConfigs = promptConfigService.getOptimizationConfigs("report-generator",
+				agentId);
 
 		// Use PromptHelper to build report generation prompt with optimization support
 		String reportPrompt = PromptHelper.buildReportGeneratorPromptWithOptimization(userRequirementsAndPlan,

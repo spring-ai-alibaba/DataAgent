@@ -108,4 +108,8 @@ public class PromptConstant {
 		return new PromptTemplate(PromptLoader.loadPrompt("time-conversion"));
 	}
 
+	public static PromptTemplate getJsonFixPromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("json-fix"));
+	}
+
 }

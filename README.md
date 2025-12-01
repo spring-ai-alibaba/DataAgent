@@ -25,7 +25,7 @@ spring-ai-alibaba-data-agent/
 
 可以在项目仓库获取测试表和数据：
 
-文件在：`spring-ai-alibaba-data-agent-management/src/main/resources/sql`，里面有两个文件：`schema.sql` 和 `data.sql`
+文件在：`spring-ai-alibaba-data-agent-management/src/main/resources/sql`，里面有4个文件：`schema.sql` 和 `data.sql`和`product_shcema.sql`和`product_data.sql`，具体的模拟数据表结构和数据可以参考这两个文件，`product_shcema.sql`和`product_data.sql`，跟功能相关的表结构和数据可以参考`schema.sql`和`data.sql`。
 
 将表和数据导入到你的MySQL数据库中。
 

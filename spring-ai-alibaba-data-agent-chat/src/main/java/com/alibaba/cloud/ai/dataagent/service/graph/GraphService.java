@@ -43,4 +43,10 @@ public interface GraphService {
 	 */
 	void graphStreamProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest);
 
+	/**
+	 * 停止指定 threadId 的流式处理
+	 * @param threadId 线程ID
+	 */
+	void stopStreamProcessing(String threadId);
+
 }
