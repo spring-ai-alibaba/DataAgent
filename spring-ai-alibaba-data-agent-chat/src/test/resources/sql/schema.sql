@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS business_knowledge (
   description TEXT COMMENT '描述',
   synonyms TEXT COMMENT '同义词，逗号分隔',
   is_recall INT DEFAULT 1 COMMENT '是否召回：0-不召回，1-召回',
-  agent_id BIGINT NOT NULL COMMENT '关联的智能体ID',
+  agent_id INT NOT NULL COMMENT '关联的智能体ID',
   created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   embedding_status VARCHAR(20) DEFAULT NULL COMMENT '向量化状态：PENDING待处理，PROCESSING处理中，COMPLETED已完成，FAILED失败',
