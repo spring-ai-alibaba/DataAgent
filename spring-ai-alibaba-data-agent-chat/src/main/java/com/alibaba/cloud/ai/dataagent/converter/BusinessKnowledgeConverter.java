@@ -30,7 +30,7 @@ public class BusinessKnowledgeConverter {
 			.businessTerm(po.getBusinessTerm())
 			.description(po.getDescription())
 			.synonyms(po.getSynonyms())
-			.isRecall(po.getIsRecall())
+			.isRecall(po.getIsRecall() == 1)
 			.agentId(po.getAgentId())
 			.createdTime(po.getCreatedTime())
 			.updatedTime(po.getUpdatedTime())
@@ -46,7 +46,7 @@ public class BusinessKnowledgeConverter {
 			.description(dto.getDescription())
 			.synonyms(dto.getSynonyms())
 			.agentId(dto.getAgentId())
-			.isRecall(dto.getIsRecall())
+			.isRecall(dto.getIsRecall() ? 1 : 0)
 			.isDeleted(0)
 			.embeddingStatus(EmbeddingStatus.PROCESSING)
 			.build();

@@ -82,8 +82,8 @@
       </el-table-column>
       <el-table-column label="是否召回" min-width="80px">
         <template #default="scope">
-          <el-tag :type="scope.row.isRecall === 1 ? 'success' : 'info'" round>
-            {{ scope.row.isRecall === 1 ? '是' : '否' }}
+          <el-tag :type="scope.row.isRecall ? 'success' : 'info'" round>
+            {{ scope.row.isRecall ? '是' : '否' }}
           </el-tag>
         </template>
       </el-table-column>
@@ -105,7 +105,7 @@
             重试
           </el-button>
           <el-button
-            v-if="scope.row.isRecall === 1"
+            v-if="scope.row.isRecall"
             @click="toggleRecall(scope.row, false)"
             size="small"
             type="warning"
@@ -205,7 +205,7 @@
         businessTerm: '',
         description: '',
         synonyms: '',
-        isRecall: 0,
+        isRecall: false,
       } as BusinessKnowledgeVO);
 
       const currentEditId: Ref<number | null> = ref(null);
@@ -278,11 +278,11 @@
         try {
           const result = await businessKnowledgeService.recallKnowledge(
             knowledge.id,
-            isRecall ? 1 : 0,
+            isRecall,
           );
           if (result) {
             ElMessage.success(`${isRecall ? '设为召回' : '取消召回'}成功`);
-            knowledge.isRecall = isRecall ? 1 : 0;
+            knowledge.isRecall = isRecall;
           } else {
             ElMessage.error(`${isRecall ? '设为召回' : '取消召回'}失败`);
           }
@@ -318,7 +318,7 @@
               businessTerm: knowledgeForm.value.businessTerm,
               description: knowledgeForm.value.description,
               synonyms: knowledgeForm.value.synonyms,
-              isRecall: knowledgeForm.value.isRecall ? 1 : 0,
+              isRecall: knowledgeForm.value.isRecall,
               agentId: props.agentId,
             };
 

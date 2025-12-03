@@ -22,7 +22,7 @@ interface BusinessKnowledgeVO {
   businessTerm: string;
   description: string;
   synonyms: string;
-  isRecall: number; // 0 or 1
+  isRecall: boolean; // 0 or 1
   agentId: number;
   createdTime?: string;
   updatedTime?: string;
@@ -34,7 +34,7 @@ interface CreateBusinessKnowledgeDTO {
   businessTerm: string;
   description: string;
   synonyms: string;
-  isRecall: number; // 0 or 1
+  isRecall: boolean; // 0 or 1
   agentId: number;
 }
 
@@ -137,9 +137,9 @@ class BusinessKnowledgeService {
   /**
    * 设置业务知识召回状态
    * @param id 业务知识 ID
-   * @param isRecall 是否召回 (0 or 1)
+   * @param isRecall 是否召回 (true or false)
    */
-  async recallKnowledge(id: number, isRecall: number): Promise<boolean> {
+  async recallKnowledge(id: number, isRecall: boolean): Promise<boolean> {
     const response = await axios.post<ApiResponse<boolean>>(`${API_BASE_URL}/recall/${id}`, null, {
       params: { isRecall },
     });

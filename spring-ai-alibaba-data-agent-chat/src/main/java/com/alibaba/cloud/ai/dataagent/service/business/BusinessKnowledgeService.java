@@ -39,7 +39,7 @@ public interface BusinessKnowledgeService {
 
 	void deleteKnowledge(Long id);
 
-	void recallKnowledge(Long id, Integer isRecall);
+	void recallKnowledge(Long id, Boolean isRecall);
 
 	void refreshAllKnowledgeToVectorStore(String agentId) throws Exception;
 

@@ -87,7 +87,7 @@ public class BusinessKnowledgeController {
 
 	@PostMapping("/recall/{id}")
 	public ApiResponse<Boolean> recallKnowledge(@PathVariable(value = "id") Long id,
-			@RequestParam(value = "isRecall") Integer isRecall) {
+			@RequestParam(value = "isRecall") Boolean isRecall) {
 		businessKnowledgeService.recallKnowledge(id, isRecall);
 		return ApiResponse.success("success update recall businessKnowledge");
 	}

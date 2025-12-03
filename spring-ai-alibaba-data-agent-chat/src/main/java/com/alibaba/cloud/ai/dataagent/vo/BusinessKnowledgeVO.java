@@ -37,7 +37,7 @@ public class BusinessKnowledgeVO {
 
 	private String synonyms;
 
-	private Integer isRecall;
+	private Boolean isRecall;
 
 	private Long agentId;
 

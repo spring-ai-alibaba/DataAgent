@@ -198,7 +198,7 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 
 	@Override
 	@Transactional(rollbackFor = Exception.class)
-	public void recallKnowledge(Long id, Integer isRecall) {
+	public void recallKnowledge(Long id, Boolean isRecall) {
 		// 从数据库获取原始数据
 		BusinessKnowledge knowledge = businessKnowledgeMapper.selectById(id);
 		if (knowledge == null) {
@@ -206,7 +206,7 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 		}
 
 		// 更新数据库即可，不需要更新向量库，混合检索的的时候DynamicFilterService会根据 isRecall 字段过滤了
-		knowledge.setIsRecall(isRecall);
+		knowledge.setIsRecall(isRecall ? 1 : 0);
 		businessKnowledgeMapper.updateById(knowledge);
 
 	}
