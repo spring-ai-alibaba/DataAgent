@@ -26,18 +26,21 @@ CREATE TABLE IF NOT EXISTS business_knowledge (
   id INT NOT NULL AUTO_INCREMENT,
   business_term VARCHAR(255) NOT NULL COMMENT '业务名词',
   description TEXT COMMENT '描述',
-  synonyms TEXT COMMENT '同义词',
-  is_recall INT DEFAULT 0 COMMENT '是否召回',
-  data_set_id VARCHAR(255) COMMENT '数据集id',
-  agent_id INT COMMENT '关联的智能体ID',
+  synonyms TEXT COMMENT '同义词，逗号分隔',
+  is_recall INT DEFAULT 1 COMMENT '是否召回：0-不召回，1-召回',
+  agent_id INT NOT NULL COMMENT '关联的智能体ID',
   created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  embedding_status VARCHAR(20) DEFAULT NULL COMMENT '向量化状态：PENDING待处理，PROCESSING处理中，COMPLETED已完成，FAILED失败',
+  error_msg VARCHAR(255) DEFAULT NULL COMMENT '操作失败的错误信息',
+  is_deleted INT DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',
   PRIMARY KEY (id),
   INDEX idx_business_term (business_term),
-  INDEX idx_data_set_id (data_set_id),
   INDEX idx_agent_id (agent_id),
   INDEX idx_is_recall (is_recall),
-  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE SET NULL
+  INDEX idx_embedding_status (embedding_status),
+  INDEX idx_is_deleted (is_deleted),
+  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '业务知识表';
 
 -- 语义模型表
