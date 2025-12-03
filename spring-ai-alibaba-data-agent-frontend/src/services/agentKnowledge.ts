@@ -26,7 +26,7 @@ export interface AgentKnowledge {
   content?: string;
   type?: string;
   question?: string;
-  isRecall?: number; // 1=召回, 0=非召回
+  isRecall?: boolean; // true=召回, false=非召回
   embeddingStatus?: string;
   errorMsg?: string;
   createdTime?: string;
@@ -142,10 +142,16 @@ class AgentKnowledgeService {
   /**
    * 更新召回状态
    */
-  async updateRecallStatus(id: number, recalled: number): Promise<AgentKnowledge | null> {
+  async updateRecallStatus(id: number, recalled: boolean): Promise<AgentKnowledge | null> {
     try {
       const response = await axios.put<{ success: boolean; data: AgentKnowledge }>(
-        `${API_BASE_URL}/knowledge/${id}/recall-status/${recalled}`,
+        `${API_BASE_URL}/recall/${id}`,
+        null,
+        {
+          params: {
+            isRecall: recalled,
+          },
+        },
       );
       return response.data.data;
     } catch (error) {

@@ -276,10 +276,7 @@
         if (!knowledge.id) return;
 
         try {
-          const result = await businessKnowledgeService.recallKnowledge(
-            knowledge.id,
-            isRecall,
-          );
+          const result = await businessKnowledgeService.recallKnowledge(knowledge.id, isRecall);
           if (result) {
             ElMessage.success(`${isRecall ? '设为召回' : '取消召回'}成功`);
             knowledge.isRecall = isRecall;

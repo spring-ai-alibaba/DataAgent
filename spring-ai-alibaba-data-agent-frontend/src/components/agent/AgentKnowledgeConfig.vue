@@ -190,7 +190,7 @@
               </td>
               <td class="px-5 py-4">
                 <span
-                  v-if="item.isRecall === 1"
+                  v-if="item.isRecall"
                   class="text-green-600 text-xs font-medium flex items-center"
                 >
                   <i class="fas fa-check-circle mr-1"></i>
@@ -204,7 +204,7 @@
               <td class="px-5 py-4 text-[#5f70e1] cursor-pointer hover:underline space-x-2">
                 <button @click="editKnowledge(item)">管理</button>
                 <button
-                  v-if="item.isRecall === 1"
+                  v-if="item.isRecall"
                   @click="toggleStatus(item)"
                   class="text-red-500 hover:text-red-700"
                 >
@@ -433,7 +433,7 @@
         title: '',
         content: '',
         type: 'DOCUMENT',
-        isRecall: 1,
+        isRecall: true,
         question: '',
         answer: '',
       } as AgentKnowledge & { question?: string; answer?: string });
@@ -528,9 +528,9 @@
       // 切换状态（召回/取消召回）
       const toggleStatus = (knowledge: AgentKnowledge) => {
         if (!knowledge.id) return;
-        // 当前是1则改为0，当前是0则改为1
-        const newStatus = knowledge.isRecall === 1 ? 0 : 1;
-        const actionName = newStatus === 1 ? '召回' : '取消召回';
+        // 当前是true则改为false，当前是false则改为true
+        const newStatus = !knowledge.isRecall;
+        const actionName = newStatus ? '召回' : '取消召回';
 
         ElMessageBox.confirm(`确定要${actionName}知识 "${knowledge.title}" 吗？`, '提示', {
           confirmButtonText: '确定',
@@ -680,7 +680,7 @@
             formData.append('agentId', String(knowledgeForm.value.agentId));
             formData.append('title', knowledgeForm.value.title);
             formData.append('type', knowledgeForm.value.type || 'DOCUMENT');
-            formData.append('isRecall', '1');
+            formData.append('isRecall', knowledgeForm.value.isRecall ? '1' : '0');
 
             if (knowledgeForm.value.type === 'DOCUMENT' && knowledgeForm.value.file) {
               formData.append('file', knowledgeForm.value.file);
@@ -725,7 +725,7 @@
           title: '',
           content: '',
           type: 'DOCUMENT',
-          isRecall: 1,
+          isRecall: true,
           question: '',
           answer: '',
         } as AgentKnowledge & { question?: string; answer?: string };
