@@ -355,7 +355,7 @@ public class EvidenceRecallNode implements NodeAction {
 			return evidenceQueryRewriteDTO.getStandaloneQuery();
 		}
 		catch (Exception e) {
-			log.error("Failed to parse keywords from LLM response", e);
+			log.error("Failed to parse EvidenceQueryRewriteDTO from LLM response", e);
 		}
 		return null;
 	}
