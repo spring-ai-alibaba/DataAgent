@@ -43,8 +43,8 @@ public class AgentKnowledgeVO {
 	// 当type=QA, FAQ时有内容
 	private String content;
 
-	// 业务状态: 1=召回, 0=非召回
-	private Integer isRecall;
+	@JsonFormat(shape = JsonFormat.Shape.BOOLEAN)
+	private Boolean isRecall;
 
 	// 向量化状态：PENDING待处理，PROCESSING处理中，COMPLETED已完成，FAILED失败
 	private EmbeddingStatus embeddingStatus;

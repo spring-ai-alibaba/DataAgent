@@ -37,6 +37,7 @@ public class BusinessKnowledgeVO {
 
 	private String synonyms;
 
+	@JsonFormat(shape = JsonFormat.Shape.BOOLEAN)
 	private Boolean isRecall;
 
 	private Long agentId;

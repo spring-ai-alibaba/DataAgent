@@ -36,7 +36,7 @@ public class AgentKnowledgeConverter {
 		vo.setType(po.getType() != null ? po.getType().getCode() : null);
 		vo.setQuestion(po.getQuestion());
 		vo.setContent(po.getContent());
-		vo.setIsRecall(po.getIsRecall());
+		vo.setIsRecall(po.getIsRecall() == 1);
 		vo.setEmbeddingStatus(po.getEmbeddingStatus());
 		vo.setErrorMsg(po.getErrorMsg());
 		vo.setCreatedTime(po.getCreatedTime());

@@ -178,7 +178,7 @@ public class AgentKnowledgeServiceImpl implements AgentKnowledgeService {
 	}
 
 	@Override
-	public AgentKnowledgeVO updateKnowledgeRecallStatus(Integer id, Integer recalled) {
+	public AgentKnowledgeVO updateKnowledgeRecallStatus(Integer id, Boolean recalled) {
 		// 查询知识
 		AgentKnowledge knowledge = agentKnowledgeMapper.selectById(id);
 		if (knowledge == null) {
@@ -186,7 +186,7 @@ public class AgentKnowledgeServiceImpl implements AgentKnowledgeService {
 		}
 
 		// 更新召回状态
-		knowledge.setIsRecall(recalled);
+		knowledge.setIsRecall(recalled ? 1 : 0);
 
 		// 更新数据库
 		boolean res = agentKnowledgeMapper.update(knowledge) > 0;

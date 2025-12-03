@@ -82,9 +82,10 @@ public class AgentKnowledgeController {
 		return ApiResponse.success("更新成功", knowledge);
 	}
 
-	@PutMapping("/knowledge/{id}/recall-status/{recalled}")
-	public ApiResponse<AgentKnowledgeVO> updateRecallStatus(@PathVariable Integer id, @PathVariable Integer recalled) {
-		AgentKnowledgeVO agentKnowledgeVO = agentKnowledgeService.updateKnowledgeRecallStatus(id, recalled);
+	@PutMapping("/recall/{id}")
+	public ApiResponse<AgentKnowledgeVO> updateRecallStatus(@PathVariable Integer id,
+			@RequestParam(value = "isRecall") Boolean isRecall) {
+		AgentKnowledgeVO agentKnowledgeVO = agentKnowledgeService.updateKnowledgeRecallStatus(id, isRecall);
 		return ApiResponse.success("更新成功", agentKnowledgeVO);
 	}
 

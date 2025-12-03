@@ -34,7 +34,7 @@ public interface AgentKnowledgeService {
 
 	PageResult<AgentKnowledgeVO> queryByConditionsWithPage(AgentKnowledgeQueryDTO queryDTO);
 
-	AgentKnowledgeVO updateKnowledgeRecallStatus(Integer id, Integer recalled);
+	AgentKnowledgeVO updateKnowledgeRecallStatus(Integer id, Boolean recalled);
 
 	void retryEmbedding(Integer id);
 
