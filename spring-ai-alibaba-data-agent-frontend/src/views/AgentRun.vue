@@ -70,15 +70,6 @@
                   下载HTML报告
                 </el-button>
               </div>
-              <div
-                v-else-if="message.messageType === 'sql' || message.messageType === 'python'"
-                class="structured-message"
-              >
-                <div class="structured-message-header">
-                  <span>{{ message.messageType === 'sql' ? '生成的SQL' : '生成的Python代码' }}</span>
-                </div>
-                <pre class="structured-message-body"><code v-html="renderStructuredCode(message)"></code></pre>
-              </div>
               <!-- 文本类型消息使用原有布局 -->
               <div v-else :class="['message', message.role]">
                 <div class="message-avatar">
@@ -381,16 +372,18 @@
         pageSize: 20,
       });
 
-      const renderStructuredCode = (message: ChatMessage) => {
-        const language = message.messageType === 'python' ? 'python' : 'sql';
-        try {
-          return hljs.highlight(message.content || '', { language }).value;
-        } catch (error) {
-          const escaped = (message.content || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-          return escaped;
+      const DISPLAY_MESSAGE_TYPES = ['text', 'html', 'html-report'];
+
+      const shouldDisplayMessage = (message: ChatMessage) => {
+        if (!message?.messageType) {
+          return true;
+        }
+        return DISPLAY_MESSAGE_TYPES.includes(message.messageType);
+      };
+
+      const pushDisplayedMessage = (message: ChatMessage) => {
+        if (shouldDisplayMessage(message)) {
+          currentMessages.value.push(message);
         }
       };
 
@@ -412,10 +405,7 @@
           metadata: metadata ? JSON.stringify(metadata) : undefined,
         };
         try {
-          const savedMessage = await ChatService.saveMessage(sessionId, chatMessage);
-          if (currentSession.value?.id === sessionId) {
-            currentMessages.value.push(savedMessage);
-          }
+          await ChatService.saveMessage(sessionId, chatMessage);
         } catch (error) {
           console.error(`保存${type}消息失败:`, error);
         }
@@ -452,7 +442,8 @@
             return;
           }
           syncStateToView(session.id, { isStreaming, nodeBlocks });
-          currentMessages.value = await ChatService.getSessionMessages(session.id);
+          const messages = await ChatService.getSessionMessages(session.id);
+          currentMessages.value = messages.filter(shouldDisplayMessage);
           scrollToBottom();
         } catch (error) {
           ElMessage.error('加载消息失败');
@@ -479,7 +470,7 @@
         try {
           // 保存用户消息
           const savedMessage = await ChatService.saveMessage(currentSession.value.id, userMessage);
-          currentMessages.value.push(savedMessage);
+          pushDisplayedMessage(savedMessage);
 
           const request: GraphRequest = {
             agentId: agentId.value,
@@ -723,7 +714,7 @@
                 await ChatService.saveMessage(sessionId, htmlReportMessage)
                   .then(savedMessage => {
                     if (currentSession.value?.id === sessionId) {
-                      currentMessages.value.push(savedMessage);
+                      pushDisplayedMessage(savedMessage);
                     }
                   })
                   .catch(error => {
@@ -748,7 +739,7 @@
                 await ChatService.saveMessage(sessionId, markdownMessage)
                   .then(savedMessage => {
                     if (currentSession.value?.id === sessionId) {
-                      currentMessages.value.push(savedMessage);
+                      pushDisplayedMessage(savedMessage);
                     }
                   })
                   .catch(error => {
@@ -1143,7 +1134,6 @@
         formatMessageContent,
         formatNodeContent,
         generateNodeHtml,
-        renderStructuredCode,
         handleNl2sqlOnlyChange,
         downloadHtmlReportFromMessage,
         markdownToHtml,
@@ -1380,28 +1370,6 @@
     font-weight: 500;
   }
 
-  .structured-message {
-    border: 1px solid #e1e4e8;
-    border-radius: 10px;
-    padding: 12px;
-    background: #fafafa;
-    margin-bottom: 8px;
-  }
-
-  .structured-message-header {
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: #409eff;
-  }
-
-  .structured-message-body {
-    margin: 0;
-    background: #1e1e1e;
-    color: #f8f8f2;
-    border-radius: 8px;
-    padding: 12px;
-    overflow-x: auto;
-  }
 
   /* 输入区域样式 */
   .input-area {
