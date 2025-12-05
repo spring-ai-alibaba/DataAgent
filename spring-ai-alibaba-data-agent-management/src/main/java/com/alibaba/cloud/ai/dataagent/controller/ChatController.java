@@ -15,9 +15,12 @@
  */
 package com.alibaba.cloud.ai.dataagent.controller;
 
-import com.alibaba.cloud.ai.dataagent.entity.*;
-import com.alibaba.cloud.ai.dataagent.service.*;
+import com.alibaba.cloud.ai.dataagent.dto.ChatMessageRequest;
+import com.alibaba.cloud.ai.dataagent.entity.ChatMessage;
+import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
 import com.alibaba.cloud.ai.dataagent.service.ChatMessageService;
+import com.alibaba.cloud.ai.dataagent.service.ChatSessionService;
+import com.alibaba.cloud.ai.dataagent.service.SessionTitleService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +44,8 @@ public class ChatController {
 	private final ChatSessionService chatSessionService;
 
 	private final ChatMessageService chatMessageService;
+
+	private final SessionTitleService sessionTitleService;
 
 	/**
 	 * Get session list for an agent
@@ -87,16 +92,27 @@ public class ChatController {
 	 */
 	@PostMapping("/sessions/{sessionId}/messages")
 	public ResponseEntity<ChatMessage> saveMessage(@PathVariable(value = "sessionId") String sessionId,
-			@RequestBody ChatMessage message) {
+			@RequestBody ChatMessageRequest request) {
 		try {
-			// Set session ID
-			message.setSessionId(sessionId);
+			if (request == null) {
+				return ResponseEntity.badRequest().build();
+			}
+			ChatMessage message = ChatMessage.builder()
+				.sessionId(sessionId)
+				.role(request.getRole())
+				.content(request.getContent())
+				.messageType(request.getMessageType())
+				.metadata(request.getMetadata())
+				.build();
 
-			// Save message
 			ChatMessage savedMessage = chatMessageService.saveMessage(message);
 
 			// Update session activity time
 			chatSessionService.updateSessionTime(sessionId);
+
+			if (request.isTitleNeeded()) {
+				sessionTitleService.scheduleTitleGeneration(sessionId, message.getContent());
+			}
 
 			return ResponseEntity.ok(savedMessage);
 		}
