@@ -46,6 +46,7 @@ import reactor.core.publisher.Sinks;
 public class GraphController {
 
 	private final GraphService graphService;
+
 	private final ChatMessageService chatMessageService;
 
 	@GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

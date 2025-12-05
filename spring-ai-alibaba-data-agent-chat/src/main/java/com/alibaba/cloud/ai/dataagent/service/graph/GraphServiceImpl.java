@@ -335,8 +335,8 @@ public class GraphServiceImpl implements GraphService {
 		}
 		String existing = sessionThreadMap.get(sessionId);
 		if (existing != null && !existing.equals(threadId)) {
-			throw new IllegalStateException(
-					String.format("Thread %s does not belong to session %s (current: %s)", threadId, sessionId, existing));
+			throw new IllegalStateException(String.format("Thread %s does not belong to session %s (current: %s)",
+					threadId, sessionId, existing));
 		}
 	}
 

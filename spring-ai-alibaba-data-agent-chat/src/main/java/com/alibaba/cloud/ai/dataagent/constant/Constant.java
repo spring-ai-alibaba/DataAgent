@@ -152,7 +152,7 @@ public final class Constant {
 	// 人类复核相关
 	public static final String HUMAN_REVIEW_ENABLED = "HUMAN_REVIEW_ENABLED";
 
-    //多轮对话相关
+	// 多轮对话相关
 	public static final String MULTI_TURN_CONTEXT = "MULTI_TURN_CONTEXT";
 
 }
