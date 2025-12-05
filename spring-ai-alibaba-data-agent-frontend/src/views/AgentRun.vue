@@ -421,11 +421,14 @@
           return;
         }
 
+        const needsTitle = !currentSession.value?.title || currentSession.value.title === '新会话';
+
         const userMessage: ChatMessage = {
           sessionId: currentSession.value.id,
           role: 'user',
           content: userInput.value,
           messageType: 'text',
+          titleNeeded: needsTitle,
         };
         try {
           // 保存用户消息
