@@ -17,6 +17,11 @@
 package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
+import com.alibaba.cloud.ai.dataagent.entity.ChatMessage;
+import com.alibaba.cloud.ai.dataagent.helper.MultiTurnContextBuilder;
+import com.alibaba.cloud.ai.dataagent.helper.MultiTurnContextCacheManager;
+import com.alibaba.cloud.ai.dataagent.helper.MultiTurnContextSnapshot;
+import com.alibaba.cloud.ai.dataagent.service.ChatMessageService;
 import com.alibaba.cloud.ai.dataagent.service.graph.GraphService;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import jakarta.servlet.http.HttpServletResponse;
@@ -24,6 +29,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,6 +37,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
+
+import java.util.List;
 
 /**
  * @author zhangshenghang
@@ -44,10 +52,14 @@ import reactor.core.publisher.Sinks;
 public class GraphController {
 
 	private final GraphService graphService;
+	private final ChatMessageService chatMessageService;
+	private final MultiTurnContextBuilder multiTurnContextBuilder;
+	private final MultiTurnContextCacheManager multiTurnContextCacheManager;
 
 	@GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<ServerSentEvent<GraphNodeResponse>> streamSearch(@RequestParam("agentId") String agentId,
 			@RequestParam(value = "threadId", required = false) String threadId, @RequestParam("query") String query,
+			@RequestParam(value = "sessionId", required = false) String sessionId,
 			@RequestParam(value = "humanFeedback", required = false) boolean humanFeedback,
 			@RequestParam(value = "humanFeedbackContent", required = false) String humanFeedbackContent,
 			@RequestParam(value = "rejectedPlan", required = false) boolean rejectedPlan,
@@ -63,6 +75,25 @@ public class GraphController {
 
 		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
 
+		String multiTurnContext = null;
+		if (StringUtils.hasText(sessionId)) {
+			try {
+				List<ChatMessage> messages = chatMessageService.findBySessionId(sessionId);
+				MultiTurnContextSnapshot snapshot = multiTurnContextBuilder.build(messages, query,
+						multiTurnContextCacheManager.getSnapshot(sessionId));
+				if (snapshot != null) {
+					multiTurnContext = snapshot.getContext();
+					multiTurnContextCacheManager.updateSnapshot(sessionId, snapshot);
+				}
+				else {
+					multiTurnContextCacheManager.removeSnapshot(sessionId);
+				}
+			}
+			catch (Exception ex) {
+				log.warn("Failed to build multi-turn context for session {}: {}", sessionId, ex.getMessage());
+			}
+		}
+
 		GraphRequest request = GraphRequest.builder()
 			.agentId(agentId)
 			.threadId(threadId)
@@ -72,6 +103,8 @@ public class GraphController {
 			.rejectedPlan(rejectedPlan)
 			.nl2sqlOnly(nl2sqlOnly)
 			.plainReport(plainReport)
+			.sessionId(sessionId)
+			.multiTurnContext(multiTurnContext)
 			.build();
 		graphService.graphStreamProcess(sink, request);
 

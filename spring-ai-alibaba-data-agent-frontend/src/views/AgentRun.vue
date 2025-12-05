@@ -70,6 +70,21 @@
                   下载HTML报告
                 </el-button>
               </div>
+              <div
+                v-else-if="message.messageType === 'sql' || message.messageType === 'python'"
+                class="structured-message"
+              >
+                <div class="structured-message-header">
+                  <span>{{ message.messageType === 'sql' ? '生成的SQL' : '生成的Python代码' }}</span>
+                </div>
+                <pre class="structured-message-body"><code v-html="renderStructuredCode(message)"></code></pre>
+              </div>
+              <div v-else-if="message.messageType === 'summary'" class="structured-summary-message">
+                <div class="structured-message-header">
+                  <span>报告摘要</span>
+                </div>
+                <div class="structured-summary-body">{{ formatSummaryMessage(message.content) }}</div>
+              </div>
               <!-- 文本类型消息使用原有布局 -->
               <div v-else :class="['message', message.role]">
                 <div class="message-avatar">
@@ -372,6 +387,61 @@
         pageSize: 20,
       });
 
+      const renderStructuredCode = (message: ChatMessage) => {
+        const language = message.messageType === 'python' ? 'python' : 'sql';
+        try {
+          return hljs.highlight(message.content || '', { language }).value;
+        } catch (error) {
+          const escaped = (message.content || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+          return escaped;
+        }
+      };
+
+      const formatSummaryMessage = (content: string) => {
+        if (!content) {
+          return '';
+        }
+        return content.replace(/\s+/g, ' ').trim();
+      };
+
+      const createReportSummary = (html: string): string => {
+        if (!html) return '';
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        const text = div.textContent || div.innerText || '';
+        return text.trim().slice(0, 400);
+      };
+
+      const saveStructuredMessage = async (
+        sessionId: string,
+        type: 'sql' | 'python' | 'summary',
+        content: string,
+        metadata?: Record<string, unknown>,
+      ): Promise<void> => {
+        const trimmed = content?.trim();
+        if (!trimmed) {
+          return;
+        }
+        const chatMessage: ChatMessage = {
+          sessionId,
+          role: 'assistant',
+          content: trimmed,
+          messageType: type,
+          metadata: metadata ? JSON.stringify(metadata) : undefined,
+        };
+        try {
+          const savedMessage = await ChatService.saveMessage(sessionId, chatMessage);
+          if (currentSession.value?.id === sessionId) {
+            currentMessages.value.push(savedMessage);
+          }
+        } catch (error) {
+          console.error(`保存${type}消息失败:`, error);
+        }
+      };
+
       const agentId = computed(() => route.params.id as string);
 
       const loadAgent = async () => {
@@ -434,6 +504,7 @@
 
           const request: GraphRequest = {
             agentId: agentId.value,
+            sessionId: currentSession.value.id,
             query: userInput.value,
             humanFeedback: requestOptions.value.humanFeedback,
             nl2sqlOnly: requestOptions.value.nl2sqlOnly,
@@ -466,6 +537,45 @@
           let currentBlockIndex: number = -1;
           const pendingSavePromises: Promise<void>[] = [];
 
+          const flushStructuredBuffer = (bufferType: 'sql' | 'python', nodeName?: string) => {
+            const key: 'sqlBuffer' | 'pythonBuffer' = bufferType === 'sql' ? 'sqlBuffer' : 'pythonBuffer';
+            const bufferContent = sessionState[key];
+            sessionState[key] = '';
+            if (!bufferContent || !bufferContent.trim()) {
+              return;
+            }
+            const promise = saveStructuredMessage(
+              sessionId,
+              bufferType,
+              bufferContent,
+              nodeName ? { nodeName } : undefined,
+            );
+            pendingSavePromises.push(promise);
+          };
+
+          const handleStructuredStreaming = (response: GraphNodeResponse) => {
+            if (response.textType === TextType.SQL) {
+              sessionState.sqlBuffer += response.text;
+            } else if (sessionState.sqlBuffer) {
+              flushStructuredBuffer('sql', response.nodeName);
+            }
+
+            if (response.textType === TextType.PYTHON) {
+              sessionState.pythonBuffer += response.text;
+            } else if (sessionState.pythonBuffer) {
+              flushStructuredBuffer('python', response.nodeName);
+            }
+          };
+
+          const flushAllStructuredBuffers = () => {
+            if (sessionState.sqlBuffer) {
+              flushStructuredBuffer('sql');
+            }
+            if (sessionState.pythonBuffer) {
+              flushStructuredBuffer('python');
+            }
+          };
+
           // 重置报告状态
           resetReportState(sessionState, request);
 
@@ -490,7 +600,8 @@
           // 发送流式请求
           const closeStream = await GraphService.streamSearch(
             request,
-            (response: GraphNodeResponse) => {
+            async (response: GraphNodeResponse) => {
+              handleStructuredStreaming(response);
               if (response.error) {
                 ElMessage.error(`处理错误: ${response.text}`);
                 return;
@@ -600,6 +711,7 @@
             async (error: Error) => {
               ElMessage.error(`流式请求失败: ${error.message}`);
               console.error('error: ' + error);
+              flushAllStructuredBuffers();
               // 等待所有待处理的保存操作完成
               if (pendingSavePromises.length > 0) {
                 await Promise.all(pendingSavePromises);
@@ -614,6 +726,7 @@
               }
             },
             async () => {
+              flushAllStructuredBuffers();
               // 等待所有待处理的保存操作完成
               if (pendingSavePromises.length > 0) {
                 await Promise.all(pendingSavePromises);
@@ -632,6 +745,13 @@
                   .then(savedMessage => {
                     if (currentSession.value?.id === sessionId) {
                       currentMessages.value.push(savedMessage);
+                    }
+                    const summary = createReportSummary(sessionState.htmlReportContent);
+                    if (summary) {
+                      const summaryPromise = saveStructuredMessage(sessionId, 'summary', summary, {
+                        nodeName: 'ReportGeneratorNode',
+                      });
+                      pendingSavePromises.push(summaryPromise);
                     }
                   })
                   .catch(error => {
@@ -844,6 +964,8 @@
         sessionState.htmlReportContent = '';
         sessionState.htmlReportSize = 0;
         sessionState.markdownReportContent = '';
+        sessionState.sqlBuffer = '';
+        sessionState.pythonBuffer = '';
       };
 
       const scrollToBottom = () => {
@@ -1049,6 +1171,8 @@
         formatMessageContent,
         formatNodeContent,
         generateNodeHtml,
+        renderStructuredCode,
+        formatSummaryMessage,
         handleNl2sqlOnlyChange,
         downloadHtmlReportFromMessage,
         markdownToHtml,
@@ -1283,6 +1407,36 @@
     color: #409eff;
     font-size: 16px;
     font-weight: 500;
+  }
+
+  .structured-message,
+  .structured-summary-message {
+    border: 1px solid #e1e4e8;
+    border-radius: 10px;
+    padding: 12px;
+    background: #fafafa;
+    margin-bottom: 8px;
+  }
+
+  .structured-message-header {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #409eff;
+  }
+
+  .structured-message-body {
+    margin: 0;
+    background: #1e1e1e;
+    color: #f8f8f2;
+    border-radius: 8px;
+    padding: 12px;
+    overflow-x: auto;
+  }
+
+  .structured-summary-body {
+    white-space: pre-wrap;
+    line-height: 1.6;
+    color: #303133;
   }
 
   /* 输入区域样式 */

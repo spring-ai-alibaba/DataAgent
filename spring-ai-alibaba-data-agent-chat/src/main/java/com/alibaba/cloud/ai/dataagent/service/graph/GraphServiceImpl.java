@@ -38,6 +38,7 @@ import reactor.core.publisher.Sinks;
 
 import reactor.core.Disposable;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -49,6 +50,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_NO
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_REVIEW_ENABLED;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.INPUT_KEY;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.IS_ONLY_NL2SQL;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.MULTI_TURN_CONTEXT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_OUTPUT;
 
 @Slf4j
@@ -60,6 +62,8 @@ public class GraphServiceImpl implements GraphService {
 	private final ExecutorService executor;
 
 	private final ConcurrentHashMap<String, StreamContext> streamContextMap = new ConcurrentHashMap<>();
+
+	private final ConcurrentHashMap<String, String> sessionThreadMap = new ConcurrentHashMap<>();
 
 	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService) throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
@@ -82,6 +86,14 @@ public class GraphServiceImpl implements GraphService {
 			graphRequest.setThreadId(UUID.randomUUID().toString());
 		}
 		String threadId = graphRequest.getThreadId();
+		if (StringUtils.hasText(graphRequest.getSessionId())) {
+			if (StringUtils.hasText(graphRequest.getHumanFeedbackContent())) {
+				validateSessionOwnership(graphRequest.getSessionId(), threadId);
+			}
+			else {
+				registerSessionThread(graphRequest.getSessionId(), threadId);
+			}
+		}
 		// 创建或获取 StreamContext
 		StreamContext context = streamContextMap.computeIfAbsent(threadId, k -> new StreamContext());
 		context.setSink(sink);
@@ -108,6 +120,7 @@ public class GraphServiceImpl implements GraphService {
 			context.cleanup();
 			log.info("Cleaned up stream context for threadId: {}", threadId);
 		}
+		removeThreadMapping(threadId);
 	}
 
 	private void handleNewProcess(GraphRequest graphRequest) {
@@ -128,8 +141,15 @@ public class GraphServiceImpl implements GraphService {
 			log.warn("StreamContext already cleaned for threadId: {}, skipping stream start", threadId);
 			return;
 		}
-		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query,
-				AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled),
+		Map<String, Object> inputState = new HashMap<>();
+		inputState.put(IS_ONLY_NL2SQL, nl2sqlOnly);
+		inputState.put(INPUT_KEY, query);
+		inputState.put(AGENT_ID, agentId);
+		inputState.put(HUMAN_REVIEW_ENABLED, humanReviewEnabled);
+		inputState.put(MULTI_TURN_CONTEXT,
+				StringUtils.hasText(graphRequest.getMultiTurnContext()) ? graphRequest.getMultiTurnContext() : "");
+
+		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(inputState,
 				RunnableConfig.builder().threadId(threadId).build());
 		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
 	}
@@ -217,6 +237,7 @@ public class GraphServiceImpl implements GraphService {
 			// 清理资源（cleanup 内部已经保证只执行一次）
 			context.cleanup();
 		}
+		removeThreadMapping(threadId);
 	}
 
 	/**
@@ -235,6 +256,7 @@ public class GraphServiceImpl implements GraphService {
 			}
 			context.cleanup();
 		}
+		removeThreadMapping(threadId);
 	}
 
 	/**
@@ -294,6 +316,35 @@ public class GraphServiceImpl implements GraphService {
 				stopStreamProcessing(threadId);
 			}
 		}
+	}
+
+	private void registerSessionThread(String sessionId, String threadId) {
+		if (!StringUtils.hasText(sessionId) || !StringUtils.hasText(threadId)) {
+			return;
+		}
+		String existing = sessionThreadMap.put(sessionId, threadId);
+		if (StringUtils.hasText(existing) && !existing.equals(threadId)) {
+			log.info("Session {} already bound to thread {}, stopping old stream", sessionId, existing);
+			stopStreamProcessing(existing);
+		}
+	}
+
+	private void validateSessionOwnership(String sessionId, String threadId) {
+		if (!StringUtils.hasText(sessionId) || !StringUtils.hasText(threadId)) {
+			return;
+		}
+		String existing = sessionThreadMap.get(sessionId);
+		if (existing != null && !existing.equals(threadId)) {
+			throw new IllegalStateException(
+					String.format("Thread %s does not belong to session %s (current: %s)", threadId, sessionId, existing));
+		}
+	}
+
+	private void removeThreadMapping(String threadId) {
+		if (!StringUtils.hasText(threadId)) {
+			return;
+		}
+		sessionThreadMap.entrySet().removeIf(entry -> threadId.equals(entry.getValue()));
 	}
 
 }

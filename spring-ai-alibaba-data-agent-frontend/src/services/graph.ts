@@ -16,6 +16,7 @@
 
 export interface GraphRequest {
   agentId: string;
+  sessionId: string;
   threadId?: string;
   query: string;
   humanFeedback: boolean;
@@ -65,6 +66,9 @@ class GraphService {
     // 构建查询参数
     const params = new URLSearchParams();
     params.append('agentId', request.agentId);
+    if (request.sessionId) {
+      params.append('sessionId', request.sessionId);
+    }
     if (request.threadId) {
       params.append('threadId', request.threadId);
     }

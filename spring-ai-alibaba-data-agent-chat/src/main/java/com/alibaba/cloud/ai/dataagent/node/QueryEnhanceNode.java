@@ -36,7 +36,10 @@ import reactor.core.publisher.Flux;
 
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.EVIDENCE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.INPUT_KEY;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.MULTI_TURN_CONTEXT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.QUERY_ENHANCE_NODE_OUTPUT;
 
 /**
  * 查询处理节点，用于查询改写、分解和关键词提取
@@ -58,9 +61,10 @@ public class QueryEnhanceNode implements NodeAction {
 		log.info("User input for query enhance: {}", userInput);
 
 		String evidence = StateUtil.getStringValue(state, EVIDENCE);
+		String multiTurnContext = StateUtil.getStringValue(state, MULTI_TURN_CONTEXT, null);
 
-		// 构建查询处理提示，多轮对话暂时为空
-		String prompt = PromptHelper.buildQueryEnhancePrompt(null, userInput, evidence);
+		// 构建查询处理提示
+		String prompt = PromptHelper.buildQueryEnhancePrompt(multiTurnContext, userInput, evidence);
 		log.debug("Built query enhance prompt as follows \n {} \n", prompt);
 
 		// 调用LLM进行查询处理

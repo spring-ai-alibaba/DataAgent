@@ -25,6 +25,8 @@ export interface SessionRuntimeState {
   htmlReportContent: string;
   htmlReportSize: number;
   markdownReportContent: string;
+  sqlBuffer: string;
+  pythonBuffer: string;
 }
 
 /**
@@ -47,6 +49,8 @@ export function useSessionStateManager() {
         htmlReportContent: '',
         htmlReportSize: 0,
         markdownReportContent: '',
+        sqlBuffer: '',
+        pythonBuffer: '',
       });
     }
     return sessionStates.value.get(sessionId)!;

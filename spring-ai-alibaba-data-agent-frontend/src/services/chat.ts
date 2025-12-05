@@ -33,7 +33,7 @@ export interface ChatMessage {
   sessionId: string;
   role: string; // user, assistant, system
   content: string;
-  messageType: string; // text, sql, result, error
+  messageType: string; // text, sql, python, summary, html, html-report, result, error
   metadata?: string; // JSON格式的元数据
   createTime?: Date;
 }
