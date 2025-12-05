@@ -79,12 +79,6 @@
                 </div>
                 <pre class="structured-message-body"><code v-html="renderStructuredCode(message)"></code></pre>
               </div>
-              <div v-else-if="message.messageType === 'summary'" class="structured-summary-message">
-                <div class="structured-message-header">
-                  <span>报告摘要</span>
-                </div>
-                <div class="structured-summary-body">{{ formatSummaryMessage(message.content) }}</div>
-              </div>
               <!-- 文本类型消息使用原有布局 -->
               <div v-else :class="['message', message.role]">
                 <div class="message-avatar">
@@ -400,24 +394,9 @@
         }
       };
 
-      const formatSummaryMessage = (content: string) => {
-        if (!content) {
-          return '';
-        }
-        return content.replace(/\s+/g, ' ').trim();
-      };
-
-      const createReportSummary = (html: string): string => {
-        if (!html) return '';
-        const div = document.createElement('div');
-        div.innerHTML = html;
-        const text = div.textContent || div.innerText || '';
-        return text.trim().slice(0, 400);
-      };
-
       const saveStructuredMessage = async (
         sessionId: string,
-        type: 'sql' | 'python' | 'summary',
+        type: 'sql' | 'python',
         content: string,
         metadata?: Record<string, unknown>,
       ): Promise<void> => {
@@ -745,13 +724,6 @@
                   .then(savedMessage => {
                     if (currentSession.value?.id === sessionId) {
                       currentMessages.value.push(savedMessage);
-                    }
-                    const summary = createReportSummary(sessionState.htmlReportContent);
-                    if (summary) {
-                      const summaryPromise = saveStructuredMessage(sessionId, 'summary', summary, {
-                        nodeName: 'ReportGeneratorNode',
-                      });
-                      pendingSavePromises.push(summaryPromise);
                     }
                   })
                   .catch(error => {
@@ -1172,7 +1144,6 @@
         formatNodeContent,
         generateNodeHtml,
         renderStructuredCode,
-        formatSummaryMessage,
         handleNl2sqlOnlyChange,
         downloadHtmlReportFromMessage,
         markdownToHtml,
@@ -1409,8 +1380,7 @@
     font-weight: 500;
   }
 
-  .structured-message,
-  .structured-summary-message {
+  .structured-message {
     border: 1px solid #e1e4e8;
     border-radius: 10px;
     padding: 12px;
@@ -1431,12 +1401,6 @@
     border-radius: 8px;
     padding: 12px;
     overflow-x: auto;
-  }
-
-  .structured-summary-body {
-    white-space: pre-wrap;
-    line-height: 1.6;
-    color: #303133;
   }
 
   /* 输入区域样式 */

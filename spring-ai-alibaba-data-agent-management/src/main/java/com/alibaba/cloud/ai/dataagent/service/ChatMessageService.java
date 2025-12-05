@@ -31,4 +31,12 @@ public interface ChatMessageService {
 	 */
 	ChatMessage saveMessage(ChatMessage message);
 
+	/**
+	 * Build multi-turn conversation context for session
+	 * @param sessionId session identifier
+	 * @param latestQuery latest user question
+	 * @return serialized context or null
+	 */
+	String buildConversationContext(String sessionId, String latestQuery);
+
 }
