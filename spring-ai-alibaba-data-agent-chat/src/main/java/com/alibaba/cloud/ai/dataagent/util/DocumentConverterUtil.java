@@ -58,7 +58,7 @@ public class DocumentConverterUtil {
 	public static Document convertColumnToDocumentForAgent(String agentId, TableInfoBO tableInfoBO,
 			ColumnInfoBO columnInfoBO) {
 		String text = StringUtils.isBlank(columnInfoBO.getDescription()) ? columnInfoBO.getName()
-                : columnInfoBO.getDescription();
+				: columnInfoBO.getDescription();
 		Map<String, Object> metadata = new HashMap<>();
 		metadata.put("name", columnInfoBO.getName());
 		metadata.put("tableName", tableInfoBO.getName());
@@ -84,8 +84,8 @@ public class DocumentConverterUtil {
 	 * @return Document object with table metadata
 	 */
 	public static Document convertTableToDocumentForAgent(String agentId, TableInfoBO tableInfoBO) {
-        String text = StringUtils.isBlank(tableInfoBO.getDescription()) ? tableInfoBO.getName()
-                : tableInfoBO.getDescription();
+		String text = StringUtils.isBlank(tableInfoBO.getDescription()) ? tableInfoBO.getName()
+				: tableInfoBO.getDescription();
 		Map<String, Object> metadata = new HashMap<>();
 		metadata.put("schema", Optional.ofNullable(tableInfoBO.getSchema()).orElse(""));
 		metadata.put("name", tableInfoBO.getName());
