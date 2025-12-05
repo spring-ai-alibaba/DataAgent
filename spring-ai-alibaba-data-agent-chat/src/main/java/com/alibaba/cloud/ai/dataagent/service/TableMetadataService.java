@@ -231,7 +231,7 @@ public class TableMetadataService {
 
 		try {
 			// 构建批量查询SQL，一次查询多个列的样本数据
-			String columnNames = columns.stream().map(ColumnInfoBO::getName).collect(Collectors.joining(", "));
+			String columnNames = columns.stream().map(c-> "`"+c.getName()+"`").collect(Collectors.joining(", "));
 			String sql = String.format("SELECT %s FROM %s LIMIT 5", columnNames, tableName);
 
 			DbQueryParameter batchParam = new DbQueryParameter();
