@@ -508,7 +508,8 @@
           const pendingSavePromises: Promise<void>[] = [];
 
           const flushStructuredBuffer = (bufferType: 'sql' | 'python', nodeName?: string) => {
-            const key: 'sqlBuffer' | 'pythonBuffer' = bufferType === 'sql' ? 'sqlBuffer' : 'pythonBuffer';
+            const key: 'sqlBuffer' | 'pythonBuffer' =
+              bufferType === 'sql' ? 'sqlBuffer' : 'pythonBuffer';
             const bufferContent = sessionState[key];
             sessionState[key] = '';
             if (!bufferContent || !bufferContent.trim()) {
@@ -1369,7 +1370,6 @@
     font-size: 16px;
     font-weight: 500;
   }
-
 
   /* 输入区域样式 */
   .input-area {
