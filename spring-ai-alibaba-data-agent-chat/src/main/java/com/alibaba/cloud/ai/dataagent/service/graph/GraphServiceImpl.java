@@ -322,11 +322,14 @@ public class GraphServiceImpl implements GraphService {
 		if (!StringUtils.hasText(sessionId) || !StringUtils.hasText(threadId)) {
 			return;
 		}
-		String existing = sessionThreadMap.put(sessionId, threadId);
-		if (StringUtils.hasText(existing) && !existing.equals(threadId)) {
+		sessionThreadMap.compute(sessionId, (key, existing) -> {
+			if (existing == null || existing.equals(threadId)) {
+				return threadId;
+			}
 			log.info("Session {} already bound to thread {}, stopping old stream", sessionId, existing);
 			stopStreamProcessing(existing);
-		}
+			return threadId;
+		});
 	}
 
 	private void validateSessionOwnership(String sessionId, String threadId) {

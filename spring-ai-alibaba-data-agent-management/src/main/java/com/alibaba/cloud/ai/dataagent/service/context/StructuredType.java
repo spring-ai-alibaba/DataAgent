@@ -36,7 +36,7 @@ public enum StructuredType {
 		this.typeName = typeName;
 	}
 
-	static StructuredType from(String messageType) {
+	public static StructuredType from(String messageType) {
 		if (!StringUtils.hasText(messageType)) {
 			return null;
 		}
