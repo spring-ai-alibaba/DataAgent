@@ -36,6 +36,7 @@ export interface ChatMessage {
   messageType: string; // text, sql, result, error
   metadata?: string; // JSON格式的元数据
   createTime?: Date;
+  titleNeeded?: boolean;
 }
 
 const API_BASE_URL = '/api';
