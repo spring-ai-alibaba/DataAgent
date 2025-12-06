@@ -17,7 +17,6 @@
 package com.alibaba.cloud.ai.dataagent.service.hybrid.factory;
 
 import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
-import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.fusion.FusionStrategy;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.HybridRetrievalStrategy;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.impl.DefaultHybridRetrievalStrategy;
@@ -45,9 +44,6 @@ public class HybridRetrievalStrategyFactory implements FactoryBean<HybridRetriev
 	// spring ai Elasticsearch VectorStore的官方属性
 	@Value("${spring.ai.vectorstore.elasticsearch.index-name:spring-ai-document-index}")
 	private String elasticsearchIndexName;
-
-	@Value("${" + Constant.PROJECT_PROPERTIES_PREFIX + ".elasticsearch-min-score:0.5}")
-	private Double minScore;
 
 	@Autowired
 	private ExecutorService executorService;
