@@ -48,8 +48,8 @@
             size="large"
             :type="filterVisible ? 'primary' : ''"
             round
+            :icon="FilterIcon"
           >
-            <el-icon :component="FilterIcon" />
             筛选
           </el-button>
           <el-button @click="openCreateDialog" size="large" type="primary" round :icon="Plus">
@@ -311,6 +311,7 @@
     components: {
       Search,
       Warning,
+      UploadFilled,
     },
     props: {
       agentId: {
