@@ -43,4 +43,8 @@ public class GraphRequest {
 
 	private boolean plainReport;
 
+	private String sessionId;
+
+	private String multiTurnContext;
+
 }

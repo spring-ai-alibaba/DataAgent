@@ -32,7 +32,10 @@ import reactor.core.publisher.Flux;
 
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.EVIDENCE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.FEASIBILITY_ASSESSMENT_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.MULTI_TURN_CONTEXT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_OUTPUT;
 
 // 可行性评估节点，看需求是 数据分析/需要澄清 或者最终确认为自由闲聊
 @Slf4j
@@ -52,9 +55,11 @@ public class FeasibilityAssessmentNode implements NodeAction {
 
 		// 获取证据信息
 		String evidence = StateUtil.getStringValue(state, EVIDENCE);
+		String multiTurnContext = StateUtil.getStringValue(state, MULTI_TURN_CONTEXT, null);
 
-		// 构建可行性评估提示词，多轮对话暂时为空
-		String prompt = PromptHelper.buildFeasibilityAssessmentPrompt(canonicalQuery, recalledSchema, evidence, null);
+		// 构建可行性评估提示词
+		String prompt = PromptHelper.buildFeasibilityAssessmentPrompt(canonicalQuery, recalledSchema, evidence,
+				multiTurnContext);
 		log.debug("Built feasibility assessment prompt as follows \n {} \n", prompt);
 
 		// 调用LLM进行可行性评估

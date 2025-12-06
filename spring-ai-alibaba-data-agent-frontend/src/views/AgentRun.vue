@@ -372,6 +372,45 @@
         pageSize: 20,
       });
 
+      const DISPLAY_MESSAGE_TYPES = ['text', 'html', 'html-report'];
+
+      const shouldDisplayMessage = (message: ChatMessage) => {
+        if (!message?.messageType) {
+          return true;
+        }
+        return DISPLAY_MESSAGE_TYPES.includes(message.messageType);
+      };
+
+      const pushDisplayedMessage = (message: ChatMessage) => {
+        if (shouldDisplayMessage(message)) {
+          currentMessages.value.push(message);
+        }
+      };
+
+      const saveStructuredMessage = async (
+        sessionId: string,
+        type: 'sql' | 'python',
+        content: string,
+        metadata?: Record<string, unknown>,
+      ): Promise<void> => {
+        const trimmed = content?.trim();
+        if (!trimmed) {
+          return;
+        }
+        const chatMessage: ChatMessage = {
+          sessionId,
+          role: 'assistant',
+          content: trimmed,
+          messageType: type,
+          metadata: metadata ? JSON.stringify(metadata) : undefined,
+        };
+        try {
+          await ChatService.saveMessage(sessionId, chatMessage);
+        } catch (error) {
+          console.error(`保存${type}消息失败:`, error);
+        }
+      };
+
       const agentId = computed(() => route.params.id as string);
 
       const loadAgent = async () => {
@@ -403,7 +442,8 @@
             return;
           }
           syncStateToView(session.id, { isStreaming, nodeBlocks });
-          currentMessages.value = await ChatService.getSessionMessages(session.id);
+          const messages = await ChatService.getSessionMessages(session.id);
+          currentMessages.value = messages.filter(shouldDisplayMessage);
           scrollToBottom();
         } catch (error) {
           ElMessage.error('加载消息失败');
@@ -433,10 +473,11 @@
         try {
           // 保存用户消息
           const savedMessage = await ChatService.saveMessage(currentSession.value.id, userMessage);
-          currentMessages.value.push(savedMessage);
+          pushDisplayedMessage(savedMessage);
 
           const request: GraphRequest = {
             agentId: agentId.value,
+            sessionId: currentSession.value.id,
             query: userInput.value,
             humanFeedback: requestOptions.value.humanFeedback,
             nl2sqlOnly: requestOptions.value.nl2sqlOnly,
@@ -469,6 +510,46 @@
           let currentBlockIndex: number = -1;
           const pendingSavePromises: Promise<void>[] = [];
 
+          const flushStructuredBuffer = (bufferType: 'sql' | 'python', nodeName?: string) => {
+            const key: 'sqlBuffer' | 'pythonBuffer' =
+              bufferType === 'sql' ? 'sqlBuffer' : 'pythonBuffer';
+            const bufferContent = sessionState[key];
+            sessionState[key] = '';
+            if (!bufferContent || !bufferContent.trim()) {
+              return;
+            }
+            const promise = saveStructuredMessage(
+              sessionId,
+              bufferType,
+              bufferContent,
+              nodeName ? { nodeName } : undefined,
+            );
+            pendingSavePromises.push(promise);
+          };
+
+          const handleStructuredStreaming = (response: GraphNodeResponse) => {
+            if (response.textType === TextType.SQL) {
+              sessionState.sqlBuffer += response.text;
+            } else if (sessionState.sqlBuffer) {
+              flushStructuredBuffer('sql', response.nodeName);
+            }
+
+            if (response.textType === TextType.PYTHON) {
+              sessionState.pythonBuffer += response.text;
+            } else if (sessionState.pythonBuffer) {
+              flushStructuredBuffer('python', response.nodeName);
+            }
+          };
+
+          const flushAllStructuredBuffers = () => {
+            if (sessionState.sqlBuffer) {
+              flushStructuredBuffer('sql');
+            }
+            if (sessionState.pythonBuffer) {
+              flushStructuredBuffer('python');
+            }
+          };
+
           // 重置报告状态
           resetReportState(sessionState, request);
 
@@ -493,7 +574,8 @@
           // 发送流式请求
           const closeStream = await GraphService.streamSearch(
             request,
-            (response: GraphNodeResponse) => {
+            async (response: GraphNodeResponse) => {
+              handleStructuredStreaming(response);
               if (response.error) {
                 ElMessage.error(`处理错误: ${response.text}`);
                 return;
@@ -603,6 +685,7 @@
             async (error: Error) => {
               ElMessage.error(`流式请求失败: ${error.message}`);
               console.error('error: ' + error);
+              flushAllStructuredBuffers();
               // 等待所有待处理的保存操作完成
               if (pendingSavePromises.length > 0) {
                 await Promise.all(pendingSavePromises);
@@ -617,6 +700,7 @@
               }
             },
             async () => {
+              flushAllStructuredBuffers();
               // 等待所有待处理的保存操作完成
               if (pendingSavePromises.length > 0) {
                 await Promise.all(pendingSavePromises);
@@ -634,7 +718,7 @@
                 await ChatService.saveMessage(sessionId, htmlReportMessage)
                   .then(savedMessage => {
                     if (currentSession.value?.id === sessionId) {
-                      currentMessages.value.push(savedMessage);
+                      pushDisplayedMessage(savedMessage);
                     }
                   })
                   .catch(error => {
@@ -659,7 +743,7 @@
                 await ChatService.saveMessage(sessionId, markdownMessage)
                   .then(savedMessage => {
                     if (currentSession.value?.id === sessionId) {
-                      currentMessages.value.push(savedMessage);
+                      pushDisplayedMessage(savedMessage);
                     }
                   })
                   .catch(error => {
@@ -847,6 +931,8 @@
         sessionState.htmlReportContent = '';
         sessionState.htmlReportSize = 0;
         sessionState.markdownReportContent = '';
+        sessionState.sqlBuffer = '';
+        sessionState.pythonBuffer = '';
       };
 
       const scrollToBottom = () => {

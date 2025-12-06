@@ -18,9 +18,11 @@ package com.alibaba.cloud.ai.dataagent.service.impl;
 import com.alibaba.cloud.ai.dataagent.entity.ChatMessage;
 import com.alibaba.cloud.ai.dataagent.mapper.ChatMessageMapper;
 import com.alibaba.cloud.ai.dataagent.service.ChatMessageService;
+import com.alibaba.cloud.ai.dataagent.service.context.MultiTurnContextManager;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -34,6 +36,8 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
 	private final ChatMessageMapper chatMessageMapper;
 
+	private final MultiTurnContextManager multiTurnContextManager;
+
 	@Override
 	public List<ChatMessage> findBySessionId(String sessionId) {
 		return chatMessageMapper.selectBySessionId(sessionId);
@@ -44,6 +48,15 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 		chatMessageMapper.insert(message);
 		log.info("Saved message: {} for session: {}", message.getId(), message.getSessionId());
 		return message;
+	}
+
+	@Override
+	public String buildConversationContext(String sessionId, String latestQuery) {
+		if (!StringUtils.hasText(sessionId)) {
+			return null;
+		}
+		List<ChatMessage> messages = chatMessageMapper.selectBySessionId(sessionId);
+		return multiTurnContextManager.buildContext(sessionId, messages, latestQuery);
 	}
 
 }
