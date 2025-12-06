@@ -16,6 +16,8 @@
 
 package com.alibaba.cloud.ai.dataagent.entity;
 
+import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
+import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -37,32 +39,46 @@ public class AgentKnowledge {
 
 	private String title;
 
+	// DOCUMENT, QA, FAQ
+	private KnowledgeType type;
+
+	// FAQ QA 问题
+	private String question;
+
+	// 当type=QA, FAQ时有内容
 	private String content;
 
-	private String type; // document, qa, faq
+	// 业务状态: 1=召回, 0=非召回
+	private Integer isRecall;
 
-	private String category;
+	// 向量化状态：PENDING待处理，PROCESSING处理中，COMPLETED已完成，FAILED失败
+	private EmbeddingStatus embeddingStatus;
 
-	private String tags;
+	// 操作失败的错误信息
+	private String errorMsg;
 
-	private String status; // active, inactive
+	private String sourceFilename;
 
-	private String sourceUrl;
-
+	// 文件路径
 	private String filePath;
 
+	// 文件大小（字节）
 	private Long fileSize;
 
+	// 文件类型
 	private String fileType;
 
-	private String embeddingStatus; // pending, processing, completed, failed
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+	private LocalDateTime createdTime;
 
-	private Long creatorId;
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+	private LocalDateTime updatedTime;
 
-	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-	private LocalDateTime createTime;
+	// 0=未删除, 1=已删除
+	private Integer isDeleted;
 
-	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-	private LocalDateTime updateTime;
+	// 0=物理资源（文件和向量）未清理, 1=物理资源已清理
+	// 默认值是 0
+	private Integer isResourceCleaned;
 
 }

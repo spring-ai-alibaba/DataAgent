@@ -17,12 +17,15 @@
 package com.alibaba.cloud.ai.dataagent.service.schema;
 
 import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.common.request.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import org.springframework.ai.document.Document;
 
 import java.util.List;
 
 public interface SchemaService {
+
+	Boolean schema(String agentId, SchemaInitRequest schemaInitRequest) throws Exception;
 
 	List<Document> getTableDocumentsForAgent(String agentId, String query);
 

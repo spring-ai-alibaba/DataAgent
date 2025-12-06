@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.dto;
 
-import com.alibaba.cloud.ai.dataagent.entity.BusinessKnowledge;
+package com.alibaba.cloud.ai.dataagent.dto.businessknowledge;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -23,37 +23,22 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Business knowledge management entity class
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class BusinessKnowledgeDTO {
+public class UpdateBusinessKnowledgeDTO {
 
 	@NotBlank(message = "Business term cannot be empty")
-	private String businessTerm; // Business term
+	private String businessTerm;
 
 	@NotBlank(message = "Description cannot be empty")
-	private String description; // Description
+	private String description;
 
-	private String synonyms; // Synonyms, comma separated
-
-	@Builder.Default
-	private Boolean isRecall = true; // Whether to recall
+	// Synonyms, comma separated
+	private String synonyms;
 
 	@NotNull(message = "Agent ID cannot be Null")
-	private Long agentId; // Associated agent ID
-
-	public BusinessKnowledge toEntity() {
-		return BusinessKnowledge.builder()
-			.businessTerm(businessTerm)
-			.description(description)
-			.synonyms(synonyms)
-			.isRecall(isRecall != null && isRecall ? 1 : 0)
-			.agentId(agentId)
-			.build();
-	}
+	private Long agentId;
 
 }

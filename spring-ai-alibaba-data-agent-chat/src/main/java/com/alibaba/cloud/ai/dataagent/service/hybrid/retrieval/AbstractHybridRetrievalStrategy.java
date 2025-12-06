@@ -16,21 +16,17 @@
 
 package com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval;
 
-import com.alibaba.cloud.ai.dataagent.common.request.AgentSearchRequest;
+import com.alibaba.cloud.ai.dataagent.common.request.HybridSearchRequest;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.fusion.FusionStrategy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.util.StringUtils;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-
-import static com.alibaba.cloud.ai.dataagent.util.SearchUtil.buildVectorSearchRequest;
 
 @Slf4j
 public abstract class AbstractHybridRetrievalStrategy implements HybridRetrievalStrategy {
@@ -55,17 +51,9 @@ public abstract class AbstractHybridRetrievalStrategy implements HybridRetrieval
 	// 如果你的向量库天然支持混合检索，如Milvus,Es..你可以在子类直接重写该方法不用它这里的流程走
 	// 目前ES实现仍然按照模板流程走，因为ES的付费企业版才能使用它服务端的rrf融合策略
 	@Override
-	public List<Document> retrieve(AgentSearchRequest request) {
-		if (!StringUtils.hasText(request.getAgentId()))
-			throw new IllegalArgumentException("agentId cannot be null");
+	public List<Document> retrieve(HybridSearchRequest request) {
 
-		if (!StringUtils.hasText(request.getDocVectorType()))
-			throw new IllegalArgumentException("docVectorType cannot be null");
-
-		if (Objects.isNull(request.getTopK()))
-			throw new IllegalArgumentException("topK cannot be null");
-
-		SearchRequest vectorSearchRequest = buildVectorSearchRequest(request, true);
+		SearchRequest vectorSearchRequest = request.toVectorSearchRequest();
 
 		// 异步执行向量搜索
 		CompletableFuture<List<Document>> vectorSearchFuture = CompletableFuture.supplyAsync(() -> {
@@ -105,6 +93,6 @@ public abstract class AbstractHybridRetrievalStrategy implements HybridRetrieval
 
 	}
 
-	public abstract List<Document> getDocumentsByKeywords(AgentSearchRequest agentSearchRequest);
+	public abstract List<Document> getDocumentsByKeywords(HybridSearchRequest request);
 
 }

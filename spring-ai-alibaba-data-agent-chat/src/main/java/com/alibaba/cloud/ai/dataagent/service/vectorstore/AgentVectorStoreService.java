@@ -17,8 +17,8 @@
 package com.alibaba.cloud.ai.dataagent.service.vectorstore;
 
 import com.alibaba.cloud.ai.dataagent.common.request.AgentSearchRequest;
-import com.alibaba.cloud.ai.dataagent.common.request.SchemaInitRequest;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.filter.Filter;
 
 import java.util.List;
 import java.util.Map;
@@ -30,19 +30,16 @@ public interface AgentVectorStoreService {
 	 */
 	List<Document> search(AgentSearchRequest searchRequest);
 
-	// TODO 2025-11-10 后续应该移动到 schemaservice，本service 只负责数据处理
-	Boolean schema(String agentId, SchemaInitRequest schemaInitRequest) throws Exception;
-
 	Boolean deleteDocumentsByVectorType(String agentId, String vectorType) throws Exception;
 
-	Boolean deleteDocumentsByMetedata(String agentId, Map<String, Object> metadata) throws Exception;
+	Boolean deleteDocumentsByMetedata(String agentId, Map<String, Object> metadata);
 
 	/**
 	 * Get documents for specified agent
 	 */
 	List<Document> getDocumentsForAgent(String agentId, String query, String vectorType);
 
-	List<Document> getDocumentsOnlyByFilter(String filterExpression, int topK);
+	List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, int topK);
 
 	List<Document> getTableDocuments(String agentId, List<String> tableNames);
 

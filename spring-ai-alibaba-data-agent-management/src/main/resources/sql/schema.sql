@@ -26,15 +26,20 @@ CREATE TABLE IF NOT EXISTS business_knowledge (
   id INT NOT NULL AUTO_INCREMENT,
   business_term VARCHAR(255) NOT NULL COMMENT '业务名词',
   description TEXT COMMENT '描述',
-  synonyms TEXT COMMENT '同义词',
-  is_recall INT DEFAULT 0 COMMENT '是否召回',
+  synonyms TEXT COMMENT '同义词，逗号分隔',
+  is_recall INT DEFAULT 1 COMMENT '是否召回：0-不召回，1-召回',
   agent_id INT NOT NULL COMMENT '关联的智能体ID',
   created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  embedding_status VARCHAR(20) DEFAULT NULL COMMENT '向量化状态：PENDING待处理，PROCESSING处理中，COMPLETED已完成，FAILED失败',
+  error_msg VARCHAR(255) DEFAULT NULL COMMENT '操作失败的错误信息',
+  is_deleted INT DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',
   PRIMARY KEY (id),
   INDEX idx_business_term (business_term),
   INDEX idx_agent_id (agent_id),
   INDEX idx_is_recall (is_recall),
+  INDEX idx_embedding_status (embedding_status),
+  INDEX idx_is_deleted (is_deleted),
   FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '业务知识表';
 
@@ -62,32 +67,29 @@ CREATE TABLE IF NOT EXISTS `semantic_model` (
 
 
 -- 智能体知识表
-CREATE TABLE IF NOT EXISTS agent_knowledge (
-  id INT NOT NULL AUTO_INCREMENT,
-  agent_id INT NOT NULL COMMENT '智能体ID',
-  title VARCHAR(255) NOT NULL COMMENT '知识标题',
-  content TEXT COMMENT '知识内容',
-  type VARCHAR(50) DEFAULT 'document' COMMENT '知识类型：document-文档，qa-问答，faq-常见问题',
-  category VARCHAR(100) COMMENT '知识分类',
-  tags TEXT COMMENT '标签，逗号分隔',
-  status VARCHAR(50) DEFAULT 'inactive' COMMENT '状态：active-启用，inactive-禁用',
-  source_url VARCHAR(500) COMMENT '来源URL',
-  file_path VARCHAR(500) COMMENT '文件路径',
-  file_size BIGINT COMMENT '文件大小（字节）',
-  file_type VARCHAR(100) COMMENT '文件类型',
-  embedding_status VARCHAR(50) DEFAULT 'pending' COMMENT '向量化状态：pending-待处理，processing-处理中，completed-已完成，failed-失败',
-  creator_id BIGINT COMMENT '创建者ID',
-  create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (id),
-  INDEX idx_agent_id (agent_id),
-  INDEX idx_title (title),
-  INDEX idx_type (type),
-  INDEX idx_status (status),
-  INDEX idx_category (category),
-  INDEX idx_embedding_status (embedding_status),
-  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
-) ENGINE = InnoDB COMMENT = '智能体知识表';
+CREATE TABLE IF NOT EXISTS `agent_knowledge` (
+  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '主键ID, 用于内部关联',
+  `agent_id` int(11) NOT NULL COMMENT '关联的智能体ID',
+  `title` varchar(255) COLLATE utf8mb4_bin NOT NULL COMMENT '知识的标题 (用户定义, 用于在UI上展示和识别)',
+  `type` varchar(50) COLLATE utf8mb4_bin NOT NULL COMMENT '知识类型: DOCUMENT-文档, QA-问答, FAQ-常见问题',
+  `question` text COLLATE utf8mb4_bin COMMENT '问题 (仅当type为QA或FAQ时使用)',
+  `content` mediumtext COLLATE utf8mb4_bin COMMENT '知识内容 (对于QA/FAQ是答案; 对于DOCUMENT, 此字段通常为空)',
+  `is_recall` int(11) DEFAULT 1 COMMENT '业务状态: 1=召回, 0=非召回',
+  `embedding_status` varchar(20) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '向量化状态：PENDING待处理，PROCESSING处理中，COMPLETED已完成，FAILED失败',
+  `error_msg` varchar(255) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '操作失败的错误信息',
+  `source_filename` varchar(500) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '上传时的原始文件名',
+  `file_path` varchar(500) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '文件在服务器上的物理存储路径',
+  `file_size` bigint(20) DEFAULT NULL COMMENT '文件大小 (字节)',
+  `file_type` varchar(255) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '文件类型（pdf,md,markdown,doc等）',
+  `created_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` int(11) DEFAULT 0 COMMENT '逻辑删除字段，0=未删除, 1=已删除',
+  `is_resource_cleaned` int(11) DEFAULT 0 COMMENT '0=物理资源（文件和向量）未清理, 1=物理资源已清理',
+  PRIMARY KEY (`id`) USING BTREE,
+  KEY `idx_agent_id_status` (`agent_id`,`is_recall`) USING BTREE,
+  KEY `idx_embedding_status` (`embedding_status`) USING BTREE,
+  KEY `idx_is_deleted` (`is_deleted`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC COMMENT='智能体知识源管理表 (支持文档、QA、FAQ)';
 
 -- 数据源表
 CREATE TABLE IF NOT EXISTS datasource (

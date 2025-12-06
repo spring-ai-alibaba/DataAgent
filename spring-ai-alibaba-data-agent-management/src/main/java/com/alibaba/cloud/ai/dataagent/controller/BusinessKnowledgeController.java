@@ -16,19 +16,19 @@
 
 package com.alibaba.cloud.ai.dataagent.controller;
 
-import com.alibaba.cloud.ai.dataagent.dto.BusinessKnowledgeDTO;
-import com.alibaba.cloud.ai.dataagent.entity.BusinessKnowledge;
+import com.alibaba.cloud.ai.dataagent.dto.businessknowledge.CreateBusinessKnowledgeDTO;
+import com.alibaba.cloud.ai.dataagent.dto.businessknowledge.UpdateBusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.dataagent.service.business.BusinessKnowledgeService;
+import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
+import com.alibaba.cloud.ai.dataagent.vo.BusinessKnowledgeVO;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-// TODO 需要优化返回结果为ApiResponse
 @Slf4j
 @RestController
 @RequestMapping("/api/business-knowledge")
@@ -39,82 +39,80 @@ public class BusinessKnowledgeController {
 	private final BusinessKnowledgeService businessKnowledgeService;
 
 	@GetMapping
-	public ResponseEntity<List<BusinessKnowledge>> list(
-			@RequestParam(value = "agentId", required = false) String agentIdStr,
+	public ApiResponse<List<BusinessKnowledgeVO>> list(@RequestParam(value = "agentId") String agentIdStr,
 			@RequestParam(value = "keyword", required = false) String keyword) {
-		List<BusinessKnowledge> result;
-		Long agentId = null;
-		try {
-			agentId = Long.parseLong(agentIdStr);
-		}
-		catch (Exception e) {
-			// ignore
-		}
-		if (StringUtils.hasText(keyword) && agentId != null) {
+		List<BusinessKnowledgeVO> result;
+		Long agentId = Long.parseLong(agentIdStr);
+
+		if (StringUtils.hasText(keyword)) {
 			result = businessKnowledgeService.searchKnowledge(agentId, keyword);
 		}
-		else if (agentId != null) {
+		else {
 			result = businessKnowledgeService.getKnowledge(agentId);
 		}
-		else {
-			result = businessKnowledgeService.getAllKnowledge();
-		}
-		return ResponseEntity.ok(result);
+		return ApiResponse.success("success list businessKnowledge", result);
 	}
 
 	@GetMapping("/{id}")
-	public ResponseEntity<BusinessKnowledge> get(@PathVariable(value = "id") Long id) {
-		BusinessKnowledge knowledge = businessKnowledgeService.getKnowledgeById(id);
-		if (knowledge == null) {
-			return ResponseEntity.notFound().build();
+	public ApiResponse<BusinessKnowledgeVO> get(@PathVariable(value = "id") Long id) {
+		BusinessKnowledgeVO vo = businessKnowledgeService.getKnowledgeById(id);
+		if (vo == null) {
+			return ApiResponse.error("businessKnowledge not found");
 		}
-		return ResponseEntity.ok(knowledge);
+		return ApiResponse.success("success get businessKnowledge", vo);
 	}
 
 	@PostMapping
-	public ResponseEntity<BusinessKnowledge> create(@RequestBody @Validated BusinessKnowledgeDTO knowledge) {
-		Long id = businessKnowledgeService.addKnowledge(knowledge);
-		return this.get(id);
+	public ApiResponse<BusinessKnowledgeVO> create(@RequestBody @Validated CreateBusinessKnowledgeDTO knowledge) {
+		return ApiResponse.success("success create businessKnowledge",
+				businessKnowledgeService.addKnowledge(knowledge));
 	}
 
 	@PutMapping("/{id}")
-	public ResponseEntity<BusinessKnowledge> update(@PathVariable(value = "id") Long id,
-			@RequestBody BusinessKnowledgeDTO knowledge) {
-		businessKnowledgeService.updateKnowledge(id, knowledge);
-		return ResponseEntity.ok(businessKnowledgeService.getKnowledgeById(id));
+	public ApiResponse<BusinessKnowledgeVO> update(@PathVariable(value = "id") Long id,
+			@RequestBody UpdateBusinessKnowledgeDTO knowledge) {
+
+		return ApiResponse.success("success update businessKnowledge",
+				businessKnowledgeService.updateKnowledge(id, knowledge));
 	}
 
 	@DeleteMapping("/{id}")
-	public ResponseEntity<Void> delete(@PathVariable(value = "id") Long id) {
+	public ApiResponse<Boolean> delete(@PathVariable(value = "id") Long id) {
 		if (businessKnowledgeService.getKnowledgeById(id) == null) {
-			return ResponseEntity.notFound().build();
+			return ApiResponse.error("businessKnowledge not found");
 		}
 		businessKnowledgeService.deleteKnowledge(id);
-		return ResponseEntity.ok().build();
+		return ApiResponse.success("success delete businessKnowledge");
 	}
 
 	@PostMapping("/recall/{id}")
-	public ResponseEntity<Boolean> recallKnowledge(@PathVariable(value = "id") Long id,
-			@RequestParam(value = "isRecall") boolean isRecall) {
+	public ApiResponse<Boolean> recallKnowledge(@PathVariable(value = "id") Long id,
+			@RequestParam(value = "isRecall") Boolean isRecall) {
 		businessKnowledgeService.recallKnowledge(id, isRecall);
-		return ResponseEntity.ok().body(true);
+		return ApiResponse.success("success update recall businessKnowledge");
 	}
 
 	@PostMapping("/refresh-vector-store")
-	public ResponseEntity<Boolean> refreshAllKnowledgeToVectorStore(@RequestParam(value = "agentId") String agentId) {
+	public ApiResponse<Boolean> refreshAllKnowledgeToVectorStore(@RequestParam(value = "agentId") String agentId) {
 		// 校验 agentId 不为空和空字符串
 		if (!StringUtils.hasText(agentId)) {
-			return ResponseEntity.badRequest().body(false);
+			return ApiResponse.error("agentId cannot be empty");
 		}
 
 		try {
 			businessKnowledgeService.refreshAllKnowledgeToVectorStore(agentId);
-			return ResponseEntity.ok().body(true);
+			return ApiResponse.success("success refresh vector store");
 		}
 		catch (Exception e) {
 			log.error("Failed to refresh vector store for agentId: {}", agentId, e);
-			return ResponseEntity.internalServerError().body(false);
+			return ApiResponse.error("Failed to refresh vector store");
 		}
+	}
+
+	@PostMapping("/retry-embedding/{id}")
+	public ApiResponse<Boolean> retryEmbedding(@PathVariable(value = "id") Long id) {
+		businessKnowledgeService.retryEmbedding(id);
+		return ApiResponse.success("success retry embedding");
 	}
 
 }

@@ -20,3 +20,13 @@ export interface ApiResponse<T = unknown> {
   message: string;
   data?: T;
 }
+
+export interface PageResponse<T = unknown> {
+  success: boolean;
+  message: string;
+  data: T;
+  total: number;
+  pageNum: number;
+  pageSize: number;
+  totalPages: number;
+}

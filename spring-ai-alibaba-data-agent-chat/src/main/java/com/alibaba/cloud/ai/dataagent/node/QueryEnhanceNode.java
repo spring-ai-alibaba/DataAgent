@@ -42,7 +42,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.MULTI_TURN_CONTEX
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.QUERY_ENHANCE_NODE_OUTPUT;
 
 /**
- * 查询处理节点，用于查询改写、分解和关键词提取
+ * 查询丰富节点，用于根据evidence信息把业务翻译。查询改写、分解和关键词提取
  */
 @Slf4j
 @Component
