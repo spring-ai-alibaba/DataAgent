@@ -16,36 +16,26 @@
 
 package com.alibaba.cloud.ai.dataagent.service.knowledge;
 
-import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
-
-import java.util.List;
+import com.alibaba.cloud.ai.dataagent.dto.PageResult;
+import com.alibaba.cloud.ai.dataagent.dto.agentknowledge.AgentKnowledgeQueryDTO;
+import com.alibaba.cloud.ai.dataagent.dto.agentknowledge.CreateKnowledgeDto;
+import com.alibaba.cloud.ai.dataagent.dto.agentknowledge.UpdateKnowledgeDto;
+import com.alibaba.cloud.ai.dataagent.vo.AgentKnowledgeVO;
 
 public interface AgentKnowledgeService {
 
-	List<AgentKnowledge> getKnowledgeByAgentId(Integer agentId);
+	AgentKnowledgeVO getKnowledgeById(Integer id);
 
-	AgentKnowledge getKnowledgeById(Integer id);
+	AgentKnowledgeVO createKnowledge(CreateKnowledgeDto createKnowledgeDto);
 
-	boolean createKnowledge(AgentKnowledge knowledge);
-
-	boolean updateKnowledge(Integer id, AgentKnowledge knowledge);
+	AgentKnowledgeVO updateKnowledge(Integer id, UpdateKnowledgeDto updateKnowledgeDto);
 
 	boolean deleteKnowledge(Integer id);
 
-	List<AgentKnowledge> getKnowledgeByType(Integer agentId, String type);
+	PageResult<AgentKnowledgeVO> queryByConditionsWithPage(AgentKnowledgeQueryDTO queryDTO);
 
-	List<AgentKnowledge> getKnowledgeByStatus(Integer agentId, String status);
+	AgentKnowledgeVO updateKnowledgeRecallStatus(Integer id, Boolean recalled);
 
-	List<AgentKnowledge> searchKnowledge(Integer agentId, String keyword);
-
-	boolean batchUpdateStatus(List<Integer> ids, String status);
-
-	int countKnowledgeByAgent(Integer agentId);
-
-	List<Object[]> countKnowledgeByType(Integer agentId);
-
-	void addKnowledgeToVectorStore(Long agentId, AgentKnowledge knowledge);
-
-	void deleteKnowledgeFromVectorStore(Long agentId, Integer knowledgeId);
+	void retryEmbedding(Integer id);
 
 }

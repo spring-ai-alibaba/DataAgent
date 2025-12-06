@@ -16,25 +16,20 @@
 
 package com.alibaba.cloud.ai.dataagent.controller;
 
-import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
+import com.alibaba.cloud.ai.dataagent.dto.PageResult;
+import com.alibaba.cloud.ai.dataagent.dto.agentknowledge.AgentKnowledgeQueryDTO;
+import com.alibaba.cloud.ai.dataagent.dto.agentknowledge.CreateKnowledgeDto;
+import com.alibaba.cloud.ai.dataagent.dto.agentknowledge.UpdateKnowledgeDto;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeService;
+import com.alibaba.cloud.ai.dataagent.vo.AgentKnowledgeVO;
+import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
+import com.alibaba.cloud.ai.dataagent.vo.PageResponse;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Agent Knowledge Management Controller
@@ -44,339 +39,82 @@ import java.util.Map;
 @RequestMapping("/api/agent-knowledge")
 @CrossOrigin(origins = "*")
 @AllArgsConstructor
-// todo: 功能完成后需要与前端接入，部分返回值需要定义DTO
 public class AgentKnowledgeController {
 
 	private final AgentKnowledgeService agentKnowledgeService;
 
 	/**
-	 * Query knowledge list by agent ID
-	 */
-	@GetMapping("/agent/{agentId}")
-	public ResponseEntity<Map<String, Object>> getKnowledgeByAgentId(@PathVariable(value = "agentId") Integer agentId,
-			@RequestParam(value = "type", required = false) String type,
-			@RequestParam(value = "status", required = false) String status,
-			@RequestParam(value = "keyword", required = false) String keyword) {
-
-		Map<String, Object> response = new HashMap<>();
-
-		try {
-			List<AgentKnowledge> knowledgeList;
-
-			if (keyword != null && !keyword.trim().isEmpty()) {
-				// Search knowledge
-				knowledgeList = agentKnowledgeService.searchKnowledge(agentId, keyword.trim());
-			}
-			else if (type != null && !type.trim().isEmpty()) {
-				// Filter by type
-				knowledgeList = agentKnowledgeService.getKnowledgeByType(agentId, type);
-			}
-			else if (status != null && !status.trim().isEmpty()) {
-				// Filter by status
-				knowledgeList = agentKnowledgeService.getKnowledgeByStatus(agentId, status);
-			}
-			else {
-				// Query all knowledge
-				knowledgeList = agentKnowledgeService.getKnowledgeByAgentId(agentId);
-			}
-
-			response.put("success", true);
-			response.put("data", knowledgeList);
-			response.put("total", knowledgeList.size());
-			return ResponseEntity.ok(response);
-
-		}
-		catch (Exception e) {
-			response.put("success", false);
-			response.put("message", "查询知识列表失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
-	}
-
-	/**
 	 * Query knowledge details by ID
 	 */
 	@GetMapping("/{id}")
-	public ResponseEntity<Map<String, Object>> getKnowledgeById(@PathVariable("id") Integer id) {
-		Map<String, Object> response = new HashMap<>();
-
+	public ApiResponse<AgentKnowledgeVO> getKnowledgeById(@PathVariable("id") Integer id) {
 		try {
-			AgentKnowledge knowledge = agentKnowledgeService.getKnowledgeById(id);
+			AgentKnowledgeVO knowledge = agentKnowledgeService.getKnowledgeById(id);
 			if (knowledge != null) {
-				response.put("success", true);
-				response.put("data", knowledge);
-				return ResponseEntity.ok(response);
+				return ApiResponse.success("查询成功", knowledge);
 			}
 			else {
-				response.put("success", false);
-				response.put("message", "知识不存在");
-				return ResponseEntity.notFound().build();
+				return ApiResponse.error("知识不存在");
 			}
 		}
 		catch (Exception e) {
 			log.error("查询知识详情失败：{}", e.getMessage());
-			response.put("success", false);
-			response.put("message", "查询知识详情失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
+			return ApiResponse.error("查询知识详情失败：" + e.getMessage());
 		}
 	}
 
 	/**
-	 * Create knowledge
+	 * Create knowledge,supporting file upload
 	 */
-	@PostMapping
-	public ResponseEntity<Map<String, Object>> createKnowledge(@RequestBody AgentKnowledge knowledge) {
-		Map<String, Object> response = new HashMap<>();
-
-		try {
-			// Validate required fields
-			if (knowledge.getAgentId() == null) {
-				response.put("success", false);
-				response.put("message", "智能体ID不能为空");
-				return ResponseEntity.badRequest().body(response);
-			}
-
-			if (knowledge.getTitle() == null || knowledge.getTitle().trim().isEmpty()) {
-				response.put("success", false);
-				response.put("message", "知识标题不能为空");
-				return ResponseEntity.badRequest().body(response);
-			}
-
-			// Create knowledge in database
-			agentKnowledgeService.createKnowledge(knowledge);
-
-			// If knowledge content is not empty and status is active, add to vector store
-			if (knowledge.getContent() != null && !knowledge.getContent().trim().isEmpty()
-					&& "active".equals(knowledge.getStatus())) {
-				try {
-					agentKnowledgeService.addKnowledgeToVectorStore(Long.valueOf(knowledge.getAgentId()), knowledge);
-					// Update embedding status to completed
-					knowledge.setEmbeddingStatus("completed");
-					agentKnowledgeService.updateKnowledge(knowledge.getId(), knowledge);
-				}
-				catch (Exception vectorException) {
-					// Vector storage failed, update embedding status to failed
-					knowledge.setEmbeddingStatus("failed");
-					agentKnowledgeService.updateKnowledge(knowledge.getId(), knowledge);
-					// Log but don't affect main process
-					response.put("vectorWarning", "知识已保存，但向量化失败：" + vectorException.getMessage());
-				}
-			}
-
-			response.put("success", true);
-			response.put("data", knowledge);
-			response.put("message", "知识创建成功");
-			return ResponseEntity.ok(response);
-
-		}
-		catch (Exception e) {
-			log.error("创建知识失败：{}", e.getMessage());
-			response.put("success", false);
-			response.put("message", "创建知识失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
+	@PostMapping("/create")
+	public ApiResponse<AgentKnowledgeVO> createKnowledge(@Valid CreateKnowledgeDto createKnowledgeDto) {
+		AgentKnowledgeVO knowledge = agentKnowledgeService.createKnowledge(createKnowledgeDto);
+		return ApiResponse.success("创建知识成功，后台向量存储开始更新，请耐心等待...", knowledge);
 	}
 
 	/**
 	 * Update knowledge
 	 */
 	@PutMapping("/{id}")
-	public ResponseEntity<Map<String, Object>> updateKnowledge(@PathVariable("id") Integer id,
-			@RequestBody AgentKnowledge knowledge) {
+	public ApiResponse<AgentKnowledgeVO> updateKnowledge(@PathVariable("id") Integer id,
+			@RequestBody UpdateKnowledgeDto updateKnowledgeDto) {
+		AgentKnowledgeVO knowledge = agentKnowledgeService.updateKnowledge(id, updateKnowledgeDto);
+		return ApiResponse.success("更新成功", knowledge);
+	}
 
-		Map<String, Object> response = new HashMap<>();
-
-		try {
-			// Validate required fields
-			if (knowledge.getTitle() == null || knowledge.getTitle().trim().isEmpty()) {
-				response.put("success", false);
-				response.put("message", "知识标题不能为空");
-				return ResponseEntity.badRequest().body(response);
-			}
-
-			// First get original knowledge information
-			AgentKnowledge originalKnowledge = agentKnowledgeService.getKnowledgeById(id);
-			if (originalKnowledge == null) {
-				response.put("success", false);
-				response.put("message", "知识不存在");
-				return ResponseEntity.notFound().build();
-			}
-
-			// Update knowledge in database
-			boolean st = agentKnowledgeService.updateKnowledge(id, knowledge);
-			if (st) {
-				// Handle vector storage update
-				AgentKnowledge updatedKnowledge = agentKnowledgeService.getKnowledgeById(id);
-				try {
-					Long agentId = Long.valueOf(updatedKnowledge.getAgentId());
-
-					// If content changes or status becomes active, need to re-vectorize
-					boolean contentChanged = !java.util.Objects.equals(originalKnowledge.getContent(),
-							updatedKnowledge.getContent());
-					boolean statusChangedToActive = !"active".equals(originalKnowledge.getStatus())
-							&& "active".equals(updatedKnowledge.getStatus());
-					boolean statusChangedFromActive = "active".equals(originalKnowledge.getStatus())
-							&& !"active".equals(updatedKnowledge.getStatus());
-
-					if (statusChangedFromActive) {
-						// Status changes from active to other, delete vector data
-						agentKnowledgeService.deleteKnowledgeFromVectorStore(agentId, id);
-						updatedKnowledge.setEmbeddingStatus("pending");
-					}
-					else if ((contentChanged || statusChangedToActive) && "active".equals(updatedKnowledge.getStatus())
-							&& updatedKnowledge.getContent() != null
-							&& !updatedKnowledge.getContent().trim().isEmpty()) {
-						// Content changes or status becomes active, re-vectorize
-						agentKnowledgeService.deleteKnowledgeFromVectorStore(agentId, id); // First
-						// delete
-						// old
-						agentKnowledgeService.addKnowledgeToVectorStore(agentId, updatedKnowledge); // Then
-						// add
-						// new
-						updatedKnowledge.setEmbeddingStatus("completed");
-						agentKnowledgeService.updateKnowledge(id, updatedKnowledge); // Update
-																						// embedding
-																						// status
-					}
-				}
-				catch (Exception vectorException) {
-					// Vector storage operation failed, update embedding status to failed
-					updatedKnowledge.setEmbeddingStatus("failed");
-					agentKnowledgeService.updateKnowledge(id, updatedKnowledge);
-					response.put("vectorWarning", "知识已更新，但向量化失败：" + vectorException.getMessage());
-				}
-
-				response.put("success", true);
-				response.put("data", updatedKnowledge);
-				response.put("message", "知识更新成功");
-				return ResponseEntity.ok(response);
-			}
-			else {
-				response.put("success", false);
-				response.put("message", "知识更新失败");
-				return ResponseEntity.badRequest().body(response);
-			}
-		}
-		catch (Exception e) {
-			log.error("更新知识失败：{}", e.getMessage());
-			response.put("success", false);
-			response.put("message", "更新知识失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
+	@PutMapping("/recall/{id}")
+	public ApiResponse<AgentKnowledgeVO> updateRecallStatus(@PathVariable Integer id,
+			@RequestParam(value = "isRecall") Boolean isRecall) {
+		AgentKnowledgeVO agentKnowledgeVO = agentKnowledgeService.updateKnowledgeRecallStatus(id, isRecall);
+		return ApiResponse.success("更新成功", agentKnowledgeVO);
 	}
 
 	/**
 	 * Delete knowledge
 	 */
 	@DeleteMapping("/{id}")
-	public ResponseEntity<Map<String, Object>> deleteKnowledge(@PathVariable("id") Integer id) {
-		Map<String, Object> response = new HashMap<>();
+	public ApiResponse<Boolean> deleteKnowledge(@PathVariable("id") Integer id) {
+		return agentKnowledgeService.deleteKnowledge(id) ? ApiResponse.success("删除操作已接收，等待后台删除相关资源...")
+				: ApiResponse.error("删除失败");
+	}
 
+	@PostMapping("/query/page")
+	public PageResponse<List<AgentKnowledgeVO>> queryByPage(@Valid @RequestBody AgentKnowledgeQueryDTO queryDTO) {
 		try {
-			// First get knowledge information, used to delete vector data
-			AgentKnowledge knowledge = agentKnowledgeService.getKnowledgeById(id);
-			if (knowledge == null) {
-				response.put("success", false);
-				response.put("message", "知识不存在");
-				return ResponseEntity.notFound().build();
-			}
-
-			// Delete knowledge in database
-			boolean deleted = agentKnowledgeService.deleteKnowledge(id);
-			if (deleted) {
-				// Also delete vector data
-				try {
-					Long agentId = Long.valueOf(knowledge.getAgentId());
-					agentKnowledgeService.deleteKnowledgeFromVectorStore(agentId, id);
-				}
-				catch (Exception vectorException) {
-					// Vector deletion failed, log warning but don't affect main process
-					response.put("vectorWarning", "知识已删除，但向量数据删除失败：" + vectorException.getMessage());
-				}
-
-				response.put("success", true);
-				response.put("message", "知识删除成功");
-				return ResponseEntity.ok(response);
-			}
-			else {
-				response.put("success", false);
-				response.put("message", "知识删除失败");
-				return ResponseEntity.badRequest().body(response);
-			}
+			PageResult<AgentKnowledgeVO> pageResult = agentKnowledgeService.queryByConditionsWithPage(queryDTO);
+			return PageResponse.success(pageResult.getData(), pageResult.getTotal(), pageResult.getPageNum(),
+					pageResult.getPageSize(), pageResult.getTotalPages());
 		}
 		catch (Exception e) {
-			response.put("success", false);
-			response.put("message", "删除知识失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
+			log.error("分页查询知识列表失败：{}", e.getMessage());
+			return PageResponse.pageError("分页查询失败：" + e.getMessage());
 		}
 	}
 
-	/**
-	 * Batch update knowledge status
-	 */
-	@PutMapping("/batch/status")
-	public ResponseEntity<Map<String, Object>> batchUpdateStatus(@RequestBody Map<String, Object> request) {
-
-		Map<String, Object> response = new HashMap<>();
-
-		try {
-			@SuppressWarnings("unchecked")
-			List<Integer> ids = (List<Integer>) request.get("ids");
-			String status = (String) request.get("status");
-
-			if (ids == null || ids.isEmpty()) {
-				response.put("success", false);
-				response.put("message", "ID列表不能为空");
-				return ResponseEntity.badRequest().body(response);
-			}
-
-			if (status == null || status.trim().isEmpty()) {
-				response.put("success", false);
-				response.put("message", "状态不能为空");
-				return ResponseEntity.badRequest().body(response);
-			}
-
-			boolean st = agentKnowledgeService.batchUpdateStatus(ids, status);
-			response.put("success", st);
-			response.put("message", "批量更新成功");
-			response.put("updatedCount", ids.size());
-			return ResponseEntity.ok(response);
-
-		}
-		catch (Exception e) {
-			log.error("批量更新知识失败：{}", e.getMessage());
-			response.put("success", false);
-			response.put("message", "批量更新失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
-	}
-
-	/**
-	 * Get agent knowledge statistics
-	 */
-	@GetMapping("/statistics/{agentId}")
-	public ResponseEntity<Map<String, Object>> getKnowledgeStatistics(@PathVariable("agentId") Integer agentId) {
-		Map<String, Object> response = new HashMap<>();
-
-		try {
-			int totalCount = agentKnowledgeService.countKnowledgeByAgent(agentId);
-			List<Object[]> typeStatistics = agentKnowledgeService.countKnowledgeByType(agentId);
-
-			Map<String, Object> statistics = new HashMap<>();
-			statistics.put("totalCount", totalCount);
-			statistics.put("typeStatistics", typeStatistics);
-
-			response.put("success", true);
-			response.put("data", statistics);
-			return ResponseEntity.ok(response);
-
-		}
-		catch (Exception e) {
-			log.error("获取统计信息失败：{}", e.getMessage());
-			response.put("success", false);
-			response.put("message", "获取统计信息失败：" + e.getMessage());
-			return ResponseEntity.badRequest().body(response);
-		}
+	@PostMapping("/retry-embedding/{id}")
+	public ApiResponse<AgentKnowledgeVO> retryEmbedding(@PathVariable Integer id) {
+		agentKnowledgeService.retryEmbedding(id);
+		return ApiResponse.success("重试向量化操作成功，如果是文件解析需要花费点时间，请耐心等待...");
 	}
 
 }

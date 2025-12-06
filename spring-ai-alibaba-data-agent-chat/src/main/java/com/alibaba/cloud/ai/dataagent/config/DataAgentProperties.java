@@ -54,6 +54,45 @@ public class DataAgentProperties {
 	 */
 	private double sqlScoreThreshold = 0.95;
 
+	private TextSplitter textSplitter = new TextSplitter();
+
+	@Getter
+	@Setter
+	public static class TextSplitter {
+
+		// --- 通用参数 ---
+		/**
+		 * 默认分块大小，基于token数量 默认值：1000
+		 */
+		private int chunkSize = 1000;
+
+		// --- TokenTextSplitter 专用 ---
+		/**
+		 * 最小分块字符数 默认值：400
+		 */
+		private int minChunkSizeChars = 400;
+
+		/**
+		 * 嵌入最小分块长度 默认值：10
+		 */
+		private int minChunkLengthToEmbed = 10;
+
+		/**
+		 * 最大分块数量 默认值：5000
+		 */
+		private int maxNumChunks = 5000;
+
+		/**
+		 * 是否保留分隔符 默认值：true
+		 */
+		private boolean keepSeparator = true;
+
+		// --- RecursiveCharacterTextSplitter 专用 ---
+		// 如果为 null，该类内部有默认的分隔符列表
+		private String[] separators = null;
+
+	}
+
 	@Getter
 	@Setter
 	public static class EmbeddingBatch {

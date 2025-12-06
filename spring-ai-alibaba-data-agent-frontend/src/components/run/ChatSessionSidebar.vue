@@ -90,7 +90,7 @@
 
 <script lang="ts">
   import { defineComponent, PropType } from 'vue';
-  import { ref, onMounted, computed, nextTick } from 'vue';
+  import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
   import { useRouter, useRoute } from 'vue-router';
   import { ElMessage, ElMessageBox } from 'element-plus';
   import ChatService from '../../services/chat';
@@ -102,6 +102,12 @@
   interface ExtendedChatSession extends ChatSession {
     editing?: boolean;
     editingTitle?: string;
+  }
+
+  interface SessionUpdateEvent {
+    type: string;
+    sessionId: string;
+    title: string;
   }
 
   export default defineComponent({
@@ -138,6 +144,9 @@
     },
     setup(props) {
       const sessions = ref<ExtendedChatSession[]>([]);
+      const sessionEventSource = ref<EventSource | null>(null);
+      let reconnectTimer: number | null = null;
+      let isComponentActive = true;
 
       const router = useRouter();
       const route = useRoute();
@@ -146,6 +155,57 @@
         if (!time) return '';
         const date = new Date(time);
         return date.toLocaleString('zh-CN');
+      };
+
+      const clearReconnectTimer = () => {
+        if (reconnectTimer) {
+          window.clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
+      };
+
+      const handleTitleUpdate = (eventData: SessionUpdateEvent) => {
+        if (!eventData?.sessionId) {
+          return;
+        }
+        const target = sessions.value.find(session => session.id === eventData.sessionId);
+        if (target) {
+          target.title = eventData.title;
+          target.editingTitle = eventData.title;
+        }
+        const current = props.handleGetCurrentSession();
+        if (current && current.id === eventData.sessionId) {
+          current.title = eventData.title;
+        }
+      };
+
+      const connectSessionStream = () => {
+        clearReconnectTimer();
+        const currentAgentId = agentId.value;
+        if (!currentAgentId) {
+          return;
+        }
+        if (sessionEventSource.value) {
+          sessionEventSource.value.close();
+        }
+        const source = new EventSource(`/api/agent/${currentAgentId}/sessions/stream`);
+        source.addEventListener('title-updated', event => {
+          try {
+            const data = JSON.parse((event as MessageEvent<string>).data) as SessionUpdateEvent;
+            handleTitleUpdate(data);
+          } catch (error) {
+            console.error('解析会话标题更新失败', error);
+          }
+        });
+        source.onerror = error => {
+          console.error('会话推送连接异常:', error);
+          source.close();
+          sessionEventSource.value = null;
+          if (isComponentActive) {
+            reconnectTimer = window.setTimeout(() => connectSessionStream(), 3000);
+          }
+        };
+        sessionEventSource.value = source;
       };
 
       // 开始编辑会话标题
@@ -282,7 +342,17 @@
 
       // 生命周期
       onMounted(async () => {
+        connectSessionStream();
         await loadSessions();
+      });
+
+      onUnmounted(() => {
+        isComponentActive = false;
+        clearReconnectTimer();
+        if (sessionEventSource.value) {
+          sessionEventSource.value.close();
+          sessionEventSource.value = null;
+        }
       });
 
       return {

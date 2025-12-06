@@ -35,6 +35,11 @@ public interface ChatSessionService {
 	ChatSession createSession(Integer agentId, String title, Long userId);
 
 	/**
+	 * Find session by id.
+	 */
+	ChatSession findBySessionId(String sessionId);
+
+	/**
 	 * Clear all sessions for an agent
 	 */
 	void clearSessionsByAgentId(Integer agentId);

@@ -40,7 +40,7 @@ public class SemanticModelController {
 	private final SemanticModelService semanticModelService;
 
 	@GetMapping
-	public ApiResponse list(@RequestParam(value = "keyword", required = false) String keyword,
+	public ApiResponse<List<SemanticModel>> list(@RequestParam(value = "keyword", required = false) String keyword,
 			@RequestParam(value = "agentId", required = false) Long agentId) {
 		List<SemanticModel> result;
 		if (keyword != null && !keyword.trim().isEmpty()) {
@@ -56,16 +56,16 @@ public class SemanticModelController {
 	}
 
 	@GetMapping("/{id}")
-	public ApiResponse get(@PathVariable(value = "id") Long id) {
+	public ApiResponse<SemanticModel> get(@PathVariable(value = "id") Long id) {
 		SemanticModel model = semanticModelService.getById(id);
 		return ApiResponse.success("success retrieve semanticModel", model);
 	}
 
 	@PostMapping
-	public ApiResponse create(@RequestBody @Validated SemanticModelAddDTO semanticModelAddDto) {
+	public ApiResponse<Boolean> create(@RequestBody @Validated SemanticModelAddDTO semanticModelAddDto) {
 		boolean success = semanticModelService.addSemanticModel(semanticModelAddDto);
 		if (success) {
-			return ApiResponse.success("Semantic model created successfully");
+			return ApiResponse.success("Semantic model created successfully", true);
 		}
 		else {
 			return ApiResponse.error("Failed to create semantic model");
@@ -73,7 +73,7 @@ public class SemanticModelController {
 	}
 
 	@PutMapping("/{id}")
-	public ApiResponse update(@PathVariable(value = "id") Long id, @RequestBody SemanticModel model) {
+	public ApiResponse<SemanticModel> update(@PathVariable(value = "id") Long id, @RequestBody SemanticModel model) {
 		if (semanticModelService.getById(id) == null) {
 			return ApiResponse.error("Semantic model not found");
 		}
@@ -83,26 +83,26 @@ public class SemanticModelController {
 	}
 
 	@DeleteMapping("/{id}")
-	public ApiResponse delete(@PathVariable(value = "id") Long id) {
+	public ApiResponse<Boolean> delete(@PathVariable(value = "id") Long id) {
 		if (semanticModelService.getById(id) == null) {
 			return ApiResponse.error("Semantic model not found");
 		}
 		semanticModelService.deleteSemanticModel(id);
-		return ApiResponse.success("Semantic model deleted successfully");
+		return ApiResponse.success("Semantic model deleted successfully", true);
 	}
 
 	// Enable
 	@PutMapping("/enable")
-	public ApiResponse enableFields(@RequestBody @NotEmpty(message = "ID列表不能为空") List<Long> ids) {
+	public ApiResponse<Boolean> enableFields(@RequestBody @NotEmpty(message = "ID列表不能为空") List<Long> ids) {
 		semanticModelService.enableSemanticModels(ids);
-		return ApiResponse.success("Semantic models enabled successfully");
+		return ApiResponse.success("Semantic models enabled successfully", true);
 	}
 
 	// Disable
 	@PutMapping("/disable")
-	public ApiResponse disableFields(@RequestBody @NotEmpty(message = "ID列表不能为空") List<Long> ids) {
+	public ApiResponse<Boolean> disableFields(@RequestBody @NotEmpty(message = "ID列表不能为空") List<Long> ids) {
 		ids.forEach(semanticModelService::disableSemanticModel);
-		return ApiResponse.success("Semantic models disabled successfully");
+		return ApiResponse.success("Semantic models disabled successfully", true);
 	}
 
 }

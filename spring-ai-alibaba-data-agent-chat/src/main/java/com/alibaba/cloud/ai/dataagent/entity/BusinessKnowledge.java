@@ -15,7 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.entity;
 
-import com.alibaba.cloud.ai.dataagent.dto.BusinessKnowledgeDTO;
+import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -45,18 +46,20 @@ public class BusinessKnowledge {
 
 	private Long agentId; // Associated agent ID
 
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
 	private LocalDateTime createdTime;
 
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
 	private LocalDateTime updatedTime;
 
-	public BusinessKnowledgeDTO toDTO() {
-		return BusinessKnowledgeDTO.builder()
-			.businessTerm(this.businessTerm)
-			.description(this.description)
-			.synonyms(this.synonyms)
-			.isRecall(this.isRecall != null && this.isRecall == 1)
-			.agentId(this.agentId)
-			.build();
-	}
+	// 向量化状态：PENDING待处理，PROCESSING处理中，COMPLETED已完成，FAILED失败
+	private EmbeddingStatus embeddingStatus;
+
+	// 操作失败的错误信息
+	private String errorMsg;
+
+	// 0=未删除, 1=已删除
+	@Builder.Default
+	private Integer isDeleted = 0;
 
 }

@@ -28,22 +28,28 @@ public final class DocumentMetadataConstant {
 	// table
 	public static final String TABLE = "table";
 
+	// name
+	public static final String NAME = "name";
+
+	// tableName
+	public static final String TABLE_NAME = "tableName";
+
 	// vectorType
 	public static final String VECTOR_TYPE = "vectorType";
 
 	// knowledgeId
-	public static final String KNOWLEDGE_ID = "knowledgeId";
+	public static final String DB_AGENT_KNOWLEDGE_ID = "agentKnowledgeId";
 
-	// businessTerm
-	public static final String BUSINESS_TERM = "businessTerm";
+	// FAQ/DOCUMENT/QA
+	public static final String CONCRETE_AGENT_KNOWLEDGE_TYPE = "concreteAgentKnowledgeType";
 
 	// 智能体的知识
 	public static final String AGENT_KNOWLEDGE = "agentKnowledge";
 
-	// 关联该文档在数据库中的记录id
-	public static final String DB_RECORD_ID = "dbRecordId";
+	// businessTerm
+	public static final String BUSINESS_TERM = "businessTerm";
 
-	// isRecall
-	public static final String IS_RECALL = "isRecall";
+	// businessTermId
+	public static final String DB_BUSINESS_TERM_ID = "businessTermId";
 
 }

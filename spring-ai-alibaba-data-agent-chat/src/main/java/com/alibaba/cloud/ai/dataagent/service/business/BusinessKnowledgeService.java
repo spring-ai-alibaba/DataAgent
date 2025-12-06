@@ -16,35 +16,33 @@
 
 package com.alibaba.cloud.ai.dataagent.service.business;
 
-import com.alibaba.cloud.ai.dataagent.dto.BusinessKnowledgeDTO;
-import com.alibaba.cloud.ai.dataagent.entity.BusinessKnowledge;
+import com.alibaba.cloud.ai.dataagent.dto.businessknowledge.CreateBusinessKnowledgeDTO;
+import com.alibaba.cloud.ai.dataagent.dto.businessknowledge.UpdateBusinessKnowledgeDTO;
+import com.alibaba.cloud.ai.dataagent.vo.BusinessKnowledgeVO;
 
 import java.util.List;
 
+// TODO 添加一个分页查询的方法
 public interface BusinessKnowledgeService {
 
-	default List<BusinessKnowledgeDTO> getKnowledgeDtoRecalled(Long agentId) {
-		return getKnowledgeRecalled(agentId).stream().map(BusinessKnowledge::toDTO).toList();
-	}
+	List<BusinessKnowledgeVO> getKnowledge(Long agentId);
 
-	List<BusinessKnowledge> getKnowledge(Long agentId);
+	List<BusinessKnowledgeVO> getAllKnowledge();
 
-	List<BusinessKnowledge> getKnowledgeRecalled(Long agentId);
+	List<BusinessKnowledgeVO> searchKnowledge(Long agentId, String keyword);
 
-	List<BusinessKnowledge> getAllKnowledge();
+	BusinessKnowledgeVO getKnowledgeById(Long id);
 
-	List<BusinessKnowledge> searchKnowledge(Long agentId, String keyword);
+	BusinessKnowledgeVO addKnowledge(CreateBusinessKnowledgeDTO knowledgeDTO);
 
-	BusinessKnowledge getKnowledgeById(Long id);
-
-	Long addKnowledge(BusinessKnowledgeDTO knowledgeDTO);
-
-	void updateKnowledge(Long id, BusinessKnowledgeDTO knowledgeDTO);
+	BusinessKnowledgeVO updateKnowledge(Long id, UpdateBusinessKnowledgeDTO knowledgeDTO);
 
 	void deleteKnowledge(Long id);
 
-	void recallKnowledge(Long id, boolean isRecall);
+	void recallKnowledge(Long id, Boolean isRecall);
 
 	void refreshAllKnowledgeToVectorStore(String agentId) throws Exception;
+
+	void retryEmbedding(Long id);
 
 }
