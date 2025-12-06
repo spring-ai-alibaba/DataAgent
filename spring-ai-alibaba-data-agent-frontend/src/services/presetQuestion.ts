@@ -89,5 +89,5 @@ class PresetQuestionService {
   }
 }
 
-export { PresetQuestion, PresetQuestionDTO };
+export type { PresetQuestion, PresetQuestionDTO };
 export default new PresetQuestionService();

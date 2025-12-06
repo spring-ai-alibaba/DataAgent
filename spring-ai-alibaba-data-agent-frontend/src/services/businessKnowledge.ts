@@ -15,23 +15,33 @@
  */
 
 import axios from 'axios';
+import { ApiResponse } from './common';
 
-interface BusinessKnowledge {
+interface BusinessKnowledgeVO {
   id?: number;
   businessTerm: string;
   description: string;
   synonyms: string;
-  isRecall: boolean;
+  isRecall: boolean; // 0 or 1
   agentId: number;
-  createTime?: string;
-  updateTime?: string;
+  createdTime?: string;
+  updatedTime?: string;
+  embeddingStatus?: string; // 嵌入状态
+  errorMsg?: string; // 错误信息
 }
 
-interface BusinessKnowledgeDTO {
+interface CreateBusinessKnowledgeDTO {
   businessTerm: string;
   description: string;
   synonyms: string;
-  isRecall: boolean;
+  isRecall: boolean; // 0 or 1
+  agentId: number;
+}
+
+interface UpdateBusinessKnowledgeDTO {
+  businessTerm: string;
+  description: string;
+  synonyms: string;
   agentId: number;
 }
 
@@ -40,26 +50,34 @@ const API_BASE_URL = '/api/business-knowledge';
 class BusinessKnowledgeService {
   /**
    * 获取业务知识列表
-   * @param agentId 关联的 Agent ID
-   * @param keyword 搜索关键词
+   * @param agentId 代理ID
+   * @param keyword 搜索关键词（可选）
+   * @returns 业务知识列表
    */
-  async list(agentId?: number, keyword?: string): Promise<BusinessKnowledge[]> {
-    const params: { agentId?: string; keyword?: string } = {};
-    if (agentId !== undefined) params.agentId = agentId.toString();
-    if (keyword) params.keyword = keyword;
-
-    const response = await axios.get<BusinessKnowledge[]>(API_BASE_URL, { params });
-    return response.data;
+  async list(agentId: number, keyword?: string): Promise<BusinessKnowledgeVO[]> {
+    try {
+      const params = { agentId: agentId.toString() };
+      if (keyword) {
+        params.keyword = keyword;
+      }
+      const response = await axios.get<ApiResponse<BusinessKnowledgeVO[]>>(API_BASE_URL, {
+        params,
+      });
+      return response.data.data || [];
+    } catch (error) {
+      console.error('Failed to fetch business knowledge list:', error);
+      throw error;
+    }
   }
 
   /**
    * 根据 ID 获取业务知识详情
    * @param id 业务知识 ID
    */
-  async get(id: number): Promise<BusinessKnowledge | null> {
+  async get(id: number): Promise<BusinessKnowledgeVO | null> {
     try {
-      const response = await axios.get<BusinessKnowledge>(`${API_BASE_URL}/${id}`);
-      return response.data;
+      const response = await axios.get<ApiResponse<BusinessKnowledgeVO>>(`${API_BASE_URL}/${id}`);
+      return response.data.data || null;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 404) {
         return null;
@@ -72,9 +90,9 @@ class BusinessKnowledgeService {
    * 创建业务知识
    * @param knowledge 业务知识 DTO 对象
    */
-  async create(knowledge: BusinessKnowledgeDTO): Promise<BusinessKnowledge> {
-    const response = await axios.post<BusinessKnowledge>(API_BASE_URL, knowledge);
-    return response.data;
+  async create(knowledge: CreateBusinessKnowledgeDTO): Promise<BusinessKnowledgeVO> {
+    const response = await axios.post<ApiResponse<BusinessKnowledgeVO>>(API_BASE_URL, knowledge);
+    return response.data.data!;
   }
 
   /**
@@ -82,10 +100,16 @@ class BusinessKnowledgeService {
    * @param id 业务知识 ID
    * @param knowledge 业务知识 DTO 对象
    */
-  async update(id: number, knowledge: BusinessKnowledgeDTO): Promise<BusinessKnowledge | null> {
+  async update(
+    id: number,
+    knowledge: UpdateBusinessKnowledgeDTO,
+  ): Promise<BusinessKnowledgeVO | null> {
     try {
-      const response = await axios.put<BusinessKnowledge>(`${API_BASE_URL}/${id}`, knowledge);
-      return response.data;
+      const response = await axios.put<ApiResponse<BusinessKnowledgeVO>>(
+        `${API_BASE_URL}/${id}`,
+        knowledge,
+      );
+      return response.data.data || null;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 404) {
         return null;
@@ -100,8 +124,8 @@ class BusinessKnowledgeService {
    */
   async delete(id: number): Promise<boolean> {
     try {
-      await axios.delete(`${API_BASE_URL}/${id}`);
-      return true;
+      const response = await axios.delete<ApiResponse<boolean>>(`${API_BASE_URL}/${id}`);
+      return response.data.success;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 404) {
         return false;
@@ -113,13 +137,24 @@ class BusinessKnowledgeService {
   /**
    * 设置业务知识召回状态
    * @param id 业务知识 ID
-   * @param isRecall 是否召回
+   * @param isRecall 是否召回 (true or false)
    */
   async recallKnowledge(id: number, isRecall: boolean): Promise<boolean> {
-    const response = await axios.post<boolean>(`${API_BASE_URL}/recall/${id}`, null, {
+    const response = await axios.post<ApiResponse<boolean>>(`${API_BASE_URL}/recall/${id}`, null, {
       params: { isRecall },
     });
-    return response.data;
+    return response.data.success;
+  }
+
+  /**
+   * 重试业务知识向量化
+   * @param id 业务知识 ID
+   */
+  async retryEmbedding(id: number): Promise<boolean> {
+    const response = await axios.post<ApiResponse<boolean>>(
+      `${API_BASE_URL}/retry-embedding/${id}`,
+    );
+    return response.data.success;
   }
 
   /**
@@ -127,12 +162,16 @@ class BusinessKnowledgeService {
    * @param agentId Agent ID
    */
   async refreshAllKnowledgeToVectorStore(agentId: string): Promise<boolean> {
-    const response = await axios.post<boolean>(`${API_BASE_URL}/refresh-vector-store`, null, {
-      params: { agentId },
-    });
-    return response.data;
+    const response = await axios.post<ApiResponse<boolean>>(
+      `${API_BASE_URL}/refresh-vector-store`,
+      null,
+      {
+        params: { agentId },
+      },
+    );
+    return response.data.success;
   }
 }
 
 export default new BusinessKnowledgeService();
-export type { BusinessKnowledge, BusinessKnowledgeDTO };
+export type { BusinessKnowledgeVO, CreateBusinessKnowledgeDTO, UpdateBusinessKnowledgeDTO };

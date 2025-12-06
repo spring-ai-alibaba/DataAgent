@@ -16,188 +16,156 @@
 
 package com.alibaba.cloud.ai.dataagent.service.business;
 
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
-import com.alibaba.cloud.ai.dataagent.dto.BusinessKnowledgeDTO;
+import com.alibaba.cloud.ai.dataagent.converter.BusinessKnowledgeConverter;
+import com.alibaba.cloud.ai.dataagent.dto.businessknowledge.CreateBusinessKnowledgeDTO;
+import com.alibaba.cloud.ai.dataagent.dto.businessknowledge.UpdateBusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.dataagent.entity.BusinessKnowledge;
+import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
 import com.alibaba.cloud.ai.dataagent.mapper.BusinessKnowledgeMapper;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.util.DocumentConverterUtil;
+import com.alibaba.cloud.ai.dataagent.vo.BusinessKnowledgeVO;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
+@AllArgsConstructor
 public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 
 	private final BusinessKnowledgeMapper businessKnowledgeMapper;
 
-	private final VectorStore vectorStore;
-
 	private final AgentVectorStoreService agentVectorStoreService;
 
-	public BusinessKnowledgeServiceImpl(BusinessKnowledgeMapper businessKnowledgeMapper, VectorStore vectorStore,
-			AgentVectorStoreService agentVectorStoreService) {
-		this.businessKnowledgeMapper = businessKnowledgeMapper;
-		this.vectorStore = vectorStore;
-		this.agentVectorStoreService = agentVectorStoreService;
+	private final BusinessKnowledgeConverter businessKnowledgeConverter;
+
+	@Override
+	public List<BusinessKnowledgeVO> getKnowledge(Long agentId) {
+		List<BusinessKnowledge> businessKnowledges = businessKnowledgeMapper.selectByAgentId(agentId);
+		if (CollectionUtils.isEmpty(businessKnowledges)) {
+			return Collections.emptyList();
+		}
+		return businessKnowledges.stream().map(businessKnowledgeConverter::toVo).toList();
 	}
 
 	@Override
-	public List<BusinessKnowledge> getKnowledge(Long agentId) {
-		return businessKnowledgeMapper.selectByAgentId(agentId);
+	public List<BusinessKnowledgeVO> getAllKnowledge() {
+		List<BusinessKnowledge> businessKnowledges = businessKnowledgeMapper.selectAll();
+		if (CollectionUtils.isEmpty(businessKnowledges)) {
+			return Collections.emptyList();
+		}
+		return businessKnowledges.stream().map(businessKnowledgeConverter::toVo).toList();
 	}
 
 	@Override
-	public List<BusinessKnowledge> getKnowledgeRecalled(Long agentId) {
-		return businessKnowledgeMapper.selectRecalledByAgentId(agentId);
+	public List<BusinessKnowledgeVO> searchKnowledge(Long agentId, String keyword) {
+		List<BusinessKnowledge> businessKnowledges = businessKnowledgeMapper.searchInAgent(agentId, keyword);
+		if (CollectionUtils.isEmpty(businessKnowledges)) {
+			return Collections.emptyList();
+		}
+		return businessKnowledges.stream().map(businessKnowledgeConverter::toVo).toList();
 	}
 
 	@Override
-	public List<BusinessKnowledge> getAllKnowledge() {
-		return businessKnowledgeMapper.selectAll();
-	}
-
-	@Override
-	public List<BusinessKnowledge> searchKnowledge(Long agentId, String keyword) {
-		return businessKnowledgeMapper.searchInAgent(agentId, keyword);
-	}
-
-	@Override
-	public BusinessKnowledge getKnowledgeById(Long id) {
-		return businessKnowledgeMapper.selectById(id);
+	public BusinessKnowledgeVO getKnowledgeById(Long id) {
+		BusinessKnowledge businessKnowledge = businessKnowledgeMapper.selectById(id);
+		if (businessKnowledge == null) {
+			return null;
+		}
+		return businessKnowledgeConverter.toVo(businessKnowledge);
 	}
 
 	@Override
 	@Transactional(rollbackFor = Exception.class)
-	public Long addKnowledge(BusinessKnowledgeDTO knowledgeDTO) {
-		BusinessKnowledge entity = knowledgeDTO.toEntity();
+	public BusinessKnowledgeVO addKnowledge(CreateBusinessKnowledgeDTO knowledgeDTO) {
+		BusinessKnowledge entity = businessKnowledgeConverter.toEntityForCreate(knowledgeDTO);
+
 		// 插入数据库
 		if (businessKnowledgeMapper.insert(entity) <= 0) {
 			throw new RuntimeException("Failed to add knowledge to database");
 		}
 
 		try {
-			// 转换为文档并插入向量库
 			Document document = DocumentConverterUtil.convertBusinessKnowledgeToDocument(entity);
-			vectorStore.add(List.of(document));
-			return entity.getId();
+			agentVectorStoreService.addDocuments(entity.getAgentId().toString(), List.of(document));
+			entity.setEmbeddingStatus(EmbeddingStatus.COMPLETED);
+			entity.setErrorMsg(null);
+			businessKnowledgeMapper.updateById(entity);
 		}
 		catch (Exception e) {
-			// 向量库插入失败，清理数据库记录
-			try {
-				businessKnowledgeMapper.deleteById(entity.getId());
-			}
-			catch (Exception deleteException) {
-				log.error("Failed to clean up database record after vector store error: {}",
-						deleteException.getMessage());
-			}
-			throw new RuntimeException("Failed to add knowledge: " + e.getMessage(), e);
+			String errorMsg = "Failed to add to vector store: " + e.getMessage();
+			entity.setEmbeddingStatus(EmbeddingStatus.FAILED);
+			entity.setErrorMsg(errorMsg);
+			businessKnowledgeMapper.updateById(entity);
+			log.error("Failed to add knowledge to vector store for id: {}, error: {}", entity.getId(), errorMsg);
 		}
+		return businessKnowledgeConverter.toVo(entity);
 	}
 
 	@Override
 	@Transactional(rollbackFor = Exception.class)
-	public void updateKnowledge(Long id, BusinessKnowledgeDTO knowledgeDTO) {
+	public BusinessKnowledgeVO updateKnowledge(Long id, UpdateBusinessKnowledgeDTO knowledgeDTO) {
 		// 从数据库获取原始数据
-		BusinessKnowledge oldKnowledge = businessKnowledgeMapper.selectById(id);
-		if (oldKnowledge == null) {
+		BusinessKnowledge knowledge = businessKnowledgeMapper.selectById(id);
+		if (knowledge == null) {
 			throw new RuntimeException("Knowledge not found with id: " + id);
 		}
+		// 更新属性
+		knowledge.setBusinessTerm(knowledgeDTO.getBusinessTerm());
+		knowledge.setDescription(knowledgeDTO.getDescription());
+		if (StringUtils.hasText(knowledgeDTO.getSynonyms()))
+			knowledge.setSynonyms(knowledgeDTO.getSynonyms());
 
-		BusinessKnowledge newKnowledge = knowledgeDTO.toEntity();
-		newKnowledge.setId(id);
+		// 设置初始状态为处理中
+		knowledge.setEmbeddingStatus(EmbeddingStatus.PROCESSING);
 
 		// 先更新数据库
-		updateDatabase(newKnowledge);
-
-		// 更新向量库
-		updateVectorStore(oldKnowledge, newKnowledge);
-	}
-
-	/**
-	 * 更新数据库中的知识记录
-	 */
-	private void updateDatabase(BusinessKnowledge newKnowledge) {
-		if (businessKnowledgeMapper.updateById(newKnowledge) <= 0) {
+		if (businessKnowledgeMapper.updateById(knowledge) <= 0) {
 			throw new RuntimeException("Failed to update knowledge in database");
 		}
+
+		// 尝试更新向量库
+		try {
+			syncToVectorStore(knowledge);
+			knowledge.setEmbeddingStatus(EmbeddingStatus.COMPLETED);
+			knowledge.setErrorMsg(null);
+			businessKnowledgeMapper.updateById(knowledge);
+		}
+		catch (Exception e) {
+			// 向量库更新失败，不回滚MySQL，只标记状态为失败
+			String errorMsg = "Failed to update vector store: " + e.getMessage();
+			knowledge.setEmbeddingStatus(EmbeddingStatus.FAILED);
+			knowledge.setErrorMsg(errorMsg);
+			businessKnowledgeMapper.updateById(knowledge);
+			log.error("Failed to update vector store for knowledge id: {}, error: {}", id, errorMsg);
+		}
+		return businessKnowledgeConverter.toVo(knowledge);
 	}
 
-	// TODO 2025/11/17 后续可优化改造事务性发件箱模式以确保最终一致性
 	/**
 	 * 更新向量库中的知识向量
 	 */
-	private void updateVectorStore(BusinessKnowledge oldKnowledge, BusinessKnowledge newKnowledge) {
-		String fixedBusinessKnowledgeDocId = DocumentConverterUtil
-			.generateFixedBusinessKnowledgeDocId(oldKnowledge.getAgentId().toString(), oldKnowledge.getId());
+	private void syncToVectorStore(BusinessKnowledge knowledge) {
+		// 先删除旧的向量数据
+		this.doDelVector(knowledge);
 
-		// 保存旧的文档，以便在添加新文档失败时回滚
-		Document oldDocument = null;
-		try {
-			// 获取旧文档内容，用于回滚
-			oldDocument = DocumentConverterUtil.convertBusinessKnowledgeToDocument(oldKnowledge);
+		// 添加新的向量数据
+		Document newDocument = DocumentConverterUtil.convertBusinessKnowledgeToDocument(knowledge);
+		agentVectorStoreService.addDocuments(knowledge.getAgentId().toString(), List.of(newDocument));
 
-			// 先删除旧的向量数据
-			vectorStore.delete(List.of(fixedBusinessKnowledgeDocId));
-
-			// 添加新的向量数据
-			Document newDocument = DocumentConverterUtil.convertBusinessKnowledgeToDocument(newKnowledge);
-			vectorStore.add(List.of(newDocument));
-
-			log.info("Successfully updated vector store for knowledge id: {}", newKnowledge.getId());
-		}
-		catch (Exception e) {
-			// 向量库更新失败，尝试回滚向量库更改
-			rollbackVectorStoreChanges(oldDocument, fixedBusinessKnowledgeDocId, e);
-		}
-	}
-
-	/**
-	 * 回滚向量库更改并抛出异常
-	 */
-	private void rollbackVectorStoreChanges(Document oldDocument, String documentId, Exception originalException) {
-		log.error("Failed to update vector store for document id: {}, attempting to rollback vector store changes",
-				documentId);
-
-		boolean rollbackSuccessful = false;
-		if (oldDocument != null) {
-			try {
-				// 回滚向量库更改 - 重新添加旧的文档
-				vectorStore.add(List.of(oldDocument));
-				rollbackSuccessful = true;
-				log.info("Successfully rolled back vector store changes for document id: {}", documentId);
-			}
-			catch (Exception rollbackException) {
-				log.error("Failed to rollback vector store changes for document id: {}: {}", documentId,
-						rollbackException.getMessage());
-				// 回滚失败，记录严重错误
-				log.error(
-						"CRITICAL: Both vector store update and rollback failed for document id: {}. Manual intervention required.",
-						documentId);
-			}
-		}
-		else {
-			log.error("Cannot rollback vector store changes for document id: {}: old document is null", documentId);
-		}
-
-		// 记录详细的错误信息，以便后续可能的补偿操作
-		log.error("Vector store update failed for document id: {}: {}", documentId, originalException.getMessage());
-
-		// 根据回滚是否成功，提供不同的错误消息
-		String errorMessage;
-		if (rollbackSuccessful) {
-			errorMessage = "Failed to update knowledge in vector store. Vector store changes have been rolled back.";
-		}
-		else {
-			errorMessage = "Failed to update knowledge in vector store. Rollback attempt also failed. Manual intervention required.";
-		}
-
-		throw new RuntimeException(errorMessage, originalException);
+		log.info("Successfully updated vector store for knowledge id: {}", knowledge.getId());
 	}
 
 	@Override
@@ -210,49 +178,48 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 			return;
 		}
 
-		String documentId = DocumentConverterUtil.generateFixedBusinessKnowledgeDocId(knowledge.getAgentId().toString(),
-				id);
-		vectorStore.delete(List.of(documentId));
+		doDelVector(knowledge);
 
-		// 从数据库删除记录
-		if (businessKnowledgeMapper.deleteById(id) <= 0) {
+		if (businessKnowledgeMapper.logicalDelete(id, 1) <= 0) {
 			// 重新添加修复被删除的记录
-			vectorStore.add(List.of(DocumentConverterUtil.convertBusinessKnowledgeToDocument(knowledge)));
-			throw new RuntimeException("Failed to delete knowledge from database");
+			agentVectorStoreService.addDocuments(knowledge.getAgentId().toString(),
+					List.of(DocumentConverterUtil.convertBusinessKnowledgeToDocument(knowledge)));
+			throw new RuntimeException("Failed to logically delete knowledge from database");
 		}
+	}
+
+	private void doDelVector(BusinessKnowledge knowledge) {
+		Map<String, Object> metadata = new HashMap<>();
+		metadata.put(Constant.AGENT_ID, knowledge.getAgentId().toString());
+		metadata.put(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, knowledge.getId());
+		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM);
+		agentVectorStoreService.deleteDocumentsByMetedata(knowledge.getAgentId().toString(), metadata);
 	}
 
 	@Override
 	@Transactional(rollbackFor = Exception.class)
-	public void recallKnowledge(Long id, boolean isRecall) {
+	public void recallKnowledge(Long id, Boolean isRecall) {
 		// 从数据库获取原始数据
 		BusinessKnowledge knowledge = businessKnowledgeMapper.selectById(id);
 		if (knowledge == null) {
 			throw new RuntimeException("Knowledge not found with id: " + id);
 		}
 
-		// 召回是要添加到向量库，取消召回是从向量库删除
-		if (isRecall) {
-			knowledge.setIsRecall(1);
-			businessKnowledgeMapper.updateById(knowledge);
-			vectorStore.add(List.of(DocumentConverterUtil.convertBusinessKnowledgeToDocument(knowledge)));
-		}
-		else {
-			knowledge.setIsRecall(0);
-			businessKnowledgeMapper.updateById(knowledge);
-			vectorStore.delete(List
-				.of(DocumentConverterUtil.generateFixedBusinessKnowledgeDocId(knowledge.getAgentId().toString(), id)));
-		}
+		// 更新数据库即可，不需要更新向量库，混合检索的的时候DynamicFilterService会根据 isRecall 字段过滤了
+		knowledge.setIsRecall(isRecall ? 1 : 0);
+		businessKnowledgeMapper.updateById(knowledge);
+
 	}
 
 	@Override
 	public void refreshAllKnowledgeToVectorStore(String agentId) throws Exception {
 		agentVectorStoreService.deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.BUSINESS_TERM);
 
-		// 获取所有 isRecall 等于 1 的 BusinessKnowledge
+		// 获取所有 isRecall 等于 1 且未逻辑删除的 BusinessKnowledge
 		List<BusinessKnowledge> allKnowledge = businessKnowledgeMapper.selectAll();
 		List<BusinessKnowledge> recalledKnowledge = allKnowledge.stream()
 			.filter(knowledge -> knowledge.getIsRecall() != null && knowledge.getIsRecall() == 1)
+			.filter(knowledge -> knowledge.getIsDeleted() == null || knowledge.getIsDeleted() == 0)
 			.filter(knowledge -> agentId.equals(knowledge.getAgentId().toString()))
 			.toList();
 
@@ -261,8 +228,40 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 			List<Document> documents = recalledKnowledge.stream()
 				.map(DocumentConverterUtil::convertBusinessKnowledgeToDocument)
 				.toList();
-			vectorStore.add(documents);
+			agentVectorStoreService.addDocuments(agentId, documents);
 		}
+	}
+
+	@Override
+	public void retryEmbedding(Long id) {
+		BusinessKnowledge knowledge = businessKnowledgeMapper.selectById(id);
+		if (knowledge == null) {
+			throw new RuntimeException("BusinessKnowledge not found with id: " + id);
+		}
+
+		if (knowledge.getEmbeddingStatus().equals(EmbeddingStatus.PROCESSING)) {
+			throw new RuntimeException("BusinessKnowledge is processing, please wait.");
+		}
+
+		// 非召回的不处理
+		if (knowledge.getIsRecall() == null || knowledge.getIsRecall() == 0) {
+			throw new RuntimeException("BusinessKnowledge is not recalled, please recall it first.");
+		}
+
+		try {
+			syncToVectorStore(knowledge);
+			knowledge.setEmbeddingStatus(EmbeddingStatus.COMPLETED);
+			knowledge.setErrorMsg(null);
+			businessKnowledgeMapper.updateById(knowledge);
+		}
+		catch (Exception e) {
+			// 再次失败，更新错误信息
+			knowledge.setEmbeddingStatus(EmbeddingStatus.FAILED);
+			knowledge.setErrorMsg(e.getMessage().length() > 200 ? e.getMessage().substring(0, 200) : e.getMessage());
+			businessKnowledgeMapper.updateById(knowledge);
+			throw new RuntimeException("重试失败: " + e.getMessage());
+		}
+
 	}
 
 }

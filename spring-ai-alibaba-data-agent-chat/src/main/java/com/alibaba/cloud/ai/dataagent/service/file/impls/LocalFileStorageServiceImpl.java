@@ -17,15 +17,17 @@ package com.alibaba.cloud.ai.dataagent.service.file.impls;
 
 import com.alibaba.cloud.ai.dataagent.config.file.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -73,14 +75,14 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 		try {
 			Path fullPath = Paths.get(fileStorageProperties.getPath(), filePath);
 			if (Files.exists(fullPath)) {
-				Files.delete(fullPath);
+				Files.deleteIfExists(fullPath);
 				log.info("成功删除文件: {}", filePath);
-				return true;
 			}
 			else {
-				log.warn("文件不存在，无法删除: {}", filePath);
-				return false;
+				// 删除是个等幂的操作，不存在也是当做被删除了
+				log.info("文件不存在，跳过删除，视为成功: {}", filePath);
 			}
+			return true;
 		}
 		catch (IOException e) {
 			log.error("删除文件失败: {}", filePath, e);
@@ -105,6 +107,17 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 			log.warn("动态构建URL失败，使用相对路径", e);
 		}
 		return fileStorageProperties.getUrlPrefix() + "/" + filePath;
+	}
+
+	@Override
+	public Resource getFileResource(String filePath) {
+		Path fullPath = Paths.get(fileStorageProperties.getPath(), filePath);
+		if (Files.exists(fullPath)) {
+			return new FileSystemResource(fullPath);
+		}
+		else {
+			throw new RuntimeException("File is not exist: " + filePath);
+		}
 	}
 
 	/**

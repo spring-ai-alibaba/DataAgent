@@ -17,26 +17,26 @@
 package com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
-import com.alibaba.cloud.ai.dataagent.common.request.AgentSearchRequest;
+import com.alibaba.cloud.ai.dataagent.common.request.HybridSearchRequest;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.fusion.FusionStrategy;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.AbstractHybridRetrievalStrategy;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.elasticsearch.ElasticsearchAiSearchFilterExpressionConverter;
 import org.springframework.ai.vectorstore.elasticsearch.ElasticsearchVectorStore;
+import org.springframework.ai.vectorstore.filter.FilterExpressionConverter;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
@@ -44,6 +44,11 @@ import java.util.stream.Collectors;
 @Setter
 @Slf4j
 public class ElasticsearchHybridRetrievalStrategy extends AbstractHybridRetrievalStrategy {
+
+	// content
+	private static final String CONTENT = "content";
+
+	private final FilterExpressionConverter filterConverter = new ElasticsearchAiSearchFilterExpressionConverter();
 
 	/**
 	 * 设置Elasticsearch最小分数
@@ -64,18 +69,10 @@ public class ElasticsearchHybridRetrievalStrategy extends AbstractHybridRetrieva
 	}
 
 	@Override
-	public List<Document> getDocumentsByKeywords(AgentSearchRequest agentSearchRequest) {
-
-		/*
-		 * JSON 请求
-		 *
-		 * POST custom-index/_search { "query": { "bool": { "must": [ { "match": {
-		 * "content": "test" } } ], "filter": [ { "term": { "metadata.agentId": "2" } }, {
-		 * "term": { "metadata.vectorType": "table" } } ] } }, "size": 20, "_source": true
-		 * }
-		 */
-		if (!StringUtils.hasText(agentSearchRequest.getQuery()))
+	public List<Document> getDocumentsByKeywords(HybridSearchRequest request) {
+		if (!StringUtils.hasText(request.getQuery())) {
 			return Collections.emptyList();
+		}
 
 		ElasticsearchVectorStore vectorStore = (ElasticsearchVectorStore) this.vectorStore;
 		Optional<ElasticsearchClient> nativeClient = vectorStore.getNativeClient();
@@ -83,45 +80,68 @@ public class ElasticsearchHybridRetrievalStrategy extends AbstractHybridRetrieva
 			throw new RuntimeException("ElasticsearchClient is not available.");
 		ElasticsearchClient client = nativeClient.get();
 
-		SearchRequest searchRequest = buildSearchRequest(agentSearchRequest);
+		String queryText = request.getQuery();
+		int targetTopK = request.getTopK() * 2;
+		String filterString = null;
+		if (request.getFilterExpression() != null) {
+			filterString = filterConverter.convertExpression(request.getFilterExpression());
+			log.debug("Using filter: {}", filterString);
+		}
+
 		// 执行搜索
-		SearchResponse<Document> search = null;
 		try {
-			search = client.search(searchRequest, Document.class);
+			SearchRequest searchRequest = buildSearchRequest(queryText, targetTopK, minScore, filterString);
+
+			// 执行搜索
+			SearchResponse<Document> response = client.search(searchRequest, Document.class);
+
+			if (response == null || response.hits() == null) {
+				return Collections.emptyList();
+			}
+
+			// 结果转换
+			return response.hits()
+				.hits()
+				.stream()
+				.map(Hit::source)
+				.filter(Objects::nonNull)
+				.collect(Collectors.toList());
+
 		}
 		catch (IOException e) {
 			log.error("ElasticsearchClient search error", e);
-		}
-		if (null == search)
+			// 关键词搜索失败不应该阻断整个流程，返回空列表让向量搜索兜底
 			return Collections.emptyList();
-		return search.hits().hits().stream().map(Hit::source).collect(Collectors.toList());
+		}
 	}
 
-	private SearchRequest buildSearchRequest(AgentSearchRequest agentSearchRequest) {
-		// 拼接keywords 通过空格连接
-		log.debug("ElasticsearchClient search with query: {}", agentSearchRequest.getQuery());
+	private SearchRequest buildSearchRequest(String queryText, int topK, Double minScore, String filterString) {
+		log.debug("Building ES request with query: [{}], filter: [{}]", queryText, filterString);
 
-		Query matchQuery = MatchQuery.of(m -> m.field("content").query(agentSearchRequest.getQuery()))._toQuery();
+		// A. 构建内容匹配查询 (Match Query)
+		Query matchQuery = Query.of(q -> q.match(m -> m.field(CONTENT).query(queryText)));
 
-		// 创建元数据过滤条件
-		Query agentIdFilter = TermQuery.of(t -> t.field("metadata.agentId").value(agentSearchRequest.getAgentId()))
-			._toQuery();
+		// B. 构建布尔查询 (Bool Query)
+		Query finalQuery = Query.of(q -> q.bool(b -> {
+			// 1. must: 必须匹配内容
+			b.must(matchQuery);
 
-		Query vectorTypeFilter = TermQuery
-			.of(t -> t.field("metadata.vectorType").value(agentSearchRequest.getDocVectorType()))
-			._toQuery();
+			// 2. filter: 如果有过滤条件，注入 QueryStringQuery
+			if (StringUtils.hasText(filterString)) {
+				b.filter(f -> f.queryString(qs -> qs.query(filterString) // <---
+																			// 这里直接使用翻译好的字符串
+				));
+			}
+			return b;
+		}));
 
-		// 创建布尔查询，组合匹配查询和过滤条件
-		Query boolQuery = Query
-			.of(q -> q.bool(BoolQuery.of(b -> b.must(matchQuery).filter(agentIdFilter, vectorTypeFilter))));
-
-		// 创建搜索请求
+		// C. 组装最终请求
 		return SearchRequest.of(s -> s.index(indexName)
-			.query(boolQuery)
-			.size(agentSearchRequest.getTopK() * 2)
-			.minScore(minScore)
-			.source(src -> src.fetch(true)));
-
+			.query(finalQuery)
+			.size(topK) // 注意：这里用了传入的 topK
+			.minScore(minScore) // 如果 minScore 为 null，ES 会忽略此参数
+			.source(src -> src.fetch(true)) // 确保返回 _source
+		);
 	}
 
 }

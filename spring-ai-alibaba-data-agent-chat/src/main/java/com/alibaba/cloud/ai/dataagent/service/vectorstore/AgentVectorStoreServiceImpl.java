@@ -15,37 +15,24 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.vectorstore;
 
+import com.alibaba.cloud.ai.dataagent.common.request.AgentSearchRequest;
+import com.alibaba.cloud.ai.dataagent.common.request.HybridSearchRequest;
 import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
-import com.alibaba.cloud.ai.dataagent.common.connector.accessor.Accessor;
-import com.alibaba.cloud.ai.dataagent.common.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.dataagent.common.connector.bo.DbQueryParameter;
-import com.alibaba.cloud.ai.dataagent.common.connector.bo.ForeignKeyInfoBO;
-import com.alibaba.cloud.ai.dataagent.common.connector.bo.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
-import com.alibaba.cloud.ai.dataagent.common.request.AgentSearchRequest;
-import com.alibaba.cloud.ai.dataagent.common.request.SchemaInitRequest;
-import com.alibaba.cloud.ai.dataagent.service.TableMetadataService;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.HybridRetrievalStrategy;
-import com.alibaba.cloud.ai.dataagent.util.SearchUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutorService;
 
-import static com.alibaba.cloud.ai.dataagent.util.DocumentConverterUtil.convertColumnsToDocuments;
-import static com.alibaba.cloud.ai.dataagent.util.DocumentConverterUtil.convertTablesToDocuments;
-import static com.alibaba.cloud.ai.dataagent.util.SearchUtil.buildFilterExpressionString;
+import static com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService.buildFilterExpressionString;
 
 @Slf4j
 @Service
@@ -55,29 +42,19 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 	private final VectorStore vectorStore;
 
-	private final ExecutorService dbOperationExecutor;
-
 	private final Optional<HybridRetrievalStrategy> hybridRetrievalStrategy;
 
 	private final DataAgentProperties dataAgentProperties;
 
-	protected final AccessorFactory accessorFactory;
+	private final DynamicFilterService dynamicFilterService;
 
-	protected final BatchingStrategy batchingStrategy;
-
-	protected final TableMetadataService tableMetadataService;
-
-	public AgentVectorStoreServiceImpl(VectorStore vectorStore, ExecutorService dbOperationExecutor,
+	public AgentVectorStoreServiceImpl(VectorStore vectorStore,
 			Optional<HybridRetrievalStrategy> hybridRetrievalStrategy, DataAgentProperties dataAgentProperties,
-			BatchingStrategy batchingStrategy, AccessorFactory accessorFactory,
-			TableMetadataService tableMetadataService) {
+			DynamicFilterService dynamicFilterService) {
 		this.vectorStore = vectorStore;
-		this.dbOperationExecutor = dbOperationExecutor;
 		this.hybridRetrievalStrategy = hybridRetrievalStrategy;
 		this.dataAgentProperties = dataAgentProperties;
-		this.batchingStrategy = batchingStrategy;
-		this.accessorFactory = accessorFactory;
-		this.tableMetadataService = tableMetadataService;
+		this.dynamicFilterService = dynamicFilterService;
 		log.info("VectorStore type: {}", vectorStore.getClass().getSimpleName());
 	}
 
@@ -85,162 +62,31 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	public List<Document> search(AgentSearchRequest searchRequest) {
 		Assert.hasText(searchRequest.getAgentId(), "AgentId cannot be empty");
 		Assert.hasText(searchRequest.getDocVectorType(), "DocVectorType cannot be empty");
+
+		Filter.Expression filter = dynamicFilterService.buildDynamicFilter(searchRequest.getAgentId(),
+				searchRequest.getDocVectorType());
+		// 根据agentId vectorType找不到要 召回 的业务知识或者智能体知识
+		if (filter == null) {
+			log.warn("Dynamic filter returned null (no valid ids), returning empty result directly.");
+			return Collections.emptyList();
+		}
+
+		HybridSearchRequest hybridRequest = HybridSearchRequest.builder()
+			.query(searchRequest.getQuery())
+			.topK(searchRequest.getTopK())
+			.similarityThreshold(searchRequest.getSimilarityThreshold())
+			.filterExpression(filter)
+			.build();
+
 		if (dataAgentProperties.getVectorStore().isEnableHybridSearch() && hybridRetrievalStrategy.isPresent()) {
-			return hybridRetrievalStrategy.get().retrieve(searchRequest);
+			return hybridRetrievalStrategy.get().retrieve(hybridRequest);
 		}
 		log.debug("Hybrid search is not enabled. use vector-search only");
-		SearchRequest vectorSearchRequest = SearchUtil.buildVectorSearchRequest(searchRequest);
-		List<Document> results = vectorStore.similaritySearch(vectorSearchRequest);
+		List<Document> results = vectorStore.similaritySearch(hybridRequest.toVectorSearchRequest());
 		log.debug("Search completed with vectorType: {}, found {} documents for SearchRequest: {}",
 				searchRequest.getDocVectorType(), results.size(), searchRequest);
 		return results;
 
-	}
-
-	@Override
-	public Boolean schema(String agentId, SchemaInitRequest schemaInitRequest) throws Exception {
-		log.info("Starting schema initialization for agent: {}", agentId);
-		DbConfig config = schemaInitRequest.getDbConfig();
-		DbQueryParameter dqp = DbQueryParameter.from(config)
-			.setSchema(config.getSchema())
-			.setTables(schemaInitRequest.getTables());
-
-		try {
-			// 根据当前DbConfig获取Accessor
-			Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(config);
-
-			// 清理旧数据
-			log.info("Clearing existing schema data for agent: {}", agentId);
-			clearSchemaDataForAgent(agentId);
-			log.debug("Successfully cleared existing schema data for agent: {}", agentId);
-
-			// 处理外键
-			log.debug("Fetching foreign keys for agent: {}", agentId);
-			List<ForeignKeyInfoBO> foreignKeys = dbAccessor.showForeignKeys(config, dqp);
-			log.info("Found {} foreign keys for agent: {}", foreignKeys.size(), agentId);
-
-			Map<String, List<String>> foreignKeyMap = buildForeignKeyMap(foreignKeys);
-			log.debug("Built foreign key map with {} entries for agent: {}", foreignKeyMap.size(), agentId);
-
-			// 处理表和列
-			log.debug("Fetching tables for agent: {}", agentId);
-			List<TableInfoBO> tables = dbAccessor.fetchTables(config, dqp);
-			log.info("Found {} tables for agent: {}", tables.size(), agentId);
-
-			if (tables.size() > 5) {
-				// 对于大量表，使用并行处理
-				log.info("Processing {} tables in parallel mode for agent: {}", tables.size(), agentId);
-				processTablesInParallel(tables, config, foreignKeyMap);
-			}
-			else {
-				// 对于少量表，使用批量处理
-				log.info("Processing {} tables in batch mode for agent: {}", tables.size(), agentId);
-				tableMetadataService.batchEnrichTableMetadata(tables, config, foreignKeyMap);
-			}
-
-			log.info("Successfully processed all tables for agent: {}", agentId);
-
-			// 转换为文档
-			List<Document> columnDocs = convertColumnsToDocuments(agentId, tables);
-			List<Document> tableDocs = convertTablesToDocuments(agentId, tables);
-
-			// 存储文档
-			log.info("Storing {} columns and {} tables for agent: {}", columnDocs.size(), tableDocs.size(), agentId);
-			storeSchemaDocuments(columnDocs, tableDocs);
-			log.info("Successfully stored all documents for agent: {}", agentId);
-			return true;
-		}
-		catch (Exception e) {
-			log.error("Failed to process schema for agent: {}", agentId, e);
-			return false;
-		}
-	}
-
-	/**
-	 * 并行处理表元数据，提高大量表时的处理性能
-	 * @param tables 表列表
-	 * @param config 数据库配置
-	 * @param foreignKeyMap 外键映射
-	 * @throws Exception 处理失败时抛出异常
-	 */
-	private void processTablesInParallel(List<TableInfoBO> tables, DbConfig config,
-			Map<String, List<String>> foreignKeyMap) throws Exception {
-
-		// 根据CPU核心数确定并行度，但不超过表的数量
-		int parallelism = Math.min(Runtime.getRuntime().availableProcessors() * 2, tables.size());
-		int batchSize = (int) Math.ceil((double) tables.size() / parallelism);
-
-		log.info("Processing {} tables in parallel with parallelism: {}, batch size: {}", tables.size(), parallelism,
-				batchSize);
-		// 将表分成多个批次
-		List<List<TableInfoBO>> tableBatches = partitionList(tables, batchSize);
-
-		// 使用CompletableFuture进行更精细的并行控制，使用专用线程池
-		List<CompletableFuture<Void>> futures = tableBatches.stream().map(batch -> CompletableFuture.runAsync(() -> {
-			try {
-				log.debug("Processing batch of {} tables", batch.size());
-
-				// 批量处理当前批次的表
-				tableMetadataService.batchEnrichTableMetadata(batch, config, foreignKeyMap);
-				log.debug("Successfully processed batch of {} tables", batch.size());
-			}
-			catch (Exception e) {
-				log.error("Failed to process batch of tables", e);
-				throw new CompletionException(e);
-			}
-		}, dbOperationExecutor)).toList();
-
-		// 等待所有任务完成，并处理异常
-		try {
-			CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-			log.info("All parallel batches completed successfully");
-		}
-		catch (CompletionException e) {
-			log.error("Parallel processing failed", e);
-			throw new Exception(e.getCause());
-		}
-	}
-
-	/**
-	 * 将列表分成指定大小的子列表
-	 * @param list 原始列表
-	 * @param batchSize 批次大小
-	 * @param <T> 列表元素类型
-	 * @return 分批后的列表
-	 */
-	private <T> List<List<T>> partitionList(List<T> list, int batchSize) {
-		List<List<T>> partitions = new ArrayList<>();
-		for (int i = 0; i < list.size(); i += batchSize) {
-			partitions.add(list.subList(i, Math.min(i + batchSize, list.size())));
-		}
-		return partitions;
-	}
-
-	protected void storeSchemaDocuments(List<Document> columns, List<Document> tables) {
-		// 串行去批写入，并行流的时候有API限速了
-		List<List<Document>> columnBatches = batchingStrategy.batch(columns);
-		columnBatches.forEach(vectorStore::add);
-
-		List<List<Document>> tableBatches = batchingStrategy.batch(tables);
-		tableBatches.forEach(vectorStore::add);
-
-	}
-
-	protected Map<String, List<String>> buildForeignKeyMap(List<ForeignKeyInfoBO> foreignKeys) {
-		Map<String, List<String>> map = new HashMap<>();
-		for (ForeignKeyInfoBO fk : foreignKeys) {
-			String key = fk.getTable() + "." + fk.getColumn() + "=" + fk.getReferencedTable() + "."
-					+ fk.getReferencedColumn();
-
-			map.computeIfAbsent(fk.getTable(), k -> new ArrayList<>()).add(key);
-			map.computeIfAbsent(fk.getReferencedTable(), k -> new ArrayList<>()).add(key);
-		}
-		return map;
-	}
-
-	protected void clearSchemaDataForAgent(String agentId) throws Exception {
-		deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.COLUMN);
-		deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.TABLE);
 	}
 
 	@Override
@@ -270,7 +116,7 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	}
 
 	@Override
-	public Boolean deleteDocumentsByMetedata(String agentId, Map<String, Object> metadata) throws Exception {
+	public Boolean deleteDocumentsByMetedata(String agentId, Map<String, Object> metadata) {
 		Assert.hasText(agentId, "AgentId cannot be empty.");
 		Assert.notNull(metadata, "Metadata cannot be null.");
 		// 添加agentId元数据过滤条件, 用于删除指定agentId下的所有数据，因为metadata中用户调用可能忘记添加agentId
@@ -341,8 +187,8 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	}
 
 	@Override
-	public List<Document> getDocumentsOnlyByFilter(String filterExpression, int topK) {
-		Assert.hasText(filterExpression, "filterExpression cannot be empty.");
+	public List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, int topK) {
+		Assert.notNull(filterExpression, "filterExpression cannot be null.");
 		SearchRequest searchRequest = SearchRequest.builder()
 			.query(DEFAULT)
 			.topK(topK)
@@ -358,7 +204,10 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 		if (tableNames.isEmpty())
 			return Collections.emptyList();
 		// 通过元数据过滤查找目标表
-		String filterExpression = SearchUtil.buildFilterExpressionForSearchTables(agentId, tableNames);
+		Filter.Expression filterExpression = DynamicFilterService.buildFilterExpressionForSearchTables(agentId,
+				tableNames);
+		if (filterExpression == null)
+			return Collections.emptyList();
 		return this.getDocumentsOnlyByFilter(filterExpression, tableNames.size() + 5);
 	}
 
@@ -368,8 +217,10 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 		Assert.hasText(upstreamTableName, "UpstreamTableName cannot be empty.");
 		if (columnNames.isEmpty())
 			return Collections.emptyList();
-		String filterExpression = SearchUtil.buildFilterExpressionForSearchColumns(agentId, upstreamTableName,
-				columnNames);
+		Filter.Expression filterExpression = dynamicFilterService.buildFilterExpressionForSearchColumns(agentId,
+				upstreamTableName, columnNames);
+		if (filterExpression == null)
+			return Collections.emptyList();
 		return this.getDocumentsOnlyByFilter(filterExpression, columnNames.size() + 5);
 	}
 

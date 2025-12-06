@@ -64,6 +64,22 @@
       <el-table-column prop="businessTerm" label="业务名词" min-width="120px" />
       <el-table-column prop="description" label="描述" min-width="150px" />
       <el-table-column prop="synonyms" label="同义词" min-width="120px" />
+      <el-table-column label="向量化状态" min-width="120px">
+        <template #default="scope">
+          <el-tag :type="getVectorStatusType(scope.row.embeddingStatus)" round>
+            {{ scope.row.embeddingStatus || '未知' }}
+            <el-tooltip
+              v-if="scope.row.embeddingStatus === 'FAILED' && scope.row.errorMsg"
+              :content="scope.row.errorMsg"
+              placement="top"
+            >
+              <el-icon style="margin-left: 4px">
+                <Warning />
+              </el-icon>
+            </el-tooltip>
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="是否召回" min-width="80px">
         <template #default="scope">
           <el-tag :type="scope.row.isRecall ? 'success' : 'info'" round>
@@ -71,11 +87,22 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" min-width="120px" />
+      <el-table-column prop="createdTime" label="创建时间" min-width="120px" />
       <el-table-column label="操作" min-width="180px">
         <template #default="scope">
           <el-button @click="editKnowledge(scope.row)" size="small" type="primary" round plain>
             编辑
+          </el-button>
+          <el-button
+            v-if="scope.row.embeddingStatus === 'FAILED'"
+            @click="retryEmbedding(scope.row)"
+            size="small"
+            type="info"
+            round
+            plain
+            :loading="retryLoadingMap[scope.row.id]"
+          >
+            重试
           </el-button>
           <el-button
             v-if="scope.row.isRecall"
@@ -134,7 +161,12 @@
     <template #footer>
       <div style="text-align: right">
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveKnowledge">
+        <el-button
+          type="primary"
+          @click="saveKnowledge"
+          :loading="saveLoading"
+          :disabled="saveLoading"
+        >
           {{ isEdit ? '更新' : '创建' }}
         </el-button>
       </div>
@@ -144,10 +176,11 @@
 
 <script lang="ts">
   import { defineComponent, ref, onMounted, Ref } from 'vue';
-  import { Plus, Search, Document } from '@element-plus/icons-vue';
+  import { Plus, Search, Document, Warning } from '@element-plus/icons-vue';
   import businessKnowledgeService, {
-    BusinessKnowledge,
-    BusinessKnowledgeDTO,
+    BusinessKnowledgeVO,
+    CreateBusinessKnowledgeDTO,
+    UpdateBusinessKnowledgeDTO,
   } from '@/services/businessKnowledge';
   import { ElMessage, ElMessageBox } from 'element-plus';
 
@@ -155,6 +188,7 @@
     name: 'AgentKnowledgeConfig',
     components: {
       Search,
+      Warning,
     },
     props: {
       agentId: {
@@ -163,19 +197,21 @@
       },
     },
     setup(props) {
-      const businessKnowledgeList: Ref<BusinessKnowledge[]> = ref([]);
+      const businessKnowledgeList: Ref<BusinessKnowledgeVO[]> = ref([]);
       const dialogVisible: Ref<boolean> = ref(false);
       const isEdit: Ref<boolean> = ref(false);
       const searchKeyword: Ref<string> = ref('');
-      const knowledgeForm: Ref<BusinessKnowledge> = ref({
+      const knowledgeForm: Ref<BusinessKnowledgeVO> = ref({
         businessTerm: '',
         description: '',
         synonyms: '',
         isRecall: false,
-      } as BusinessKnowledge);
+      } as BusinessKnowledgeVO);
 
       const currentEditId: Ref<number | null> = ref(null);
       const refreshLoading: Ref<boolean> = ref(false);
+      const saveLoading: Ref<boolean> = ref(false);
+      const retryLoadingMap: Ref<Record<number, boolean>> = ref({});
 
       const openCreateDialog = () => {
         isEdit.value = false;
@@ -201,7 +237,7 @@
       };
 
       // 编辑业务知识
-      const editKnowledge = (knowledge: BusinessKnowledge) => {
+      const editKnowledge = (knowledge: BusinessKnowledgeVO) => {
         isEdit.value = true;
         currentEditId.value = knowledge.id || null;
         knowledgeForm.value = { ...knowledge };
@@ -209,7 +245,7 @@
       };
 
       // 删除业务知识
-      const deleteKnowledge = async (knowledge: BusinessKnowledge) => {
+      const deleteKnowledge = async (knowledge: BusinessKnowledgeVO) => {
         if (!knowledge.id) return;
 
         try {
@@ -236,7 +272,7 @@
       };
 
       // 切换召回状态
-      const toggleRecall = async (knowledge: BusinessKnowledge, isRecall: boolean) => {
+      const toggleRecall = async (knowledge: BusinessKnowledgeVO, isRecall: boolean) => {
         if (!knowledge.id) return;
 
         try {
@@ -255,17 +291,18 @@
 
       // 保存业务知识
       const saveKnowledge = async () => {
+        saveLoading.value = true;
         try {
-          const formData: BusinessKnowledgeDTO = {
-            businessTerm: knowledgeForm.value.businessTerm,
-            description: knowledgeForm.value.description,
-            synonyms: knowledgeForm.value.synonyms,
-            isRecall: knowledgeForm.value.isRecall,
-            agentId: props.agentId,
-          };
-
           if (isEdit.value && currentEditId.value) {
-            const result = await businessKnowledgeService.update(currentEditId.value, formData);
+            // 更新操作使用 UpdateBusinessKnowledgeDTO
+            const updateData: UpdateBusinessKnowledgeDTO = {
+              businessTerm: knowledgeForm.value.businessTerm,
+              description: knowledgeForm.value.description,
+              synonyms: knowledgeForm.value.synonyms,
+              agentId: props.agentId,
+            };
+
+            const result = await businessKnowledgeService.update(currentEditId.value, updateData);
             if (result) {
               ElMessage.success('更新成功');
             } else {
@@ -273,7 +310,16 @@
               return;
             }
           } else {
-            await businessKnowledgeService.create(formData);
+            // 创建操作使用 CreateBusinessKnowledgeDTO
+            const createData: CreateBusinessKnowledgeDTO = {
+              businessTerm: knowledgeForm.value.businessTerm,
+              description: knowledgeForm.value.description,
+              synonyms: knowledgeForm.value.synonyms,
+              isRecall: knowledgeForm.value.isRecall,
+              agentId: props.agentId,
+            };
+
+            await businessKnowledgeService.create(createData);
             ElMessage.success('创建成功');
           }
 
@@ -282,6 +328,8 @@
         } catch (error) {
           ElMessage.error(`${isEdit.value ? '更新' : '创建'}失败`);
           console.error('Failed to save knowledge:', error);
+        } finally {
+          saveLoading.value = false;
         }
       };
 
@@ -289,7 +337,7 @@
       const refreshVectorStore = async () => {
         try {
           await ElMessageBox.confirm(
-            '确定要同步所有业务知识到向量库吗？这可能需要一些时间。',
+            '如果所有向量状态正常，即无需同步。确定要清除现有数据并开始重新同步吗？',
             '确认同步',
             {
               confirmButtonText: '确定',
@@ -317,6 +365,47 @@
         }
       };
 
+      // 重试向量化
+      const retryEmbedding = async (knowledge: BusinessKnowledgeVO) => {
+        if (!knowledge.id) return;
+
+        try {
+          // 设置加载状态为true
+          retryLoadingMap.value[knowledge.id] = true;
+
+          const result = await businessKnowledgeService.retryEmbedding(knowledge.id);
+          if (result) {
+            ElMessage.success('重试向量化成功');
+            // 刷新列表以更新状态
+            await loadBusinessKnowledge();
+          } else {
+            ElMessage.error('重试向量化失败');
+          }
+        } catch (error) {
+          ElMessage.error('重试向量化失败');
+          console.error('Failed to retry vectorization:', error);
+        } finally {
+          // 无论成功还是失败，都将加载状态设置为false
+          retryLoadingMap.value[knowledge.id] = false;
+        }
+      };
+
+      // 获取向量化状态对应的标签类型
+      const getVectorStatusType = (status?: string): string => {
+        switch (status) {
+          case 'COMPLETED':
+            return 'success';
+          case 'FAILED':
+            return 'danger';
+          case 'PENDING':
+            return 'warning';
+          case 'PROCESSING':
+            return 'primary';
+          default:
+            return 'info';
+        }
+      };
+
       onMounted(() => {
         loadBusinessKnowledge();
       });
@@ -331,6 +420,8 @@
         searchKeyword,
         knowledgeForm,
         refreshLoading,
+        saveLoading,
+        retryLoadingMap,
         openCreateDialog,
         editKnowledge,
         deleteKnowledge,
@@ -338,6 +429,8 @@
         saveKnowledge,
         handleSearch,
         refreshVectorStore,
+        retryEmbedding,
+        getVectorStatusType,
       };
     },
   });
