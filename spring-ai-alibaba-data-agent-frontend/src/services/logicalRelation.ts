@@ -49,7 +49,10 @@ class LogicalRelationService {
   }
 
   // 添加逻辑外键
-  async addLogicalRelation(datasourceId: number, logicalRelation: LogicalRelation): Promise<LogicalRelation> {
+  async addLogicalRelation(
+    datasourceId: number,
+    logicalRelation: LogicalRelation,
+  ): Promise<LogicalRelation> {
     const response = await axios.post<LogicalRelation>(
       `${API_BASE_URL}/${datasourceId}/logical-relations`,
       logicalRelation,
@@ -71,7 +74,10 @@ class LogicalRelationService {
   }
 
   // 删除逻辑外键
-  async deleteLogicalRelation(datasourceId: number, relationId: number): Promise<ApiResponse<void>> {
+  async deleteLogicalRelation(
+    datasourceId: number,
+    relationId: number,
+  ): Promise<ApiResponse<void>> {
     const response = await axios.delete<ApiResponse<void>>(
       `${API_BASE_URL}/${datasourceId}/logical-relations/${relationId}`,
     );

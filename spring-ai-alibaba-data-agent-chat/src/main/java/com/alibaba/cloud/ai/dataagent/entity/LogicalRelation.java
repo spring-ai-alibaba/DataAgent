@@ -26,8 +26,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDateTime;
 
 /**
- * 逻辑外键配置实体类
- * 用于定义数据源中表之间的逻辑外键关系，帮助 LLM 理解数据关联
+ * 逻辑外键配置实体类 用于定义数据源中表之间的逻辑外键关系，帮助 LLM 理解数据关联
  */
 @Data
 @NoArgsConstructor
@@ -66,21 +65,17 @@ public class LogicalRelation {
 	private String targetColumnName;
 
 	/**
-	 * 关系类型（可选）
-	 * 1:1, 1:N, N:1 - 辅助LLM理解数据基数
+	 * 关系类型（可选） 1:1, 1:N, N:1 - 辅助LLM理解数据基数
 	 */
 	private String relationType;
 
 	/**
-	 * 业务描述（可选）
-	 * 存入Prompt中帮助LLM理解
-	 * 例如："订单表通过buyer_uid关联用户表id"
+	 * 业务描述（可选） 存入Prompt中帮助LLM理解 例如："订单表通过buyer_uid关联用户表id"
 	 */
 	private String description;
 
 	/**
-	 * 逻辑删除标志
-	 * 0-未删除, 1-已删除
+	 * 逻辑删除标志 0-未删除, 1-已删除
 	 */
 	private Integer isDeleted;
 

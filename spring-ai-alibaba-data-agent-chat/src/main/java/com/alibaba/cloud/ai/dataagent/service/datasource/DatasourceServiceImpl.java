@@ -131,7 +131,8 @@ public class DatasourceServiceImpl implements DatasourceService {
 			updateTestStatus(id, connectionSuccess ? "success" : "failed");
 
 			return connectionSuccess;
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			updateTestStatus(id, "failed");
 			log.error("Error testing connection for datasource ID " + id + ": " + e.getMessage(), e);
 			return false;
@@ -152,7 +153,8 @@ public class DatasourceServiceImpl implements DatasourceService {
 			if (!lowerUrl.contains("servertimezone=")) {
 				if (originalUrl.contains("?")) {
 					originalUrl += "&serverTimezone=Asia/Shanghai";
-				} else {
+				}
+				else {
 					originalUrl += "?serverTimezone=Asia/Shanghai";
 				}
 			}
@@ -160,7 +162,8 @@ public class DatasourceServiceImpl implements DatasourceService {
 			if (!lowerUrl.contains("usessl=")) {
 				if (originalUrl.contains("?")) {
 					originalUrl += "&useSSL=false";
-				} else {
+				}
+				else {
 					originalUrl += "?useSSL=false";
 				}
 			}
@@ -219,10 +222,10 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		// Extract table names
 		List<String> tableNames = tableInfoList.stream()
-				.map(TableInfoBO::getName)
-				.filter(name -> name != null && !name.trim().isEmpty())
-				.sorted()
-				.toList();
+			.map(TableInfoBO::getName)
+			.filter(name -> name != null && !name.trim().isEmpty())
+			.sorted()
+			.toList();
 
 		log.info("Found {} tables for datasource: {}", tableNames.size(), datasourceId);
 		return tableNames;
@@ -242,16 +245,20 @@ public class DatasourceServiceImpl implements DatasourceService {
 		if ("mysql".equalsIgnoreCase(datasource.getType())) {
 			dbConfig.setConnectionType("jdbc");
 			dbConfig.setDialectType("mysql");
-		} else if ("postgresql".equalsIgnoreCase(datasource.getType())) {
+		}
+		else if ("postgresql".equalsIgnoreCase(datasource.getType())) {
 			dbConfig.setConnectionType("jdbc");
 			dbConfig.setDialectType("postgresql");
-		} else if ("h2".equalsIgnoreCase(datasource.getType())) {
+		}
+		else if ("h2".equalsIgnoreCase(datasource.getType())) {
 			dbConfig.setConnectionType("jdbc");
 			dbConfig.setDialectType("h2");
-		} else if ("dameng".equalsIgnoreCase(datasource.getType())) {
+		}
+		else if ("dameng".equalsIgnoreCase(datasource.getType())) {
 			dbConfig.setConnectionType("jdbc");
 			dbConfig.setDialectType("dameng");
-		} else {
+		}
+		else {
 			throw new RuntimeException("不支持的数据库类型: " + datasource.getType());
 		}
 
@@ -283,15 +290,14 @@ public class DatasourceServiceImpl implements DatasourceService {
 		Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 		List<ColumnInfoBO> columnInfoList = dbAccessor.showColumns(dbConfig, queryParam); // 提取字段名称
 		List<String> columnNames = columnInfoList.stream()
-				.map(ColumnInfoBO::getName)
-				.filter(name -> name != null && !name.trim().isEmpty())
-				.sorted()
-				.toList();
+			.map(ColumnInfoBO::getName)
+			.filter(name -> name != null && !name.trim().isEmpty())
+			.sorted()
+			.toList();
 
 		log.info("Found {} columns for table {} in datasource: {}", columnNames.size(), tableName, datasourceId);
 		return columnNames;
 	}
-
 
 	@Override
 	public List<LogicalRelation> getLogicalRelations(Integer datasourceId) {

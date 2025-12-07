@@ -85,7 +85,6 @@ public interface DatasourceService {
 
 	DbConfig getDbConfig(Datasource datasource);
 
-
 	/**
 	 * 获取数据源的逻辑外键列表
 	 */

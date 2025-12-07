@@ -26,8 +26,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDateTime;
 
 /**
- * 逻辑外键实体类
- * 用于定义数据源中表之间的逻辑外键关系，帮助 LLM 理解数据关联
+ * 逻辑外键实体类 用于定义数据源中表之间的逻辑外键关系，帮助 LLM 理解数据关联
  */
 @Data
 @NoArgsConstructor
@@ -66,9 +65,7 @@ public class ForeignKey {
 	private String targetColumn;
 
 	/**
-	 * 描述信息（可选）
-	 * 用于描述外键关系的语义，帮助 LLM 理解
-	 * 例如："订单关联用户"、"部门经理ID关联员工ID"
+	 * 描述信息（可选） 用于描述外键关系的语义，帮助 LLM 理解 例如："订单关联用户"、"部门经理ID关联员工ID"
 	 */
 	private String description;
 

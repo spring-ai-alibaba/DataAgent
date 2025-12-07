@@ -495,9 +495,9 @@
       <div style="margin-bottom: 20px; padding: 10px; background: #f0f9ff; border-radius: 4px">
         <p style="margin: 0; font-size: 14px; color: #666">
           当前配置数据源：
-          <span style="font-weight: 600; color: #1890ff">{{
-            currentForeignKeyDatasource.name
-          }}</span>
+          <span style="font-weight: 600; color: #1890ff">
+            {{ currentForeignKeyDatasource.name }}
+          </span>
         </p>
       </div>
 
@@ -518,7 +518,9 @@
         <el-table :data="foreignKeyList" border style="width: 100%" size="small">
           <el-table-column prop="sourceTableName" label="主表 (Source)" min-width="100px">
             <template #default="scope">
-              <span style="font-family: monospace; color: #1890ff">{{ scope.row.sourceTableName }}</span>
+              <span style="font-family: monospace; color: #1890ff">
+                {{ scope.row.sourceTableName }}
+              </span>
             </template>
           </el-table-column>
           <el-table-column prop="sourceColumnName" label="字段" min-width="80px">
@@ -533,7 +535,9 @@
           </el-table-column>
           <el-table-column prop="targetTableName" label="关联表 (Target)" min-width="100px">
             <template #default="scope">
-              <span style="font-family: monospace; color: #52c41a">{{ scope.row.targetTableName }}</span>
+              <span style="font-family: monospace; color: #52c41a">
+                {{ scope.row.targetTableName }}
+              </span>
             </template>
           </el-table-column>
           <el-table-column prop="targetColumnName" label="字段" min-width="80px">
@@ -544,12 +548,7 @@
           <el-table-column prop="description" label="描述" min-width="120px" />
           <el-table-column label="操作" width="140px" align="right">
             <template #default="scope">
-              <el-button
-                @click="editForeignKey(scope.row)"
-                size="small"
-                type="primary"
-                link
-              >
+              <el-button @click="editForeignKey(scope.row)" size="small" type="primary" link>
                 编辑
               </el-button>
               <el-button
@@ -581,27 +580,25 @@
 
       <!-- 新增/编辑关联关系表单 -->
       <div
-        style="
-          background: #f0f9ff;
-          padding: 20px;
-          border-radius: 8px;
-          border: 1px solid #bae7ff;
-        "
+        style="background: #f0f9ff; padding: 20px; border-radius: 8px; border: 1px solid #bae7ff"
       >
         <h4 style="font-size: 14px; font-weight: 600; color: #333; margin-bottom: 15px">
-          <el-icon style="margin-right: 6px; vertical-align: middle; color: #1890ff"
-            ><CirclePlus v-if="!editingForeignKey" /><Edit v-else />
+          <el-icon style="margin-right: 6px; vertical-align: middle; color: #1890ff">
+            <CirclePlus v-if="!editingForeignKey" />
+            <Edit v-else />
           </el-icon>
-          <span style="vertical-align: middle">{{ editingForeignKey ? '编辑关联关系' : '新增关联关系' }}</span>
+          <span style="vertical-align: middle">
+            {{ editingForeignKey ? '编辑关联关系' : '新增关联关系' }}
+          </span>
         </h4>
 
         <el-row :gutter="10">
           <!-- 主表 -->
           <el-col :span="5">
             <div style="margin-bottom: 5px">
-              <label style="font-size: 12px; font-weight: 600; color: #666"
-                >主表 (Left Table)</label
-              >
+              <label style="font-size: 12px; font-weight: 600; color: #666">
+                主表 (Left Table)
+              </label>
             </div>
             <el-select
               v-model="newForeignKey.sourceTableName"
@@ -612,12 +609,7 @@
               clearable
               filterable
             >
-              <el-option
-                v-for="table in tableList"
-                :key="table"
-                :label="table"
-                :value="table"
-              />
+              <el-option v-for="table in tableList" :key="table" :label="table" :value="table" />
             </el-select>
           </el-col>
 
@@ -652,9 +644,9 @@
           <!-- 关联表 -->
           <el-col :span="5">
             <div style="margin-bottom: 5px">
-              <label style="font-size: 12px; font-weight: 600; color: #666"
-                >关联表 (Right Table)</label
-              >
+              <label style="font-size: 12px; font-weight: 600; color: #666">
+                关联表 (Right Table)
+              </label>
             </div>
             <el-select
               v-model="newForeignKey.targetTableName"
@@ -665,12 +657,7 @@
               clearable
               filterable
             >
-              <el-option
-                v-for="table in tableList"
-                :key="table"
-                :label="table"
-                :value="table"
-              />
+              <el-option v-for="table in tableList" :key="table" :label="table" :value="table" />
             </el-select>
           </el-col>
 
@@ -699,7 +686,12 @@
 
           <!-- 添加/更新按钮 -->
           <el-col :span="5" style="line-height: 70px">
-            <el-button @click="saveOrUpdateForeignKey" type="primary" size="large" style="width: 100%">
+            <el-button
+              @click="saveOrUpdateForeignKey"
+              type="primary"
+              size="large"
+              style="width: 100%"
+            >
               <el-icon style="margin-right: 4px"><Check /></el-icon>
               {{ editingForeignKey ? '更新' : '添加' }}
             </el-button>
