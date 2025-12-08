@@ -26,6 +26,7 @@ import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -167,6 +168,24 @@ public class DynamicFilterService {
 				String escapedValue = escapeStringLiteral(enumValue);
 				return key + " == '" + escapedValue + "'";
 			}
+			else if (value instanceof Collection) {
+				Collection<?> collection = (Collection<?>) value;
+				if (collection.isEmpty()) {
+					return "false";
+				}
+				String elementsStr = collection.stream().map(item -> {
+					if (item instanceof String) {
+						return "'" + escapeStringLiteral((String) item) + "'";
+					}
+					else if (item instanceof Number) {
+						return item.toString();
+					}
+					else {
+						return "'" + escapeStringLiteral(String.valueOf(item)) + "'";
+					}
+				}).collect(Collectors.joining(","));
+				return "{" + elementsStr + "}.contains(" + key + ")";
+			}
 			else {
 				// 其他类型尝试转换为字符串并转义
 				String stringValue = value.toString();
@@ -209,7 +228,7 @@ public class DynamicFilterService {
 
 		// 3. 动态条件：表名列表 IN 查询
 		if (tableNames != null && !tableNames.isEmpty()) {
-			conditions.add(b.in(DocumentMetadataConstant.NAME, tableNames).build());
+			conditions.add(b.in(DocumentMetadataConstant.NAME, tableNames.toArray()).build());
 		}
 		else {
 			log.warn("Table names list is empty. Returning empty filter signal.");
@@ -235,7 +254,7 @@ public class DynamicFilterService {
 		// 4. ColumnNames IN 条件
 		if (columnNames != null && !columnNames.isEmpty()) {
 			// metadata 中存储列名的字段叫name
-			conditions.add(b.in(DocumentMetadataConstant.NAME, columnNames).build());
+			conditions.add(b.in(DocumentMetadataConstant.NAME, columnNames.toArray()).build());
 		}
 		else {
 			log.warn("Column names list is empty. Returning empty filter signal.");
