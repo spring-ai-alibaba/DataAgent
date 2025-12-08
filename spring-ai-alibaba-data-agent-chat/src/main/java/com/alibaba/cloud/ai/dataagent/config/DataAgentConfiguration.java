@@ -32,6 +32,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.tool.resolution.DelegatingToolCallbackResolver;
+import org.springframework.ai.tool.resolution.ToolCallbackResolver;
 import org.springframework.ai.transformer.splitter.TextSplitter;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
@@ -53,6 +55,7 @@ import reactor.netty.http.client.HttpClient;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.*;
@@ -276,6 +279,11 @@ public class DataAgentConfiguration implements DisposableBean {
 				properties.getEmbeddingBatch().getReservePercentage(),
 				properties.getEmbeddingBatch().getMaxTextCount());
 	}
+
+    @Bean
+    public ToolCallbackResolver toolCallbackResolver() {
+        return new DelegatingToolCallbackResolver(List.of());
+    }
 
 	@Bean
 	@ConditionalOnMissingBean(ChatClient.class)
