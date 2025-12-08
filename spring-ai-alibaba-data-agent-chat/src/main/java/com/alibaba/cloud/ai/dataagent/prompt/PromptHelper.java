@@ -209,9 +209,7 @@ public class PromptHelper {
 			String evidence) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
-		String dialectGuidelines = DatabaseDialectHelper.getDialectSpecificGuidelines(
-				dbConfig.getDialectType()
-		);
+		String dialectGuidelines = DatabaseDialectHelper.getDialectSpecificGuidelines(dbConfig.getDialectType());
 		Map<String, Object> params = new HashMap<>();
 		params.put("dialect", dialect);
 		params.put("question", question);
@@ -272,9 +270,7 @@ public class PromptHelper {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
 		// Generate dialect-specific guidelines
-		String dialectGuidelines = DatabaseDialectHelper.getDialectSpecificGuidelines(
-				dbConfig.getDialectType()
-		);
+		String dialectGuidelines = DatabaseDialectHelper.getDialectSpecificGuidelines(dbConfig.getDialectType());
 
 		Map<String, Object> params = new HashMap<>();
 		params.put("dialect", dialect);
