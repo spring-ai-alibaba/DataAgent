@@ -59,7 +59,7 @@ public class DynamicFilterService {
 				}
 				else {
 					// 加入 ID 过滤
-					conditions.add(b.in(DocumentMetadataConstant.DB_AGENT_KNOWLEDGE_ID, validIds.toArray()).build());
+					conditions.add(b.in(DocumentMetadataConstant.DB_AGENT_KNOWLEDGE_ID, validIds.toArray(new Integer[0])).build());
 				}
 				break;
 
@@ -75,7 +75,7 @@ public class DynamicFilterService {
 				else {
 					// 添加 ID 过滤
 					conditions
-						.add(b.in(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, recalledBusinessKnowledgeIds.toArray())
+						.add(b.in(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, recalledBusinessKnowledgeIds.toArray(new Long[0]))
 							.build());
 				}
 				break;
@@ -209,7 +209,7 @@ public class DynamicFilterService {
 
 		// 3. 动态条件：表名列表 IN 查询
 		if (tableNames != null && !tableNames.isEmpty()) {
-			conditions.add(b.in(DocumentMetadataConstant.NAME, tableNames).build());
+			conditions.add(b.in(DocumentMetadataConstant.NAME, tableNames.toArray(new String[0])).build());
 		}
 		else {
 			log.warn("Table names list is empty. Returning empty filter signal.");
@@ -235,7 +235,7 @@ public class DynamicFilterService {
 		// 4. ColumnNames IN 条件
 		if (columnNames != null && !columnNames.isEmpty()) {
 			// metadata 中存储列名的字段叫name
-			conditions.add(b.in(DocumentMetadataConstant.NAME, columnNames).build());
+			conditions.add(b.in(DocumentMetadataConstant.NAME, columnNames.toArray(new String[0])).build());
 		}
 		else {
 			log.warn("Column names list is empty. Returning empty filter signal.");
