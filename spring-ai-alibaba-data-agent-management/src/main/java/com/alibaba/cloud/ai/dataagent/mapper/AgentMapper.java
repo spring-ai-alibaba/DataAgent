@@ -48,6 +48,24 @@ public interface AgentMapper {
 			""")
 	List<Agent> searchByKeyword(@Param("keyword") String keyword);
 
+	@Select("""
+			<script>
+				SELECT * FROM agent
+				<where>
+					<if test='status != null and status != ""'>
+						AND status = #{status}
+					</if>
+					<if test='keyword != null and keyword != ""'>
+						AND (name LIKE CONCAT('%', #{keyword}, '%')
+							 OR description LIKE CONCAT('%', #{keyword}, '%')
+							 OR tags LIKE CONCAT('%', #{keyword}, '%'))
+					</if>
+				</where>
+				ORDER BY create_time DESC
+			</script>
+			""")
+	List<Agent> findByConditions(@Param("status") String status, @Param("keyword") String keyword);
+
 	@Insert("""
 			INSERT INTO agent (name, description, avatar, status, prompt, category, admin_id, tags, create_time, update_time, human_review_enabled)
 			VALUES (#{name}, #{description}, #{avatar}, #{status}, #{prompt}, #{category}, #{adminId}, #{tags}, #{createTime}, #{updateTime}, #{humanReviewEnabled})

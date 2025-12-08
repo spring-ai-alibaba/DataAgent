@@ -18,7 +18,6 @@ package com.alibaba.cloud.ai.dataagent.config;
 
 import com.alibaba.cloud.ai.dataagent.config.file.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.dispatcher.*;
-import com.alibaba.cloud.ai.dataagent.mcp.McpServerTool;
 import com.alibaba.cloud.ai.dataagent.mcp.McpServerToolUtil;
 import com.alibaba.cloud.ai.dataagent.node.*;
 import com.alibaba.cloud.ai.dataagent.strategy.EnhancedTokenCountBatchingStrategy;
@@ -44,16 +43,13 @@ import org.springframework.ai.transformer.splitter.TextSplitter;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.DisposableBean;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.web.client.RestClientCustomizer;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -64,11 +60,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -290,6 +282,7 @@ public class DataAgentConfiguration implements DisposableBean {
 				properties.getEmbeddingBatch().getReservePercentage(),
 				properties.getEmbeddingBatch().getMaxTextCount());
 	}
+
 
     @Bean
     public ToolCallbackResolver toolCallbackResolver(
