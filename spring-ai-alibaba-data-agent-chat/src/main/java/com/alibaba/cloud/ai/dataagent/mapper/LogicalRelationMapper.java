@@ -67,7 +67,7 @@ public interface LogicalRelationMapper {
 			    <if test="description != null">description = #{description},</if>
 			    updated_time = NOW()
 			</set>
-			WHERE id = #{id} AND is_deleted = 0
+			WHERE id = #{id}
 			</script>
 			""")
 	int updateById(LogicalRelation logicalRelation);
@@ -79,13 +79,13 @@ public interface LogicalRelationMapper {
 	int deleteById(@Param("id") Integer id);
 
 	/**
-	 * 物理删除数据源下的所有逻辑外键（用于批量保存时先清空）
+	 * 逻辑删除数据源下的所有逻辑外键
 	 */
-	@Delete("DELETE FROM logical_relation WHERE datasource_id = #{datasourceId}")
+	@Update("UPDATE logical_relation SET is_deleted = 1, updated_time = NOW() WHERE datasource_id = #{datasourceId}")
 	int deleteByDatasourceId(@Param("datasourceId") Integer datasourceId);
 
 	/**
-	 * 检查逻辑外键是否存在（用于去重）
+	 * 检查逻辑外键是否存在
 	 */
 	@Select("""
 			SELECT COUNT(*) FROM logical_relation

@@ -64,7 +64,7 @@ public interface AgentKnowledgeMapper {
 				<if test="isResourceCleaned != null">is_resource_cleaned = #{isResourceCleaned},</if>
 				updated_time = NOW()
 			</set>
-			WHERE id = #{id} AND is_deleted = 0
+			WHERE id = #{id}
 			</script>
 			""")
 	int update(AgentKnowledge knowledge);
