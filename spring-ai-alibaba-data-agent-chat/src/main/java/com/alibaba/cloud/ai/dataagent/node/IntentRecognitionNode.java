@@ -37,6 +37,7 @@ import java.util.Map;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.INPUT_KEY;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.INTENT_RECOGNITION_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.MULTI_TURN_CONTEXT;
 
 /**
  * 意图识别节点，用于识别用户输入是闲聊还是数据分析请求
@@ -57,8 +58,10 @@ public class IntentRecognitionNode implements NodeAction {
 		String userInput = StateUtil.getStringValue(state, INPUT_KEY);
 		log.info("User input for intent recognition: {}", userInput);
 
-		// 构建意图识别提示，多轮对话暂时为空
-		String prompt = PromptHelper.buildIntentRecognitionPrompt(null, userInput);
+		String multiTurn = StateUtil.getStringValue(state, MULTI_TURN_CONTEXT, "(无)");
+
+		// 构建意图识别提示
+		String prompt = PromptHelper.buildIntentRecognitionPrompt(multiTurn, userInput);
 		log.debug("Built intent recognition prompt as follows \n {} \n", prompt);
 
 		// 调用LLM进行意图识别

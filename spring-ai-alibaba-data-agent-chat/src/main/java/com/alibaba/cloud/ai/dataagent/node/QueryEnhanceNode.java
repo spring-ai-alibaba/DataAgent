@@ -58,9 +58,10 @@ public class QueryEnhanceNode implements NodeAction {
 		log.info("User input for query enhance: {}", userInput);
 
 		String evidence = StateUtil.getStringValue(state, EVIDENCE);
+		String multiTurn = StateUtil.getStringValue(state, MULTI_TURN_CONTEXT, "(无)");
 
-		// 构建查询处理提示，多轮对话暂时为空
-		String prompt = PromptHelper.buildQueryEnhancePrompt(null, userInput, evidence);
+		// 构建查询处理提示
+		String prompt = PromptHelper.buildQueryEnhancePrompt(multiTurn, userInput, evidence);
 		log.debug("Built query enhance prompt as follows \n {} \n", prompt);
 
 		// 调用LLM进行查询处理

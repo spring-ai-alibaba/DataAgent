@@ -450,6 +450,7 @@
           // 保存用户消息
           const savedMessage = await ChatService.saveMessage(currentSession.value.id, userMessage);
           currentMessages.value.push(savedMessage);
+          const sessionState = getSessionState(currentSession.value.id);
 
           const request: GraphRequest = {
             agentId: agentId.value,
@@ -459,7 +460,7 @@
             plainReport: requestOptions.value.plainReport,
             rejectedPlan: false,
             humanFeedbackContent: null,
-            threadId: null,
+            threadId: sessionState.lastRequest?.threadId || null,
           };
 
           userInput.value = '';

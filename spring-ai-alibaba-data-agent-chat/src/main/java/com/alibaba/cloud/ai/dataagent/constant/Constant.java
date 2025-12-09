@@ -31,6 +31,8 @@ public final class Constant {
 
 	public static final String AGENT_ID = "agentId";
 
+	public static final String MULTI_TURN_CONTEXT = "MULTI_TURN_CONTEXT";
+
 	public static final String RESULT = "result";
 
 	public static final String NL2SQL_GRAPH_NAME = "nl2sqlGraph";
