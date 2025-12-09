@@ -29,8 +29,8 @@ public class McpServerConfig {
 	// McpServerTool自定义注解 是为了解决如下场景：
 	// ChatClient初始化依赖 chatModel，而如dashscopeChatModel等通过starter装配的ChatModel初始化会
 	// 立马扫描tool了，但是我们的tool功能需要依赖LLM（比如NL2SQL），所以间接依赖了chatClient，循环依赖。
-    @Bean
-    @McpServerTool
+	@Bean
+	@McpServerTool
 	public ToolCallbackProvider mcpServerTools(McpServerService mcpServerService) {
 		return MethodToolCallbackProvider.builder().toolObjects(mcpServerService).build();
 	}

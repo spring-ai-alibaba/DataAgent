@@ -283,21 +283,23 @@ public class DataAgentConfiguration implements DisposableBean {
 				properties.getEmbeddingBatch().getMaxTextCount());
 	}
 
+	@Bean
+	public ToolCallbackResolver toolCallbackResolver(GenericApplicationContext context) {
+		List<ToolCallback> allFunctionAndToolCallbacks = new ArrayList<>(
+				McpServerToolUtil.excludeMcpServerTool(context, ToolCallback.class));
+		McpServerToolUtil.excludeMcpServerTool(context, ToolCallbackProvider.class)
+			.stream()
+			.map(pr -> List.of(pr.getToolCallbacks()))
+			.forEach(allFunctionAndToolCallbacks::addAll);
 
-    @Bean
-    public ToolCallbackResolver toolCallbackResolver(
-            GenericApplicationContext context) {
-        List<ToolCallback> allFunctionAndToolCallbacks = new ArrayList<>(McpServerToolUtil.excludeMcpServerTool(context, ToolCallback.class));
-        McpServerToolUtil.excludeMcpServerTool(context, ToolCallbackProvider.class).stream().map(pr -> List.of(pr.getToolCallbacks())).forEach(allFunctionAndToolCallbacks::addAll);
+		var staticToolCallbackResolver = new StaticToolCallbackResolver(allFunctionAndToolCallbacks);
 
-        var staticToolCallbackResolver = new StaticToolCallbackResolver(allFunctionAndToolCallbacks);
+		var springBeanToolCallbackResolver = SpringBeanToolCallbackResolver.builder()
+			.applicationContext(context)
+			.build();
 
-        var springBeanToolCallbackResolver = SpringBeanToolCallbackResolver.builder()
-                .applicationContext(context)
-                .build();
-
-        return new DelegatingToolCallbackResolver(List.of(staticToolCallbackResolver, springBeanToolCallbackResolver));
-    }
+		return new DelegatingToolCallbackResolver(List.of(staticToolCallbackResolver, springBeanToolCallbackResolver));
+	}
 
 	@Bean
 	@ConditionalOnMissingBean(ChatClient.class)
