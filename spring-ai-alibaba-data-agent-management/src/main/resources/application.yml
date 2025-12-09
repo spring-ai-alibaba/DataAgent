@@ -21,6 +21,13 @@ spring:
     vectorstore:
       type: simple
 
+    mcp:
+      server:
+        enabled: true
+        transport: sse
+#        sse-endpoint: /mcp/message
+#        sse:
+#          path: /mcp/message
     dashscope:
       api-key: ${AI_DASHSCOPE_API_KEY}
       chat:

@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -51,8 +52,10 @@ public class Agent {
 
 	private String tags; // Tags, comma separated
 
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
 	private LocalDateTime createTime;
 
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
 	private LocalDateTime updateTime;
 
 	// Whether human review is enabled for this agent
