@@ -18,11 +18,11 @@ DateAgent 从开源建设以来，受到了很多社区同学的关注。社区�
 
 ### 从哪里入手？
 
-如果您是初次贡献，可以先从 [good first issue](https://github.com/alibaba/spring-ai-alibaba/labels/good%20first%20issue) 和 [help wanted](https://github.com/alibaba/spring-ai-alibaba/labels/help%20wanted) 中认领一个比较简单的任务。
+如果您是初次贡献，可以先从 [good first issue](https://github.com/spring-ai-alibaba/DataAgent/labels/good%20first%20issue) 和 [help wanted](https://github.com/spring-ai-alibaba/DataAgent/labels/help%20wanted) 中认领一个比较简单的任务。
 
 ### Fork 仓库，并将其 Clone 到本地
 
-- 点击 [本项目](https://github.com/alibaba/spring-ai-alibaba) 右上角的 `Fork` 图标 将 alibaba/spring-ai-alibaba  fork 到自己的空间。
+- 点击 [本项目](https://github.com/spring-ai-alibaba/DataAgent) 右上角的 `Fork` 图标 将 alibaba/spring-ai-alibaba  fork 到自己的空间。
 - 将自己账号下的 spring-ai-alibaba 仓库 clone 到本地，例如我的账号的 `chickenlj`，那就是执行 `git clone https://github.com/chickenl/DataAgen.git` 进行 clone 操作。
 
 ### 配置 Github 信息

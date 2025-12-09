@@ -31,7 +31,7 @@ public class SchemaDTO {
 
 	private List<TableDTO> table;
 
-	private List<List<String>> foreignKeys;
+	private List<String> foreignKeys;
 
 	@Override
 	public String toString() {

@@ -315,3 +315,8 @@ yarn dev
 “显示SQL运行结果”会在生成SQL和运行获取结果后，将SQL运行结果展示给用户。
 
 ![show-sql-result.png](img/show-sql-result.png)
+
+## 如何贡献
+
+我们欢迎社区的贡献！如果你想为本项目做出贡献，请查看我们的[贡献指南](./CONTRIBUTING-zh.md)。
+

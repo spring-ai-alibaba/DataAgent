@@ -110,10 +110,13 @@ class LogicalRelationService {
   // 获取数据源表的字段列表
   async getTableColumns(datasourceId: number, tableName: string): Promise<string[]> {
     try {
-      const response = await axios.get<string[]>(
+      const response = await axios.get<ApiResponse<string[]>>(
         `${API_BASE_URL}/${datasourceId}/tables/${tableName}/columns`,
       );
-      return response.data;
+      if (response.data.success) {
+        return response.data.data || [];
+      }
+      throw new Error(response.data.message);
     } catch (error) {
       console.error('Failed to get table columns:', error);
       return [];
