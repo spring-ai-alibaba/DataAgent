@@ -262,10 +262,10 @@ public class PromptHelper {
 		String optimizationSection = buildOptimizationSection(optimizationConfigs, params);
 		params.put("optimization_section", optimizationSection);
 
-
 		// Render using the chosen report generator template
 		return (plainReport ? PromptConstant.getReportGeneratorPlainPromptTemplate()
-				: PromptConstant.getReportGeneratorPromptTemplate()).render(params);
+				: PromptConstant.getReportGeneratorPromptTemplate())
+			.render(params);
 	}
 
 	public static String buildSqlErrorFixerPrompt(String question, DbConfig dbConfig, SchemaDTO schemaDTO,

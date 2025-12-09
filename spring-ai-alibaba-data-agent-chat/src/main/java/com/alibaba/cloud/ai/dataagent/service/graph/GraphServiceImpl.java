@@ -129,9 +129,9 @@ public class GraphServiceImpl implements GraphService {
 			log.warn("StreamContext already cleaned for threadId: {}, skipping stream start", threadId);
 			return;
 		}
-		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query,
-				AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled, PLAIN_REPORT,
-				graphRequest.isPlainReport()),
+		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(
+				Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED,
+						humanReviewEnabled, PLAIN_REPORT, graphRequest.isPlainReport()),
 				RunnableConfig.builder().threadId(threadId).build());
 		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
 	}

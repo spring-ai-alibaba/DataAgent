@@ -70,7 +70,10 @@
                   下载HTML报告
                 </el-button>
               </div>
-              <div v-else-if="message.messageType === 'markdown-report'" class="html-report-message">
+              <div
+                v-else-if="message.messageType === 'markdown-report'"
+                class="html-report-message"
+              >
                 <div class="report-info">
                   <el-icon><Document /></el-icon>
                   <span>Markdown 报告已生成</span>
