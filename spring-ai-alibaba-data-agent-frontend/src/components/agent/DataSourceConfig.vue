@@ -186,6 +186,16 @@
             测试连接
           </el-button>
           <el-button
+            @click="openForeignKeyDialog(scope.row)"
+            size="small"
+            type="success"
+            round
+            plain
+          >
+            <el-icon style="margin-right: 4px"><Connection /></el-icon>
+            模型配置
+          </el-button>
+          <el-button
             @click="removeAgentDatasource(scope.row)"
             size="small"
             type="danger"
@@ -473,16 +483,272 @@
       <el-button type="primary" @click="saveEditDatasource">保存修改</el-button>
     </div>
   </el-dialog>
+
+  <!-- 模型配置Dialog（逻辑外键管理） -->
+  <el-dialog
+    v-model="foreignKeyDialogVisible"
+    title="模型配置"
+    width="900px"
+    :close-on-click-modal="false"
+  >
+    <div v-if="currentForeignKeyDatasource">
+      <div style="margin-bottom: 20px; padding: 10px; background: #f0f9ff; border-radius: 4px">
+        <p style="margin: 0; font-size: 14px; color: #666">
+          当前配置数据源：
+          <span style="font-weight: 600; color: #1890ff">
+            {{ currentForeignKeyDatasource.name }}
+          </span>
+        </p>
+      </div>
+
+      <!-- 已生效的逻辑外键列表 -->
+      <div style="margin-bottom: 30px">
+        <h4
+          style="
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            border-left: 4px solid #1890ff;
+            padding-left: 10px;
+          "
+        >
+          已生效的逻辑外键 (Logical Foreign Keys)
+        </h4>
+        <el-table :data="foreignKeyList" border style="width: 100%" size="small">
+          <el-table-column prop="sourceTableName" label="主表 (Source)" min-width="100px">
+            <template #default="scope">
+              <span style="font-family: monospace; color: #1890ff">
+                {{ scope.row.sourceTableName }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="sourceColumnName" label="字段" min-width="80px">
+            <template #default="scope">
+              <span style="font-family: monospace">{{ scope.row.sourceColumnName }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="关系" width="60px" align="center">
+            <template #default>
+              <el-icon color="#999"><Link /></el-icon>
+            </template>
+          </el-table-column>
+          <el-table-column prop="targetTableName" label="关联表 (Target)" min-width="100px">
+            <template #default="scope">
+              <span style="font-family: monospace; color: #52c41a">
+                {{ scope.row.targetTableName }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="targetColumnName" label="字段" min-width="80px">
+            <template #default="scope">
+              <span style="font-family: monospace">{{ scope.row.targetColumnName }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="description" label="描述" min-width="120px" />
+          <el-table-column label="操作" width="140px" align="right">
+            <template #default="scope">
+              <el-button @click="editForeignKey(scope.row)" size="small" type="primary" link>
+                编辑
+              </el-button>
+              <el-button
+                @click="deleteForeignKey(scope.row, scope.$index)"
+                size="small"
+                type="danger"
+                link
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div
+          v-if="!foreignKeyList || foreignKeyList.length === 0"
+          style="
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+          "
+        >
+          <el-icon style="font-size: 32px; margin-bottom: 10px"><FolderOpened /></el-icon>
+          <div>暂无逻辑外键配置</div>
+        </div>
+      </div>
+
+      <!-- 新增/编辑关联关系表单 -->
+      <div
+        style="background: #f0f9ff; padding: 20px; border-radius: 8px; border: 1px solid #bae7ff"
+      >
+        <h4 style="font-size: 14px; font-weight: 600; color: #333; margin-bottom: 15px">
+          <el-icon style="margin-right: 6px; vertical-align: middle; color: #1890ff">
+            <CirclePlus v-if="!editingForeignKey" />
+            <Edit v-else />
+          </el-icon>
+          <span style="vertical-align: middle">
+            {{ editingForeignKey ? '编辑关联关系' : '新增关联关系' }}
+          </span>
+        </h4>
+
+        <el-row :gutter="10">
+          <!-- 主表 -->
+          <el-col :span="5">
+            <div style="margin-bottom: 5px">
+              <label style="font-size: 12px; font-weight: 600; color: #666">
+                主表 (Left Table)
+              </label>
+            </div>
+            <el-select
+              v-model="newForeignKey.sourceTableName"
+              placeholder="请选择表..."
+              style="width: 100%"
+              size="large"
+              @change="handleSourceTableChange"
+              clearable
+              filterable
+            >
+              <el-option v-for="table in tableList" :key="table" :label="table" :value="table" />
+            </el-select>
+          </el-col>
+
+          <!-- 主表字段 -->
+          <el-col :span="4">
+            <div style="margin-bottom: 5px">
+              <label style="font-size: 12px; font-weight: 600; color: #666">字段</label>
+            </div>
+            <el-select
+              v-model="newForeignKey.sourceColumnName"
+              placeholder="先选表"
+              style="width: 100%"
+              size="large"
+              :disabled="!newForeignKey.sourceTableName"
+              clearable
+              filterable
+            >
+              <el-option
+                v-for="column in sourceColumnList"
+                :key="column"
+                :label="column"
+                :value="column"
+              />
+            </el-select>
+          </el-col>
+
+          <!-- 关系图标 -->
+          <el-col :span="1" style="text-align: center; line-height: 70px">
+            <el-icon color="#999" :size="20"><Right /></el-icon>
+          </el-col>
+
+          <!-- 关联表 -->
+          <el-col :span="5">
+            <div style="margin-bottom: 5px">
+              <label style="font-size: 12px; font-weight: 600; color: #666">
+                关联表 (Right Table)
+              </label>
+            </div>
+            <el-select
+              v-model="newForeignKey.targetTableName"
+              placeholder="请选择表..."
+              style="width: 100%"
+              size="large"
+              @change="handleTargetTableChange"
+              clearable
+              filterable
+            >
+              <el-option v-for="table in tableList" :key="table" :label="table" :value="table" />
+            </el-select>
+          </el-col>
+
+          <!-- 关联表字段 -->
+          <el-col :span="4">
+            <div style="margin-bottom: 5px">
+              <label style="font-size: 12px; font-weight: 600; color: #666">字段</label>
+            </div>
+            <el-select
+              v-model="newForeignKey.targetColumnName"
+              placeholder="先选表"
+              style="width: 100%"
+              size="large"
+              :disabled="!newForeignKey.targetTableName"
+              clearable
+              filterable
+            >
+              <el-option
+                v-for="column in targetColumnList"
+                :key="column"
+                :label="column"
+                :value="column"
+              />
+            </el-select>
+          </el-col>
+
+          <!-- 添加/更新按钮 -->
+          <el-col :span="5" style="line-height: 70px">
+            <el-button
+              @click="saveOrUpdateForeignKey"
+              type="primary"
+              size="large"
+              style="width: 100%"
+            >
+              <el-icon style="margin-right: 4px"><Check /></el-icon>
+              {{ editingForeignKey ? '更新' : '添加' }}
+            </el-button>
+          </el-col>
+        </el-row>
+
+        <!-- 描述输入框 -->
+        <el-row style="margin-top: 10px">
+          <el-col :span="24">
+            <el-input
+              v-model="newForeignKey.description"
+              placeholder="描述（可选）：例如 '订单关联用户'，帮助 LLM 理解语义"
+              size="large"
+              clearable
+            />
+          </el-col>
+        </el-row>
+      </div>
+    </div>
+
+    <template #footer>
+      <div style="text-align: right">
+        <el-button @click="foreignKeyDialogVisible = false" size="large">取消</el-button>
+        <el-button
+          type="primary"
+          @click="saveForeignKeyConfig"
+          size="large"
+          :loading="savingForeignKeys"
+        >
+          保存全部配置
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
 </template>
 
 <script lang="ts">
   import { defineComponent, ref, onMounted, Ref, watch } from 'vue';
-  import { Plus, UploadFilled, Loading, FolderOpened, Lock } from '@element-plus/icons-vue';
+  import {
+    Plus,
+    UploadFilled,
+    Loading,
+    FolderOpened,
+    Lock,
+    Connection,
+    Link,
+    CirclePlus,
+    Check,
+    Right,
+    Edit,
+  } from '@element-plus/icons-vue';
   import datasourceService from '@/services/datasource';
   import { Datasource, AgentDatasource } from '@/services/datasource';
   import { ApiResponse } from '@/services/common';
   import { ElMessage, ElMessageBox } from 'element-plus';
   import agentDatasourceService from '@/services/agentDatasource';
+  import logicalRelationService, { LogicalRelation } from '@/services/logicalRelation';
 
   export default defineComponent({
     name: 'AgentDataSourceConfig',
@@ -511,6 +777,24 @@
       const tableLoadingStates: Ref<Record<number, boolean>> = ref({});
       const updateLoadingStates: Ref<Record<number, boolean>> = ref({});
       const agentDatasourceList: Ref<AgentDatasource[]> = ref([]);
+
+      // 逻辑外键管理相关状态
+      const foreignKeyDialogVisible: Ref<boolean> = ref(false);
+      const currentForeignKeyDatasource: Ref<Datasource | null> = ref(null);
+      const foreignKeyList: Ref<LogicalRelation[]> = ref([]);
+      const editingForeignKey: Ref<LogicalRelation | null> = ref(null); // 正在编辑的外键
+      const newForeignKey: Ref<LogicalRelation> = ref({
+        sourceTableName: '',
+        sourceColumnName: '',
+        targetTableName: '',
+        targetColumnName: '',
+        relationType: '',
+        description: '',
+      } as LogicalRelation);
+      const tableList: Ref<string[]> = ref([]);
+      const sourceColumnList: Ref<string[]> = ref([]);
+      const targetColumnList: Ref<string[]> = ref([]);
+      const savingForeignKeys: Ref<boolean> = ref(false);
 
       watch(dialogVisible, newValue => {
         if (newValue) {
@@ -915,6 +1199,245 @@
         loadAgentDatasource();
       });
 
+      // ==================== 逻辑外键管理功能 ====================
+
+      // 打开逻辑外键配置模态框
+      const openForeignKeyDialog = async (datasourceRow: Datasource) => {
+        if (!datasourceRow.id) {
+          ElMessage.warning('数据源ID不存在');
+          return;
+        }
+
+        currentForeignKeyDatasource.value = datasourceRow;
+        foreignKeyDialogVisible.value = true;
+
+        // 加载表列表
+        try {
+          tableList.value = await datasourceService.getDatasourceTables(datasourceRow.id);
+        } catch (error) {
+          ElMessage.error('加载表列表失败');
+          console.error('Failed to load table list:', error);
+        }
+
+        // 加载现有的逻辑外键
+        await loadForeignKeys(datasourceRow.id);
+
+        // 重置表单
+        resetForeignKeyForm();
+      };
+
+      // 加载逻辑外键列表
+      const loadForeignKeys = async (datasourceId: number) => {
+        try {
+          foreignKeyList.value = await logicalRelationService.getLogicalRelations(datasourceId);
+        } catch (error) {
+          ElMessage.error('加载逻辑外键列表失败');
+          console.error('Failed to load logical relations:', error);
+        }
+      };
+
+      // 主表选择变化，加载字段列表
+      const handleSourceTableChange = async (tableName: string) => {
+        if (!tableName || !currentForeignKeyDatasource.value?.id) {
+          sourceColumnList.value = [];
+          newForeignKey.value.sourceColumnName = '';
+          return;
+        }
+
+        try {
+          sourceColumnList.value = await logicalRelationService.getTableColumns(
+            currentForeignKeyDatasource.value.id,
+            tableName,
+          );
+          newForeignKey.value.sourceColumnName = '';
+        } catch (error) {
+          ElMessage.error('加载字段列表失败');
+          console.error('Failed to load source columns:', error);
+        }
+      };
+
+      // 关联表选择变化，加载字段列表
+      const handleTargetTableChange = async (tableName: string) => {
+        if (!tableName || !currentForeignKeyDatasource.value?.id) {
+          targetColumnList.value = [];
+          newForeignKey.value.targetColumnName = '';
+          return;
+        }
+
+        try {
+          targetColumnList.value = await logicalRelationService.getTableColumns(
+            currentForeignKeyDatasource.value.id,
+            tableName,
+          );
+          newForeignKey.value.targetColumnName = '';
+        } catch (error) {
+          ElMessage.error('加载字段列表失败');
+          console.error('Failed to load target columns:', error);
+        }
+      };
+
+      // 编辑逻辑外键
+      const editForeignKey = async (foreignKey: LogicalRelation) => {
+        editingForeignKey.value = foreignKey;
+
+        // 加载数据到表单
+        newForeignKey.value = {
+          id: foreignKey.id,
+          datasourceId: foreignKey.datasourceId,
+          sourceTableName: foreignKey.sourceTableName,
+          sourceColumnName: foreignKey.sourceColumnName,
+          targetTableName: foreignKey.targetTableName,
+          targetColumnName: foreignKey.targetColumnName,
+          relationType: foreignKey.relationType || '',
+          description: foreignKey.description || '',
+        };
+
+        // 加载对应的字段列表
+        if (foreignKey.sourceTableName && currentForeignKeyDatasource.value?.id) {
+          try {
+            sourceColumnList.value = await logicalRelationService.getTableColumns(
+              currentForeignKeyDatasource.value.id,
+              foreignKey.sourceTableName,
+            );
+          } catch (error) {
+            console.error('Failed to load source columns:', error);
+          }
+        }
+
+        if (foreignKey.targetTableName && currentForeignKeyDatasource.value?.id) {
+          try {
+            targetColumnList.value = await logicalRelationService.getTableColumns(
+              currentForeignKeyDatasource.value.id,
+              foreignKey.targetTableName,
+            );
+          } catch (error) {
+            console.error('Failed to load target columns:', error);
+          }
+        }
+
+        ElMessage.info('正在编辑逻辑外键，修改后点击"更新"按钮');
+      };
+
+      // 添加或更新逻辑外键
+      const saveOrUpdateForeignKey = async () => {
+        // 表单验证
+        if (
+          !newForeignKey.value.sourceTableName ||
+          !newForeignKey.value.sourceColumnName ||
+          !newForeignKey.value.targetTableName ||
+          !newForeignKey.value.targetColumnName
+        ) {
+          ElMessage.warning('请完整填写主表、字段、关联表和字段');
+          return;
+        }
+
+        // 检查是否重复（编辑模式时排除自己）
+        const isDuplicate = foreignKeyList.value.some(
+          fk =>
+            fk.id !== editingForeignKey.value?.id &&
+            fk.sourceTableName === newForeignKey.value.sourceTableName &&
+            fk.sourceColumnName === newForeignKey.value.sourceColumnName &&
+            fk.targetTableName === newForeignKey.value.targetTableName &&
+            fk.targetColumnName === newForeignKey.value.targetColumnName,
+        );
+
+        if (isDuplicate) {
+          ElMessage.warning('该逻辑外键关系已存在');
+          return;
+        }
+
+        // 判断是编辑还是新增
+        if (editingForeignKey.value && editingForeignKey.value.id) {
+          // 更新模式
+          const index = foreignKeyList.value.findIndex(fk => fk.id === editingForeignKey.value!.id);
+          if (index !== -1) {
+            foreignKeyList.value[index] = {
+              ...foreignKeyList.value[index],
+              sourceTableName: newForeignKey.value.sourceTableName,
+              sourceColumnName: newForeignKey.value.sourceColumnName,
+              targetTableName: newForeignKey.value.targetTableName,
+              targetColumnName: newForeignKey.value.targetColumnName,
+              relationType: newForeignKey.value.relationType || '',
+              description: newForeignKey.value.description || '',
+            };
+          }
+          ElMessage.success('更新成功，请点击"保存全部配置"以保存到数据库');
+        } else {
+          // 添加模式
+          foreignKeyList.value.push({
+            sourceTableName: newForeignKey.value.sourceTableName,
+            sourceColumnName: newForeignKey.value.sourceColumnName,
+            targetTableName: newForeignKey.value.targetTableName,
+            targetColumnName: newForeignKey.value.targetColumnName,
+            relationType: newForeignKey.value.relationType || '',
+            description: newForeignKey.value.description || '',
+          });
+          ElMessage.success('添加成功，请点击"保存全部配置"以保存到数据库');
+        }
+
+        // 重置表单
+        resetForeignKeyForm();
+      };
+
+      // 删除逻辑外键
+      const deleteForeignKey = async (foreignKey: LogicalRelation, index: number) => {
+        try {
+          await ElMessageBox.confirm('确定要删除这条逻辑外键关系吗？', '确认删除', {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning',
+          });
+
+          foreignKeyList.value.splice(index, 1);
+          ElMessage.success('删除成功，请点击"保存全部配置"以保存到数据库');
+        } catch {
+          // 用户取消操作
+        }
+      };
+
+      // 保存逻辑外键配置
+      const saveForeignKeyConfig = async () => {
+        if (!currentForeignKeyDatasource.value?.id) {
+          ElMessage.error('数据源ID不存在');
+          return;
+        }
+
+        savingForeignKeys.value = true;
+        try {
+          const response = await logicalRelationService.saveLogicalRelations(
+            currentForeignKeyDatasource.value.id,
+            foreignKeyList.value,
+          );
+
+          if (response.success) {
+            ElMessage.success('保存成功');
+            foreignKeyDialogVisible.value = false;
+          } else {
+            ElMessage.error('保存失败');
+          }
+        } catch (error) {
+          ElMessage.error('保存失败');
+          console.error('Failed to save logical relations:', error);
+        } finally {
+          savingForeignKeys.value = false;
+        }
+      };
+
+      // 重置逻辑外键表单
+      const resetForeignKeyForm = () => {
+        editingForeignKey.value = null; // 重置编辑状态
+        newForeignKey.value = {
+          sourceTableName: '',
+          sourceColumnName: '',
+          targetTableName: '',
+          targetColumnName: '',
+          relationType: '',
+          description: '',
+        } as LogicalRelation;
+        sourceColumnList.value = [];
+        targetColumnList.value = [];
+      };
+
       return {
         props,
         Plus,
@@ -951,6 +1474,29 @@
         clearAllTables,
         truncateText,
         handleExpandChange,
+        // 逻辑外键管理
+        Connection,
+        Link,
+        CirclePlus,
+        Check,
+        Right,
+        Edit,
+        foreignKeyDialogVisible,
+        currentForeignKeyDatasource,
+        foreignKeyList,
+        newForeignKey,
+        tableList,
+        sourceColumnList,
+        targetColumnList,
+        savingForeignKeys,
+        openForeignKeyDialog,
+        handleSourceTableChange,
+        handleTargetTableChange,
+        editForeignKey,
+        saveOrUpdateForeignKey,
+        deleteForeignKey,
+        saveForeignKeyConfig,
+        editingForeignKey,
       };
     },
   });
