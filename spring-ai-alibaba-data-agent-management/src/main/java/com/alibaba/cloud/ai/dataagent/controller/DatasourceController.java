@@ -16,16 +16,22 @@
 
 package com.alibaba.cloud.ai.dataagent.controller;
 
+import com.alibaba.cloud.ai.dataagent.dto.CreateLogicalRelationDTO;
+import com.alibaba.cloud.ai.dataagent.dto.UpdateLogicalRelationDTO;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
+import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 // todo: 不要吞掉所有异常，可以直接抛出，写一个Advice拦截异常并做日志
+@Slf4j
 @RestController
 @RequestMapping("/api/datasource")
 @CrossOrigin(origins = "*")
@@ -137,6 +143,119 @@ public class DatasourceController {
 		}
 		catch (Exception e) {
 			return ResponseEntity.badRequest().body(ApiResponse.error("测试失败：" + e.getMessage()));
+		}
+	}
+
+	/**
+	 * 获取数据源表的字段列表
+	 */
+	@GetMapping("/{id}/tables/{tableName}/columns")
+	public ResponseEntity<List<String>> getTableColumns(@PathVariable(value = "id") Integer id,
+			@PathVariable(value = "tableName") String tableName) {
+		try {
+			List<String> columns = datasourceService.getTableColumns(id, tableName);
+			return ResponseEntity.ok(columns);
+		}
+		catch (Exception e) {
+			return ResponseEntity.badRequest().build();
+		}
+	}
+
+	/**
+	 * 获取数据源的逻辑外键列表
+	 */
+	@GetMapping("/{id}/logical-relations")
+	public ApiResponse<List<LogicalRelation>> getLogicalRelations(@PathVariable(value = "id") Integer datasourceId) {
+		try {
+			List<LogicalRelation> logicalRelations = datasourceService.getLogicalRelations(datasourceId);
+			return ApiResponse.success("success get logical relations", logicalRelations);
+		}
+		catch (Exception e) {
+			log.error("Failed to get logical relations for datasource: {}", datasourceId, e);
+			return ApiResponse.error("获取逻辑外键失败：" + e.getMessage());
+		}
+	}
+
+	/**
+	 * 添加逻辑外键
+	 */
+	@PostMapping("/{id}/logical-relations")
+	public ApiResponse<LogicalRelation> addLogicalRelation(@PathVariable(value = "id") Integer datasourceId,
+			@Valid @RequestBody CreateLogicalRelationDTO dto) {
+		try {
+			LogicalRelation logicalRelation = LogicalRelation.builder()
+				.sourceTableName(dto.getSourceTableName())
+				.sourceColumnName(dto.getSourceColumnName())
+				.targetTableName(dto.getTargetTableName())
+				.targetColumnName(dto.getTargetColumnName())
+				.relationType(dto.getRelationType())
+				.description(dto.getDescription())
+				.build();
+
+			LogicalRelation created = datasourceService.addLogicalRelation(datasourceId, logicalRelation);
+			return ApiResponse.success("success create logical relation", created);
+		}
+		catch (Exception e) {
+			log.error("Failed to add logical relation for datasource: {}", datasourceId, e);
+			return ApiResponse.error("添加逻辑外键失败：" + e.getMessage());
+		}
+	}
+
+	/**
+	 * 更新逻辑外键
+	 */
+	@PutMapping("/{id}/logical-relations/{relationId}")
+	public ApiResponse<LogicalRelation> updateLogicalRelation(@PathVariable(value = "id") Integer datasourceId,
+			@PathVariable(value = "relationId") Integer relationId, @RequestBody UpdateLogicalRelationDTO dto) {
+		try {
+			LogicalRelation logicalRelation = LogicalRelation.builder()
+				.sourceTableName(dto.getSourceTableName())
+				.sourceColumnName(dto.getSourceColumnName())
+				.targetTableName(dto.getTargetTableName())
+				.targetColumnName(dto.getTargetColumnName())
+				.relationType(dto.getRelationType())
+				.description(dto.getDescription())
+				.build();
+
+			LogicalRelation updated = datasourceService.updateLogicalRelation(datasourceId, relationId,
+					logicalRelation);
+			return ApiResponse.success("success update logical relation", updated);
+		}
+		catch (Exception e) {
+			log.error("Failed to update logical relation {} for datasource: {}", relationId, datasourceId, e);
+			return ApiResponse.error("更新逻辑外键失败：" + e.getMessage());
+		}
+	}
+
+	/**
+	 * 删除逻辑外键
+	 */
+	@DeleteMapping("/{id}/logical-relations/{relationId}")
+	public ApiResponse<Void> deleteLogicalRelation(@PathVariable(value = "id") Integer datasourceId,
+			@PathVariable(value = "relationId") Integer relationId) {
+		try {
+			datasourceService.deleteLogicalRelation(datasourceId, relationId);
+			return ApiResponse.success("success delete logical relation");
+		}
+		catch (Exception e) {
+			log.error("Failed to delete logical relation {} for datasource: {}", relationId, datasourceId, e);
+			return ApiResponse.error("删除逻辑外键失败：" + e.getMessage());
+		}
+	}
+
+	/**
+	 * 批量保存逻辑外键（替换现有的所有外键）
+	 */
+	@PutMapping("/{id}/logical-relations")
+	public ApiResponse<List<LogicalRelation>> saveLogicalRelations(@PathVariable(value = "id") Integer datasourceId,
+			@RequestBody List<LogicalRelation> logicalRelations) {
+		try {
+			List<LogicalRelation> saved = datasourceService.saveLogicalRelations(datasourceId, logicalRelations);
+			return ApiResponse.success("success save logical relations", saved);
+		}
+		catch (Exception e) {
+			log.error("Failed to save logical relations for datasource: {}", datasourceId, e);
+			return ApiResponse.error("批量保存逻辑外键失败：" + e.getMessage());
 		}
 	}
 

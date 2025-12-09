@@ -19,8 +19,12 @@ package com.alibaba.cloud.ai.dataagent.node;
 import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
+import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
+import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
+import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -39,10 +43,9 @@ import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 import static com.alibaba.cloud.ai.dataagent.prompt.PromptHelper.buildSemanticModelPrompt;
@@ -70,6 +73,10 @@ public class TableRelationNode implements NodeAction {
 
 	private final DatabaseUtil databaseUtil;
 
+	private final DatasourceService datasourceService;
+
+	private final AgentDatasourceService agentDatasourceService;
+
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
@@ -83,14 +90,18 @@ public class TableRelationNode implements NodeAction {
 
 		// Execute business logic first - get final result immediately
 		DbConfig agentDbConfig = databaseUtil.getAgentDbConfig(Integer.valueOf(agentIdStr));
-		SchemaDTO initialSchema = buildInitialSchema(agentIdStr, columnDocuments, tableDocuments, agentDbConfig);
+
+		List<String> logicalForeignKeys = getLogicalForeignKeys(Integer.valueOf(agentIdStr), tableDocuments);
+		log.info("Found {} logical foreign keys for agent: {}", logicalForeignKeys.size(), agentIdStr);
+
+		SchemaDTO initialSchema = buildInitialSchema(agentIdStr, columnDocuments, tableDocuments, agentDbConfig,
+				logicalForeignKeys);
 
 		Map<String, Object> resultMap = new HashMap<>();
 
 		Flux<ChatResponse> schemaFlux = processSchemaSelection(initialSchema, canonicalQuery, evidence, state,
 				agentDbConfig, result -> {
 					log.info("[{}] Schema processing result: {}", this.getClass().getSimpleName(), result);
-					// 将处理后的SchemaDTO存储到resultMap中
 					resultMap.put(TABLE_RELATION_OUTPUT, result);
 
 					// 从最终的SchemaDTO中获取表名列表
@@ -132,11 +143,32 @@ public class TableRelationNode implements NodeAction {
 	 * Builds initial schema from column and table documents.
 	 */
 	private SchemaDTO buildInitialSchema(String agentId, List<Document> columnDocuments, List<Document> tableDocuments,
-			DbConfig agentDbConfig) {
+			DbConfig agentDbConfig, List<String> logicalForeignKeys) {
 		SchemaDTO schemaDTO = new SchemaDTO();
 
 		schemaService.extractDatabaseName(schemaDTO, agentDbConfig);
 		schemaService.buildSchemaFromDocuments(agentId, columnDocuments, tableDocuments, schemaDTO);
+
+		// 将逻辑外键信息合并到 schemaDTO 的 foreignKeys 字段
+		if (logicalForeignKeys != null && !logicalForeignKeys.isEmpty()) {
+			List<List<String>> existingForeignKeys = schemaDTO.getForeignKeys();
+			if (existingForeignKeys == null || existingForeignKeys.isEmpty()) {
+				// 如果没有现有外键，直接设置
+				schemaDTO.setForeignKeys(List.of(logicalForeignKeys));
+			}
+			else {
+				List<String> allForeignKeys = new ArrayList<>();
+				for (List<String> fkList : existingForeignKeys) {
+					if (fkList != null) {
+						allForeignKeys.addAll(fkList);
+					}
+				}
+				allForeignKeys.addAll(logicalForeignKeys);
+				schemaDTO.setForeignKeys(List.of(allForeignKeys));
+			}
+			log.info("Merged {} logical foreign keys into schema for agent: {}", logicalForeignKeys.size(), agentId);
+		}
+
 		return schemaDTO;
 	}
 
@@ -163,6 +195,50 @@ public class TableRelationNode implements NodeAction {
 			.concatWith(schemaFlux)
 			.concatWith(Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
 					ChatResponseUtil.createResponse("\n\n选择数据表完成。")));
+	}
+
+	/**
+	 * 获取逻辑外键信息，并过滤只保留与当前召回表相关的外键
+	 */
+	private List<String> getLogicalForeignKeys(Integer agentId, List<Document> tableDocuments) {
+		try {
+			// 获取当前 agent 激活的数据源
+			AgentDatasource agentDatasource = agentDatasourceService.getCurrentAgentDatasource(agentId);
+			if (agentDatasource == null || agentDatasource.getDatasourceId() == null) {
+				log.warn("No active datasource found for agent: {}", agentId);
+				return Collections.emptyList();
+			}
+
+			Integer datasourceId = agentDatasource.getDatasourceId();
+
+			// 从 tableDocuments 提取表名列表
+			Set<String> recalledTableNames = tableDocuments.stream()
+				.map(doc -> (String) doc.getMetadata().get("name"))
+				.filter(name -> name != null && !name.isEmpty())
+				.collect(Collectors.toSet());
+
+			log.info("Recalled table names for agent {}: {}", agentId, recalledTableNames);
+
+			// 查询该数据源的所有逻辑外键
+			List<LogicalRelation> allLogicalRelations = datasourceService.getLogicalRelations(datasourceId);
+			log.info("Found {} logical relations in datasource: {}", allLogicalRelations.size(), datasourceId);
+
+			// 过滤只保留与召回表相关的外键（源表或目标表在召回列表中）
+			List<String> formattedForeignKeys = allLogicalRelations.stream()
+				.filter(lr -> recalledTableNames.contains(lr.getSourceTableName())
+						|| recalledTableNames.contains(lr.getTargetTableName()))
+				.map(lr -> String.format("%s.%s=%s.%s", lr.getSourceTableName(), lr.getSourceColumnName(),
+						lr.getTargetTableName(), lr.getTargetColumnName()))
+				.distinct()
+				.collect(Collectors.toList());
+
+			log.info("Filtered {} relevant logical relations for recalled tables", formattedForeignKeys.size());
+			return formattedForeignKeys;
+		}
+		catch (Exception e) {
+			log.error("Error fetching logical foreign keys for agent: {}", agentId, e);
+			return Collections.emptyList();
+		}
 	}
 
 }

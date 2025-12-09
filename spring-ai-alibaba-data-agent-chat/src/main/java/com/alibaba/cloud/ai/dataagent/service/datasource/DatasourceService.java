@@ -19,6 +19,7 @@ package com.alibaba.cloud.ai.dataagent.service.datasource;
 import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
+import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
 
 import java.util.List;
 
@@ -78,6 +79,36 @@ public interface DatasourceService {
 
 	List<String> getDatasourceTables(Integer datasourceId) throws Exception;
 
+	/**
+	 * 获取数据源表的字段列表
+	 */
+	List<String> getTableColumns(Integer datasourceId, String tableName) throws Exception;
+
 	DbConfig getDbConfig(Datasource datasource);
+
+	/**
+	 * 获取数据源的逻辑外键列表
+	 */
+	List<LogicalRelation> getLogicalRelations(Integer datasourceId);
+
+	/**
+	 * 添加逻辑外键
+	 */
+	LogicalRelation addLogicalRelation(Integer datasourceId, LogicalRelation logicalRelation);
+
+	/**
+	 * 更新逻辑外键
+	 */
+	LogicalRelation updateLogicalRelation(Integer datasourceId, Integer relationId, LogicalRelation logicalRelation);
+
+	/**
+	 * 删除逻辑外键
+	 */
+	void deleteLogicalRelation(Integer datasourceId, Integer logicalRelationId);
+
+	/**
+	 * 批量保存逻辑外键（替换现有的所有外键）
+	 */
+	List<LogicalRelation> saveLogicalRelations(Integer datasourceId, List<LogicalRelation> logicalRelations);
 
 }
