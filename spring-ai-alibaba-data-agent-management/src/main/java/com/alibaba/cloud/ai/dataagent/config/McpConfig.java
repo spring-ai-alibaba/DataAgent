@@ -1,5 +1,6 @@
 package com.alibaba.cloud.ai.dataagent.config;
 
+import com.alibaba.cloud.ai.dataagent.mcp.McpServerTool;
 import com.alibaba.cloud.ai.dataagent.service.AgentService;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import org.springframework.ai.tool.ToolCallback;
@@ -20,6 +21,7 @@ public class McpConfig {
 	}
 
 	@Bean
+    @McpServerTool
 	public ToolCallback listAgentsToolCallback(AgentService agentService) {
 		return FunctionToolCallback.builder("listAgents", (AgentListRequest request) -> {
 			// ---------------------------------------------------------

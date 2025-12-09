@@ -18,6 +18,8 @@ package com.alibaba.cloud.ai.dataagent.config;
 
 import com.alibaba.cloud.ai.dataagent.config.file.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.dispatcher.*;
+import com.alibaba.cloud.ai.dataagent.mcp.McpServerTool;
+import com.alibaba.cloud.ai.dataagent.mcp.McpServerToolUtil;
 import com.alibaba.cloud.ai.dataagent.node.*;
 import com.alibaba.cloud.ai.dataagent.strategy.EnhancedTokenCountBatchingStrategy;
 import com.alibaba.cloud.ai.dataagent.util.NodeBeanUtil;
@@ -32,28 +34,37 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.resolution.DelegatingToolCallbackResolver;
+import org.springframework.ai.tool.resolution.SpringBeanToolCallbackResolver;
+import org.springframework.ai.tool.resolution.StaticToolCallbackResolver;
 import org.springframework.ai.tool.resolution.ToolCallbackResolver;
 import org.springframework.ai.transformer.splitter.TextSplitter;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.web.client.RestClientCustomizer;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -281,8 +292,18 @@ public class DataAgentConfiguration implements DisposableBean {
 	}
 
     @Bean
-    public ToolCallbackResolver toolCallbackResolver() {
-        return new DelegatingToolCallbackResolver(List.of());
+    public ToolCallbackResolver toolCallbackResolver(
+            GenericApplicationContext context) {
+        List<ToolCallback> allFunctionAndToolCallbacks = new ArrayList<>(McpServerToolUtil.excludeMcpServerTool(context, ToolCallback.class));
+        McpServerToolUtil.excludeMcpServerTool(context, ToolCallbackProvider.class).stream().map(pr -> List.of(pr.getToolCallbacks())).forEach(allFunctionAndToolCallbacks::addAll);
+
+        var staticToolCallbackResolver = new StaticToolCallbackResolver(allFunctionAndToolCallbacks);
+
+        var springBeanToolCallbackResolver = SpringBeanToolCallbackResolver.builder()
+                .applicationContext(context)
+                .build();
+
+        return new DelegatingToolCallbackResolver(List.of(staticToolCallbackResolver, springBeanToolCallbackResolver));
     }
 
 	@Bean
