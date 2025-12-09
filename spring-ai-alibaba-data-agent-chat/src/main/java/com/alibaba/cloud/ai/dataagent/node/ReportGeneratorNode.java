@@ -81,6 +81,8 @@ public class ReportGeneratorNode implements NodeAction {
 		HashMap<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,
 				HashMap.class, new HashMap<>());
 
+		boolean plainReport = StateUtil.getObjectValue(state, PLAIN_REPORT, Boolean.class, false);
+
 		log.info("Planner node output: {}", plannerNodeOutput);
 
 		// Parse plan and get current step
@@ -102,7 +104,9 @@ public class ReportGeneratorNode implements NodeAction {
 
 		// Generate report streaming flux
 		Flux<ChatResponse> reportGenerationFlux = generateReport(userInput, plan, executionResults,
-				summaryAndRecommendations, agentId);
+				summaryAndRecommendations, agentId, plainReport);
+
+		TextType reportTextType = plainReport ? TextType.MARK_DOWN : TextType.HTML;
 
 		// Use utility class to create streaming generator with content collection
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
@@ -115,9 +119,9 @@ public class ReportGeneratorNode implements NodeAction {
 					result.put(PLANNER_NODE_OUTPUT, null);
 					return result;
 				},
-				Flux.concat(Flux.just(ChatResponseUtil.createPureResponse(TextType.HTML.getStartSign())),
+				Flux.concat(Flux.just(ChatResponseUtil.createPureResponse(reportTextType.getStartSign())),
 						reportGenerationFlux,
-						Flux.just(ChatResponseUtil.createPureResponse(TextType.HTML.getEndSign()))));
+						Flux.just(ChatResponseUtil.createPureResponse(reportTextType.getEndSign()))));
 
 		return Map.of(RESULT, generator);
 	}
@@ -143,7 +147,7 @@ public class ReportGeneratorNode implements NodeAction {
 	 * Generates the analysis report.
 	 */
 	private Flux<ChatResponse> generateReport(String userInput, Plan plan, HashMap<String, String> executionResults,
-			String summaryAndRecommendations, Long agentId) {
+			String summaryAndRecommendations, Long agentId, boolean plainReport) {
 		// Build user requirements and plan description
 		String userRequirementsAndPlan = buildUserRequirementsAndPlan(userInput, plan);
 
@@ -156,7 +160,7 @@ public class ReportGeneratorNode implements NodeAction {
 
 		// Use PromptHelper to build report generation prompt with optimization support
 		String reportPrompt = PromptHelper.buildReportGeneratorPromptWithOptimization(userRequirementsAndPlan,
-				analysisStepsAndData, summaryAndRecommendations, optimizationConfigs);
+				analysisStepsAndData, summaryAndRecommendations, optimizationConfigs, plainReport);
 
 		log.info("Using {} prompt for report generation",
 				!optimizationConfigs.isEmpty() ? "optimized (" + optimizationConfigs.size() + " configs)" : "default");
