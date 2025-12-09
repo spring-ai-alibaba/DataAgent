@@ -138,11 +138,9 @@ public class GraphServiceImpl implements GraphService {
 		}
 		String multiTurnContext = multiTurnContextManager.buildContext(threadId);
 		multiTurnContextManager.beginTurn(threadId, query);
-		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(
-				Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED,
-						humanReviewEnabled, PLAIN_REPORT, graphRequest.isPlainReport(), MULTI_TURN_CONTEXT,
-						multiTurnContext),
-				RunnableConfig.builder().threadId(threadId).build());
+		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query,
+				AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled, PLAIN_REPORT, graphRequest.isPlainReport(),
+				MULTI_TURN_CONTEXT, multiTurnContext), RunnableConfig.builder().threadId(threadId).build());
 		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
 	}
 

@@ -149,6 +149,7 @@ public class MultiTurnContextManager {
 		private PendingTurn(String userQuestion) {
 			this.userQuestion = userQuestion;
 		}
+
 	}
 
 }
