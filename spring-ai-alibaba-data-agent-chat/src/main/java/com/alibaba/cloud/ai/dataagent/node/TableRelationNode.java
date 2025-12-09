@@ -151,20 +151,16 @@ public class TableRelationNode implements NodeAction {
 
 		// 将逻辑外键信息合并到 schemaDTO 的 foreignKeys 字段
 		if (logicalForeignKeys != null && !logicalForeignKeys.isEmpty()) {
-			List<List<String>> existingForeignKeys = schemaDTO.getForeignKeys();
+			List<String> existingForeignKeys = schemaDTO.getForeignKeys();
 			if (existingForeignKeys == null || existingForeignKeys.isEmpty()) {
 				// 如果没有现有外键，直接设置
-				schemaDTO.setForeignKeys(List.of(logicalForeignKeys));
+				schemaDTO.setForeignKeys(logicalForeignKeys);
 			}
 			else {
-				List<String> allForeignKeys = new ArrayList<>();
-				for (List<String> fkList : existingForeignKeys) {
-					if (fkList != null) {
-						allForeignKeys.addAll(fkList);
-					}
-				}
+				// 合并现有外键和逻辑外键
+				List<String> allForeignKeys = new ArrayList<>(existingForeignKeys);
 				allForeignKeys.addAll(logicalForeignKeys);
-				schemaDTO.setForeignKeys(List.of(allForeignKeys));
+				schemaDTO.setForeignKeys(allForeignKeys);
 			}
 			log.info("Merged {} logical foreign keys into schema for agent: {}", logicalForeignKeys.size(), agentId);
 		}

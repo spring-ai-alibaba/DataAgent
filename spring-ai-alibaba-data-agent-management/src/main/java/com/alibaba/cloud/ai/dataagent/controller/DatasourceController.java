@@ -150,14 +150,14 @@ public class DatasourceController {
 	 * 获取数据源表的字段列表
 	 */
 	@GetMapping("/{id}/tables/{tableName}/columns")
-	public ResponseEntity<List<String>> getTableColumns(@PathVariable(value = "id") Integer id,
+	public ApiResponse<List<String>> getTableColumns(@PathVariable(value = "id") Integer id,
 			@PathVariable(value = "tableName") String tableName) {
 		try {
 			List<String> columns = datasourceService.getTableColumns(id, tableName);
-			return ResponseEntity.ok(columns);
+			return ApiResponse.success("获取字段列表成功", columns);
 		}
 		catch (Exception e) {
-			return ResponseEntity.badRequest().build();
+			return ApiResponse.error("获取字段列表失败：" + e.getMessage());
 		}
 	}
 

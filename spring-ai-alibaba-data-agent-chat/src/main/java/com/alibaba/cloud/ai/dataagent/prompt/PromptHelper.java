@@ -127,9 +127,8 @@ public class PromptHelper {
 		for (TableDTO tableDTO : schemaDTO.getTable()) {
 			sb.append(buildMixMacSqlTablePrompt(tableDTO, withColumnType)).append("\n");
 		}
-		if (CollectionUtils.isNotEmpty(schemaDTO.getForeignKeys())
-				&& CollectionUtils.isNotEmpty(schemaDTO.getForeignKeys().get(0))) {
-			sb.append("【Foreign keys】\n").append(StringUtils.join(schemaDTO.getForeignKeys().get(0), "\n"));
+		if (CollectionUtils.isNotEmpty(schemaDTO.getForeignKeys())) {
+			sb.append("【Foreign keys】\n").append(StringUtils.join(schemaDTO.getForeignKeys(), "\n"));
 		}
 		return sb.toString();
 	}

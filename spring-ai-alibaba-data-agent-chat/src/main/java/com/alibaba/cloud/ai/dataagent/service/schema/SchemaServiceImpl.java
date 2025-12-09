@@ -98,7 +98,7 @@ public class SchemaServiceImpl implements SchemaService {
 			.flatMap(fk -> Arrays.stream(fk.split("、")))
 			.filter(StringUtils::isNotBlank)
 			.collect(Collectors.toSet());
-		schemaDTO.setForeignKeys(List.of(new ArrayList<>(foreignKeys)));
+		schemaDTO.setForeignKeys(new ArrayList<>(foreignKeys));
 	}
 
 	@Override
