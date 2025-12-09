@@ -22,7 +22,6 @@ import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
 import com.alibaba.cloud.ai.dataagent.entity.UserPromptConfig;
-import com.alibaba.cloud.ai.dataagent.util.DatabaseDialectHelper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -208,13 +207,11 @@ public class PromptHelper {
 			String evidence) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
-		String dialectGuidelines = DatabaseDialectHelper.getDialectSpecificGuidelines(dbConfig.getDialectType());
 		Map<String, Object> params = new HashMap<>();
 		params.put("dialect", dialect);
 		params.put("question", question);
 		params.put("schema_info", schemaInfo);
 		params.put("evidence", evidence);
-		params.put("dialect_guidelines", dialectGuidelines);
 		List<String> prompts = new ArrayList<>();
 		prompts.add(PromptConstant.getMixSqlGeneratorSystemPromptTemplate().render(params));
 		prompts.add(PromptConstant.getMixSqlGeneratorPromptTemplate().render(params));
@@ -271,12 +268,9 @@ public class PromptHelper {
 			String evidence, String errorSql, String errorMessage) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
-		// Generate dialect-specific guidelines
-		String dialectGuidelines = DatabaseDialectHelper.getDialectSpecificGuidelines(dbConfig.getDialectType());
 
 		Map<String, Object> params = new HashMap<>();
 		params.put("dialect", dialect);
-		params.put("dialect_guidelines", dialectGuidelines);
 		params.put("question", question);
 		params.put("schema_info", schemaInfo);
 		params.put("evidence", evidence);
