@@ -39,6 +39,7 @@ public class MultiTurnContextManager {
 
 	private final DataAgentProperties properties;
 
+	// todo：考虑持久化存储
 	private final Map<String, Deque<ConversationTurn>> history = new ConcurrentHashMap<>();
 
 	private final Map<String, PendingTurn> pendingTurns = new ConcurrentHashMap<>();
