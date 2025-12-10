@@ -396,13 +396,13 @@ public class DatasourceServiceImpl implements DatasourceService {
 		// 获取现有的所有外键关系
 		List<LogicalRelation> existingRelations = logicalRelationMapper.selectByDatasourceId(datasourceId);
 		Map<Integer, LogicalRelation> existingMap = existingRelations.stream()
-				.collect(Collectors.toMap(LogicalRelation::getId, relation -> relation));
+			.collect(Collectors.toMap(LogicalRelation::getId, relation -> relation));
 
 		// 收集传入列表中已存在的ID
 		Set<Integer> incomingIds = logicalRelations.stream()
-				.map(LogicalRelation::getId)
-				.filter(Objects::nonNull)
-				.collect(Collectors.toSet());
+			.map(LogicalRelation::getId)
+			.filter(Objects::nonNull)
+			.collect(Collectors.toSet());
 
 		// 删除那些不在传入列表中的外键
 		int deletedCount = 0;
@@ -410,7 +410,8 @@ public class DatasourceServiceImpl implements DatasourceService {
 			if (!incomingIds.contains(existing.getId())) {
 				logicalRelationMapper.deleteById(existing.getId());
 				deletedCount++;
-				log.info("Deleted logical relation: {} -> {}", existing.getSourceTableName(), existing.getTargetTableName());
+				log.info("Deleted logical relation: {} -> {}", existing.getSourceTableName(),
+						existing.getTargetTableName());
 			}
 		}
 		log.info("Deleted {} logical relations for datasource: {}", deletedCount, datasourceId);
@@ -443,23 +444,26 @@ public class DatasourceServiceImpl implements DatasourceService {
 		int updatedCount = 0;
 		for (LogicalRelation logicalRelation : uniqueRelations) {
 			logicalRelation.setDatasourceId(datasourceId);
-			
+
 			if (logicalRelation.getId() != null && existingMap.containsKey(logicalRelation.getId())) {
 				// 更新现有记录
 				logicalRelationMapper.updateById(logicalRelation);
 				updatedCount++;
-				log.debug("Updated logical relation: {} -> {}", logicalRelation.getSourceTableName(), logicalRelation.getTargetTableName());
-			} else {
+				log.debug("Updated logical relation: {} -> {}", logicalRelation.getSourceTableName(),
+						logicalRelation.getTargetTableName());
+			}
+			else {
 				// 插入新记录
 				logicalRelation.setId(null);
 				logicalRelationMapper.insert(logicalRelation);
 				insertedCount++;
-				log.debug("Inserted logical relation: {} -> {}", logicalRelation.getSourceTableName(), logicalRelation.getTargetTableName());
+				log.debug("Inserted logical relation: {} -> {}", logicalRelation.getSourceTableName(),
+						logicalRelation.getTargetTableName());
 			}
 		}
 
-		log.info("Saved logical relations for datasource {}: {} inserted, {} updated, {} deleted", 
-				datasourceId, insertedCount, updatedCount, deletedCount);
+		log.info("Saved logical relations for datasource {}: {} inserted, {} updated, {} deleted", datasourceId,
+				insertedCount, updatedCount, deletedCount);
 
 		return logicalRelationMapper.selectByDatasourceId(datasourceId);
 	}
