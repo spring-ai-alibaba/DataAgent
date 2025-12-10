@@ -41,7 +41,7 @@ public class ModelConfigConverter {
 			.temperature(entity.getTemperature())
 			.maxTokens(entity.getMaxTokens())
 			.isActive(entity.getIsActive())
-			.apiKey(maskApiKey(entity.getApiKey()))
+			.apiKey(entity.getApiKey())
 			.modelType(entity.getModelType().getCode())
 			.build();
 	}
@@ -70,16 +70,6 @@ public class ModelConfigConverter {
 		entity.setUpdatedTime(LocalDateTime.now());
 
 		return entity;
-	}
-
-	/**
-	 * 辅助方法：API Key 脱敏 (显示前3后4，中间星号) e.g. "sk-abcde...1234"
-	 */
-	private static String maskApiKey(String key) {
-		if (key == null || key.length() < 8) {
-			return "******";
-		}
-		return key.substring(0, 3) + "****" + key.substring(key.length() - 4);
 	}
 
 }
