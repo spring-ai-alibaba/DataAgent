@@ -58,7 +58,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 
 	@Override
 	public Flux<String> generateSql(String evidence, String query, SchemaDTO schemaDTO, String sql,
-			String exceptionMessage, DbConfig dbConfig) {
+			String exceptionMessage, DbConfig dbConfig, String executionDescription) {
 		log.info("Generating SQL for query: {}, hasExistingSql: {}", query, sql != null && !sql.isEmpty());
 
 		Flux<String> newSqlFlux;
@@ -66,14 +66,15 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 			// Use professional SQL error repair prompt
 			log.debug("Using SQL error fixer for existing SQL: {}", sql);
 			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(query, dbConfig, schemaDTO, evidence, sql,
-					exceptionMessage);
+					exceptionMessage, executionDescription);
 			newSqlFlux = llmService.toStringFlux(llmService.callUser(errorFixerPrompt));
 			log.info("SQL error fixing completed");
 		}
 		else {
 			// Normal SQL generation process
 			log.debug("Generating new SQL from scratch");
-			List<String> prompts = PromptHelper.buildMixSqlGeneratorPrompt(query, dbConfig, schemaDTO, evidence);
+			List<String> prompts = PromptHelper.buildMixSqlGeneratorPrompt(query, dbConfig, schemaDTO, evidence,
+					executionDescription);
 			newSqlFlux = llmService.toStringFlux(llmService.call(prompts.get(0), prompts.get(1)));
 			log.info("New SQL generation completed");
 		}
