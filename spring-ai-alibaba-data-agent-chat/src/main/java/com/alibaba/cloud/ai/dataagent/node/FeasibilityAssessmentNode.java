@@ -53,8 +53,11 @@ public class FeasibilityAssessmentNode implements NodeAction {
 		// 获取证据信息
 		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 
-		// 构建可行性评估提示词，多轮对话暂时为空
-		String prompt = PromptHelper.buildFeasibilityAssessmentPrompt(canonicalQuery, recalledSchema, evidence, null);
+		String multiTurn = StateUtil.getStringValue(state, MULTI_TURN_CONTEXT, "(无)");
+
+		// 构建可行性评估提示词
+		String prompt = PromptHelper.buildFeasibilityAssessmentPrompt(canonicalQuery, recalledSchema, evidence,
+				multiTurn);
 		log.debug("Built feasibility assessment prompt as follows \n {} \n", prompt);
 
 		// 调用LLM进行可行性评估

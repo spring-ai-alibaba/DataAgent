@@ -17,6 +17,8 @@ package com.alibaba.cloud.ai.dataagent.service.graph;
 
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.node.PlannerNode;
+import com.alibaba.cloud.ai.dataagent.service.graph.context.MultiTurnContextManager;
 import com.alibaba.cloud.ai.dataagent.service.graph.context.StreamContext;
 import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
@@ -50,6 +52,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_REVIEW_ENAB
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.INPUT_KEY;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.IS_ONLY_NL2SQL;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAIN_REPORT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.MULTI_TURN_CONTEXT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_OUTPUT;
 
 @Slf4j
@@ -62,10 +65,14 @@ public class GraphServiceImpl implements GraphService {
 
 	private final ConcurrentHashMap<String, StreamContext> streamContextMap = new ConcurrentHashMap<>();
 
-	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService) throws GraphStateException {
+	private final MultiTurnContextManager multiTurnContextManager;
+
+	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService,
+			MultiTurnContextManager multiTurnContextManager) throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
 		this.compiledGraph.setMaxIterations(100);
 		this.executor = executorService;
+		this.multiTurnContextManager = multiTurnContextManager;
 	}
 
 	@Override
@@ -104,6 +111,7 @@ public class GraphServiceImpl implements GraphService {
 			return;
 		}
 		log.info("Stopping stream processing for threadId: {}", threadId);
+		multiTurnContextManager.discardPending(threadId);
 		StreamContext context = streamContextMap.remove(threadId);
 		if (context != null) {
 			context.cleanup();
@@ -129,10 +137,11 @@ public class GraphServiceImpl implements GraphService {
 			log.warn("StreamContext already cleaned for threadId: {}, skipping stream start", threadId);
 			return;
 		}
-		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(
-				Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED,
-						humanReviewEnabled, PLAIN_REPORT, graphRequest.isPlainReport()),
-				RunnableConfig.builder().threadId(threadId).build());
+		String multiTurnContext = multiTurnContextManager.buildContext(threadId);
+		multiTurnContextManager.beginTurn(threadId, query);
+		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query,
+				AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled, PLAIN_REPORT, graphRequest.isPlainReport(),
+				MULTI_TURN_CONTEXT, multiTurnContext), RunnableConfig.builder().threadId(threadId).build());
 		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
 	}
 
@@ -158,6 +167,10 @@ public class GraphServiceImpl implements GraphService {
 		OverAllState resumeState = stateSnapshot.state();
 		resumeState.withResume();
 		resumeState.withHumanFeedback(humanFeedback);
+		if (graphRequest.isRejectedPlan()) {
+			multiTurnContextManager.restartLastTurn(threadId);
+		}
+		resumeState.updateState(Map.of(MULTI_TURN_CONTEXT, multiTurnContextManager.buildContext(threadId)));
 
 		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStreamFromInitialNode(resumeState,
 				RunnableConfig.builder().threadId(threadId).build());
@@ -226,6 +239,7 @@ public class GraphServiceImpl implements GraphService {
 	 */
 	private void handleStreamComplete(String agentId, String threadId) {
 		log.info("Stream processing completed successfully for threadId: {}", threadId);
+		multiTurnContextManager.finishTurn(threadId);
 		StreamContext context = streamContextMap.remove(threadId);
 		if (context != null && !context.isCleaned() && context.getSink() != null) {
 			if (context.getSink().currentSubscriberCount() > 0) {
@@ -280,6 +294,9 @@ public class GraphServiceImpl implements GraphService {
 		}
 		// 文本标记符号不返回给前端
 		if (!isTypeSign) {
+			if (PlannerNode.class.getSimpleName().equals(node)) {
+				multiTurnContextManager.appendPlannerChunk(threadId, chunk);
+			}
 			GraphNodeResponse response = GraphNodeResponse.builder()
 				.agentId(request.getAgentId())
 				.threadId(threadId)

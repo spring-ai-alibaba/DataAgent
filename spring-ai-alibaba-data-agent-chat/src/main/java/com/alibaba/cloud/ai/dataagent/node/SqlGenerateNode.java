@@ -75,7 +75,8 @@ public class SqlGenerateNode implements NodeAction {
 		// 准备生成SQL
 		String displayMessage;
 		Flux<String> sqlFlux;
-		SqlRetryDto retryDto = state.value(SQL_REGENERATE_REASON, SqlRetryDto.empty());
+		SqlRetryDto retryDto = StateUtil.getObjectValue(state, SQL_REGENERATE_REASON, SqlRetryDto.class,
+				SqlRetryDto.empty());
 
 		if (retryDto.sqlExecuteFail()) {
 			displayMessage = "检测到SQL执行异常，开始重新生成SQL...";

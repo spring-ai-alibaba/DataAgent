@@ -70,8 +70,10 @@ public class EvidenceRecallNode implements NodeAction {
 		log.info("Rewriting query before getting evidence in question: {}", question);
 		log.debug("Agent ID: {}", agentId);
 
-		// 构建查询重写提示，多轮对话暂时为空
-		String prompt = PromptHelper.buildEvidenceQueryRewritePrompt(null, question);
+		String multiTurn = StateUtil.getStringValue(state, MULTI_TURN_CONTEXT, "(无)");
+
+		// 构建查询重写提示
+		String prompt = PromptHelper.buildEvidenceQueryRewritePrompt(multiTurn, question);
 		log.debug("Built evidence-query-rewrite prompt as follows \n {} \n", prompt);
 
 		// 调用LLM进行查询重写
