@@ -61,7 +61,8 @@ public class ModelConfigController {
 		try {
 			modelConfigDataService.deleteConfig(id);
 			return ApiResponse.success("配置已删除");
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			return ApiResponse.error("删除失败: " + e.getMessage());
 		}
 	}

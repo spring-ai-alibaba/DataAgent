@@ -90,6 +90,7 @@ public interface ModelConfigMapper {
 			            <if test='isActive != null'>is_active = #{isActive},</if>
 			            <if test='maxTokens != null'>max_tokens = #{maxTokens},</if>
 			            <if test='modelType != null'>model_type = #{modelType},</if>
+			            <if test='isDeleted != null'>is_deleted = #{isDeleted},</if>
 			            updated_time = NOW()
 			          </trim>
 			          WHERE id = #{id}

@@ -123,8 +123,10 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		// 3. 执行删除逻辑
 		entity.setIsDeleted(1);
 		entity.setUpdatedTime(LocalDateTime.now());
-		modelConfigMapper.updateById(entity);
-
+		int updated = modelConfigMapper.updateById(entity);
+		if (updated == 0) {
+			throw new RuntimeException("删除失败");
+		}
 	}
 
 	@Override
