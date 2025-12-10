@@ -17,7 +17,9 @@ package com.alibaba.cloud.ai.dataagent;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
+@EnableScheduling
 @SpringBootApplication
 public class DataAgentApplication {
 

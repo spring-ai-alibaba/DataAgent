@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.impl;
 
-import com.alibaba.cloud.ai.dataagent.common.request.AgentSearchRequest;
+import com.alibaba.cloud.ai.dataagent.common.request.HybridSearchRequest;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.fusion.FusionStrategy;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.AbstractHybridRetrievalStrategy;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +39,7 @@ public class DefaultHybridRetrievalStrategy extends AbstractHybridRetrievalStrat
 	}
 
 	@Override
-	public List<Document> getDocumentsByKeywords(AgentSearchRequest agentSearchRequest) {
+	public List<Document> getDocumentsByKeywords(HybridSearchRequest agentSearchRequest) {
 		// keyword默认不操作
 		return Collections.emptyList();
 	}

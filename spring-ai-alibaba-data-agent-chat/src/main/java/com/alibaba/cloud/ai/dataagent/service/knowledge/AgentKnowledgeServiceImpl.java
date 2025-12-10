@@ -16,161 +16,207 @@
 
 package com.alibaba.cloud.ai.dataagent.service.knowledge;
 
-import com.alibaba.cloud.ai.dataagent.constant.Constant;
-import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
+import com.alibaba.cloud.ai.dataagent.converter.AgentKnowledgeConverter;
+import com.alibaba.cloud.ai.dataagent.dto.PageResult;
+import com.alibaba.cloud.ai.dataagent.dto.agentknowledge.AgentKnowledgeQueryDTO;
+import com.alibaba.cloud.ai.dataagent.dto.agentknowledge.CreateKnowledgeDto;
+import com.alibaba.cloud.ai.dataagent.dto.agentknowledge.UpdateKnowledgeDto;
 import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
+import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
+import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
+import com.alibaba.cloud.ai.dataagent.event.AgentKnowledgeDeletionEvent;
+import com.alibaba.cloud.ai.dataagent.event.AgentKnowledgeEmbeddingEvent;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
-import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
+import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
+import com.alibaba.cloud.ai.dataagent.vo.AgentKnowledgeVO;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.document.Document;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-
-import static com.alibaba.cloud.ai.dataagent.util.DocumentConverterUtil.createDocumentFromKnowledge;
 
 @Slf4j
 @Service
+@AllArgsConstructor
 public class AgentKnowledgeServiceImpl implements AgentKnowledgeService {
+
+	private static final String AGENT_KNOWLEDGE_FILE_PATH = "agent-knowledge";
 
 	private final AgentKnowledgeMapper agentKnowledgeMapper;
 
-	private final AgentVectorStoreService vectorStoreService;
+	private final FileStorageService fileStorageService;
 
-	public AgentKnowledgeServiceImpl(AgentKnowledgeMapper agentKnowledgeMapper,
-			AgentVectorStoreService vectorStoreService) {
-		this.agentKnowledgeMapper = agentKnowledgeMapper;
-		this.vectorStoreService = vectorStoreService;
+	private final AgentKnowledgeConverter agentKnowledgeConverter;
+
+	private final ApplicationEventPublisher eventPublisher;
+
+	@Override
+	public AgentKnowledgeVO getKnowledgeById(Integer id) {
+		AgentKnowledge agentKnowledge = agentKnowledgeMapper.selectById(id);
+		return agentKnowledge == null ? null : agentKnowledgeConverter.toVo(agentKnowledge);
 	}
 
 	@Override
-	public List<AgentKnowledge> getKnowledgeByAgentId(Integer agentId) {
-		return agentKnowledgeMapper.selectByAgentId(agentId);
-	}
+	@Transactional
+	public AgentKnowledgeVO createKnowledge(CreateKnowledgeDto createKnowledgeDto) {
+		String storagePath = null;
+		checkCreateKnowledgeDto(createKnowledgeDto);
 
-	@Override
-	public AgentKnowledge getKnowledgeById(Integer id) {
-		return agentKnowledgeMapper.selectById(id);
-	}
-
-	@Override
-	public boolean createKnowledge(AgentKnowledge knowledge) {
-		LocalDateTime now = LocalDateTime.now();
-
-		// Set default values
-		if (knowledge.getType() == null) {
-			knowledge.setType("document");
-		}
-		if (knowledge.getStatus() == null) {
-			knowledge.setStatus("active");
-		}
-		if (knowledge.getEmbeddingStatus() == null) {
-			knowledge.setEmbeddingStatus("pending");
+		if (createKnowledgeDto.getType().equals(KnowledgeType.DOCUMENT.getCode())) {
+			// 将文件保存到磁盘
+			try {
+				storagePath = fileStorageService.storeFile(createKnowledgeDto.getFile(), AGENT_KNOWLEDGE_FILE_PATH);
+			}
+			catch (Exception e) {
+				log.error("Failed to store file, agentId:{} title:{} type:{} ", createKnowledgeDto.getAgentId(),
+						createKnowledgeDto.getTitle(), createKnowledgeDto.getType());
+				throw new RuntimeException("Failed to store file.");
+			}
 		}
 
-		// Set creation and update time
-		knowledge.setCreateTime(now);
-		knowledge.setUpdateTime(now);
+		AgentKnowledge knowledge = agentKnowledgeConverter.toEntityForCreate(createKnowledgeDto, storagePath);
 
-		// Insert into database, the ID will be auto-filled by MyBatis
-		return agentKnowledgeMapper.insert(knowledge) > 0;
+		if (agentKnowledgeMapper.insert(knowledge) <= 0) {
+			log.error("Failed to create knowledge, agentId:{} title:{} type:{} ", knowledge.getAgentId(),
+					knowledge.getTitle(), knowledge.getType());
+			throw new RuntimeException("Failed to create knowledge in database.");
+		}
+
+		eventPublisher.publishEvent(new AgentKnowledgeEmbeddingEvent(this, knowledge.getId()));
+		log.info("Knowledge created and event published. Id: {}", knowledge.getId());
+
+		return agentKnowledgeConverter.toVo(knowledge);
+	}
+
+	private static void checkCreateKnowledgeDto(CreateKnowledgeDto createKnowledgeDto) {
+		if (createKnowledgeDto.getType().equals(KnowledgeType.DOCUMENT.getCode())
+				&& createKnowledgeDto.getFile() == null) {
+			throw new RuntimeException("File is required for document type.");
+		}
+		if (createKnowledgeDto.getType().equals(KnowledgeType.QA.getCode())
+				|| createKnowledgeDto.getType().equals(KnowledgeType.FAQ.getCode())) {
+
+			if (!StringUtils.hasText(createKnowledgeDto.getQuestion())) {
+				throw new RuntimeException("Question is required for QA or FAQ type.");
+			}
+			if (!StringUtils.hasText(createKnowledgeDto.getContent())) {
+				throw new RuntimeException("Content is required for QA or FAQ type.");
+			}
+
+		}
 	}
 
 	@Override
-	public boolean updateKnowledge(Integer id, AgentKnowledge knowledge) {
-		LocalDateTime now = LocalDateTime.now();
+	@Transactional
+	public AgentKnowledgeVO updateKnowledge(Integer id, UpdateKnowledgeDto updateKnowledgeDto) {
+		// 基础校验：根据 id 查询数据库
+		AgentKnowledge existingKnowledge = agentKnowledgeMapper.selectById(id);
+		if (existingKnowledge == null) {
+			log.warn("Knowledge not found with id: {}", id);
+			throw new RuntimeException("Knowledge not found.");
+		}
 
-		// Ensure the knowledge object has the correct ID
-		knowledge.setId(id);
-		knowledge.setUpdateTime(now);
+		if (StringUtils.hasText(updateKnowledgeDto.getTitle()))
+			existingKnowledge.setTitle(updateKnowledgeDto.getTitle());
 
-		int updatedRows = agentKnowledgeMapper.update(knowledge);
-		return updatedRows > 0;
+		// content
+		if (StringUtils.hasText(updateKnowledgeDto.getContent()))
+			existingKnowledge.setContent(updateKnowledgeDto.getContent());
+
+		// 更新数据库
+		int updateResult = agentKnowledgeMapper.update(existingKnowledge);
+		if (updateResult <= 0) {
+			log.error("Failed to update knowledge with id: {}", existingKnowledge.getId());
+			throw new RuntimeException("Failed to update knowledge in database.");
+		}
+		return agentKnowledgeConverter.toVo(existingKnowledge);
 	}
 
 	@Override
+	@Transactional
 	public boolean deleteKnowledge(Integer id) {
-		int deletedRows = agentKnowledgeMapper.deleteById(id);
-		return deletedRows > 0;
-	}
-
-	@Override
-	public List<AgentKnowledge> getKnowledgeByType(Integer agentId, String type) {
-		return agentKnowledgeMapper.selectByAgentIdAndType(agentId, type);
-	}
-
-	@Override
-	public List<AgentKnowledge> getKnowledgeByStatus(Integer agentId, String status) {
-		return agentKnowledgeMapper.selectByAgentIdAndStatus(agentId, status);
-	}
-
-	@Override
-	public List<AgentKnowledge> searchKnowledge(Integer agentId, String keyword) {
-		return agentKnowledgeMapper.searchByAgentIdAndKeyword(agentId, keyword);
-	}
-
-	@Override
-	public boolean batchUpdateStatus(List<Integer> ids, String status) {
-		LocalDateTime now = LocalDateTime.now();
-
-		int totalUpdated = 0;
-		for (Integer id : ids) {
-			totalUpdated += agentKnowledgeMapper.updateStatus(id, status, now);
+		// 先获取知识信息，用于后续删除文件和向量数据
+		AgentKnowledge knowledge = agentKnowledgeMapper.selectById(id);
+		if (knowledge == null) {
+			log.warn("Knowledge not found with id: {}, treating as already deleted", id);
+			return true;
 		}
-		return totalUpdated == ids.size();
+
+		// 同步执行软删除
+		knowledge.setIsDeleted(1);
+		knowledge.setIsResourceCleaned(0);
+		knowledge.setUpdatedTime(LocalDateTime.now());
+
+		if (agentKnowledgeMapper.update(knowledge) > 0) {
+			eventPublisher.publishEvent(new AgentKnowledgeDeletionEvent(this, id));
+			return true;
+		}
+		return false;
 	}
 
 	@Override
-	public int countKnowledgeByAgent(Integer agentId) {
-		return agentKnowledgeMapper.countByAgentId(agentId);
+	public PageResult<AgentKnowledgeVO> queryByConditionsWithPage(AgentKnowledgeQueryDTO queryDTO) {
+
+		int offset = (queryDTO.getPageNum() - 1) * queryDTO.getPageSize();
+
+		Long total = agentKnowledgeMapper.countByConditions(queryDTO);
+
+		List<AgentKnowledge> dataList = agentKnowledgeMapper.selectByConditionsWithPage(queryDTO, offset);
+		List<AgentKnowledgeVO> dataListVO = dataList.stream().map(agentKnowledgeConverter::toVo).toList();
+		PageResult<AgentKnowledgeVO> pageResult = new PageResult<>();
+		pageResult.setData(dataListVO);
+		pageResult.setTotal(total);
+		pageResult.setPageNum(queryDTO.getPageNum());
+		pageResult.setPageSize(queryDTO.getPageSize());
+		pageResult.calculateTotalPages();
+
+		return pageResult;
 	}
 
 	@Override
-	public List<Object[]> countKnowledgeByType(Integer agentId) {
-		return agentKnowledgeMapper.countByType(agentId);
+	public AgentKnowledgeVO updateKnowledgeRecallStatus(Integer id, Boolean recalled) {
+		// 查询知识
+		AgentKnowledge knowledge = agentKnowledgeMapper.selectById(id);
+		if (knowledge == null) {
+			throw new RuntimeException("Knowledge not found.");
+		}
+
+		// 更新召回状态
+		knowledge.setIsRecall(recalled ? 1 : 0);
+
+		// 更新数据库
+		boolean res = agentKnowledgeMapper.update(knowledge) > 0;
+		if (!res) {
+			log.error("Failed to update knowledge with id: {}", knowledge.getId());
+			throw new RuntimeException("Failed to update knowledge in database.");
+		}
+		return agentKnowledgeConverter.toVo(knowledge);
 	}
 
 	@Override
-	public void addKnowledgeToVectorStore(Long agentId, AgentKnowledge knowledge) {
-		try {
-			String agentIdStr = String.valueOf(agentId);
-			log.info("Adding knowledge to vector store for agent: {}, knowledge ID: {}", agentIdStr, knowledge.getId());
-
-			// Create document
-			Document document = createDocumentFromKnowledge(agentIdStr, knowledge);
-
-			// Add to vector store
-			vectorStoreService.addDocuments(agentIdStr, List.of(document));
-
-			log.info("Successfully added knowledge to vector store for agent: {}", agentIdStr);
+	@Transactional
+	public void retryEmbedding(Integer id) {
+		AgentKnowledge knowledge = agentKnowledgeMapper.selectById(id);
+		if (knowledge.getEmbeddingStatus().equals(EmbeddingStatus.PROCESSING)) {
+			throw new RuntimeException("BusinessKnowledge is processing, please wait.");
 		}
-		catch (Exception e) {
-			log.error("Failed to add knowledge to vector store for agent: {}, knowledge ID: {}", agentId,
-					knowledge.getId(), e);
-			throw new RuntimeException("Failed to add knowledge to vector store: " + e.getMessage(), e);
-		}
-	}
 
-	@Override
-	public void deleteKnowledgeFromVectorStore(Long agentId, Integer knowledgeId) {
-		log.info("Deleting knowledge from vector store for agent: {}, knowledge ID: {}", agentId, knowledgeId);
-		try {
-			String agentIdStr = String.valueOf(agentId);
-			Map<String, Object> metadata = new HashMap<>(Map.ofEntries(Map.entry(Constant.AGENT_ID, agentIdStr),
-					Map.entry(DocumentMetadataConstant.KNOWLEDGE_ID, knowledgeId)));
-
-			vectorStoreService.deleteDocumentsByMetedata(agentIdStr, metadata);
-
-			log.info("Successfully deleted knowledge from vector store for agent: {}", agentIdStr);
+		// 非召回的不处理
+		if (knowledge.getIsRecall() == null || knowledge.getIsRecall() == 0) {
+			throw new RuntimeException("BusinessKnowledge is not recalled, please recall it first.");
 		}
-		catch (Exception e) {
-			log.error("Failed to delete knowledge from vector store for agent: {}, knowledge ID: {}", agentId,
-					knowledgeId, e);
-			throw new RuntimeException("Failed to delete knowledge from vector store: " + e.getMessage(), e);
-		}
+
+		// 重置状态
+		// 立刻给用户反馈“已变成处理中”
+		knowledge.setEmbeddingStatus(EmbeddingStatus.PENDING);
+		knowledge.setErrorMsg("");
+		agentKnowledgeMapper.update(knowledge);
+		eventPublisher.publishEvent(new AgentKnowledgeEmbeddingEvent(this, knowledge.getId()));
+		log.info("Retry embedding for knowledgeId: {}", id);
 	}
 
 }

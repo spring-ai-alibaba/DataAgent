@@ -31,7 +31,7 @@ public enum TextType {
 
 	HTML("```html", "```"),
 
-	MARK_DOWN("```", "```"),
+	MARK_DOWN("```markdown-report", "```/markdown-report"),
 
 	RESULT_SET("```result_set", "```"),
 

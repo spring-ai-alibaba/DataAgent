@@ -70,6 +70,23 @@
                   下载HTML报告
                 </el-button>
               </div>
+              <div
+                v-else-if="message.messageType === 'markdown-report'"
+                class="html-report-message"
+              >
+                <div class="report-info">
+                  <el-icon><Document /></el-icon>
+                  <span>Markdown 报告已生成</span>
+                </div>
+                <el-button
+                  type="primary"
+                  size="large"
+                  @click="downloadMarkdownReportFromMessage(`${message.content}`)"
+                >
+                  <el-icon><Download /></el-icon>
+                  下载Markdown报告
+                </el-button>
+              </div>
               <!-- 文本类型消息使用原有布局 -->
               <div v-else :class="['message', message.role]">
                 <div class="message-avatar">
@@ -141,10 +158,7 @@
               </div>
               <div class="switch-item">
                 <span class="switch-label">简洁报告</span>
-                <el-tooltip content="简洁报告的功能还在开发中……" placement="top">
-                  <el-switch v-model="requestOptions.plainReport" :disabled="true" />
-                </el-tooltip>
-                <!-- <el-tooltip
+                <el-tooltip
                   :disabled="!requestOptions.nl2sqlOnly"
                   content="该功能在NL2SQL模式下不能使用"
                   placement="top"
@@ -153,7 +167,7 @@
                     v-model="requestOptions.plainReport"
                     :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback"
                   />
-                </el-tooltip> -->
+                </el-tooltip>
               </div>
               <div class="switch-item">
                 <span class="switch-label">自动Scroll</span>
@@ -228,6 +242,8 @@
   import { ElMessage } from 'element-plus';
   import { Loading, Promotion, Document, Download, CircleClose } from '@element-plus/icons-vue';
   import hljs from 'highlight.js';
+  import { marked } from 'marked';
+  import DOMPurify from 'dompurify';
   import 'highlight.js/styles/github.css';
   // 导入并注册语言
   import sql from 'highlight.js/lib/languages/sql';
@@ -421,11 +437,14 @@
           return;
         }
 
+        const needsTitle = !currentSession.value?.title || currentSession.value.title === '新会话';
+
         const userMessage: ChatMessage = {
           sessionId: currentSession.value.id,
           role: 'user',
           content: userInput.value,
           messageType: 'text',
+          titleNeeded: needsTitle,
         };
         try {
           // 保存用户消息
@@ -546,7 +565,23 @@
                 }
                 // 处理Markdown报告
                 else if (response.textType === 'MARK_DOWN') {
-                  // todo
+                  sessionState.markdownReportContent += response.text;
+                  const reportNode: GraphNodeResponse[] = sessionState.nodeBlocks.find(
+                    (block: GraphNodeResponse[]) =>
+                      block.length > 0 &&
+                      block[0].nodeName === 'ReportGeneratorNode' &&
+                      block[0].textType === 'MARK_DOWN',
+                  );
+                  if (reportNode) {
+                    reportNode[0].text = `正在收集Markdown报告... 已收集 ${sessionState.markdownReportContent.length} 字节`;
+                  } else {
+                    sessionState.nodeBlocks.push([
+                      {
+                        ...response,
+                        text: `正在收集Markdown报告... 已收集 ${sessionState.markdownReportContent.length} 字节`,
+                      },
+                    ]);
+                  }
                 }
               } else {
                 // 处理其他节点（同步处理逻辑）
@@ -645,12 +680,11 @@
                   nodeBlocks.value = [];
                 }
               } else if (sessionState.markdownReportContent) {
-                const markdownHtml = markdownToHtml(sessionState.markdownReportContent);
                 const markdownMessage: ChatMessage = {
                   sessionId,
                   role: 'assistant',
-                  content: markdownHtml,
-                  messageType: 'html',
+                  content: sessionState.markdownReportContent,
+                  messageType: 'markdown-report',
                 };
 
                 await ChatService.saveMessage(sessionId, markdownMessage)
@@ -736,6 +770,24 @@
         ElMessage.success('HTML报告下载成功');
       };
 
+      const downloadMarkdownReportFromMessage = (content: string) => {
+        if (!content) {
+          ElMessage.warning('没有可下载的Markdown报告');
+          return;
+        }
+
+        const blob = new Blob([content], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `report_${new Date().getTime()}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        ElMessage.success('Markdown报告下载成功');
+      };
+
       // 生成节点容器的HTML代码
       const generateNodeHtml = (node: GraphNodeResponse[]) => {
         const content = formatNodeContent(node);
@@ -778,6 +830,24 @@
               // 如果高亮失败，返回原始代码
               content += `<pre><code>${pre}</code></pre>`;
             }
+            if (p < node.length) {
+              idx = p - 1;
+            } else {
+              break;
+            }
+          } else if (node[idx].textType === TextType.MARK_DOWN) {
+            let markdown = '';
+            let p = idx;
+            for (; p < node.length; p++) {
+              if (node[p].textType !== TextType.MARK_DOWN) {
+                break;
+              }
+              markdown += node[p].text;
+            }
+
+            const safeHtml = markdownToHtml(markdown);
+            content += `<div class="markdown-report">${safeHtml}</div>`;
+
             if (p < node.length) {
               idx = p - 1;
             } else {
@@ -832,8 +902,11 @@
 
       // Markdown转HTML
       const markdownToHtml = (markdown: string): string => {
-        // todo
-        return markdown;
+        if (!markdown) return '';
+        // marked 默认会转为字符串，这里仅做必要的配置
+        marked.setOptions({ gfm: true, breaks: true });
+        const rawHtml = marked.parse(markdown) as string;
+        return DOMPurify.sanitize(rawHtml);
       };
 
       // 重置报告状态
@@ -1051,6 +1124,7 @@
         generateNodeHtml,
         handleNl2sqlOnlyChange,
         downloadHtmlReportFromMessage,
+        downloadMarkdownReportFromMessage,
         markdownToHtml,
         resetReportState,
         handleHumanFeedback,
@@ -1121,6 +1195,18 @@
 
   .message.assistant {
     align-self: flex-start;
+  }
+
+  .markdown-report {
+    line-height: 1.6;
+    color: #1f2933;
+  }
+
+  .markdown-report pre {
+    background: #f6f8fa;
+    padding: 10px 12px;
+    border-radius: 6px;
+    overflow: auto;
   }
 
   .message-content {

@@ -35,6 +35,16 @@ public class PromptConstant {
 		return new PromptTemplate(PromptLoader.loadPrompt("intent-recognition"));
 	}
 
+	// evidence-query-rewrite
+	public static PromptTemplate getEvidenceQueryRewritePromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("evidence-query-rewrite"));
+	}
+
+	// agent-knowledge.txt
+	public static PromptTemplate getAgentKnowledgePromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("agent-knowledge"));
+	}
+
 	public static PromptTemplate getQueryEnhancementPromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("query-enhancement"));
 	}
@@ -78,6 +88,10 @@ public class PromptConstant {
 
 	public static PromptTemplate getReportGeneratorPromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("report-generator"));
+	}
+
+	public static PromptTemplate getReportGeneratorPlainPromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("report-generator-plain"));
 	}
 
 	public static PromptTemplate getSqlErrorFixerPromptTemplate() {

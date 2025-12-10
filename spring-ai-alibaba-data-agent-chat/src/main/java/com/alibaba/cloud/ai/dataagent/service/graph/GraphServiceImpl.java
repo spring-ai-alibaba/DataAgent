@@ -49,6 +49,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_NO
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_REVIEW_ENABLED;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.INPUT_KEY;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.IS_ONLY_NL2SQL;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAIN_REPORT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_OUTPUT;
 
 @Slf4j
@@ -128,8 +129,9 @@ public class GraphServiceImpl implements GraphService {
 			log.warn("StreamContext already cleaned for threadId: {}, skipping stream start", threadId);
 			return;
 		}
-		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query,
-				AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled),
+		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(
+				Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED,
+						humanReviewEnabled, PLAIN_REPORT, graphRequest.isPlainReport()),
 				RunnableConfig.builder().threadId(threadId).build());
 		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
 	}

@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.file;
 
+import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface FileStorageService {
@@ -41,5 +42,12 @@ public interface FileStorageService {
 	 * @return 访问URL
 	 */
 	String getFileUrl(String filePath);
+
+	/**
+	 * 获取文件资源对象
+	 * @param filePath 文件路径
+	 * @return 文件资源对象
+	 */
+	Resource getFileResource(String filePath);
 
 }

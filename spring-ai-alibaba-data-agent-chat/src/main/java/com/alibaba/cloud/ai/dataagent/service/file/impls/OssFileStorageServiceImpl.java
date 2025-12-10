@@ -22,6 +22,7 @@ import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.model.ObjectMetadata;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -111,12 +112,12 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 			if (ossClient.doesObjectExist(ossProperties.getBucketName(), filePath)) {
 				ossClient.deleteObject(ossProperties.getBucketName(), filePath);
 				log.info("成功从OSS删除文件: {}", filePath);
-				return true;
 			}
 			else {
-				log.warn("OSS中文件不存在，无法删除: {}", filePath);
-				return false;
+				// 删除是个等幂的操作，不存在也是当做被删除了
+				log.info("OSS中文件不存在，跳过删除，视为成功: {}", filePath);
 			}
+			return true;
 		}
 		catch (Exception e) {
 			log.error("从OSS删除文件失败: {}", filePath, e);
@@ -140,6 +141,13 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 			log.error("生成OSS文件URL失败: {}", filePath, e);
 			return filePath;
 		}
+	}
+
+	@Override
+	public Resource getFileResource(String filePath) {
+		// TODO 实现
+		log.error("Getting resource from oss not implement");
+		return null;
 	}
 
 	/**

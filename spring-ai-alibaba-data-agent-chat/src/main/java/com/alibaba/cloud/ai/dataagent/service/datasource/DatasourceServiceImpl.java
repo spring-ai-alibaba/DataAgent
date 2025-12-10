@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.service.datasource;
 
 import com.alibaba.cloud.ai.dataagent.common.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.common.connector.accessor.AccessorFactory;
+import com.alibaba.cloud.ai.dataagent.common.connector.bo.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.common.connector.bo.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.common.connector.bo.TableInfoBO;
 import com.alibaba.cloud.ai.dataagent.common.connector.pool.DBConnectionPool;
@@ -25,9 +26,11 @@ import com.alibaba.cloud.ai.dataagent.common.connector.pool.DBConnectionPoolFact
 import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
+import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
 import com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum;
 import com.alibaba.cloud.ai.dataagent.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
+import com.alibaba.cloud.ai.dataagent.mapper.LogicalRelationMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -45,6 +48,8 @@ public class DatasourceServiceImpl implements DatasourceService {
 	private final DatasourceMapper datasourceMapper;
 
 	private final AgentDatasourceMapper agentDatasourceMapper;
+
+	private final LogicalRelationMapper logicalRelationMapper;
 
 	private final DBConnectionPoolFactory poolFactory;
 
@@ -178,6 +183,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 	}
 
 	@Override
+	@Deprecated
 	public List<AgentDatasource> getAgentDatasource(Integer agentId) {
 		List<AgentDatasource> adentDatasources = agentDatasourceMapper.selectByAgentIdWithDatasource(agentId);
 
@@ -260,6 +266,137 @@ public class DatasourceServiceImpl implements DatasourceService {
 		dbConfig.setSchema(datasource.getDatabaseName());
 
 		return dbConfig;
+	}
+
+	@Override
+	public List<String> getTableColumns(Integer datasourceId, String tableName) throws Exception {
+		log.info("Getting columns for table: {} in datasource: {}", tableName, datasourceId);
+
+		// 获取数据源信息
+		Datasource datasource = this.getDatasourceById(datasourceId);
+		if (datasource == null) {
+			throw new RuntimeException("Datasource not found with id: " + datasourceId);
+		}
+
+		// 创建数据库配置
+		DbConfig dbConfig = getDbConfig(datasource);
+
+		// 创建查询参数
+		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
+		queryParam.setSchema(datasource.getDatabaseName());
+		queryParam.setTable(tableName);
+
+		// 查询字段列表
+		Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
+		List<ColumnInfoBO> columnInfoList = dbAccessor.showColumns(dbConfig, queryParam); // 提取字段名称
+		List<String> columnNames = columnInfoList.stream()
+			.map(ColumnInfoBO::getName)
+			.filter(name -> name != null && !name.trim().isEmpty())
+			.sorted()
+			.toList();
+
+		log.info("Found {} columns for table {} in datasource: {}", columnNames.size(), tableName, datasourceId);
+		return columnNames;
+	}
+
+	@Override
+	public List<LogicalRelation> getLogicalRelations(Integer datasourceId) {
+		log.info("Getting logical relations for datasource: {}", datasourceId);
+		return logicalRelationMapper.selectByDatasourceId(datasourceId);
+	}
+
+	@Override
+	public LogicalRelation addLogicalRelation(Integer datasourceId, LogicalRelation logicalRelation) {
+		log.info("Adding logical relation for datasource: {}", datasourceId);
+
+		// 设置数据源ID
+		logicalRelation.setDatasourceId(datasourceId);
+
+		// 检查是否已存在相同的外键关系
+		int exists = logicalRelationMapper.checkExists(datasourceId, logicalRelation.getSourceTableName(),
+				logicalRelation.getSourceColumnName(), logicalRelation.getTargetTableName(),
+				logicalRelation.getTargetColumnName());
+
+		if (exists > 0) {
+			throw new RuntimeException("该逻辑外键关系已存在");
+		}
+
+		// 插入外键
+		logicalRelationMapper.insert(logicalRelation);
+		log.info("Logical relation added successfully with id: {}", logicalRelation.getId());
+
+		return logicalRelation;
+	}
+
+	@Override
+	public LogicalRelation updateLogicalRelation(Integer datasourceId, Integer logicalRelationId,
+			LogicalRelation logicalRelation) {
+		log.info("Updating logical relation: {} for datasource: {}", logicalRelationId, datasourceId);
+
+		// 验证外键是否存在且属于该数据源
+		LogicalRelation existingRelation = logicalRelationMapper.selectById(logicalRelationId);
+		if (existingRelation == null) {
+			throw new RuntimeException("逻辑外键不存在，ID: " + logicalRelationId);
+		}
+
+		if (!existingRelation.getDatasourceId().equals(datasourceId)) {
+			throw new RuntimeException("逻辑外键不属于指定的数据源");
+		}
+
+		// 设置ID和数据源ID
+		logicalRelation.setId(logicalRelationId);
+		logicalRelation.setDatasourceId(datasourceId);
+
+		// 更新外键
+		int updated = logicalRelationMapper.updateById(logicalRelation);
+		if (updated == 0) {
+			throw new RuntimeException("更新逻辑外键失败");
+		}
+
+		log.info("Logical relation updated successfully: {}", logicalRelationId);
+
+		// 返回更新后的数据
+		return logicalRelationMapper.selectById(logicalRelationId);
+	}
+
+	@Override
+	public void deleteLogicalRelation(Integer datasourceId, Integer logicalRelationId) {
+		log.info("Deleting logical relation: {} for datasource: {}", logicalRelationId, datasourceId);
+
+		// 验证外键是否属于该数据源
+		LogicalRelation logicalRelation = logicalRelationMapper.selectById(logicalRelationId);
+		if (logicalRelation == null) {
+			throw new RuntimeException("逻辑外键不存在，ID: " + logicalRelationId);
+		}
+
+		if (!logicalRelation.getDatasourceId().equals(datasourceId)) {
+			throw new RuntimeException("逻辑外键不属于指定的数据源");
+		}
+
+		// 删除外键（逻辑删除）
+		int deleted = logicalRelationMapper.deleteById(logicalRelationId);
+		if (deleted == 0) {
+			throw new RuntimeException("删除逻辑外键失败");
+		}
+
+		log.info("Logical relation deleted successfully: {}", logicalRelationId);
+	}
+
+	@Override
+	@Transactional
+	public List<LogicalRelation> saveLogicalRelations(Integer datasourceId, List<LogicalRelation> logicalRelations) {
+		log.info("Saving {} logical relations for datasource: {}", logicalRelations.size(), datasourceId);
+		// 插入新的外键列表
+		for (LogicalRelation logicalRelation : logicalRelations) {
+			logicalRelation.setDatasourceId(datasourceId);
+			logicalRelation.setId(null); // 确保ID为null，让数据库自动生成
+			logicalRelationMapper.insert(logicalRelation);
+		}
+
+		log.info("Saved {} logical relations for datasource: {}", logicalRelations.size(), datasourceId);
+
+		// 返回更新后的外键列表
+		return logicalRelationMapper.selectByDatasourceId(datasourceId);
 	}
 
 }

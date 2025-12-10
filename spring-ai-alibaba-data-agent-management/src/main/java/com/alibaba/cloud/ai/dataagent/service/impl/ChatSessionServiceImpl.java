@@ -42,6 +42,11 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 		return chatSessionMapper.selectByAgentId(agentId);
 	}
 
+	@Override
+	public ChatSession findBySessionId(String sessionId) {
+		return chatSessionMapper.selectBySessionId(sessionId);
+	}
+
 	/**
 	 * Create a new session
 	 */
@@ -49,7 +54,7 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 	public ChatSession createSession(Integer agentId, String title, Long userId) {
 		String sessionId = UUID.randomUUID().toString();
 
-		ChatSession session = new ChatSession(sessionId, agentId, title != null ? title : "新对话", "active", userId);
+		ChatSession session = new ChatSession(sessionId, agentId, title != null ? title : "新会话", "active", userId);
 		chatSessionMapper.insert(session);
 
 		log.info("Created new chat session: {} for agent: {}", sessionId, agentId);
