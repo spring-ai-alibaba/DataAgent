@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.graph.context;
 
+import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
@@ -32,11 +34,10 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Component
+@AllArgsConstructor
 public class MultiTurnContextManager {
 
-	private static final int MAX_TURN_HISTORY = 5;
-
-	private static final int MAX_PLAN_LENGTH = 2000;
+	private final DataAgentProperties properties;
 
 	private final Map<String, Deque<ConversationTurn>> history = new ConcurrentHashMap<>();
 
@@ -84,10 +85,10 @@ public class MultiTurnContextManager {
 			return;
 		}
 
-		String trimmedPlan = StringUtils.abbreviate(plan, MAX_PLAN_LENGTH);
+		String trimmedPlan = StringUtils.abbreviate(plan, properties.getMaxplanlength());
 		Deque<ConversationTurn> deque = history.computeIfAbsent(threadId, k -> new ArrayDeque<>());
 		synchronized (deque) {
-			while (deque.size() >= MAX_TURN_HISTORY) {
+			while (deque.size() >= properties.getMaxturnhistory()) {
 				deque.pollFirst();
 			}
 			deque.addLast(new ConversationTurn(pending.userQuestion, trimmedPlan));

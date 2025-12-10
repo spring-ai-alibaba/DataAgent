@@ -56,6 +56,16 @@ public class DataAgentProperties {
 
 	private TextSplitter textSplitter = new TextSplitter();
 
+	/**
+	 * 最多保留的对话轮数
+	 */
+	private int maxturnhistory = 5;
+
+	/**
+	 * 单次规划最大长度限制
+	 */
+	private int maxplanlength = 2000;
+
 	@Getter
 	@Setter
 	public static class TextSplitter {
