@@ -21,27 +21,34 @@ import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.model.DynamicModelFactory;
-import com.alibaba.cloud.ai.dataagent.model.SwitchableChatModel;
-import com.alibaba.cloud.ai.dataagent.model.SwitchableEmbeddingModel;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.aop.target.HotSwappableTargetSource;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
-@AllArgsConstructor
 public class ModelConfigOpsService {
 
 	private final ModelConfigDataService configService;
 
 	private final DynamicModelFactory modelFactory;
 
-	private final SwitchableChatModel switchableChatModel;
+	private final HotSwappableTargetSource chatModelTargetSource;
 
-	private final SwitchableEmbeddingModel switchableEmbeddingModel;
+	private final HotSwappableTargetSource embeddingModelTargetSource;
+
+	public ModelConfigOpsService(ModelConfigDataService configService, DynamicModelFactory modelFactory,
+			@Qualifier("chatModelTargetSource") HotSwappableTargetSource chatModelTargetSource,
+			@Qualifier("embeddingModelTargetSource") HotSwappableTargetSource embeddingModelTargetSource) {
+		this.configService = configService;
+		this.modelFactory = modelFactory;
+		this.chatModelTargetSource = chatModelTargetSource;
+		this.embeddingModelTargetSource = embeddingModelTargetSource;
+	}
 
 	/**
 	 * 专门处理：更新配置并热刷新的聚合逻辑
@@ -95,11 +102,11 @@ public class ModelConfigOpsService {
 
 		if (ModelType.CHAT.equals(type)) {
 			ChatModel newModel = modelFactory.createChatModel(config);
-			switchableChatModel.updateDelegate(newModel);
+			chatModelTargetSource.swap(newModel);
 		}
 		else if (ModelType.EMBEDDING.equals(type)) {
 			EmbeddingModel newModel = modelFactory.createEmbeddingModel(config);
-			switchableEmbeddingModel.updateDelegate(newModel);
+			embeddingModelTargetSource.swap(newModel);
 		}
 		else {
 			throw new RuntimeException("未知的模型类型: " + type);
