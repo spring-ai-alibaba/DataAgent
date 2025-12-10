@@ -21,7 +21,9 @@ import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.dto.SqlRetryDto;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.pojo.ExecutionStep;
 import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
+import com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.StateGraph;
@@ -72,6 +74,12 @@ public class SqlGenerateNode implements NodeAction {
 			return Map.of(SQL_GENERATE_OUTPUT, StateGraph.END);
 		}
 
+		// 获取当前执行步骤的toolParameters信息，用于注入到SQL生成提示词中
+		String executionDescription;
+		ExecutionStep.ToolParameters currentStepParams = PlanProcessUtil.getCurrentExecutionStep(state)
+			.getToolParameters();
+		executionDescription = currentStepParams != null ? currentStepParams.getDescription() : "无";
+
 		// 准备生成SQL
 		String displayMessage;
 		Flux<String> sqlFlux;
@@ -81,16 +89,16 @@ public class SqlGenerateNode implements NodeAction {
 		if (retryDto.sqlExecuteFail()) {
 			displayMessage = "检测到SQL执行异常，开始重新生成SQL...";
 			sqlFlux = handleRetryGenerateSql(state, StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT, ""),
-					retryDto.reason());
+					retryDto.reason(), executionDescription);
 		}
 		else if (retryDto.semanticFail()) {
 			displayMessage = "语义一致性校验未通过，开始重新生成SQL...";
 			sqlFlux = handleRetryGenerateSql(state, StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT, ""),
-					retryDto.reason());
+					retryDto.reason(), executionDescription);
 		}
 		else {
 			displayMessage = "开始生成SQL...";
-			sqlFlux = handleGenerateSql(state);
+			sqlFlux = handleGenerateSql(state, executionDescription);
 		}
 
 		// 准备返回结果，同时需要清除一些状态数据
@@ -119,18 +127,20 @@ public class SqlGenerateNode implements NodeAction {
 		return Map.of(SQL_GENERATE_OUTPUT, generator);
 	}
 
-	private Flux<String> handleRetryGenerateSql(OverAllState state, String originalSql, String errorMsg) {
+	private Flux<String> handleRetryGenerateSql(OverAllState state, String originalSql, String errorMsg,
+			String executionDescription) {
 		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 		String userQuery = StateUtil.getCanonicalQuery(state);
 		String agentIdStr = state.value(AGENT_ID, String.class).orElseThrow(IllegalStateException::new);
 		Integer agentId = Integer.parseInt(agentIdStr);
 		DbConfig dbConfig = databaseUtil.getAgentDbConfig(agentId);
-		return nl2SqlService.generateSql(evidence, userQuery, schemaDTO, originalSql, errorMsg, dbConfig);
+		return nl2SqlService.generateSql(evidence, userQuery, schemaDTO, originalSql, errorMsg, dbConfig,
+				executionDescription);
 	}
 
-	private Flux<String> handleGenerateSql(OverAllState state) {
-		return handleRetryGenerateSql(state, null, null);
+	private Flux<String> handleGenerateSql(OverAllState state, String executionDescription) {
+		return handleRetryGenerateSql(state, null, null, executionDescription);
 	}
 
 }

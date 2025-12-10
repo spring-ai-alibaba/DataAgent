@@ -204,7 +204,7 @@ public class PromptHelper {
 	}
 
 	public static List<String> buildMixSqlGeneratorPrompt(String question, DbConfig dbConfig, SchemaDTO schemaDTO,
-			String evidence) {
+			String evidence, String executionDescription) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
 		Map<String, Object> params = new HashMap<>();
@@ -212,6 +212,7 @@ public class PromptHelper {
 		params.put("question", question);
 		params.put("schema_info", schemaInfo);
 		params.put("evidence", evidence);
+		params.put("execution_description", executionDescription);
 		List<String> prompts = new ArrayList<>();
 		prompts.add(PromptConstant.getMixSqlGeneratorSystemPromptTemplate().render(params));
 		prompts.add(PromptConstant.getMixSqlGeneratorPromptTemplate().render(params));
@@ -265,7 +266,7 @@ public class PromptHelper {
 	}
 
 	public static String buildSqlErrorFixerPrompt(String question, DbConfig dbConfig, SchemaDTO schemaDTO,
-			String evidence, String errorSql, String errorMessage) {
+			String evidence, String errorSql, String errorMessage, String executionDescription) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
 
@@ -276,6 +277,7 @@ public class PromptHelper {
 		params.put("evidence", evidence);
 		params.put("error_sql", errorSql);
 		params.put("error_message", errorMessage);
+		params.put("execution_description", executionDescription);
 
 		return PromptConstant.getSqlErrorFixerPromptTemplate().render(params);
 	}
