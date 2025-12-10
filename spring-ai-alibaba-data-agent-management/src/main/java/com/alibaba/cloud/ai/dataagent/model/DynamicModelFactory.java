@@ -43,12 +43,17 @@ public class DynamicModelFactory {
 		String apiKey = config.getApiKey();
 		if (!StringUtils.hasText(apiKey))
 			throw new IllegalArgumentException("apiKey must not be empty");
+
+		String modelName = config.getModelName();
+		if (!StringUtils.hasText(modelName))
+			throw new IllegalArgumentException("modelName must not be empty");
+
 		// 2. 构建 OpenAiApi (核心通讯对象)
 		var openAiApi = OpenAiApi.builder().apiKey(apiKey).baseUrl(baseUrl).build();
 
 		// 3. 构建运行时选项 (设置默认的模型名称，如 "deepseek-chat" 或 "gpt-4")
 		var openAiChatOptions = OpenAiChatOptions.builder()
-			.model(config.getModelName())
+			.model(modelName)
 			.temperature(config.getTemperature())
 			.maxTokens(config.getMaxTokens())
 			.build();
