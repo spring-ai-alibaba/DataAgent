@@ -63,9 +63,9 @@ class ModelConfigService {
    * 删除模型配置
    * @param id 配置ID
    */
-  async delete(id: number): Promise<boolean> {
+  async delete(id: number): Promise<ApiResponse<string>> {
     const response = await axios.delete<ApiResponse<string>>(`${API_BASE_URL}/${id}`);
-    return response.data.success;
+    return response.data;
   }
 
   /**

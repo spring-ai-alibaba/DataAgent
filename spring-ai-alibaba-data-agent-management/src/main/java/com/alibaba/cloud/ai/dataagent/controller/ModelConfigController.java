@@ -58,8 +58,12 @@ public class ModelConfigController {
 	// 4. 删除配置
 	@DeleteMapping("/{id}")
 	public ApiResponse<String> delete(@PathVariable Integer id) {
-		modelConfigDataService.deleteConfig(id);
-		return ApiResponse.success("配置已删除");
+		try {
+			modelConfigDataService.deleteConfig(id);
+			return ApiResponse.success("配置已删除");
+		} catch (Exception e) {
+			return ApiResponse.error("删除失败: " + e.getMessage());
+		}
 	}
 
 	// 5. 启用/切换配置

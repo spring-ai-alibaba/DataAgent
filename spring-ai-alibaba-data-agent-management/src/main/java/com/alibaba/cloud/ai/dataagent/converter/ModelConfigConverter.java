@@ -19,6 +19,7 @@ package com.alibaba.cloud.ai.dataagent.converter;
 
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
+import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import org.springframework.util.Assert;
 
 import java.time.LocalDateTime;
@@ -60,6 +61,7 @@ public class ModelConfigConverter {
 		entity.setModelName(dto.getModelName());
 		entity.setTemperature(dto.getTemperature());
 		entity.setMaxTokens(dto.getMaxTokens());
+		entity.setModelType(ModelType.fromCode(dto.getModelType()));
 
 		// 默认值处理
 		entity.setIsActive(false);

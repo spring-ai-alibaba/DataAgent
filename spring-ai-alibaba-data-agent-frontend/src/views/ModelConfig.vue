@@ -378,12 +378,12 @@
           );
 
           if (config.id) {
-            const success = await modelConfigService.delete(config.id);
-            if (success) {
+            const result = await modelConfigService.delete(config.id);
+            if (result.success) {
               ElMessage.success('配置删除成功');
               loadConfigs();
             } else {
-              ElMessage.error('配置删除失败');
+              ElMessage.error(result.message || '配置删除失败');
             }
           }
         } catch (error) {
