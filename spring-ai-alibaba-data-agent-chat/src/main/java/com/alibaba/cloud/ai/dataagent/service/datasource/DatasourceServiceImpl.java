@@ -37,7 +37,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 // todo: 检查Mapper的返回值，判断是否执行成功（或者对Mapper进行AOP）
 @Slf4j
@@ -386,16 +392,79 @@ public class DatasourceServiceImpl implements DatasourceService {
 	@Transactional
 	public List<LogicalRelation> saveLogicalRelations(Integer datasourceId, List<LogicalRelation> logicalRelations) {
 		log.info("Saving {} logical relations for datasource: {}", logicalRelations.size(), datasourceId);
-		// 插入新的外键列表
+
+		// 获取现有的所有外键关系
+		List<LogicalRelation> existingRelations = logicalRelationMapper.selectByDatasourceId(datasourceId);
+		Map<Integer, LogicalRelation> existingMap = existingRelations.stream()
+			.collect(Collectors.toMap(LogicalRelation::getId, relation -> relation));
+
+		// 收集传入列表中已存在的ID
+		Set<Integer> incomingIds = logicalRelations.stream()
+			.map(LogicalRelation::getId)
+			.filter(Objects::nonNull)
+			.collect(Collectors.toSet());
+
+		// 删除那些不在传入列表中的外键
+		int deletedCount = 0;
+		for (LogicalRelation existing : existingRelations) {
+			if (!incomingIds.contains(existing.getId())) {
+				logicalRelationMapper.deleteById(existing.getId());
+				deletedCount++;
+				log.info("Deleted logical relation: {} -> {}", existing.getSourceTableName(),
+						existing.getTargetTableName());
+			}
+		}
+		log.info("Deleted {} logical relations for datasource: {}", deletedCount, datasourceId);
+
+		// 去重检查
+		List<LogicalRelation> uniqueRelations = new ArrayList<>();
+		Set<String> seen = new HashSet<>();
+
 		for (LogicalRelation logicalRelation : logicalRelations) {
-			logicalRelation.setDatasourceId(datasourceId);
-			logicalRelation.setId(null); // 确保ID为null，让数据库自动生成
-			logicalRelationMapper.insert(logicalRelation);
+			String key = logicalRelation.getSourceTableName() + "|" + logicalRelation.getSourceColumnName() + "|"
+					+ logicalRelation.getTargetTableName() + "|" + logicalRelation.getTargetColumnName();
+
+			if (!seen.contains(key)) {
+				seen.add(key);
+				uniqueRelations.add(logicalRelation);
+			}
+			else {
+				log.warn("跳过重复的逻辑外键: {} -> {}", logicalRelation.getSourceTableName(),
+						logicalRelation.getTargetTableName());
+			}
 		}
 
-		log.info("Saved {} logical relations for datasource: {}", logicalRelations.size(), datasourceId);
+		int duplicateCount = logicalRelations.size() - uniqueRelations.size();
+		if (duplicateCount > 0) {
+			log.warn("检测到并去重了 {} 条重复的逻辑外键", duplicateCount);
+		}
 
-		// 返回更新后的外键列表
+		// 插入或更新去重后的外键列表
+		int insertedCount = 0;
+		int updatedCount = 0;
+		for (LogicalRelation logicalRelation : uniqueRelations) {
+			logicalRelation.setDatasourceId(datasourceId);
+
+			if (logicalRelation.getId() != null && existingMap.containsKey(logicalRelation.getId())) {
+				// 更新现有记录
+				logicalRelationMapper.updateById(logicalRelation);
+				updatedCount++;
+				log.debug("Updated logical relation: {} -> {}", logicalRelation.getSourceTableName(),
+						logicalRelation.getTargetTableName());
+			}
+			else {
+				// 插入新记录
+				logicalRelation.setId(null);
+				logicalRelationMapper.insert(logicalRelation);
+				insertedCount++;
+				log.debug("Inserted logical relation: {} -> {}", logicalRelation.getSourceTableName(),
+						logicalRelation.getTargetTableName());
+			}
+		}
+
+		log.info("Saved logical relations for datasource {}: {} inserted, {} updated, {} deleted", datasourceId,
+				insertedCount, updatedCount, deletedCount);
+
 		return logicalRelationMapper.selectByDatasourceId(datasourceId);
 	}
 
