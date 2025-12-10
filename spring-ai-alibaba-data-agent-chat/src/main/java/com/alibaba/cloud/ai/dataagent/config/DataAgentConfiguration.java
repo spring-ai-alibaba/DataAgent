@@ -53,6 +53,7 @@ import org.springframework.boot.web.client.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Scope;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -307,6 +308,15 @@ public class DataAgentConfiguration implements DisposableBean {
 	@ConditionalOnMissingBean(ChatClient.class)
 	public ChatClient chatClient(ChatModel chatModel) {
 		return ChatClient.builder(chatModel).build();
+	}
+
+	// 补上这个 Bean，专门为了满足依赖 ChatClient.Builder 的组件
+	// 如CodePoolExecutorServiceFactory 需要一个 Builder
+	// 使用多例，防止不同地方复用 Builder 导致配置污染
+	@Bean
+	@Scope("prototype")
+	public ChatClient.Builder chatClientBuilder(ChatModel chatModel) {
+		return ChatClient.builder(chatModel);
 	}
 
 	@Bean(name = "dbOperationExecutor")
