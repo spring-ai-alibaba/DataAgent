@@ -17,8 +17,8 @@
 package com.alibaba.cloud.ai.dataagent.service.code.impls;
 
 import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorService;
-import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClient;
 
 /**
  * 使用AI模拟运行Python代码（便于在无Docker环境测试）
@@ -37,10 +37,10 @@ public class AiSimulationCodeExecutorService implements CodePoolExecutorService 
 			**要求**：仅输出模拟运行结果，禁止包含任何额外说明或自然语言。
 			""";
 
-	private final LlmService llmService;
+	private final ChatClient chatClient;
 
-	public AiSimulationCodeExecutorService(LlmService llmService) {
-		this.llmService = llmService;
+	public AiSimulationCodeExecutorService(ChatClient.Builder chatClientBuilder) {
+		this.chatClient = chatClientBuilder.defaultSystem(SYSTEM_PROMPT).build();
 	}
 
 	@Override
@@ -55,10 +55,7 @@ public class AiSimulationCodeExecutorService implements CodePoolExecutorService 
 				%s
 				```
 				""", request.code(), request.input());
-		String output = llmService.toStringFlux(llmService.call(SYSTEM_PROMPT, userPrompt))
-			.collect(StringBuilder::new, StringBuilder::append)
-			.map(StringBuilder::toString)
-			.block();
+		String output = chatClient.prompt().user(userPrompt).call().content();
 		return TaskResponse.success(output);
 	}
 
