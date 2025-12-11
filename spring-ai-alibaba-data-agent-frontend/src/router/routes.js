@@ -61,17 +61,6 @@ const routes = [
     },
   },
 
-  // 模型配置模块
-  {
-    path: '/model-config',
-    name: 'ModelConfig',
-    component: () => import('@/views/ModelConfig.vue'),
-    meta: {
-      title: '模型配置',
-      module: 'config',
-    },
-  },
-
   // 404页面
   {
     path: '/:pathMatch(.*)*',

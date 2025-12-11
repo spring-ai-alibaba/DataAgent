@@ -229,13 +229,20 @@
     </dependencyManagement>
 
     <dependencies>
-        <!-- 在这里可以替换vector-store -->
+        <!-- 在这里可以替换vector-store，chat-model和embedding-model的starter -->
         <!-- 如果不使用默认依赖的话，需要手动配置application.yml -->
-        <!--        统一openai接入以支持多厂商-->
+
         <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-openai</artifactId>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+            <version>${spring-ai-alibaba.version}</version>
         </dependency>
+
+        <!--            milvus  -->
+        <!--        <dependency>-->
+        <!--            <groupId>org.springframework.ai</groupId>-->
+        <!--            <artifactId>spring-ai-starter-vector-store-milvus</artifactId>-->
+        <!--        </dependency>-->
     </dependencies>
 
     <build>
