@@ -20,6 +20,7 @@ import com.alibaba.cloud.ai.dataagent.config.file.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.dispatcher.*;
 import com.alibaba.cloud.ai.dataagent.mcp.McpServerToolUtil;
 import com.alibaba.cloud.ai.dataagent.node.*;
+import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
 import com.alibaba.cloud.ai.dataagent.strategy.EnhancedTokenCountBatchingStrategy;
 import com.alibaba.cloud.ai.dataagent.util.NodeBeanUtil;
 import com.alibaba.cloud.ai.graph.GraphRepresentation;
@@ -29,8 +30,6 @@ import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.knuddels.jtokkit.api.EncodingType;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.tool.ToolCallback;
@@ -43,6 +42,8 @@ import org.springframework.ai.transformer.splitter.TextSplitter;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.aop.TargetSource;
+import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -303,10 +304,47 @@ public class DataAgentConfiguration implements DisposableBean {
 		return new DelegatingToolCallbackResolver(List.of(staticToolCallbackResolver, springBeanToolCallbackResolver));
 	}
 
+	/**
+	 * 动态生成 EmbeddingModel 的代理 Bean。 原理： 1. 这是一个 Bean，Milvus/PgVector Starter 能看到它，启动不会报错。
+	 * 2. 它是动态代理，内部没有写死任何方法。 3. 每次被调用时，它会执行 getTarget() -> registry.getEmbeddingModel()。
+	 */
 	@Bean
-	@ConditionalOnMissingBean(ChatClient.class)
-	public ChatClient chatClient(ChatModel chatModel) {
-		return ChatClient.builder(chatModel).build();
+	@Primary
+	public EmbeddingModel embeddingModel(AiModelRegistry registry) {
+
+		// 1. 定义目标源 (TargetSource)
+		TargetSource targetSource = new TargetSource() {
+			@Override
+			public Class<?> getTargetClass() {
+				return EmbeddingModel.class;
+			}
+
+			@Override
+			public boolean isStatic() {
+				// 关键：声明是动态的，每次都要重新获取目标
+				return false;
+			}
+
+			@Override
+			public Object getTarget() {
+				// 每次方法调用，都去注册表拿最新的
+				return registry.getEmbeddingModel();
+			}
+
+			@Override
+			public void releaseTarget(Object target) {
+				// 无需释放
+			}
+		};
+
+		// 2. 创建代理工厂
+		ProxyFactory proxyFactory = new ProxyFactory();
+		proxyFactory.setTargetSource(targetSource);
+		// 代理接口
+		proxyFactory.addInterface(EmbeddingModel.class);
+
+		// 3. 返回动态生成的代理对象
+		return (EmbeddingModel) proxyFactory.getProxy();
 	}
 
 	@Bean(name = "dbOperationExecutor")

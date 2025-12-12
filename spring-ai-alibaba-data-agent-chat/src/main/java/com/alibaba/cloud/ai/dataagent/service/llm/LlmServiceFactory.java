@@ -17,10 +17,10 @@
 package com.alibaba.cloud.ai.dataagent.service.llm;
 
 import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
 import com.alibaba.cloud.ai.dataagent.service.llm.impls.BlockLlmService;
 import com.alibaba.cloud.ai.dataagent.service.llm.impls.StreamLlmService;
 import lombok.AllArgsConstructor;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.stereotype.Component;
 
@@ -30,15 +30,15 @@ public class LlmServiceFactory implements FactoryBean<LlmService> {
 
 	private final DataAgentProperties properties;
 
-	private final ChatClient chatClient;
+	private final AiModelRegistry aiModelRegistry;
 
 	@Override
 	public LlmService getObject() {
 		if (LlmServiceEnum.BLOCK.equals(properties.getLlmServiceType())) {
-			return new BlockLlmService(chatClient);
+			return new BlockLlmService(aiModelRegistry);
 		}
 		else {
-			return new StreamLlmService(chatClient);
+			return new StreamLlmService(aiModelRegistry);
 		}
 	}
 

@@ -28,6 +28,10 @@
               <i class="bi bi-grid-3x3-gap"></i>
               <span>智能体列表</span>
             </div>
+            <div class="nav-item" :class="{ active: isModelConfigPage() }" @click="goToModelConfig">
+              <i class="bi bi-gear"></i>
+              <span>模型配置</span>
+            </div>
           </nav>
         </div>
       </div>
@@ -53,6 +57,10 @@
         router.push('/agents');
       };
 
+      const goToModelConfig = () => {
+        router.push('/model-config');
+      };
+
       const isAgentPage = () => {
         return (
           router.currentRoute.value.name === 'AgentList' ||
@@ -62,9 +70,15 @@
         );
       };
 
+      const isModelConfigPage = () => {
+        return router.currentRoute.value.name === 'ModelConfig';
+      };
+
       return {
         goToAgentList,
+        goToModelConfig,
         isAgentPage,
+        isModelConfigPage,
       };
     },
   };
