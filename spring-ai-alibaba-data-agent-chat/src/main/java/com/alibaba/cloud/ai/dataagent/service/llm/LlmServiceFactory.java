@@ -35,10 +35,10 @@ public class LlmServiceFactory implements FactoryBean<LlmService> {
 	@Override
 	public LlmService getObject() {
 		if (LlmServiceEnum.BLOCK.equals(properties.getLlmServiceType())) {
-			return new BlockLlmService(aiModelRegistry.getChatClient());
+			return new BlockLlmService(aiModelRegistry);
 		}
 		else {
-			return new StreamLlmService(aiModelRegistry.getChatClient());
+			return new StreamLlmService(aiModelRegistry);
 		}
 	}
 

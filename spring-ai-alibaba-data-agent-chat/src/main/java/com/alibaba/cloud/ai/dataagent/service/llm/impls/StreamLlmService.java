@@ -16,30 +16,30 @@
 
 package com.alibaba.cloud.ai.dataagent.service.llm.impls;
 
+import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import lombok.AllArgsConstructor;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 
 @AllArgsConstructor
 public class StreamLlmService implements LlmService {
 
-	private final ChatClient chatClient;
+	private final AiModelRegistry registry;
 
 	@Override
 	public Flux<ChatResponse> call(String system, String user) {
-		return chatClient.prompt().system(system).user(user).stream().chatResponse();
+		return registry.getChatClient().prompt().system(system).user(user).stream().chatResponse();
 	}
 
 	@Override
 	public Flux<ChatResponse> callSystem(String system) {
-		return chatClient.prompt().system(system).stream().chatResponse();
+		return registry.getChatClient().prompt().system(system).stream().chatResponse();
 	}
 
 	@Override
 	public Flux<ChatResponse> callUser(String user) {
-		return chatClient.prompt().user(user).stream().chatResponse();
+		return registry.getChatClient().prompt().user(user).stream().chatResponse();
 	}
 
 }
