@@ -19,6 +19,7 @@ package com.alibaba.cloud.ai.dataagent.controller;
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.service.graph.GraphService;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
+import io.micrometer.common.util.StringUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -76,6 +77,11 @@ public class GraphController {
 		graphService.graphStreamProcess(sink, request);
 
 		return sink.asFlux()
+			.map(sse -> sse.data())
+			// 过滤无效数据
+			.filter(nodeResp -> nodeResp != null && StringUtils.isNotBlank(nodeResp.getText()))
+			// 重新包装为SSE事件
+			.map(data -> ServerSentEvent.builder(data).build())
 			.doOnSubscribe(subscription -> log.info("Client subscribed to stream, threadId: {}", request.getThreadId()))
 			.doOnCancel(() -> {
 				log.info("Client disconnected from stream, threadId: {}", request.getThreadId());
