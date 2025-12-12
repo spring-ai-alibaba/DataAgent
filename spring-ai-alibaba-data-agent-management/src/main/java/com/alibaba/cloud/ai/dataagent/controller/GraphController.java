@@ -44,58 +44,58 @@ import reactor.core.publisher.Sinks;
 @RequestMapping("/api")
 public class GraphController {
 
-    private final GraphService graphService;
+	private final GraphService graphService;
 
-    @GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<GraphNodeResponse>> streamSearch(@RequestParam("agentId") String agentId,
-                                                                 @RequestParam(value = "threadId", required = false) String threadId, @RequestParam("query") String query,
-                                                                 @RequestParam(value = "humanFeedback", required = false) boolean humanFeedback,
-                                                                 @RequestParam(value = "humanFeedbackContent", required = false) String humanFeedbackContent,
-                                                                 @RequestParam(value = "rejectedPlan", required = false) boolean rejectedPlan,
-                                                                 @RequestParam(value = "nl2sqlOnly", required = false) boolean nl2sqlOnly,
-                                                                 @RequestParam(value = "plainReport", required = false) boolean plainReport, HttpServletResponse response) {
-        // Set SSE-related HTTP headers
-        response.setCharacterEncoding("UTF-8");
-        response.setContentType("text/event-stream");
-        response.setHeader("Cache-Control", "no-cache");
-        response.setHeader("Connection", "keep-alive");
-        response.setHeader("Access-Control-Allow-Origin", "*");
-        response.setHeader("Access-Control-Allow-Headers", "Cache-Control");
+	@GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+	public Flux<ServerSentEvent<GraphNodeResponse>> streamSearch(@RequestParam("agentId") String agentId,
+			@RequestParam(value = "threadId", required = false) String threadId, @RequestParam("query") String query,
+			@RequestParam(value = "humanFeedback", required = false) boolean humanFeedback,
+			@RequestParam(value = "humanFeedbackContent", required = false) String humanFeedbackContent,
+			@RequestParam(value = "rejectedPlan", required = false) boolean rejectedPlan,
+			@RequestParam(value = "nl2sqlOnly", required = false) boolean nl2sqlOnly,
+			@RequestParam(value = "plainReport", required = false) boolean plainReport, HttpServletResponse response) {
+		// Set SSE-related HTTP headers
+		response.setCharacterEncoding("UTF-8");
+		response.setContentType("text/event-stream");
+		response.setHeader("Cache-Control", "no-cache");
+		response.setHeader("Connection", "keep-alive");
+		response.setHeader("Access-Control-Allow-Origin", "*");
+		response.setHeader("Access-Control-Allow-Headers", "Cache-Control");
 
-        Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
 
-        GraphRequest request = GraphRequest.builder()
-                .agentId(agentId)
-                .threadId(threadId)
-                .query(query)
-                .humanFeedback(humanFeedback)
-                .humanFeedbackContent(humanFeedbackContent)
-                .rejectedPlan(rejectedPlan)
-                .nl2sqlOnly(nl2sqlOnly)
-                .plainReport(plainReport)
-                .build();
-        graphService.graphStreamProcess(sink, request);
+		GraphRequest request = GraphRequest.builder()
+			.agentId(agentId)
+			.threadId(threadId)
+			.query(query)
+			.humanFeedback(humanFeedback)
+			.humanFeedbackContent(humanFeedbackContent)
+			.rejectedPlan(rejectedPlan)
+			.nl2sqlOnly(nl2sqlOnly)
+			.plainReport(plainReport)
+			.build();
+		graphService.graphStreamProcess(sink, request);
 
-        return sink.asFlux()
-                .map(sse -> sse.data())
-                //过滤无效数据
-                .filter(nodeResp -> nodeResp != null && StringUtils.isNotBlank(nodeResp.getText()))
-                //重新包装为SSE事件
-                .map(data -> ServerSentEvent.builder(data).build())
-                .doOnSubscribe(subscription -> log.info("Client subscribed to stream, threadId: {}", request.getThreadId()))
-                .doOnCancel(() -> {
-                    log.info("Client disconnected from stream, threadId: {}", request.getThreadId());
-                    if (request.getThreadId() != null) {
-                        graphService.stopStreamProcessing(request.getThreadId());
-                    }
-                })
-                .doOnError(e -> {
-                    log.error("Error occurred during streaming, threadId: {}: ", request.getThreadId(), e);
-                    if (request.getThreadId() != null) {
-                        graphService.stopStreamProcessing(request.getThreadId());
-                    }
-                })
-                .doOnComplete(() -> log.info("Stream completed successfully, threadId: {}", request.getThreadId()));
-    }
+		return sink.asFlux()
+			.map(sse -> sse.data())
+			// 过滤无效数据
+			.filter(nodeResp -> nodeResp != null && StringUtils.isNotBlank(nodeResp.getText()))
+			// 重新包装为SSE事件
+			.map(data -> ServerSentEvent.builder(data).build())
+			.doOnSubscribe(subscription -> log.info("Client subscribed to stream, threadId: {}", request.getThreadId()))
+			.doOnCancel(() -> {
+				log.info("Client disconnected from stream, threadId: {}", request.getThreadId());
+				if (request.getThreadId() != null) {
+					graphService.stopStreamProcessing(request.getThreadId());
+				}
+			})
+			.doOnError(e -> {
+				log.error("Error occurred during streaming, threadId: {}: ", request.getThreadId(), e);
+				if (request.getThreadId() != null) {
+					graphService.stopStreamProcessing(request.getThreadId());
+				}
+			})
+			.doOnComplete(() -> log.info("Stream completed successfully, threadId: {}", request.getThreadId()));
+	}
 
 }
