@@ -45,7 +45,7 @@ public class DatabaseSchemaTest {
 	@Autowired
 	private MySQLContainer<?> container;
 
-	private static final int DATABASE_COUNT = 12;
+	private static final int DATABASE_COUNT = 13;
 
 	@Test
 	public void testDatabaseSchema() {
