@@ -78,7 +78,9 @@ public class GraphController {
 
         return sink.asFlux()
                 .map(sse -> sse.data())
+                //过滤无效数据
                 .filter(nodeResp -> nodeResp != null && StringUtils.isNotBlank(nodeResp.getText()))
+                //重新包装为SSE事件
                 .map(data -> ServerSentEvent.builder(data).build())
                 .doOnSubscribe(subscription -> log.info("Client subscribed to stream, threadId: {}", request.getThreadId()))
                 .doOnCancel(() -> {
