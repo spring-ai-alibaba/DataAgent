@@ -12,19 +12,19 @@
 
 ```
 spring-ai-alibaba-data-agent/
-├── spring-ai-alibaba-data-agent-management    # 管理端（可直接启动的Web应用）
-└── spring-ai-alibaba-data-agent-frontend>     # 前端代码 
+├── data-agent-management    # 管理端（可直接启动的Web应用）
+└── data-agent-frontend>     # 前端代码 
 ```
 
 ## 快速启动
 
-项目进行本地测试是在spring-ai-alibaba-data-agent-management中进行
+项目进行本地测试是在data-agent-management中进行
 
 ### 1. 业务数据库准备
 
 可以在项目仓库获取测试表和数据：
 
-文件在：`spring-ai-alibaba-data-agent-management/src/main/resources/sql`，里面有4个文件：`schema.sql` 和 `data.sql`和`product_shcema.sql`和`product_data.sql`，具体的模拟数据表结构和数据可以参考这两个文件，`product_shcema.sql`和`product_data.sql`，跟功能相关的表结构和数据可以参考`schema.sql`和`data.sql`。
+文件在：`data-agent-management/src/main/resources/sql`，里面有4个文件：`schema.sql` 和 `data.sql`和`product_shcema.sql`和`product_data.sql`，具体的模拟数据表结构和数据可以参考这两个文件，`product_shcema.sql`和`product_data.sql`，跟功能相关的表结构和数据可以参考`schema.sql`和`data.sql`。
 
 将表和数据导入到你的MySQL数据库中。
 
@@ -32,7 +32,7 @@ spring-ai-alibaba-data-agent/
 
 #### 2.1 配置management数据库
 
-在`spring-ai-alibaba-data-agent-management/src/main/resources/application.yml`中配置你的MySQL数据库连接信息。
+在`data-agent-management/src/main/resources/application.yml`中配置你的MySQL数据库连接信息。
 
 > 初始化行为说明：默认开启自动创建表并插入示例数据（`spring.sql.init.mode: always`）。生产环境建议关闭，避免示例数据回填覆盖你的业务数据。
 
@@ -79,7 +79,6 @@ spring:
 启动项目，点击模型配置，新增模型填写自己的apikey即可。
 
 
-
 ![add-model.png](img/add-model.png)
 
 注意，如Qwen，OpenAi,Deepseek,Siliconflow(硅基流动) 等兼容Open Ai的厂商不需要更改Completions 路径和Embedding路径。
@@ -112,47 +111,18 @@ spring:
 | spring.ai.alibaba.data-agent.fusion-strategy | 多路召回结果融合策略 | rrf    |
 |                                          |                      |        |
 
-#### 2.7 替换chat-model、embedding-model和vector-store的实现类
+#### 2.7 替换vector-store的实现类
 
-本项目的`ChatModel`和`EmbeddingModel`默认使用`DashScope`的实现，`VectorStore`默认使用内存向量，你可以替换成其他模型实现。
+本项目`VectorStore`默认使用内存向量，你可以替换成其他模型实现。
 
-在[根pom](./pom.xml)中的`dependencies`中可以替换`ChatModel`，`EmbeddingModel`和`VectorStore`的实现starter，以替换掉项目默认使用的实现：
+在[根pom](./pom.xml)中你可以引入其他`VectorStore`的实现starter，以替换掉项目默认使用的实现。比如你想使用`milvus`你可以这样：
 
 ```xml
     <dependencies>
-        <!-- 在这里可以替换vector-store，chat-model和embedding-model的starter -->
+        <!-- 在这里可以替换vector-storestarter -->
         <!-- 如果不使用默认依赖的话，需要手动配置application.yml -->
-    
-        <dependency>
-            <groupId>com.alibaba.cloud.ai</groupId>
-            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
-            <version>${spring-ai-alibaba.version}</version>
-        </dependency>
-    
+
         <!--            milvus  -->
-        <!--        <dependency>-->
-        <!--            <groupId>org.springframework.ai</groupId>-->
-        <!--            <artifactId>spring-ai-starter-vector-store-milvus</artifactId>-->
-        <!--        </dependency>-->
-    </dependencies>
-```
-
-注意修改`application.yml`，以符合这些starter的需求。
-
-举个例子，如果你需要使用`Milvus`作为向量库，使用DeepSeek的`ChatModel`，使用硅基流动的`EmbeddingModel`，你可以导入以下依赖：
-
-```xml
-    <dependencies>
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-model-deepseek</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-model-openai</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-vector-store-milvus</artifactId>
@@ -160,50 +130,15 @@ spring:
     </dependencies>
 ```
 
-然后这么写`application.yml`：
-
-```yaml
-spring:
-  ai:
-    model:
-      chat: deepseek      # 一定要配置此字段，否则会报多个Bean实例的异常
-      embedding: openai
-    deepseek:
-      chat:
-        api-key: ${DEEPSEEK_API_KEY}
-    openai:
-      api-key: ${SILICONFLOW_API_KEY}
-      embedding:
-        api-key: ${SILICONFLOW_API_KEY}
-        base-url: https://api.siliconflow.cn
-        options:
-          model: BAAI/bge-m3
-    vectorstore:
-      milvus:
-        initialize-schema: true
-        client:
-          host: ${MILVUS_HOST:192.168.16.100}
-          port: ${MILVUS_PORT:19530}
-          username: ${MILVUS_USERNAME:root}
-          password: ${MILVUS_PASSWORD}
-        databaseName: ${MILVUS_DATABASE:default}
-        collectionName: ${MILVUS_COLLECTION:vector_store}
-        embeddingDimension: 1536
-        indexType: IVF_FLAT
-        metricType: COSINE
-        id-field-name:
-        content-field-name:
-        metadata-field-name:
-        embedding-field-name:
-```
+注意在`application.yml`中配置相应设置，以符合这些starter的需求。
 
 ### 3. 启动管理端
 
-在`spring-ai-alibaba-data-agent-management`目录下，运行 `DataAgentApplication.java` 类。
+在`data-agent-management`目录下，运行 `DataAgentApplication.java` 类。
 
 ### 4. 启动WEB页面
 
-进入 `spring-ai-alibaba-data-agent-frontend` 目录
+进入 `data-agent-frontend` 目录
 
 #### 4.1 安装依赖
 
@@ -313,4 +248,3 @@ yarn dev
 ## 如何贡献
 
 我们欢迎社区的贡献！如果你想为本项目做出贡献，请查看我们的[贡献指南](./CONTRIBUTING-zh.md)。
-
