@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
+import com.alibaba.cloud.ai.dataagent.common.util.MarkdownParserUtil;
 import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
@@ -217,6 +218,7 @@ public class SqlOptimizeNode implements NodeAction {
 			throw new IllegalArgumentException("生成的SQL为空");
 		}
 
+		sql = MarkdownParserUtil.extractRawText(sql).trim();
 		// Basic cleanup
 		sql = sql.trim();
 		if (!sql.endsWith(";")) {
