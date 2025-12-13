@@ -86,8 +86,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 	 * Use ChatClient to generate optimized SQL
 	 */
 	@Override
-	public Flux<String> generateOptimizedSql(String previousSql, String exceptionMessage, int round,
-			String dialect) {
+	public Flux<String> generateOptimizedSql(String previousSql, String exceptionMessage, int round, String dialect) {
 		try {
 			// todo: 写一个Prompt文件
 			StringBuilder prompt = new StringBuilder();

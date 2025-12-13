@@ -76,7 +76,7 @@ public class SqlOptimizeNode implements NodeAction {
 		// 生成优化SQL
 		StringBuilder sqlCollector = new StringBuilder();
 		Flux<String> sqlFlux = nl2SqlService.generateOptimizedSql(bestSql, null, count, dialect)
-				.doOnNext(sqlCollector::append);
+			.doOnNext(sqlCollector::append);
 
 		// 创建返回Flux
 		Flux<ChatResponse> displayFlux = Flux
