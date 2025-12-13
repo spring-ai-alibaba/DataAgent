@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.controller;
 
-import com.alibaba.cloud.ai.dataagent.service.SessionEventPublisher;
+import com.alibaba.cloud.ai.dataagent.service.chat.SessionEventPublisher;
 import com.alibaba.cloud.ai.dataagent.vo.SessionUpdateEvent;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;

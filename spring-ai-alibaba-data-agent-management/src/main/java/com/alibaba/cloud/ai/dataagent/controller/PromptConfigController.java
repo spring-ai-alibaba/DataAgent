@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.controller;
 
-import com.alibaba.cloud.ai.dataagent.dto.PromptConfigDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.PromptConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.UserPromptConfig;
 import com.alibaba.cloud.ai.dataagent.service.prompt.UserPromptService;
 import org.slf4j.Logger;

@@ -15,13 +15,13 @@
  */
 package com.alibaba.cloud.ai.dataagent.service;
 
-import com.alibaba.cloud.ai.dataagent.common.connector.bo.ColumnInfoBO;
-import com.alibaba.cloud.ai.dataagent.common.connector.bo.DbQueryParameter;
-import com.alibaba.cloud.ai.dataagent.common.connector.bo.ForeignKeyInfoBO;
-import com.alibaba.cloud.ai.dataagent.common.connector.bo.ResultSetBO;
-import com.alibaba.cloud.ai.dataagent.common.connector.bo.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.common.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dataagent.common.connector.impls.h2.H2DBAccessor;
+import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
+import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.connector.accessor.impls.h2.H2DBAccessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;

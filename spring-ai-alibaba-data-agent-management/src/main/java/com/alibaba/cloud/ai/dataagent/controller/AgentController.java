@@ -17,7 +17,7 @@
 package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
-import com.alibaba.cloud.ai.dataagent.service.AgentService;
+import com.alibaba.cloud.ai.dataagent.service.agent.AgentService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

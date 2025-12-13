@@ -16,10 +16,10 @@
 
 package com.alibaba.cloud.ai.dataagent.controller;
 
-import com.alibaba.cloud.ai.dataagent.dto.PageResult;
-import com.alibaba.cloud.ai.dataagent.dto.agentknowledge.AgentKnowledgeQueryDTO;
-import com.alibaba.cloud.ai.dataagent.dto.agentknowledge.CreateKnowledgeDto;
-import com.alibaba.cloud.ai.dataagent.dto.agentknowledge.UpdateKnowledgeDto;
+import com.alibaba.cloud.ai.dataagent.vo.PageResult;
+import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.AgentKnowledgeQueryDTO;
+import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.CreateKnowledgeDTO;
+import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.UpdateKnowledgeDTO;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeService;
 import com.alibaba.cloud.ai.dataagent.vo.AgentKnowledgeVO;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
@@ -67,7 +67,7 @@ public class AgentKnowledgeController {
 	 * Create knowledge,supporting file upload
 	 */
 	@PostMapping("/create")
-	public ApiResponse<AgentKnowledgeVO> createKnowledge(@Valid CreateKnowledgeDto createKnowledgeDto) {
+	public ApiResponse<AgentKnowledgeVO> createKnowledge(@Valid CreateKnowledgeDTO createKnowledgeDto) {
 		AgentKnowledgeVO knowledge = agentKnowledgeService.createKnowledge(createKnowledgeDto);
 		return ApiResponse.success("创建知识成功，后台向量存储开始更新，请耐心等待...", knowledge);
 	}
@@ -77,7 +77,7 @@ public class AgentKnowledgeController {
 	 */
 	@PutMapping("/{id}")
 	public ApiResponse<AgentKnowledgeVO> updateKnowledge(@PathVariable("id") Integer id,
-			@RequestBody UpdateKnowledgeDto updateKnowledgeDto) {
+			@RequestBody UpdateKnowledgeDTO updateKnowledgeDto) {
 		AgentKnowledgeVO knowledge = agentKnowledgeService.updateKnowledge(id, updateKnowledgeDto);
 		return ApiResponse.success("更新成功", knowledge);
 	}

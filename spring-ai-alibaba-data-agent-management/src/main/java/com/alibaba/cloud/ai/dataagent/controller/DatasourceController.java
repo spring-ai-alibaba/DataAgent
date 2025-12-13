@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.dataagent.controller;
 
-import com.alibaba.cloud.ai.dataagent.dto.CreateLogicalRelationDTO;
-import com.alibaba.cloud.ai.dataagent.dto.UpdateLogicalRelationDTO;
+import com.alibaba.cloud.ai.dataagent.dto.schema.CreateLogicalRelationDTO;
+import com.alibaba.cloud.ai.dataagent.dto.schema.UpdateLogicalRelationDTO;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;

@@ -15,12 +15,12 @@
  */
 package com.alibaba.cloud.ai.dataagent.controller;
 
-import com.alibaba.cloud.ai.dataagent.dto.ChatMessageRequest;
+import com.alibaba.cloud.ai.dataagent.dto.ChatMessageDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ChatMessage;
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
-import com.alibaba.cloud.ai.dataagent.service.ChatMessageService;
-import com.alibaba.cloud.ai.dataagent.service.ChatSessionService;
-import com.alibaba.cloud.ai.dataagent.service.SessionTitleService;
+import com.alibaba.cloud.ai.dataagent.service.chat.ChatMessageService;
+import com.alibaba.cloud.ai.dataagent.service.chat.ChatSessionService;
+import com.alibaba.cloud.ai.dataagent.service.chat.SessionTitleService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -92,7 +92,7 @@ public class ChatController {
 	 */
 	@PostMapping("/sessions/{sessionId}/messages")
 	public ResponseEntity<ChatMessage> saveMessage(@PathVariable(value = "sessionId") String sessionId,
-			@RequestBody ChatMessageRequest request) {
+			@RequestBody ChatMessageDTO request) {
 		try {
 			if (request == null) {
 				return ResponseEntity.badRequest().build();

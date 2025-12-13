@@ -15,8 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.config;
 
-import com.alibaba.cloud.ai.dataagent.mcp.McpServerTool;
-import com.alibaba.cloud.ai.dataagent.service.McpServerService;
+import com.alibaba.cloud.ai.dataagent.common.annotation.McpServerTool;
+import com.alibaba.cloud.ai.dataagent.service.mcp.McpServerService;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.context.annotation.Bean;

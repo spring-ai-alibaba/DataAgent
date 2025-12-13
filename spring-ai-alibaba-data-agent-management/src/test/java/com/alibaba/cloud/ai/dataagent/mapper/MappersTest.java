@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.mapper;
 
-import com.alibaba.cloud.ai.dataagent.MySqlContainerConfiguration;
+import com.alibaba.cloud.ai.dataagent.service.MySqlContainerConfiguration;
 import com.alibaba.cloud.ai.dataagent.entity.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

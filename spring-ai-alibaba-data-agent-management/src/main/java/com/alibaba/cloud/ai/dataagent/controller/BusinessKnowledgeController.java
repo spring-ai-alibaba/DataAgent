@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.dataagent.controller;
 
-import com.alibaba.cloud.ai.dataagent.dto.businessknowledge.CreateBusinessKnowledgeDTO;
-import com.alibaba.cloud.ai.dataagent.dto.businessknowledge.UpdateBusinessKnowledgeDTO;
+import com.alibaba.cloud.ai.dataagent.dto.knowledge.businessknowledge.CreateBusinessKnowledgeDTO;
+import com.alibaba.cloud.ai.dataagent.dto.knowledge.businessknowledge.UpdateBusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.dataagent.service.business.BusinessKnowledgeService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import com.alibaba.cloud.ai.dataagent.vo.BusinessKnowledgeVO;

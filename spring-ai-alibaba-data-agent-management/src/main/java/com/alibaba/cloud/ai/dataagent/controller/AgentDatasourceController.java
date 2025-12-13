@@ -15,8 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.controller;
 
-import com.alibaba.cloud.ai.dataagent.dto.ToggleDatasourceDto;
-import com.alibaba.cloud.ai.dataagent.dto.UpdateDatasourceTablesDto;
+import com.alibaba.cloud.ai.dataagent.dto.datasource.ToggleDatasourceDTO;
+import com.alibaba.cloud.ai.dataagent.dto.datasource.UpdateDatasourceTablesDTO;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
@@ -136,7 +136,7 @@ public class AgentDatasourceController {
 	// 更新选择的数据表
 	@PostMapping("/tables")
 	public ResponseEntity<ApiResponse> updateDatasourceTables(@PathVariable("agentId") String agentId,
-			@RequestBody @Validated UpdateDatasourceTablesDto dto) {
+			@RequestBody @Validated UpdateDatasourceTablesDTO dto) {
 		try {
 			dto.setTables(Optional.ofNullable(dto.getTables()).orElse(List.of()));
 			agentDatasourceService.updateDatasourceTables(Integer.parseInt(agentId), dto.getDatasourceId(),
@@ -169,7 +169,7 @@ public class AgentDatasourceController {
 	 */
 	@PutMapping("/toggle")
 	public ResponseEntity<ApiResponse> toggleDatasourceForAgent(@PathVariable("agentId") Integer agentId,
-			@RequestBody ToggleDatasourceDto dto) {
+			@RequestBody ToggleDatasourceDTO dto) {
 		try {
 			Boolean isActive = dto.getIsActive();
 			Integer datasourceId = dto.getDatasourceId();
