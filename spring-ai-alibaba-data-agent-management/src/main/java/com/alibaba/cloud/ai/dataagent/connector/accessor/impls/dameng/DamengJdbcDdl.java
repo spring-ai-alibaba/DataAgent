@@ -17,7 +17,6 @@ package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.dameng;
 
 import com.alibaba.cloud.ai.dataagent.bo.schema.*;
 import com.alibaba.cloud.ai.dataagent.connector.SqlExecutor;
-import com.alibaba.cloud.ai.dataagent.common.connector.bo.*;
 import com.alibaba.cloud.ai.dataagent.connector.ddl.AbstractJdbcDdl;
 import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
 import org.apache.commons.compress.utils.Lists;

@@ -16,12 +16,13 @@
 
 package com.alibaba.cloud.ai.dataagent.dispatcher;
 
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.HumanFeedbackDispatcher;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class HumanFeedbackDispatcherTest {
 

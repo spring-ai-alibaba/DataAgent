@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.dispatcher;
 
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.TableRelationDispatcher;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,11 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.FEASIBILITY_ASSESSMENT_NODE;
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_EXCEPTION_OUTPUT;
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_NODE;
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_OUTPUT;
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_RETRY_COUNT;
+import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
