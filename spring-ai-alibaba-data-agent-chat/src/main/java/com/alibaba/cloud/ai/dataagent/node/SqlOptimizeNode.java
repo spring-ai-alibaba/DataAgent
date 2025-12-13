@@ -21,6 +21,7 @@ import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.MarkdownParserUtil;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -221,6 +222,7 @@ public class SqlOptimizeNode implements NodeAction {
 			throw new IllegalArgumentException("生成的SQL为空");
 		}
 
+		sql = MarkdownParserUtil.extractRawText(sql).trim();
 		// Basic cleanup
 		sql = sql.trim();
 		if (!sql.endsWith(";")) {
