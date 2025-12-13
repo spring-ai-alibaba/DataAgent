@@ -97,6 +97,10 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 			throw new RuntimeException("配置不存在");
 		}
 
+		// 不准更改模型类型
+		if (!entity.getModelType().getCode().equals(dto.getModelType()))
+			throw new RuntimeException("模型类型不允许修改");
+
 		// 2. 合并字段
 		mergeDtoToEntity(dto, entity);
 		entity.setUpdatedTime(LocalDateTime.now());

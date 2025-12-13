@@ -4,7 +4,7 @@
 
 ## 项目简介
 
-这是一个基于Spring AI Alibaba的自然语言转SQL项目，能让你用自然语言直接查询数据库，不需要写复杂的SQL。
+这是一个基于Spring AI Alibaba Graph的企业级智能数据分析 Agent。它不仅是 Text-to-SQL 转换器，更是一个具备支持 Python 深度分析与报告生成的 AI 虚拟数据分析师。
 
 ## 项目结构
 
@@ -13,8 +13,7 @@
 ```
 spring-ai-alibaba-data-agent/
 ├── spring-ai-alibaba-data-agent-management    # 管理端（可直接启动的Web应用）
-├── spring-ai-alibaba-data-agent-chat         # 核心功能（不能独立启动，供集成使用）
-└── spring-ai-alibaba-data-agent-common       # 公共代码
+└── spring-ai-alibaba-data-agent-frontend>     # 前端代码 
 ```
 
 ## 快速启动
@@ -73,24 +72,19 @@ spring:
 
 注意：默认开启时（`mode: always`），`data.sql` 会在每次启动回填示例数据（即使你手动删除了数据）。生产环境请改为 `mode: never`，避免覆盖/复原业务数据。
 
-#### 2.3 配置 API Key
+#### 2.3 配置模型
 
-```yaml
-spring:
-  ai:
-    dashscope:
-      api-key: ${AI_DASHSCOPE_API_KEY}
-      chat:
-        enabled: true
-        options:
-          model: qwen-plus
-      embedding:
-        enabled: true
-        options:
-          model: text-embedding-v4
-```
+**注意，如果你之前是自己用starter引入的聊天模型和嵌入模型的pom依赖，需要自己去掉，也不能自己手动初始化ChatClient和ChatModel以及EmbeddingModel了。**
 
-推荐将API Key配置到环境变量中，并使用`${AI_DASHSCOPE_API_KEY}`引用。
+启动项目，点击模型配置，新增模型填写自己的apikey即可。
+
+
+
+![add-model.png](img/add-model.png)
+
+注意，如Qwen，OpenAi,Deepseek,Siliconflow(硅基流动) 等兼容Open Ai的厂商不需要更改Completions 路径和Embedding路径。
+
+如果是自己部署的模型，baseurl和completions-path就是完整的chat模型地址，向量模型同理。
 
 #### 2.4 嵌入模型批处理策略配置
 
