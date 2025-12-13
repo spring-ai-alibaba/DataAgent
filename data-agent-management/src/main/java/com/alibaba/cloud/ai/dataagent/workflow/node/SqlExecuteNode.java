@@ -24,6 +24,7 @@ import com.alibaba.cloud.ai.dataagent.common.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.common.util.*;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
+import com.alibaba.cloud.ai.dataagent.common.util.MarkdownParserUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -61,6 +62,7 @@ public class SqlExecuteNode implements NodeAction {
 		Integer currentStep = PlanProcessUtil.getCurrentStepNumber(state);
 
 		String sqlQuery = StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT);
+		sqlQuery = MarkdownParserUtil.extractRawText(sqlQuery).trim();
 
 		log.info("Executing SQL query: {}", sqlQuery);
 
