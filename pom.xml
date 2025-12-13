@@ -11,9 +11,7 @@
     <url>https://github.com/alibaba/spring-ai-alibaba</url>
 
     <modules>
-        <module>spring-ai-alibaba-data-agent-chat</module>
-        <module>spring-ai-alibaba-data-agent-management</module>
-        <module>spring-ai-alibaba-data-agent-common</module>
+        <module>data-agent-management</module>
     </modules>
     <scm>
         <connection>git://github.com/spring-ai-alibaba/DataAgent.git</connection>

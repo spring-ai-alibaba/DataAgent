@@ -35,24 +35,24 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: spring-ai-alibaba-data-agent-frontend/package-lock.json
+          cache-dependency-path: data-agent-frontend/package-lock.json
       - name: Install dependencies
         run: |
-          cd spring-ai-alibaba-data-agent-frontend
+          cd data-agent-frontend
           npm ci
       - name: Build project
         run: |
-          cd spring-ai-alibaba-data-agent-frontend
+          cd data-agent-frontend
           npm run build
       - name: ESLint check
         run: |
-          cd spring-ai-alibaba-data-agent-frontend
+          cd data-agent-frontend
           npm run lint:check
       - name: Prettier format check
         run: |
-          cd spring-ai-alibaba-data-agent-frontend
+          cd data-agent-frontend
           npm run format:check
       - name: Unused code check
         run: |
-          cd spring-ai-alibaba-data-agent-frontend
+          cd data-agent-frontend
           npm run unused
