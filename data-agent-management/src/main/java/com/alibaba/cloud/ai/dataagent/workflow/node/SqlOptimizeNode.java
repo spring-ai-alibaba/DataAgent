@@ -16,13 +16,11 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
-import com.alibaba.cloud.ai.dataagent.common.util.MarkdownParserUtil;
+import com.alibaba.cloud.ai.dataagent.common.util.*;
 import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
-import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -52,6 +50,8 @@ public class SqlOptimizeNode implements NodeAction {
 
 	private final DataAgentProperties properties;
 
+	private final DatabaseUtil databaseUtil;
+
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 		// 获取优化轮次和上次SQL
@@ -67,9 +67,16 @@ public class SqlOptimizeNode implements NodeAction {
 		Map<String, Object> result = new HashMap<>(Map.of(SQL_OPTIMIZE_FINISHED, false, SQL_OPTIMIZE_COUNT, count + 1));
 		log.info("optimize sql count: {}, best sql: {}, best score: {}", count, bestSql, bestScore);
 
+		// 获取数据库类型
+		String agentIdStr = state.value(AGENT_ID, String.class).orElseThrow(IllegalStateException::new);
+		Integer agentId = Integer.parseInt(agentIdStr);
+		DbConfig dbConfig = databaseUtil.getAgentDbConfig(agentId);
+		String dialect = dbConfig.getDialectType();
+
 		// 生成优化SQL
 		StringBuilder sqlCollector = new StringBuilder();
-		Flux<String> sqlFlux = nl2SqlService.generateOptimizedSql(bestSql, null, count).doOnNext(sqlCollector::append);
+		Flux<String> sqlFlux = nl2SqlService.generateOptimizedSql(bestSql, null, count, dialect)
+				.doOnNext(sqlCollector::append);
 
 		// 创建返回Flux
 		Flux<ChatResponse> displayFlux = Flux

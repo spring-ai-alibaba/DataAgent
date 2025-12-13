@@ -86,10 +86,12 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 	 * Use ChatClient to generate optimized SQL
 	 */
 	@Override
-	public Flux<String> generateOptimizedSql(String previousSql, String exceptionMessage, int round) {
+	public Flux<String> generateOptimizedSql(String previousSql, String exceptionMessage, int round,
+			String dialect) {
 		try {
 			// todo: 写一个Prompt文件
 			StringBuilder prompt = new StringBuilder();
+			prompt.append("当前连接的数据库类型是：").append(dialect).append("\n\n");
 			prompt.append("请对以下SQL进行第").append(round).append("轮优化:\n\n");
 			prompt.append("当前SQL:\n").append(previousSql).append("\n\n");
 
@@ -98,10 +100,12 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 			}
 
 			prompt.append("优化目标:\n");
+			prompt.append("1. 修复任何语法错误（使用").append(dialect).append("语法规范）\n");
 			prompt.append("1. 修复任何语法错误\n");
 			prompt.append("2. 提升查询性能\n");
 			prompt.append("3. 确保查询安全性\n");
 			prompt.append("4. 优化可读性\n\n");
+			prompt.append("重要提示：生成的SQL必须符合").append(dialect).append("数据库的语法规范。\n");
 			prompt.append("请只返回优化后的SQL语句，不要包含其他说明。");
 
 			return llmService.toStringFlux(llmService.callUser(prompt.toString()));
