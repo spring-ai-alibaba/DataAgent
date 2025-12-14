@@ -17,9 +17,9 @@ package com.alibaba.cloud.ai.dataagent.service.vectorstore;
 
 import com.alibaba.cloud.ai.dataagent.common.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.common.constant.DocumentMetadataConstant;
+import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.dto.search.AgentSearchRequest;
 import com.alibaba.cloud.ai.dataagent.dto.search.HybridSearchRequest;
-import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.HybridRetrievalStrategy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
@@ -67,7 +67,9 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 				searchRequest.getDocVectorType());
 		// 根据agentId vectorType找不到要 召回 的业务知识或者智能体知识
 		if (filter == null) {
-			log.warn("Dynamic filter returned null (no valid ids), returning empty result directly.");
+			log.warn(
+					"Dynamic filter returned null (no valid ids), returning empty result directly.AgentId: {}, VectorType: {}",
+					searchRequest.getAgentId(), searchRequest.getDocVectorType());
 			return Collections.emptyList();
 		}
 
@@ -187,8 +189,10 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	}
 
 	@Override
-	public List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, int topK) {
+	public List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK) {
 		Assert.notNull(filterExpression, "filterExpression cannot be null.");
+		if (topK == null)
+			topK = dataAgentProperties.getVectorStore().getTopkLimit();
 		SearchRequest searchRequest = SearchRequest.builder()
 			.query(DEFAULT)
 			.topK(topK)
@@ -196,32 +200,6 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 			.similarityThreshold(0.0)
 			.build();
 		return vectorStore.similaritySearch(searchRequest);
-	}
-
-	@Override
-	public List<Document> getTableDocuments(String agentId, List<String> tableNames) {
-		Assert.hasText(agentId, "AgentId cannot be empty.");
-		if (tableNames.isEmpty())
-			return Collections.emptyList();
-		// 通过元数据过滤查找目标表
-		Filter.Expression filterExpression = DynamicFilterService.buildFilterExpressionForSearchTables(agentId,
-				tableNames);
-		if (filterExpression == null)
-			return Collections.emptyList();
-		return this.getDocumentsOnlyByFilter(filterExpression, tableNames.size() + 5);
-	}
-
-	@Override
-	public List<Document> getColumnDocuments(String agentId, String upstreamTableName, List<String> columnNames) {
-		Assert.hasText(agentId, "AgentId cannot be empty.");
-		Assert.hasText(upstreamTableName, "UpstreamTableName cannot be empty.");
-		if (columnNames.isEmpty())
-			return Collections.emptyList();
-		Filter.Expression filterExpression = dynamicFilterService.buildFilterExpressionForSearchColumns(agentId,
-				upstreamTableName, columnNames);
-		if (filterExpression == null)
-			return Collections.emptyList();
-		return this.getDocumentsOnlyByFilter(filterExpression, columnNames.size() + 5);
 	}
 
 	@Override

@@ -29,12 +29,13 @@ public interface SchemaService {
 
 	List<Document> getTableDocumentsForAgent(String agentId, String query);
 
-	List<Document> getColumnDocumentsByKeywordsForAgent(String agentId, List<String> keywords,
-			List<Document> tableDocuments);
-
 	void extractDatabaseName(SchemaDTO schemaDTO, DbConfig dbConfig);
 
 	void buildSchemaFromDocuments(String agentId, List<Document> columnDocumentList, List<Document> tableDocuments,
 			SchemaDTO schemaDTO);
+
+	List<Document> getTableDocuments(String agentId, List<String> tableNames);
+
+	List<Document> getColumnDocumentsByTableName(String agentId, List<String> tableNames);
 
 }

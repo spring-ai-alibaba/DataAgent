@@ -39,11 +39,8 @@ public interface AgentVectorStoreService {
 	 */
 	List<Document> getDocumentsForAgent(String agentId, String query, String vectorType);
 
-	List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, int topK);
-
-	List<Document> getTableDocuments(String agentId, List<String> tableNames);
-
-	List<Document> getColumnDocuments(String agentId, String upstreamTableName, List<String> columnNames);
+	// 通过元数据过滤精确查找
+	List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK);
 
 	boolean hasDocuments(String agentId);
 
