@@ -100,10 +100,8 @@ public class SqlServerJdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<TableInfoBO> showTables(Connection connection, String schema, String tablePattern) {
-		String sql = "SELECT t.TABLE_NAME, \n"
-				+ "CAST(ep.value AS NVARCHAR(MAX)) AS TABLE_COMMENT \n"
-				+ "FROM INFORMATION_SCHEMA.TABLES t \n"
-				+ "LEFT JOIN sys.tables st ON t.TABLE_NAME = st.name \n"
+		String sql = "SELECT t.TABLE_NAME, \n" + "CAST(ep.value AS NVARCHAR(MAX)) AS TABLE_COMMENT \n"
+				+ "FROM INFORMATION_SCHEMA.TABLES t \n" + "LEFT JOIN sys.tables st ON t.TABLE_NAME = st.name \n"
 				+ "LEFT JOIN sys.extended_properties ep ON st.object_id = ep.major_id AND ep.minor_id = 0 AND ep.name = 'MS_Description' \n"
 				+ "WHERE t.TABLE_SCHEMA = '%s' AND t.TABLE_TYPE = 'BASE TABLE' \n";
 		if (StringUtils.isNotBlank(tablePattern)) {
@@ -138,13 +136,10 @@ public class SqlServerJdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<TableInfoBO> fetchTables(Connection connection, String schema, List<String> tables) {
-		String sql = "SELECT t.TABLE_NAME, \n"
-				+ "CAST(ep.value AS NVARCHAR(MAX)) AS TABLE_COMMENT \n"
-				+ "FROM INFORMATION_SCHEMA.TABLES t \n"
-				+ "LEFT JOIN sys.tables st ON t.TABLE_NAME = st.name \n"
+		String sql = "SELECT t.TABLE_NAME, \n" + "CAST(ep.value AS NVARCHAR(MAX)) AS TABLE_COMMENT \n"
+				+ "FROM INFORMATION_SCHEMA.TABLES t \n" + "LEFT JOIN sys.tables st ON t.TABLE_NAME = st.name \n"
 				+ "LEFT JOIN sys.extended_properties ep ON st.object_id = ep.major_id AND ep.minor_id = 0 AND ep.name = 'MS_Description' \n"
-				+ "WHERE t.TABLE_SCHEMA = '%s' AND t.TABLE_TYPE = 'BASE TABLE' \n"
-				+ "AND t.TABLE_NAME IN (%s) \n"
+				+ "WHERE t.TABLE_SCHEMA = '%s' AND t.TABLE_TYPE = 'BASE TABLE' \n" + "AND t.TABLE_NAME IN (%s) \n"
 				+ "ORDER BY t.TABLE_NAME;";
 
 		List<TableInfoBO> tableInfoList = Lists.newArrayList();
@@ -174,23 +169,19 @@ public class SqlServerJdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<ColumnInfoBO> showColumns(Connection connection, String schema, String table) {
-		String sql = "SELECT \n"
-				+ "c.COLUMN_NAME, \n"
-				+ "CAST(ep.value AS NVARCHAR(MAX)) AS COLUMN_COMMENT, \n"
+		String sql = "SELECT \n" + "c.COLUMN_NAME, \n" + "CAST(ep.value AS NVARCHAR(MAX)) AS COLUMN_COMMENT, \n"
 				+ "c.DATA_TYPE, \n"
 				+ "CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 'true' ELSE 'false' END AS IS_PRIMARY_KEY, \n"
 				+ "CASE WHEN c.IS_NULLABLE = 'NO' THEN 'true' ELSE 'false' END AS IS_NOT_NULL \n"
 				+ "FROM INFORMATION_SCHEMA.COLUMNS c \n"
 				+ "LEFT JOIN sys.columns sc ON OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME) = sc.object_id AND c.COLUMN_NAME = sc.name \n"
 				+ "LEFT JOIN sys.extended_properties ep ON sc.object_id = ep.major_id AND sc.column_id = ep.minor_id AND ep.name = 'MS_Description' \n"
-				+ "LEFT JOIN ( \n"
-				+ "    SELECT ku.TABLE_SCHEMA, ku.TABLE_NAME, ku.COLUMN_NAME \n"
+				+ "LEFT JOIN ( \n" + "    SELECT ku.TABLE_SCHEMA, ku.TABLE_NAME, ku.COLUMN_NAME \n"
 				+ "    FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc \n"
 				+ "    JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku ON tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME \n"
 				+ "    WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY' \n"
 				+ ") pk ON c.TABLE_SCHEMA = pk.TABLE_SCHEMA AND c.TABLE_NAME = pk.TABLE_NAME AND c.COLUMN_NAME = pk.COLUMN_NAME \n"
-				+ "WHERE c.TABLE_SCHEMA = '%s' AND c.TABLE_NAME = '%s' \n"
-				+ "ORDER BY c.ORDINAL_POSITION;";
+				+ "WHERE c.TABLE_SCHEMA = '%s' AND c.TABLE_NAME = '%s' \n" + "ORDER BY c.ORDINAL_POSITION;";
 
 		List<ColumnInfoBO> columnInfoList = Lists.newArrayList();
 		try {
@@ -222,11 +213,8 @@ public class SqlServerJdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<ForeignKeyInfoBO> showForeignKeys(Connection connection, String schema, List<String> tables) {
-		String sql = "SELECT \n"
-				+ "FK.TABLE_NAME AS 'Table', \n"
-				+ "CU.COLUMN_NAME AS 'Column', \n"
-				+ "PK.TABLE_NAME AS 'Referenced_Table', \n"
-				+ "PT.COLUMN_NAME AS 'Referenced_Column' \n"
+		String sql = "SELECT \n" + "FK.TABLE_NAME AS 'Table', \n" + "CU.COLUMN_NAME AS 'Column', \n"
+				+ "PK.TABLE_NAME AS 'Referenced_Table', \n" + "PT.COLUMN_NAME AS 'Referenced_Column' \n"
 				+ "FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS C \n"
 				+ "INNER JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS FK ON C.CONSTRAINT_NAME = FK.CONSTRAINT_NAME \n"
 				+ "INNER JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS PK ON C.UNIQUE_CONSTRAINT_NAME = PK.CONSTRAINT_NAME \n"
