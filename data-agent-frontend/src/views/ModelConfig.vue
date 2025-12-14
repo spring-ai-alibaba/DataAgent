@@ -424,23 +424,23 @@
 
           if (isEditMode.value) {
             // 更新配置
-            const success = await modelConfigService.update(formData.value);
-            if (success) {
+            const result = await modelConfigService.update(formData.value);
+            if (result.success) {
               ElMessage.success('配置更新成功');
               dialogVisible.value = false;
               loadConfigs();
             } else {
-              ElMessage.error('配置更新失败');
+              ElMessage.error(result.message || '配置更新失败');
             }
           } else {
             // 新增配置
-            const success = await modelConfigService.add(formData.value);
-            if (success) {
+            const result = await modelConfigService.add(formData.value);
+            if (result.success) {
               ElMessage.success('配置添加成功');
               dialogVisible.value = false;
               loadConfigs();
             } else {
-              ElMessage.error('配置添加失败');
+              ElMessage.error(result.message || '配置添加失败');
             }
           }
         } catch (error) {
@@ -482,12 +482,12 @@
 
         try {
           activatingId.value = id;
-          const success = await modelConfigService.activate(id);
-          if (success) {
+          const result = await modelConfigService.activate(id);
+          if (result.success) {
             ElMessage.success('模型启用成功');
             loadConfigs();
           } else {
-            ElMessage.error('模型启用失败');
+            ElMessage.error(result.message || '模型启用失败');
           }
         } catch (error) {
           ElMessage.error('启用过程中发生错误');
