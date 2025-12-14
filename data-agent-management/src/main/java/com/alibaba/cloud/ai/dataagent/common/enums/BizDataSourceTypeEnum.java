@@ -30,6 +30,11 @@ public enum BizDataSourceTypeEnum {
 	 */
 	DAMENG(5, "dameng", DatabaseDialectEnum.DAMENG.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
+	/**
+	 * SQL Server database
+	 */
+	SQL_SERVER(6, "sqlserver", DatabaseDialectEnum.SQL_SERVER.getCode(), DbAccessTypeEnum.JDBC.getCode()),
+
 	HOLOGRESS(10, "hologress", DatabaseDialectEnum.POSTGRESQL.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
 	MYSQL_VPC(11, "mysql-vpc", DatabaseDialectEnum.MYSQL.getCode(), DbAccessTypeEnum.JDBC.getCode()),

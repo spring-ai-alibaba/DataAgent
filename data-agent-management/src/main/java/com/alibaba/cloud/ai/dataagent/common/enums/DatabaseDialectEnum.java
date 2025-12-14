@@ -27,7 +27,9 @@ public enum DatabaseDialectEnum {
 
 	H2("H2"),
 
-	DAMENG("Dameng");
+	DAMENG("Dameng"),
+
+	SQL_SERVER("SqlServer");
 
 	public final String code;
 
