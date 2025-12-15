@@ -62,25 +62,18 @@ public class SchemaRecallNode implements NodeAction {
 		QueryEnhanceOutputDTO queryEnhanceOutputDTO = StateUtil.getObjectValue(state, QUERY_ENHANCE_NODE_OUTPUT,
 				QueryEnhanceOutputDTO.class);
 		String input = queryEnhanceOutputDTO.getCanonicalQuery();
-		List<String> keywords = queryEnhanceOutputDTO.getConsolidatedKeywords();
 		String agentId = StateUtil.getStringValue(state, AGENT_ID);
 
 		// Execute business logic first - recall schema information immediately
 		List<Document> tableDocuments = new ArrayList<>(schemaService.getTableDocumentsForAgent(agentId, input));
-		List<Document> columnDocumentsByKeywords = schemaService.getColumnDocumentsByKeywordsForAgent(agentId, keywords,
-				tableDocuments);
-
 		// extract table names
-		List<String> recallTableNames = extractTableName(tableDocuments);
-		// extract column names
-		List<String> recallColumnNames = extractColumnName(columnDocumentsByKeywords);
+		List<String> recalledTableNames = extractTableName(tableDocuments);
+		List<Document> columnDocuments = schemaService.getColumnDocumentsByTableName(agentId, recalledTableNames);
 
 		Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
 			emitter.next(ChatResponseUtil.createResponse("开始初步召回Schema信息..."));
 			emitter.next(ChatResponseUtil.createResponse(
-					"初步表信息召回完成，数量: " + tableDocuments.size() + "，表名: " + String.join(", ", recallTableNames)));
-			emitter.next(ChatResponseUtil.createResponse("初步列信息召回完成，数量: " + columnDocumentsByKeywords.size() + "，列名: "
-					+ String.join(", ", recallColumnNames)));
+					"初步表信息召回完成，数量: " + tableDocuments.size() + "，表名: " + String.join(", ", recalledTableNames)));
 			emitter.next(ChatResponseUtil.createResponse("初步Schema信息召回完成."));
 			emitter.complete();
 		});
@@ -88,7 +81,7 @@ public class SchemaRecallNode implements NodeAction {
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, currentState -> {
 					return Map.of(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocuments,
-							COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, columnDocumentsByKeywords);
+							COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, columnDocuments);
 				}, displayFlux);
 
 		// Return the processing result
@@ -106,19 +99,6 @@ public class SchemaRecallNode implements NodeAction {
 		log.info("At this SchemaRecallNode, Recall tables are: {}", tableNames);
 		return tableNames;
 
-	}
-
-	private static List<String> extractColumnName(List<Document> columnDocuments) {
-		// metadata中的 tableName + . + name字段
-		List<String> columnNames = new ArrayList<>();
-		for (Document document : columnDocuments) {
-			String name = (String) document.getMetadata().get("name");
-			String tableName = (String) document.getMetadata().get("tableName");
-			if (name != null && !name.isEmpty() && tableName != null && !tableName.isEmpty())
-				columnNames.add(tableName + "." + name);
-		}
-		log.info("At this SchemaRecallNode, Recall columns are: {}", columnNames);
-		return columnNames;
 	}
 
 }

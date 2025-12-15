@@ -15,20 +15,22 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.schema;
 
-import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
-import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.common.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
-import com.alibaba.cloud.ai.dataagent.dto.datasource.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
+import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.dto.datasource.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
+import com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +38,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.BatchingStrategy;
+import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
@@ -66,6 +69,10 @@ public class SchemaServiceImpl implements SchemaService {
 
 	private final BatchingStrategy batchingStrategy;
 
+	private final DynamicFilterService dynamicFilterService;
+
+	private final DataAgentProperties dataAgentProperties;
+
 	/**
 	 * Vector storage service
 	 */
@@ -79,13 +86,15 @@ public class SchemaServiceImpl implements SchemaService {
 		// 将包含"订单表.订单ID"和"订单详情表.订单ID"
 		Set<String> relatedNamesFromForeignKeys = extractRelatedNamesFromForeignKeys(tableDocuments);
 
+		// 通过外键加载缺失的表和列
+		List<String> missingTables = getMissingTableNamesWithForeignKeySet(tableDocuments, relatedNamesFromForeignKeys);
+		if (!missingTables.isEmpty()) {
+			loadMissingTableDocuments(agentId, tableDocuments, missingTables);
+			loadMissingColDocForMissingTables(agentId, currentColumnDocuments, missingTables);
+		}
+
 		// Build table list
 		List<TableDTO> tableList = buildTableListFromDocuments(tableDocuments);
-
-		// Supplement missing foreign key corresponding tables
-		expandTableDocumentsWithForeignKeys(agentId, tableDocuments, relatedNamesFromForeignKeys);
-		expandColumnDocumentsWithForeignKeys(agentId, currentColumnDocuments, relatedNamesFromForeignKeys);
-
 		// Attach columns to corresponding tables
 		attachColumnsToTables(currentColumnDocuments, tableList);
 
@@ -258,106 +267,7 @@ public class SchemaServiceImpl implements SchemaService {
 		return agentVectorStoreService.getDocumentsForAgent(agentId, query, DocumentMetadataConstant.TABLE);
 	}
 
-	/**
-	 * Get all column documents by keywords for specified agent
-	 */
-	@Override
-	public List<Document> getColumnDocumentsByKeywordsForAgent(String agentId, List<String> keywords,
-			List<Document> tableDocuments) {
-
-		Assert.hasText(agentId, "agentId cannot be empty");
-
-		List<Document> allResults = new ArrayList<>();
-		Set<String> seenDocumentIds = new HashSet<>();
-		for (String kw : keywords) {
-			List<Document> docs = agentVectorStoreService.getDocumentsForAgent(agentId, kw,
-					DocumentMetadataConstant.COLUMN);
-			if (CollectionUtils.isEmpty(docs)) {
-				continue;
-			}
-
-			List<Document> filterDocs = filterColumnsWithMatchingTables(docs, tableDocuments);
-			if (CollectionUtils.isEmpty(filterDocs))
-				continue;
-
-			for (Document doc : filterDocs) {
-				String docId = doc.getId();
-				if (seenDocumentIds.add(docId)) {
-					allResults.add(doc);
-				}
-			}
-
-		}
-
-		return allResults;
-	}
-
-	/**
-	 * Expand column documents (supplement missing columns through foreign keys)
-	 */
-	private void expandColumnDocumentsWithForeignKeys(String agentId, List<Document> currentColumns,
-			Set<String> foreignKeySet) {
-		// 提取已存在的列名，格式为 tableName.columnName
-		Set<String> existingColumnNames = currentColumns.stream()
-			.map(doc -> (String) doc.getMetadata().get("tableName") + "." + (String) doc.getMetadata().get("name"))
-			.collect(Collectors.toSet());
-
-		// 找出缺少的列
-		Set<String> missingColumnNames = new HashSet<>();
-		for (String key : foreignKeySet) {
-			if (!existingColumnNames.contains(key)) {
-				missingColumnNames.add(key);
-			}
-		}
-
-		if (missingColumnNames.isEmpty()) {
-			return;
-		}
-
-		// 按表名分组缺少的列
-		Map<String, List<String>> missingColumnsByTable = new HashMap<>();
-		for (String columnFullName : missingColumnNames) {
-			String[] parts = columnFullName.split("\\.");
-			if (parts.length == 2) {
-				String tableName = parts[0];
-				String columnName = parts[1];
-				missingColumnsByTable.computeIfAbsent(tableName, k -> new ArrayList<>()).add(columnName);
-			}
-		}
-
-		// 为每个表批量获取缺少的列文档
-		for (Map.Entry<String, List<String>> entry : missingColumnsByTable.entrySet()) {
-			String tableName = entry.getKey();
-			List<String> columnNames = entry.getValue();
-
-			List<Document> foundColumnDocs = agentVectorStoreService.getColumnDocuments(agentId, tableName,
-					columnNames);
-
-			// 添加到当前列列表中
-			if (!foundColumnDocs.isEmpty())
-				currentColumns.addAll(foundColumnDocs);
-
-			// 记录日志
-			if (foundColumnDocs.size() < columnNames.size()) {
-				Set<String> foundColumnNames = foundColumnDocs.stream()
-					.map(doc -> (String) doc.getMetadata().get("name"))
-					.collect(Collectors.toSet());
-
-				Set<String> notFoundColumns = new HashSet<>(columnNames);
-				notFoundColumns.removeAll(foundColumnNames);
-
-				log.warn("When we search from vector store,agentId: {} - columns not found in table {}: {}", agentId,
-						tableName, notFoundColumns);
-			}
-		}
-
-		log.debug("Finish expanding column documents with foreign keys: {}", missingColumnNames);
-	}
-
-	/**
-	 * Expand table documents (supplement missing tables through foreign keys)
-	 */
-	private void expandTableDocumentsWithForeignKeys(String agentId, List<Document> tableDocuments,
+	private List<String> getMissingTableNamesWithForeignKeySet(List<Document> tableDocuments,
 			Set<String> foreignKeySet) {
 		Set<String> uniqueTableNames = tableDocuments.stream()
 			.map(doc -> (String) doc.getMetadata().get("name"))
@@ -373,22 +283,55 @@ public class SchemaServiceImpl implements SchemaService {
 				}
 			}
 		}
-
-		if (!CollectionUtils.isEmpty(missingTables)) {
-			log.debug("Expand table documents with foreign keys: {}", missingTables);
-			loadMissingTableDocument(agentId, tableDocuments, new ArrayList<>(missingTables));
-		}
-
+		return new ArrayList<>(missingTables);
 	}
 
-	private void loadMissingTableDocument(String agentId, List<Document> tableDocuments,
-			List<String> missingtableNames) {
-		List<Document> foundTableDocs = agentVectorStoreService.getTableDocuments(agentId, missingtableNames);
-		if (foundTableDocs.size() > missingtableNames.size())
-			log.error("When we search missing tables:{},  more than expected tables for agent: {}", missingtableNames,
+	private void loadMissingTableDocuments(String agentId, List<Document> tableDocuments,
+			List<String> missingTableNames) {
+		// 加载缺失的表文档
+		List<Document> foundTableDocs = this.getTableDocuments(agentId, missingTableNames);
+		if (foundTableDocs.size() > missingTableNames.size())
+			log.error("When we search missing tables:{},  more than expected tables for agent: {}", missingTableNames,
 					agentId);
-		if (!foundTableDocs.isEmpty())
-			tableDocuments.addAll(foundTableDocs);
+
+		if (!foundTableDocs.isEmpty()) {
+			// 使用公共方法添加去重后的文档
+			addUniqueDocuments(tableDocuments, foundTableDocs, DocumentMetadataConstant.TABLE, missingTableNames);
+		}
+	}
+
+	private void loadMissingColDocForMissingTables(String agentId, List<Document> curColDocs,
+			List<String> missingTableNames) {
+		// 加载缺失的列文档
+		List<Document> foundColumnDocs = this.getColumnDocumentsByTableName(agentId, missingTableNames);
+		if (!foundColumnDocs.isEmpty()) {
+			// 使用公共方法添加去重后的文档
+			addUniqueDocuments(curColDocs, foundColumnDocs, DocumentMetadataConstant.COLUMN, missingTableNames);
+		}
+	}
+
+	/**
+	 * 添加去重后的文档到现有文档列表中
+	 * @param existingDocs 现有文档列表
+	 * @param newDocs 待添加的新文档列表
+	 * @param docType 文档类型（用于日志输出）
+	 * @param context 上下文信息（用于日志输出）
+	 */
+	private void addUniqueDocuments(List<Document> existingDocs, List<Document> newDocs, String docType,
+			Object context) {
+		// 通过Document的id来去重
+		Set<String> existingDocIds = existingDocs.stream().map(Document::getId).collect(Collectors.toSet());
+
+		// 只添加ID不存在的文档
+		List<Document> uniqueNewDocs = newDocs.stream().filter(doc -> !existingDocIds.contains(doc.getId())).toList();
+
+		if (!uniqueNewDocs.isEmpty()) {
+			existingDocs.addAll(uniqueNewDocs);
+			log.debug("Added {} {} documents for context: {}", uniqueNewDocs.size(), docType, context);
+		}
+		else {
+			log.debug("No new {} documents to add for context: {}", docType, context);
+		}
 	}
 
 	/**
@@ -420,144 +363,6 @@ public class SchemaServiceImpl implements SchemaService {
 			tableList.add(dto);
 		}
 		return tableList;
-	}
-
-	/**
-	 * Score each column (combining with its table's score)
-	 */
-	public void updateAndSortColumnScoresByTableWeights(List<List<Document>> columnDocuments,
-			List<Document> tableDocuments) {
-		for (int i = 0; i < columnDocuments.size(); i++) {
-			List<Document> processedColumns = processSingleTableColumns(columnDocuments.get(i), tableDocuments);
-			columnDocuments.set(i, processedColumns);
-		}
-	}
-
-	/**
-	 * Process columns for a single table, filtering and updating scores
-	 */
-	private List<Document> processSingleTableColumns(List<Document> columns, List<Document> tableDocuments) {
-		// Step 1: Filter columns to only include those that have a matching table
-		List<Document> filteredColumns = filterColumnsWithMatchingTables(columns, tableDocuments);
-
-		// Step 2: Update column scores by multiplying with their table scores
-		updateColumnScoresWithTableScores(filteredColumns, tableDocuments);
-
-		// Step 3: Sort columns by their new scores in descending order
-		return sortColumnsByScoreDescending(filteredColumns);
-	}
-
-	/**
-	 * Filter columns to only include those that have a matching table
-	 */
-	private List<Document> filterColumnsWithMatchingTables(List<Document> columns, List<Document> tableDocuments) {
-		List<Document> result = new ArrayList<>();
-
-		for (Document column : columns) {
-			String columnTableName = (String) column.getMetadata().get("tableName");
-			if (hasMatchingTable(tableDocuments, columnTableName)) {
-				result.add(column);
-			}
-		}
-
-		return result;
-	}
-
-	/**
-	 * Check if there's a table with the given name in the table documents
-	 */
-	private boolean hasMatchingTable(List<Document> tableDocuments, String tableName) {
-		if (StringUtils.isBlank(tableName)) {
-			return false;
-		}
-
-		for (Document table : tableDocuments) {
-			String table_name = (String) table.getMetadata().get("name");
-			if (tableName.equals(table_name)) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	/**
-	 * Update column scores by multiplying with their table scores
-	 */
-	private void updateColumnScoresWithTableScores(List<Document> columns, List<Document> tableDocuments) {
-		for (Document column : columns) {
-			String columnTableName = (String) column.getMetadata().get("tableName");
-			Document matchingTable = findTableByName(tableDocuments, columnTableName);
-
-			if (matchingTable != null) {
-				Double tableScore = getTableScore(matchingTable);
-				Double columnScore = getColumnScore(column);
-
-				if (tableScore != null && columnScore != null) {
-					Double newScore = columnScore * tableScore;
-					column.getMetadata().put("score", newScore);
-				}
-			}
-		}
-	}
-
-	/**
-	 * Find a table document by its name
-	 */
-	private Document findTableByName(List<Document> tableDocuments, String tableName) {
-		if (StringUtils.isBlank(tableName)) {
-			return null;
-		}
-
-		for (Document table : tableDocuments) {
-			String table_name = (String) table.getMetadata().get("name");
-			if (tableName.equals(table_name)) {
-				return table;
-			}
-		}
-
-		return null;
-	}
-
-	/**
-	 * Get the score from a table document
-	 */
-	private Double getTableScore(Document tableDoc) {
-		Double scoreFromMetadata = (Double) tableDoc.getMetadata().get("score");
-		return scoreFromMetadata != null ? scoreFromMetadata : tableDoc.getScore();
-	}
-
-	/**
-	 * Get the score from a column document
-	 */
-	private Double getColumnScore(Document columnDoc) {
-		Double scoreFromMetadata = (Double) columnDoc.getMetadata().get("score");
-		return scoreFromMetadata != null ? scoreFromMetadata : columnDoc.getScore();
-	}
-
-	/**
-	 * Sort columns by their scores in descending order
-	 */
-	private List<Document> sortColumnsByScoreDescending(List<Document> columns) {
-		List<Document> sortedColumns = new ArrayList<>(columns);
-
-		sortedColumns.sort((doc1, doc2) -> {
-			Double score1 = (Double) doc1.getMetadata().get("score");
-			Double score2 = (Double) doc2.getMetadata().get("score");
-
-			// Handle null scores
-			if (score1 == null && score2 == null)
-				return 0;
-			if (score1 == null)
-				return 1;
-			if (score2 == null)
-				return -1;
-
-			// Sort in descending order
-			return score2.compareTo(score1);
-		});
-
-		return sortedColumns;
 	}
 
 	/**
@@ -638,6 +443,40 @@ public class SchemaServiceImpl implements SchemaService {
 		else if (BizDataSourceTypeEnum.isPgDialect(dbConfig.getDialectType())) {
 			schemaDTO.setName(dbConfig.getSchema());
 		}
+	}
+
+	@Override
+	public List<Document> getTableDocuments(String agentId, List<String> tableNames) {
+		Assert.hasText(agentId, "AgentId cannot be empty.");
+		if (tableNames.isEmpty())
+			return Collections.emptyList();
+		// 通过元数据过滤查找目标表
+		Filter.Expression filterExpression = DynamicFilterService.buildFilterExpressionForSearchTables(agentId,
+				tableNames);
+		if (filterExpression == null) {
+			log.error("FilterExpression is null.This should not happen when tableNames is not Empty, ");
+			return Collections.emptyList();
+		}
+		return agentVectorStoreService.getDocumentsOnlyByFilter(filterExpression, tableNames.size() + 5);
+	}
+
+	@Override
+	public List<Document> getColumnDocumentsByTableName(String agentId, List<String> tableNames) {
+		Assert.hasText(agentId, "AgentId cannot be empty.");
+		if (tableNames.isEmpty()) {
+			log.warn("TableNames is empty.We need talbeNames to search their columns");
+			return Collections.emptyList();
+		}
+		Filter.Expression filterExpression = dynamicFilterService.buildFilterExpressionForSearchColumns(agentId,
+				tableNames);
+		if (filterExpression == null) {
+			log.error("FilterExpression is null.This should not happen when tableNames is not Empty, ");
+			return Collections.emptyList();
+		}
+		// 通过元数据过滤查找目标表下的所有列
+		// TopK=表数量×最大预估列数
+		return agentVectorStoreService.getDocumentsOnlyByFilter(filterExpression,
+				tableNames.size() * dataAgentProperties.getMaxColumnsPerTable());
 	}
 
 }

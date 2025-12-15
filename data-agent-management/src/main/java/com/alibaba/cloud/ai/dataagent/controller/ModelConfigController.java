@@ -38,21 +38,36 @@ public class ModelConfigController {
 	// 1. 获取列表
 	@GetMapping("/list")
 	public ApiResponse<List<ModelConfigDTO>> list() {
-		return ApiResponse.success("获取模型配置列表成功", modelConfigDataService.listConfigs());
+		try {
+			return ApiResponse.success("获取模型配置列表成功", modelConfigDataService.listConfigs());
+		}
+		catch (Exception e) {
+			return ApiResponse.error("获取模型配置列表失败: " + e.getMessage());
+		}
 	}
 
 	// 2. 新增配置
 	@PostMapping("/add")
 	public ApiResponse<String> add(@Valid @RequestBody ModelConfigDTO config) {
-		modelConfigDataService.addConfig(config);
-		return ApiResponse.success("配置已保存");
+		try {
+			modelConfigDataService.addConfig(config);
+			return ApiResponse.success("配置已保存");
+		}
+		catch (Exception e) {
+			return ApiResponse.error("保存失败: " + e.getMessage());
+		}
 	}
 
 	// 3. 修改配置
 	@PutMapping("/update")
 	public ApiResponse<String> update(@Valid @RequestBody ModelConfigDTO config) {
-		modelConfigOpsService.updateAndRefresh(config);
-		return ApiResponse.success("配置已更新");
+		try {
+			modelConfigOpsService.updateAndRefresh(config);
+			return ApiResponse.success("配置已更新");
+		}
+		catch (Exception e) {
+			return ApiResponse.error("更新失败: " + e.getMessage());
+		}
 	}
 
 	// 4. 删除配置

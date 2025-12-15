@@ -218,29 +218,24 @@ public class DynamicFilterService {
 		return combineWithAnd(conditions);
 	}
 
-	public Filter.Expression buildFilterExpressionForSearchColumns(String agentId, String upstreamTableName,
-			List<String> columnNames) {
+	public Filter.Expression buildFilterExpressionForSearchColumns(String agentId, List<String> upstreamTableNames) {
+		if (upstreamTableNames == null || upstreamTableNames.isEmpty()) {
+			log.warn("Upstream table names list is empty. Returning empty filter signal.");
+			return null;
+		}
+
 		FilterExpressionBuilder b = new FilterExpressionBuilder();
 		List<Filter.Expression> conditions = new ArrayList<>();
 
 		// 1. AgentId 条件
 		conditions.add(b.eq(Constant.AGENT_ID, agentId).build());
 
-		// 2. TableName 条件
-		conditions.add(b.eq(DocumentMetadataConstant.TABLE_NAME, upstreamTableName).build());
-
-		// 3. VectorType 条件
+		// 2. VectorType 条件
 		conditions.add(b.eq(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.COLUMN).build());
 
-		// 4. ColumnNames IN 条件
-		if (columnNames != null && !columnNames.isEmpty()) {
-			// metadata 中存储列名的字段叫name
-			conditions.add(b.in(DocumentMetadataConstant.NAME, columnNames.toArray()).build());
-		}
-		else {
-			log.warn("Column names list is empty. Returning empty filter signal.");
-			return null;
-		}
+		// 3. TableName 条件
+		conditions.add(b.in(DocumentMetadataConstant.TABLE_NAME, upstreamTableNames.toArray()).build());
+
 		return combineWithAnd(conditions);
 	}
 

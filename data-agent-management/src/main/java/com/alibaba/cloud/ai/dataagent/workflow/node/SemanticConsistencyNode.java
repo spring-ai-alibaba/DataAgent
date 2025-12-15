@@ -72,7 +72,7 @@ public class SemanticConsistencyNode implements NodeAction {
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, "开始语义一致性校验", "语义一致性校验完成", validationResult -> {
 					boolean isPassed = !validationResult.startsWith("不通过");
-					Map<String, Object> result = buildValidationResult(isPassed, validationResult, currentStep);
+					Map<String, Object> result = buildValidationResult(isPassed, validationResult);
 					log.info("[{}] Semantic consistency validation result: {}, passed: {}",
 							this.getClass().getSimpleName(), validationResult, isPassed);
 					return result;
@@ -97,9 +97,9 @@ public class SemanticConsistencyNode implements NodeAction {
 	/**
 	 * Build validation result
 	 */
-	private Map<String, Object> buildValidationResult(boolean passed, String validationResult, Integer currentStep) {
+	private Map<String, Object> buildValidationResult(boolean passed, String validationResult) {
 		if (passed) {
-			return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, true, PLAN_CURRENT_STEP, currentStep + 1);
+			return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, true);
 		}
 		else {
 			return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, false, SQL_REGENERATE_REASON,

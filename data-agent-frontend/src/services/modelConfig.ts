@@ -46,19 +46,19 @@ class ModelConfigService {
    * 新增模型配置
    * @param config 模型配置对象
    */
-  async add(config: Omit<ModelConfig, 'id'>): Promise<boolean> {
+  async add(config: Omit<ModelConfig, 'id'>): Promise<ApiResponse<string>> {
     console.log('config: ' + config);
     const response = await axios.post<ApiResponse<string>>(`${API_BASE_URL}/add`, config);
-    return response.data.success;
+    return response.data;
   }
 
   /**
    * 更新模型配置
    * @param config 模型配置对象
    */
-  async update(config: ModelConfig): Promise<boolean> {
+  async update(config: ModelConfig): Promise<ApiResponse<string>> {
     const response = await axios.put<ApiResponse<string>>(`${API_BASE_URL}/update`, config);
-    return response.data.success;
+    return response.data;
   }
 
   /**
@@ -74,9 +74,9 @@ class ModelConfigService {
    * 启用/切换模型配置
    * @param id 配置ID
    */
-  async activate(id: number): Promise<boolean> {
+  async activate(id: number): Promise<ApiResponse<string>> {
     const response = await axios.post<ApiResponse<string>>(`${API_BASE_URL}/activate/${id}`);
-    return response.data.success;
+    return response.data;
   }
 
   /**

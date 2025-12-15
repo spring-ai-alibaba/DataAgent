@@ -66,6 +66,9 @@ public class DataAgentProperties {
 	 */
 	private int maxplanlength = 2000;
 
+	// 每张表的最大预估列数
+	private int maxColumnsPerTable = 50;
+
 	@Getter
 	@Setter
 	public static class TextSplitter {

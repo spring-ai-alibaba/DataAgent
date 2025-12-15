@@ -48,13 +48,10 @@ public class QueryEnhanceDispatcher implements EdgeAction {
 				|| queryProcessOutput.getCanonicalQuery().trim().isEmpty();
 		boolean isExpandedQueriesEmpty = queryProcessOutput.getExpandedQueries() == null
 				|| queryProcessOutput.getExpandedQueries().isEmpty();
-		boolean isConsolidatedKeywordsEmpty = queryProcessOutput.getConsolidatedKeywords() == null
-				|| queryProcessOutput.getConsolidatedKeywords().isEmpty();
 
-		if (isCanonicalQueryEmpty || isExpandedQueriesEmpty || isConsolidatedKeywordsEmpty) {
-			log.warn(
-					"Query process output contains empty fields - canonicalQuery: {}, expandedQueries: {}, consolidatedKeywords: {}",
-					isCanonicalQueryEmpty, isExpandedQueriesEmpty, isConsolidatedKeywordsEmpty);
+		if (isCanonicalQueryEmpty || isExpandedQueriesEmpty) {
+			log.warn("Query process output contains empty fields - canonicalQuery: {}, expandedQueries: {}",
+					isCanonicalQueryEmpty, isExpandedQueriesEmpty);
 			return END;
 		}
 		else {

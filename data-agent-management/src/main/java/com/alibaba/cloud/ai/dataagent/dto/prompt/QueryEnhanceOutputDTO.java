@@ -34,8 +34,4 @@ public class QueryEnhanceOutputDTO {
 	@JsonProperty("expanded_queries")
 	private List<String> expandedQueries;
 
-	// 从"规范化查询"、所有"扩展问题"以及 "业务知识涉及的关键概念和数值"中，提取出的所有核心关键词。
-	@JsonProperty("consolidated_keywords")
-	private List<String> consolidatedKeywords;
-
 }

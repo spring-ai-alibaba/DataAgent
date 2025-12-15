@@ -58,23 +58,24 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 
 	@Override
 	public Flux<String> generateSql(String evidence, String query, SchemaDTO schemaDTO, String sql,
-			String exceptionMessage, DbConfig dbConfig, String executionDescription) {
-		log.info("Generating SQL for query: {}, hasExistingSql: {}", query, sql != null && !sql.isEmpty());
+			String exceptionMessage, DbConfig dbConfig, String executionDescription, String dialect) {
+		log.info("Generating SQL for query: {}, hasExistingSql: {}, dialect: {}", query, sql != null && !sql.isEmpty(),
+				dialect);
 
 		Flux<String> newSqlFlux;
 		if (sql != null && !sql.isEmpty()) {
 			// Use professional SQL error repair prompt
 			log.debug("Using SQL error fixer for existing SQL: {}", sql);
-			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(query, dbConfig, schemaDTO, evidence, sql,
-					exceptionMessage, executionDescription);
+			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(query, schemaDTO, evidence, sql,
+					exceptionMessage, executionDescription, dialect);
 			newSqlFlux = llmService.toStringFlux(llmService.callUser(errorFixerPrompt));
 			log.info("SQL error fixing completed");
 		}
 		else {
 			// Normal SQL generation process
 			log.debug("Generating new SQL from scratch");
-			List<String> prompts = PromptHelper.buildMixSqlGeneratorPrompt(query, dbConfig, schemaDTO, evidence,
-					executionDescription);
+			List<String> prompts = PromptHelper.buildMixSqlGeneratorPrompt(query, schemaDTO, evidence,
+					executionDescription, dialect);
 			newSqlFlux = llmService.toStringFlux(llmService.call(prompts.get(0), prompts.get(1)));
 			log.info("New SQL generation completed");
 		}
@@ -86,10 +87,11 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 	 * Use ChatClient to generate optimized SQL
 	 */
 	@Override
-	public Flux<String> generateOptimizedSql(String previousSql, String exceptionMessage, int round) {
+	public Flux<String> generateOptimizedSql(String previousSql, String exceptionMessage, int round, String dialect) {
 		try {
 			// todo: 写一个Prompt文件
 			StringBuilder prompt = new StringBuilder();
+			prompt.append("当前连接的数据库类型是：").append(dialect).append("\n\n");
 			prompt.append("请对以下SQL进行第").append(round).append("轮优化:\n\n");
 			prompt.append("当前SQL:\n").append(previousSql).append("\n\n");
 
@@ -98,10 +100,12 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 			}
 
 			prompt.append("优化目标:\n");
+			prompt.append("1. 修复任何语法错误（使用").append(dialect).append("语法规范）\n");
 			prompt.append("1. 修复任何语法错误\n");
 			prompt.append("2. 提升查询性能\n");
 			prompt.append("3. 确保查询安全性\n");
 			prompt.append("4. 优化可读性\n\n");
+			prompt.append("重要提示：生成的SQL必须符合").append(dialect).append("数据库的语法规范。\n");
 			prompt.append("请只返回优化后的SQL语句，不要包含其他说明。");
 
 			return llmService.toStringFlux(llmService.callUser(prompt.toString()));
