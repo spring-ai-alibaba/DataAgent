@@ -203,8 +203,8 @@ public class PromptHelper {
 		return data;
 	}
 
-	public static List<String> buildMixSqlGeneratorPrompt(String question, SchemaDTO schemaDTO,
-			String evidence, String executionDescription, String dialect) {
+	public static List<String> buildMixSqlGeneratorPrompt(String question, SchemaDTO schemaDTO, String evidence,
+			String executionDescription, String dialect) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		Map<String, Object> params = new HashMap<>();
 		params.put("dialect", dialect);
@@ -263,8 +263,8 @@ public class PromptHelper {
 			.render(params);
 	}
 
-	public static String buildSqlErrorFixerPrompt(String question, SchemaDTO schemaDTO,
-			String evidence, String errorSql, String errorMessage, String executionDescription, String dialect) {
+	public static String buildSqlErrorFixerPrompt(String question, SchemaDTO schemaDTO, String evidence,
+			String errorSql, String errorMessage, String executionDescription, String dialect) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 
 		Map<String, Object> params = new HashMap<>();

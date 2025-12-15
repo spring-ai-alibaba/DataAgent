@@ -59,8 +59,8 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 	@Override
 	public Flux<String> generateSql(String evidence, String query, SchemaDTO schemaDTO, String sql,
 			String exceptionMessage, DbConfig dbConfig, String executionDescription, String dialect) {
-		log.info("Generating SQL for query: {}, hasExistingSql: {}, dialect: {}", query, 
-				sql != null && !sql.isEmpty(), dialect);
+		log.info("Generating SQL for query: {}, hasExistingSql: {}, dialect: {}", query, sql != null && !sql.isEmpty(),
+				dialect);
 
 		Flux<String> newSqlFlux;
 		if (sql != null && !sql.isEmpty()) {
