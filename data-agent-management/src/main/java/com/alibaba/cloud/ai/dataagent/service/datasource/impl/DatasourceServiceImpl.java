@@ -265,6 +265,10 @@ public class DatasourceServiceImpl implements DatasourceService {
 			dbConfig.setConnectionType("jdbc");
 			dbConfig.setDialectType("dameng");
 		}
+		else if ("sqlserver".equalsIgnoreCase(datasource.getType())) {
+			dbConfig.setConnectionType("jdbc");
+			dbConfig.setDialectType("SqlServer");
+		}
 		else {
 			throw new RuntimeException("不支持的数据库类型: " + datasource.getType());
 		}
