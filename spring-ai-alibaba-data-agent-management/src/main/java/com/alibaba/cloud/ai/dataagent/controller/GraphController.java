@@ -19,17 +19,12 @@ package com.alibaba.cloud.ai.dataagent.controller;
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.service.graph.GraphService;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
-import io.micrometer.common.util.StringUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
@@ -76,12 +71,9 @@ public class GraphController {
 			.build();
 		graphService.graphStreamProcess(sink, request);
 
-		return sink.asFlux()
-			.map(sse -> sse.data())
-			// 过滤无效数据
-			.filter(nodeResp -> nodeResp != null && StringUtils.isNotBlank(nodeResp.getText()))
-			// 重新包装为SSE事件
-			.map(data -> ServerSentEvent.builder(data).build())
+		return sink.asFlux().filter(sse -> {
+			return sse.data() != null && org.springframework.util.StringUtils.hasText(sse.data().getText());
+		})
 			.doOnSubscribe(subscription -> log.info("Client subscribed to stream, threadId: {}", request.getThreadId()))
 			.doOnCancel(() -> {
 				log.info("Client disconnected from stream, threadId: {}", request.getThreadId());
