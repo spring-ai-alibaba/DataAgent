@@ -75,7 +75,9 @@ public class GraphController {
 			.build();
 		graphService.graphStreamProcess(sink, request);
 
-		return sink.asFlux()
+		return sink.asFlux().filter(sse -> {
+			return sse.data() != null && org.springframework.util.StringUtils.hasText(sse.data().getText());
+		})
 			.doOnSubscribe(subscription -> log.info("Client subscribed to stream, threadId: {}", request.getThreadId()))
 			.doOnCancel(() -> {
 				log.info("Client disconnected from stream, threadId: {}", request.getThreadId());
