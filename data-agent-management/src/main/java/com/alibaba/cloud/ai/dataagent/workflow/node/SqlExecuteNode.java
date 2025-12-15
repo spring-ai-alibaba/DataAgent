@@ -56,7 +56,7 @@ public class SqlExecuteNode implements NodeAction {
 
 	private final DatabaseUtil databaseUtil;
 
-    private final Nl2SqlService nl2SqlService;
+	private final Nl2SqlService nl2SqlService;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {

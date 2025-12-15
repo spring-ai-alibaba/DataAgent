@@ -225,7 +225,7 @@ public class SqlOptimizeNode implements NodeAction {
 			throw new IllegalArgumentException("生成的SQL为空");
 		}
 
-        sql = nl2SqlService.sqlTrim(sql);
+		sql = nl2SqlService.sqlTrim(sql);
 		// Basic cleanup
 		sql = sql.trim();
 		if (!sql.endsWith(";")) {
