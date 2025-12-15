@@ -135,8 +135,9 @@ public class SqlGenerateNode implements NodeAction {
 		String agentIdStr = state.value(AGENT_ID, String.class).orElseThrow(IllegalStateException::new);
 		Integer agentId = Integer.parseInt(agentIdStr);
 		DbConfig dbConfig = databaseUtil.getAgentDbConfig(agentId);
+		String dialect = dbConfig.getDialectType();
 		return nl2SqlService.generateSql(evidence, userQuery, schemaDTO, originalSql, errorMsg, dbConfig,
-				executionDescription);
+				executionDescription, dialect);
 	}
 
 	private Flux<String> handleGenerateSql(OverAllState state, String executionDescription) {

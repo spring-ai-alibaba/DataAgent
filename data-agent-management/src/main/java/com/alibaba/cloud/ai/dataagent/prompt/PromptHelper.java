@@ -203,10 +203,9 @@ public class PromptHelper {
 		return data;
 	}
 
-	public static List<String> buildMixSqlGeneratorPrompt(String question, DbConfig dbConfig, SchemaDTO schemaDTO,
-			String evidence, String executionDescription) {
+	public static List<String> buildMixSqlGeneratorPrompt(String question, SchemaDTO schemaDTO,
+			String evidence, String executionDescription, String dialect) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
-		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
 		Map<String, Object> params = new HashMap<>();
 		params.put("dialect", dialect);
 		params.put("question", question);
@@ -219,11 +218,10 @@ public class PromptHelper {
 		return prompts;
 	}
 
-	public static String mixSqlGeneratorSystemCheckPrompt(String question, DbConfig dbConfig, SchemaDTO schemaDTO,
-			List<String> evidenceList) {
+	public static String mixSqlGeneratorSystemCheckPrompt(String question, SchemaDTO schemaDTO,
+			List<String> evidenceList, String dialect) {
 		String evidence = StringUtils.join(evidenceList, ";\n");
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
-		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
 		Map<String, Object> params = new HashMap<>();
 		params.put("dialect", dialect);
 		params.put("question", question);
@@ -265,10 +263,9 @@ public class PromptHelper {
 			.render(params);
 	}
 
-	public static String buildSqlErrorFixerPrompt(String question, DbConfig dbConfig, SchemaDTO schemaDTO,
-			String evidence, String errorSql, String errorMessage, String executionDescription) {
+	public static String buildSqlErrorFixerPrompt(String question, SchemaDTO schemaDTO,
+			String evidence, String errorSql, String errorMessage, String executionDescription, String dialect) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
-		String dialect = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType()).getDialect();
 
 		Map<String, Object> params = new HashMap<>();
 		params.put("dialect", dialect);

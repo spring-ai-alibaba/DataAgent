@@ -29,7 +29,7 @@ public interface Nl2SqlService {
 	Flux<ChatResponse> semanticConsistencyStream(String sql, String queryPrompt);
 
 	Flux<String> generateSql(String evidence, String query, SchemaDTO schemaDTO, String sql, String exceptionMessage,
-			DbConfig dbConfig, String executionDescription);
+			DbConfig dbConfig, String executionDescription, String dialect);
 
 	Flux<String> generateOptimizedSql(String previousSql, String exceptionMessage, int round, String dialect);
 

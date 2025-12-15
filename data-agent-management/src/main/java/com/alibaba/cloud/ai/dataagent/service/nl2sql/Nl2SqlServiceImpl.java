@@ -58,23 +58,24 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 
 	@Override
 	public Flux<String> generateSql(String evidence, String query, SchemaDTO schemaDTO, String sql,
-			String exceptionMessage, DbConfig dbConfig, String executionDescription) {
-		log.info("Generating SQL for query: {}, hasExistingSql: {}", query, sql != null && !sql.isEmpty());
+			String exceptionMessage, DbConfig dbConfig, String executionDescription, String dialect) {
+		log.info("Generating SQL for query: {}, hasExistingSql: {}, dialect: {}", query, 
+				sql != null && !sql.isEmpty(), dialect);
 
 		Flux<String> newSqlFlux;
 		if (sql != null && !sql.isEmpty()) {
 			// Use professional SQL error repair prompt
 			log.debug("Using SQL error fixer for existing SQL: {}", sql);
-			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(query, dbConfig, schemaDTO, evidence, sql,
-					exceptionMessage, executionDescription);
+			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(query, schemaDTO, evidence, sql,
+					exceptionMessage, executionDescription, dialect);
 			newSqlFlux = llmService.toStringFlux(llmService.callUser(errorFixerPrompt));
 			log.info("SQL error fixing completed");
 		}
 		else {
 			// Normal SQL generation process
 			log.debug("Generating new SQL from scratch");
-			List<String> prompts = PromptHelper.buildMixSqlGeneratorPrompt(query, dbConfig, schemaDTO, evidence,
-					executionDescription);
+			List<String> prompts = PromptHelper.buildMixSqlGeneratorPrompt(query, schemaDTO, evidence,
+					executionDescription, dialect);
 			newSqlFlux = llmService.toStringFlux(llmService.call(prompts.get(0), prompts.get(1)));
 			log.info("New SQL generation completed");
 		}
