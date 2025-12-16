@@ -22,6 +22,7 @@ import com.alibaba.cloud.ai.dataagent.common.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.dataagent.entity.BusinessKnowledge;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
 
 import java.util.*;
@@ -56,7 +57,8 @@ public class DocumentConverterUtil {
 	 */
 	public static Document convertColumnToDocumentForAgent(String agentId, TableInfoBO tableInfoBO,
 			ColumnInfoBO columnInfoBO) {
-		String text = Optional.ofNullable(columnInfoBO.getDescription()).orElse(columnInfoBO.getName());
+		String text = StringUtils.isBlank(columnInfoBO.getDescription()) ? columnInfoBO.getName()
+				: columnInfoBO.getDescription();
 		Map<String, Object> metadata = new HashMap<>();
 		metadata.put("name", columnInfoBO.getName());
 		metadata.put("tableName", tableInfoBO.getName());
@@ -80,7 +82,8 @@ public class DocumentConverterUtil {
 	 * @return Document object with table metadata
 	 */
 	public static Document convertTableToDocumentForAgent(String agentId, TableInfoBO tableInfoBO) {
-		String text = Optional.ofNullable(tableInfoBO.getDescription()).orElse(tableInfoBO.getName());
+		String text = StringUtils.isBlank(tableInfoBO.getDescription()) ? tableInfoBO.getName()
+				: tableInfoBO.getDescription();
 		Map<String, Object> metadata = new HashMap<>();
 		metadata.put("schema", Optional.ofNullable(tableInfoBO.getSchema()).orElse(""));
 		metadata.put("name", tableInfoBO.getName());
