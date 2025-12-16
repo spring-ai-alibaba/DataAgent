@@ -38,7 +38,7 @@ public class SQLExecutorDispatcher implements EdgeAction {
 			return SQL_GENERATE_NODE;
 		}
 		else {
-			log.info("SQL运行成功，返回Planner节点。");
+			log.info("SQL运行成功，返回PlanExecutorNode。");
 			return PLAN_EXECUTOR_NODE;
 		}
 	}

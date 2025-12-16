@@ -16,18 +16,15 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
+import com.alibaba.cloud.ai.dataagent.common.util.*;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonParseUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
-import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -39,7 +36,7 @@ import java.util.Map;
 import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
 
 /**
- * 查询丰富节点，用于根据evidence信息把业务翻译。查询改写、分解和关键词提取
+ * 查询丰富节点，用于根据evidence信息把业务翻译。查询改写，扩展。 此节点不需要提取关键词，如果混合检索，如es等库会自行分词并计算相关性。
  */
 @Slf4j
 @Component
@@ -80,7 +77,7 @@ public class QueryEnhanceNode implements NodeAction {
 
 	private Map<String, Object> handleQueryEnhance(String llmOutput) {
 		// 获取处理结果
-		String enhanceResult = llmOutput.trim();
+		String enhanceResult = MarkdownParserUtil.extractRawText(llmOutput.trim());
 		log.info("Query enhance result: {}", enhanceResult);
 
 		// 解析处理结果，转成 QueryProcessOutputDTO

@@ -63,29 +63,19 @@ public final class Constant {
 
 	public static final String SQL_GENERATE_SCHEMA_MISSING_ADVICE = "SQL_GENERATE_SCHEMA_MISSING_ADVICE";
 
-	public static final String SQL_GENERATE_SCHEMA_MISSING = "SQL_GENERATE_SCHEMA_MISSING";
-
 	public static final String SQL_GENERATE_COUNT = "SQL_GENERATE_COUNT";
 
 	// 重新生成SQL的原因
 	public static final String SQL_REGENERATE_REASON = "SQL_REGENERATE_REASON";
-
-	// SQL优化
-	public static final String SQL_OPTIMIZE_COUNT = "SQL_OPTIMIZE_COUNT";
-
-	public static final String SQL_OPTIMIZE_BEST_SQL = "SQL_OPTIMIZE_BEST_SQL";
-
-	public static final String SQL_OPTIMIZE_BEST_SCORE = "SQL_OPTIMIZE_BEST_SCORE";
-
-	public static final String SQL_OPTIMIZE_FINISHED = "SQL_OPTIMIZE_FINISHED";
-
-	public static final String SQL_OPTIMIZE_NODE = "SQL_OPTIMIZE_NODE";
 
 	public static final String SEMANTIC_CONSISTENCY_NODE_OUTPUT = "SEMANTIC_CONSISTENCY_NODE_OUTPUT";
 
 	public static final String PLANNER_NODE_OUTPUT = "PLANNER_NODE_OUTPUT";
 
 	public static final String SQL_EXECUTE_NODE_OUTPUT = "SQL_EXECUTE_NODE_OUTPUT";
+
+	// dialect
+	public static final String DB_DIALECT_TYPE = "DB_DIALECT_TYPE";
 
 	// Plan当前需要执行的步骤编号
 	public static final String PLAN_CURRENT_STEP = "PLAN_CURRENT_STEP";

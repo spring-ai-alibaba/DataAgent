@@ -25,6 +25,7 @@ import com.alibaba.cloud.ai.dataagent.common.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -48,29 +49,11 @@ public class PlanExecutorNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
+		// TODO 待优化，校验应该在生成计划之后而不是这里，这里导致每次运行一个计划都校验一次
 		// 1. Validate the Plan
+		Plan plan;
 		try {
-			Plan plan = PlanProcessUtil.getPlan(state);
-
-			if (plan.getExecutionPlan() == null || plan.getExecutionPlan().isEmpty()) {
-				return buildValidationResult(state, false,
-						"Validation failed: The generated plan is empty or has no execution steps.");
-			}
-
-			for (ExecutionStep step : plan.getExecutionPlan()) {
-				if (step.getToolToUse() == null || !SUPPORTED_NODES.contains(step.getToolToUse())) {
-					return buildValidationResult(state, false,
-							"Validation failed: Plan contains an invalid tool name: '" + step.getToolToUse()
-									+ "' in step " + step.getStep());
-				}
-				if (step.getToolParameters() == null) {
-					return buildValidationResult(state, false,
-							"Validation failed: Tool parameters are missing for step " + step.getStep());
-				}
-			}
-
-			log.info("Plan validation successful.");
-
+			plan = PlanProcessUtil.getPlan(state);
 		}
 		catch (Exception e) {
 			log.error("Plan validation failed due to a parsing error.", e);
@@ -78,6 +61,21 @@ public class PlanExecutorNode implements NodeAction {
 					"Validation failed: The plan is not a valid JSON structure. Error: " + e.getMessage());
 		}
 
+		// Validate execution plan structure
+		if (!validateExecutionPlanStructure(plan)) {
+			return buildValidationResult(state, false,
+					"Validation failed: The generated plan is empty or has no execution steps.");
+		}
+
+		// Validate each execution step
+		for (ExecutionStep step : plan.getExecutionPlan()) {
+			String validationResult = validateExecutionStep(step);
+			if (validationResult != null) {
+				return buildValidationResult(state, false, validationResult);
+			}
+		}
+
+		log.info("Plan validation successful.");
 		// 2. If开启人工复核，则在执行前暂停，跳转到human_feedback节点
 		Boolean humanReviewEnabled = state.value(HUMAN_REVIEW_ENABLED, false);
 		if (Boolean.TRUE.equals(humanReviewEnabled)) {
@@ -85,7 +83,6 @@ public class PlanExecutorNode implements NodeAction {
 			return Map.of(PLAN_VALIDATION_STATUS, true, PLAN_NEXT_NODE, HUMAN_FEEDBACK_NODE);
 		}
 
-		Plan plan = PlanProcessUtil.getPlan(state);
 		int currentStep = PlanProcessUtil.getCurrentStepNumber(state);
 		List<ExecutionStep> executionPlan = plan.getExecutionPlan();
 
@@ -122,6 +119,58 @@ public class PlanExecutorNode implements NodeAction {
 			// before.
 			return Map.of(PLAN_VALIDATION_STATUS, false, PLAN_VALIDATION_ERROR, "Unsupported node type: " + toolToUse);
 		}
+	}
+
+	/**
+	 * Validate the execution plan structure
+	 */
+	private boolean validateExecutionPlanStructure(Plan plan) {
+		return plan != null && plan.getExecutionPlan() != null && !plan.getExecutionPlan().isEmpty();
+	}
+
+	/**
+	 * Validate a single execution step
+	 * @return error message if validation fails, null if validation passes
+	 */
+	private String validateExecutionStep(ExecutionStep step) {
+		// Validate tool name
+		if (step.getToolToUse() == null || !SUPPORTED_NODES.contains(step.getToolToUse())) {
+			return "Validation failed: Plan contains an invalid tool name: '" + step.getToolToUse() + "' in step "
+					+ step.getStep();
+		}
+
+		// Validate tool parameters
+		if (step.getToolParameters() == null) {
+			return "Validation failed: Tool parameters are missing for step " + step.getStep();
+		}
+
+		// Validate specific parameters based on node type
+		switch (step.getToolToUse()) {
+			case SQL_GENERATE_NODE:
+				if (!StringUtils.hasText(step.getToolParameters().getInstruction())) {
+					return "Validation failed: SQL generation node is missing description in step " + step.getStep();
+				}
+				break;
+
+			case PYTHON_GENERATE_NODE:
+				if (!StringUtils.hasText(step.getToolParameters().getInstruction())) {
+					return "Validation failed: Python generation node is missing instruction in step " + step.getStep();
+				}
+				break;
+
+			case REPORT_GENERATOR_NODE:
+				if (!StringUtils.hasText(step.getToolParameters().getSummaryAndRecommendations())) {
+					return "Validation failed: Report generation node is missing summary_and_recommendations in step "
+							+ step.getStep();
+				}
+				break;
+
+			default:
+				// This should not happen due to the earlier validation
+				break;
+		}
+
+		return null; // Validation passed
 	}
 
 	private Map<String, Object> buildValidationResult(OverAllState state, boolean isValid, String errorMessage) {

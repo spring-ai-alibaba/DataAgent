@@ -73,6 +73,7 @@ public class EvidenceRecallNode implements NodeAction {
 		String multiTurn = StateUtil.getStringValue(state, MULTI_TURN_CONTEXT, "(无)");
 
 		// 构建查询重写提示
+		// 不需要扩展为多个子查询，因为此时LLM不能理解不同公司的个性化业务知识，比如 PV,KMV等专业名词，扩展反而引入噪音。
 		String prompt = PromptHelper.buildEvidenceQueryRewritePrompt(multiTurn, question);
 		log.debug("Built evidence-query-rewrite prompt as follows \n {} \n", prompt);
 

@@ -16,13 +16,11 @@
 
 package com.alibaba.cloud.ai.dataagent.dto.planner;
 
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 @Data
 @NoArgsConstructor
@@ -41,31 +39,25 @@ public class ExecutionStep {
 	@Data
 	@NoArgsConstructor
 	@AllArgsConstructor
+	// 序列化时忽略 null 值，让生成的 JSON 更干净
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public static class ToolParameters {
 
-		private String description;
-
-		@JsonProperty("summary_and_recommendations")
-		private String summaryAndRecommendations;
-
-		@JsonProperty("sql_query")
-		private String sqlQuery;
-
+		// 统一指令字段：
+		// 1. SQL_GENERATE_NODE -> 存当前步骤要做的详细的 SQL 需求
+		// 2. PYTHON_GENERATE_NODE -> 存当前步骤要做的详细的编程需求
 		@JsonProperty("instruction")
 		private String instruction;
 
-		@JsonProperty("input_data_description")
-		private String inputDataDescription;
+		// REPORT_GENERATOR_NODE专用。报告的大纲、需要回答的关键问题和建议方向。
+		@JsonProperty("summary_and_recommendations")
+		private String summaryAndRecommendations;
 
-		public String toJsonStr() {
-			ObjectMapper objectMapper = JsonUtil.getObjectMapper();
-			try {
-				return objectMapper.writeValueAsString(this);
-			}
-			catch (JsonProcessingException e) {
-				throw new RuntimeException("Failed to convert object to JSON string", e);
-			}
-		}
+		// --- 运行态字段 ---
+		// Planner 永远不填这个字段（Prompt里根本不提它）
+		// 但是 SQL_GENERATE_NODE 运行完后，会把生成的 SQL 塞进来
+		@JsonProperty("sql_query")
+		private String sqlQuery;
 
 	}
 

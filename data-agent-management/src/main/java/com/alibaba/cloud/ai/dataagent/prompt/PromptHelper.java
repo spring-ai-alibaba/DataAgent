@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.prompt;
 
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
@@ -32,59 +34,6 @@ import java.util.stream.Collectors;
 
 public class PromptHelper {
 
-	private static final List<String> DATE_TIME_TYPES = Arrays.asList("DATE", "TIME", "DATETIME", "TIMESTAMP");
-
-	public static String buildRewritePrompt(String query, SchemaDTO schemaDTO, List<String> evidenceList) {
-		StringBuilder dbContent = new StringBuilder();
-		dbContent.append("库名: 默认数据库, 包含以下表:\n");
-		for (TableDTO tableDTO : schemaDTO.getTable()) {
-			dbContent.append(buildMacSqlTablePrompt(tableDTO)).append("\n");
-		}
-		// TODO 待完善多轮输入
-		StringBuilder multiTurn = new StringBuilder();
-		multiTurn.append("<最新>").append("用户: ").append(query);
-
-		String evidence = CollectionUtils.isEmpty(evidenceList) ? "" : StringUtils.join(evidenceList, ";\n");
-		Map<String, Object> params = new HashMap<>();
-		params.put("db_content", dbContent.toString());
-		params.put("evidence", evidence);
-		params.put("multi_turn", multiTurn.toString());
-		return PromptConstant.getInitRewritePromptTemplate().render(params);
-	}
-
-	public static String buildMacSqlTablePrompt(TableDTO tableDTO) {
-		StringBuilder sb = new StringBuilder();
-		sb.append("# 表名: ").append(tableDTO.getName()).append(", 包含字段:\n");
-		sb.append("[\n");
-		List<String> columnLines = new ArrayList<>();
-		for (ColumnDTO columnDTO : tableDTO.getColumn()) {
-			StringBuilder line = new StringBuilder();
-			line.append("  (").append(StringUtils.defaultString(columnDTO.getDescription(), columnDTO.getName()));
-			if (CollectionUtils.isNotEmpty(columnDTO.getData())) {
-				line.append(", 示例值:[");
-				List<String> data = columnDTO.getData()
-					.subList(0, Math.min(3, columnDTO.getData().size()))
-					.stream()
-					.map(d -> "'" + d + "'")
-					.collect(Collectors.toList());
-				line.append(StringUtils.join(data, ",")).append("])");
-			}
-			else {
-				line.append(")");
-			}
-			columnLines.add(line.toString());
-		}
-		sb.append(StringUtils.join(columnLines, ",\n"));
-		sb.append("\n]");
-		return sb.toString();
-	}
-
-	public static String buildQueryToKeywordsPrompt(String question) {
-		Map<String, Object> params = new HashMap<>();
-		params.put("question", question);
-		return PromptConstant.getQuestionToKeywordsPromptTemplate().render(params);
-	}
-
 	public static String buildMixSelectorPrompt(String evidence, String question, SchemaDTO schemaDTO) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		Map<String, Object> params = new HashMap<>();
@@ -95,27 +44,6 @@ public class PromptHelper {
 		else
 			params.put("evidence", evidence);
 		return PromptConstant.getMixSelectorPromptTemplate().render(params);
-	}
-
-	public static String buildDateTimeExtractPrompt(String question) {
-		Map<String, Object> params = new HashMap<>();
-		params.put("question", question);
-		return PromptConstant.getExtractDatetimePromptTemplate().render(params);
-	}
-
-	/**
-	 * 构建时间转换提示词
-	 * @param query 用户查询
-	 * @return 时间转换提示词
-	 */
-	public static String buildTimeConversionPrompt(String query) {
-		Map<String, Object> promptMap = new HashMap<>();
-		promptMap.put("current_time_info",
-				LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-		promptMap.put("query", query);
-
-		PromptTemplate promptTemplate = PromptConstant.getTimeConversionPromptTemplate();
-		return promptTemplate.render(promptMap);
 	}
 
 	public static String buildMixMacSqlDbPrompt(SchemaDTO schemaDTO, Boolean withColumnType) {
@@ -177,61 +105,25 @@ public class PromptHelper {
 		return sb.toString();
 	}
 
-	private static List<String> processSamples(List<String> samples, ColumnDTO columnDTO) {
-		final List<String> data = new ArrayList<>(samples);
-		if (data.stream().anyMatch(item -> item.length() > 50)) {
-			return new ArrayList<>();
-		}
-		String type = columnDTO.getType();
-		if (type != null && DATE_TIME_TYPES.contains(type.toUpperCase(Locale.ROOT))) {
-			return data.isEmpty() ? Collections.emptyList() : Collections.singletonList(data.get(0));
-		}
-		if (type != null && type.equalsIgnoreCase("NUMBER")) {
-			return data.isEmpty() ? Collections.emptyList() : Collections.singletonList(data.get(0));
-		}
-		String columnName = columnDTO.getName();
-		if (columnName != null && columnName.trim().toLowerCase(Locale.ROOT).endsWith("id")) {
-			return data.isEmpty() ? Collections.emptyList() : Collections.singletonList(data.get(0));
-		}
-		List<String> longSamples = data.stream().filter(item -> item.length() > 20).collect(Collectors.toList());
-		if (CollectionUtils.isNotEmpty(longSamples)) {
-			return Collections.singletonList(longSamples.get(0));
-		}
-
-		return data;
-	}
-
-	public static List<String> buildMixSqlGeneratorPrompt(String question, SchemaDTO schemaDTO, String evidence,
-			String executionDescription, String dialect) {
-		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
+	public static String buildNewSqlGeneratorPrompt(SqlGenerationDTO sqlGenerationDTO) {
+		String schemaInfo = buildMixMacSqlDbPrompt(sqlGenerationDTO.getSchemaDTO(), true);
 		Map<String, Object> params = new HashMap<>();
-		params.put("dialect", dialect);
-		params.put("question", question);
+		params.put("dialect", sqlGenerationDTO.getDialect());
+		params.put("question", sqlGenerationDTO.getQuery());
 		params.put("schema_info", schemaInfo);
-		params.put("evidence", evidence);
-		params.put("execution_description", executionDescription);
-		List<String> prompts = new ArrayList<>();
-		prompts.add(PromptConstant.getMixSqlGeneratorSystemPromptTemplate().render(params));
-		prompts.add(PromptConstant.getMixSqlGeneratorPromptTemplate().render(params));
-		return prompts;
+		params.put("evidence", sqlGenerationDTO.getEvidence());
+		params.put("execution_description", sqlGenerationDTO.getExecutionDescription());
+		return PromptConstant.getNewSqlGeneratorPromptTemplate().render(params);
 	}
 
-	public static String mixSqlGeneratorSystemCheckPrompt(String question, SchemaDTO schemaDTO,
-			List<String> evidenceList, String dialect) {
-		String evidence = StringUtils.join(evidenceList, ";\n");
-		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
+	public static String buildSemanticConsistenPrompt(SemanticConsistencyDTO semanticConsistencyDTO) {
 		Map<String, Object> params = new HashMap<>();
-		params.put("dialect", dialect);
-		params.put("question", question);
-		params.put("schema_info", schemaInfo);
-		params.put("evidence", evidence);
-		return PromptConstant.getMixSqlGeneratorSystemCheckPromptTemplate().render(params);
-	}
-
-	public static String buildSemanticConsistenPrompt(String nlReq, String sql) {
-		Map<String, Object> params = new HashMap<>();
-		params.put("nl_req", nlReq);
-		params.put("sql", sql);
+		params.put("dialect", semanticConsistencyDTO.getDialect());
+		params.put("execution_description", semanticConsistencyDTO.getExecutionDescription());
+		params.put("user_query", semanticConsistencyDTO.getUserQuery());
+		params.put("evidence", semanticConsistencyDTO.getEvidence());
+		params.put("schema_info", semanticConsistencyDTO.getSchemaInfo());
+		params.put("sql", semanticConsistencyDTO.getSql());
 		return PromptConstant.getSemanticConsistencyPromptTemplate().render(params);
 	}
 
@@ -261,18 +153,17 @@ public class PromptHelper {
 			.render(params);
 	}
 
-	public static String buildSqlErrorFixerPrompt(String question, SchemaDTO schemaDTO, String evidence,
-			String errorSql, String errorMessage, String executionDescription, String dialect) {
-		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
+	public static String buildSqlErrorFixerPrompt(SqlGenerationDTO sqlGenerationDTO) {
+		String schemaInfo = buildMixMacSqlDbPrompt(sqlGenerationDTO.getSchemaDTO(), true);
 
 		Map<String, Object> params = new HashMap<>();
-		params.put("dialect", dialect);
-		params.put("question", question);
+		params.put("dialect", sqlGenerationDTO.getDialect());
+		params.put("question", sqlGenerationDTO.getQuery());
 		params.put("schema_info", schemaInfo);
-		params.put("evidence", evidence);
-		params.put("error_sql", errorSql);
-		params.put("error_message", errorMessage);
-		params.put("execution_description", executionDescription);
+		params.put("evidence", sqlGenerationDTO.getEvidence());
+		params.put("error_sql", sqlGenerationDTO.getSql());
+		params.put("error_message", sqlGenerationDTO.getExceptionMessage());
+		params.put("execution_description", sqlGenerationDTO.getExecutionDescription());
 
 		return PromptConstant.getSqlErrorFixerPromptTemplate().render(params);
 	}

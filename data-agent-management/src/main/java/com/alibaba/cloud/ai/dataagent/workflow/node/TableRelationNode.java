@@ -135,7 +135,7 @@ public class TableRelationNode implements NodeAction {
 
 		// need to reset retry count and exception
 		return Map.of(TABLE_RELATION_OUTPUT, generator, TABLE_RELATION_RETRY_COUNT, 0, TABLE_RELATION_EXCEPTION_OUTPUT,
-				"");
+				"", DB_DIALECT_TYPE, agentDbConfig.getDialectType());
 
 	}
 

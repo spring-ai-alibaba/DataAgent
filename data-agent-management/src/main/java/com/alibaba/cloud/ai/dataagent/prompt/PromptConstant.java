@@ -25,11 +25,6 @@ import org.springframework.ai.chat.prompt.PromptTemplate;
  */
 public class PromptConstant {
 
-	// Prompt template acquisition method
-	public static PromptTemplate getInitRewritePromptTemplate() {
-		return new PromptTemplate(PromptLoader.loadPrompt("init-rewrite"));
-	}
-
 	// intent-recognition
 	public static PromptTemplate getIntentRecognitionPromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("intent-recognition"));
@@ -54,32 +49,16 @@ public class PromptConstant {
 		return new PromptTemplate(PromptLoader.loadPrompt("feasibility-assessment"));
 	}
 
-	public static PromptTemplate getQuestionToKeywordsPromptTemplate() {
-		return new PromptTemplate(PromptLoader.loadPrompt("question-to-keywords"));
-	}
-
 	public static PromptTemplate getMixSelectorPromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("mix-selector"));
-	}
-
-	public static PromptTemplate getMixSqlGeneratorSystemPromptTemplate() {
-		return new PromptTemplate(PromptLoader.loadPrompt("mix-sql-generator-system"));
-	}
-
-	public static PromptTemplate getMixSqlGeneratorPromptTemplate() {
-		return new PromptTemplate(PromptLoader.loadPrompt("mix-sql-generator"));
-	}
-
-	public static PromptTemplate getExtractDatetimePromptTemplate() {
-		return new PromptTemplate(PromptLoader.loadPrompt("extract-datetime"));
 	}
 
 	public static PromptTemplate getSemanticConsistencyPromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("semantic-consistency"));
 	}
 
-	public static PromptTemplate getMixSqlGeneratorSystemCheckPromptTemplate() {
-		return new PromptTemplate(PromptLoader.loadPrompt("mix-sql-generator-system-check"));
+	public static PromptTemplate getNewSqlGeneratorPromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("new-sql-generate"));
 	}
 
 	public static PromptTemplate getPlannerPromptTemplate() {
@@ -106,20 +85,12 @@ public class PromptConstant {
 		return new PromptTemplate(PromptLoader.loadPrompt("python-analyze"));
 	}
 
-	public static PromptTemplate getQuestionExpansionPromptTemplate() {
-		return new PromptTemplate(PromptLoader.loadPrompt("question-expansion"));
-	}
-
 	public static PromptTemplate getBusinessKnowledgePromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("business-knowledge"));
 	}
 
 	public static PromptTemplate getSemanticModelPromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("semantic-model"));
-	}
-
-	public static PromptTemplate getTimeConversionPromptTemplate() {
-		return new PromptTemplate(PromptLoader.loadPrompt("time-conversion"));
 	}
 
 	public static PromptTemplate getJsonFixPromptTemplate() {

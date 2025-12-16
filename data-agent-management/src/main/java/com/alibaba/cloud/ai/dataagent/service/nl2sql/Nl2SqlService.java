@@ -16,9 +16,11 @@
 
 package com.alibaba.cloud.ai.dataagent.service.nl2sql;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.common.util.MarkdownParserUtil;
+import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
+import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 
@@ -26,12 +28,9 @@ import java.util.function.Consumer;
 
 public interface Nl2SqlService {
 
-	Flux<ChatResponse> semanticConsistencyStream(String sql, String queryPrompt);
+	Flux<ChatResponse> performSemanticConsistency(SemanticConsistencyDTO semanticConsistencyDTO);
 
-	Flux<String> generateSql(String evidence, String query, SchemaDTO schemaDTO, String sql, String exceptionMessage,
-			DbConfig dbConfig, String executionDescription, String dialect);
-
-	Flux<String> generateOptimizedSql(String previousSql, String exceptionMessage, int round, String dialect);
+	Flux<String> generateSql(SqlGenerationDTO sqlGenerationDTO);
 
 	Flux<ChatResponse> fineSelect(SchemaDTO schemaDTO, String query, String evidence,
 			String sqlGenerateSchemaMissingAdvice, DbConfig specificDbConfig, Consumer<SchemaDTO> dtoConsumer);

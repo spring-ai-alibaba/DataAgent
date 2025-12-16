@@ -15,20 +15,19 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.nl2sql;
 
+import com.alibaba.cloud.ai.dataagent.common.util.*;
 import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
-import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonParseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.MarkdownParserUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 
 import java.util.HashSet;
@@ -50,70 +49,37 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 	private final JsonParseUtil jsonParseUtil;
 
 	@Override
-	public Flux<ChatResponse> semanticConsistencyStream(String sql, String queryPrompt) {
-		String semanticConsistencyPrompt = PromptHelper.buildSemanticConsistenPrompt(queryPrompt, sql);
-		log.info("semanticConsistencyPrompt = {}", semanticConsistencyPrompt);
+	public Flux<ChatResponse> performSemanticConsistency(SemanticConsistencyDTO semanticConsistencyDTO) {
+		String semanticConsistencyPrompt = PromptHelper.buildSemanticConsistenPrompt(semanticConsistencyDTO);
+		log.debug("semanticConsistencyPrompt as follows \n {} \n", semanticConsistencyPrompt);
 		return llmService.callUser(semanticConsistencyPrompt);
 	}
 
 	@Override
-	public Flux<String> generateSql(String evidence, String query, SchemaDTO schemaDTO, String sql,
-			String exceptionMessage, DbConfig dbConfig, String executionDescription, String dialect) {
-		log.info("Generating SQL for query: {}, hasExistingSql: {}, dialect: {}", query, sql != null && !sql.isEmpty(),
-				dialect);
+	public Flux<String> generateSql(SqlGenerationDTO sqlGenerationDTO) {
+		String sql = sqlGenerationDTO.getSql();
+		log.info("Generating SQL for query: {}, hasExistingSql: {}, dialect: {}", sqlGenerationDTO.getQuery(),
+				StringUtils.hasText(sql), sqlGenerationDTO.getDialect());
 
 		Flux<String> newSqlFlux;
 		if (sql != null && !sql.isEmpty()) {
 			// Use professional SQL error repair prompt
 			log.debug("Using SQL error fixer for existing SQL: {}", sql);
-			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(query, schemaDTO, evidence, sql,
-					exceptionMessage, executionDescription, dialect);
+			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(sqlGenerationDTO);
+			log.debug("SQL error fixer prompt as follows \n {} \n", errorFixerPrompt);
 			newSqlFlux = llmService.toStringFlux(llmService.callUser(errorFixerPrompt));
 			log.info("SQL error fixing completed");
 		}
 		else {
 			// Normal SQL generation process
 			log.debug("Generating new SQL from scratch");
-			List<String> prompts = PromptHelper.buildMixSqlGeneratorPrompt(query, schemaDTO, evidence,
-					executionDescription, dialect);
-			newSqlFlux = llmService.toStringFlux(llmService.call(prompts.get(0), prompts.get(1)));
+			String prompt = PromptHelper.buildNewSqlGeneratorPrompt(sqlGenerationDTO);
+			log.debug("New SQL generator prompt as follows \n {} \n", prompt);
+			newSqlFlux = llmService.toStringFlux(llmService.callUser(prompt));
 			log.info("New SQL generation completed");
 		}
 
 		return newSqlFlux;
-	}
-
-	/**
-	 * Use ChatClient to generate optimized SQL
-	 */
-	@Override
-	public Flux<String> generateOptimizedSql(String previousSql, String exceptionMessage, int round, String dialect) {
-		try {
-			// todo: 写一个Prompt文件
-			StringBuilder prompt = new StringBuilder();
-			prompt.append("当前连接的数据库类型是：").append(dialect).append("\n\n");
-			prompt.append("请对以下SQL进行第").append(round).append("轮优化:\n\n");
-			prompt.append("当前SQL:\n").append(previousSql).append("\n\n");
-
-			if (exceptionMessage != null && !exceptionMessage.trim().isEmpty()) {
-				prompt.append("需要解决的问题:\n").append(exceptionMessage).append("\n\n");
-			}
-
-			prompt.append("优化目标:\n");
-			prompt.append("1. 修复任何语法错误（使用").append(dialect).append("语法规范）\n");
-			prompt.append("1. 修复任何语法错误\n");
-			prompt.append("2. 提升查询性能\n");
-			prompt.append("3. 确保查询安全性\n");
-			prompt.append("4. 优化可读性\n\n");
-			prompt.append("重要提示：生成的SQL必须符合").append(dialect).append("数据库的语法规范。\n");
-			prompt.append("请只返回优化后的SQL语句，不要包含其他说明。");
-
-			return llmService.toStringFlux(llmService.callUser(prompt.toString()));
-		}
-		catch (Exception e) {
-			log.error("使用ChatClient优化SQL失败: {}", e.getMessage());
-			return Flux.just(previousSql);
-		}
 	}
 
 	private Flux<ChatResponse> fineSelect(SchemaDTO schemaDTO, String sqlGenerateSchemaMissingAdvice,
@@ -122,7 +88,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		String prompt = " 建议：" + sqlGenerateSchemaMissingAdvice
 				+ " \n 请按照建议进行返回相关表的名称，只返回建议中提到的表名，返回格式为：[\"a\",\"b\",\"c\"] \n " + schemaInfo;
-		log.debug("Calling LLM for table selection with advice");
+		log.debug("Built table selection with advice prompt as follows \n {} \n", prompt);
 		StringBuilder sb = new StringBuilder();
 		return llmService.callUser(prompt).doOnNext(r -> {
 			String text = r.getResult().getOutput().getText();
