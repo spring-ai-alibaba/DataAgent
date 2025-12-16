@@ -16,17 +16,16 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
+import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
+import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
-import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
-import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.PlanProcessUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -36,6 +35,7 @@ import reactor.core.publisher.Flux;
 import java.util.Map;
 
 import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.prompt.PromptHelper.buildMixMacSqlDbPrompt;
 
 /**
  * Semantic consistency validation node that checks SQL query semantic consistency.
@@ -59,15 +59,21 @@ public class SemanticConsistencyNode implements NodeAction {
 		// Get necessary input parameters
 		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
-
+		String dialect = StateUtil.getStringValue(state, DB_DIALECT_TYPE);
 		// Get current execution step and SQL query
-		Integer currentStep = PlanProcessUtil.getCurrentStepNumber(state);
 		String sql = StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT);
 		String userQuery = StateUtil.getCanonicalQuery(state);
 
+		SemanticConsistencyDTO semanticConsistencyDTO = SemanticConsistencyDTO.builder()
+			.dialect(dialect)
+			.sql(sql)
+			.executionDescription(userQuery)
+			.schemaInfo(buildMixMacSqlDbPrompt(schemaDTO, true))
+			.userQuery(userQuery)
+			.evidence(evidence)
+			.build();
 		log.info("Starting semantic consistency validation - SQL: {}", sql);
-
-		Flux<ChatResponse> validationResultFlux = performSemanticValidationStream(schemaDTO, evidence, userQuery, sql);
+		Flux<ChatResponse> validationResultFlux = nl2SqlService.performSemanticConsistency(semanticConsistencyDTO);
 
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, "开始语义一致性校验", "语义一致性校验完成", validationResult -> {
@@ -79,19 +85,6 @@ public class SemanticConsistencyNode implements NodeAction {
 				}, validationResultFlux);
 
 		return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, generator);
-	}
-
-	/**
-	 * Perform streaming semantic consistency validation
-	 */
-	private Flux<ChatResponse> performSemanticValidationStream(SchemaDTO schemaDTO, String evidence, String userQuery,
-			String sqlQuery) {
-		// Build validation context
-		String schema = PromptHelper.buildMixMacSqlDbPrompt(schemaDTO, true);
-		String context = String.join("\n", schema, evidence, userQuery);
-
-		// Execute semantic consistency check
-		return nl2SqlService.semanticConsistencyStream(sqlQuery, context);
 	}
 
 	/**

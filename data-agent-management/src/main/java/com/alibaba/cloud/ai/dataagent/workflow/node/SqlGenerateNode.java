@@ -16,23 +16,19 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.common.util.*;
 import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
-import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
-import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
-import com.alibaba.cloud.ai.dataagent.common.util.DatabaseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.PlanProcessUtil;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
+import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
+import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
-import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -130,12 +126,19 @@ public class SqlGenerateNode implements NodeAction {
 		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 		String userQuery = StateUtil.getCanonicalQuery(state);
-		String agentIdStr = state.value(AGENT_ID, String.class).orElseThrow(IllegalStateException::new);
-		Integer agentId = Integer.parseInt(agentIdStr);
-		DbConfig dbConfig = databaseUtil.getAgentDbConfig(agentId);
-		String dialect = dbConfig.getDialectType();
-		return nl2SqlService.generateSql(evidence, userQuery, schemaDTO, originalSql, errorMsg, dbConfig,
-				executionDescription, dialect);
+		String dialect = StateUtil.getStringValue(state, DB_DIALECT_TYPE);
+
+		SqlGenerationDTO sqlGenerationDTO = SqlGenerationDTO.builder()
+			.evidence(evidence)
+			.query(userQuery)
+			.schemaDTO(schemaDTO)
+			.sql(originalSql)
+			.exceptionMessage(errorMsg)
+			.executionDescription(executionDescription)
+			.dialect(dialect)
+			.build();
+
+		return nl2SqlService.generateSql(sqlGenerationDTO);
 	}
 
 	private Flux<String> handleGenerateSql(OverAllState state, String executionDescription) {

@@ -36,7 +36,7 @@ import java.util.Map;
 import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
 
 /**
- * 查询丰富节点，用于根据evidence信息把业务翻译。查询改写、分解和关键词提取
+ * 查询丰富节点，用于根据evidence信息把业务翻译。查询改写，扩展。 此节点不需要提取关键词，如果混合检索，如es等库会自行分词并计算相关性。
  */
 @Slf4j
 @Component

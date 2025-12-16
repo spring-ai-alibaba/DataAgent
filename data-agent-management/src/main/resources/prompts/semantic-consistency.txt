@@ -17,7 +17,7 @@
 {schema_info}
 
 ## 4.全局业务背景 (仅作参考)
-用户原始问题: {user_query}
+用户问题: {user_query}
 业务参考信息 (Evidence):
 {evidence}
 注：Evidence 可能包含特定的业务术语定义（如“高价值用户”的计算公式）、特定的ID映射或常量。如果 SQL 中的逻辑符合 Evidence 中的描述，应视为正确

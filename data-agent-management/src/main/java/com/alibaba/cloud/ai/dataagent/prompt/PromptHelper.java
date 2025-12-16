@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.prompt;
 
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
@@ -103,22 +105,25 @@ public class PromptHelper {
 		return sb.toString();
 	}
 
-	public static String buildNewSqlGeneratorPrompt(String question, SchemaDTO schemaDTO, String evidence,
-			String executionDescription, String dialect) {
-		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
+	public static String buildNewSqlGeneratorPrompt(SqlGenerationDTO sqlGenerationDTO) {
+		String schemaInfo = buildMixMacSqlDbPrompt(sqlGenerationDTO.getSchemaDTO(), true);
 		Map<String, Object> params = new HashMap<>();
-		params.put("dialect", dialect);
-		params.put("question", question);
+		params.put("dialect", sqlGenerationDTO.getDialect());
+		params.put("question", sqlGenerationDTO.getQuery());
 		params.put("schema_info", schemaInfo);
-		params.put("evidence", evidence);
-		params.put("execution_description", executionDescription);
+		params.put("evidence", sqlGenerationDTO.getEvidence());
+		params.put("execution_description", sqlGenerationDTO.getExecutionDescription());
 		return PromptConstant.getNewSqlGeneratorPromptTemplate().render(params);
 	}
 
-	public static String buildSemanticConsistenPrompt(String nlReq, String sql) {
+	public static String buildSemanticConsistenPrompt(SemanticConsistencyDTO semanticConsistencyDTO) {
 		Map<String, Object> params = new HashMap<>();
-		params.put("nl_req", nlReq);
-		params.put("sql", sql);
+		params.put("dialect", semanticConsistencyDTO.getDialect());
+		params.put("execution_description", semanticConsistencyDTO.getExecutionDescription());
+		params.put("user_query", semanticConsistencyDTO.getUserQuery());
+		params.put("evidence", semanticConsistencyDTO.getEvidence());
+		params.put("schema_info", semanticConsistencyDTO.getSchemaInfo());
+		params.put("sql", semanticConsistencyDTO.getSql());
 		return PromptConstant.getSemanticConsistencyPromptTemplate().render(params);
 	}
 
@@ -148,18 +153,17 @@ public class PromptHelper {
 			.render(params);
 	}
 
-	public static String buildSqlErrorFixerPrompt(String question, SchemaDTO schemaDTO, String evidence,
-			String errorSql, String errorMessage, String executionDescription, String dialect) {
-		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
+	public static String buildSqlErrorFixerPrompt(SqlGenerationDTO sqlGenerationDTO) {
+		String schemaInfo = buildMixMacSqlDbPrompt(sqlGenerationDTO.getSchemaDTO(), true);
 
 		Map<String, Object> params = new HashMap<>();
-		params.put("dialect", dialect);
-		params.put("question", question);
+		params.put("dialect", sqlGenerationDTO.getDialect());
+		params.put("question", sqlGenerationDTO.getQuery());
 		params.put("schema_info", schemaInfo);
-		params.put("evidence", evidence);
-		params.put("error_sql", errorSql);
-		params.put("error_message", errorMessage);
-		params.put("execution_description", executionDescription);
+		params.put("evidence", sqlGenerationDTO.getEvidence());
+		params.put("error_sql", sqlGenerationDTO.getSql());
+		params.put("error_message", sqlGenerationDTO.getExceptionMessage());
+		params.put("execution_description", sqlGenerationDTO.getExecutionDescription());
 
 		return PromptConstant.getSqlErrorFixerPromptTemplate().render(params);
 	}

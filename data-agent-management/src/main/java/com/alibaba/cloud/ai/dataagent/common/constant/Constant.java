@@ -74,6 +74,9 @@ public final class Constant {
 
 	public static final String SQL_EXECUTE_NODE_OUTPUT = "SQL_EXECUTE_NODE_OUTPUT";
 
+	// dialect
+	public static final String DB_DIALECT_TYPE = "DB_DIALECT_TYPE";
+
 	// Plan当前需要执行的步骤编号
 	public static final String PLAN_CURRENT_STEP = "PLAN_CURRENT_STEP";
 

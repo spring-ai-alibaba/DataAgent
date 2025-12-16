@@ -15,20 +15,19 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.nl2sql;
 
+import com.alibaba.cloud.ai.dataagent.common.util.*;
 import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
-import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonParseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.MarkdownParserUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 
 import java.util.HashSet;
@@ -50,24 +49,23 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 	private final JsonParseUtil jsonParseUtil;
 
 	@Override
-	public Flux<ChatResponse> semanticConsistencyStream(String sql, String queryPrompt) {
-		String semanticConsistencyPrompt = PromptHelper.buildSemanticConsistenPrompt(queryPrompt, sql);
-		log.info("semanticConsistencyPrompt = {}", semanticConsistencyPrompt);
+	public Flux<ChatResponse> performSemanticConsistency(SemanticConsistencyDTO semanticConsistencyDTO) {
+		String semanticConsistencyPrompt = PromptHelper.buildSemanticConsistenPrompt(semanticConsistencyDTO);
+		log.debug("semanticConsistencyPrompt as follows \n {} \n", semanticConsistencyPrompt);
 		return llmService.callUser(semanticConsistencyPrompt);
 	}
 
 	@Override
-	public Flux<String> generateSql(String evidence, String query, SchemaDTO schemaDTO, String sql,
-			String exceptionMessage, DbConfig dbConfig, String executionDescription, String dialect) {
-		log.info("Generating SQL for query: {}, hasExistingSql: {}, dialect: {}", query, sql != null && !sql.isEmpty(),
-				dialect);
+	public Flux<String> generateSql(SqlGenerationDTO sqlGenerationDTO) {
+		String sql = sqlGenerationDTO.getSql();
+		log.info("Generating SQL for query: {}, hasExistingSql: {}, dialect: {}", sqlGenerationDTO.getQuery(),
+				StringUtils.hasText(sql), sqlGenerationDTO.getDialect());
 
 		Flux<String> newSqlFlux;
 		if (sql != null && !sql.isEmpty()) {
 			// Use professional SQL error repair prompt
 			log.debug("Using SQL error fixer for existing SQL: {}", sql);
-			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(query, schemaDTO, evidence, sql,
-					exceptionMessage, executionDescription, dialect);
+			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(sqlGenerationDTO);
 			log.debug("SQL error fixer prompt as follows \n {} \n", errorFixerPrompt);
 			newSqlFlux = llmService.toStringFlux(llmService.callUser(errorFixerPrompt));
 			log.info("SQL error fixing completed");
@@ -75,8 +73,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 		else {
 			// Normal SQL generation process
 			log.debug("Generating new SQL from scratch");
-			String prompt = PromptHelper.buildNewSqlGeneratorPrompt(query, schemaDTO, evidence, executionDescription,
-					dialect);
+			String prompt = PromptHelper.buildNewSqlGeneratorPrompt(sqlGenerationDTO);
 			log.debug("New SQL generator prompt as follows \n {} \n", prompt);
 			newSqlFlux = llmService.toStringFlux(llmService.callUser(prompt));
 			log.info("New SQL generation completed");

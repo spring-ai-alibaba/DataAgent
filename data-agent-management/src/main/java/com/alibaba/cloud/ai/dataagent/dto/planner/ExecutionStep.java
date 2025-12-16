@@ -44,8 +44,8 @@ public class ExecutionStep {
 	public static class ToolParameters {
 
 		// 统一指令字段：
-		// 1. SQL_GENERATE_NODE -> 存详细的 SQL 需求
-		// 2. PYTHON_GENERATE_NODE -> 存详细的编程需求
+		// 1. SQL_GENERATE_NODE -> 存当前步骤要做的详细的 SQL 需求
+		// 2. PYTHON_GENERATE_NODE -> 存当前步骤要做的详细的编程需求
 		@JsonProperty("instruction")
 		private String instruction;
 
@@ -53,7 +53,7 @@ public class ExecutionStep {
 		@JsonProperty("summary_and_recommendations")
 		private String summaryAndRecommendations;
 
-		// --- 运行态字段 (Runtime Field) ---
+		// --- 运行态字段 ---
 		// Planner 永远不填这个字段（Prompt里根本不提它）
 		// 但是 SQL_GENERATE_NODE 运行完后，会把生成的 SQL 塞进来
 		@JsonProperty("sql_query")
