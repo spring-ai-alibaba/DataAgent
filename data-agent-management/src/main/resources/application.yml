@@ -21,13 +21,6 @@ spring:
     vectorstore:
       type: simple
 
-    mcp:
-      server:
-        enabled: true
-        transport: sse
-#        sse-endpoint: /mcp/message
-#        sse:
-#          path: /mcp/message
     dashscope:
       api-key: ${AI_DASHSCOPE_API_KEY}
       chat:
@@ -56,9 +49,7 @@ spring:
             endpoint: ${OSS_ENDPOINT:}
             bucket-name: ${OSS_BUCKET_NAME:}
             custom-domain: ${OSS_CUSTOM_DOMAIN:}
-        max-sql-retry-count: 5
-        max-sql-optimize-count: 5
-        sql-score-threshold: 0.5
+        max-sql-retry-count: 10
   servlet:
     multipart:
       max-file-size: 10MB
