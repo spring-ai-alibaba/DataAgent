@@ -82,6 +82,10 @@ public class PromptConstant {
 		return new PromptTemplate(PromptLoader.loadPrompt("mix-sql-generator-system-check"));
 	}
 
+	public static PromptTemplate getNewSqlGeneratorPromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("new-sql-generate"));
+	}
+
 	public static PromptTemplate getPlannerPromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("planner"));
 	}

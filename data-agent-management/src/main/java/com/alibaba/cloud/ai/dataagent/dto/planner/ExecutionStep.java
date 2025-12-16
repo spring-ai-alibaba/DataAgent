@@ -43,14 +43,18 @@ public class ExecutionStep {
 	@AllArgsConstructor
 	public static class ToolParameters {
 
+		// 对于SQL_GENERATE_NODE，内容将直接作为 SQL生成节点的 Prompt
+		// 对于PYTHON_GENERATE_NODE，内容是任务简述（用于日志记录）。
 		private String description;
 
+		//REPORT_GENERATOR_NODE专用。报告的大纲、需要回答的关键问题和建议方向。
 		@JsonProperty("summary_and_recommendations")
 		private String summaryAndRecommendations;
 
 		@JsonProperty("sql_query")
 		private String sqlQuery;
 
+		//Python节点专用，给 Python 解释器的具体编程指令（例如：“读取上一步的数据，计算环比增长率并绘制柱状图”）
 		@JsonProperty("instruction")
 		private String instruction;
 

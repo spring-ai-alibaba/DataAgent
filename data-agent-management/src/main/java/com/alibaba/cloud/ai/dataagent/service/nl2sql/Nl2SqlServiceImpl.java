@@ -74,9 +74,9 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 		else {
 			// Normal SQL generation process
 			log.debug("Generating new SQL from scratch");
-			List<String> prompts = PromptHelper.buildMixSqlGeneratorPrompt(query, schemaDTO, evidence,
+			String prompt = PromptHelper.buildNewSqlGeneratorPrompt(query, schemaDTO, evidence,
 					executionDescription, dialect);
-			newSqlFlux = llmService.toStringFlux(llmService.call(prompts.get(0), prompts.get(1)));
+			newSqlFlux = llmService.toStringFlux(llmService.callUser(prompt));
 			log.info("New SQL generation completed");
 		}
 
