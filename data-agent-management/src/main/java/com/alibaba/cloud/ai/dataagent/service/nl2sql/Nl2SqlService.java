@@ -31,8 +31,6 @@ public interface Nl2SqlService {
 	Flux<String> generateSql(String evidence, String query, SchemaDTO schemaDTO, String sql, String exceptionMessage,
 			DbConfig dbConfig, String executionDescription, String dialect);
 
-	Flux<String> generateOptimizedSql(String previousSql, String exceptionMessage, int round, String dialect);
-
 	Flux<ChatResponse> fineSelect(SchemaDTO schemaDTO, String query, String evidence,
 			String sqlGenerateSchemaMissingAdvice, DbConfig specificDbConfig, Consumer<SchemaDTO> dtoConsumer);
 

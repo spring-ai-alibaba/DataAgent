@@ -74,11 +74,11 @@ public class SqlGenerateNode implements NodeAction {
 			return Map.of(SQL_GENERATE_OUTPUT, StateGraph.END);
 		}
 
-		// 获取当前执行步骤的toolParameters信息，用于注入到SQL生成提示词中
-		String executionDescription;
+		// 获取当前执行步骤的sql任务要求，每个步骤的sql任务是不同的。
+		String promptForSql;
 		ExecutionStep.ToolParameters currentStepParams = PlanProcessUtil.getCurrentExecutionStep(state)
 			.getToolParameters();
-		executionDescription = currentStepParams != null ? currentStepParams.getDescription() : "无";
+		promptForSql = currentStepParams != null ? currentStepParams.getInstruction() : "无";
 
 		// 准备生成SQL
 		String displayMessage;
@@ -89,22 +89,21 @@ public class SqlGenerateNode implements NodeAction {
 		if (retryDto.sqlExecuteFail()) {
 			displayMessage = "检测到SQL执行异常，开始重新生成SQL...";
 			sqlFlux = handleRetryGenerateSql(state, StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT, ""),
-					retryDto.reason(), executionDescription);
+					retryDto.reason(), promptForSql);
 		}
 		else if (retryDto.semanticFail()) {
 			displayMessage = "语义一致性校验未通过，开始重新生成SQL...";
 			sqlFlux = handleRetryGenerateSql(state, StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT, ""),
-					retryDto.reason(), executionDescription);
+					retryDto.reason(), promptForSql);
 		}
 		else {
 			displayMessage = "开始生成SQL...";
-			sqlFlux = handleGenerateSql(state, executionDescription);
+			sqlFlux = handleGenerateSql(state, promptForSql);
 		}
 
 		// 准备返回结果，同时需要清除一些状态数据
-		Map<String, Object> result = new HashMap<>(
-				Map.of(SQL_GENERATE_OUTPUT, StateGraph.END, SQL_GENERATE_COUNT, count + 1, SQL_OPTIMIZE_COUNT, 0,
-						SQL_OPTIMIZE_BEST_SCORE, 0.0, SQL_REGENERATE_REASON, SqlRetryDto.empty()));
+		Map<String, Object> result = new HashMap<>(Map.of(SQL_GENERATE_OUTPUT, StateGraph.END, SQL_GENERATE_COUNT,
+				count + 1, SQL_REGENERATE_REASON, SqlRetryDto.empty()));
 
 		// Create display flux for user experience only
 		StringBuilder sqlCollector = new StringBuilder();
@@ -120,7 +119,6 @@ public class SqlGenerateNode implements NodeAction {
 				state, v -> {
 					String sql = nl2SqlService.sqlTrim(sqlCollector.toString());
 					result.put(SQL_GENERATE_OUTPUT, sql);
-					result.put(SQL_OPTIMIZE_BEST_SQL, sql);
 					return result;
 				}, displayFlux);
 

@@ -53,21 +53,15 @@ public class SqlGenerateDispatcher implements EdgeAction {
 		}
 		String sqlGenerateOutput = (String) optional.get();
 		log.info("SQL 生成结果: {}", sqlGenerateOutput);
-		return switch (sqlGenerateOutput) {
-			case END -> {
-				log.info("检测到流程结束标志: {}", END);
-				yield END;
-			}
-			// TODO 需要优化，不能简单跳转
-			case SQL_GENERATE_SCHEMA_MISSING -> {
-				log.warn("SQL生成缺少Schema，跳转到{}节点", FEASIBILITY_ASSESSMENT_NODE);
-				yield FEASIBILITY_ASSESSMENT_NODE;
-			}
-			default -> {
-				log.info("SQL生成成功，进入SQL检查节点: {}", SQL_OPTIMIZE_NODE);
-				yield SQL_OPTIMIZE_NODE;
-			}
-		};
+
+		if (END.equals(sqlGenerateOutput)) {
+			log.info("检测到流程结束标志: {}", END);
+			return END;
+		}
+		else {
+			log.info("SQL生成成功，进入语义一致性检查节点: {}", SEMANTIC_CONSISTENCY_NODE);
+			return SEMANTIC_CONSISTENCY_NODE;
+		}
 	}
 
 }

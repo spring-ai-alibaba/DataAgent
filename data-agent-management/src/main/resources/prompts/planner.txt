@@ -33,25 +33,23 @@
 ## 1. SQL_GENERATE_NODE
 *   **核心用途**：执行 SQL 查询以提取或聚合数据。这是分析的基础。
 *   **参数**：
-    *   `description` (string): **[关键参数]**
-*   **详细说明**：
-    *   `description` 字段的内容将直接作为 **SQL 生成节点的 Prompt**。
-    *   **要求**：描述必须极其具体，明确指出查询的目标表、过滤条件（Where）、分组维度（Group By）和聚合指标（Sum/Count/Avg）。
-    *   **正例**：“查询2023年北京地区的销售总额，按月份分组统计”。
-    *   **反例**：“查询相关数据”（太模糊，会导致下游节点不知所措）。
+    *   `instruction` (string): **[下游指令]** 将直接作为 SQL 生成专家的 Prompt。
+*   **严格约束**：
+    *   **禁止**使用“SQL生成”、“查询数据”、“执行查询”等模糊词语。
+    *   **必须**包含：目标表名（或业务实体名）、具体的聚合维度（如按月、按地区）、过滤条件（如2023年）。
+    *   **思考方式**：想象你正在对一个初级程序员说话，如果描述不清楚，他就会写错代码。
+    *   **正例**：“从 orders 表查询 2023 年北京地区的销售总额，并按月份分组”。
+    *   **反例**：“SQL生成”（**绝对禁止**，这将导致任务失败）。
 
 ## 2. PYTHON_GENERATE_NODE
 *   **核心用途**：当 SQL 难以满足需求时使用。适用于：复杂逻辑计算、数据清洗、高级统计分析、图表绘制。
 *   **参数**：
     *   `instruction` (string): 给 Python 解释器的具体编程指令（例如：“读取上一步的数据，计算环比增长率并绘制柱状图”）。
-    *   `description` (string): 该步骤的任务简述（用于日志记录）。
 
 ## 3. REPORT_GENERATOR_NODE
 *   **核心用途**：流程的最后一步。用于整合所有步骤的输出，回答用户最初的问题，并提供商业建议。
 *   **参数**：
     *   `summary_and_recommendations` (string): 报告的大纲、需要回答的关键问题和建议方向。
-    *   `description` (string): 任务简述。
-
 
 # 可用数据上下文 (Available Data Context)
 
@@ -83,6 +81,7 @@
 5、构建 JSON：组装最终结果。
 
 # 输出格式 (必须是合法的 JSON)
+请注意：`tool_parameters` 对象是动态的，请根据 `tool_to_use` 仅填充必要的字段，**不要输出值为 null 的字段**。
 
 \{
   "thought_process": "简要描述你的分析思路。必须明确提到你检查了哪些表和字段",
@@ -135,14 +134,14 @@ CREATE TABLE leads_table_7864 (
       "step": 1,
       "tool_to_use": "SQL_GENERATE_NODE",
       "tool_parameters": \{
-        "description": "按渠道来源分组，查询近一年的线索转化漏斗核心指标。"
+        "instruction": "按渠道来源分组，查询近一年的线索转化漏斗核心指标。"
       \}
     \},
     \{
       "step": 2,
       "tool_to_use": "SQL_GENERATE_NODE",
       "tool_parameters": \{
-        "description": "按地理区域（省份、城市）分组，查询近一年的线索转化漏斗核心指标。"
+        "instruction": "按地理区域（省份、城市）分组，查询近一年的线索转化漏斗核心指标。"
       \}
     \},
     \{
@@ -150,7 +149,6 @@ CREATE TABLE leads_table_7864 (
       "tool_to_use": "PYTHON_GENERATE_NODE",
       "tool_parameters": \{
         "instruction": "基于步骤1（渠道数据）和步骤2（区域数据）的结果，进行深入分析：1. 识别总转化率最高和最低的Top 5个城市。 2. 识别留资人数最多，但总转化率低于平均水平的3个城市。 3. 找出从'留资'到'到店'环节转化率损失最严重的3个二级渠道。",
-        "description": "对渠道和区域数据进行深入的对比、排名和瓶颈分析。"
       \}
     \},
     \{
@@ -158,7 +156,6 @@ CREATE TABLE leads_table_7864 (
       "tool_to_use": "REPORT_GENERATOR_NODE",
       "tool_parameters": \{
         "summary_and_recommendations": "综合以上分析结果，总结出高转化率渠道和区域的共同特征，明确指出转化漏斗中的主要瓶颈（例如，XX城市的到店转化率是主要短板），并提出具体的优化建议（例如，建议对XX城市加强邀约到店的激励政策，并重新评估其线上广告投放的线索质量）。",
-        "description": "整合所有分析洞察，形成最终的结论和可行的业务建议。"
       \}
     \}
   ]

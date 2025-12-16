@@ -104,7 +104,7 @@ public class PromptHelper {
 	}
 
 	public static String buildNewSqlGeneratorPrompt(String question, SchemaDTO schemaDTO, String evidence,
-													String executionDescription, String dialect) {
+			String executionDescription, String dialect) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		Map<String, Object> params = new HashMap<>();
 		params.put("dialect", dialect);
@@ -114,7 +114,6 @@ public class PromptHelper {
 		params.put("execution_description", executionDescription);
 		return PromptConstant.getNewSqlGeneratorPromptTemplate().render(params);
 	}
-
 
 	public static String buildSemanticConsistenPrompt(String nlReq, String sql) {
 		Map<String, Object> params = new HashMap<>();

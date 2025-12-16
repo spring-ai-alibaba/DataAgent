@@ -139,10 +139,6 @@ public class DataAgentConfiguration implements DisposableBean {
 			keyStrategyHashMap.put(SQL_GENERATE_OUTPUT, KeyStrategy.REPLACE);
 			keyStrategyHashMap.put(SQL_GENERATE_COUNT, KeyStrategy.REPLACE);
 			keyStrategyHashMap.put(SQL_REGENERATE_REASON, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(SQL_OPTIMIZE_COUNT, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(SQL_OPTIMIZE_BEST_SQL, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(SQL_OPTIMIZE_BEST_SCORE, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(SQL_OPTIMIZE_FINISHED, KeyStrategy.REPLACE);
 			// Semantic consistence节点输出
 			keyStrategyHashMap.put(SEMANTIC_CONSISTENCY_NODE_OUTPUT, KeyStrategy.REPLACE);
 			// Planner 节点输出
@@ -182,7 +178,6 @@ public class DataAgentConfiguration implements DisposableBean {
 			.addNode(PLANNER_NODE, nodeBeanUtil.getNodeBeanAsync(PlannerNode.class))
 			.addNode(PLAN_EXECUTOR_NODE, nodeBeanUtil.getNodeBeanAsync(PlanExecutorNode.class))
 			.addNode(SQL_EXECUTE_NODE, nodeBeanUtil.getNodeBeanAsync(SqlExecuteNode.class))
-			.addNode(SQL_OPTIMIZE_NODE, nodeBeanUtil.getNodeBeanAsync(SqlOptimizeNode.class))
 			.addNode(PYTHON_GENERATE_NODE, nodeBeanUtil.getNodeBeanAsync(PythonGenerateNode.class))
 			.addNode(PYTHON_EXECUTE_NODE, nodeBeanUtil.getNodeBeanAsync(PythonExecuteNode.class))
 			.addNode(PYTHON_ANALYZE_NODE, nodeBeanUtil.getNodeBeanAsync(PythonAnalyzeNode.class))
@@ -234,10 +229,8 @@ public class DataAgentConfiguration implements DisposableBean {
 			.addEdge(REPORT_GENERATOR_NODE, END)
 			// sql generate and sql execute node
 			.addConditionalEdges(SQL_GENERATE_NODE, nodeBeanUtil.getEdgeBeanAsync(SqlGenerateDispatcher.class),
-					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, FEASIBILITY_ASSESSMENT_NODE,
-							FEASIBILITY_ASSESSMENT_NODE, END, END, SQL_OPTIMIZE_NODE, SQL_OPTIMIZE_NODE))
-			.addConditionalEdges(SQL_OPTIMIZE_NODE, edge_async(new SqlOptimizeDispatcher()),
-					Map.of(SEMANTIC_CONSISTENCY_NODE, SEMANTIC_CONSISTENCY_NODE, SQL_OPTIMIZE_NODE, SQL_OPTIMIZE_NODE))
+					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, END, END, SEMANTIC_CONSISTENCY_NODE,
+							SEMANTIC_CONSISTENCY_NODE))
 			.addConditionalEdges(SEMANTIC_CONSISTENCY_NODE, edge_async(new SemanticConsistenceDispatcher()),
 					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, SQL_EXECUTE_NODE, SQL_EXECUTE_NODE))
 			.addConditionalEdges(SQL_EXECUTE_NODE, edge_async(new SQLExecutorDispatcher()),

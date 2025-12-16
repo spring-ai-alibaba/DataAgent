@@ -49,6 +49,7 @@ public class PlanExecutorNode implements NodeAction {
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
+		// TODO 待优化，校验应该在生成计划之后而不是这里，这里导致每次运行一个计划都校验一次
 		// 1. Validate the Plan
 		Plan plan;
 		try {
@@ -146,7 +147,7 @@ public class PlanExecutorNode implements NodeAction {
 		// Validate specific parameters based on node type
 		switch (step.getToolToUse()) {
 			case SQL_GENERATE_NODE:
-				if (!StringUtils.hasText(step.getToolParameters().getDescription())) {
+				if (!StringUtils.hasText(step.getToolParameters().getInstruction())) {
 					return "Validation failed: SQL generation node is missing description in step " + step.getStep();
 				}
 				break;

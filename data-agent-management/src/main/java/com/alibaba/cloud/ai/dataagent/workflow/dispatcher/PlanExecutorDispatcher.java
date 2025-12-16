@@ -43,6 +43,7 @@ public class PlanExecutorDispatcher implements EdgeAction {
 			String nextNode = state.value(PLAN_NEXT_NODE, END);
 			// 如果返回的是"END"，直接返回END常量
 			if ("END".equals(nextNode)) {
+				log.info("Plan execution completed successfully.");
 				return END;
 			}
 			return nextNode;

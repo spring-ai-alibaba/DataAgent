@@ -48,7 +48,7 @@ public class Plan {
 	static {
 		ExecutionStep step = new ExecutionStep();
 		ExecutionStep.ToolParameters parameters = new ExecutionStep.ToolParameters();
-		parameters.setDescription("SQL生成");
+		parameters.setInstruction("SQL生成");
 		step.setStep(1);
 		step.setToolToUse(Constant.SQL_GENERATE_NODE);
 		step.setToolParameters(parameters);
