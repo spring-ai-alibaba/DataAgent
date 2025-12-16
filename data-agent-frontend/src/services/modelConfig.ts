@@ -87,6 +87,26 @@ class ModelConfigService {
     const response = await axios.post<ApiResponse<string>>(`${API_BASE_URL}/test`, config);
     return response.data;
   }
+
+  /**
+   * 检查模型配置是否就绪（聊天模型和嵌入模型都需要配置）
+   */
+  async checkReady(): Promise<{
+    chatModelReady: boolean;
+    embeddingModelReady: boolean;
+    ready: boolean;
+  }> {
+    const response = await axios.get<
+      ApiResponse<{
+        chatModelReady: boolean;
+        embeddingModelReady: boolean;
+        ready: boolean;
+      }>
+    >(`${API_BASE_URL}/check-ready`);
+    return (
+      response.data.data || { chatModelReady: false, embeddingModelReady: false, ready: false }
+    );
+  }
 }
 
 export default new ModelConfigService();
