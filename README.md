@@ -6,6 +6,8 @@
 
 这是一个基于Spring AI Alibaba Graph的企业级智能数据分析 Agent。它不仅是 Text-to-SQL 转换器，更是一个具备支持 Python 深度分析与报告生成的 AI 虚拟数据分析师。（readme不是最新的，以最新代码为主）
 
+系统采用高度可扩展的架构设计，**全面兼容 OpenAI 接口规范**的对话模型与 Embedding 模型，并支持**灵活挂载任意向量数据库**。无论是私有化部署还是接入主流大模型服务，都能轻松适配，为企业提供灵活、可控的数据洞察服务。
+
 ## 项目结构
 
 这个项目分为三个部分：
@@ -95,6 +97,104 @@ spring:
 | spring.ai.alibaba.data-agent.embedding-batch.max-text-count     | 每批次最大文本数量 适用于DashScope等有文本数量限制的API DashScope限制为10 | 10          |
 
 #### 2.5 向量库配置
+
+系统默认使用内存向量库，同时系统提供了对es的混合检索支持。
+
+##### 2.5.1 向量库依赖引入
+
+您可以自行引入你想要的持久化向量库，只需要往ioc容器提供一个org.springframework.ai.vectorstore.VectorStore类型的bean即可。例如直接引入PGvector的starter
+
+```java
+<dependency>
+	<groupId>org.springframework.ai</groupId>
+	<artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
+</dependency>
+```
+
+详细对应的向量库参考文档https://springdoc.cn/spring-ai/api/vectordbs.html
+
+##### 2.5.2 向量库schema设置
+
+以下为es的schema结构，其他向量库如milvus，pg等自行可根据如下的es的结构建立自己的schema.尤其要注意metadata中的每个字段的数据类型。
+
+```json
+{
+  "mappings": {
+    "properties": {
+      "content": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "embedding": {
+        "type": "dense_vector",
+        "dims": 1024,
+        "index": true,
+        "similarity": "cosine",
+        "index_options": {
+          "type": "int8_hnsw",
+          "m": 16,
+          "ef_construction": 100
+        }
+      },
+      "id": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "metadata": {
+        "properties": {
+          "agentId": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "agentKnowledgeId": {
+            "type": "long"
+          },
+          "businessTermId": {
+            "type": "long"
+          },
+          "concreteAgentKnowledgeType": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "vectorType": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+
+
+
 
 | 属性                                                         | 说明                                                         | 默认值    |
 | ------------------------------------------------------------ | ------------------------------------------------------------ | --------- |
