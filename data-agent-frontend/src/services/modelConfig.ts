@@ -31,6 +31,12 @@ export interface ModelConfig {
   embeddingsPath?: string; // 嵌入模型路径
 }
 
+export interface ModelCheckReady {
+  chatModelReady: boolean;
+  embeddingModelReady: boolean;
+  ready: boolean;
+}
+
 const API_BASE_URL = '/api/model-config';
 
 class ModelConfigService {
@@ -86,6 +92,16 @@ class ModelConfigService {
   async testConnection(config: Omit<ModelConfig, 'id'>): Promise<ApiResponse<string>> {
     const response = await axios.post<ApiResponse<string>>(`${API_BASE_URL}/test`, config);
     return response.data;
+  }
+
+  /**
+   * 检查模型配置是否就绪（聊天模型和嵌入模型都需要配置）
+   */
+  async checkReady(): Promise<ModelCheckReady> {
+    const response = await axios.get<ApiResponse<ModelCheckReady>>(`${API_BASE_URL}/check-ready`);
+    return (
+      response.data.data || { chatModelReady: false, embeddingModelReady: false, ready: false }
+    );
   }
 }
 

@@ -16,10 +16,12 @@
  */
 package com.alibaba.cloud.ai.dataagent.controller;
 
+import com.alibaba.cloud.ai.dataagent.common.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigDataService;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigOpsService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
+import com.alibaba.cloud.ai.dataagent.vo.ModelCheckVo;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -107,6 +109,28 @@ public class ModelConfigController {
 			// 捕获具体的错误信息（如 401 Invalid Key, 404 Not Found 等）返回给前端
 			return ApiResponse.error("连接测试失败: " + e.getMessage());
 		}
+	}
+
+	/**
+	 * 7. 检查模型配置是否就绪（聊天模型和嵌入模型都需要配置）
+	 */
+	@GetMapping("/check-ready")
+	public ApiResponse<ModelCheckVo> checkReady() {
+		// 检查聊天模型是否已配置且启用
+		ModelConfigDTO chatModel = modelConfigDataService.getActiveConfigByType(ModelType.CHAT);
+		// 检查嵌入模型是否已配置且启用
+		ModelConfigDTO embeddingModel = modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING);
+
+		boolean chatModelReady = chatModel != null;
+		boolean embeddingModelReady = embeddingModel != null;
+		boolean ready = chatModelReady && embeddingModelReady;
+
+		return ApiResponse.success("模型配置检查完成",
+				ModelCheckVo.builder()
+					.chatModelReady(chatModelReady)
+					.embeddingModelReady(embeddingModelReady)
+					.ready(ready)
+					.build());
 	}
 
 }
