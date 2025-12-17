@@ -63,6 +63,14 @@ public final class PlanProcessUtil {
 		return getCurrentExecutionStep(plan, currentStep);
 	}
 
+	public static String getCurrentExecutionStepInstruction(OverAllState state) {
+		String instruction;
+		ExecutionStep.ToolParameters currentStepParams = PlanProcessUtil.getCurrentExecutionStep(state)
+			.getToolParameters();
+		instruction = currentStepParams != null ? currentStepParams.getInstruction() : "无";
+		return instruction;
+	}
+
 	/**
 	 * Get the current execution step from the plan
 	 * @param plan the plan object

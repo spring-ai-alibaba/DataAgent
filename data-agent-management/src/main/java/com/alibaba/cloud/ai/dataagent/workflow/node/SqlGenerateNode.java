@@ -17,10 +17,12 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
-import com.alibaba.cloud.ai.dataagent.common.util.*;
+import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.dataagent.common.util.DatabaseUtil;
+import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
 import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
-import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
@@ -39,6 +41,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.common.util.PlanProcessUtil.getCurrentExecutionStepInstruction;
 
 /**
  * Enhanced SQL generation node that handles SQL query regeneration with advanced
@@ -70,11 +73,9 @@ public class SqlGenerateNode implements NodeAction {
 			return Map.of(SQL_GENERATE_OUTPUT, StateGraph.END);
 		}
 
-		// 获取当前执行步骤的sql任务要求，每个步骤的sql任务是不同的。
-		String promptForSql;
-		ExecutionStep.ToolParameters currentStepParams = PlanProcessUtil.getCurrentExecutionStep(state)
-			.getToolParameters();
-		promptForSql = currentStepParams != null ? currentStepParams.getInstruction() : "无";
+		// 获取planner分配的当前执行步骤的sql任务要求，每个步骤的sql任务是不同的。
+		// 不要拿 user query 这个总体的大任务。
+		String promptForSql = getCurrentExecutionStepInstruction(state);
 
 		// 准备生成SQL
 		String displayMessage;

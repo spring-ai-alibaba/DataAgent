@@ -157,7 +157,7 @@
                 />
               </div>
               <div class="switch-item">
-                <span class="switch-label">简洁报告</span>
+                <span class="switch-label">Markdown报告</span>
                 <el-tooltip
                   :disabled="!requestOptions.nl2sqlOnly"
                   content="该功能在NL2SQL模式下不能使用"
