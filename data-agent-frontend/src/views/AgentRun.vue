@@ -761,10 +761,10 @@
 
         // 去除可能的Markdown前后缀
         if (content.startsWith('```html')) {
-          content = content.substring(7)
+          content = content.substring(7);
         }
-        if (content.endsWith("```")) {
-          content = content.substring(0, content.length - 3)
+        if (content.endsWith('```')) {
+          content = content.substring(0, content.length - 3);
         }
 
         const blob = new Blob([content], { type: 'text/html' });
