@@ -8,6 +8,10 @@
 
 系统采用高度可扩展的架构设计，**全面兼容 OpenAI 接口规范**的对话模型与 Embedding 模型，并支持**灵活挂载任意向量数据库**。无论是私有化部署还是接入主流大模型服务，都能轻松适配，为企业提供灵活、可控的数据洞察服务。
 
+同时，本项目可以支持**发布成MCP服务器**，具体看 本文档mcp章节。
+
+
+
 ## 项目结构
 
 这个项目分为三个部分：
@@ -344,6 +348,99 @@ yarn dev
 “显示SQL运行结果”会在生成SQL和运行获取结果后，将SQL运行结果展示给用户。
 
 ![show-sql-result.png](img/show-sql-result.png)
+
+
+
+## MCP服务器
+
+1、本项目是通过Mcp server Boot Starter实现mcp服务器的，因此更多详细配置可以参考文档
+
+https://springdoc.cn/spring-ai/api/mcp/mcp-server-boot-starter-docs.html#_%E9%85%8D%E7%BD%AE%E5%B1%9E%E6%80%A7
+
+默认mcp  Web 传输的自定义 SSE 端点路径： 项目地址:项目端口/sse 。例如 http://localhost:8065/sse
+
+你也可通过`spring.ai.mcp.server.sse-endpoint` 修改为其他路径，具体看上面提到的mcp参考文档。
+
+2、目前提供的mcp工具如下
+
+```json
+{
+  "tools": [
+    {
+      "name": "nl2SqlToolCallback",
+      "description": "将自然语言查询转换为SQL语句。使用指定的智能体将用户的自然语言查询描述转换为可执行的SQL语句，支持复杂的数据查询需求。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "nl2SqlRequest": {
+            "type": "object",
+            "properties": {
+              "agentId": {
+                "type": "string",
+                "description": "智能体ID，用于指定使用哪个智能体进行NL2SQL转换"
+              },
+              "naturalQuery": {
+                "type": "string",
+                "description": "自然语言查询描述，例如：'查询销售额最高的10个产品'"
+              }
+            },
+            "required": [
+              "agentId",
+              "naturalQuery"
+            ]
+          }
+        },
+        "required": [
+          "nl2SqlRequest"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "listAgentsToolCallback",
+      "description": "查询智能体列表，支持按状态和关键词过滤。可以根据智能体的状态（如已发布PUBLISHED、草稿DRAFT等）进行过滤，也可以通过关键词搜索智能体的名称、描述或标签。返回按创建时间降序排列的智能体列表。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agentListRequest": {
+            "type": "object",
+            "properties": {
+              "keyword": {
+                "type": "string",
+                "description": "按关键词搜索智能体名称或描述"
+              },
+              "status": {
+                "type": "string",
+                "description": "按状态过滤，例如 '状态：draft-待发布，published-已发布，offline-已下线"
+              }
+            },
+            "required": [
+              "keyword",
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "agentListRequest"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
+```
+
+
+
+3、如需本地自行调试mcp服务器功能可通过如下命令跳转到调试页面
+
+```typescript
+ npx @modelcontextprotocol/inspector http://localhost:8065/mcp/connection
+```
+
+
+
+
 
 ## 如何贡献
 

@@ -35,6 +35,7 @@ import reactor.core.publisher.Flux;
 import java.util.Map;
 
 import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.common.util.PlanProcessUtil.getCurrentExecutionStepInstruction;
 import static com.alibaba.cloud.ai.dataagent.prompt.PromptHelper.buildMixMacSqlDbPrompt;
 
 /**
@@ -67,7 +68,7 @@ public class SemanticConsistencyNode implements NodeAction {
 		SemanticConsistencyDTO semanticConsistencyDTO = SemanticConsistencyDTO.builder()
 			.dialect(dialect)
 			.sql(sql)
-			.executionDescription(userQuery)
+			.executionDescription(getCurrentExecutionStepInstruction(state))
 			.schemaInfo(buildMixMacSqlDbPrompt(schemaDTO, true))
 			.userQuery(userQuery)
 			.evidence(evidence)
