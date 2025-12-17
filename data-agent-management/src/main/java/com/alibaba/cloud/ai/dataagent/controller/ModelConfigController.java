@@ -21,13 +21,12 @@ import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigDataService;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigOpsService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
+import com.alibaba.cloud.ai.dataagent.vo.ModelCheckVo;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @AllArgsConstructor
 @RestController
@@ -116,7 +115,7 @@ public class ModelConfigController {
 	 * 7. 检查模型配置是否就绪（聊天模型和嵌入模型都需要配置）
 	 */
 	@GetMapping("/check-ready")
-	public ApiResponse<Map<String, Object>> checkReady() {
+	public ApiResponse<ModelCheckVo> checkReady() {
 		// 检查聊天模型是否已配置且启用
 		ModelConfigDTO chatModel = modelConfigDataService.getActiveConfigByType(ModelType.CHAT);
 		// 检查嵌入模型是否已配置且启用
@@ -126,12 +125,12 @@ public class ModelConfigController {
 		boolean embeddingModelReady = embeddingModel != null;
 		boolean ready = chatModelReady && embeddingModelReady;
 
-		Map<String, Object> result = new HashMap<>();
-		result.put("chatModelReady", chatModelReady);
-		result.put("embeddingModelReady", embeddingModelReady);
-		result.put("ready", ready);
-
-		return ApiResponse.success("模型配置检查完成", result);
+		return ApiResponse.success("模型配置检查完成",
+				ModelCheckVo.builder()
+					.chatModelReady(chatModelReady)
+					.embeddingModelReady(embeddingModelReady)
+					.ready(ready)
+					.build());
 	}
 
 }
