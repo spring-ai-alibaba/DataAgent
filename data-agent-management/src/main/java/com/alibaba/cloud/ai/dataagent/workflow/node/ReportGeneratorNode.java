@@ -160,6 +160,8 @@ public class ReportGeneratorNode implements NodeAction {
 		String reportPrompt = PromptHelper.buildReportGeneratorPromptWithOptimization(userRequirementsAndPlan,
 				analysisStepsAndData, summaryAndRecommendations, optimizationConfigs, plainReport);
 
+		log.debug("Report Node Prompt: \n {}", reportPrompt);
+
 		log.info("Using {} prompt for report generation",
 				!optimizationConfigs.isEmpty() ? "optimized (" + optimizationConfigs.size() + " configs)" : "default");
 

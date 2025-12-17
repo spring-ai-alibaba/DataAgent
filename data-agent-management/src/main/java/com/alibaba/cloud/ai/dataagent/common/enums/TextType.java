@@ -27,9 +27,11 @@ public enum TextType {
 
 	PYTHON("```python", "```"),
 
-	SQL("```sql", "```"),
+	// LLM模型爱输出```sql，那就换一个标记
+	SQL("$$$sql", "$$$"),
 
-	HTML("```html", "```"),
+	// LLM模型爱输出```html，那就换一个标记
+	HTML("$$$html", "$$$"),
 
 	MARK_DOWN("```markdown-report", "```/markdown-report"),
 

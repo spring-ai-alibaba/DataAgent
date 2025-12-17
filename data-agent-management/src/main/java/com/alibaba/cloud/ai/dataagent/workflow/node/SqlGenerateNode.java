@@ -60,8 +60,6 @@ public class SqlGenerateNode implements NodeAction {
 
 	private final Nl2SqlService nl2SqlService;
 
-	private final DatabaseUtil databaseUtil;
-
 	private final DataAgentProperties properties;
 
 	@Override
@@ -108,7 +106,7 @@ public class SqlGenerateNode implements NodeAction {
 				ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign()));
 		Flux<ChatResponse> displayFlux = preFlux
 			.concatWith(sqlFlux.doOnNext(sqlCollector::append)
-				.map(r -> ChatResponseUtil.createTrimResponse(r, TextType.SQL)))
+				.map(ChatResponseUtil::createPureResponse))
 			.concatWith(Flux.just(ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()),
 					ChatResponseUtil.createResponse("SQL生成完成，准备执行")));
 
