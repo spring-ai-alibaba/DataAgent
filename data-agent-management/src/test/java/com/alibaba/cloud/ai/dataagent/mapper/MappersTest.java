@@ -72,8 +72,10 @@ public class MappersTest {
 	@BeforeAll
 	static void ensureApiKeyColumns(@Autowired DataSource dataSource) throws Exception {
 		try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
-			stmt.execute("ALTER TABLE agent ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) DEFAULT NULL COMMENT '访问 API Key，格式 sk-xxx'");
-			stmt.execute("ALTER TABLE agent ADD COLUMN IF NOT EXISTS api_key_enabled TINYINT DEFAULT 0 COMMENT 'API Key 是否启用：0-禁用，1-启用'");
+			stmt.execute(
+					"ALTER TABLE agent ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) DEFAULT NULL COMMENT '访问 API Key，格式 sk-xxx'");
+			stmt.execute(
+					"ALTER TABLE agent ADD COLUMN IF NOT EXISTS api_key_enabled TINYINT DEFAULT 0 COMMENT 'API Key 是否启用：0-禁用，1-启用'");
 		}
 	}
 
