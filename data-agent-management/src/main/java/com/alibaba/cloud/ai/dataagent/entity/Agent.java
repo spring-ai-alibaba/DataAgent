@@ -44,6 +44,11 @@ public class Agent {
 	private String status; // Status: draft-pending publication, published-published,
 							// offline-offline
 
+	private String apiKey; // API Key for external access, format sk-xxx
+
+	@Builder.Default
+	private Integer apiKeyEnabled = 0; // 0/1 toggle for API access
+
 	private String prompt; // Custom Prompt configuration
 
 	private String category; // Category

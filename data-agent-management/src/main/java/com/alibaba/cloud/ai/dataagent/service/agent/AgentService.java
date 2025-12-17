@@ -34,4 +34,14 @@ public interface AgentService {
 
 	void deleteById(Long id);
 
+	Agent generateApiKey(Long id);
+
+	Agent resetApiKey(Long id);
+
+	Agent deleteApiKey(Long id);
+
+	Agent toggleApiKey(Long id, boolean enabled);
+
+	String getApiKeyMasked(Long id);
+
 }

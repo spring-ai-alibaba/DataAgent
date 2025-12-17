@@ -67,8 +67,8 @@ public interface AgentMapper {
 	List<Agent> findByConditions(@Param("status") String status, @Param("keyword") String keyword);
 
 	@Insert("""
-			INSERT INTO agent (name, description, avatar, status, prompt, category, admin_id, tags, create_time, update_time, human_review_enabled)
-			VALUES (#{name}, #{description}, #{avatar}, #{status}, #{prompt}, #{category}, #{adminId}, #{tags}, #{createTime}, #{updateTime}, #{humanReviewEnabled})
+			INSERT INTO agent (name, description, avatar, status, api_key, api_key_enabled, prompt, category, admin_id, tags, create_time, update_time, human_review_enabled)
+			VALUES (#{name}, #{description}, #{avatar}, #{status}, #{apiKey}, #{apiKeyEnabled}, #{prompt}, #{category}, #{adminId}, #{tags}, #{createTime}, #{updateTime}, #{humanReviewEnabled})
 			""")
 	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
 	int insert(Agent agent);
@@ -81,6 +81,8 @@ public interface AgentMapper {
 			            <if test='description != null'>description = #{description},</if>
 			            <if test='avatar != null'>avatar = #{avatar},</if>
 			            <if test='status != null'>status = #{status},</if>
+			            <if test='apiKey != null'>api_key = #{apiKey},</if>
+			            <if test='apiKeyEnabled != null'>api_key_enabled = #{apiKeyEnabled},</if>
 			            <if test='prompt != null'>prompt = #{prompt},</if>
 			            <if test='category != null'>category = #{category},</if>
 			            <if test='adminId != null'>admin_id = #{adminId},</if>
@@ -92,6 +94,21 @@ public interface AgentMapper {
 			</script>
 			""")
 	int updateById(Agent agent);
+
+	@Update("""
+			UPDATE agent
+			SET api_key = #{apiKey}, api_key_enabled = #{apiKeyEnabled}, update_time = NOW()
+			WHERE id = #{id}
+			""")
+	int updateApiKey(@Param("id") Long id, @Param("apiKey") String apiKey,
+			@Param("apiKeyEnabled") Integer apiKeyEnabled);
+
+	@Update("""
+			UPDATE agent
+			SET api_key_enabled = #{enabled}, update_time = NOW()
+			WHERE id = #{id}
+			""")
+	int toggleApiKey(@Param("id") Long id, @Param("enabled") Integer enabled);
 
 	@Delete("""
 			DELETE FROM agent WHERE id = #{id}

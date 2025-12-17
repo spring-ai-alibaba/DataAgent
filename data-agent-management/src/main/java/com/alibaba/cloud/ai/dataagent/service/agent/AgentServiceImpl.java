@@ -19,6 +19,7 @@ import com.alibaba.cloud.ai.dataagent.entity.Agent;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentMapper;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
+import com.alibaba.cloud.ai.dataagent.util.ApiKeyUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -73,6 +74,9 @@ public class AgentServiceImpl implements AgentService {
 			if (agent.getHumanReviewEnabled() == null) {
 				agent.setHumanReviewEnabled(0);
 			}
+			if (agent.getApiKeyEnabled() == null) {
+				agent.setApiKeyEnabled(0);
+			}
 
 			agentMapper.insert(agent);
 		}
@@ -82,6 +86,9 @@ public class AgentServiceImpl implements AgentService {
 			// 确保 humanReviewEnabled 不为 null
 			if (agent.getHumanReviewEnabled() == null) {
 				agent.setHumanReviewEnabled(0);
+			}
+			if (agent.getApiKeyEnabled() == null) {
+				agent.setApiKeyEnabled(0);
 			}
 			agentMapper.updateById(agent);
 		}
@@ -129,6 +136,56 @@ public class AgentServiceImpl implements AgentService {
 			log.error("Failed to delete agent: {}", id, e);
 			throw e;
 		}
+	}
+
+	@Override
+	public Agent generateApiKey(Long id) {
+		Agent agent = requireAgent(id);
+		String apiKey = ApiKeyUtil.generate();
+		agentMapper.updateApiKey(id, apiKey, 1);
+		agent.setApiKey(apiKey);
+		agent.setApiKeyEnabled(1);
+		return agent;
+	}
+
+	@Override
+	public Agent resetApiKey(Long id) {
+		return generateApiKey(id);
+	}
+
+	@Override
+	public Agent deleteApiKey(Long id) {
+		Agent agent = requireAgent(id);
+		agentMapper.updateApiKey(id, null, 0);
+		agent.setApiKey(null);
+		agent.setApiKeyEnabled(0);
+		return agent;
+	}
+
+	@Override
+	public Agent toggleApiKey(Long id, boolean enabled) {
+		agentMapper.toggleApiKey(id, enabled ? 1 : 0);
+		Agent agent = requireAgent(id);
+		agent.setApiKeyEnabled(enabled ? 1 : 0);
+		return agent;
+	}
+
+	@Override
+	public String getApiKeyMasked(Long id) {
+		Agent agent = requireAgent(id);
+		String apiKey = agent.getApiKey();
+		if (apiKey == null || apiKey.isBlank()) {
+			return null;
+		}
+		return ApiKeyUtil.mask(apiKey);
+	}
+
+	private Agent requireAgent(Long id) {
+		Agent agent = agentMapper.findById(id);
+		if (agent == null) {
+			throw new IllegalArgumentException("Agent not found: " + id);
+		}
+		return agent;
 	}
 
 }

@@ -32,7 +32,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Agent Management Controller
@@ -141,6 +143,80 @@ public class AgentController {
 		agent.setStatus("offline");
 		Agent updated = agentService.save(agent);
 		return ResponseEntity.ok(updated);
+	}
+
+	/**
+	 * Get masked API Key status
+	 */
+	@GetMapping("/{id}/api-key")
+	public ResponseEntity<Map<String, Object>> getApiKey(@PathVariable("id") Long id) {
+		Agent agent = agentService.findById(id);
+		if (agent == null) {
+			return ResponseEntity.notFound().build();
+		}
+		String masked = agentService.getApiKeyMasked(id);
+		return ResponseEntity.ok(buildApiKeyResponse(masked, agent.getApiKeyEnabled()));
+	}
+
+	/**
+	 * Generate API Key
+	 */
+	@PostMapping("/{id}/api-key/generate")
+	public ResponseEntity<Map<String, Object>> generateApiKey(@PathVariable("id") Long id) {
+		Agent existing = agentService.findById(id);
+		if (existing == null) {
+			return ResponseEntity.notFound().build();
+		}
+		Agent agent = agentService.generateApiKey(id);
+		return ResponseEntity.ok(buildApiKeyResponse(agent.getApiKey(), agent.getApiKeyEnabled()));
+	}
+
+	/**
+	 * Reset API Key
+	 */
+	@PostMapping("/{id}/api-key/reset")
+	public ResponseEntity<Map<String, Object>> resetApiKey(@PathVariable("id") Long id) {
+		Agent existing = agentService.findById(id);
+		if (existing == null) {
+			return ResponseEntity.notFound().build();
+		}
+		Agent agent = agentService.resetApiKey(id);
+		return ResponseEntity.ok(buildApiKeyResponse(agent.getApiKey(), agent.getApiKeyEnabled()));
+	}
+
+	/**
+	 * Delete API Key
+	 */
+	@DeleteMapping("/{id}/api-key")
+	public ResponseEntity<Map<String, Object>> deleteApiKey(@PathVariable("id") Long id) {
+		Agent existing = agentService.findById(id);
+		if (existing == null) {
+			return ResponseEntity.notFound().build();
+		}
+		Agent agent = agentService.deleteApiKey(id);
+		return ResponseEntity.ok(buildApiKeyResponse(agent.getApiKey(), agent.getApiKeyEnabled()));
+	}
+
+	/**
+	 * Toggle API Key enable flag
+	 */
+	@PostMapping("/{id}/api-key/enable")
+	public ResponseEntity<Map<String, Object>> toggleApiKey(@PathVariable("id") Long id,
+			@RequestParam("enabled") boolean enabled) {
+		Agent existing = agentService.findById(id);
+		if (existing == null) {
+			return ResponseEntity.notFound().build();
+		}
+		Agent agent = agentService.toggleApiKey(id, enabled);
+		return ResponseEntity
+			.ok(buildApiKeyResponse(agent.getApiKey() == null ? null : "****", agent.getApiKeyEnabled()));
+	}
+
+	private Map<String, Object> buildApiKeyResponse(String apiKey, Integer apiKeyEnabled) {
+		Map<String, Object> map = new HashMap<>();
+		map.put("apiKey", apiKey);
+		map.put("apiKeyEnabled", apiKeyEnabled);
+		return map;
 	}
 
 }
