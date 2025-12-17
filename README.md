@@ -349,6 +349,31 @@ yarn dev
 
 ![show-sql-result.png](img/show-sql-result.png)
 
+### 访问 API（API Key 调用）
+
+> 当前版本仅提供 API Key 生成、重置、删除与开关的管理能力，**尚未在后端对 `X-API-Key` 做权限校验**；需要鉴权的生产场景请自行在后端拦截器中补充校验逻辑后再对外开放。
+
+1. 在智能体详情左侧菜单进入“访问 API”，为智能体生成 Key，并根据需要启用/禁用。
+2. 调用会话接口时在请求头添加 `X-API-Key: <your_api_key>`。
+3. 示例（本地默认前端代理端口 3000）：
+
+```bash
+# 创建会话
+curl -X POST "http://127.0.0.1:3000/api/agent/<agentId>/sessions" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <your_api_key>" \
+  -d '{"title":"demo"}'
+
+# 发送消息
+curl -X POST "http://127.0.0.1:3000/api/sessions/<sessionId>/messages" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <your_api_key>" \
+  -d '{"role":"user","content":"给我一个示例","messageType":"text"}'
+```
+
+界面预览：
+
+![访问 API Key](img/apikey.png)
 
 
 ## MCP服务器
