@@ -147,4 +147,9 @@ public final class Constant {
 	// 控制是否生成Markdown简洁报告
 	public static final String PLAIN_REPORT = "PLAIN_REPORT";
 
+	// StreamEvent 常量
+	public static final String STREAM_EVENT_COMPLETE = "complete";
+
+	public static final String STREAM_EVENT_ERROR = "error";
+
 }

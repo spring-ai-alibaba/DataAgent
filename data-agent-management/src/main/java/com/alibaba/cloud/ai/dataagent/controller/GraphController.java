@@ -24,13 +24,13 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
+
+import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.STREAM_EVENT_COMPLETE;
+import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.STREAM_EVENT_ERROR;
 
 /**
  * @author zhangshenghang
@@ -76,7 +76,11 @@ public class GraphController {
 		graphService.graphStreamProcess(sink, request);
 
 		return sink.asFlux().filter(sse -> {
-			return sse.data() != null && org.springframework.util.StringUtils.hasText(sse.data().getText());
+			// 1. 如果 event 是 "complete" 或 "error"，直接放行（不管 text 是否为空）
+			if (STREAM_EVENT_COMPLETE.equals(sse.event()) || STREAM_EVENT_ERROR.equals(sse.event())) {
+				return true;
+			}
+			return StringUtils.hasText(sse.data().getText());
 		})
 			.doOnSubscribe(subscription -> log.info("Client subscribed to stream, threadId: {}", request.getThreadId()))
 			.doOnCancel(() -> {
