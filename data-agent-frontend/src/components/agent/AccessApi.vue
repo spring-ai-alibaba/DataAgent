@@ -96,6 +96,7 @@
       agentId: {
         type: [Number, String],
         required: false,
+        default: null,
       },
     },
     setup(props) {
