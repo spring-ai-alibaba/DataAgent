@@ -40,7 +40,8 @@ spring:
         file:
           type: local
           path-prefix: data-agent
-          path: ./uploads
+          # 当前目录下不要用点， ./uploads win下拼接完整格式路径会解析不了，比如 data-agent/./uploads win识别不了
+          path: uploads
           url-prefix: /uploads
           imageSize: 2097152
           oss:
