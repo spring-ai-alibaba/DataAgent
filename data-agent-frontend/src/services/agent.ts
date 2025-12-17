@@ -22,6 +22,8 @@ export interface Agent {
   description?: string;
   avatar?: string;
   status?: string;
+  apiKey?: string | null;
+  apiKeyEnabled?: number | boolean;
   prompt?: string;
   category?: string;
   adminId?: number;
@@ -32,6 +34,11 @@ export interface Agent {
 }
 
 const API_BASE_URL = '/api/agent';
+
+export interface AgentApiKeyResponse {
+  apiKey: string | null;
+  apiKeyEnabled: number | boolean;
+}
 
 class AgentService {
   /**
@@ -154,6 +161,58 @@ class AgentService {
       }
       throw error;
     }
+  }
+
+  /**
+   * 获取 API Key（遮罩态）
+   */
+  async getApiKey(id: number): Promise<AgentApiKeyResponse | null> {
+    try {
+      const response = await axios.get<AgentApiKeyResponse>(`${API_BASE_URL}/${id}/api-key`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 生成/重置 API Key
+   */
+  async generateApiKey(id: number): Promise<AgentApiKeyResponse> {
+    const response = await axios.post<AgentApiKeyResponse>(
+      `${API_BASE_URL}/${id}/api-key/generate`,
+    );
+    return response.data;
+  }
+
+  async resetApiKey(id: number): Promise<AgentApiKeyResponse> {
+    const response = await axios.post<AgentApiKeyResponse>(`${API_BASE_URL}/${id}/api-key/reset`);
+    return response.data;
+  }
+
+  /**
+   * 删除 API Key
+   */
+  async deleteApiKey(id: number): Promise<AgentApiKeyResponse> {
+    const response = await axios.delete<AgentApiKeyResponse>(`${API_BASE_URL}/${id}/api-key`);
+    return response.data;
+  }
+
+  /**
+   * 启用/禁用 API Key
+   */
+  async toggleApiKey(id: number, enabled: boolean): Promise<AgentApiKeyResponse> {
+    const response = await axios.post<AgentApiKeyResponse>(
+      `${API_BASE_URL}/${id}/api-key/enable`,
+      null,
+      {
+        params: { enabled },
+      },
+    );
+    return response.data;
   }
 }
 

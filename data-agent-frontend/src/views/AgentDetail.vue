@@ -145,7 +145,10 @@
             v-else-if="activeMenuIndex === 'preset-questions'"
             :agent-id="agent.id"
           ></AgentPresetsConfig>
-          <AgentAccessApi v-else-if="activeMenuIndex === 'access-api'"></AgentAccessApi>
+          <AgentAccessApi
+            v-else-if="activeMenuIndex === 'access-api'"
+            :agent-id="agent.id"
+          ></AgentAccessApi>
           <AgentKnowledgeConfig
             v-else-if="activeMenuIndex === 'agent-knowledge'"
             :agent-id="agent.id"
