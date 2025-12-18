@@ -19,7 +19,6 @@ package com.alibaba.cloud.ai.dataagent.mapper;
 import com.alibaba.cloud.ai.dataagent.service.MySqlContainerConfiguration;
 import com.alibaba.cloud.ai.dataagent.entity.*;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mybatis.spring.boot.test.autoconfigure.MybatisTest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,11 +26,8 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.testcontainers.context.ImportTestcontainers;
 import org.springframework.test.context.TestPropertySource;
 
-import java.sql.Connection;
-import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.List;
-import javax.sql.DataSource;
 
 /**
  * Mappers 单元测试类
@@ -45,8 +41,6 @@ import javax.sql.DataSource;
 @ImportAutoConfiguration(MySqlContainerConfiguration.class)
 public class MappersTest {
 
-	@Autowired
-	private DataSource dataSource;
 
 	@Autowired
 	private AgentMapper agentMapper;
@@ -69,15 +63,6 @@ public class MappersTest {
 	@Autowired
 	private BusinessKnowledgeMapper businessKnowledgeMapper;
 
-	@BeforeAll
-	static void ensureApiKeyColumns(@Autowired DataSource dataSource) throws Exception {
-		try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
-			stmt.execute(
-					"ALTER TABLE agent ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) DEFAULT NULL COMMENT '访问 API Key，格式 sk-xxx'");
-			stmt.execute(
-					"ALTER TABLE agent ADD COLUMN IF NOT EXISTS api_key_enabled TINYINT DEFAULT 0 COMMENT 'API Key 是否启用：0-禁用，1-启用'");
-		}
-	}
 
 	private Long createAgent(String name) {
 		Agent agent = Agent.builder()
