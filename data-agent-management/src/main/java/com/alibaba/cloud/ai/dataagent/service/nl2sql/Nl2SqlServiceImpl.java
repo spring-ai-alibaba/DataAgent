@@ -63,7 +63,6 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 
 		Flux<String> newSqlFlux;
 		if (sql != null && !sql.isEmpty()) {
-			// todo: sql-error-prompt也补充一个示例数据
 			// Use professional SQL error repair prompt
 			log.debug("Using SQL error fixer for existing SQL: {}", sql);
 			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(sqlGenerationDTO);
