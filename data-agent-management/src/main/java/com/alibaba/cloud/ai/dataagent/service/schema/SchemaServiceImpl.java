@@ -254,6 +254,10 @@ public class SchemaServiceImpl implements SchemaService {
 	}
 
 	protected void clearSchemaDataForAgent(String agentId) throws Exception {
+		if (!agentVectorStoreService.hasDocuments(agentId)) {
+			return;
+		}
+
 		agentVectorStoreService.deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.COLUMN);
 		agentVectorStoreService.deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.TABLE);
 	}

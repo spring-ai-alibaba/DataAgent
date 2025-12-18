@@ -102,6 +102,7 @@ public class SqlServerJdbcDdl extends AbstractJdbcDdl {
 	public List<TableInfoBO> showTables(Connection connection, String schema, String tablePattern) {
 		String sql = "SELECT t.TABLE_NAME, \n" + "CAST(ep.value AS NVARCHAR(MAX)) AS TABLE_COMMENT \n"
 				+ "FROM INFORMATION_SCHEMA.TABLES t \n" + "LEFT JOIN sys.tables st ON t.TABLE_NAME = st.name \n"
+				+ "AND SCHEMA_NAME(st.schema_id) = t.TABLE_SCHEMA "
 				+ "LEFT JOIN sys.extended_properties ep ON st.object_id = ep.major_id AND ep.minor_id = 0 AND ep.name = 'MS_Description' \n"
 				+ "WHERE t.TABLE_SCHEMA = '%s' AND t.TABLE_TYPE = 'BASE TABLE' \n";
 		if (StringUtils.isNotBlank(tablePattern)) {
