@@ -117,6 +117,8 @@ public final class Constant {
 
 	public static final String HUMAN_FEEDBACK_NODE = "HUMAN_FEEDBACK_NODE";
 
+	public static final String GUESS_NODE = "GUESS_NODE";
+
 	// Keys related to Python code execution
 	public static final String PYTHON_GENERATE_NODE = "PYTHON_GENERATE_NODE";
 
@@ -137,6 +139,8 @@ public final class Constant {
 	public static final String PYTHON_GENERATE_NODE_OUTPUT = "PYTHON_GENERATE_NODE_OUTPUT";
 
 	public static final String PYTHON_ANALYSIS_NODE_OUTPUT = "PYTHON_ANALYSIS_NODE_OUTPUT";
+
+	public static final String GUESS_NODE_OUTPUT = "GUESS_NODE_OUTPUT";
 
 	// nl2sql接口预留相关
 	public static final String IS_ONLY_NL2SQL = "IS_ONLY_NL2SQL";

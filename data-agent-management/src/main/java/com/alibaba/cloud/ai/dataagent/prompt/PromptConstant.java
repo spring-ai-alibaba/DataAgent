@@ -97,4 +97,8 @@ public class PromptConstant {
 		return new PromptTemplate(PromptLoader.loadPrompt("json-fix"));
 	}
 
+	public static PromptTemplate getGuessPromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("guess"));
+	}
+
 }

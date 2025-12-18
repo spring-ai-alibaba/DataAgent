@@ -100,6 +100,27 @@
               </div>
             </div>
 
+            <!-- 推荐问题区域 - 显示在消息列表最后，报告消息下方 -->
+            <div v-if="guessedQuestions.length > 0" class="guessed-questions-inline">
+              <div class="guessed-questions-container-inline">
+                <div class="questions-header-inline">
+                  <el-icon class="header-icon"><ChatLineRound /></el-icon>
+                  <span class="header-title">推荐问题：</span>
+                </div>
+                <div class="questions-list-inline">
+                  <a
+                    v-for="(question, index) in guessedQuestions"
+                    :key="index"
+                    href="javascript:void(0)"
+                    class="question-link"
+                    @click.prevent="handlePresetQuestionClick(question)"
+                  >
+                    {{ question }}
+                  </a>
+                </div>
+              </div>
+            </div>
+
             <!-- 流式响应显示区域 -->
             <div v-if="isStreaming" class="streaming-response">
               <div class="streaming-header">
@@ -240,7 +261,7 @@
   import { ref, defineComponent, onMounted, nextTick, computed } from 'vue';
   import { useRoute } from 'vue-router';
   import { ElMessage } from 'element-plus';
-  import { Loading, Promotion, Document, Download, CircleClose } from '@element-plus/icons-vue';
+  import { Loading, Promotion, Document, Download, CircleClose, ChatLineRound, ArrowRight } from '@element-plus/icons-vue';
   import hljs from 'highlight.js';
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
@@ -286,6 +307,8 @@
       Document,
       Download,
       CircleClose,
+      ChatLineRound,
+      ArrowRight,
       HumanFeedback,
       ChatSessionSidebar,
       PresetQuestions,
@@ -388,6 +411,9 @@
         pageSize: 20,
       });
 
+      // 推荐问题
+      const guessedQuestions = ref<string[]>([]);
+
       const agentId = computed(() => route.params.id as string);
 
       const loadAgent = async () => {
@@ -419,6 +445,8 @@
             return;
           }
           syncStateToView(session.id, { isStreaming, nodeBlocks });
+          const sessionState = getSessionState(session.id);
+          guessedQuestions.value = sessionState.guessedQuestions || [];
           currentMessages.value = await ChatService.getSessionMessages(session.id);
           scrollToBottom();
         } catch (error) {
@@ -488,6 +516,12 @@
 
           // 重置报告状态
           resetReportState(sessionState, request);
+          
+          // 重置推荐问题
+          sessionState.guessedQuestions = [];
+          if (currentSession.value?.id === sessionId) {
+            guessedQuestions.value = [];
+          }
 
           const saveNodeMessage = (node: GraphNodeResponse[]): Promise<void> => {
             if (!node || !node.length) return Promise.resolve();
@@ -653,6 +687,35 @@
               // 等待所有待处理的保存操作完成
               if (pendingSavePromises.length > 0) {
                 await Promise.all(pendingSavePromises);
+              }
+
+              // 在完成时，如果 GuessNode 有 JSON 输出，尝试解析并保存推荐问题
+              const guessNodeBlocks = sessionState.nodeBlocks.filter(
+                (block: GraphNodeResponse[]) =>
+                  block.length > 0 && block[0].nodeName === 'GuessNode',
+              );
+              if (guessNodeBlocks.length > 0) {
+                let jsonText = '';
+                guessNodeBlocks.forEach((block: GraphNodeResponse[]) => {
+                  block.forEach((item: GraphNodeResponse) => {
+                    if (item.textType === 'JSON') {
+                      jsonText += item.text;
+                    }
+                  });
+                });
+                if (jsonText) {
+                  try {
+                    const parsed = JSON.parse(jsonText);
+                    if (parsed.questions && Array.isArray(parsed.questions)) {
+                      sessionState.guessedQuestions = parsed.questions;
+                      if (currentSession.value?.id === sessionId) {
+                        guessedQuestions.value = parsed.questions;
+                      }
+                    }
+                  } catch (error) {
+                    console.error('解析 GuessNode JSON 失败:', error);
+                  }
+                }
               }
 
               // 保存报告到后端
@@ -1118,6 +1181,7 @@
         showHumanFeedback,
         lastRequest,
         resultSetDisplayConfig,
+        guessedQuestions,
         selectSession,
         sendMessage,
         formatMessageContent,
@@ -1421,6 +1485,61 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  /* 推荐问题样式 - 内联在报告消息下方 */
+  .guessed-questions-inline {
+    margin-top: 16px;
+    margin-bottom: 16px;
+  }
+
+  .guessed-questions-container-inline {
+    background: #f8f9fa;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+
+  .guessed-questions-container-inline .questions-header-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .guessed-questions-container-inline .header-icon {
+    font-size: 14px;
+    color: #409eff;
+  }
+
+  .guessed-questions-container-inline .header-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #606266;
+  }
+
+  .guessed-questions-container-inline .questions-list-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .guessed-questions-container-inline .question-link {
+    color: #409eff;
+    text-decoration: none;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid transparent;
+  }
+
+  .guessed-questions-container-inline .question-link:hover {
+    color: #66b1ff;
+    border-bottom-color: #66b1ff;
+  }
+
+  .guessed-questions-container-inline .question-link:active {
+    color: #337ecc;
   }
 
   /* 响应式设计 */
