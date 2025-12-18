@@ -18,6 +18,8 @@ package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
 import com.alibaba.cloud.ai.dataagent.service.agent.AgentService;
+import com.alibaba.cloud.ai.dataagent.vo.ApiKeyResponse;
+import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -32,9 +34,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Agent Management Controller
@@ -149,74 +149,71 @@ public class AgentController {
 	 * Get masked API Key status
 	 */
 	@GetMapping("/{id}/api-key")
-	public ResponseEntity<Map<String, Object>> getApiKey(@PathVariable("id") Long id) {
+	public ResponseEntity<ApiResponse<ApiKeyResponse>> getApiKey(@PathVariable("id") Long id) {
 		Agent agent = agentService.findById(id);
 		if (agent == null) {
 			return ResponseEntity.notFound().build();
 		}
 		String masked = agentService.getApiKeyMasked(id);
-		return ResponseEntity.ok(buildApiKeyResponse(masked, agent.getApiKeyEnabled()));
+		return ResponseEntity.ok(buildApiKeyResponse(masked, agent.getApiKeyEnabled(), "获取 API Key 成功"));
 	}
 
 	/**
 	 * Generate API Key
 	 */
 	@PostMapping("/{id}/api-key/generate")
-	public ResponseEntity<Map<String, Object>> generateApiKey(@PathVariable("id") Long id) {
+	public ResponseEntity<ApiResponse<ApiKeyResponse>> generateApiKey(@PathVariable("id") Long id) {
 		Agent existing = agentService.findById(id);
 		if (existing == null) {
 			return ResponseEntity.notFound().build();
 		}
 		Agent agent = agentService.generateApiKey(id);
-		return ResponseEntity.ok(buildApiKeyResponse(agent.getApiKey(), agent.getApiKeyEnabled()));
+		return ResponseEntity.ok(buildApiKeyResponse(agent.getApiKey(), agent.getApiKeyEnabled(), "生成 API Key 成功"));
 	}
 
 	/**
 	 * Reset API Key
 	 */
 	@PostMapping("/{id}/api-key/reset")
-	public ResponseEntity<Map<String, Object>> resetApiKey(@PathVariable("id") Long id) {
+	public ResponseEntity<ApiResponse<ApiKeyResponse>> resetApiKey(@PathVariable("id") Long id) {
 		Agent existing = agentService.findById(id);
 		if (existing == null) {
 			return ResponseEntity.notFound().build();
 		}
 		Agent agent = agentService.resetApiKey(id);
-		return ResponseEntity.ok(buildApiKeyResponse(agent.getApiKey(), agent.getApiKeyEnabled()));
+		return ResponseEntity.ok(buildApiKeyResponse(agent.getApiKey(), agent.getApiKeyEnabled(), "重置 API Key 成功"));
 	}
 
 	/**
 	 * Delete API Key
 	 */
 	@DeleteMapping("/{id}/api-key")
-	public ResponseEntity<Map<String, Object>> deleteApiKey(@PathVariable("id") Long id) {
+	public ResponseEntity<ApiResponse<ApiKeyResponse>> deleteApiKey(@PathVariable("id") Long id) {
 		Agent existing = agentService.findById(id);
 		if (existing == null) {
 			return ResponseEntity.notFound().build();
 		}
 		Agent agent = agentService.deleteApiKey(id);
-		return ResponseEntity.ok(buildApiKeyResponse(agent.getApiKey(), agent.getApiKeyEnabled()));
+		return ResponseEntity.ok(buildApiKeyResponse(agent.getApiKey(), agent.getApiKeyEnabled(), "删除 API Key 成功"));
 	}
 
 	/**
 	 * Toggle API Key enable flag
 	 */
 	@PostMapping("/{id}/api-key/enable")
-	public ResponseEntity<Map<String, Object>> toggleApiKey(@PathVariable("id") Long id,
+	public ResponseEntity<ApiResponse<ApiKeyResponse>> toggleApiKey(@PathVariable("id") Long id,
 			@RequestParam("enabled") boolean enabled) {
 		Agent existing = agentService.findById(id);
 		if (existing == null) {
 			return ResponseEntity.notFound().build();
 		}
 		Agent agent = agentService.toggleApiKey(id, enabled);
-		return ResponseEntity
-			.ok(buildApiKeyResponse(agent.getApiKey() == null ? null : "****", agent.getApiKeyEnabled()));
+		return ResponseEntity.ok(buildApiKeyResponse(agent.getApiKey() == null ? null : "****",
+				agent.getApiKeyEnabled(), "更新 API Key 状态成功"));
 	}
 
-	private Map<String, Object> buildApiKeyResponse(String apiKey, Integer apiKeyEnabled) {
-		Map<String, Object> map = new HashMap<>();
-		map.put("apiKey", apiKey);
-		map.put("apiKeyEnabled", apiKeyEnabled);
-		return map;
+	private ApiResponse<ApiKeyResponse> buildApiKeyResponse(String apiKey, Integer apiKeyEnabled, String message) {
+		return ApiResponse.success(message, new ApiKeyResponse(apiKey, apiKeyEnabled));
 	}
 
 }
