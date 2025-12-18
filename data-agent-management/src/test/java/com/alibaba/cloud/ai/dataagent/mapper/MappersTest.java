@@ -41,7 +41,6 @@ import java.util.List;
 @ImportAutoConfiguration(MySqlContainerConfiguration.class)
 public class MappersTest {
 
-
 	@Autowired
 	private AgentMapper agentMapper;
 
@@ -62,7 +61,6 @@ public class MappersTest {
 
 	@Autowired
 	private BusinessKnowledgeMapper businessKnowledgeMapper;
-
 
 	private Long createAgent(String name) {
 		Agent agent = Agent.builder()
