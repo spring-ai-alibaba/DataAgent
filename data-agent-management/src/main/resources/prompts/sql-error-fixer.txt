@@ -46,3 +46,21 @@
 
 输出格式：
 仅输出 SQL 语句，**不要输出任何额外标记**，特别是Markdown标记。在输出的sql中有任何的解释
+
+---
+
+# 示例输出 （EXAMPLE Output）
+
+## ❌错误输出（Wrong Output）：
+
+```sql
+select `id`, `name` from `user`;
+```
+
+❌错误原因：输出中带有额外的标记（Markdown标记），导致你的输出传递给数据库运行爆语法错误。
+
+## ✅正确输出（Right Output）：
+
+select `id`, `name` from `user`;
+
+---

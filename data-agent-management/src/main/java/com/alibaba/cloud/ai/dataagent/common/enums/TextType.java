@@ -23,9 +23,9 @@ import lombok.Getter;
 @Getter
 public enum TextType {
 
-	JSON("```json", "```"),
+	JSON("$$$json", "$$$"),
 
-	PYTHON("```python", "```"),
+	PYTHON("$$$python", "$$$"),
 
 	// LLM模型爱输出```sql，那就换一个标记
 	SQL("$$$sql", "$$$"),
@@ -33,9 +33,9 @@ public enum TextType {
 	// LLM模型爱输出```html，那就换一个标记
 	HTML("$$$html", "$$$"),
 
-	MARK_DOWN("```markdown-report", "```/markdown-report"),
+	MARK_DOWN("$$$markdown-report", "$$$/markdown-report"),
 
-	RESULT_SET("```result_set", "```"),
+	RESULT_SET("$$$result_set", "$$$"),
 
 	TEXT(null, null);
 
