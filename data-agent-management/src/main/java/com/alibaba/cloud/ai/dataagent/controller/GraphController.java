@@ -24,7 +24,6 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -80,7 +79,8 @@ public class GraphController {
 			if (STREAM_EVENT_COMPLETE.equals(sse.event()) || STREAM_EVENT_ERROR.equals(sse.event())) {
 				return true;
 			}
-			return StringUtils.hasText(sse.data().getText());
+			// 判断字符串是否为空
+			return sse.data() != null && sse.data().getText() != null && !sse.data().getText().isEmpty();
 		})
 			.doOnSubscribe(subscription -> log.info("Client subscribed to stream, threadId: {}", request.getThreadId()))
 			.doOnCancel(() -> {

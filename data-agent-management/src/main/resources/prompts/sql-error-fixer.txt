@@ -17,9 +17,9 @@
 *你的修复必须确保 SQL 仍然在执行这个任务，不要偏离目标。*
 
 ## 4. 原始失败 SQL
-```sql
+
 {error_sql}
-```
+
 ## 5. 全局业务背景 (参考)
 {question}
 {evidence}
@@ -36,7 +36,7 @@
     *   若为 **SQL Server**，请使用方括号 (例如 [order])。
 
 # 输出格式
-请直接输出修复后的 SQL 语句，使用 markdown 代码块包裹。
+请直接输出修复后的 SQL 语句，**不要输出任何额外的标记**。
 不要输出分析过程，不要输出注释。
 
 # 最终指令确认 (Critical)
@@ -45,7 +45,22 @@
 
 
 输出格式：
-仅输出 SQL 语句，使用 markdown 代码块包裹。不要在输出的sql中有任何的解释
+仅输出 SQL 语句，**不要输出任何额外标记**，特别是Markdown标记。在输出的sql中有任何的解释
+
+---
+
+# 示例输出 （EXAMPLE Output）
+
+## ❌错误输出（Wrong Output）：
+
 ```sql
-输出修复后的 SQL
+select `id`, `name` from `user`;
 ```
+
+❌错误原因：输出中带有额外的标记（Markdown标记），导致你的输出传递给数据库运行爆语法错误。
+
+## ✅正确输出（Right Output）：
+
+select `id`, `name` from `user`;
+
+---

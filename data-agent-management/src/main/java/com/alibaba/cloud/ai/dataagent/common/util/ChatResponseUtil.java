@@ -38,6 +38,8 @@ public class ChatResponseUtil {
 		return new ChatResponse(List.of(generation));
 	}
 
+	// 这样无法达到效果，先弃用。如果不得不需要这个逻辑，再重新定义
+	@Deprecated
 	public static ChatResponse createTrimResponse(String message, TextType textType) {
 		return createPureResponse(message.replace(textType.getStartSign(), "").replace(textType.getEndSign(), ""));
 	}

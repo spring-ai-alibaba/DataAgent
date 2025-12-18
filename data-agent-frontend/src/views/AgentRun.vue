@@ -157,10 +157,13 @@
                 />
               </div>
               <div class="switch-item">
-                <span class="switch-label">Markdown报告</span>
+                <span class="switch-label">HTML报告</span>
                 <el-tooltip
-                  :disabled="!requestOptions.nl2sqlOnly"
-                  content="该功能在NL2SQL模式下不能使用"
+                  :content="
+                    requestOptions.nl2sqlOnly
+                      ? '该功能在NL2SQL模式下不能使用'
+                      : '开启HTML报告功能需要使用能力较强的模型，且模型配置中最大Token的值要大一些'
+                  "
                   placement="top"
                 >
                   <el-switch
@@ -507,6 +510,9 @@
             });
           };
 
+          // 反转plainReport的值
+          request.plainReport = !request.plainReport;
+
           // 发送流式请求
           const closeStream = await GraphService.streamSearch(
             request,
@@ -757,6 +763,14 @@
         if (!content) {
           ElMessage.warning('没有可下载的HTML报告');
           return;
+        }
+
+        // 去除可能的Markdown前后缀
+        if (content.startsWith('```html')) {
+          content = content.substring(7);
+        }
+        if (content.endsWith('```')) {
+          content = content.substring(0, content.length - 3);
         }
 
         const blob = new Blob([content], { type: 'text/html' });

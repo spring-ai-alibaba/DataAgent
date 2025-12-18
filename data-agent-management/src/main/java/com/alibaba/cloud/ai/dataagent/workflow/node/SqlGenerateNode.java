@@ -18,7 +18,6 @@ package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.DatabaseUtil;
 import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
 import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
 import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
@@ -59,8 +58,6 @@ import static com.alibaba.cloud.ai.dataagent.common.util.PlanProcessUtil.getCurr
 public class SqlGenerateNode implements NodeAction {
 
 	private final Nl2SqlService nl2SqlService;
-
-	private final DatabaseUtil databaseUtil;
 
 	private final DataAgentProperties properties;
 
@@ -107,8 +104,7 @@ public class SqlGenerateNode implements NodeAction {
 		Flux<ChatResponse> preFlux = Flux.just(ChatResponseUtil.createResponse(displayMessage),
 				ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign()));
 		Flux<ChatResponse> displayFlux = preFlux
-			.concatWith(sqlFlux.doOnNext(sqlCollector::append)
-				.map(r -> ChatResponseUtil.createTrimResponse(r, TextType.SQL)))
+			.concatWith(sqlFlux.doOnNext(sqlCollector::append).map(ChatResponseUtil::createPureResponse))
 			.concatWith(Flux.just(ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()),
 					ChatResponseUtil.createResponse("SQL生成完成，准备执行")));
 
