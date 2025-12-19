@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
+import com.alibaba.cloud.ai.dataagent.common.constant.ReportTemplatesConstant;
 import com.alibaba.cloud.ai.dataagent.entity.UserPromptConfig;
 import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
 import com.alibaba.cloud.ai.graph.GraphResponse;
@@ -156,16 +157,22 @@ public class ReportGeneratorNode implements NodeAction {
 		List<UserPromptConfig> optimizationConfigs = promptConfigService.getOptimizationConfigs("report-generator",
 				agentId);
 
-		// Use PromptHelper to build report generation prompt with optimization support
 		String reportPrompt = PromptHelper.buildReportGeneratorPromptWithOptimization(userRequirementsAndPlan,
 				analysisStepsAndData, summaryAndRecommendations, optimizationConfigs, plainReport);
+		log.debug("Report Node Prompt: \n {} \n", reportPrompt);
+		Flux<ChatResponse> llmStream = llmService.callUser(reportPrompt);
+		// 纯md文本报告
+		if (plainReport) {
+			return llmStream;
+		}
 
-		log.debug("Report Node Prompt: \n {}", reportPrompt);
+		// html报告，先发送html模板头，然后发送llm生成的内容，最后发送html模板尾部
+		ChatResponse headerResponse = ChatResponseUtil
+			.createPureResponse(ReportTemplatesConstant.REPORT_TEMPLATE_HEADER);
+		ChatResponse footerResponse = ChatResponseUtil
+			.createPureResponse(ReportTemplatesConstant.REPORT_TEMPLATE_FOOTER);
+		return Flux.concat(Flux.just(headerResponse), llmStream, Flux.just(footerResponse));
 
-		log.info("Using {} prompt for report generation",
-				!optimizationConfigs.isEmpty() ? "optimized (" + optimizationConfigs.size() + " configs)" : "default");
-
-		return llmService.callUser(reportPrompt);
 	}
 
 	/**
