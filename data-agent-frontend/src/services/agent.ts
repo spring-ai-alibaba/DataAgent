@@ -15,6 +15,7 @@
  */
 
 import axios from 'axios';
+import { ApiResponse } from './common';
 
 export interface Agent {
   id?: number;
@@ -22,6 +23,8 @@ export interface Agent {
   description?: string;
   avatar?: string;
   status?: string;
+  apiKey?: string | null;
+  apiKeyEnabled?: number | boolean;
   prompt?: string;
   category?: string;
   adminId?: number;
@@ -32,6 +35,13 @@ export interface Agent {
 }
 
 const API_BASE_URL = '/api/agent';
+
+export interface AgentApiKeyResponse {
+  apiKey: string | null;
+  apiKeyEnabled: number | boolean;
+}
+
+export type AgentApiKeyApiResult = ApiResponse<AgentApiKeyResponse>;
 
 class AgentService {
   /**
@@ -154,6 +164,73 @@ class AgentService {
       }
       throw error;
     }
+  }
+
+  /**
+   * 获取 API Key（遮罩态）
+   */
+  async getApiKey(id: number): Promise<AgentApiKeyResponse | null> {
+    try {
+      const response = await axios.get<AgentApiKeyApiResult>(`${API_BASE_URL}/${id}/api-key`);
+      if (response.data.success) {
+        return response.data.data ?? null;
+      }
+      throw new Error(response.data.message);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 生成/重置 API Key
+   */
+  async generateApiKey(id: number): Promise<AgentApiKeyResponse> {
+    const response = await axios.post<AgentApiKeyApiResult>(
+      `${API_BASE_URL}/${id}/api-key/generate`,
+    );
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.message || '生成 API Key 失败');
+  }
+
+  async resetApiKey(id: number): Promise<AgentApiKeyResponse> {
+    const response = await axios.post<AgentApiKeyApiResult>(`${API_BASE_URL}/${id}/api-key/reset`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.message || '重置 API Key 失败');
+  }
+
+  /**
+   * 删除 API Key
+   */
+  async deleteApiKey(id: number): Promise<AgentApiKeyResponse> {
+    const response = await axios.delete<AgentApiKeyApiResult>(`${API_BASE_URL}/${id}/api-key`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.message || '删除 API Key 失败');
+  }
+
+  /**
+   * 启用/禁用 API Key
+   */
+  async toggleApiKey(id: number, enabled: boolean): Promise<AgentApiKeyResponse> {
+    const response = await axios.post<AgentApiKeyApiResult>(
+      `${API_BASE_URL}/${id}/api-key/enable`,
+      null,
+      {
+        params: { enabled },
+      },
+    );
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.message || '更新 API Key 状态失败');
   }
 }
 
