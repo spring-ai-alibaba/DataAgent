@@ -81,7 +81,7 @@ flowchart LR
   style LLMs fill:#E6FAFB,stroke:#00ACC1,stroke-width:1.5px
 ```
 
-### 2. 运行时主流程（NL2SQL + Python + Report + Human Feedback）
+### 2. 运行时主流程
 
 ```mermaid
 flowchart TD
