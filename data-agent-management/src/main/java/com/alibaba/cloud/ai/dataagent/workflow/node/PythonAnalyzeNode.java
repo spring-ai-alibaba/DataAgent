@@ -69,7 +69,8 @@ public class PythonAnalyzeNode implements NodeAction {
 			systemPrompt = PromptConstant.getPythonAnalyzeFallbackPromptTemplate()
 				.render(Map.of("user_query", userQuery));
 			log.warn("Python分析节点检测到降级模式，使用兜底提示词");
-		} else {
+		}
+		else {
 			// 正常模式：Load Python code generation template
 			systemPrompt = PromptConstant.getPythonAnalyzePromptTemplate()
 				.render(Map.of("python_output", pythonOutput, "user_query", userQuery));
