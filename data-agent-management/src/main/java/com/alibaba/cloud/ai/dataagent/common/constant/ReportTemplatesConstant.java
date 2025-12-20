@@ -26,33 +26,116 @@ public class ReportTemplatesConstant {
 			<title>分析报告</title>
 
 			<!-- ⚠️ 使用国内 Staticfile CDN 源，速度快且稳定 -->
-
-			<!-- 1. Tailwind CSS (使用 CSS 版本，比 JS 版本更稳定) -->
-			<link href="https://cdn.staticfile.org/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-
-			<!-- 2. Marked.js (Markdown 解析器) -->
+			<!-- 1. Marked.js (Markdown 解析器) -->
 			<script src="https://cdn.staticfile.org/marked/12.0.0/marked.min.js"></script>
 
-			<!-- 3. ECharts (图表库) -->
+			<!-- 2. ECharts (图表库) -->
 			<script src="https://cdn.staticfile.org/echarts/5.5.0/echarts.min.js"></script>
 
 			<style>
-			  body { background: #f3f4f6; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-			  .container { max-width: 900px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+			 /* --- 替代 Tailwind 的手写样式开始 --- */
 
-			  /* 优化 Markdown 渲染后的样式 */
-			  .markdown-body h1 { font-size: 2.25rem; font-weight: 800; color: #1e3a8a; margin-bottom: 1.5rem; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; }
-			  .markdown-body h2 { font-size: 1.5rem; font-weight: 700; color: #2563eb; margin-top: 2rem; margin-bottom: 1rem; border-left: 4px solid #2563eb; padding-left: 10px;}
-			  .markdown-body h3 { font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; color: #374151; }
-			  .markdown-body p { margin-bottom: 1rem; line-height: 1.7; color: #374151; }
-			  .markdown-body ul, .markdown-body ol { margin-bottom: 1rem; padding-left: 20px; }
-			  .markdown-body li { margin-bottom: 0.5rem; list-style-type: disc; }
-			  .markdown-body code { background-color: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-family: monospace; color: #d946ef; }
-			  .markdown-body pre { background-color: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 1.5rem; }
-			  .markdown-body pre code { background-color: transparent; color: inherit; padding: 0; }
+			               /* 1. 全局重置 */
+			               * {
+			                   box-sizing: border-box;
+			               }
+			               body {
+			                   margin: 0;
+			                   padding: 20px;
+			                   background-color: #f3f4f6;
+			                   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+			                   color: #374151;
+			                   line-height: 1.6;
+			               }
 
-			  /* 图表容器 */
-			  .chart-box { width: 100%; height: 450px; margin: 30px 0; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+			               /* 2. 报告容器 (白纸效果) */
+			               .container {
+			                   max-width: 900px;
+			                   margin: 0 auto;
+			                   background-color: #ffffff;
+			                   padding: 40px;
+			                   border-radius: 12px;
+			                   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+			               }
+
+			               /* 3. 标题样式 */
+			               h1 {
+			                   font-size: 2.25rem;
+			                   font-weight: 800;
+			                   color: #1e3a8a;
+			                   margin-top: 0;
+			                   margin-bottom: 1.5rem;
+			                   border-bottom: 2px solid #e5e7eb;
+			                   padding-bottom: 0.5rem;
+			               }
+			               h2 {
+			                   font-size: 1.5rem;
+			                   font-weight: 700;
+			                   color: #2563eb;
+			                   margin-top: 2.5rem;
+			                   margin-bottom: 1rem;
+			                   border-left: 5px solid #2563eb;
+			                   padding-left: 12px;
+			               }
+			               h3 {
+			                   font-size: 1.25rem;
+			                   font-weight: 600;
+			                   color: #1f2937;
+			                   margin-top: 1.5rem;
+			                   margin-bottom: 0.75rem;
+			               }
+
+			               /* 4. 正文与列表 */
+			               p { margin-bottom: 1rem; }
+			               ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
+			               li { margin-bottom: 0.25rem; }
+
+			               /* 5. 代码块样式 */
+			               code {
+			                   background-color: #f1f5f9;
+			                   padding: 0.2rem 0.4rem;
+			                   border-radius: 0.25rem;
+			                   font-size: 0.875em;
+			                   color: #d946ef;
+			                   font-family: monospace;
+			               }
+			               pre {
+			                   background: #1e293b;
+			                   color: #f8fafc;
+			                   padding: 1rem;
+			                   border-radius: 0.5rem;
+			                   overflow-x: auto;
+			               }
+			               pre code {
+			                   background: transparent;
+			                   color: inherit;
+			                   padding: 0;
+			               }
+
+			               /* 6. 图表容器样式 */
+			               .chart-box {
+			                   width: 100%;
+			                   height: 450px;
+			                   margin: 30px 0;
+			                   border: 1px solid #e2e8f0;
+			                   border-radius: 8px;
+			                   background-color: #fff;
+			                   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+			               }
+
+			               /* 7. 错误提示样式 */
+			               .chart-error {
+			                   display: flex;
+			                   align-items: center;
+			                   justify-content: center;
+			                   height: 100%;
+			                   color: #ef4444;
+			                   background-color: #fef2f2;
+			                   border: 1px dashed #ef4444;
+			                   border-radius: 8px;
+			               }
+
+			               /* --- 样式结束 --- */
 			</style>
 			</head>
 			<body>
