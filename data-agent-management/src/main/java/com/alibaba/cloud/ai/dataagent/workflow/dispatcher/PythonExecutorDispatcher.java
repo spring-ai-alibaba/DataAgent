@@ -38,6 +38,16 @@ public class PythonExecutorDispatcher implements EdgeAction {
 		if (!isSuccess) {
 			String message = StateUtil.getStringValue(state, PYTHON_EXECUTE_NODE_OUTPUT);
 			log.error("Python Executor Node Error: {}", message);
+
+			// 检查错误是否可重试
+			boolean isRetryable = StateUtil.getObjectValue(state, "PYTHON_IS_RETRYABLE", Boolean.class, true);
+
+			if (!isRetryable) {
+				// 不可重试的错误，直接结束
+				log.warn("Python Executor Node Error: Error is not retryable, ending execution");
+				return END;
+			}
+
 			int tries = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
 			if (tries <= 0) {
 				log.warn("Python Executor Node Error: Exceeding the maximum number of iterations");
@@ -45,6 +55,7 @@ public class PythonExecutorDispatcher implements EdgeAction {
 			}
 			else {
 				// Regenerate code for testing
+				log.info("Python Executor Node: Retrying (remaining tries: {})", tries);
 				return PYTHON_GENERATE_NODE;
 			}
 		}

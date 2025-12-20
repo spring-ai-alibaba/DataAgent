@@ -75,10 +75,15 @@ public class PythonExecuteNode implements NodeAction {
 			// Run Python code
 			CodePoolExecutorService.TaskResponse taskResponse = this.codePoolExecutor.runTask(taskRequest);
 			if (!taskResponse.isSuccess()) {
-				String errorMsg = "Python Execute Failed!\nStdOut: " + taskResponse.stdOut() + "\nStdErr: "
-						+ taskResponse.stdErr() + "\nExceptionMsg: " + taskResponse.exceptionMsg();
-				log.error(errorMsg);
-				throw new RuntimeException(errorMsg);
+				String friendlyMsg = taskResponse.friendlyMessage();
+				String detailedError = "Python执行失败!\n" + "错误信息: " + friendlyMsg;
+
+				log.error("Python Execute Failed! StdOut: {}, StdErr: {}, ExceptionMsg: {}, IsRetryable: {}",
+						taskResponse.stdOut(), taskResponse.stdErr(), taskResponse.exceptionMsg(),
+						taskResponse.isRetryable());
+
+				RuntimeException exception = new RuntimeException(detailedError);
+				return handlePythonError(state, detailedError, taskResponse.isRetryable());
 			}
 
 			// Python输出的JSON字符串可能有Unicode转义形式，需要解析回汉字
@@ -114,23 +119,32 @@ public class PythonExecuteNode implements NodeAction {
 			String errorMessage = e.getMessage();
 			log.error("Python Execute Exception: {}", errorMessage);
 
-			// Prepare error result
-			Map<String, Object> errorResult = Map.of(PYTHON_EXECUTE_NODE_OUTPUT, errorMessage, PYTHON_IS_SUCCESS,
-					false);
-
-			// Create error display flux
-			Flux<ChatResponse> errorDisplayFlux = Flux.create(emitter -> {
-				emitter.next(ChatResponseUtil.createResponse("开始执行Python代码..."));
-				emitter.next(ChatResponseUtil.createResponse("Python代码执行失败: " + errorMessage));
-				emitter.complete();
-			});
-
-			// Create error generator using utility class
-			var generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(), state, v -> errorResult,
-					errorDisplayFlux);
-
-			return Map.of(PYTHON_EXECUTE_NODE_OUTPUT, generator);
+			// 系统级异常，默认可重试
+			return handlePythonError(state, errorMessage, true);
 		}
+	}
+
+	/**
+	 * 处理Python执行错误
+	 */
+	private Map<String, Object> handlePythonError(OverAllState state, String errorMessage, boolean isRetryable) {
+		// Prepare error result
+		Map<String, Object> errorResult = Map.of(PYTHON_EXECUTE_NODE_OUTPUT, errorMessage, PYTHON_IS_SUCCESS, false,
+				"PYTHON_IS_RETRYABLE", isRetryable);
+
+		Flux<ChatResponse> errorDisplayFlux = Flux.create(emitter -> {
+			emitter.next(ChatResponseUtil.createResponse("开始执行Python代码..."));
+			emitter.next(ChatResponseUtil.createResponse(errorMessage));
+			if (!isRetryable) {
+				emitter.next(ChatResponseUtil.createResponse("\n提示: 该错误无法通过重试解决，请修改代码后重新执行。"));
+			}
+			emitter.complete();
+		});
+
+		var generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(), state, v -> errorResult,
+				errorDisplayFlux);
+
+		return Map.of(PYTHON_EXECUTE_NODE_OUTPUT, generator);
 	}
 
 }
