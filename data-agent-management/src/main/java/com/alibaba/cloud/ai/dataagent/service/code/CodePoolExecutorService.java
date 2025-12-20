@@ -35,8 +35,7 @@ public interface CodePoolExecutorService {
 
 		// 执行运行代码任务时发生异常
 		public static TaskResponse exception(String msg) {
-			return new TaskResponse(false, false, null, null, "执行任务时发生异常: " + msg, true,
-					"代码执行遇到系统异常，请稍后重试");
+			return new TaskResponse(false, false, null, null, "执行任务时发生异常: " + msg, true, "代码执行遇到系统异常，请稍后重试");
 		}
 
 		// 执行运行代码任务成功，并且代码正常返回
