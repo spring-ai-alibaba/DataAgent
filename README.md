@@ -26,7 +26,7 @@ flowchart LR
     GraphEngine[StateGraph Workflow]
     MgmtAPI[Agent Prompt Model API]
     ModelRegistry[AiModelRegistry]
-    VectorSvc[Vector/RAG Service]
+    VectorSvc[Vector RAG Service]
     CodeExec[Python Executor]
     MCPServer[MCP Server Tools]
   end
@@ -60,6 +60,25 @@ flowchart LR
   GraphEngine --> ModelRegistry
   ModelRegistry --> ChatLLM
   ModelRegistry --> EmbeddingLLM
+
+  classDef client fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
+  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
+  classDef llm fill:#E0F7FA,stroke:#00ACC1,stroke-width:1px,color:#1F2937;
+  classDef exec fill:#FFF8E1,stroke:#F9A825,stroke-width:1px,color:#1F2937;
+
+  class Web,MCPClient client
+  class GraphAPI,MgmtAPI api
+  class GraphEngine,ModelRegistry,VectorSvc,MCPServer service
+  class CodeExec exec
+  class BizDB,MetaDB,VectorDB,Files data
+  class ChatLLM,EmbeddingLLM llm
+
+  style Client fill:#FFF7E6,stroke:#C79D2B,stroke-width:1.5px
+  style Management fill:#EAF4FF,stroke:#1E88E5,stroke-width:1.5px
+  style Data fill:#FFF1E6,stroke:#D68910,stroke-width:1.5px
+  style LLMs fill:#E6FAFB,stroke:#00ACC1,stroke-width:1.5px
 ```
 
 ### 2. 运行时主流程（NL2SQL + Python + Report + Human Feedback）
@@ -91,6 +110,22 @@ flowchart TD
 
   PlanExec -->|Report step or plan done| Report[ReportGeneratorNode]
   Report --> END([End])
+
+  classDef intake fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
+  classDef retrieval fill:#E0F7FA,stroke:#00ACC1,stroke-width:1px,color:#1F2937;
+  classDef planning fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
+  classDef execution fill:#FFF8E1,stroke:#F9A825,stroke-width:1px,color:#1F2937;
+  classDef feedback fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
+  classDef output fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
+  classDef terminal fill:#F3F4F6,stroke:#9CA3AF,stroke-width:1px,color:#1F2937;
+
+  class START,END terminal
+  class Intent intake
+  class Evidence,Rewrite,Schema,Relation retrieval
+  class Feasible,Planner,PlanExec planning
+  class Human feedback
+  class SQLGen,SemCheck,SQLExec,PyGen,PyExec,PyAnalyze execution
+  class Report output
 ```
 
 ### 3. 关键能力说明（含架构图与流程图）
@@ -113,10 +148,21 @@ flowchart LR
   Graph --> PlanExec[PlanExecutorNode]
   PlanExec --> Human[HumanFeedbackNode]
   Human --> GraphSvc
+
+  classDef client fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
+  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
+  classDef feedback fill:#FFF8E1,stroke:#F9A825,stroke-width:1px,color:#1F2937;
+
+  class UI client
+  class GraphAPI api
+  class GraphSvc,Graph,PlanExec service
+  class Human feedback
 ```
 
 流程图：
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
   participant U as User/UI
   participant API as GraphController SSE
@@ -155,10 +201,21 @@ flowchart LR
   PromptSvc --> PromptDB[(user_prompt_config)]
   Report[ReportGeneratorNode] --> PromptSvc
   Report --> PromptHelper
+
+  classDef client fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
+  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
+
+  class UI client
+  class PromptAPI api
+  class PromptSvc,Report,PromptHelper service
+  class PromptDB data
 ```
 
 流程图：
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
   participant A as Admin
   participant API as PromptConfigController
@@ -188,12 +245,21 @@ flowchart LR
   Evidence --> VectorSvc[AgentVectorStoreService]
   VectorSvc --> VectorStore[VectorStore ES]
   VectorSvc --> Hybrid[HybridRetrievalStrategy]
-  Evidence --> KnowledgeDB[(agent_knowledge / business_knowledge)]
-  Evidence --> Prompt[PromptHelper.buildBusiness/AgentKnowledgePrompt]
+  Evidence --> KnowledgeDB[(agent_knowledge and business_knowledge)]
+  Evidence --> Prompt[PromptHelper buildKnowledgePrompt]
+
+  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
+  classDef llm fill:#E0F7FA,stroke:#00ACC1,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
+
+  class Evidence,VectorSvc,Hybrid,Prompt service
+  class LLM llm
+  class VectorStore,KnowledgeDB data
 ```
 
 流程图：
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
   participant U as User
   participant E as EvidenceRecallNode
@@ -221,12 +287,21 @@ flowchart LR
   PlanExec[PlanExecutorNode] --> Report[ReportGeneratorNode]
   Report --> PromptHelper
   Report --> PromptSvc[UserPromptService]
-  Report --> LLM[LlmService/ChatClient]
+  Report --> LLM[LlmService ChatClient]
   Report --> Stream[SSE Stream Output]
+
+  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
+  classDef llm fill:#E0F7FA,stroke:#00ACC1,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
+
+  class PlanExec,Report,PromptHelper,PromptSvc service
+  class LLM llm
+  class Stream api
 ```
 
 流程图：
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
   participant P as PlanExecutorNode
   participant R as ReportGeneratorNode
@@ -255,10 +330,23 @@ flowchart LR
   GraphSvc --> Graph[CompiledGraph]
   GraphSvc --> Ctx[MultiTurnContextManager]
   Graph --> LLM[LlmService Stream Block]
+
+  classDef client fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
+  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
+  classDef llm fill:#E0F7FA,stroke:#00ACC1,stroke-width:1px,color:#1F2937;
+
+  class Client client
+  class SSE api
+  class GraphSvc,Graph service
+  class Ctx data
+  class LLM llm
 ```
 
 流程图：
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
   participant C as Client
   participant API as GraphController SSE
@@ -294,10 +382,23 @@ flowchart LR
   Ops --> Registry[AiModelRegistry]
   Registry --> Factory[DynamicModelFactory]
   Factory --> LLM[OpenAI-Compatible Models]
+
+  classDef client fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
+  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
+  classDef llm fill:#E0F7FA,stroke:#00ACC1,stroke-width:1px,color:#1F2937;
+
+  class MCPClient,AdminUI client
+  class MCPServer,ModelAPI api
+  class McpSvc,GraphSvc,Ops,Registry,Factory service
+  class ModelDB data
+  class LLM llm
 ```
 
 流程图：
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
   participant A as Admin
   participant API as ModelConfigController
@@ -324,10 +425,21 @@ flowchart LR
   UI --> AgentAPI[AgentController]
   AgentAPI --> AgentSvc[AgentService]
   AgentSvc --> AgentDB[(agent)]
+
+  classDef client fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
+  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
+
+  class UI client
+  class AgentAPI api
+  class AgentSvc service
+  class AgentDB data
 ```
 
 流程图：
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
   participant U as User
   participant API as AgentController
@@ -357,10 +469,17 @@ flowchart LR
   ExecSvc --> AISim[AI Simulation Executor]
   PyExec[PythonExecuteNode] --> PyAnalyze[PythonAnalyzeNode]
   PyAnalyze --> Report[ReportGeneratorNode]
+
+  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
+  classDef exec fill:#FFF8E1,stroke:#F9A825,stroke-width:1px,color:#1F2937;
+
+  class PyGen,PyExec,PyAnalyze,Report service
+  class ExecSvc,Docker,Local,AISim exec
 ```
 
 流程图：
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
   participant P as PlanExecutorNode
   participant G as PythonGenerateNode
