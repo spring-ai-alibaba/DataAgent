@@ -582,7 +582,7 @@ sequenceDiagram
   McpSvc-->>MCP: tool response
 ```
 
-#### 3.7 API Key 与权限管理
+#### 3.7 API Key 管理
 
 说明要点：
 - 管理端：`AgentController` 支持生成、重置、删除与启用/禁用 API Key。
@@ -704,7 +704,7 @@ sequenceDiagram
 
 ## 项目结构
 
-这个项目分为三个部分：
+这个项目分为两个部分：
 
 ```
 spring-ai-alibaba-data-agent/
