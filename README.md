@@ -15,26 +15,39 @@
 ### 1. 总体架构图
 
 ```mermaid
+%%{init: {"theme": "base", "flowchart": {"curve": "basis", "nodeSpacing": 35, "rankSpacing": 45}, "themeVariables": {"lineColor": "#475569", "primaryTextColor": "#1F2937"}}}%%
 flowchart LR
-  subgraph Client[Client]
-    Web[Web UI API Client]
+  subgraph Clients[Clients]
+    UserUI[data-agent-frontend UI]
+    AdminUI[Admin Console]
     MCPClient[MCP Client]
   end
 
-  subgraph Management[data-agent-management Spring Boot]
-    GraphAPI[GraphController SSE]
-    GraphEngine[StateGraph Workflow]
-    MgmtAPI[Agent Prompt Model API]
-    ModelRegistry[AiModelRegistry]
-    VectorSvc[Vector RAG Service]
-    CodeExec[Python Executor]
-    MCPServer[MCP Server Tools]
+  subgraph Access[Access Layer]
+    RestAPI[REST API]
+    SSE[SSE Stream]
   end
 
-  subgraph Data[Data & Storage]
+  subgraph Management[data-agent-management Spring Boot]
+    GraphCtl[GraphController]
+    AgentCtl[AgentController]
+    PromptCtl[PromptConfigController]
+    ModelCtl[ModelConfigController]
+    GraphSvc[GraphServiceImpl]
+    Context[MultiTurnContextManager]
+    Graph[StateGraph Workflow]
+    LlmSvc[LlmService]
+    ModelRegistry[AiModelRegistry]
+    VectorSvc[AgentVectorStoreService]
+    Hybrid[HybridRetrievalStrategy]
+    CodePool[CodePoolExecutorService]
+    McpSvc[McpServerService]
+  end
+
+  subgraph Data[Data Storage]
     BizDB[(Business DB)]
     MetaDB[(Management DB)]
-    VectorDB[(Vector Store ES)]
+    VectorDB[(Vector Store)]
     Files[(Knowledge Files)]
   end
 
@@ -43,88 +56,137 @@ flowchart LR
     EmbeddingLLM[Embedding Model]
   end
 
-  Web --> GraphAPI
-  Web --> MgmtAPI
-  MCPClient --> MCPServer
-  MCPServer --> GraphEngine
+  subgraph Exec[Python Runtime]
+    Docker[Docker Executor]
+    Local[Local Executor]
+    AISim[AI Simulation Executor]
+  end
 
-  GraphAPI --> GraphEngine
-  GraphEngine --> BizDB
-  GraphEngine --> VectorSvc
+  UserUI --> RestAPI
+  UserUI --> SSE
+  AdminUI --> RestAPI
+  MCPClient --> McpSvc
+  RestAPI --> AgentCtl
+  RestAPI --> PromptCtl
+  RestAPI --> ModelCtl
+  SSE --> GraphCtl
+  GraphCtl --> GraphSvc
+  GraphSvc --> Context
+  GraphSvc --> Graph
+  Graph --> LlmSvc
+  GraphSvc --> VectorSvc
+  VectorSvc --> Hybrid
   VectorSvc --> VectorDB
   VectorSvc --> Files
-  GraphEngine --> CodeExec
-  CodeExec --> GraphEngine
-
-  MgmtAPI --> MetaDB
-  GraphEngine --> ModelRegistry
+  Graph --> BizDB
+  GraphSvc --> ModelRegistry
   ModelRegistry --> ChatLLM
   ModelRegistry --> EmbeddingLLM
+  GraphSvc --> CodePool
+  CodePool --> Docker
+  CodePool --> Local
+  CodePool --> AISim
+  AgentCtl --> MetaDB
+  PromptCtl --> MetaDB
+  ModelCtl --> MetaDB
 
-  classDef client fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
-  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
-  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
-  classDef data fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
-  classDef llm fill:#E0F7FA,stroke:#00ACC1,stroke-width:1px,color:#1F2937;
-  classDef exec fill:#FFF8E1,stroke:#F9A825,stroke-width:1px,color:#1F2937;
+  classDef client fill:#FFF4E6,stroke:#D97706,stroke-width:1px,color:#1F2937;
+  classDef access fill:#E0F2FE,stroke:#0284C7,stroke-width:1px,color:#1F2937;
+  classDef api fill:#DBEAFE,stroke:#2563EB,stroke-width:1px,color:#1F2937;
+  classDef service fill:#ECFDF3,stroke:#16A34A,stroke-width:1px,color:#1F2937;
+  classDef workflow fill:#F0FDF4,stroke:#22C55E,stroke-width:1.5px,color:#1F2937;
+  classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
+  classDef llm fill:#E0F7FA,stroke:#06B6D4,stroke-width:1px,color:#1F2937;
+  classDef exec fill:#FFE4E6,stroke:#EF4444,stroke-width:1px,color:#1F2937;
 
-  class Web,MCPClient client
-  class GraphAPI,MgmtAPI api
-  class GraphEngine,ModelRegistry,VectorSvc,MCPServer service
-  class CodeExec exec
+  class UserUI,AdminUI,MCPClient client
+  class RestAPI,SSE access
+  class GraphCtl,AgentCtl,PromptCtl,ModelCtl api
+  class GraphSvc,Context,LlmSvc,ModelRegistry,VectorSvc,Hybrid,CodePool,McpSvc service
+  class Graph workflow
   class BizDB,MetaDB,VectorDB,Files data
   class ChatLLM,EmbeddingLLM llm
+  class Docker,Local,AISim exec
 
-  style Client fill:#FFF7E6,stroke:#C79D2B,stroke-width:1.5px
-  style Management fill:#EAF4FF,stroke:#1E88E5,stroke-width:1.5px
-  style Data fill:#FFF1E6,stroke:#D68910,stroke-width:1.5px
-  style LLMs fill:#E6FAFB,stroke:#00ACC1,stroke-width:1.5px
+  style Clients fill:#FFF7ED,stroke:#D97706,stroke-width:1.5px
+  style Access fill:#EFF6FF,stroke:#0284C7,stroke-width:1.5px
+  style Management fill:#F0FDF4,stroke:#16A34A,stroke-width:1.5px
+  style Data fill:#FFFBEB,stroke:#F59E0B,stroke-width:1.5px
+  style LLMs fill:#ECFEFF,stroke:#06B6D4,stroke-width:1.5px
+  style Exec fill:#FFF1F2,stroke:#EF4444,stroke-width:1.5px
 ```
 
 ### 2. 运行时主流程
 
 ```mermaid
+%%{init: {"theme": "base", "flowchart": {"curve": "basis", "nodeSpacing": 30, "rankSpacing": 40}, "themeVariables": {"lineColor": "#475569", "primaryTextColor": "#1F2937"}}}%%
 flowchart TD
-  START([Start]) --> Intent[IntentRecognitionNode]
-  Intent --> Evidence[EvidenceRecallNode]
+  Start([Start]) --> BuildCtx[Build MultiTurn Context]
+  BuildCtx --> Intent[IntentRecognitionNode]
+  Intent --> IntentGate{Need analysis}
+  IntentGate -->|no| End([End])
+  IntentGate -->|yes| Evidence[EvidenceRecallNode]
   Evidence --> Rewrite[QueryEnhanceNode]
   Rewrite --> Schema[SchemaRecallNode]
   Schema --> Relation[TableRelationNode]
-  Relation --> Feasible[FeasibilityAssessmentNode]
-  Feasible --> Planner[PlannerNode]
-  Planner --> PlanExec[PlanExecutorNode]
+  Relation --> RelGate{Relation ok}
+  RelGate -->|retry| Relation
+  RelGate --> Feasible[FeasibilityAssessmentNode]
+  Feasible --> FeasibleGate{Feasible}
+  FeasibleGate -->|no| End
+  FeasibleGate --> Planner[PlannerNode]
+  Planner --> PlanValidate[PlanExecutor validate]
+  PlanValidate -->|invalid| Planner
+  PlanValidate --> HumanGate{Human review}
+  HumanGate -->|yes| Human[HumanFeedbackNode]
+  HumanGate -->|no| StepSelect[Select next step]
 
-  PlanExec -->|humanFeedback=true| Human[HumanFeedbackNode]
-  Human -->|approve| PlanExec
+  Human -->|approve| StepSelect
   Human -->|reject| Planner
 
-  PlanExec -->|SQL step| SQLGen[SqlGenerateNode]
+  StepSelect --> SQLGate{SQL step}
+  SQLGate -->|yes| SQLGen[SqlGenerateNode]
   SQLGen --> SemCheck[SemanticConsistencyNode]
-  SemCheck --> SQLExec[SqlExecuteNode]
-  SQLExec --> PlanExec
+  SemCheck --> SemGate{Semantics ok}
+  SemGate -->|no| SQLGen
+  SemGate --> SQLExec[SqlExecuteNode]
+  SQLExec --> SQLGate2{SQL exec ok}
+  SQLGate2 -->|no| SQLGen
+  SQLGate2 --> StoreSQL[Store SQL Result]
+  StoreSQL --> StepSelect
 
-  PlanExec -->|Python step| PyGen[PythonGenerateNode]
+  StepSelect --> PyGate{Python step}
+  PyGate -->|yes| PyGen[PythonGenerateNode]
   PyGen --> PyExec[PythonExecuteNode]
-  PyExec --> PyAnalyze[PythonAnalyzeNode]
-  PyAnalyze --> PlanExec
+  PyExec --> PyGate2{Python ok}
+  PyGate2 -->|no| PyGen
+  PyGate2 --> PyAnalyze[PythonAnalyzeNode]
+  PyAnalyze --> StorePy[Store Analysis]
+  StorePy --> StepSelect
 
-  PlanExec -->|Report step or plan done| Report[ReportGeneratorNode]
-  Report --> END([End])
+  StepSelect --> ReportGate{Report step}
+  ReportGate -->|yes| Report[ReportGeneratorNode]
+  ReportGate -->|no| End
+  Report --> End
 
-  classDef intake fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
-  classDef retrieval fill:#E0F7FA,stroke:#00ACC1,stroke-width:1px,color:#1F2937;
-  classDef planning fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
-  classDef execution fill:#FFF8E1,stroke:#F9A825,stroke-width:1px,color:#1F2937;
-  classDef feedback fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
-  classDef output fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
-  classDef terminal fill:#F3F4F6,stroke:#9CA3AF,stroke-width:1px,color:#1F2937;
+  classDef input fill:#E0F2FE,stroke:#0284C7,stroke-width:1px,color:#1F2937;
+  classDef retrieval fill:#E0F7FA,stroke:#06B6D4,stroke-width:1px,color:#1F2937;
+  classDef planning fill:#ECFDF3,stroke:#16A34A,stroke-width:1px,color:#1F2937;
+  classDef decision fill:#F3F4F6,stroke:#6B7280,stroke-width:1px,color:#1F2937;
+  classDef execution fill:#FFF8E1,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FEF3C7,stroke:#D97706,stroke-width:1px,color:#1F2937;
+  classDef feedback fill:#FFF4E6,stroke:#D97706,stroke-width:1px,color:#1F2937;
+  classDef output fill:#E0F2FE,stroke:#0284C7,stroke-width:1px,color:#1F2937;
+  classDef terminal fill:#E5E7EB,stroke:#9CA3AF,stroke-width:1px,color:#1F2937;
 
-  class START,END terminal
-  class Intent intake
+  class Start,End terminal
+  class BuildCtx,Intent input
   class Evidence,Rewrite,Schema,Relation retrieval
-  class Feasible,Planner,PlanExec planning
+  class Feasible,Planner,PlanValidate,StepSelect planning
+  class IntentGate,RelGate,FeasibleGate,HumanGate,SQLGate,SemGate,SQLGate2,PyGate,PyGate2,ReportGate decision
   class Human feedback
   class SQLGen,SemCheck,SQLExec,PyGen,PyExec,PyAnalyze execution
+  class StoreSQL,StorePy data
   class Report output
 ```
 
@@ -144,44 +206,57 @@ flowchart TD
 flowchart LR
   UI[Run UI] --> GraphAPI[GraphController SSE]
   GraphAPI --> GraphSvc[GraphServiceImpl]
+  GraphSvc --> StreamCtx[StreamContext]
   GraphSvc --> Graph[CompiledGraph]
   Graph --> PlanExec[PlanExecutorNode]
   PlanExec --> Human[HumanFeedbackNode]
-  Human --> GraphSvc
+  Human --> FeedbackPayload[HumanFeedback payload]
+  FeedbackPayload --> StateSnap[StateSnapshot]
+  StateSnap --> GraphSvc
+  GraphSvc --> GraphAPI
 
-  classDef client fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
-  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
-  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
-  classDef feedback fill:#FFF8E1,stroke:#F9A825,stroke-width:1px,color:#1F2937;
+  classDef client fill:#FFF4E6,stroke:#D97706,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E0F2FE,stroke:#0284C7,stroke-width:1px,color:#1F2937;
+  classDef service fill:#ECFDF3,stroke:#16A34A,stroke-width:1px,color:#1F2937;
+  classDef state fill:#F3F4F6,stroke:#6B7280,stroke-width:1px,color:#1F2937;
+  classDef feedback fill:#FFF8E1,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
 
   class UI client
   class GraphAPI api
   class GraphSvc,Graph,PlanExec service
-  class Human feedback
+  class StreamCtx,StateSnap state
+  class Human,FeedbackPayload feedback
 ```
 
 流程图：
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
-  participant U as User/UI
+  autonumber
+  participant U as User UI
   participant API as GraphController SSE
   participant GS as GraphServiceImpl
   participant G as CompiledGraph
   participant HF as HumanFeedbackNode
+  participant CTX as MultiTurnContextManager
+  participant SS as StateSnapshot
 
-  U->>API: GET /api/stream/search?humanFeedback=true
+  U->>API: stream search with humanFeedback true
   API->>GS: graphStreamProcess
-  GS->>G: fluxStream (interruptBefore HumanFeedback)
-  G-->>API: 规划结果流式输出
-  G-->>HF: 进入等待反馈
-  HF-->>G: WAIT_FOR_FEEDBACK → END
+  GS->>CTX: buildContext and beginTurn
+  GS->>G: fluxStream interruptBefore HumanFeedback
+  G-->>API: plan stream chunks
+  G-->>HF: wait for feedback
+  HF-->>G: wait state ends
 
-  U->>API: GET /api/stream/search?humanFeedbackContent=...&rejectedPlan=...
-  API->>GS: handleHumanFeedback(resume)
+  Note over U,API: user submits feedback and threadId
+  U->>API: stream search with feedback content
+  API->>GS: handleHumanFeedback resume
+  GS->>SS: getState threadId
   GS->>G: fluxStreamFromInitialNode
-  HF-->>G: approve/reject → next node
-  G-->>API: 继续执行并输出结果
+  HF-->>G: approve or reject
+  G-->>API: continue execution stream
+  GS->>CTX: finishTurn update history
 ```
 
 #### 3.2 Prompt 配置与自动优化
@@ -198,36 +273,53 @@ sequenceDiagram
 flowchart LR
   UI[Admin UI] --> PromptAPI[PromptConfigController]
   PromptAPI --> PromptSvc[UserPromptService]
-  PromptSvc --> PromptDB[(user_prompt_config)]
+  PromptSvc --> PromptMapper[UserPromptConfigMapper]
+  PromptMapper --> PromptDB[(user_prompt_config)]
   Report[ReportGeneratorNode] --> PromptSvc
   Report --> PromptHelper
+  PromptHelper --> Templates[PromptConstant templates]
+  Report --> LlmSvc[LlmService]
 
-  classDef client fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
-  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
-  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
-  classDef data fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
+  classDef client fill:#FFF4E6,stroke:#D97706,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E0F2FE,stroke:#0284C7,stroke-width:1px,color:#1F2937;
+  classDef service fill:#ECFDF3,stroke:#16A34A,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
+  classDef llm fill:#E0F7FA,stroke:#06B6D4,stroke-width:1px,color:#1F2937;
 
   class UI client
   class PromptAPI api
-  class PromptSvc,Report,PromptHelper service
+  class PromptSvc,PromptMapper,Report,PromptHelper service
   class PromptDB data
+  class Templates data
+  class LlmSvc llm
 ```
 
 流程图：
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
+  autonumber
   participant A as Admin
   participant API as PromptConfigController
+  participant Svc as UserPromptService
+  participant Mapper as UserPromptConfigMapper
   participant DB as user_prompt_config
   participant R as ReportGeneratorNode
+  participant H as PromptHelper
+  participant L as LLM
 
-  A->>API: 保存/启用优化配置
-  API->>DB: insert/update
+  A->>API: 保存并启用优化配置
+  API->>Svc: saveOrUpdateConfig
+  Svc->>Mapper: insert or update
+  Mapper->>DB: write config
   A->>R: 触发报告生成
-  R->>DB: 查询启用配置(按优先级排序)
-  R->>R: 生成优化段落并组装 Prompt
-  R-->>A: 返回优化后的报告
+  R->>Svc: getActiveConfigsByType
+  Svc->>Mapper: select active configs
+  Mapper->>DB: read configs
+  R->>H: build optimized prompt
+  H-->>R: prompt text
+  R->>L: generate report
+  L-->>R: report content
 ```
 
 #### 3.3 RAG 检索增强
@@ -242,36 +334,60 @@ sequenceDiagram
 ```mermaid
 flowchart LR
   Evidence[EvidenceRecallNode] --> LLM[LLM Query Rewrite]
+  Evidence --> MultiTurn[MultiTurn Context]
   Evidence --> VectorSvc[AgentVectorStoreService]
-  VectorSvc --> VectorStore[VectorStore ES]
+  VectorSvc --> Filter[DynamicFilterService]
+  Filter --> VectorStore[VectorStore]
   VectorSvc --> Hybrid[HybridRetrievalStrategy]
-  Evidence --> KnowledgeDB[(agent_knowledge and business_knowledge)]
-  Evidence --> Prompt[PromptHelper buildKnowledgePrompt]
+  Hybrid --> Keyword[Keyword Search ES]
+  Hybrid --> VectorStore
+  Hybrid --> Fusion[FusionStrategy]
+  Fusion --> Evidence
+  Evidence --> KnowledgeMapper[AgentKnowledgeMapper]
+  KnowledgeMapper --> KnowledgeDB[(agent_knowledge and business_knowledge)]
+  Evidence --> Prompt[Build Evidence Prompt]
 
-  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
-  classDef llm fill:#E0F7FA,stroke:#00ACC1,stroke-width:1px,color:#1F2937;
-  classDef data fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
+  classDef service fill:#ECFDF3,stroke:#16A34A,stroke-width:1px,color:#1F2937;
+  classDef llm fill:#E0F7FA,stroke:#06B6D4,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
+  classDef control fill:#F3F4F6,stroke:#6B7280,stroke-width:1px,color:#1F2937;
 
-  class Evidence,VectorSvc,Hybrid,Prompt service
+  class Evidence,VectorSvc,Hybrid,Fusion,Prompt service
   class LLM llm
   class VectorStore,KnowledgeDB data
+  class Filter,MultiTurn,KnowledgeMapper control
+  class Keyword data
 ```
 
 流程图：
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
+  autonumber
   participant U as User
   participant E as EvidenceRecallNode
   participant L as LLM
-  participant V as VectorStore Hybrid
+  participant F as DynamicFilterService
+  participant H as HybridRetrievalStrategy
+  participant V as VectorStore
+  participant Fu as FusionStrategy
+  participant M as AgentKnowledgeMapper
+  participant DB as Knowledge DB
 
   U->>E: 原始问题
-  E->>L: 查询重写
+  E->>L: 查询重写并注入多轮上下文
   L-->>E: standaloneQuery
-  E->>V: 向量/混合检索
-  V-->>E: 文档片段
-  E-->>U: 注入 evidence 后的后续执行
+  E->>F: build filter by agent and type
+  F-->>E: filter expression
+  E->>H: hybrid retrieve
+  H->>V: vector search
+  H->>Fu: keyword results
+  Fu-->>H: fused docs
+  H-->>E: evidence docs
+  E->>M: fetch titles and metadata
+  M->>DB: query knowledge
+  DB-->>M: metadata rows
+  E-->>U: evidence summary and snippets
 ```
 
 #### 3.4 报告生成与摘要生成
@@ -284,34 +400,50 @@ sequenceDiagram
 架构图：
 ```mermaid
 flowchart LR
-  PlanExec[PlanExecutorNode] --> Report[ReportGeneratorNode]
-  Report --> PromptHelper
+  PlanExec[PlanExecutorNode] --> PlanData[Plan JSON]
+  PlanExec --> SqlResults[SQL Results]
+  PlanExec --> PyResults[Python Results]
+  PlanData --> Report[ReportGeneratorNode]
+  SqlResults --> Report
+  PyResults --> Report
   Report --> PromptSvc[UserPromptService]
+  PromptSvc --> PromptDB[(user_prompt_config)]
+  Report --> PromptHelper
+  PromptHelper --> Templates[PromptConstant templates]
   Report --> LLM[LlmService ChatClient]
   Report --> Stream[SSE Stream Output]
 
-  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
-  classDef llm fill:#E0F7FA,stroke:#00ACC1,stroke-width:1px,color:#1F2937;
-  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
+  classDef service fill:#ECFDF3,stroke:#16A34A,stroke-width:1px,color:#1F2937;
+  classDef llm fill:#E0F7FA,stroke:#06B6D4,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E0F2FE,stroke:#0284C7,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
 
   class PlanExec,Report,PromptHelper,PromptSvc service
   class LLM llm
   class Stream api
+  class PlanData,SqlResults,PyResults,PromptDB,Templates data
 ```
 
 流程图：
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
+  autonumber
   participant P as PlanExecutorNode
   participant R as ReportGeneratorNode
+  participant S as UserPromptService
+  participant H as PromptHelper
   participant L as LLM
   participant C as Client
 
-  P->>R: 计划 + 执行结果
-  R->>L: 组合 Prompt(含摘要建议/优化要求)
-  L-->>R: 报告内容
-  R-->>C: HTML/Markdown 流式输出
+  P->>R: 计划与执行结果
+  R->>S: get optimization configs
+  S-->>R: configs
+  R->>H: build report prompt
+  H-->>R: prompt text
+  R->>L: generate report
+  L-->>R: report content
+  R-->>C: HTML Markdown streaming output
 ```
 
 #### 3.5 流式输出与多轮对话
@@ -326,40 +458,62 @@ sequenceDiagram
 ```mermaid
 flowchart LR
   Client --> SSE[GraphController SSE]
+  SSE --> Sink[Sinks Many]
   SSE --> GraphSvc[GraphServiceImpl]
-  GraphSvc --> Graph[CompiledGraph]
+  GraphSvc --> StreamCtx[StreamContext]
   GraphSvc --> Ctx[MultiTurnContextManager]
+  GraphSvc --> Graph[CompiledGraph]
   Graph --> LLM[LlmService Stream Block]
+  Graph --> TextType[TextType Markers]
+  TextType --> Sink
+  Sink --> Client
+  Client -.-> Stop[StopStreamProcessing]
+  Stop -.-> GraphSvc
 
-  classDef client fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
-  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
-  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
-  classDef data fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
-  classDef llm fill:#E0F7FA,stroke:#00ACC1,stroke-width:1px,color:#1F2937;
+  classDef client fill:#FFF4E6,stroke:#D97706,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E0F2FE,stroke:#0284C7,stroke-width:1px,color:#1F2937;
+  classDef service fill:#ECFDF3,stroke:#16A34A,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
+  classDef llm fill:#E0F7FA,stroke:#06B6D4,stroke-width:1px,color:#1F2937;
+  classDef control fill:#F3F4F6,stroke:#6B7280,stroke-width:1px,color:#1F2937;
 
   class Client client
-  class SSE api
+  class SSE,Sink api
   class GraphSvc,Graph service
-  class Ctx data
+  class StreamCtx,Ctx data
   class LLM llm
+  class TextType,Stop control
 ```
 
 流程图：
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
+  autonumber
   participant C as Client
   participant API as GraphController SSE
   participant GS as GraphServiceImpl
+  participant SC as StreamContext
+  participant SK as Sinks Many
   participant CTX as MultiTurnContextManager
   participant G as CompiledGraph
+  participant L as LlmService
+  participant T as TextType
 
-  C->>API: 连接SSE并提问
+  C->>API: connect SSE and send query
   API->>GS: graphStreamProcess
+  GS->>SC: create or get context
   GS->>CTX: beginTurn
-  GS->>G: fluxStream(threadId)
-  G-->>API: 分段输出(带TextType标记)
-  GS->>CTX: finishTurn(记录规划输出)
+  GS->>G: fluxStream threadId
+  G->>L: stream model tokens
+  L-->>G: token chunks
+  G-->>T: detect text type markers
+  G-->>SK: emit chunk
+  SK-->>API: SSE data
+  API-->>C: stream output
+  C-->>API: disconnect
+  API->>GS: stopStreamProcessing
+  GS->>CTX: discardPending
 ```
 
 #### 3.6 MCP 与多模型调度
@@ -373,42 +527,59 @@ sequenceDiagram
 ```mermaid
 flowchart LR
   MCPClient --> MCPServer[Mcp Server]
-  MCPServer --> McpSvc[McpServerService]
+  MCPServer --> ToolProvider[MethodToolCallbackProvider]
+  ToolProvider --> McpSvc[McpServerService]
   McpSvc --> GraphSvc[GraphService]
 
   AdminUI --> ModelAPI[ModelConfigController]
   ModelAPI --> Ops[ModelConfigOpsService]
-  Ops --> ModelDB[(model_config)]
+  Ops --> ModelData[ModelConfigDataService]
+  ModelData --> ModelDB[(model_config)]
   Ops --> Registry[AiModelRegistry]
   Registry --> Factory[DynamicModelFactory]
-  Factory --> LLM[OpenAI-Compatible Models]
+  Factory --> OpenAI[OpenAiApi]
+  OpenAI --> ChatLLM[Chat Model]
+  OpenAI --> EmbeddingLLM[Embedding Model]
 
-  classDef client fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
-  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
-  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
-  classDef data fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
-  classDef llm fill:#E0F7FA,stroke:#00ACC1,stroke-width:1px,color:#1F2937;
+  classDef client fill:#FFF4E6,stroke:#D97706,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E0F2FE,stroke:#0284C7,stroke-width:1px,color:#1F2937;
+  classDef service fill:#ECFDF3,stroke:#16A34A,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
+  classDef llm fill:#E0F7FA,stroke:#06B6D4,stroke-width:1px,color:#1F2937;
 
   class MCPClient,AdminUI client
-  class MCPServer,ModelAPI api
-  class McpSvc,GraphSvc,Ops,Registry,Factory service
+  class MCPServer,ToolProvider,ModelAPI api
+  class McpSvc,GraphSvc,Ops,Registry,Factory,ModelData service
   class ModelDB data
-  class LLM llm
+  class ChatLLM,EmbeddingLLM llm
 ```
 
 流程图：
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
+  autonumber
   participant A as Admin
-  participant API as ModelConfigController
+  participant MAPI as ModelConfigController
   participant Ops as ModelConfigOpsService
-  participant R as AiModelRegistry
+  participant Reg as AiModelRegistry
+  participant Factory as DynamicModelFactory
+  participant OpenAI as OpenAiApi
+  participant MCP as MCP Client
+  participant McpSvc as McpServerService
+  participant GS as GraphService
 
-  A->>API: 新增/测试/激活模型
-  API->>Ops: update/activate
-  Ops->>R: refreshChat/refreshEmbedding
-  R-->>API: 新模型生效
+  A->>MAPI: activate model config
+  MAPI->>Ops: activateConfig
+  Ops->>Reg: refreshChat or refreshEmbedding
+  Reg->>Factory: create model instance
+  Factory->>OpenAI: build API client
+  OpenAI-->>Reg: model ready
+
+  MCP->>McpSvc: call tool nl2SqlToolCallback
+  McpSvc->>GS: nl2sql
+  GS-->>McpSvc: SQL result
+  McpSvc-->>MCP: tool response
 ```
 
 #### 3.7 API Key 与权限管理
@@ -424,32 +595,48 @@ sequenceDiagram
 flowchart LR
   UI --> AgentAPI[AgentController]
   AgentAPI --> AgentSvc[AgentService]
-  AgentSvc --> AgentDB[(agent)]
+  AgentSvc --> AgentMapper[AgentMapper]
+  AgentMapper --> AgentDB[(agent)]
+  UI --> GraphAPI[GraphController]
+  GraphAPI -.-> Auth[Optional Auth Interceptor]
+  Auth -.-> AgentSvc
 
-  classDef client fill:#FFF1D6,stroke:#C79D2B,stroke-width:1px,color:#1F2937;
-  classDef api fill:#E3F2FD,stroke:#1E88E5,stroke-width:1px,color:#1F2937;
-  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
-  classDef data fill:#FDEBD0,stroke:#D68910,stroke-width:1px,color:#1F2937;
+  classDef client fill:#FFF4E6,stroke:#D97706,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E0F2FE,stroke:#0284C7,stroke-width:1px,color:#1F2937;
+  classDef service fill:#ECFDF3,stroke:#16A34A,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
+  classDef control fill:#F3F4F6,stroke:#6B7280,stroke-width:1px,color:#1F2937;
 
   class UI client
-  class AgentAPI api
-  class AgentSvc service
+  class AgentAPI,GraphAPI api
+  class AgentSvc,AgentMapper service
   class AgentDB data
+  class Auth control
 ```
 
 流程图：
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
+  autonumber
   participant U as User
   participant API as AgentController
+  participant S as AgentService
+  participant M as AgentMapper
   participant DB as agent
   participant G as GraphController
+  participant Auth as Optional Auth Interceptor
 
-  U->>API: 生成/启用 API Key
-  API->>DB: 保存 key + enabled
-  U->>G: 调用业务API (X-API-Key)
-  G-->>U: 默认不校验(需自定义拦截器)
+  U->>API: 生成并启用 API Key
+  API->>S: generateApiKey
+  S->>M: update agent key
+  M->>DB: write api_key
+  U->>G: 调用业务接口并带 X-API-Key
+  opt custom auth enabled
+    G->>Auth: validate api key
+    Auth->>DB: check api_key_enabled
+  end
+  G-->>U: response
 ```
 
 #### 3.8 Python 执行与结果回传
@@ -463,33 +650,56 @@ sequenceDiagram
 架构图：
 ```mermaid
 flowchart LR
-  PyGen[PythonGenerateNode] --> ExecSvc[CodePoolExecutorService]
-  ExecSvc --> Docker[Docker Executor]
-  ExecSvc --> Local[Local Executor]
-  ExecSvc --> AISim[AI Simulation Executor]
-  PyExec[PythonExecuteNode] --> PyAnalyze[PythonAnalyzeNode]
+  PyGen[PythonGenerateNode] --> PyExec[PythonExecuteNode]
+  PyExec --> ExecSvc[CodePoolExecutorService]
+  ExecSvc --> Queue[Task Queue]
+  ExecSvc --> Pool[Container Pool]
+  Pool --> Docker[Docker Executor]
+  Pool --> Local[Local Executor]
+  Pool --> AISim[AI Simulation Executor]
+  Docker --> TempFiles[Temp Files]
+  TempFiles --> StdIO[Stdout Stderr]
+  StdIO --> JsonParse[JsonParseUtil]
+  JsonParse --> PyAnalyze[PythonAnalyzeNode]
   PyAnalyze --> Report[ReportGeneratorNode]
 
-  classDef service fill:#E8F5E9,stroke:#43A047,stroke-width:1px,color:#1F2937;
-  classDef exec fill:#FFF8E1,stroke:#F9A825,stroke-width:1px,color:#1F2937;
+  classDef service fill:#ECFDF3,stroke:#16A34A,stroke-width:1px,color:#1F2937;
+  classDef exec fill:#FFE4E6,stroke:#EF4444,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
 
   class PyGen,PyExec,PyAnalyze,Report service
-  class ExecSvc,Docker,Local,AISim exec
+  class ExecSvc,Pool,Docker,Local,AISim exec
+  class Queue,TempFiles,StdIO,JsonParse data
 ```
 
 流程图：
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
+  autonumber
   participant P as PlanExecutorNode
   participant G as PythonGenerateNode
+  participant L as LlmService
   participant E as PythonExecuteNode
+  participant CP as CodePoolExecutorService
+  participant D as Docker Executor
+  participant J as JsonParseUtil
   participant A as PythonAnalyzeNode
+  participant R as ReportGeneratorNode
 
-  P->>G: 进入Python步骤
-  G->>E: 生成并执行代码
-  E-->>A: 执行结果(JSON)
-  A-->>P: 汇总分析并推进计划
+  P->>G: 进入Python步骤并传入指令
+  G->>L: generate python code
+  L-->>G: python code
+  G->>E: pass code and sql results
+  E->>CP: runTask
+  CP->>D: execute in container
+  D-->>CP: stdout stderr
+  CP-->>E: task response
+  E->>J: parse stdout json
+  J-->>E: normalized output
+  E->>A: analyze result
+  A-->>P: update step results
+  P->>R: continue to report
 ```
 
 ## 项目结构
