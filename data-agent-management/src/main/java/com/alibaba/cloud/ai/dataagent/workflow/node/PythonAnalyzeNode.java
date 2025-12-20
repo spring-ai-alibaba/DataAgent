@@ -60,9 +60,20 @@ public class PythonAnalyzeNode implements NodeAction {
 		Map<String, String> sqlExecuteResult = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
 				new HashMap<>());
 
-		// Load Python code generation template
-		String systemPrompt = PromptConstant.getPythonAnalyzePromptTemplate()
-			.render(Map.of("python_output", pythonOutput, "user_query", userQuery));
+		// 检查是否进入降级模式
+		boolean isFallbackMode = StateUtil.getObjectValue(state, PYTHON_FALLBACK_MODE, Boolean.class, false);
+
+		String systemPrompt;
+		if (isFallbackMode) {
+			// 降级模式：使用降级提示词文件
+			systemPrompt = PromptConstant.getPythonAnalyzeFallbackPromptTemplate()
+				.render(Map.of("user_query", userQuery));
+			log.warn("Python分析节点检测到降级模式，使用兜底提示词");
+		} else {
+			// 正常模式：Load Python code generation template
+			systemPrompt = PromptConstant.getPythonAnalyzePromptTemplate()
+				.render(Map.of("python_output", pythonOutput, "user_query", userQuery));
+		}
 
 		Flux<ChatResponse> pythonAnalyzeFlux = llmService.callSystem(systemPrompt);
 

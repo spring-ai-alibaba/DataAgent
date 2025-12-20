@@ -33,6 +33,12 @@ public class PythonExecutorDispatcher implements EdgeAction {
 
 	@Override
 	public String apply(OverAllState state) throws Exception {
+		boolean isFallbackMode = StateUtil.getObjectValue(state, PYTHON_FALLBACK_MODE, Boolean.class, false);
+		if (isFallbackMode) {
+			log.warn("Python执行进入降级模式，跳过重试直接进入分析节点");
+			return PYTHON_ANALYZE_NODE;
+		}
+
 		// Determine if failed
 		boolean isSuccess = StateUtil.getObjectValue(state, PYTHON_IS_SUCCESS, Boolean.class, false);
 		if (!isSuccess) {
@@ -40,7 +46,7 @@ public class PythonExecutorDispatcher implements EdgeAction {
 			log.error("Python Executor Node Error: {}", message);
 			int tries = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
 			if (tries <= 0) {
-				log.warn("Python Executor Node Error: Exceeding the maximum number of iterations");
+				log.error("Python执行失败且已超过最大重试次数，流程终止");
 				return END;
 			}
 			else {

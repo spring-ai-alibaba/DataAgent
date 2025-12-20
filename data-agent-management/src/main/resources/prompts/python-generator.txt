@@ -45,6 +45,10 @@ try:
     # 将输入数据转换为DataFrame以便于分析
     df = pd.DataFrame(input_data)
 
+    # 自动类型推断：将字符串形式的数值转换为实际数值类型（解决后端统一返回字符串的问题）
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors='ignore')
+
     # 动态分析逻辑
     # 示例：计算某些统计指标
     result = \{
@@ -79,8 +83,9 @@ except Exception:
 # 注意事项
 
 1. **输入验证**：确保代码能够正确处理空输入或格式不正确的输入，并在异常时提供清晰的错误信息。**处理的数据必须来自`json.load(sys.stdin)`**。
-2. **性能优化**：尽量减少不必要的计算和内存占用，确保代码在性能约束内高效运行。
-3. **结果完整性**：输出的JSON对象应全面反映分析结果，且字段命名清晰易懂。
+2. **类型转换**：由于后端SQL查询结果统一转换为字符串格式，**必须在DataFrame创建后进行类型推断**，使用`pd.to_numeric()`将数值字符串转换为实际数值类型，以便进行数学运算和统计分析。
+3. **性能优化**：尽量减少不必要的计算和内存占用，确保代码在性能约束内高效运行。
+4. **结果完整性**：输出的JSON对象应全面反映分析结果,且字段命名清晰易懂。
 
 ---
 
@@ -100,6 +105,10 @@ try:
 
     # 转换为DataFrame
     df = pd.DataFrame(input_data)
+
+    # 自动类型推断：将字符串形式的数值转换为实际数值类型
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors='ignore')
 
     # 动态分析逻辑
     result = \{
