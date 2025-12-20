@@ -85,6 +85,10 @@ public class PromptConstant {
 		return new PromptTemplate(PromptLoader.loadPrompt("python-analyze"));
 	}
 
+	public static PromptTemplate getPythonAnalyzeFallbackPromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("python-analyze-fallback"));
+	}
+
 	public static PromptTemplate getBusinessKnowledgePromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("business-knowledge"));
 	}
