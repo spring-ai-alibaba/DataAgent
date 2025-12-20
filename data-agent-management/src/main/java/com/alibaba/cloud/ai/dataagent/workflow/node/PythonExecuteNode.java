@@ -95,14 +95,11 @@ public class PythonExecuteNode implements NodeAction {
 						emitter.complete();
 					});
 
-					Flux<GraphResponse<StreamingOutput>> fallbackGenerator = FluxUtil.createStreamingGeneratorWithMessages(
-							this.getClass(), state,
-							v -> Map.of(
-								PYTHON_EXECUTE_NODE_OUTPUT, fallbackOutput,
-								PYTHON_IS_SUCCESS, false,
-								PYTHON_FALLBACK_MODE, true
-							),
-							fallbackDisplayFlux);
+					Flux<GraphResponse<StreamingOutput>> fallbackGenerator = FluxUtil
+						.createStreamingGeneratorWithMessages(this.getClass(), state,
+								v -> Map.of(PYTHON_EXECUTE_NODE_OUTPUT, fallbackOutput, PYTHON_IS_SUCCESS, false,
+										PYTHON_FALLBACK_MODE, true),
+								fallbackDisplayFlux);
 
 					return Map.of(PYTHON_EXECUTE_NODE_OUTPUT, fallbackGenerator);
 				}
