@@ -10,7 +10,368 @@
 
 同时，本项目可以支持**发布成MCP服务器**，具体看 本文档mcp章节。
 
+## 架构与核心能力
 
+### 1. 总体架构图
+
+```mermaid
+flowchart LR
+  subgraph Client[Client]
+    Web[Web UI API Client]
+    MCPClient[MCP Client]
+  end
+
+  subgraph Management[data-agent-management Spring Boot]
+    GraphAPI[GraphController SSE]
+    GraphEngine[StateGraph Workflow]
+    MgmtAPI[Agent Prompt Model API]
+    ModelRegistry[AiModelRegistry]
+    VectorSvc[Vector/RAG Service]
+    CodeExec[Python Executor]
+    MCPServer[MCP Server Tools]
+  end
+
+  subgraph Data[Data & Storage]
+    BizDB[(Business DB)]
+    MetaDB[(Management DB)]
+    VectorDB[(Vector Store ES)]
+    Files[(Knowledge Files)]
+  end
+
+  subgraph LLMs[LLM Providers]
+    ChatLLM[Chat Model]
+    EmbeddingLLM[Embedding Model]
+  end
+
+  Web --> GraphAPI
+  Web --> MgmtAPI
+  MCPClient --> MCPServer
+  MCPServer --> GraphEngine
+
+  GraphAPI --> GraphEngine
+  GraphEngine --> BizDB
+  GraphEngine --> VectorSvc
+  VectorSvc --> VectorDB
+  VectorSvc --> Files
+  GraphEngine --> CodeExec
+  CodeExec --> GraphEngine
+
+  MgmtAPI --> MetaDB
+  GraphEngine --> ModelRegistry
+  ModelRegistry --> ChatLLM
+  ModelRegistry --> EmbeddingLLM
+```
+
+### 2. 运行时主流程（NL2SQL + Python + Report + Human Feedback）
+
+```mermaid
+flowchart TD
+  START([Start]) --> Intent[IntentRecognitionNode]
+  Intent --> Evidence[EvidenceRecallNode]
+  Evidence --> Rewrite[QueryEnhanceNode]
+  Rewrite --> Schema[SchemaRecallNode]
+  Schema --> Relation[TableRelationNode]
+  Relation --> Feasible[FeasibilityAssessmentNode]
+  Feasible --> Planner[PlannerNode]
+  Planner --> PlanExec[PlanExecutorNode]
+
+  PlanExec -->|humanFeedback=true| Human[HumanFeedbackNode]
+  Human -->|approve| PlanExec
+  Human -->|reject| Planner
+
+  PlanExec -->|SQL step| SQLGen[SqlGenerateNode]
+  SQLGen --> SemCheck[SemanticConsistencyNode]
+  SemCheck --> SQLExec[SqlExecuteNode]
+  SQLExec --> PlanExec
+
+  PlanExec -->|Python step| PyGen[PythonGenerateNode]
+  PyGen --> PyExec[PythonExecuteNode]
+  PyExec --> PyAnalyze[PythonAnalyzeNode]
+  PyAnalyze --> PlanExec
+
+  PlanExec -->|Report step or plan done| Report[ReportGeneratorNode]
+  Report --> END([End])
+```
+
+### 3. 关键能力说明（含架构图与流程图）
+
+#### 3.1 人类反馈机制
+
+说明要点：
+- 入口：运行时请求参数 `humanFeedback=true`（`GraphController` → `GraphServiceImpl`）。
+- 数据字段：`agent.human_review_enabled` 用于保存配置，运行时以请求参数为准。
+- 图编排：`PlanExecutorNode` 检测 `HUMAN_REVIEW_ENABLED`，转入 `HumanFeedbackNode`。
+- 暂停与恢复：`CompiledGraph` 使用 `interruptBefore(HUMAN_FEEDBACK_NODE)`，无反馈时进入“等待”，反馈到达后通过 `threadId` 继续执行。
+- 反馈结果：同意继续执行；拒绝则回到 `PlannerNode` 并触发重新规划。
+
+架构图：
+```mermaid
+flowchart LR
+  UI[Run UI] --> GraphAPI[GraphController SSE]
+  GraphAPI --> GraphSvc[GraphServiceImpl]
+  GraphSvc --> Graph[CompiledGraph]
+  Graph --> PlanExec[PlanExecutorNode]
+  PlanExec --> Human[HumanFeedbackNode]
+  Human --> GraphSvc
+```
+
+流程图：
+```mermaid
+sequenceDiagram
+  participant U as User/UI
+  participant API as GraphController SSE
+  participant GS as GraphServiceImpl
+  participant G as CompiledGraph
+  participant HF as HumanFeedbackNode
+
+  U->>API: GET /api/stream/search?humanFeedback=true
+  API->>GS: graphStreamProcess
+  GS->>G: fluxStream (interruptBefore HumanFeedback)
+  G-->>API: 规划结果流式输出
+  G-->>HF: 进入等待反馈
+  HF-->>G: WAIT_FOR_FEEDBACK → END
+
+  U->>API: GET /api/stream/search?humanFeedbackContent=...&rejectedPlan=...
+  API->>GS: handleHumanFeedback(resume)
+  GS->>G: fluxStreamFromInitialNode
+  HF-->>G: approve/reject → next node
+  G-->>API: 继续执行并输出结果
+```
+
+#### 3.2 Prompt 配置与自动优化
+
+说明要点：
+- 配置入口：`/api/prompt-config/*`，数据表 `user_prompt_config`。
+- 作用范围：支持按 `agentId` 绑定或全局配置（`agentId` 为空）。
+- Prompt 类型：`report-generator`、`planner`、`sql-generator`、`python-generator`、`rewrite`。
+- 自动优化方式：`ReportGeneratorNode` 拉取启用配置（按 `priority` 与 `display_order` 排序），通过 `PromptHelper.buildReportGeneratorPromptWithOptimization` 拼接“优化要求”。
+- 当前实现重点：报告生成节点已落地优化；其他类型为预留能力。
+
+架构图：
+```mermaid
+flowchart LR
+  UI[Admin UI] --> PromptAPI[PromptConfigController]
+  PromptAPI --> PromptSvc[UserPromptService]
+  PromptSvc --> PromptDB[(user_prompt_config)]
+  Report[ReportGeneratorNode] --> PromptSvc
+  Report --> PromptHelper
+```
+
+流程图：
+```mermaid
+sequenceDiagram
+  participant A as Admin
+  participant API as PromptConfigController
+  participant DB as user_prompt_config
+  participant R as ReportGeneratorNode
+
+  A->>API: 保存/启用优化配置
+  API->>DB: insert/update
+  A->>R: 触发报告生成
+  R->>DB: 查询启用配置(按优先级排序)
+  R->>R: 生成优化段落并组装 Prompt
+  R-->>A: 返回优化后的报告
+```
+
+#### 3.3 RAG 检索增强
+
+说明要点：
+- 查询重写：`EvidenceRecallNode` 调用 LLM 生成独立检索问题。
+- 召回通道：`AgentVectorStoreService` 执行向量检索；可选混合检索（向量+关键词，`AbstractHybridRetrievalStrategy`）。
+- 文档类型：业务知识 + 智能体知识，按元数据过滤并合并为 evidence 注入后续 prompt。
+- 关键配置：`spring.ai.alibaba.data-agent.vector-store.enable-hybrid-search` 及相似度/TopK 等参数。
+
+架构图：
+```mermaid
+flowchart LR
+  Evidence[EvidenceRecallNode] --> LLM[LLM Query Rewrite]
+  Evidence --> VectorSvc[AgentVectorStoreService]
+  VectorSvc --> VectorStore[VectorStore ES]
+  VectorSvc --> Hybrid[HybridRetrievalStrategy]
+  Evidence --> KnowledgeDB[(agent_knowledge / business_knowledge)]
+  Evidence --> Prompt[PromptHelper.buildBusiness/AgentKnowledgePrompt]
+```
+
+流程图：
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant E as EvidenceRecallNode
+  participant L as LLM
+  participant V as VectorStore Hybrid
+
+  U->>E: 原始问题
+  E->>L: 查询重写
+  L-->>E: standaloneQuery
+  E->>V: 向量/混合检索
+  V-->>E: 文档片段
+  E-->>U: 注入 evidence 后的后续执行
+```
+
+#### 3.4 报告生成与摘要生成
+
+说明要点：
+- 报告节点：`ReportGeneratorNode` 读取计划、SQL/Python 结果与摘要建议（`summary_and_recommendations`）。
+- 输出格式：默认 HTML，`plainReport=true` 输出 Markdown（简洁报告）。
+- 优化提示词：自动拼接优化配置后生成报告。
+
+架构图：
+```mermaid
+flowchart LR
+  PlanExec[PlanExecutorNode] --> Report[ReportGeneratorNode]
+  Report --> PromptHelper
+  Report --> PromptSvc[UserPromptService]
+  Report --> LLM[LlmService/ChatClient]
+  Report --> Stream[SSE Stream Output]
+```
+
+流程图：
+```mermaid
+sequenceDiagram
+  participant P as PlanExecutorNode
+  participant R as ReportGeneratorNode
+  participant L as LLM
+  participant C as Client
+
+  P->>R: 计划 + 执行结果
+  R->>L: 组合 Prompt(含摘要建议/优化要求)
+  L-->>R: 报告内容
+  R-->>C: HTML/Markdown 流式输出
+```
+
+#### 3.5 流式输出与多轮对话
+
+说明要点：
+- 流式输出：`GraphController` SSE + `GraphServiceImpl` 流式处理。
+- 文本标记：`TextType` 在流中标记 SQL/JSON/HTML/Markdown，前端据此渲染。
+- 多轮对话：`MultiTurnContextManager` 记录“用户问题+规划结果”，注入到后续请求。
+- 模式切换：`spring.ai.alibaba.data-agent.llm-service-type` 支持 `STREAM/BLOCK`。
+
+架构图：
+```mermaid
+flowchart LR
+  Client --> SSE[GraphController SSE]
+  SSE --> GraphSvc[GraphServiceImpl]
+  GraphSvc --> Graph[CompiledGraph]
+  GraphSvc --> Ctx[MultiTurnContextManager]
+  Graph --> LLM[LlmService Stream Block]
+```
+
+流程图：
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant API as GraphController SSE
+  participant GS as GraphServiceImpl
+  participant CTX as MultiTurnContextManager
+  participant G as CompiledGraph
+
+  C->>API: 连接SSE并提问
+  API->>GS: graphStreamProcess
+  GS->>CTX: beginTurn
+  GS->>G: fluxStream(threadId)
+  G-->>API: 分段输出(带TextType标记)
+  GS->>CTX: finishTurn(记录规划输出)
+```
+
+#### 3.6 MCP 与多模型调度
+
+说明要点：
+- MCP：`McpServerService` 提供 NL2SQL 与 Agent 列表工具，使用 Mcp Server Boot Starter。
+- 多模型调度：`ModelConfig*` 配置模型，`AiModelRegistry` 缓存当前 Chat/Embedding 模型并支持热切换（同一时间每类仅一个激活模型）。
+- 已内置工具：`nl2SqlToolCallback`、`listAgentsToolCallback`。
+
+架构图：
+```mermaid
+flowchart LR
+  MCPClient --> MCPServer[Mcp Server]
+  MCPServer --> McpSvc[McpServerService]
+  McpSvc --> GraphSvc[GraphService]
+
+  AdminUI --> ModelAPI[ModelConfigController]
+  ModelAPI --> Ops[ModelConfigOpsService]
+  Ops --> ModelDB[(model_config)]
+  Ops --> Registry[AiModelRegistry]
+  Registry --> Factory[DynamicModelFactory]
+  Factory --> LLM[OpenAI-Compatible Models]
+```
+
+流程图：
+```mermaid
+sequenceDiagram
+  participant A as Admin
+  participant API as ModelConfigController
+  participant Ops as ModelConfigOpsService
+  participant R as AiModelRegistry
+
+  A->>API: 新增/测试/激活模型
+  API->>Ops: update/activate
+  Ops->>R: refreshChat/refreshEmbedding
+  R-->>API: 新模型生效
+```
+
+#### 3.7 API Key 与权限管理
+
+说明要点：
+- 管理端：`AgentController` 支持生成、重置、删除与启用/禁用 API Key。
+- 数据字段：`agent.api_key` 与 `agent.api_key_enabled`。
+- 调用方式：请求头 `X-API-Key`（需自行实现后端校验逻辑）。
+- 注意：默认后端未对 `X-API-Key` 做鉴权拦截，生产需自行补充。
+
+架构图：
+```mermaid
+flowchart LR
+  UI --> AgentAPI[AgentController]
+  AgentAPI --> AgentSvc[AgentService]
+  AgentSvc --> AgentDB[(agent)]
+```
+
+流程图：
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant API as AgentController
+  participant DB as agent
+  participant G as GraphController
+
+  U->>API: 生成/启用 API Key
+  API->>DB: 保存 key + enabled
+  U->>G: 调用业务API (X-API-Key)
+  G-->>U: 默认不校验(需自定义拦截器)
+```
+
+#### 3.8 Python 执行与结果回传
+
+说明要点：
+- 代码生成：`PythonGenerateNode` 根据计划与 SQL 结果生成 Python。
+- 代码执行：`PythonExecuteNode` 使用 `CodePoolExecutorService`（Docker/Local/AI 模拟）。
+- 执行配置：`spring.ai.alibaba.data-agent.code-executor.*`（默认 Docker 镜像 `continuumio/anaconda3:latest`）。
+- 结果回传：执行结果写回 `PYTHON_EXECUTE_NODE_OUTPUT`，`PythonAnalyzeNode` 汇总后写入 `SQL_EXECUTE_NODE_OUTPUT`，用于最终报告。
+
+架构图：
+```mermaid
+flowchart LR
+  PyGen[PythonGenerateNode] --> ExecSvc[CodePoolExecutorService]
+  ExecSvc --> Docker[Docker Executor]
+  ExecSvc --> Local[Local Executor]
+  ExecSvc --> AISim[AI Simulation Executor]
+  PyExec[PythonExecuteNode] --> PyAnalyze[PythonAnalyzeNode]
+  PyAnalyze --> Report[ReportGeneratorNode]
+```
+
+流程图：
+```mermaid
+sequenceDiagram
+  participant P as PlanExecutorNode
+  participant G as PythonGenerateNode
+  participant E as PythonExecuteNode
+  participant A as PythonAnalyzeNode
+
+  P->>G: 进入Python步骤
+  G->>E: 生成并执行代码
+  E-->>A: 执行结果(JSON)
+  A-->>P: 汇总分析并推进计划
+```
 
 ## 项目结构
 
