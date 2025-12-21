@@ -220,45 +220,33 @@
 
       <!-- 知识类型说明 -->
       <el-form-item v-if="knowledgeForm.type === 'QA'">
-        <el-alert
-          type="info"
-          :closable="false"
-          show-icon
-          style="margin-bottom: 10px"
-        >
+        <el-alert type="info" :closable="false" show-icon style="margin-bottom: 10px">
           <template #title>
             <div style="line-height: 1.6">
-              请录入具体的'分析需求'作为问题,并在答案中写出详细的'思考步骤'与'数据查找逻辑'(而非直接给结果),以此教会 AI 如何拆解任务。
+              请录入具体的'分析需求'作为问题,并在答案中写出详细的'思考步骤'与'数据查找逻辑'(而非直接给结果),以此教会
+              AI 如何拆解任务。
             </div>
           </template>
         </el-alert>
       </el-form-item>
 
       <el-form-item v-if="knowledgeForm.type === 'FAQ'">
-        <el-alert
-          type="info"
-          :closable="false"
-          show-icon
-          style="margin-bottom: 10px"
-        >
+        <el-alert type="info" :closable="false" show-icon style="margin-bottom: 10px">
           <template #title>
             <div style="line-height: 1.6">
-              请针对特定的'业务术语'、'指标口径'或'常见歧义'进行提问和定义(例如:'什么是有效日活'),以此统一 AI 的判断标准。
+              请针对特定的'业务术语'、'指标口径'或'常见歧义'进行提问和定义(例如:'什么是有效日活'),以此统一
+              AI 的判断标准。
             </div>
           </template>
         </el-alert>
       </el-form-item>
 
       <el-form-item v-if="knowledgeForm.type === 'DOCUMENT'">
-        <el-alert
-          type="info"
-          :closable="false"
-          show-icon
-          style="margin-bottom: 10px"
-        >
+        <el-alert type="info" :closable="false" show-icon style="margin-bottom: 10px">
           <template #title>
             <div style="line-height: 1.6">
-              请上传完整的'数据库表结构'、'码表映射字典'或'业务背景说明',供 AI 在分析时检索字段含义和数据关系。
+              请上传完整的'数据库表结构'、'码表映射字典'或'业务背景说明',供 AI
+              在分析时检索字段含义和数据关系。
             </div>
           </template>
         </el-alert>
