@@ -45,8 +45,8 @@ public class PythonExecutorDispatcher implements EdgeAction {
 			String message = StateUtil.getStringValue(state, PYTHON_EXECUTE_NODE_OUTPUT);
 			log.error("Python Executor Node Error: {}", message);
 			int tries = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
-			if (tries <= 0) {
-				log.error("Python执行失败且已超过最大重试次数，流程终止");
+			if (tries >= PYTHON_MAX_TRIES_COUNT) {
+				log.error("Python执行失败且已超过最大重试次数（已尝试次数：{}），流程终止", tries);
 				return END;
 			}
 			else {
