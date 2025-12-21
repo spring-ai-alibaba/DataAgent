@@ -71,7 +71,7 @@ public class PythonExecuteNode implements NodeAction {
 					? StateUtil.getListValue(state, SQL_RESULT_LIST_MEMORY) : new ArrayList<>();
 
 			// 检查重试次数
-			int triesCount = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 5);
+			int triesCount = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
 
 			CodePoolExecutorService.TaskRequest taskRequest = new CodePoolExecutorService.TaskRequest(pythonCode,
 					objectMapper.writeValueAsString(sqlResults), null);
@@ -83,9 +83,9 @@ public class PythonExecuteNode implements NodeAction {
 						+ taskResponse.stdErr() + "\nExceptionMsg: " + taskResponse.exceptionMsg();
 				log.error(errorMsg);
 
-				// 检查是否超过重试次数，如果是则启动降级逻辑
-				if (triesCount <= 0) {
-					log.error("Python执行失败且已超过最大重试次数，启动降级兜底逻辑。错误信息: {}", errorMsg);
+				// 检查是否超过最大重试次数
+				if (triesCount >= PYTHON_MAX_TRIES_COUNT) {
+					log.error("Python执行失败且已超过最大重试次数（已尝试次数：{}），启动降级兜底逻辑。错误信息: {}", triesCount, errorMsg);
 
 					String fallbackOutput = "{}";
 
