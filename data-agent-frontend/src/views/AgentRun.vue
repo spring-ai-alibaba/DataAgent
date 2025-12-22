@@ -261,10 +261,10 @@
   import { type Agent } from '@/services/agent';
   import { type ResultSetData, type ResultSetDisplayConfig } from '@/services/resultSet';
   import { SessionRuntimeState, useSessionStateManager } from '@/services/sessionStateManager';
-      import HumanFeedback from '@/components/run/HumanFeedback.vue';
-      import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
-      import PresetQuestions from '@/components/run/PresetQuestions.vue';
-      import HtmlReportViewer from '@/components/run/HtmlReportViewer.vue';
+  import HumanFeedback from '@/components/run/HumanFeedback.vue';
+  import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
+  import PresetQuestions from '@/components/run/PresetQuestions.vue';
+  import HtmlReportViewer from '@/components/run/HtmlReportViewer.vue';
 
   // 扩展Window接口以包含自定义方法
   declare global {
@@ -1013,7 +1013,6 @@
         const rawHtml = marked.parse(markdown) as string;
         return DOMPurify.sanitize(rawHtml);
       };
-
 
       // 重置报告状态
       const resetReportState = (sessionState: SessionRuntimeState, request: GraphRequest) => {
