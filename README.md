@@ -6,14 +6,14 @@
   <p>
      Text-to-SQL | Python 深度分析 | 智能报告 | MCP 服务器 | RAG 增强
   </p>
-  
+
   <p>
     <a href="https://github.com/alibaba/spring-ai-alibaba"><img src="https://img.shields.io/badge/Spring%20AI%20Alibaba-1.0.4-blue" alt="Spring AI Alibaba"></a>
     <img src="https://img.shields.io/badge/Spring%20Boot-3.2+-green" alt="Spring Boot">
     <img src="https://img.shields.io/badge/Java-17+-orange" alt="Java">
     <img src="https://img.shields.io/badge/License-Apache%202.0-red" alt="License">
   </p>
-  
+
    <p>
     <a href="#-项目简介">项目简介</a> • 
     <a href="#-核心特性">核心特性</a> • 
@@ -87,6 +87,7 @@ npm install && npm run dev
 | [🏗️ 架构设计](docs/ARCHITECTURE.md) | 系统分层架构、StateGraph与工作流设计、核心模块时序图 |
 | [⚙️ 开发者指南](docs/DEVELOPER_GUIDE.md) | 开发环境搭建、详细配置手册、代码规范、扩展开发(向量库/模型) |
 | [🔌 高级功能](docs/ADVANCED_FEATURES.md) | API Key 调用、MCP 服务器配置、自定义混合检索策略、Python执行器配置 |
+| [🔌 知识配置最佳实践](docs/KNOWLEDGE_USAGE.md) | 语义模型，业务知识，智能体知识的解释和使用 |
 
 ## 🏗️ 项目结构
 
