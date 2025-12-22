@@ -26,7 +26,7 @@
 <br/>
 
 <div align="center">
-    <img src="img/run-page.png" alt="DataAgent Run Page" width="800" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+    <img src="img/app.png" alt="DataAgent App Interface" width="800" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
 </div>
 
 <br/>
@@ -90,10 +90,41 @@ npm install && npm run dev
 
 ## 🏗️ 项目结构
 
-```bash
-spring-ai-alibaba-data-agent/
-├── data-agent-management
-└── data-agent-frontend
+```mermaid
+graph LR
+    subgraph Client [🖥️ Frontend UI]
+        direction TB
+        React[⚛️ React + Ant Design]
+        Chat[💬 Chat Interface]
+        Config[⚙️ Config Panel]
+    end
+
+    subgraph Server [☕️ Backend Service]
+        direction TB
+        SpringBoot[🍃 Spring Boot Application]
+        Agent[🤖 Agent Core]
+        Workflow[🔄 StateGraph Workflow]
+    end
+
+    subgraph Infrastructure [📦 Infrastructure]
+        direction TB
+        MySQL[(🗄️ MySQL / Vector DB)]
+        LLM{{🧠 LLM / Embedding}}
+        Python[🐍 Python Executor]
+    end
+
+    %% Connections
+    React <-->|REST API / SSE| SpringBoot
+    SpringBoot --> Agent
+    Agent --> Workflow
+    Workflow <-->|RAG / NL2SQL| MySQL
+    Workflow <-->|Generation| LLM
+    Workflow <-->|Analysis| Python
+
+    %% Styling
+    style Client fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style Server fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style Infrastructure fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
 ```
 
 ## 🤝 加入社区 & 贡献
