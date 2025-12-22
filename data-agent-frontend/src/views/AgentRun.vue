@@ -162,7 +162,7 @@
                   :content="
                     requestOptions.nl2sqlOnly
                       ? '该功能在NL2SQL模式下不能使用'
-                      : '开启HTML报告功能需要确保https://cdn.staticfile.org能访问才能保证生成的HTML报告正常显示'
+                      : '开启HTML报告功能需要使用外部CDN资源，请确保CDN地址能访问，如需自定义详情参考文档配置'
                   "
                   placement="top"
                 >

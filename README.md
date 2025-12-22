@@ -465,6 +465,15 @@ https://springdoc.cn/spring-ai/api/mcp/mcp-server-boot-starter-docs.html#_%E9%85
 
 
 
+## 开放配置
+
+- 报告引用外部资源配置。
+
+| 属性名                                                   | 默认值                                                       | 说明                                             |
+| -------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------ |
+| spring.ai.alibaba.data-agent.report-template.marked-url  | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/marked/12.0.0/marked.min.js | Marked.js路径。默认南方科技大学开源软件镜像站    |
+| spring.ai.alibaba.data-agent.report-template.echarts-url | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/echarts/5.5.0/echarts.min.js | ECharts (图表库)。默认南方科技大学开源软件镜像站 |
+
 
 
 ## 如何贡献
