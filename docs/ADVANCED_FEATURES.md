@@ -195,7 +195,188 @@ npx @modelcontextprotocol/inspector http://localhost:8065/mcp/connection
 ```
 
 这将打开一个调试界面，可以测试MCP服务器的各项功能。
+## 🔗 逻辑外键支持
 
+### 功能概述
+
+在实际生产环境中,许多数据库为了性能考虑不设置物理外键约束,这导致了以下问题:
+- LLM 无法自动推断表间关系
+- 多表 JOIN 查询准确率下降
+- 复杂业务查询失败率高
+
+DataAgent 创新性地实现了**逻辑外键配置功能**,允许用户手动定义表间关系,显著提升了多表查询的准确性。
+
+### 业务场景
+
+典型场景包括:
+- 订单表和用户表通过 `user_id` 关联,但数据库未设置外键
+- 商品表和分类表的关系未在数据库层面体现
+- 历史遗留系统的表关系仅存在于业务逻辑中
+
+### 数据模型
+
+逻辑外键信息存储在 `logical_relation` 表中:
+
+```sql
+CREATE TABLE logical_relation (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  datasource_id INT NOT NULL,           -- 关联的数据源
+  source_table_name VARCHAR(100),       -- 主表名
+  source_column_name VARCHAR(100),      -- 主表字段
+  target_table_name VARCHAR(100),       -- 关联表名
+  target_column_name VARCHAR(100),      -- 关联表字段
+  relation_type VARCHAR(20),            -- 关系类型: 1:1, 1:N, N:1
+  description VARCHAR(500),             -- 业务描述
+  FOREIGN KEY (datasource_id) REFERENCES datasource(id)
+);
+```
+
+### 工作流程
+
+逻辑外键的处理流程如下:
+
+```
+前端添加逻辑外键 
+    ↓
+Schema召回时加载逻辑外键
+    ↓
+过滤与召回表相关的外键
+    ↓
+合并物理外键和逻辑外键
+    ↓
+基于完整Schema生成SQL
+```
+
+### 技术实现
+
+#### 1. 获取逻辑外键
+
+系统在 Schema 召回阶段会自动获取相关的逻辑外键:
+
+```java
+private List<String> getLogicalForeignKeys(Integer agentId, 
+        List<Document> tableDocuments) {
+    
+    // 1. 获取当前智能体的数据源
+    AgentDatasource agentDatasource = 
+        agentDatasourceService.getCurrentAgentDatasource(agentId);
+    
+    // 2. 提取召回的表名列表
+    Set<String> recalledTableNames = tableDocuments.stream()
+        .map(doc -> (String) doc.getMetadata().get("name"))
+        .collect(Collectors.toSet());
+    
+    // 3. 查询该数据源的所有逻辑外键
+    List<LogicalRelation> allLogicalRelations = 
+        datasourceService.getLogicalRelations(datasourceId);
+    
+    // 4. 过滤只保留与召回表相关的外键
+    List<String> formattedForeignKeys = allLogicalRelations.stream()
+        .filter(lr -> recalledTableNames.contains(lr.getSourceTableName())
+                   || recalledTableNames.contains(lr.getTargetTableName()))
+        .map(lr -> String.format("%s.%s=%s.%s", 
+            lr.getSourceTableName(), lr.getSourceColumnName(),
+            lr.getTargetTableName(), lr.getTargetColumnName()))
+        .distinct()
+        .collect(Collectors.toList());
+    
+    return formattedForeignKeys;
+}
+```
+
+**关键特性**:
+- 只获取与召回表相关的逻辑外键,避免不必要的信息干扰
+- 格式化为统一的外键描述格式: `table1.column1=table2.column2`
+- 自动去重,避免重复定义
+
+#### 2. 聚合外键信息
+
+在 `TableRelationNode` 节点中,将逻辑外键合并到物理外键中:
+
+```java
+private SchemaDTO buildInitialSchema(String agentId, 
+        List<Document> columnDocuments, 
+        List<Document> tableDocuments,
+        DbConfig agentDbConfig, 
+        List<String> logicalForeignKeys) {
+    
+    SchemaDTO schemaDTO = new SchemaDTO();
+    
+    // 构建基础Schema(包含物理外键)
+    schemaService.buildSchemaFromDocuments(agentId, 
+        columnDocuments, tableDocuments, schemaDTO);
+    
+    // 将逻辑外键合并到Schema的foreignKeys字段
+    if (logicalForeignKeys != null && !logicalForeignKeys.isEmpty()) {
+        List<String> existingForeignKeys = schemaDTO.getForeignKeys();
+        if (existingForeignKeys == null || existingForeignKeys.isEmpty()) {
+            // 没有物理外键时,直接使用逻辑外键
+            schemaDTO.setForeignKeys(logicalForeignKeys);
+        } else {
+            // 合并物理外键和逻辑外键
+            List<String> allForeignKeys = new ArrayList<>(existingForeignKeys);
+            allForeignKeys.addAll(logicalForeignKeys);
+            schemaDTO.setForeignKeys(allForeignKeys);
+        }
+        log.info("Merged {} logical foreign keys into schema", 
+            logicalForeignKeys.size());
+    }
+    
+    return schemaDTO;
+}
+```
+
+**设计优势**:
+- 物理外键和逻辑外键统一处理,对下游透明
+- 逻辑外键优先级与物理外键相同
+- 完整的外键信息提升 LLM 对表关系的理解
+
+### 使用示例
+
+#### 配置逻辑外键
+
+在前端数据源管理界面:
+
+1. 选择数据源
+2. 进入"逻辑外键管理"
+3. 添加外键关系:
+   - 源表: `orders`
+   - 源字段: `user_id`
+   - 目标表: `users`
+   - 目标字段: `id`
+   - 关系类型: `N:1`
+   - 描述: "订单表关联用户表"
+
+#### 效果对比
+
+**未配置逻辑外键**:
+```
+用户问题: "查询用户张三的所有订单"
+生成SQL: SELECT * FROM orders WHERE user_name = '张三'  --  错误
+```
+
+**配置逻辑外键后**:
+```
+用户问题: "查询用户张三的所有订单"
+生成SQL:  -- ✅ 正确
+SELECT o.* 
+FROM orders o
+JOIN users u ON o.user_id = u.id
+WHERE u.name = '张三'
+```
+
+### 最佳实践
+
+1. **优先配置高频关联**: 先配置业务中最常用的表关联关系
+2. **添加描述信息**: 详细的关系描述有助于 LLM 理解业务语义
+3. **定期维护**: 随着业务变化及时更新逻辑外键配置
+4. **关系类型准确**: 正确标注 1:1、1:N、N:1 关系,提升推理准确性
+
+### 注意事项
+
+- 逻辑外键配置仅用于 Schema 增强,不会影响实际数据库结构
+- 错误的逻辑外键配置可能导致生成错误的 SQL
+- 建议与数据库管理员确认表关系的准确性
 
 ## 🐍 Python 执行环境配置
 
