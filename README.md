@@ -8,7 +8,7 @@
 
 系统采用高度可扩展的架构设计，**全面兼容 OpenAI 接口规范**的对话模型与 Embedding 模型，并支持**灵活挂载任意向量数据库**。无论是私有化部署还是接入主流大模型服务，都能轻松适配，为企业提供灵活、可控的数据洞察服务。
 
-同时，本项目可以支持**发布成MCP服务器**，具体看 [高级功能文档](docs/ADVANCED_FEATURES.md#mcp服务器)。
+同时，本项目可以支持**发布成MCP服务器**等高级功能，具体看 [高级功能文档](docs/ADVANCED_FEATURES.md#mcp服务器)。
 
 ## ✨ 核心特性
 
@@ -48,13 +48,6 @@ spring-ai-alibaba-data-agent/
 └── data-agent-frontend      # 前端代码 
 ```
 
-## 🛠️ 技术栈
-
-- **后端框架**: Spring Boot + Spring AI Alibaba
-- **前端框架**: React + TypeScript
-- **数据库**: MySQL + 向量数据库（支持多种）
-- **AI模型**: 兼容OpenAI接口的各类大模型
-- **执行环境**: Docker / 本地Python环境
 
 ## 🤝 如何贡献
 
@@ -66,8 +59,7 @@ spring-ai-alibaba-data-agent/
 
 ## 🔗 相关链接
 
-- [Spring AI Alibaba 文档](https://springdoc.cn/spring-ai/)
-- [钉钉交流群](https://qr.dingtalk.com/action/joingroup?code=v1,k1,your_group_code)
+- [Spring AI Alibaba 文档](https://java2ai.com/)
 
 ---
 

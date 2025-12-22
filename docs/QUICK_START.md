@@ -48,35 +48,15 @@ spring:
     type: com.alibaba.druid.pool.DruidDataSource
 ```
 
-### 2.2 可选：启用/关闭自动初始化（schema.sql + data.sql）
+### 2.2 数据初始化配置
 
-- 默认配置：`application.yml` 中已设置为开启
+默认开启自动初始化 (`spring.sql.init.mode: always`)。
 
-```yaml
-spring:
-  sql:
-    init:
-      mode: always           # 默认：每次启动执行 schema.sql 与 data.sql
-      schema-locations: classpath:sql/schema.sql
-      data-locations: classpath:sql/data.sql
-```
-
-- 若不希望每次启动回填示例数据，可将 `mode` 改为 `never` 关闭：
-
-```yaml
-spring:
-  sql:
-    init:
-      mode: never            # 关闭自动初始化
-      schema-locations: classpath:sql/schema.sql
-      data-locations: classpath:sql/data.sql
-```
-
-**注意**: 默认开启时（`mode: always`），`data.sql` 会在每次启动回填示例数据（即使你手动删除了数据）。生产环境请改为 `mode: never`，避免覆盖/复原业务数据。
+> 关于如何关闭自动初始化，请参考 [开发者指南 - 数据库初始化配置](DEVELOPER_GUIDE.md#8-数据库初始化配置-database-initialization)。
 
 ### 2.3 配置模型
 
-**注意，如果你之前是自己用starter引入的聊天模型和嵌入模型的pom依赖，需要自己去掉，也不能自己手动初始化ChatClient和ChatModel以及EmbeddingModel了。**
+> 如果涉及手动管理模型依赖（非默认 Starter），请参考 [开发者指南 - 扩展依赖配置](DEVELOPER_GUIDE.md#9-扩展依赖配置-dependency-extension)。
 
 启动项目，点击模型配置，新增模型填写自己的apikey即可。
 
@@ -88,12 +68,7 @@ spring:
 
 ### 2.4 嵌入模型批处理策略配置
 
-| 属性                                                        | 说明                                                         | 默认值      |
-| ----------------------------------------------------------- | ------------------------------------------------------------ | ----------- |
-| spring.ai.alibaba.data-agent.embedding-batch.encoding-type      | 文本编码类型，可参考com.knuddels.jtokkit.api.EncodingType    | cl100k_base |
-| spring.ai.alibaba.data-agent.embedding-batch.max-token-count    | 每批次最大令牌数 值越小，每批次文档越少，但更安全 值越大，处理效率越高，但可能超出API限制 建议值：2000-8000，根据实际API限制调整 | 8000        |
-| spring.ai.alibaba.data-agent.embedding-batch.reserve-percentage | 预留百分比 用于预留缓冲空间，避免超出限制 建议值：0.1-0.2（10%-20%） | 0.2         |
-| spring.ai.alibaba.data-agent.embedding-batch.max-text-count     | 每批次最大文本数量 适用于DashScope等有文本数量限制的API DashScope限制为10 | 10          |
+> 详细配置参数请参考 [开发者指南 - 开发配置手册](DEVELOPER_GUIDE.md#⚙️-开发配置手册)。
 
 ### 2.5 向量库配置
 
@@ -193,40 +168,15 @@ spring:
 
 #### 2.5.3 向量库配置参数
 
-| 属性                                                         | 说明                                                         | 默认值    |
-| ------------------------------------------------------------ | ------------------------------------------------------------ | --------- |
-| spring.ai.alibaba.data-agent.vector-store.similarity-threshold | 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档       | 0.2       |
-| spring.ai.alibaba.data-agent.vector-store.batch-del-topk-limit | 一次删除操作中，最多删除的文档数量                           | 5000      |
-| spring.ai.alibaba.data-agent.vector-store.topk-limit           | 查询返回最大文档数                                           | 30        |
-| spring.ai.alibaba.data-agent.vector-store.enable-hybrid-search | 是否启用混合搜索。**注意**：**项目目前默认只提供ES的混合检索能力，如需要扩展其他向量库可自行继承重写 com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.AbstractHybridRetrievalStrategy#retrieve 该方法并且修改com.alibaba.cloud.ai.service.hybrid.factory.HybridRetrievalStrategyFactory#getObject注册相应的bean** | **false** |
-| spring.ai.alibaba.data-agent.vector-store.elasticsearch-min-score | Elasticsearch最小分数阈值，用于es执行关键词搜索时过滤相关性较低的文档。**开发时使用的es服务端版本 8.15.0** | 0.5       |
+> 详细配置参数请参考 [开发者指南 - 开发配置手册](DEVELOPER_GUIDE.md#⚙️-开发配置手册)。
 
 ### 2.6 检索融合策略
 
-| 属性                                     | 说明                 | 默认值 |
-| ---------------------------------------- | -------------------- | ------ |
-| spring.ai.alibaba.data-agent.fusion-strategy | 多路召回结果融合策略 | rrf    |
+> 详细配置参数请参考 [开发者指南 - 开发配置手册](DEVELOPER_GUIDE.md#⚙️-开发配置手册)。
 
 ### 2.7 替换vector-store的实现类
 
-本项目`VectorStore`默认使用内存向量，你可以替换成其他模型实现。
-
-在[根pom](../pom.xml)中你可以引入其他`VectorStore`的实现starter，以替换掉项目默认使用的实现。比如你想使用`milvus`你可以这样：
-
-```xml
-    <dependencies>
-        <!-- 在这里可以替换vector-storestarter -->
-        <!-- 如果不使用默认依赖的话，需要手动配置application.yml -->
-
-        <!--            milvus  -->
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-vector-store-milvus</artifactId>
-        </dependency>
-    </dependencies>
-```
-
-注意在`application.yml`中配置相应设置，以符合这些starter的需求。
+> 关于如何替换默认的内存向量库（如使用 PGVector, Milvus 等），请参考 [开发者指南 - 扩展依赖配置](DEVELOPER_GUIDE.md#9-扩展依赖配置-dependency-extension)。
 
 ## 🚀 3. 启动管理端
 
@@ -367,24 +317,6 @@ yarn dev
 
 ![show-sql-result.png](../img/show-sql-result.png)
 
-## 🔧 故障排查
-
-### 常见问题
-
-1. **数据库连接失败**
-   - 检查MySQL服务是否启动
-   - 验证数据库连接信息是否正确
-   - 确认数据库用户权限
-
-2. **模型配置错误**
-   - 验证API Key是否正确
-   - 检查模型服务是否可访问
-   - 确认模型配置路径正确
-
-3. **向量库初始化失败**
-   - 检查向量库服务是否启动
-   - 验证schema配置是否正确
-   - 确认网络连接正常
 
 ## 📚 下一步
 
