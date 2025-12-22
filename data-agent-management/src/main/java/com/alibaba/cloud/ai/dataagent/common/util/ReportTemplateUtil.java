@@ -13,11 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.common.constant;
+package com.alibaba.cloud.ai.dataagent.common.util;
 
-public class ReportTemplatesConstant {
+import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
+import org.springframework.stereotype.Component;
 
-	public static final String REPORT_TEMPLATE_HEADER = """
+@Component
+public class ReportTemplateUtil {
+
+	private final DataAgentProperties dataAgentProperties;
+
+	public ReportTemplateUtil(DataAgentProperties dataAgentProperties) {
+		this.dataAgentProperties = dataAgentProperties;
+	}
+
+	private static final String REPORT_TEMPLATE_HEADER = """
 			<!DOCTYPE html>
 			<html lang="zh-CN">
 			<head>
@@ -27,10 +37,10 @@ public class ReportTemplatesConstant {
 
 			<!-- ⚠️ 使用国内 Staticfile CDN 源，速度快且稳定 -->
 			<!-- 1. Marked.js (Markdown 解析器) -->
-			<script src="https://cdn.staticfile.org/marked/12.0.0/marked.min.js"></script>
+			<script src="{{MARKED_URL}}"></script>
 
 			<!-- 2. ECharts (图表库) -->
-			<script src="https://cdn.staticfile.org/echarts/5.5.0/echarts.min.js"></script>
+			<script src="{{ECHARTS_URL}}"></script>
 
 			<style>
 			 /* --- 替代 Tailwind 的手写样式开始 --- */
@@ -149,7 +159,7 @@ public class ReportTemplatesConstant {
 	// window.onload 会对llm生成的内容渲染成 HTML
 	// 并且在渲染过程中，会检查是否是echarts数据，如果是echarts数据，则进行图表渲染
 	// 文本保持原样。如果图片渲染失败降级显示原始内容
-	public static final String REPORT_TEMPLATE_FOOTER = """
+	private static final String REPORT_TEMPLATE_FOOTER = """
 			</div> <!-- raw-markdown 结束 -->
 
 			<!-- 渲染目标容器 -->
@@ -228,5 +238,21 @@ public class ReportTemplatesConstant {
 			        { "type": "bar", "data": [120, 200] }
 			    ]
 			}""";
+
+	/**
+	 * 获取动态组装后的 Header CSS 中经常会出现百分号 %（例如 width: 100%;）所以用 .replace 而不是 String.format
+	 */
+	public String getHeader() {
+		// 执行替换
+		return REPORT_TEMPLATE_HEADER.replace("{{MARKED_URL}}", dataAgentProperties.getReportTemplate().getMarkedUrl())
+			.replace("{{ECHARTS_URL}}", dataAgentProperties.getReportTemplate().getEchartsUrl());
+	}
+
+	/**
+	 * 获取 Footer
+	 */
+	public String getFooter() {
+		return REPORT_TEMPLATE_FOOTER;
+	}
 
 }

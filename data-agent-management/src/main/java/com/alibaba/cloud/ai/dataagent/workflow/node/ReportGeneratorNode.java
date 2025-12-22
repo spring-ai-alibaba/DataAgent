@@ -16,21 +16,21 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
-import com.alibaba.cloud.ai.dataagent.common.constant.ReportTemplatesConstant;
-import com.alibaba.cloud.ai.dataagent.entity.UserPromptConfig;
 import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.common.util.ReportTemplateUtil;
+import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
+import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
+import com.alibaba.cloud.ai.dataagent.dto.planner.Plan;
+import com.alibaba.cloud.ai.dataagent.entity.UserPromptConfig;
+import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
+import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
+import com.alibaba.cloud.ai.dataagent.service.prompt.UserPromptService;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
-import com.alibaba.cloud.ai.dataagent.dto.planner.Plan;
-import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
-import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
-import com.alibaba.cloud.ai.dataagent.service.prompt.UserPromptService;
-import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.converter.BeanOutputConverter;
@@ -64,8 +64,12 @@ public class ReportGeneratorNode implements NodeAction {
 
 	private final UserPromptService promptConfigService;
 
-	public ReportGeneratorNode(LlmService llmService, UserPromptService promptConfigService) {
+	private final ReportTemplateUtil reportTemplateUtil;
+
+	public ReportGeneratorNode(LlmService llmService, UserPromptService promptConfigService,
+			ReportTemplateUtil reportTemplateUtil) {
 		this.llmService = llmService;
+		this.reportTemplateUtil = reportTemplateUtil;
 		this.converter = new BeanOutputConverter<>(new ParameterizedTypeReference<>() {
 		});
 		this.promptConfigService = promptConfigService;
@@ -167,10 +171,8 @@ public class ReportGeneratorNode implements NodeAction {
 		}
 
 		// html报告，先发送html模板头，然后发送llm生成的内容，最后发送html模板尾部
-		ChatResponse headerResponse = ChatResponseUtil
-			.createPureResponse(ReportTemplatesConstant.REPORT_TEMPLATE_HEADER);
-		ChatResponse footerResponse = ChatResponseUtil
-			.createPureResponse(ReportTemplatesConstant.REPORT_TEMPLATE_FOOTER);
+		ChatResponse headerResponse = ChatResponseUtil.createPureResponse(reportTemplateUtil.getHeader());
+		ChatResponse footerResponse = ChatResponseUtil.createPureResponse(reportTemplateUtil.getFooter());
 		return Flux.concat(Flux.just(headerResponse), llmStream, Flux.just(footerResponse));
 
 	}

@@ -39,6 +39,8 @@ public class DataAgentProperties {
 
 	private VectorStoreProperties vectorStore = new VectorStoreProperties();
 
+	private ReportTemplate reportTemplate = new ReportTemplate();
+
 	/**
 	 * sql执行失败重试次数
 	 */
@@ -68,6 +70,18 @@ public class DataAgentProperties {
 
 	// 每张表的最大预估列数
 	private int maxColumnsPerTable = 50;
+
+	@Getter
+	@Setter
+	public static class ReportTemplate {
+
+		// Marked.js (Markdown 解析器) 南方科技大学开源软件镜像站
+		private String markedUrl = "https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/marked/12.0.0/marked.min.js";
+
+		// ECharts (图表库) 南方科技大学开源软件镜像站
+		private String echartsUrl = "https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/echarts/5.5.0/echarts.min.js";
+
+	}
 
 	@Getter
 	@Setter
