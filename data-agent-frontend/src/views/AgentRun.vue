@@ -56,31 +56,13 @@
             >
               <!-- HTML类型消息直接渲染 -->
               <div v-if="message.messageType === 'html'" v-html="message.content"></div>
-              <div v-else-if="message.messageType === 'html-report'" class="html-report-container">
-                <div class="html-report-header">
-                  <div class="report-info">
-                    <el-icon><Document /></el-icon>
-                    <span>HTML报告</span>
-                  </div>
-                  <el-button
-                    type="primary"
-                    size="small"
-                    @click="downloadHtmlReportFromMessage(`${message.content}`)"
-                  >
-                    <el-icon><Download /></el-icon>
-                    下载报告
-                  </el-button>
-                </div>
-                <iframe
-                  :ref="el => setIframeRef(el, message.id)"
-                  :srcdoc="sanitizeHtml(message.content)"
-                  class="html-report-iframe"
-                  frameborder="0"
-                  scrolling="no"
-                  sandbox="allow-same-origin"
-                  @load="onIframeLoad(message.id)"
-                ></iframe>
-              </div>
+              <HtmlReportViewer
+                v-else-if="message.messageType === 'html-report'"
+                :html-content="message.content"
+                :is-streaming="false"
+                :show-download-button="true"
+                :report-id="message.id"
+              />
               <div
                 v-else-if="message.messageType === 'markdown-report'"
                 class="html-report-message"
@@ -279,9 +261,10 @@
   import { type Agent } from '@/services/agent';
   import { type ResultSetData, type ResultSetDisplayConfig } from '@/services/resultSet';
   import { SessionRuntimeState, useSessionStateManager } from '@/services/sessionStateManager';
-  import HumanFeedback from '@/components/run/HumanFeedback.vue';
-  import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
-  import PresetQuestions from '@/components/run/PresetQuestions.vue';
+      import HumanFeedback from '@/components/run/HumanFeedback.vue';
+      import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
+      import PresetQuestions from '@/components/run/PresetQuestions.vue';
+      import HtmlReportViewer from '@/components/run/HtmlReportViewer.vue';
 
   // 扩展Window接口以包含自定义方法
   declare global {
@@ -303,6 +286,7 @@
       HumanFeedback,
       ChatSessionSidebar,
       PresetQuestions,
+      HtmlReportViewer,
     },
     created() {
       window.copyTextToClipboard = btn => {
@@ -370,43 +354,6 @@
       const agent = ref<Agent>({} as Agent);
       const currentSession = ref<ChatSession | null>(null);
 
-      // iframe引用管理
-      const iframeRefs = ref<Map<string, HTMLIFrameElement>>(new Map());
-
-      const setIframeRef = (el: any, messageId: string) => {
-        if (el && el instanceof HTMLIFrameElement) {
-          iframeRefs.value.set(messageId, el);
-        }
-      };
-
-      const onIframeLoad = (messageId: string) => {
-        nextTick(() => {
-          const iframe = iframeRefs.value.get(messageId);
-          if (iframe && iframe.contentWindow) {
-            try {
-              const iframeDoc = iframe.contentWindow.document;
-              const body = iframeDoc.body;
-              const html = iframeDoc.documentElement;
-
-              // 获取内容高度
-              const height = Math.max(
-                body.scrollHeight,
-                body.offsetHeight,
-                html.clientHeight,
-                html.scrollHeight,
-                html.offsetHeight,
-              );
-
-              // 设置iframe高度，但不超过最大高度
-              const maxHeight = window.innerHeight * 0.8;
-              iframe.style.height = Math.min(height + 20, maxHeight) + 'px';
-            } catch (e) {
-              // 跨域限制时使用默认高度
-              console.warn('无法获取iframe内容高度:', e);
-            }
-          }
-        });
-      };
       const currentMessages = ref<ChatMessage[]>([]);
       const userInput = ref('');
       const { getSessionState, syncStateToView, saveViewToState, deleteSessionState } =
@@ -1067,99 +1014,6 @@
         return DOMPurify.sanitize(rawHtml);
       };
 
-      // HTML内容安全处理（用于HTML报告iframe）
-      const sanitizeHtml = (html: string): string => {
-        if (!html) return '';
-
-        // 移除可能的标记符号（如果后端添加了）
-        html = html
-          .replace(/^\$\$\$html/, '')
-          .replace(/\$\$\$\/html$/, '')
-          .trim();
-
-        // 如果HTML不包含完整的文档结构，包装成完整HTML
-        if (!html.includes('<!DOCTYPE') && !html.includes('<html')) {
-          html = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body>
-${html}
-</body>
-</html>`;
-        }
-
-        // 对于iframe中的HTML，由于iframe的sandbox属性已经提供了安全隔离
-        // 我们使用更宽松的DOMPurify配置来保留完整的样式和结构
-        const sanitized = DOMPurify.sanitize(html, {
-          WHOLE_DOCUMENT: true, // 保留完整的HTML文档结构（包括head、style等）
-          RETURN_DOM: false, // 返回字符串而不是DOM对象
-          RETURN_DOM_FRAGMENT: false,
-          FORCE_BODY: false, // 不强制只返回body内容
-          KEEP_CONTENT: true, // 保留被移除标签的内容
-          ALLOW_DATA_ATTR: true, // 允许data-*属性
-          ALLOW_UNKNOWN_PROTOCOLS: false,
-          // 添加所有需要的标签
-          ADD_TAGS: [
-            'style',
-            'link',
-            'meta',
-            'script',
-            'svg',
-            'path',
-            'circle',
-            'rect',
-            'line',
-            'polyline',
-            'polygon',
-            'g',
-            'defs',
-            'clipPath',
-            'text',
-            'tspan',
-            'canvas',
-            'use',
-            'symbol',
-          ],
-          // 添加所有需要的属性
-          ADD_ATTR: [
-            'style',
-            'class',
-            'id',
-            'data-*',
-            'viewBox',
-            'd',
-            'cx',
-            'cy',
-            'r',
-            'x',
-            'y',
-            'x1',
-            'y1',
-            'x2',
-            'y2',
-            'width',
-            'height',
-            'points',
-            'fill',
-            'stroke',
-            'stroke-width',
-            'stroke-linecap',
-            'stroke-linejoin',
-            'transform',
-            'xmlns',
-            'xmlns:xlink',
-            'xlink:href',
-            'opacity',
-            'fill-opacity',
-            'stroke-opacity',
-          ],
-        });
-
-        return sanitized;
-      };
 
       // 重置报告状态
       const resetReportState = (sessionState: SessionRuntimeState, request: GraphRequest) => {
@@ -1378,9 +1232,6 @@ ${html}
         downloadHtmlReportFromMessage,
         downloadMarkdownReportFromMessage,
         markdownToHtml,
-        sanitizeHtml,
-        setIframeRef,
-        onIframeLoad,
         resetReportState,
         handleHumanFeedback,
         handlePresetQuestionClick,
