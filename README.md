@@ -26,7 +26,7 @@
 <br/>
 
 <div align="center">
-    <img src="img/app.png" alt="DataAgent App Interface" width="800" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+    <img src="img/feedback-mode.png" alt="DataAgent" width="1807" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
 </div>
 
 <br/>
