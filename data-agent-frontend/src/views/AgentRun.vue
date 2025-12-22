@@ -369,16 +369,16 @@
       // 响应式数据
       const agent = ref<Agent>({} as Agent);
       const currentSession = ref<ChatSession | null>(null);
-      
+
       // iframe引用管理
       const iframeRefs = ref<Map<string, HTMLIFrameElement>>(new Map());
-      
+
       const setIframeRef = (el: any, messageId: string) => {
         if (el && el instanceof HTMLIFrameElement) {
           iframeRefs.value.set(messageId, el);
         }
       };
-      
+
       const onIframeLoad = (messageId: string) => {
         nextTick(() => {
           const iframe = iframeRefs.value.get(messageId);
@@ -387,16 +387,16 @@
               const iframeDoc = iframe.contentWindow.document;
               const body = iframeDoc.body;
               const html = iframeDoc.documentElement;
-              
+
               // 获取内容高度
               const height = Math.max(
                 body.scrollHeight,
                 body.offsetHeight,
                 html.clientHeight,
                 html.scrollHeight,
-                html.offsetHeight
+                html.offsetHeight,
               );
-              
+
               // 设置iframe高度，但不超过最大高度
               const maxHeight = window.innerHeight * 0.8;
               iframe.style.height = Math.min(height + 20, maxHeight) + 'px';
@@ -608,7 +608,7 @@
                       block[0].nodeName === 'ReportGeneratorNode' &&
                       block[0].textType === 'HTML',
                   );
-                  
+
                   if (reportNodeIndex >= 0) {
                     // 更新现有的报告节点，显示完整的HTML内容
                     sessionState.nodeBlocks[reportNodeIndex] = [
@@ -882,7 +882,11 @@
         for (let idx = 0; idx < node.length; idx++) {
           if (node[idx].textType === TextType.HTML) {
             // 检查是否是完整的HTML报告（ReportGeneratorNode生成的）
-            if (node[idx].nodeName === 'ReportGeneratorNode' && node[idx].text && node[idx].text.length > 100) {
+            if (
+              node[idx].nodeName === 'ReportGeneratorNode' &&
+              node[idx].text &&
+              node[idx].text.length > 100
+            ) {
               // 为流式HTML报告生成一个唯一ID
               const reportId = `streaming-report-${Date.now()}-${idx}`;
               const sanitizedHtml = sanitizeHtml(node[idx].text);
@@ -917,7 +921,7 @@
                       body.offsetHeight,
                       html.clientHeight,
                       html.scrollHeight,
-                      html.offsetHeight
+                      html.offsetHeight,
                     );
                     const maxHeight = window.innerHeight * 0.8;
                     iframe.style.height = Math.min(height + 20, maxHeight) + 'px';
@@ -1030,16 +1034,16 @@
                 imageBase64 += text;
               }
             }
-            
+
             // 如果Base64数据不为空，显示图片
             if (imageBase64.trim()) {
               // Base64图片数据，添加data URI前缀
-              const imageSrc = imageBase64.startsWith('data:image') 
-                ? imageBase64 
+              const imageSrc = imageBase64.startsWith('data:image')
+                ? imageBase64
                 : `data:image/png;base64,${imageBase64}`;
               content += `<div class="chart-image-container"><img src="${escapeHtml(imageSrc)}" alt="分析图表" class="chart-image" /></div>`;
             }
-            
+
             if (p < node.length) {
               idx = p - 1;
             } else {
@@ -1066,10 +1070,13 @@
       // HTML内容安全处理（用于HTML报告iframe）
       const sanitizeHtml = (html: string): string => {
         if (!html) return '';
-        
+
         // 移除可能的标记符号（如果后端添加了）
-        html = html.replace(/^\$\$\$html/, '').replace(/\$\$\$\/html$/, '').trim();
-        
+        html = html
+          .replace(/^\$\$\$html/, '')
+          .replace(/\$\$\$\/html$/, '')
+          .trim();
+
         // 如果HTML不包含完整的文档结构，包装成完整HTML
         if (!html.includes('<!DOCTYPE') && !html.includes('<html')) {
           html = `<!DOCTYPE html>
@@ -1083,23 +1090,74 @@ ${html}
 </body>
 </html>`;
         }
-        
+
         // 对于iframe中的HTML，由于iframe的sandbox属性已经提供了安全隔离
         // 我们使用更宽松的DOMPurify配置来保留完整的样式和结构
         const sanitized = DOMPurify.sanitize(html, {
-          WHOLE_DOCUMENT: true,  // 保留完整的HTML文档结构（包括head、style等）
-          RETURN_DOM: false,      // 返回字符串而不是DOM对象
+          WHOLE_DOCUMENT: true, // 保留完整的HTML文档结构（包括head、style等）
+          RETURN_DOM: false, // 返回字符串而不是DOM对象
           RETURN_DOM_FRAGMENT: false,
-          FORCE_BODY: false,      // 不强制只返回body内容
-          KEEP_CONTENT: true,     // 保留被移除标签的内容
-          ALLOW_DATA_ATTR: true,  // 允许data-*属性
+          FORCE_BODY: false, // 不强制只返回body内容
+          KEEP_CONTENT: true, // 保留被移除标签的内容
+          ALLOW_DATA_ATTR: true, // 允许data-*属性
           ALLOW_UNKNOWN_PROTOCOLS: false,
           // 添加所有需要的标签
-          ADD_TAGS: ['style', 'link', 'meta', 'script', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'defs', 'clipPath', 'text', 'tspan', 'canvas', 'use', 'symbol'],
+          ADD_TAGS: [
+            'style',
+            'link',
+            'meta',
+            'script',
+            'svg',
+            'path',
+            'circle',
+            'rect',
+            'line',
+            'polyline',
+            'polygon',
+            'g',
+            'defs',
+            'clipPath',
+            'text',
+            'tspan',
+            'canvas',
+            'use',
+            'symbol',
+          ],
           // 添加所有需要的属性
-          ADD_ATTR: ['style', 'class', 'id', 'data-*', 'viewBox', 'd', 'cx', 'cy', 'r', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'width', 'height', 'points', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'transform', 'xmlns', 'xmlns:xlink', 'xlink:href', 'opacity', 'fill-opacity', 'stroke-opacity'],
+          ADD_ATTR: [
+            'style',
+            'class',
+            'id',
+            'data-*',
+            'viewBox',
+            'd',
+            'cx',
+            'cy',
+            'r',
+            'x',
+            'y',
+            'x1',
+            'y1',
+            'x2',
+            'y2',
+            'width',
+            'height',
+            'points',
+            'fill',
+            'stroke',
+            'stroke-width',
+            'stroke-linecap',
+            'stroke-linejoin',
+            'transform',
+            'xmlns',
+            'xmlns:xlink',
+            'xlink:href',
+            'opacity',
+            'fill-opacity',
+            'stroke-opacity',
+          ],
         });
-        
+
         return sanitized;
       };
 

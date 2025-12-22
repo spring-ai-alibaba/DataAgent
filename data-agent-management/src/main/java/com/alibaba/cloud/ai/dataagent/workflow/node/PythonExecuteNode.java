@@ -72,7 +72,7 @@ public class PythonExecuteNode implements NodeAction {
 		try {
 			// Clean up old charts before execution
 			cleanChartDirectory();
-			
+
 			// Get context
 			String pythonCode = StateUtil.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT);
 			List<Map<String, String>> sqlResults = StateUtil.hasValue(state, SQL_RESULT_LIST_MEMORY)
@@ -108,7 +108,7 @@ public class PythonExecuteNode implements NodeAction {
 				emitter.next(ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()));
 				emitter.next(ChatResponseUtil.createResponse(finalStdout));
 				emitter.next(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()));
-				
+
 				// Output charts if any
 				if (!chartImages.isEmpty()) {
 					for (int i = 0; i < chartImages.size(); i++) {
@@ -118,7 +118,7 @@ public class PythonExecuteNode implements NodeAction {
 						emitter.next(ChatResponseUtil.createPureResponse(TextType.IMAGE.getEndSign()));
 					}
 				}
-				
+
 				emitter.next(ChatResponseUtil.createResponse("Python代码执行成功！"));
 				emitter.complete();
 			});
@@ -161,16 +161,14 @@ public class PythonExecuteNode implements NodeAction {
 		try {
 			Path chartPath = Paths.get(CHART_DIR);
 			if (Files.exists(chartPath)) {
-				Files.walk(chartPath)
-					.filter(Files::isRegularFile)
-					.forEach(file -> {
-						try {
-							Files.deleteIfExists(file);
-						}
-						catch (Exception e) {
-							log.warn("Failed to delete chart file: {}", file, e);
-						}
-					});
+				Files.walk(chartPath).filter(Files::isRegularFile).forEach(file -> {
+					try {
+						Files.deleteIfExists(file);
+					}
+					catch (Exception e) {
+						log.warn("Failed to delete chart file: {}", file, e);
+					}
+				});
 			}
 			else {
 				Files.createDirectories(chartPath);
@@ -188,10 +186,11 @@ public class PythonExecuteNode implements NodeAction {
 		List<String> chartImages = new ArrayList<>();
 		try {
 			// Try multiple possible paths for cross-platform compatibility
-			Path[] possiblePaths = {
-				Paths.get(CHART_DIR),  // Linux/Mac: /tmp/dataagent_charts
-				Paths.get(System.getProperty("java.io.tmpdir"), "dataagent_charts"),  // Windows: %TEMP%/dataagent_charts
-				Paths.get("C:/tmp/dataagent_charts"),  // Windows alternative
+			Path[] possiblePaths = { Paths.get(CHART_DIR), // Linux/Mac:
+															// /tmp/dataagent_charts
+					Paths.get(System.getProperty("java.io.tmpdir"), "dataagent_charts"), // Windows:
+																							// %TEMP%/dataagent_charts
+					Paths.get("C:/tmp/dataagent_charts"), // Windows alternative
 			};
 
 			for (Path chartPath : possiblePaths) {
