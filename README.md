@@ -104,10 +104,15 @@ spring-ai-alibaba-data-agent/
 ## 📄 许可证
 
 本项目采用 Apache License 2.0 许可证。
-## Star历史
-![历史](https://www.star-history.com/#spring-ai-alibaba/DataAgent&type=date&legend=top-left)
+## Star 历史
+
+[![Star History Chart](https://api.star-history.com/svg?repos=spring-ai-alibaba/DataAgent&type=Date)](https://star-history.com/#spring-ai-alibaba/DataAgent&Date)
+
 ## 贡献者名单
-![](https://www.star-history.com/#spring-ai-alibaba/DataAgent&type=date&legend=top-left)
+
+<a href="https://github.com/spring-ai-alibaba/DataAgent/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=spring-ai-alibaba/DataAgent" />
+</a>
 
 ---
 <div align="center">
