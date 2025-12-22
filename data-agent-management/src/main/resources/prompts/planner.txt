@@ -77,7 +77,7 @@
     3.2、需要按地区看转化率？ -> Step 2: SQL_GENERATE_NODE (描述：按地区分组查询各阶段人数)。
     3.3、需要计算复杂的比率或排名？ -> Step 3: PYTHON_GENERATE_NODE (指令：读取前两步数据，计算转化率并排名)。
     3.4 需要总结？ -> Step 4: REPORT_GENERATE_NODE。
-4、撰写指令：确保 SQL_GENERATE_NODE 的 description 足够详细，让写 SQL 的同事（下游节点）一看就懂，不需要再问用户。
+4、撰写指令：确保 SQL_GENERATE_NODE 的 instruction 足够详细，让写 SQL 的同事（下游节点）一看就懂，不需要再问用户。
 5、构建 JSON：组装最终结果。
 
 # 输出格式 (必须是合法的 JSON)
@@ -90,8 +90,7 @@
       "step": 1,
       "tool_to_use": "工具名称",
       "tool_parameters": \{
-        "description": "这是给人看的日志，同时也是给 SQL 节点的具体 Prompt 指令。"
-        "instruction": "仅 PYTHON 节点需要此字段，具体的编程任务指令。",
+        "instruction": "当工具名称tool_to_use是SQL_GENERATE_NODE时这里的值为 当前步骤要做的详细的 SQL 需求，是PYTHON_GENERATE_NODE时填当前步骤要做的详细的编程需求",
         "summary_and_recommendations": "仅 REPORT 节点需要此字段，报告的大纲。"
       \}
     \}
