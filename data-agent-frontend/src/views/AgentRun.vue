@@ -56,19 +56,30 @@
             >
               <!-- HTML类型消息直接渲染 -->
               <div v-if="message.messageType === 'html'" v-html="message.content"></div>
-              <div v-else-if="message.messageType === 'html-report'" class="html-report-message">
-                <div class="report-info">
-                  <el-icon><Document /></el-icon>
-                  <span>HTML报告已生成</span>
+              <div v-else-if="message.messageType === 'html-report'" class="html-report-container">
+                <div class="html-report-header">
+                  <div class="report-info">
+                    <el-icon><Document /></el-icon>
+                    <span>HTML报告</span>
+                  </div>
+                  <el-button
+                    type="primary"
+                    size="small"
+                    @click="downloadHtmlReportFromMessage(`${message.content}`)"
+                  >
+                    <el-icon><Download /></el-icon>
+                    下载报告
+                  </el-button>
                 </div>
-                <el-button
-                  type="primary"
-                  size="large"
-                  @click="downloadHtmlReportFromMessage(`${message.content}`)"
-                >
-                  <el-icon><Download /></el-icon>
-                  下载HTML报告
-                </el-button>
+                <iframe
+                  :ref="el => setIframeRef(el, message.id)"
+                  :srcdoc="sanitizeHtml(message.content)"
+                  class="html-report-iframe"
+                  frameborder="0"
+                  scrolling="no"
+                  sandbox="allow-same-origin"
+                  @load="onIframeLoad(message.id)"
+                ></iframe>
               </div>
               <div
                 v-else-if="message.messageType === 'markdown-report'"
@@ -358,6 +369,44 @@
       // 响应式数据
       const agent = ref<Agent>({} as Agent);
       const currentSession = ref<ChatSession | null>(null);
+      
+      // iframe引用管理
+      const iframeRefs = ref<Map<string, HTMLIFrameElement>>(new Map());
+      
+      const setIframeRef = (el: any, messageId: string) => {
+        if (el && el instanceof HTMLIFrameElement) {
+          iframeRefs.value.set(messageId, el);
+        }
+      };
+      
+      const onIframeLoad = (messageId: string) => {
+        nextTick(() => {
+          const iframe = iframeRefs.value.get(messageId);
+          if (iframe && iframe.contentWindow) {
+            try {
+              const iframeDoc = iframe.contentWindow.document;
+              const body = iframeDoc.body;
+              const html = iframeDoc.documentElement;
+              
+              // 获取内容高度
+              const height = Math.max(
+                body.scrollHeight,
+                body.offsetHeight,
+                html.clientHeight,
+                html.scrollHeight,
+                html.offsetHeight
+              );
+              
+              // 设置iframe高度，但不超过最大高度
+              const maxHeight = window.innerHeight * 0.8;
+              iframe.style.height = Math.min(height + 20, maxHeight) + 'px';
+            } catch (e) {
+              // 跨域限制时使用默认高度
+              console.warn('无法获取iframe内容高度:', e);
+            }
+          }
+        });
+      };
       const currentMessages = ref<ChatMessage[]>([]);
       const userInput = ref('');
       const { getSessionState, syncStateToView, saveViewToState, deleteSessionState } =
@@ -552,20 +601,32 @@
                   sessionState.htmlReportContent += response.text;
                   sessionState.htmlReportSize = sessionState.htmlReportContent.length;
 
-                  // 更新显示：当前已经收集了多少字节的报告
-                  const reportNode: GraphNodeResponse[] = sessionState.nodeBlocks.find(
+                  // 实时显示HTML报告内容
+                  const reportNodeIndex = sessionState.nodeBlocks.findIndex(
                     (block: GraphNodeResponse[]) =>
                       block.length > 0 &&
                       block[0].nodeName === 'ReportGeneratorNode' &&
                       block[0].textType === 'HTML',
                   );
-                  if (reportNode) {
-                    reportNode[0].text = `正在收集HTML报告... 已收集 ${sessionState.htmlReportSize} 字节`;
+                  
+                  if (reportNodeIndex >= 0) {
+                    // 更新现有的报告节点，显示完整的HTML内容
+                    sessionState.nodeBlocks[reportNodeIndex] = [
+                      {
+                        ...response,
+                        nodeName: 'ReportGeneratorNode',
+                        textType: 'HTML',
+                        text: sessionState.htmlReportContent,
+                      },
+                    ];
                   } else {
+                    // 创建新的报告节点，显示HTML内容
                     sessionState.nodeBlocks.push([
                       {
                         ...response,
-                        text: `正在收集HTML报告... 已收集 ${sessionState.htmlReportSize} 字节`,
+                        nodeName: 'ReportGeneratorNode',
+                        textType: 'HTML',
+                        text: sessionState.htmlReportContent,
                       },
                     ]);
                   }
@@ -820,7 +881,55 @@
 
         for (let idx = 0; idx < node.length; idx++) {
           if (node[idx].textType === TextType.HTML) {
-            content += node[idx].text;
+            // 检查是否是完整的HTML报告（ReportGeneratorNode生成的）
+            if (node[idx].nodeName === 'ReportGeneratorNode' && node[idx].text && node[idx].text.length > 100) {
+              // 为流式HTML报告生成一个唯一ID
+              const reportId = `streaming-report-${Date.now()}-${idx}`;
+              const sanitizedHtml = sanitizeHtml(node[idx].text);
+              // 使用iframe渲染完整的HTML报告
+              content += `
+                <div class="html-report-container streaming-html-report">
+                  <div class="html-report-header">
+                    <div class="report-info">
+                      <span>HTML报告预览（正在生成中...）</span>
+                    </div>
+                  </div>
+                  <iframe
+                    id="${reportId}"
+                    class="html-report-iframe"
+                    frameborder="0"
+                    scrolling="no"
+                    sandbox="allow-same-origin"
+                    srcdoc="${escapeHtml(sanitizedHtml)}"
+                  ></iframe>
+                </div>
+              `;
+              // 延迟调整iframe高度
+              setTimeout(() => {
+                const iframe = document.getElementById(reportId) as HTMLIFrameElement;
+                if (iframe && iframe.contentWindow) {
+                  try {
+                    const iframeDoc = iframe.contentWindow.document;
+                    const body = iframeDoc.body;
+                    const html = iframeDoc.documentElement;
+                    const height = Math.max(
+                      body.scrollHeight,
+                      body.offsetHeight,
+                      html.clientHeight,
+                      html.scrollHeight,
+                      html.offsetHeight
+                    );
+                    const maxHeight = window.innerHeight * 0.8;
+                    iframe.style.height = Math.min(height + 20, maxHeight) + 'px';
+                  } catch (e) {
+                    console.warn('无法获取iframe内容高度:', e);
+                  }
+                }
+              }, 100);
+            } else {
+              // 普通HTML内容直接插入
+              content += node[idx].text;
+            }
           } else if (node[idx].textType === TextType.TEXT) {
             content += node[idx].text.replace(/\n/g, '<br>');
           } else if (
@@ -906,6 +1015,36 @@
               console.error('解析结果集JSON失败:', error);
               content += `<div class="result-set-error">解析结果集数据失败: ${error.message}</div>`;
             }
+          } else if (node[idx].textType === TextType.IMAGE) {
+            // 处理图片类型：收集所有IMAGE类型的文本（Base64编码）
+            // 注意：需要过滤掉开始标记（$$$image）和结束标记（$$$）
+            let imageBase64 = '';
+            let p = idx;
+            for (; p < node.length; p++) {
+              if (node[p].textType !== TextType.IMAGE) {
+                break;
+              }
+              const text = node[p].text.trim();
+              // 过滤掉开始和结束标记
+              if (text !== '$$$image' && text !== '$$$' && text !== '$$$/image') {
+                imageBase64 += text;
+              }
+            }
+            
+            // 如果Base64数据不为空，显示图片
+            if (imageBase64.trim()) {
+              // Base64图片数据，添加data URI前缀
+              const imageSrc = imageBase64.startsWith('data:image') 
+                ? imageBase64 
+                : `data:image/png;base64,${imageBase64}`;
+              content += `<div class="chart-image-container"><img src="${escapeHtml(imageSrc)}" alt="分析图表" class="chart-image" /></div>`;
+            }
+            
+            if (p < node.length) {
+              idx = p - 1;
+            } else {
+              break;
+            }
           } else {
             console.warn(`不支持的 textType: ${node[idx].textType}`);
             content += node[idx].text;
@@ -922,6 +1061,46 @@
         marked.setOptions({ gfm: true, breaks: true });
         const rawHtml = marked.parse(markdown) as string;
         return DOMPurify.sanitize(rawHtml);
+      };
+
+      // HTML内容安全处理（用于HTML报告iframe）
+      const sanitizeHtml = (html: string): string => {
+        if (!html) return '';
+        
+        // 移除可能的标记符号（如果后端添加了）
+        html = html.replace(/^\$\$\$html/, '').replace(/\$\$\$\/html$/, '').trim();
+        
+        // 如果HTML不包含完整的文档结构，包装成完整HTML
+        if (!html.includes('<!DOCTYPE') && !html.includes('<html')) {
+          html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+${html}
+</body>
+</html>`;
+        }
+        
+        // 对于iframe中的HTML，由于iframe的sandbox属性已经提供了安全隔离
+        // 我们使用更宽松的DOMPurify配置来保留完整的样式和结构
+        const sanitized = DOMPurify.sanitize(html, {
+          WHOLE_DOCUMENT: true,  // 保留完整的HTML文档结构（包括head、style等）
+          RETURN_DOM: false,      // 返回字符串而不是DOM对象
+          RETURN_DOM_FRAGMENT: false,
+          FORCE_BODY: false,      // 不强制只返回body内容
+          KEEP_CONTENT: true,     // 保留被移除标签的内容
+          ALLOW_DATA_ATTR: true,  // 允许data-*属性
+          ALLOW_UNKNOWN_PROTOCOLS: false,
+          // 添加所有需要的标签
+          ADD_TAGS: ['style', 'link', 'meta', 'script', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'defs', 'clipPath', 'text', 'tspan', 'canvas', 'use', 'symbol'],
+          // 添加所有需要的属性
+          ADD_ATTR: ['style', 'class', 'id', 'data-*', 'viewBox', 'd', 'cx', 'cy', 'r', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'width', 'height', 'points', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'transform', 'xmlns', 'xmlns:xlink', 'xlink:href', 'opacity', 'fill-opacity', 'stroke-opacity'],
+        });
+        
+        return sanitized;
       };
 
       // 重置报告状态
@@ -1141,6 +1320,9 @@
         downloadHtmlReportFromMessage,
         downloadMarkdownReportFromMessage,
         markdownToHtml,
+        sanitizeHtml,
+        setIframeRef,
+        onIframeLoad,
         resetReportState,
         handleHumanFeedback,
         handlePresetQuestionClick,
@@ -1365,16 +1547,43 @@
     border: 1px solid #e1e4e8;
   }
 
-  /* HTML报告消息样式 */
-  .html-report-message {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 16px;
-    padding: 16px;
-    background: #f8fbff;
+  /* HTML报告容器样式 */
+  .html-report-container {
+    width: 100%;
+    max-width: 100%;
+    margin: 16px 0;
+    background: white;
     border-radius: 12px;
-    border: 1px solid #e1f0ff;
+    border: 1px solid #e8e8e8;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 流式HTML报告特殊样式 */
+  .streaming-html-report {
+    margin: 0 !important;
+    border-radius: 8px;
+  }
+
+  .streaming-html-report .html-report-header {
+    background: #f0f7ff;
+  }
+
+  .streaming-html-report .html-report-header .report-info span {
+    color: #409eff;
+    font-weight: 500;
+    font-size: 14px;
+  }
+
+  .html-report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f8fbff;
+    border-bottom: 1px solid #e1f0ff;
   }
 
   .report-info {
@@ -1384,6 +1593,25 @@
     color: #409eff;
     font-size: 16px;
     font-weight: 500;
+  }
+
+  /* HTML报告iframe样式 - 完整渲染HTML报告 */
+  .html-report-iframe {
+    width: 100%;
+    min-height: 600px;
+    max-height: 80vh;
+    border: none;
+    display: block;
+    background: white;
+    overflow: hidden;
+  }
+
+  /* 响应式调整 */
+  @media (max-width: 768px) {
+    .html-report-iframe {
+      max-height: 70vh;
+      min-height: 400px;
+    }
   }
 
   /* 输入区域样式 */
@@ -1580,6 +1808,31 @@
     text-align: center;
   }
 
+  /* 图表图片容器样式 */
+  .chart-image-container {
+    margin: 16px 0;
+    padding: 12px;
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .chart-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+  }
+
+  .chart-image:hover {
+    transform: scale(1.02);
+  }
+
   /* 响应式设计 */
   @media (max-width: 768px) {
     .result-set-table-container {
@@ -1589,6 +1842,10 @@
     .result-set-table th,
     .result-set-table td {
       padding: 6px 8px;
+    }
+
+    .chart-image-container {
+      padding: 8px;
     }
   }
 </style>

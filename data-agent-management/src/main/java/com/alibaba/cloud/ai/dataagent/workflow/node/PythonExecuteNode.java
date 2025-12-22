@@ -33,6 +33,9 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -61,10 +64,15 @@ public class PythonExecuteNode implements NodeAction {
 		this.jsonParseUtil = jsonParseUtil;
 	}
 
+	private static final String CHART_DIR = "/tmp/dataagent_charts";
+
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
 		try {
+			// Clean up old charts before execution
+			cleanChartDirectory();
+			
 			// Get context
 			String pythonCode = StateUtil.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT);
 			List<Map<String, String>> sqlResults = StateUtil.hasValue(state, SQL_RESULT_LIST_MEMORY)
@@ -89,7 +97,9 @@ public class PythonExecuteNode implements NodeAction {
 			}
 			String finalStdout = stdout;
 
-			log.info("Python Execute Success! StdOut: {}", finalStdout);
+			List<String> chartImages = readChartImages();
+
+			log.info("Python Execute Success! StdOut: {}, Chart Count: {}", finalStdout, chartImages.size());
 
 			// Create display flux for user experience only
 			Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
@@ -98,6 +108,17 @@ public class PythonExecuteNode implements NodeAction {
 				emitter.next(ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()));
 				emitter.next(ChatResponseUtil.createResponse(finalStdout));
 				emitter.next(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()));
+				
+				// Output charts if any
+				if (!chartImages.isEmpty()) {
+					for (int i = 0; i < chartImages.size(); i++) {
+						emitter.next(ChatResponseUtil.createResponse("生成的图表 " + (i + 1) + "："));
+						emitter.next(ChatResponseUtil.createPureResponse(TextType.IMAGE.getStartSign()));
+						emitter.next(ChatResponseUtil.createResponse(chartImages.get(i)));
+						emitter.next(ChatResponseUtil.createPureResponse(TextType.IMAGE.getEndSign()));
+					}
+				}
+				
 				emitter.next(ChatResponseUtil.createResponse("Python代码执行成功！"));
 				emitter.complete();
 			});
@@ -131,6 +152,77 @@ public class PythonExecuteNode implements NodeAction {
 
 			return Map.of(PYTHON_EXECUTE_NODE_OUTPUT, generator);
 		}
+	}
+
+	/**
+	 * Clean chart directory before execution
+	 */
+	private void cleanChartDirectory() {
+		try {
+			Path chartPath = Paths.get(CHART_DIR);
+			if (Files.exists(chartPath)) {
+				Files.walk(chartPath)
+					.filter(Files::isRegularFile)
+					.forEach(file -> {
+						try {
+							Files.deleteIfExists(file);
+						}
+						catch (Exception e) {
+							log.warn("Failed to delete chart file: {}", file, e);
+						}
+					});
+			}
+			else {
+				Files.createDirectories(chartPath);
+			}
+		}
+		catch (Exception e) {
+			log.warn("Failed to clean chart directory", e);
+		}
+	}
+
+	/**
+	 * Read generated chart images from file system and convert to Base64
+	 */
+	private List<String> readChartImages() {
+		List<String> chartImages = new ArrayList<>();
+		try {
+			// Try multiple possible paths for cross-platform compatibility
+			Path[] possiblePaths = {
+				Paths.get(CHART_DIR),  // Linux/Mac: /tmp/dataagent_charts
+				Paths.get(System.getProperty("java.io.tmpdir"), "dataagent_charts"),  // Windows: %TEMP%/dataagent_charts
+				Paths.get("C:/tmp/dataagent_charts"),  // Windows alternative
+			};
+
+			for (Path chartPath : possiblePaths) {
+				if (Files.exists(chartPath)) {
+					// List all PNG files in the directory
+					Files.list(chartPath)
+						.filter(path -> path.toString().toLowerCase().endsWith(".png"))
+						.sorted()
+						.forEach(imagePath -> {
+							try {
+								byte[] imageBytes = Files.readAllBytes(imagePath);
+								String base64Image = java.util.Base64.getEncoder().encodeToString(imageBytes);
+								chartImages.add(base64Image);
+								log.info("Read chart image: {}, size: {} bytes", imagePath.getFileName(),
+										imageBytes.length);
+							}
+							catch (Exception e) {
+								log.error("Failed to read chart image: {}", imagePath, e);
+							}
+						});
+					// If we found charts in one path, don't check others
+					if (!chartImages.isEmpty()) {
+						break;
+					}
+				}
+			}
+		}
+		catch (Exception e) {
+			log.error("Failed to read chart images from directory", e);
+		}
+		return chartImages;
 	}
 
 }
