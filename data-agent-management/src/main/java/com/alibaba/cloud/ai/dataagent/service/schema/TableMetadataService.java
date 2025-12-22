@@ -15,12 +15,13 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.schema;
 
-import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
-import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
+import com.alibaba.cloud.ai.dataagent.common.util.SqlUtil;
+import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -231,13 +232,14 @@ public class TableMetadataService {
 		try {
 			// 构建批量查询SQL，一次查询多个列的样本数据
 			String columnNames = columns.stream().map(ColumnInfoBO::getName).collect(Collectors.joining(", "));
-			String sql = String.format("SELECT %s FROM %s LIMIT 5", columnNames, tableName);
+			String sql = SqlUtil.buildSelectSql(dbConfig.getDialectType(), tableName, columnNames, 5);
 
 			DbQueryParameter batchParam = new DbQueryParameter();
 			batchParam.setSchema(dbConfig.getSchema());
 			batchParam.setSql(sql);
 
 			ResultSetBO resultSet = accessor.executeSqlAndReturnObject(dbConfig, batchParam);
+			log.info("Embedding for table: {}, result size: {}", tableName, resultSet.getData().size());
 
 			return processResultSet(resultSet, columns);
 		}
