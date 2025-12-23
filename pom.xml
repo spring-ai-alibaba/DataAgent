@@ -265,7 +265,7 @@
                 <configuration>
                     <consoleOutput>true</consoleOutput>
                     <configLocation>CI/src/checkstyle/checkstyle.xml</configLocation>
-                    <headerLocation>tools/src/checkstyle/checkstyle-header.txt</headerLocation>
+                    <headerLocation>CI/src/checkstyle/checkstyle-header.txt</headerLocation>
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
                 </configuration>
                 <dependencies>

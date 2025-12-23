@@ -42,8 +42,8 @@ tools: ## Install ci tools
 	go install github.com/google/yamlfmt/cmd/yamlfmt@latest
 
 	@echo "Installing gitleaks"
-	mkdir -p tools/bin && \
-	cd tools/bin && \
+	mkdir -p CI/bin && \
+	cd CI/bin && \
 	git clone https://github.com/gitleaks/gitleaks && \
 	cd gitleaks && \
 	make build && \
