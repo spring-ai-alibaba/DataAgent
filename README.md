@@ -702,6 +702,120 @@ sequenceDiagram
   P->>R: continue to report
 ```
 
+#### 3.9 多数据源接入
+
+说明要点：
+- 元数据存储：数据源配置写入 `datasource`，智能体绑定写入 `agent_datasource`，选表写入 `agent_datasource_tables`，逻辑外键写入 `logical_relation`。
+- 类型扩展：`BizDataSourceTypeEnum` 定义数据源类型；对应的 `Accessor` + `DBConnectionPool` 负责不同数据库协议与方言的访问。
+- Schema 初始化：`AgentDatasourceController` 触发初始化，`SchemaService` 通过 `AccessorFactory` 拉取表/列/外键并写入向量库。
+- 运行时选择：`DatabaseUtil` 从当前智能体获取激活数据源，动态选择 `Accessor` 执行 SQL。
+- 约束：同一智能体同一时间仅允许启用一个数据源（`AgentDatasourceService.toggleDatasourceForAgent`）。
+
+架构图：
+```mermaid
+flowchart LR
+  subgraph Management[Data Source Config & Init]
+    UI[Admin UI / Frontend] --> DSApi[DatasourceController]
+    UI --> ADSApi[AgentDatasourceController]
+    DSApi --> DSSvc[DatasourceService]
+    ADSApi --> ADSvc[AgentDatasourceService]
+    ADSvc --> SchemaSvc[SchemaService]
+    DSSvc --> MetaDS[(datasource)]
+    ADSvc --> AgentDS[(agent_datasource)]
+    ADSvc --> AgentTables[(agent_datasource_tables)]
+    DSSvc --> Logical[(logical_relation)]
+  end
+
+  subgraph Runtime[Query Execution]
+    Graph[GraphService / SqlExecuteNode] --> DbUtil[DatabaseUtil]
+    DbUtil --> ADSvc
+    DbUtil --> DSSvc
+  end
+
+  subgraph Connector[Connector Layer]
+    AccFactory[AccessorFactory]
+    Accessor[DB Accessor<br/>MySQL/PostgreSQL/H2/SQLServer/Dameng]
+    PoolFactory[DBConnectionPoolFactory]
+    Pool[Druid DataSource Cache]
+  end
+
+  SchemaSvc --> AccFactory
+  DbUtil --> AccFactory
+  AccFactory --> Accessor
+  Accessor --> PoolFactory
+  PoolFactory --> Pool
+  Pool --> BizDB[(Business DBs)]
+  SchemaSvc --> Vector[(Vector Store)]
+
+  classDef client fill:#FFF4E6,stroke:#D97706,stroke-width:1px,color:#1F2937;
+  classDef api fill:#E0F2FE,stroke:#0284C7,stroke-width:1px,color:#1F2937;
+  classDef service fill:#ECFDF3,stroke:#16A34A,stroke-width:1px,color:#1F2937;
+  classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
+  classDef connector fill:#E0F7FA,stroke:#06B6D4,stroke-width:1px,color:#1F2937;
+
+  class UI client
+  class DSApi,ADSApi api
+  class DSSvc,ADSvc,SchemaSvc,Graph,DbUtil service
+  class MetaDS,AgentDS,AgentTables,Logical,Vector,BizDB data
+  class AccFactory,Accessor,PoolFactory,Pool connector
+```
+
+时序图：
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
+sequenceDiagram
+  autonumber
+  participant Admin as Admin UI
+  participant DSApi as DatasourceController
+  participant DSSvc as DatasourceService
+  participant Meta as Management DB
+  participant ADSApi as AgentDatasourceController
+  participant ADSvc as AgentDatasourceService
+  participant Schema as SchemaService
+  participant AccF as AccessorFactory
+  participant Acc as DB Accessor
+  participant Pool as DBConnectionPool
+  participant Biz as Business DB
+  participant VS as Vector Store
+  participant User as User
+  participant Graph as GraphController
+  participant Sql as SqlExecuteNode
+  participant DbUtil as DatabaseUtil
+
+  Admin->>DSApi: create datasource
+  DSApi->>DSSvc: createDatasource
+  DSSvc->>Meta: insert datasource
+
+  Admin->>ADSApi: bind datasource + select tables
+  ADSApi->>ADSvc: addDatasourceToAgent / updateDatasourceTables
+  ADSvc->>Meta: write agent_datasource + agent_datasource_tables
+
+  Admin->>ADSApi: init schema
+  ADSApi->>ADSvc: initializeSchemaForAgentWithDatasource
+  ADSvc->>Schema: schema(agentId, dbConfig, tables)
+  Schema->>AccF: getAccessorByDbConfig
+  AccF-->>Schema: accessor
+  Schema->>Acc: fetch tables/columns/foreign keys
+  Acc->>Pool: getConnection
+  Pool->>Biz: query metadata
+  Biz-->>Acc: metadata
+  Acc-->>Schema: table/column/foreign keys
+  Schema->>VS: store schema documents
+
+  User->>Graph: ask question
+  Graph->>Sql: execute sql
+  Sql->>DbUtil: getAgentDbConfig + getAccessor
+  DbUtil->>ADSvc: getCurrentAgentDatasource
+  DbUtil->>DSSvc: getDbConfig
+  DbUtil->>AccF: getAccessorByDbConfig
+  Sql->>Acc: execute sql
+  Acc->>Pool: getConnection
+  Pool->>Biz: execute sql
+  Biz-->>Acc: result set
+  Acc-->>Sql: result set
+  Sql-->>Graph: SQL results
+```
+
 ## 项目结构
 
 这个项目分为三个部分：
