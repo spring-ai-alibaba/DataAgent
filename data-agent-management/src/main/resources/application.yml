@@ -20,17 +20,6 @@ spring:
   ai:
     vectorstore:
       type: simple
-
-    dashscope:
-      api-key: ${AI_DASHSCOPE_API_KEY}
-      chat:
-        enabled: true
-        options:
-          model: qwen-plus
-      embedding:
-        enabled: true
-        options:
-          model: text-embedding-v4
     alibaba:
       data-agent:
         llm-service-type: stream
@@ -65,5 +54,7 @@ mybatis:
 # 日志配置
 logging:
   level:
+    com.alibaba.cloud.ai.dataagent.service: debug
+    com.alibaba.cloud.ai.dataagent.workflow.node: debug
     com.alibaba.cloud.ai.mapper: debug
     org.springframework.jdbc: debug
