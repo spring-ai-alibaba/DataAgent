@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./tools/github-actions/setup-deps
+      - uses: ./CI/github-actions/setup-deps
       - run: make tools
       - run: make format-check
   check-style:
@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./tools/github-actions/setup-deps
+      - uses: ./CI/github-actions/setup-deps
       - run: make tools
       - run: make checkstyle-check
   test-and-build:
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./tools/github-actions/setup-deps
+      - uses: ./CI/github-actions/setup-deps
       - run: make tools
       - run: make test
       - run: make build
