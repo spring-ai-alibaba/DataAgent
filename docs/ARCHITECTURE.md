@@ -716,28 +716,7 @@ sequenceDiagram
   P->>R: continue to report
 ```
 
-## 📁 项目结构
 
-```
-spring-ai-alibaba-data-agent/
-├── data-agent-management/          # 管理端（Spring Boot应用）
-│   ├── src/main/java/
-│   │   └── com/alibaba/cloud/ai/dataagent/
-│   │       ├── controller/         # REST API控制器
-│   │       ├── service/            # 业务服务层
-│   │       ├── workflow/           # StateGraph工作流节点
-│   │       ├── model/              # 数据模型
-│   │       └── config/             # 配置类
-│   └── src/main/resources/
-│       ├── sql/                    # 数据库初始化脚本
-│       └── application.yml         # 应用配置
-└── data-agent-frontend/            # 前端（React应用）
-    ├── src/
-    │   ├── components/             # React组件
-    │   ├── pages/                  # 页面组件
-    │   └── services/               # API服务
-    └── package.json
-```
 
 ## 🔗 相关文档
 
