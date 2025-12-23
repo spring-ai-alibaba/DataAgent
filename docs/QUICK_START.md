@@ -63,7 +63,7 @@ spring:
 ![add-model.png](../img/add-model.png)
 
 注意，如Qwen，OpenAi,Deepseek,Siliconflow(硅基流动) 等兼容Open Ai的厂商不需要更改Completions 路径和Embedding路径。
-
+目前项目的对话模型和向量模型都统一OpenAI 接口规范接入，模型的接入配置如Ollama参考spring ai 文档的OpenAI API 兼容性章节
 如果是自己部署的模型，baseurl和completions-path就是完整的chat模型地址，向量模型同理。
 
 ### 2.4 嵌入模型批处理策略配置
