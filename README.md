@@ -33,7 +33,7 @@
 
 ## 📖 项目简介
 
-**DataAgent** 是一个基于 **Spring AI Alibaba Graph** 打造的企业级智能数据分析 Agent。它超越了传统的 Text-to-SQL 工具，进化为一个能够执行 **Python 深度分析**、生成 **多维度图表报告** 的 AI 虚拟数据分析师。
+**DataAgent** 是一个基于 **Spring AI Alibaba Graph** 打造的企业级智能数据分析 Agent。它超越了传统的 Text-to-SQL 工具，进化为一个能够执行 **Python 深度分析**、生成 **多维度图表报告** 的 AI 智能数据分析师。
 
 系统采用高度可扩展的架构设计，**全面兼容 OpenAI 接口规范**的对话模型与 Embedding 模型，并支持**灵活挂载任意向量数据库**。无论是私有化部署还是接入主流大模型服务（如 Qwen, Deepseek），都能轻松适配，为企业提供灵活、可控的数据洞察服务。
 
@@ -91,7 +91,7 @@ npm install && npm run dev
 
 ## 🏗️ 项目结构
 
-![Uploading image.png…]()
+![dataagent-structure](img/dataagent-structure.png)
 
 ## 🤝 加入社区 & 贡献
 
