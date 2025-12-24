@@ -80,6 +80,6 @@ header:
     - '**/*.sh'
     - '**/*.toml'
     - '**/*.properties'
-    - 'tools/linter/codespell/.codespell.ignorewords'
-    - 'tools/linter/codespell/.codespell.skip'
+    - 'CI/linter/codespell/.codespell.ignorewords'
+    - 'CI/linter/codespell/.codespell.skip'
   comment: never

@@ -21,17 +21,17 @@ lint: ## Check files
 lint: yaml-lint codespell newline-check
 
 .PHONY: codespell
-codespell: CODESPELL_SKIP := $(shell cat tools/linter/codespell/.codespell.skip | tr \\n ',')
+codespell: CODESPELL_SKIP := $(shell cat CI/linter/codespell/.codespell.skip | tr \\n ',')
 codespell: ## Check the code-spell
 	@$(LOG_TARGET)
 	codespell --version
-	codespell --skip "$(CODESPELL_SKIP)" --ignore-words ./tools/linter/codespell/.codespell.ignorewords
+	codespell --skip "$(CODESPELL_SKIP)" --ignore-words ./CI/linter/codespell/.codespell.ignorewords
 
 .PHONY: yaml-lint
 yaml-lint: ## Check the yaml lint
 	@$(LOG_TARGET)
 	yamllint --version
-	yamllint -c ./tools/linter/yamllint/.yamllint .
+	yamllint -c ./CI/linter/yamllint/.yamllint .
 
 .PHONY: yaml-lint-fix
 yaml-lint-fix: ## Yaml lint fix
@@ -43,35 +43,35 @@ yaml-lint-fix: ## Yaml lint fix
 licenses-fix: ## Fix the licenses
 	@$(LOG_TARGET)
 	license-eye --version
-	license-eye -c ./tools/linter/license/.licenserc.yaml header fix
+	license-eye -c ./CI/linter/license/.licenserc.yaml header fix
 
 .PHONY: licenses-check
 licenses-check: ## Check the licenses
 	@$(LOG_TARGET)
 	license-eye --version
-	license-eye -c ./tools/linter/license/.licenserc.yaml header check
+	license-eye -c ./CI/linter/license/.licenserc.yaml header check
 
 .PHONY: markdown-lint-check
 markdown-lint: ## Check the markdown files.
 	@$(LOG_TARGET)
 	markdownlint --version
-	markdownlint --config ./tools/linter/markdownlint/markdown_lint_config.yaml .
+	markdownlint --config ./CI/linter/markdownlint/markdown_lint_config.yaml .
 
 .PHONY: markdown-lint-fix
 markdown-lint-fix: ## Fix the markdown files style.
 	@$(LOG_TARGET)
 	markdownlint --version
-	markdownlint --config ./tools/linter/markdownlint/markdown_lint_config.yaml --fix .
+	markdownlint --config ./CI/linter/markdownlint/markdown_lint_config.yaml --fix .
 
 .PHONY: newline-check
 newline-check: ## Check the newline
 	@$(LOG_TARGET)
-	python tools/scripts/new-line-check.py check
+	python CI/scripts/new-line-check.py check
 
 .PHONY: newline-fix
 newline-fix: ## Fix the newline
 	@$(LOG_TARGET)
-	python tools/scripts/new-line-check.py fix
+	python CI/scripts/new-line-check.py fix
 
 .PHONY: secrets-check
 secrets-check: ## Check the secrets

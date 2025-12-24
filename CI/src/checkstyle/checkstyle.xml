@@ -22,7 +22,7 @@
 
 <!--	&lt;!&ndash; 抑制文件配置 &ndash;&gt;-->
 <!--	<module name="SuppressionFilter">-->
-<!--		<property name="file" value="tools/src/checkstyle/checkstyle-suppressions.xml"/>-->
+<!--		<property name="file" value="CI/src/checkstyle/checkstyle-suppressions.xml"/>-->
 <!--	</module>-->
 
 	<!-- Root Checks -->
