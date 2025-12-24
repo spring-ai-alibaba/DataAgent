@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>🤖 Spring AI Alibaba DataAgent</h1>
+  <h1>Spring AI Alibaba DataAgent</h1>
   <p>
     <strong>基于 Spring AI Alibaba 的企业级智能数据分析师</strong>
   </p>
@@ -43,14 +43,14 @@
 
 | 特性 | 说明 |
 | :--- | :--- |
-| 🤖 **智能数据分析** | 基于 StateGraph 的 Text-to-SQL 转换，支持复杂的多表查询和多轮对话意图理解。 |
-| 🐍 **Python 深度分析** | 内置 Docker/Local Python 执行器，自动生成并执行 Python 代码进行统计分析与机器学习预测。 |
-| 📊 **智能报告生成** | 分析结果自动汇总为包含 ECharts 图表的 HTML/Markdown 报告，所见即所得。 |
-| 🔄 **人工反馈机制** | 独创的 Human-in-the-loop 机制，支持用户在计划生成阶段进行干预和调整。 |
-| 🧠 **RAG 检索增强** | 集成向量数据库，支持对业务元数据、术语库的语义检索，提升 SQL生成准确率。 |
-| 🎯 **多模型调度** | 内置模型注册表，支持运行时动态切换不同的 LLM 和 Embedding 模型。 |
-| 🔌 **MCP 服务器** | 遵循 MCP 协议，支持作为 Tool Server 对外提供 NL2SQL 和 智能体管理能力。 |
-| 🔐 **API Key 管理** | 完善的 API Key 生命周期管理，支持细粒度的权限控制。 |
+| **智能数据分析** | 基于 StateGraph 的 Text-to-SQL 转换，支持复杂的多表查询和多轮对话意图理解。 |
+| **Python 深度分析** | 内置 Docker/Local Python 执行器，自动生成并执行 Python 代码进行统计分析与机器学习预测。 |
+| **智能报告生成** | 分析结果自动汇总为包含 ECharts 图表的 HTML/Markdown 报告，所见即所得。 |
+| **人工反馈机制** | 独创的 Human-in-the-loop 机制，支持用户在计划生成阶段进行干预和调整。 |
+| **RAG 检索增强** | 集成向量数据库，支持对业务元数据、术语库的语义检索，提升 SQL生成准确率。 |
+| **多模型调度** | 内置模型注册表，支持运行时动态切换不同的 LLM 和 Embedding 模型。 |
+| **MCP 服务器** | 遵循 MCP 协议，支持作为 Tool Server 对外提供 NL2SQL 和 智能体管理能力。 |
+| **API Key 管理** | 完善的 API Key 生命周期管理，支持细粒度的权限控制。 |
 
 ## 🚀 快速开始
 
@@ -83,50 +83,15 @@ npm install && npm run dev
 
 | 文档 | 此文档包含的内容 |
 | :--- | :--- |
-| [🚀 快速开始](docs/QUICK_START.md) | 环境要求、数据库导入、基础配置、系统初体验 |
-| [🏗️ 架构设计](docs/ARCHITECTURE.md) | 系统分层架构、StateGraph与工作流设计、核心模块时序图 |
-| [⚙️ 开发者指南](docs/DEVELOPER_GUIDE.md) | 开发环境搭建、详细配置手册、代码规范、扩展开发(向量库/模型) |
-| [🔌 高级功能](docs/ADVANCED_FEATURES.md) | API Key 调用、MCP 服务器配置、自定义混合检索策略、Python执行器配置 |
-| [🔌 知识配置最佳实践](docs/KNOWLEDGE_USAGE.md) | 语义模型，业务知识，智能体知识的解释和使用 |
+| [快速开始](docs/QUICK_START.md) | 环境要求、数据库导入、基础配置、系统初体验 |
+| [架构设计](docs/ARCHITECTURE.md) | 系统分层架构、StateGraph与工作流设计、核心模块时序图 |
+| [开发者指南](docs/DEVELOPER_GUIDE.md) | 开发环境搭建、详细配置手册、代码规范、扩展开发(向量库/模型) |
+| [高级功能](docs/ADVANCED_FEATURES.md) | API Key 调用、MCP 服务器配置、自定义混合检索策略、Python执行器配置 |
+| [知识配置最佳实践](docs/KNOWLEDGE_USAGE.md) | 语义模型，业务知识，智能体知识的解释和使用 |
 
 ## 🏗️ 项目结构
 
-```mermaid
-graph LR
-    subgraph Client [🖥️ Frontend UI]
-        direction TB
-        React[⚛️ React + Ant Design]
-        Chat[💬 Chat Interface]
-        Config[⚙️ Config Panel]
-    end
-
-    subgraph Server [☕️ Backend Service]
-        direction TB
-        SpringBoot[🍃 Spring Boot Application]
-        Agent[🤖 Agent Core]
-        Workflow[🔄 StateGraph Workflow]
-    end
-
-    subgraph Infrastructure [📦 Infrastructure]
-        direction TB
-        MySQL[(🗄️ MySQL / Vector DB)]
-        LLM{{🧠 LLM / Embedding}}
-        Python[🐍 Python Executor]
-    end
-
-    %% Connections
-    React <-->|REST API / SSE| SpringBoot
-    SpringBoot --> Agent
-    Agent --> Workflow
-    Workflow <-->|RAG / NL2SQL| MySQL
-    Workflow <-->|Generation| LLM
-    Workflow <-->|Analysis| Python
-
-    %% Styling
-    style Client fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style Server fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-    style Infrastructure fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-```
+![Uploading image.png…]()
 
 ## 🤝 加入社区 & 贡献
 
