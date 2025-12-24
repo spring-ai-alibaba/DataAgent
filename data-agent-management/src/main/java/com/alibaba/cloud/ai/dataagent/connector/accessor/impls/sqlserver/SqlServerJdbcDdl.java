@@ -15,15 +15,10 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.sqlserver;
 
-import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.SchemaInfoBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.connector.ddl.AbstractJdbcDdl;
+import com.alibaba.cloud.ai.dataagent.bo.schema.*;
 import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.connector.SqlExecutor;
+import com.alibaba.cloud.ai.dataagent.connector.ddl.AbstractJdbcDdl;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -33,8 +28,9 @@ import org.springframework.stereotype.Service;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.alibaba.cloud.ai.dataagent.common.util.ColumnTypeUtil.wrapType;
@@ -256,10 +252,9 @@ public class SqlServerJdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<String> sampleColumn(Connection connection, String schema, String table, String column) {
-		String sql = "SELECT TOP 99 [%s] FROM [%s].[%s];";
+		String sql = super.getSelectSql(BizDataSourceTypeEnum.SQL_SERVER.getTypeName(), table, column, 99);
 		List<String> sampleInfo = Lists.newArrayList();
 		try {
-			sql = String.format(sql, column, schema, table);
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, null, sql);
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
@@ -277,15 +272,13 @@ public class SqlServerJdbcDdl extends AbstractJdbcDdl {
 			log.error("sampleColumn error", e);
 		}
 
-		Set<String> siSet = sampleInfo.stream().collect(Collectors.toSet());
-		sampleInfo = siSet.stream().collect(Collectors.toList());
-		return sampleInfo;
+		return new ArrayList<>(new HashSet<>(sampleInfo));
 	}
 
 	@Override
 	public ResultSetBO scanTable(Connection connection, String schema, String table) {
-		String sql = "SELECT TOP 20 * FROM [%s].[%s];";
-		ResultSetBO resultSet = ResultSetBO.builder().build();
+		String sql = super.getSelectSql(BizDataSourceTypeEnum.SQL_SERVER.getTypeName(), table, "*", 20);
+		ResultSetBO resultSet;
 		try {
 			resultSet = SqlExecutor.executeSqlAndReturnObject(connection, schema, String.format(sql, schema, table));
 		}

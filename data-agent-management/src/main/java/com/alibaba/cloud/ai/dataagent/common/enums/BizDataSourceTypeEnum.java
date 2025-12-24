@@ -137,6 +137,10 @@ public enum BizDataSourceTypeEnum {
 		return isDialect(typeName, DatabaseDialectEnum.MYSQL.getCode());
 	}
 
+	public static boolean isSqlServerDialect(String typeName) {
+		return isDialect(typeName, DatabaseDialectEnum.SQL_SERVER.getCode());
+	}
+
 	public static boolean isPgDialect(String typeName) {
 		return isDialect(typeName, DatabaseDialectEnum.POSTGRESQL.getCode());
 	}

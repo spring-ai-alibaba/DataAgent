@@ -21,6 +21,7 @@ import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.SchemaInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
+import com.alibaba.cloud.ai.dataagent.common.util.SqlUtil;
 
 import java.sql.Connection;
 import java.util.List;
@@ -43,5 +44,9 @@ public abstract class AbstractJdbcDdl implements Ddl {
 	public abstract List<String> sampleColumn(Connection connection, String schema, String table, String column);
 
 	public abstract ResultSetBO scanTable(Connection connection, String schema, String table);
+
+	public String getSelectSql(String typeName, String tableName, String columnNames, int limit) {
+		return SqlUtil.buildSelectSql(typeName, tableName, columnNames, limit);
+	}
 
 }
