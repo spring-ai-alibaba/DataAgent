@@ -52,6 +52,11 @@
 | **MCP 服务器** | 遵循 MCP 协议，支持作为 Tool Server 对外提供 NL2SQL 和 智能体管理能力。 |
 | **API Key 管理** | 完善的 API Key 生命周期管理，支持细粒度的权限控制。 |
 
+## 🏗️ 项目结构
+
+![dataagent-structure](img/dataagent-structure.png)
+
+
 ## 🚀 快速开始
 
 > 详细的安装和配置指南请参考 [📑 快速开始文档](docs/QUICK_START.md)。
@@ -88,10 +93,6 @@ npm install && npm run dev
 | [开发者指南](docs/DEVELOPER_GUIDE.md) | 开发环境搭建、详细配置手册、代码规范、扩展开发(向量库/模型) |
 | [高级功能](docs/ADVANCED_FEATURES.md) | API Key 调用、MCP 服务器配置、自定义混合检索策略、Python执行器配置 |
 | [知识配置最佳实践](docs/KNOWLEDGE_USAGE.md) | 语义模型，业务知识，智能体知识的解释和使用 |
-
-## 🏗️ 项目结构
-
-![dataagent-structure](img/dataagent-structure.png)
 
 ## 🤝 加入社区 & 贡献
 
