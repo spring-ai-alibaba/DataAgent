@@ -23,9 +23,9 @@ import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptConstant;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.common.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
+import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -64,19 +64,26 @@ public class PythonAnalyzeNode implements NodeAction {
 		// 检查是否进入降级模式
 		boolean isFallbackMode = StateUtil.getObjectValue(state, PYTHON_FALLBACK_MODE, Boolean.class, false);
 
-		String systemPrompt;
 		if (isFallbackMode) {
-			// 降级模式，传入用户查询和 SQL 执行结果，用于基础数据分析
-			String sqlResultsJson = JsonUtil.getObjectMapper().writeValueAsString(sqlExecuteResult);
-			systemPrompt = PromptConstant.getPythonAnalyzeFallbackPromptTemplate()
-				.render(Map.of("user_query", userQuery, "sql_results", sqlResultsJson));
-			log.warn("Python分析节点检测到降级模式，使用SQL数据进行兜底分析");
+			// 降级模式
+			String fallbackMessage = "Python 高级分析功能暂时不可用，请检查相关配置和服务状态或者提问方式。系统将基于 SQL 查询结果生成基础报告。";
+			log.warn("Python分析节点检测到降级模式，返回固定提示信息");
+
+			Flux<ChatResponse> fallbackFlux = Flux.just(ChatResponseUtil.createResponse(fallbackMessage));
+
+			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(
+					this.getClass(), state, "正在处理分析结果...\n", "\n处理完成。", aiResponse -> {
+						Map<String, String> updatedSqlResult = PlanProcessUtil.addStepResult(sqlExecuteResult,
+								currentStep, fallbackMessage);
+						log.info("python fallback message: {}", fallbackMessage);
+						return Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedSqlResult, PLAN_CURRENT_STEP, currentStep + 1);
+					}, fallbackFlux);
+
+			return Map.of(PYTHON_ANALYSIS_NODE_OUTPUT, generator);
 		}
-		else {
-			// 正常模式：Load Python code generation template
-			systemPrompt = PromptConstant.getPythonAnalyzePromptTemplate()
-				.render(Map.of("python_output", pythonOutput, "user_query", userQuery));
-		}
+
+		String systemPrompt = PromptConstant.getPythonAnalyzePromptTemplate()
+			.render(Map.of("python_output", pythonOutput, "user_query", userQuery));
 
 		Flux<ChatResponse> pythonAnalyzeFlux = llmService.callSystem(systemPrompt);
 
