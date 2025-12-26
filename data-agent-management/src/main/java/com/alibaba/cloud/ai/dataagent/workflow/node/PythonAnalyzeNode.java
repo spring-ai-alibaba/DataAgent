@@ -25,6 +25,7 @@ import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
 import com.alibaba.cloud.ai.dataagent.common.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
+import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -60,7 +61,27 @@ public class PythonAnalyzeNode implements NodeAction {
 		Map<String, String> sqlExecuteResult = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
 				new HashMap<>());
 
-		// Load Python code generation template
+		// 检查是否进入降级模式
+		boolean isFallbackMode = StateUtil.getObjectValue(state, PYTHON_FALLBACK_MODE, Boolean.class, false);
+
+		if (isFallbackMode) {
+			// 降级模式
+			String fallbackMessage = "Python 高级分析功能暂时不可用，出现错误";
+			log.warn("Python分析节点检测到降级模式，返回固定提示信息");
+
+			Flux<ChatResponse> fallbackFlux = Flux.just(ChatResponseUtil.createResponse(fallbackMessage));
+
+			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(
+					this.getClass(), state, "正在处理分析结果...\n", "\n处理完成。", aiResponse -> {
+						Map<String, String> updatedSqlResult = PlanProcessUtil.addStepResult(sqlExecuteResult,
+								currentStep, fallbackMessage);
+						log.info("python fallback message: {}", fallbackMessage);
+						return Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedSqlResult, PLAN_CURRENT_STEP, currentStep + 1);
+					}, fallbackFlux);
+
+			return Map.of(PYTHON_ANALYSIS_NODE_OUTPUT, generator);
+		}
+
 		String systemPrompt = PromptConstant.getPythonAnalyzePromptTemplate()
 			.render(Map.of("python_output", pythonOutput, "user_query", userQuery));
 

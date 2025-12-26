@@ -69,6 +69,10 @@ public class PythonExecuteNode implements NodeAction {
 			String pythonCode = StateUtil.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT);
 			List<Map<String, String>> sqlResults = StateUtil.hasValue(state, SQL_RESULT_LIST_MEMORY)
 					? StateUtil.getListValue(state, SQL_RESULT_LIST_MEMORY) : new ArrayList<>();
+
+			// 检查重试次数
+			int triesCount = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
+
 			CodePoolExecutorService.TaskRequest taskRequest = new CodePoolExecutorService.TaskRequest(pythonCode,
 					objectMapper.writeValueAsString(sqlResults), null);
 
@@ -78,6 +82,28 @@ public class PythonExecuteNode implements NodeAction {
 				String errorMsg = "Python Execute Failed!\nStdOut: " + taskResponse.stdOut() + "\nStdErr: "
 						+ taskResponse.stdErr() + "\nExceptionMsg: " + taskResponse.exceptionMsg();
 				log.error(errorMsg);
+
+				// 检查是否超过最大重试次数
+				if (triesCount >= PYTHON_MAX_TRIES_COUNT) {
+					log.error("Python执行失败且已超过最大重试次数（已尝试次数：{}），启动降级兜底逻辑。错误信息: {}", triesCount, errorMsg);
+
+					String fallbackOutput = "{}";
+
+					Flux<ChatResponse> fallbackDisplayFlux = Flux.create(emitter -> {
+						emitter.next(ChatResponseUtil.createResponse("开始执行Python代码..."));
+						emitter.next(ChatResponseUtil.createResponse("Python代码执行失败已超过最大重试次数，采用降级策略继续处理。"));
+						emitter.complete();
+					});
+
+					Flux<GraphResponse<StreamingOutput>> fallbackGenerator = FluxUtil
+						.createStreamingGeneratorWithMessages(this.getClass(), state,
+								v -> Map.of(PYTHON_EXECUTE_NODE_OUTPUT, fallbackOutput, PYTHON_IS_SUCCESS, false,
+										PYTHON_FALLBACK_MODE, true),
+								fallbackDisplayFlux);
+
+					return Map.of(PYTHON_EXECUTE_NODE_OUTPUT, fallbackGenerator);
+				}
+
 				throw new RuntimeException(errorMsg);
 			}
 

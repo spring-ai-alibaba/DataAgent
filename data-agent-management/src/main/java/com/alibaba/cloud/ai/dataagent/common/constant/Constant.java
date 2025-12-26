@@ -130,6 +130,12 @@ public final class Constant {
 
 	public static final String PYTHON_TRIES_COUNT = "PYTHON_TRIES_COUNT";
 
+	// Python执行的最大重试次数
+	public static final int PYTHON_MAX_TRIES_COUNT = 5;
+
+	// 标记是否进入Python执行失败的降级模式（超过最大重试次数后触发）
+	public static final String PYTHON_FALLBACK_MODE = "PYTHON_FALLBACK_MODE";
+
 	// If code execution succeeds, output code running result; if fails, output error
 	// information
 	public static final String PYTHON_EXECUTE_NODE_OUTPUT = "PYTHON_EXECUTE_NODE_OUTPUT";
