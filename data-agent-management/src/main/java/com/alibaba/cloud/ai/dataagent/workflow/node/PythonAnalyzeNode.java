@@ -66,7 +66,7 @@ public class PythonAnalyzeNode implements NodeAction {
 
 		if (isFallbackMode) {
 			// 降级模式
-			String fallbackMessage = "Python 高级分析功能暂时不可用，请检查相关配置和服务状态或者提问方式。系统将基于 SQL 查询结果生成基础报告。";
+			String fallbackMessage = "Python 高级分析功能暂时不可用，出现错误";
 			log.warn("Python分析节点检测到降级模式，返回固定提示信息");
 
 			Flux<ChatResponse> fallbackFlux = Flux.just(ChatResponseUtil.createResponse(fallbackMessage));
