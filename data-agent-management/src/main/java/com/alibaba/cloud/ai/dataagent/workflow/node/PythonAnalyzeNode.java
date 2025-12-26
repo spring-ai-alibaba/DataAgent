@@ -23,6 +23,7 @@ import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptConstant;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.common.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
 import lombok.AllArgsConstructor;
@@ -65,10 +66,11 @@ public class PythonAnalyzeNode implements NodeAction {
 
 		String systemPrompt;
 		if (isFallbackMode) {
-			// 降级模式：使用降级提示词文件
+			// 降级模式，传入用户查询和 SQL 执行结果，用于基础数据分析
+			String sqlResultsJson = JsonUtil.getObjectMapper().writeValueAsString(sqlExecuteResult);
 			systemPrompt = PromptConstant.getPythonAnalyzeFallbackPromptTemplate()
-				.render(Map.of("user_query", userQuery));
-			log.warn("Python分析节点检测到降级模式，使用兜底提示词");
+				.render(Map.of("user_query", userQuery, "sql_results", sqlResultsJson));
+			log.warn("Python分析节点检测到降级模式，使用SQL数据进行兜底分析");
 		}
 		else {
 			// 正常模式：Load Python code generation template
