@@ -15,9 +15,11 @@
  */
 package com.alibaba.cloud.ai.dataagent.config;
 
+import com.alibaba.cloud.ai.dataagent.interceptor.ApiKeyAuthInterceptor;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.nio.file.Paths;
@@ -31,6 +33,8 @@ public class WebConfig implements WebMvcConfigurer {
 
 	private final FileStorageProperties fileStorageProperties;
 
+	private final ApiKeyAuthInterceptor apiKeyAuthInterceptor;
+
 	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry) {
 		String uploadDir = Paths.get(fileStorageProperties.getPath()).toAbsolutePath().toString();
@@ -38,6 +42,13 @@ public class WebConfig implements WebMvcConfigurer {
 		registry.addResourceHandler(fileStorageProperties.getUrlPrefix() + "/**")
 			.addResourceLocations("file:" + uploadDir + "/")
 			.setCachePeriod(3600);
+	}
+
+	@Override
+	public void addInterceptors(InterceptorRegistry registry) {
+		registry.addInterceptor(apiKeyAuthInterceptor)
+			.addPathPatterns("/api/agent/*/sessions/**", "/api/sessions/**")
+			.excludePathPatterns("/api/agent/*/sessions/stream");
 	}
 
 }

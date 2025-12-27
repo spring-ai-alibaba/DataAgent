@@ -23,6 +23,7 @@ import com.alibaba.cloud.ai.dataagent.util.ApiKeyUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -178,6 +179,26 @@ public class AgentServiceImpl implements AgentService {
 			return null;
 		}
 		return ApiKeyUtil.mask(apiKey);
+	}
+
+	@Override
+	public boolean validateApiKey(Long id, String apiKey) {
+		if (!StringUtils.hasText(apiKey)) {
+			return false;
+		}
+		Agent agent = agentMapper.findById(id);
+		if (agent == null) {
+			return false;
+		}
+		Integer enabled = agent.getApiKeyEnabled();
+		if (enabled == null || enabled == 0) {
+			return false;
+		}
+		String storedKey = agent.getApiKey();
+		if (!StringUtils.hasText(storedKey)) {
+			return false;
+		}
+		return storedKey.equals(apiKey);
 	}
 
 	private Agent requireAgent(Long id) {

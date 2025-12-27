@@ -56,6 +56,8 @@ public class DataAgentProperties {
 
 	private TextSplitter textSplitter = new TextSplitter();
 
+	private ApiKey apiKey = new ApiKey();
+
 	/**
 	 * 最多保留的对话轮数
 	 */
@@ -160,6 +162,16 @@ public class DataAgentProperties {
 		 * Elasticsearch最小分数阈值，用于es执行关键词搜索时过滤相关性较低的文档
 		 */
 		private double elasticsearchMinScore = 0.5;
+
+	}
+
+	@Getter
+	@Setter
+	public static class ApiKey {
+
+		private boolean enabled = false;
+
+		private String header = "X-API-Key";
 
 	}
 
