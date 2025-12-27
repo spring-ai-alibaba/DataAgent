@@ -25,6 +25,7 @@ export interface SessionRuntimeState {
   htmlReportContent: string;
   htmlReportSize: number;
   markdownReportContent: string;
+  guessedQuestions: string[];
 }
 
 /**
@@ -47,6 +48,7 @@ export function useSessionStateManager() {
         htmlReportContent: '',
         htmlReportSize: 0,
         markdownReportContent: '',
+        guessedQuestions: [],
       });
     }
     return sessionStates.value.get(sessionId)!;

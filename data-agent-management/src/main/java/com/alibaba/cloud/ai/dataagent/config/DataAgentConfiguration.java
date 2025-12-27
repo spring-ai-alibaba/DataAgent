@@ -162,6 +162,8 @@ public class DataAgentConfiguration implements DisposableBean {
 			keyStrategyHashMap.put(IS_ONLY_NL2SQL, KeyStrategy.REPLACE);
 			// Human Review keys
 			keyStrategyHashMap.put(HUMAN_REVIEW_ENABLED, KeyStrategy.REPLACE);
+			// Guess node output
+			keyStrategyHashMap.put(GUESS_NODE_OUTPUT, KeyStrategy.REPLACE);
 			// Final result
 			keyStrategyHashMap.put(RESULT, KeyStrategy.REPLACE);
 			return keyStrategyHashMap;
@@ -183,7 +185,8 @@ public class DataAgentConfiguration implements DisposableBean {
 			.addNode(PYTHON_ANALYZE_NODE, nodeBeanUtil.getNodeBeanAsync(PythonAnalyzeNode.class))
 			.addNode(REPORT_GENERATOR_NODE, nodeBeanUtil.getNodeBeanAsync(ReportGeneratorNode.class))
 			.addNode(SEMANTIC_CONSISTENCY_NODE, nodeBeanUtil.getNodeBeanAsync(SemanticConsistencyNode.class))
-			.addNode(HUMAN_FEEDBACK_NODE, nodeBeanUtil.getNodeBeanAsync(HumanFeedbackNode.class));
+			.addNode(HUMAN_FEEDBACK_NODE, nodeBeanUtil.getNodeBeanAsync(HumanFeedbackNode.class))
+			.addNode(GUESS_NODE, nodeBeanUtil.getNodeBeanAsync(GuessNode.class));
 
 		stateGraph.addEdge(START, INTENT_RECOGNITION_NODE)
 			.addConditionalEdges(INTENT_RECOGNITION_NODE, edge_async(new IntentRecognitionDispatcher()),
@@ -226,7 +229,8 @@ public class DataAgentConfiguration implements DisposableBean {
 					PLAN_EXECUTOR_NODE, PLAN_EXECUTOR_NODE,
 					// If max repair attempts are reached, end the process
 					END, END))
-			.addEdge(REPORT_GENERATOR_NODE, END)
+			.addEdge(REPORT_GENERATOR_NODE, GUESS_NODE)
+			.addEdge(GUESS_NODE, END)
 			// sql generate and sql execute node
 			.addConditionalEdges(SQL_GENERATE_NODE, nodeBeanUtil.getEdgeBeanAsync(SqlGenerateDispatcher.class),
 					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, END, END, SEMANTIC_CONSISTENCY_NODE,
