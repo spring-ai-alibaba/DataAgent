@@ -107,7 +107,8 @@ public class DataAgentConfiguration implements DisposableBean {
 	}
 
 	@Bean
-	public StateGraph nl2sqlGraph(NodeBeanUtil nodeBeanUtil) throws GraphStateException {
+	public StateGraph nl2sqlGraph(NodeBeanUtil nodeBeanUtil, CodeExecutorProperties codeExecutorProperties)
+			throws GraphStateException {
 
 		KeyStrategyFactory keyStrategyFactory = () -> {
 			HashMap<String, KeyStrategy> keyStrategyHashMap = new HashMap<>();
@@ -204,7 +205,7 @@ public class DataAgentConfiguration implements DisposableBean {
 			.addEdge(PLANNER_NODE, PLAN_EXECUTOR_NODE)
 			// python nodes
 			.addEdge(PYTHON_GENERATE_NODE, PYTHON_EXECUTE_NODE)
-			.addConditionalEdges(PYTHON_EXECUTE_NODE, edge_async(new PythonExecutorDispatcher()),
+			.addConditionalEdges(PYTHON_EXECUTE_NODE, edge_async(new PythonExecutorDispatcher(codeExecutorProperties)),
 					Map.of(PYTHON_ANALYZE_NODE, PYTHON_ANALYZE_NODE, END, END, PYTHON_GENERATE_NODE,
 							PYTHON_GENERATE_NODE))
 			.addEdge(PYTHON_ANALYZE_NODE, PLAN_EXECUTOR_NODE)

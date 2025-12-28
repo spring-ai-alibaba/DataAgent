@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.common.util.JsonParseUtil;
+import com.alibaba.cloud.ai.dataagent.config.CodeExecutorProperties;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -55,10 +56,14 @@ public class PythonExecuteNode implements NodeAction {
 
 	private final JsonParseUtil jsonParseUtil;
 
-	public PythonExecuteNode(CodePoolExecutorService codePoolExecutor, JsonParseUtil jsonParseUtil) {
+	private final CodeExecutorProperties codeExecutorProperties;
+
+	public PythonExecuteNode(CodePoolExecutorService codePoolExecutor, JsonParseUtil jsonParseUtil,
+			CodeExecutorProperties codeExecutorProperties) {
 		this.codePoolExecutor = codePoolExecutor;
 		this.objectMapper = JsonUtil.getObjectMapper();
 		this.jsonParseUtil = jsonParseUtil;
+		this.codeExecutorProperties = codeExecutorProperties;
 	}
 
 	@Override
@@ -84,7 +89,7 @@ public class PythonExecuteNode implements NodeAction {
 				log.error(errorMsg);
 
 				// 检查是否超过最大重试次数
-				if (triesCount >= PYTHON_MAX_TRIES_COUNT) {
+				if (triesCount >= codeExecutorProperties.getPythonMaxTriesCount()) {
 					log.error("Python执行失败且已超过最大重试次数（已尝试次数：{}），启动降级兜底逻辑。错误信息: {}", triesCount, errorMsg);
 
 					String fallbackOutput = "{}";

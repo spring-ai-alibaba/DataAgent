@@ -120,4 +120,9 @@ public class CodeExecutorProperties {
 	 */
 	String networkMode = "none";
 
+	/**
+	 * Python执行的最大重试次数
+	 */
+	Integer pythonMaxTriesCount = 5;
+
 }

@@ -19,6 +19,7 @@ package com.alibaba.cloud.ai.dataagent.workflow.dispatcher;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
 import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
+import com.alibaba.cloud.ai.dataagent.config.CodeExecutorProperties;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
@@ -30,6 +31,12 @@ import static com.alibaba.cloud.ai.graph.StateGraph.END;
  */
 @Slf4j
 public class PythonExecutorDispatcher implements EdgeAction {
+
+	private final CodeExecutorProperties codeExecutorProperties;
+
+	public PythonExecutorDispatcher(CodeExecutorProperties codeExecutorProperties) {
+		this.codeExecutorProperties = codeExecutorProperties;
+	}
 
 	@Override
 	public String apply(OverAllState state) throws Exception {
@@ -45,7 +52,7 @@ public class PythonExecutorDispatcher implements EdgeAction {
 			String message = StateUtil.getStringValue(state, PYTHON_EXECUTE_NODE_OUTPUT);
 			log.error("Python Executor Node Error: {}", message);
 			int tries = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
-			if (tries >= PYTHON_MAX_TRIES_COUNT) {
+			if (tries >= codeExecutorProperties.getPythonMaxTriesCount()) {
 				log.error("Python执行失败且已超过最大重试次数（已尝试次数：{}），流程终止", tries);
 				return END;
 			}
