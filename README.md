@@ -31,15 +31,6 @@
 
 <br/>
 
-## 🎬 演示视频
-
-<div align="center">
-  <video src="video/Screen%20Recording%202025-12-25%20at%2004.15.01.mov" controls width="800"></video>
-  <p>
-    <a href="video/Screen%20Recording%202025-12-25%20at%2004.15.01.mov">下载/查看演示视频</a>
-  </p>
-</div>
-
 ## 📖 项目简介
 
 **DataAgent** 是一个基于 **Spring AI Alibaba Graph** 打造的企业级智能数据分析 Agent。它超越了传统的 Text-to-SQL 工具，进化为一个能够执行 **Python 深度分析**、生成 **多维度图表报告** 的 AI 智能数据分析师。
