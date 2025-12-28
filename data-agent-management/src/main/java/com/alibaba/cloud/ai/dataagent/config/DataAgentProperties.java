@@ -139,7 +139,7 @@ public class DataAgentProperties {
 		/**
 		 * 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档
 		 */
-		private double similarityThreshold = 0.2;
+		private double similarityThreshold = 0.4;
 
 		/**
 		 * 一次删除操作中，最多删除的文档数量

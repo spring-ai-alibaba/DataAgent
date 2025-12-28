@@ -31,7 +31,7 @@ public class AgentSearchRequest implements java.io.Serializable {
 	private String docVectorType;
 
 	@Builder.Default
-	private Double similarityThreshold = 0.2;
+	private Double similarityThreshold = 0.4;
 
 	private String query;
 
