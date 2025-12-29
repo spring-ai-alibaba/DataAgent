@@ -136,6 +136,11 @@ public class DataAgentProperties {
 	@Setter
 	public static class VectorStoreProperties {
 
+		// 专门给召回Table 用的配置
+		private int tableTopkLimit = 15;
+
+		private double tableSimilarityThreshold = 0.1;
+
 		/**
 		 * 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档
 		 */
@@ -149,7 +154,7 @@ public class DataAgentProperties {
 		/**
 		 * 查询时返回的最大文档数量
 		 */
-		private int topkLimit = 30;
+		private int topkLimit = 15;
 
 		/**
 		 * 是否启用混合搜索
