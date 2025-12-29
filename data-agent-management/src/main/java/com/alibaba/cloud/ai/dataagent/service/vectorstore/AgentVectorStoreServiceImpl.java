@@ -179,8 +179,8 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	@Override
 	public List<Document> getDocumentsForAgent(String agentId, String query, String vectorType) {
 		// 使用全局默认配置
-		int defaultTopK = dataAgentProperties.getVectorStore().getTopkLimit();
-		double defaultThreshold = dataAgentProperties.getVectorStore().getSimilarityThreshold();
+		int defaultTopK = dataAgentProperties.getVectorStore().getDefaultTopkLimit();
+		double defaultThreshold = dataAgentProperties.getVectorStore().getDefaultSimilarityThreshold();
 
 		return getDocumentsForAgent(agentId, query, vectorType, defaultTopK, defaultThreshold);
 	}
@@ -202,7 +202,7 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	public List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK) {
 		Assert.notNull(filterExpression, "filterExpression cannot be null.");
 		if (topK == null)
-			topK = dataAgentProperties.getVectorStore().getTopkLimit();
+			topK = dataAgentProperties.getVectorStore().getDefaultTopkLimit();
 		SearchRequest searchRequest = SearchRequest.builder()
 			.query(DEFAULT)
 			.topK(topK)
