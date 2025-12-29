@@ -56,8 +56,6 @@ public class PythonGenerateNode implements NodeAction {
 
 	private static final int SAMPLE_DATA_NUMBER = 5;
 
-	private static final int MAX_TRIES_COUNT = 5;
-
 	private final ObjectMapper objectMapper;
 
 	private final CodeExecutorProperties codeExecutorProperties;
@@ -78,7 +76,7 @@ public class PythonGenerateNode implements NodeAction {
 		List<Map<String, String>> sqlResults = StateUtil.hasValue(state, SQL_RESULT_LIST_MEMORY)
 				? StateUtil.getListValue(state, SQL_RESULT_LIST_MEMORY) : new ArrayList<>();
 		boolean codeRunSuccess = StateUtil.getObjectValue(state, PYTHON_IS_SUCCESS, Boolean.class, true);
-		int triesCount = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, MAX_TRIES_COUNT);
+		int triesCount = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
 
 		String userPrompt = StateUtil.getCanonicalQuery(state);
 		if (!codeRunSuccess) {
@@ -121,7 +119,7 @@ public class PythonGenerateNode implements NodeAction {
 							aiResponse.length() - TextType.PYTHON.getEndSign().length());
 					aiResponse = MarkdownParserUtil.extractRawText(aiResponse);
 					log.info("Python Generate Code: {}", aiResponse);
-					return Map.of(PYTHON_GENERATE_NODE_OUTPUT, aiResponse, PYTHON_TRIES_COUNT, triesCount - 1);
+					return Map.of(PYTHON_GENERATE_NODE_OUTPUT, aiResponse, PYTHON_TRIES_COUNT, triesCount + 1);
 				},
 				Flux.concat(Flux.just(ChatResponseUtil.createPureResponse(TextType.PYTHON.getStartSign())),
 						pythonGenerateFlux,
