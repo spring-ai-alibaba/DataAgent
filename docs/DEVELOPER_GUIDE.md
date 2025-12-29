@@ -171,9 +171,11 @@ public class AgentVectorStoreService {
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
-| `similarity-threshold` | 相似度阈值 | 0.2 |
+| `default-similarity-threshold` | 全局默认相似度阈值 | 0.4 |
+| `table-similarity-threshold` | 召回表的相似度阈值 | 0.2 |
 | `batch-del-topk-limit` | 批量删除时的最大文档数量 | 5000 |
-| `topk-limit` | 查询返回的最大文档数量 | 30 |
+| `default-topk-limit` | 全局默认查询返回的最大文档数量（目前只有业务知识和智能体知识在使用） | 8 |
+| `table-topk-limit` | 召回表的最大文档数量 | 10 |
 | `enable-hybrid-search` | 是否启用混合搜索 | false |
 | `elasticsearch-min-score` | ES关键词搜索的最小分数阈值 | 0.5 |
 

@@ -262,13 +262,13 @@ public class SchemaServiceImpl implements SchemaService {
 		agentVectorStoreService.deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.TABLE);
 	}
 
-	/**
-	 * Get all table documents by keywords for specified agent
-	 */
 	@Override
 	public List<Document> getTableDocumentsForAgent(String agentId, String query) {
 		Assert.notNull(agentId, "agentId cannot be null");
-		return agentVectorStoreService.getDocumentsForAgent(agentId, query, DocumentMetadataConstant.TABLE);
+		int tableTopK = dataAgentProperties.getVectorStore().getTableTopkLimit();
+		double tableThreshold = dataAgentProperties.getVectorStore().getTableSimilarityThreshold();
+		return agentVectorStoreService.getDocumentsForAgent(agentId, query, DocumentMetadataConstant.TABLE, tableTopK,
+				tableThreshold);
 	}
 
 	private List<String> getMissingTableNamesWithForeignKeySet(List<Document> tableDocuments,

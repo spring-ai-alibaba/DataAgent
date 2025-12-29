@@ -39,6 +39,8 @@ public interface AgentVectorStoreService {
 	 */
 	List<Document> getDocumentsForAgent(String agentId, String query, String vectorType);
 
+	List<Document> getDocumentsForAgent(String agentId, String query, String vectorType, int topK, double threshold);
+
 	// 通过元数据过滤精确查找
 	List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK);
 

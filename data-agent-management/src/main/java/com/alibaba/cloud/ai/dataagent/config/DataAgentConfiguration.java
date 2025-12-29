@@ -193,7 +193,9 @@ public class DataAgentConfiguration implements DisposableBean {
 			.addEdge(EVIDENCE_RECALL_NODE, QUERY_ENHANCE_NODE)
 			.addConditionalEdges(QUERY_ENHANCE_NODE, edge_async(new QueryEnhanceDispatcher()),
 					Map.of(SCHEMA_RECALL_NODE, SCHEMA_RECALL_NODE, END, END))
-			.addEdge(SCHEMA_RECALL_NODE, TABLE_RELATION_NODE)
+			.addConditionalEdges(SCHEMA_RECALL_NODE, edge_async(new SchemaRecallDispatcher()),
+					Map.of(TABLE_RELATION_NODE, TABLE_RELATION_NODE, END, END))
+
 			.addConditionalEdges(TABLE_RELATION_NODE, edge_async(new TableRelationDispatcher()),
 					Map.of(FEASIBILITY_ASSESSMENT_NODE, FEASIBILITY_ASSESSMENT_NODE, END, END, TABLE_RELATION_NODE,
 							TABLE_RELATION_NODE)) // retry

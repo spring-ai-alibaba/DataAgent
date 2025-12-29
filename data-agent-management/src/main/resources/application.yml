@@ -22,6 +22,11 @@ spring:
       type: simple
     alibaba:
       data-agent:
+        vector-store:
+          table-topk-limit: 10
+          table-similarity-threshold: 0.2
+          default-topk-limit: 8
+          default-similarity-threshold: 0.4
         llm-service-type: stream
         code-executor:
           # 运行Python代码的环境（生产环境建议使用docker，不建议使用local）

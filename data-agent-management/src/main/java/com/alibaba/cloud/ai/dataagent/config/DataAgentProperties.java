@@ -136,20 +136,27 @@ public class DataAgentProperties {
 	@Setter
 	public static class VectorStoreProperties {
 
+		// 专门给召回Table 用的配置
+		private int tableTopkLimit = 10;
+
+		// 设置低尽可能保证表不会召回漏掉
+		private double tableSimilarityThreshold = 0.2;
+
+		// 全局默认配置（给 BusinessTerm, AgentKnowledge 等使用）
 		/**
 		 * 相似度阈值配置，用于过滤相似度分数大于等于此阈值的文档
 		 */
-		private double similarityThreshold = 0.4;
+		private double defaultSimilarityThreshold = 0.4;
+
+		/**
+		 * 查询时返回的最大文档数量
+		 */
+		private int defaultTopkLimit = 8;
 
 		/**
 		 * 一次删除操作中，最多删除的文档数量
 		 */
 		private int batchDelTopkLimit = 5000;
-
-		/**
-		 * 查询时返回的最大文档数量
-		 */
-		private int topkLimit = 30;
 
 		/**
 		 * 是否启用混合搜索
