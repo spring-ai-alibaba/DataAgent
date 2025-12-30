@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.datasource.handler.impl;
 
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeHandler;
 import org.springframework.stereotype.Component;
 

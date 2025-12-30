@@ -16,11 +16,11 @@
 package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.postgre;
 
 import com.alibaba.cloud.ai.dataagent.connector.pool.AbstractDBConnectionPool;
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
-import com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
 import org.springframework.stereotype.Service;
 
-import static com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum.*;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.*;
 
 @Service("postgreSqlJdbcConnectionPool")
 public class PostgreSqlJdbcConnectionPool extends AbstractDBConnectionPool {

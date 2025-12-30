@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.dataagent.service.knowledge;
 
-import com.alibaba.cloud.ai.dataagent.common.enums.EmbeddingStatus;
-import com.alibaba.cloud.ai.dataagent.common.enums.KnowledgeType;
+import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
+import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.alibaba.cloud.ai.dataagent.converter.AgentKnowledgeConverter;
 import com.alibaba.cloud.ai.dataagent.vo.PageResult;
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.AgentKnowledgeQueryDTO;

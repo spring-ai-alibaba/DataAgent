@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.dto.schema;
 
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;

@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.sqlserver;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AbstractAccessor;
 import com.alibaba.cloud.ai.dataagent.connector.ddl.DdlFactory;
 import com.alibaba.cloud.ai.dataagent.connector.pool.DBConnectionPoolFactory;
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import org.springframework.stereotype.Service;
 
 /**

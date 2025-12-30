@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
-import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
+import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
@@ -34,8 +34,8 @@ import reactor.core.publisher.Flux;
 
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
-import static com.alibaba.cloud.ai.dataagent.common.util.PlanProcessUtil.getCurrentExecutionStepInstruction;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil.getCurrentExecutionStepInstruction;
 import static com.alibaba.cloud.ai.dataagent.prompt.PromptHelper.buildMixMacSqlDbPrompt;
 
 /**

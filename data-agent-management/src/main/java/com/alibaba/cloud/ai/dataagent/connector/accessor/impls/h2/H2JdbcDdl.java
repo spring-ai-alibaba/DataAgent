@@ -23,7 +23,7 @@ import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.SchemaInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.alibaba.cloud.ai.dataagent.common.util.ColumnTypeUtil.wrapType;
+import static com.alibaba.cloud.ai.dataagent.util.ColumnTypeUtil.wrapType;
 
 @Service
 public class H2JdbcDdl extends AbstractJdbcDdl {

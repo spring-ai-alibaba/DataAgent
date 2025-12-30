@@ -16,11 +16,11 @@
 
 package com.alibaba.cloud.ai.dataagent.connector.pool;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.druid.pool.DruidDataSourceFactory;
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
-import com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.sql.DataSource;

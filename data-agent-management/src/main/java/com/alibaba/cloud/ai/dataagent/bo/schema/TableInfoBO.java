@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.bo.schema;
 
+import com.alibaba.cloud.ai.dataagent.bo.schema.basebo.DdlBaseBO;
+
 import java.util.List;
 import java.util.Objects;
 

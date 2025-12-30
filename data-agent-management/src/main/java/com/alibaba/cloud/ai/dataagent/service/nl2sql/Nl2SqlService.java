@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.dataagent.service.nl2sql;
 
-import com.alibaba.cloud.ai.dataagent.common.util.MarkdownParserUtil;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.util.MarkdownParserUtil;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;

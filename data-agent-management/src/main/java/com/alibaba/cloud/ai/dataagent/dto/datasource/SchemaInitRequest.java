@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.dto.datasource;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
 
 import java.io.Serializable;
 import java.util.List;

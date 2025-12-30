@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.dataagent.dto.planner;
 
-import com.alibaba.cloud.ai.dataagent.common.constant.Constant;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
+import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.AllArgsConstructor;

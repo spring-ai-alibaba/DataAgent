@@ -22,12 +22,12 @@ import com.alibaba.cloud.ai.dataagent.connector.ddl.DdlFactory;
 import com.alibaba.cloud.ai.dataagent.connector.SqlExecutor;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.SchemaInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

@@ -15,8 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector.pool;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
 
 import java.sql.Connection;
 

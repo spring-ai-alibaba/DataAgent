@@ -16,14 +16,14 @@
 package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.mysql;
 
 import com.alibaba.cloud.ai.dataagent.connector.pool.AbstractDBConnectionPool;
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
-import com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
 import org.springframework.stereotype.Service;
 
-import static com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum.DATASOURCE_CONNECTION_FAILURE_08S01;
-import static com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum.PASSWORD_ERROR_28000;
-import static com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum.DATABASE_NOT_EXIST_42000;
-import static com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum.OTHERS;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.DATASOURCE_CONNECTION_FAILURE_08S01;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.PASSWORD_ERROR_28000;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.DATABASE_NOT_EXIST_42000;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.OTHERS;
 
 @Service("mysqlJdbcConnectionPool")
 public class MysqlJdbcConnectionPool extends AbstractDBConnectionPool {

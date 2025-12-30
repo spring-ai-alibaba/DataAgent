@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.dataagent.service.code;
 
-import com.alibaba.cloud.ai.dataagent.common.enums.CodePoolExecutorEnum;
-import com.alibaba.cloud.ai.dataagent.config.CodeExecutorProperties;
+import com.alibaba.cloud.ai.dataagent.enums.CodePoolExecutorEnum;
+import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.service.code.impls.LocalCodePoolExecutorService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;

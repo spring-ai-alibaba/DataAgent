@@ -16,13 +16,13 @@
 package com.alibaba.cloud.ai.dataagent.service.schema;
 
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.common.util.SqlUtil;
+import com.alibaba.cloud.ai.dataagent.util.SqlUtil;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;

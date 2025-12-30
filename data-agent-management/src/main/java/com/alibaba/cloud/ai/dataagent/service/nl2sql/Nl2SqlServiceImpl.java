@@ -15,13 +15,13 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.nl2sql;
 
-import com.alibaba.cloud.ai.dataagent.common.util.*;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
+import com.alibaba.cloud.ai.dataagent.util.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

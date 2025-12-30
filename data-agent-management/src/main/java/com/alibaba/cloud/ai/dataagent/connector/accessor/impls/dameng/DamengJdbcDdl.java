@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.dameng;
 import com.alibaba.cloud.ai.dataagent.bo.schema.*;
 import com.alibaba.cloud.ai.dataagent.connector.SqlExecutor;
 import com.alibaba.cloud.ai.dataagent.connector.ddl.AbstractJdbcDdl;
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.alibaba.cloud.ai.dataagent.common.util.ColumnTypeUtil.wrapType;
+import static com.alibaba.cloud.ai.dataagent.util.ColumnTypeUtil.wrapType;
 
 @Service
 public class DamengJdbcDdl extends AbstractJdbcDdl {

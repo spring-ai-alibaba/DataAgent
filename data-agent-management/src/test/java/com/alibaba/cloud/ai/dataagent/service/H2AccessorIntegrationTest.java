@@ -16,11 +16,11 @@
 package com.alibaba.cloud.ai.dataagent.service;
 
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.impls.h2.H2DBAccessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

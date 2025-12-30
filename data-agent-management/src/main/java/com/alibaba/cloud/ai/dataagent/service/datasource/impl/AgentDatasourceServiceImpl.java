@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.datasource.impl;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;

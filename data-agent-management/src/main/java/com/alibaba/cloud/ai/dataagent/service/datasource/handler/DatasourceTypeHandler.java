@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.dataagent.service.datasource.handler;
 
-import com.alibaba.cloud.ai.dataagent.common.enums.DbAccessTypeEnum;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.enums.DbAccessTypeEnum;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import org.springframework.util.StringUtils;
 

@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.bo.schema;
 
+import com.alibaba.cloud.ai.dataagent.bo.schema.basebo.DdlBaseBO;
+
 public class ForeignKeyInfoBO extends DdlBaseBO {
 
 	private String table;

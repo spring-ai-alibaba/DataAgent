@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.dispatcher;
 
-import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
 import lombok.AllArgsConstructor;
@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
 
 /**

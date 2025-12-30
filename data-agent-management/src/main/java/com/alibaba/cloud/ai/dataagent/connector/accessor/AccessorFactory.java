@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.dataagent.connector.accessor;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;

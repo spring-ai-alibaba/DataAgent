@@ -16,8 +16,6 @@
 
 package com.alibaba.cloud.ai.dataagent.service.datasource.handler.registry;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -53,25 +51,6 @@ public class DatasourceTypeHandlerRegistry {
 			throw new IllegalStateException("Unsupported datasource type: " + type);
 		}
 		return handler;
-	}
-
-	public void applyConnectionUrl(Datasource datasource) {
-		String url = resolveConnectionUrl(datasource);
-		if (StringUtils.hasText(url)) {
-			datasource.setConnectionUrl(url);
-		}
-	}
-
-	public String resolveConnectionUrl(Datasource datasource) {
-		return getRequired(datasource.getType()).resolveConnectionUrl(datasource);
-	}
-
-	public DbConfig toDbConfig(Datasource datasource) {
-		return getRequired(datasource.getType()).toDbConfig(datasource);
-	}
-
-	public String normalizeTestUrl(Datasource datasource, String url) {
-		return getRequired(datasource.getType()).normalizeTestUrl(datasource, url);
 	}
 
 	private String normalizeType(String type) {

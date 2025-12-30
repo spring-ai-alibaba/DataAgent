@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.graph;
 
-import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.workflow.node.PlannerNode;
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.MultiTurnContextManager;
@@ -40,7 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 
 @Slf4j
 @Service

@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.event;
 
-import com.alibaba.cloud.ai.dataagent.common.enums.EmbeddingStatus;
+import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
 import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeResourceManager;

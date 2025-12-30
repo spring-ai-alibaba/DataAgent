@@ -19,15 +19,16 @@ package com.alibaba.cloud.ai.dataagent.service.datasource.impl;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
 import com.alibaba.cloud.ai.dataagent.connector.pool.DBConnectionPool;
 import com.alibaba.cloud.ai.dataagent.connector.pool.DBConnectionPoolFactory;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
-import com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
+import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeHandler;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.registry.DatasourceTypeHandlerRegistry;
 import com.alibaba.cloud.ai.dataagent.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
@@ -88,7 +89,11 @@ public class DatasourceServiceImpl implements DatasourceService {
 	@Override
 	public Datasource createDatasource(Datasource datasource) {
 		// Generate connection URL
-		datasourceTypeHandlerRegistry.applyConnectionUrl(datasource);
+		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
+		String connectionUrl = handler.resolveConnectionUrl(datasource);
+		if (StringUtils.isNotBlank(connectionUrl)) {
+			datasource.setConnectionUrl(connectionUrl);
+		}
 
 		// Set default values
 		if (datasource.getStatus() == null) {
@@ -105,7 +110,11 @@ public class DatasourceServiceImpl implements DatasourceService {
 	@Override
 	public Datasource updateDatasource(Integer id, Datasource datasource) {
 		// Regenerate connection URL
-		datasourceTypeHandlerRegistry.applyConnectionUrl(datasource);
+		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
+		String connectionUrl = handler.resolveConnectionUrl(datasource);
+		if (StringUtils.isNotBlank(connectionUrl)) {
+			datasource.setConnectionUrl(connectionUrl);
+		}
 		datasource.setId(id);
 
 		datasourceMapper.updateById(datasource);
@@ -155,10 +164,11 @@ public class DatasourceServiceImpl implements DatasourceService {
 	private boolean realConnectionTest(Datasource datasource) {
 		// Convert Datasource to DbConfig
 		DbConfig config = new DbConfig();
-		String originalUrl = datasourceTypeHandlerRegistry.resolveConnectionUrl(datasource);
+		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
+		String originalUrl = handler.resolveConnectionUrl(datasource);
 
 		if (StringUtils.isNotBlank(originalUrl)) {
-			originalUrl = datasourceTypeHandlerRegistry.normalizeTestUrl(datasource, originalUrl);
+			originalUrl = handler.normalizeTestUrl(datasource, originalUrl);
 		}
 		config.setUrl(originalUrl);
 		config.setUsername(datasource.getUsername());
@@ -225,7 +235,8 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 	@Override
 	public DbConfig getDbConfig(Datasource datasource) {
-		return datasourceTypeHandlerRegistry.toDbConfig(datasource);
+		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
+		return handler.toDbConfig(datasource);
 	}
 
 	@Override

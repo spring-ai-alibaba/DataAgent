@@ -15,7 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.bo.schema;
 
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.bo.schema.basebo.DdlBaseBO;
+import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 

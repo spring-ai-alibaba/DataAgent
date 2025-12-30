@@ -15,16 +15,16 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.schema;
 
-import com.alibaba.cloud.ai.dataagent.bo.schema.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.common.constant.DocumentMetadataConstant;
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
-import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
@@ -50,8 +50,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.alibaba.cloud.ai.dataagent.common.util.DocumentConverterUtil.convertColumnsToDocuments;
-import static com.alibaba.cloud.ai.dataagent.common.util.DocumentConverterUtil.convertTablesToDocuments;
+import static com.alibaba.cloud.ai.dataagent.util.DocumentConverterUtil.convertColumnsToDocuments;
+import static com.alibaba.cloud.ai.dataagent.util.DocumentConverterUtil.convertTablesToDocuments;
 
 /**
  * Schema service base class, providing common method implementations

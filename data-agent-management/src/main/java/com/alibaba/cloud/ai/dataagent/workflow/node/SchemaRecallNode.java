@@ -22,9 +22,9 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
-import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
+import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 
 /**
  * Schema recall node that retrieves relevant database schema information based on

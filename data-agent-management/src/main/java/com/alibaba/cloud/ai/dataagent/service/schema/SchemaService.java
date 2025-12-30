@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.schema;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import org.springframework.ai.document.Document;

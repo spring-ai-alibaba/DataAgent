@@ -18,11 +18,11 @@ package com.alibaba.cloud.ai.dataagent.workflow.dispatcher;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
-import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
+import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 
 import java.util.Optional;
 
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
 
 public class TableRelationDispatcher implements EdgeAction {

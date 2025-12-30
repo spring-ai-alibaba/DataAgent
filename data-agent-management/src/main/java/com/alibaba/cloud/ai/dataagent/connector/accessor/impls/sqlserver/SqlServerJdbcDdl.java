@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.sqlserver;
 
 import com.alibaba.cloud.ai.dataagent.bo.schema.*;
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.connector.SqlExecutor;
 import com.alibaba.cloud.ai.dataagent.connector.ddl.AbstractJdbcDdl;
 import org.apache.commons.compress.utils.Lists;
@@ -33,7 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.alibaba.cloud.ai.dataagent.common.util.ColumnTypeUtil.wrapType;
+import static com.alibaba.cloud.ai.dataagent.util.ColumnTypeUtil.wrapType;
 
 /**
  * @author zihen

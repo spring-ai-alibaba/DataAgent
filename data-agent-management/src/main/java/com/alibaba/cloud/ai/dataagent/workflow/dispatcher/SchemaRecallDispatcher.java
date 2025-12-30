@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.workflow.dispatcher;
 
-import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
+import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
 import lombok.extern.slf4j.Slf4j;
@@ -23,8 +23,8 @@ import org.springframework.ai.document.Document;
 
 import java.util.List;
 
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT;
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.TABLE_RELATION_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_NODE;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
 
 @Slf4j

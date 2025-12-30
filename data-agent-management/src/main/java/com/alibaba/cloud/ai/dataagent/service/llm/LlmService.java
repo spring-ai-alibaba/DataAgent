@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.llm;
 
-import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 

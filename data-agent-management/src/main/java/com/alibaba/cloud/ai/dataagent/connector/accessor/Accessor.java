@@ -18,13 +18,13 @@ package com.alibaba.cloud.ai.dataagent.connector.accessor;
 
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.SchemaInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 
 import java.util.List;
 

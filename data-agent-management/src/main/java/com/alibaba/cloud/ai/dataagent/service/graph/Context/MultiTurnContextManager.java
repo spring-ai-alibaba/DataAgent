@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.graph.Context;
 
-import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
