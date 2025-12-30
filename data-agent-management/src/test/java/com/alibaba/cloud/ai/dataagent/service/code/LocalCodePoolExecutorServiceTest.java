@@ -43,8 +43,8 @@ public class LocalCodePoolExecutorServiceTest {
 
 	private static final Logger logger = LoggerFactory.getLogger(LocalCodePoolExecutorServiceTest.class);
 
-    @Qualifier("codeExecutorProperties")
-    @Autowired
+	@Qualifier("codeExecutorProperties")
+	@Autowired
 	private CodeExecutorProperties properties;
 
 	private CodePoolExecutorService codePoolExecutorService = null;

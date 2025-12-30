@@ -43,8 +43,8 @@ public class DockerCodePoolExecutorServiceTest {
 
 	private static final Logger log = LoggerFactory.getLogger(DockerCodePoolExecutorServiceTest.class);
 
-    @Qualifier("codeExecutorProperties")
-    @Autowired
+	@Qualifier("codeExecutorProperties")
+	@Autowired
 	private CodeExecutorProperties properties;
 
 	private CodePoolExecutorService codePoolExecutorService = null;
