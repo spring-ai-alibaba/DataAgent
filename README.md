@@ -1,7 +1,7 @@
 <div align="center">
   <h1>Spring AI Alibaba DataAgent</h1>
   <p>
-    <strong>基于 [Spring AI Alibaba](https://github.com/alibaba/spring-ai-alibaba) 的企业级智能数据分析师</strong>
+    <strong>基于 <a href="https://github.com/alibaba/spring-ai-alibaba" target="_blank">Spring AI Alibaba</a> 的企业级智能数据分析师</strong>
   </p>
   <p>
      Text-to-SQL | Python 深度分析 | 智能报告 | MCP 服务器 | RAG 增强
