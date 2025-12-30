@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

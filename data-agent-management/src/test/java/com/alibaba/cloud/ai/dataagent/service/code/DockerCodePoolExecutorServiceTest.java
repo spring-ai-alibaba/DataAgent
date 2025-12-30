@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.util.StringUtils;
 
@@ -42,7 +43,8 @@ public class DockerCodePoolExecutorServiceTest {
 
 	private static final Logger log = LoggerFactory.getLogger(DockerCodePoolExecutorServiceTest.class);
 
-	@Autowired
+    @Qualifier("codeExecutorProperties")
+    @Autowired
 	private CodeExecutorProperties properties;
 
 	private CodePoolExecutorService codePoolExecutorService = null;
