@@ -28,6 +28,7 @@ import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
 import com.alibaba.cloud.ai.dataagent.common.enums.ErrorCodeEnum;
+import com.alibaba.cloud.ai.dataagent.service.datasource.handler.registry.DatasourceTypeHandlerRegistry;
 import com.alibaba.cloud.ai.dataagent.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.LogicalRelationMapper;
@@ -62,6 +63,8 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 	private final AccessorFactory accessorFactory;
 
+	private final DatasourceTypeHandlerRegistry datasourceTypeHandlerRegistry;
+
 	@Override
 	public List<Datasource> getAllDatasource() {
 		return datasourceMapper.selectAll();
@@ -85,7 +88,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 	@Override
 	public Datasource createDatasource(Datasource datasource) {
 		// Generate connection URL
-		datasource.generateConnectionUrl();
+		datasourceTypeHandlerRegistry.applyConnectionUrl(datasource);
 
 		// Set default values
 		if (datasource.getStatus() == null) {
@@ -102,7 +105,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 	@Override
 	public Datasource updateDatasource(Integer id, Datasource datasource) {
 		// Regenerate connection URL
-		datasource.generateConnectionUrl();
+		datasourceTypeHandlerRegistry.applyConnectionUrl(datasource);
 		datasource.setId(id);
 
 		datasourceMapper.updateById(datasource);
@@ -152,28 +155,10 @@ public class DatasourceServiceImpl implements DatasourceService {
 	private boolean realConnectionTest(Datasource datasource) {
 		// Convert Datasource to DbConfig
 		DbConfig config = new DbConfig();
-		String originalUrl = datasource.getConnectionUrl();
+		String originalUrl = datasourceTypeHandlerRegistry.resolveConnectionUrl(datasource);
 
-		if (StringUtils.isNotBlank(originalUrl) && "mysql".equalsIgnoreCase(datasource.getType())) {
-			String lowerUrl = originalUrl.toLowerCase();
-
-			if (!lowerUrl.contains("servertimezone=")) {
-				if (originalUrl.contains("?")) {
-					originalUrl += "&serverTimezone=Asia/Shanghai";
-				}
-				else {
-					originalUrl += "?serverTimezone=Asia/Shanghai";
-				}
-			}
-
-			if (!lowerUrl.contains("usessl=")) {
-				if (originalUrl.contains("?")) {
-					originalUrl += "&useSSL=false";
-				}
-				else {
-					originalUrl += "?useSSL=false";
-				}
-			}
+		if (StringUtils.isNotBlank(originalUrl)) {
+			originalUrl = datasourceTypeHandlerRegistry.normalizeTestUrl(datasource, originalUrl);
 		}
 		config.setUrl(originalUrl);
 		config.setUsername(datasource.getUsername());
@@ -240,43 +225,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 	@Override
 	public DbConfig getDbConfig(Datasource datasource) {
-		DbConfig dbConfig = new DbConfig();
-
-		// Set basic connection information
-		dbConfig.setUrl(datasource.getConnectionUrl());
-		dbConfig.setUsername(datasource.getUsername());
-		dbConfig.setPassword(datasource.getPassword());
-
-		// Set database type
-		// todo: 定义枚举或者策略接口
-		if ("mysql".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("mysql");
-		}
-		else if ("postgresql".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("postgresql");
-		}
-		else if ("h2".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("h2");
-		}
-		else if ("dameng".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("dameng");
-		}
-		else if ("sqlserver".equalsIgnoreCase(datasource.getType())) {
-			dbConfig.setConnectionType("jdbc");
-			dbConfig.setDialectType("sqlserver");
-		}
-		else {
-			throw new RuntimeException("不支持的数据库类型: " + datasource.getType());
-		}
-
-		// Set Schema to the database name of the data source
-		dbConfig.setSchema(datasource.getDatabaseName());
-
-		return dbConfig;
+		return datasourceTypeHandlerRegistry.toDbConfig(datasource);
 	}
 
 	@Override
