@@ -37,6 +37,8 @@ public enum TextType {
 
 	RESULT_SET("$$$result_set", "$$$"),
 
+	IMAGE("$$$image", "$$$"),
+
 	TEXT(null, null);
 
 	private final String startSign;

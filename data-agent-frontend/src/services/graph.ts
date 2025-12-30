@@ -42,6 +42,7 @@ export enum TextType {
   HTML = 'HTML',
   MARK_DOWN = 'MARK_DOWN',
   RESULT_SET = 'RESULT_SET',
+  IMAGE = 'IMAGE',
   TEXT = 'TEXT',
 }
 
