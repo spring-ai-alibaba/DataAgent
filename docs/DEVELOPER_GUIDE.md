@@ -356,7 +356,13 @@ public class AgentVectorStoreService {
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
 | `marked-url` | Marked.js 路径 (Markdown渲染库) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/marked/12.0.0/marked.min.js |
+| `marked-fallback-url` | Marked.js 回退路径 (主地址失败时使用) | /report/marked.min.js |
 | `echarts-url` | ECharts 路径 (图表库) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/echarts/5.5.0/echarts.min.js |
+| `echarts-fallback-url` | ECharts 回退路径 (主地址失败时使用) | /report/echarts.min.js |
+
+说明：
+- 若需离线/内网环境，请将 `marked.min.js` 与 `echarts.min.js` 放到应用的静态资源路径（如 `classpath:/static/report/`），并将 `*-url` 配置指向本地路径。
+- 也可以保留 CDN 作为主地址，同时将 `*-fallback-url` 配置为本地路径以实现自动回退。
 
 ## 📚 学习资源
 
