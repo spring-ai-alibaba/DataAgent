@@ -37,49 +37,10 @@ public class ReportTemplateUtil {
 
 			<!-- ⚠️ 使用国内 Staticfile CDN 源，速度快且稳定 -->
 			<!-- 1. Marked.js (Markdown 解析器) -->
+			<script src="{{MARKED_URL}}"></script>
+
 			<!-- 2. ECharts (图表库) -->
-			<script>
-			  (function() {
-			      function loadScript(src, callback) {
-			          if (!src) {
-			              callback(new Error('empty src'));
-			              return;
-			          }
-			          var script = document.createElement('script');
-			          script.src = src;
-			          script.async = false;
-			          script.onload = function() { callback(); };
-			          script.onerror = function() { callback(new Error('load failed: ' + src)); };
-			          document.head.appendChild(script);
-			      }
-
-			      function loadWithFallback(primary, fallback, done) {
-			          loadScript(primary, function(err) {
-			              if (!err) {
-			                  done();
-			                  return;
-			              }
-			              if (fallback && fallback !== primary) {
-			                  loadScript(fallback, function(err2) { done(err2); });
-			                  return;
-			              }
-			              done(err);
-			          });
-			      }
-
-			      window.__loadReportDeps = function(done) {
-			          loadWithFallback('{{MARKED_URL}}', '{{MARKED_FALLBACK_URL}}', function(err) {
-			              if (err) {
-			                  done(err);
-			                  return;
-			              }
-			              loadWithFallback('{{ECHARTS_URL}}', '{{ECHARTS_FALLBACK_URL}}', function(err2) {
-			                  done(err2);
-			              });
-			          });
-			      };
-			  })();
-			</script>
+			<script src="{{ECHARTS_URL}}"></script>
 
 			<style>
 			 /* --- 替代 Tailwind 的手写样式开始 --- */
@@ -207,69 +168,58 @@ public class ReportTemplateUtil {
 			</div> <!-- container 结束 -->
 
 			<script>
-			  (function() {
-			      function renderReport() {
-			          // 0. 安全检查
-			          if (typeof marked === 'undefined') {
-			              alert('错误：Marked库加载失败，请检查网络或更换CDN');
-			              document.getElementById('raw-markdown').style.display = 'block';
-			              return;
-			          }
-
-			          // 1. 获取内容
-			          const rawDiv = document.getElementById('raw-markdown');
-			          if (!rawDiv) return;
-			          const rawText = rawDiv.innerText;
-
-			          // 2. 解析 Markdown
-			          const renderer = new marked.Renderer();
-
-			          renderer.code = function(code, language) {
-			              if (language === 'echarts' || language === 'json') {
-			                  const id = 'chart_' + Math.random().toString(36).substr(2, 9);
-			                  // 使用 encodeURIComponent 保存原始代码串
-			                  return '<div id="' + id + '" class="chart-box" data-option="' + encodeURIComponent(code) + '"></div>';
-			              }
-			              return '<pre><code class="language-' + language + '">' + code + '</code></pre>';
-			          };
-
-			          document.getElementById('render-target').innerHTML = marked.parse(rawText, { renderer: renderer });
-
-			          // 3. 渲染图表
-			          if (typeof echarts !== 'undefined') {
-			              document.querySelectorAll('.chart-box').forEach(box => {
-			                  try {
-			                      // 解码数据
-			                      const code = decodeURIComponent(box.getAttribute('data-option'));
-
-			                      // 🌟 核心修改：使用 new Function 替代 JSON.parse
-			                      // 这样可以兼容 LLM 生成的 JS 函数 (formatter: function()...)
-			                      // 注意：这就要求 LLM 生成的是 JS 对象字面量，而不仅仅是 JSON (通常 LLM 都会这么做)
-			                      const option = new Function('return ' + code)();
-
-			                      const myChart = echarts.init(box);
-			                      myChart.setOption(option);
-			                      window.addEventListener('resize', () => myChart.resize());
-			                  } catch(e) {
-			                      console.error('图表渲染失败', e);
-			                      // 把具体的代码打印出来方便调试
-			                      console.log('Error Code:', decodeURIComponent(box.getAttribute('data-option')));
-			                      box.innerHTML = '<div style="color:red;padding:20px;text-align:center;border:1px dashed red;">' +
-			                                      '<b>图表渲染错误</b><br/>' + e.message + '</div>';
-			                  }
-			              });
-			          }
+			  window.onload = function() {
+			      // 0. 安全检查
+			      if (typeof marked === 'undefined') {
+			          alert('错误：Marked库加载失败，请检查网络或更换CDN');
+			          document.getElementById('raw-markdown').style.display = 'block';
+			          return;
 			      }
 
-			      if (typeof window.__loadReportDeps === 'function') {
-			          window.__loadReportDeps(function() {
-			              renderReport();
+			      // 1. 获取内容
+			      const rawDiv = document.getElementById('raw-markdown');
+			      if (!rawDiv) return;
+			      const rawText = rawDiv.innerText;
+
+			      // 2. 解析 Markdown
+			      const renderer = new marked.Renderer();
+
+			      renderer.code = function(code, language) {
+			          if (language === 'echarts' || language === 'json') {
+			              const id = 'chart_' + Math.random().toString(36).substr(2, 9);
+			              // 使用 encodeURIComponent 保存原始代码串
+			              return '<div id="' + id + '" class="chart-box" data-option="' + encodeURIComponent(code) + '"></div>';
+			          }
+			          return '<pre><code class="language-' + language + '">' + code + '</code></pre>';
+			      };
+
+			      document.getElementById('render-target').innerHTML = marked.parse(rawText, { renderer: renderer });
+
+			      // 3. 渲染图表
+			      if (typeof echarts !== 'undefined') {
+			          document.querySelectorAll('.chart-box').forEach(box => {
+			              try {
+			                  // 解码数据
+			                  const code = decodeURIComponent(box.getAttribute('data-option'));
+
+			                  // 🌟 核心修改：使用 new Function 替代 JSON.parse
+			                  // 这样可以兼容 LLM 生成的 JS 函数 (formatter: function()...)
+			                  // 注意：这就要求 LLM 生成的是 JS 对象字面量，而不仅仅是 JSON (通常 LLM 都会这么做)
+			                  const option = new Function('return ' + code)();
+
+			                  const myChart = echarts.init(box);
+			                  myChart.setOption(option);
+			                  window.addEventListener('resize', () => myChart.resize());
+			              } catch(e) {
+			                  console.error('图表渲染失败', e);
+			                  // 把具体的代码打印出来方便调试
+			                  console.log('Error Code:', decodeURIComponent(box.getAttribute('data-option')));
+			                  box.innerHTML = '<div style="color:red;padding:20px;text-align:center;border:1px dashed red;">' +
+			                                  '<b>图表渲染错误</b><br/>' + e.message + '</div>';
+			              }
 			          });
 			      }
-			      else {
-			          renderReport();
-			      }
-			  })();
+			  };
 			</script>
 			</body>
 			</html>
@@ -295,9 +245,7 @@ public class ReportTemplateUtil {
 	public String getHeader() {
 		// 执行替换
 		return REPORT_TEMPLATE_HEADER.replace("{{MARKED_URL}}", dataAgentProperties.getReportTemplate().getMarkedUrl())
-			.replace("{{MARKED_FALLBACK_URL}}", dataAgentProperties.getReportTemplate().getMarkedFallbackUrl())
-			.replace("{{ECHARTS_URL}}", dataAgentProperties.getReportTemplate().getEchartsUrl())
-			.replace("{{ECHARTS_FALLBACK_URL}}", dataAgentProperties.getReportTemplate().getEchartsFallbackUrl());
+			.replace("{{ECHARTS_URL}}", dataAgentProperties.getReportTemplate().getEchartsUrl());
 	}
 
 	/**

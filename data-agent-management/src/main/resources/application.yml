@@ -22,25 +22,12 @@ spring:
       type: simple
     alibaba:
       data-agent:
-        embedding-batch:
-          encoding-type: cl100k_base
-          max-token-count: 8000
-          reserve-percentage: 0.2
-          max-text-count: 10
         vector-store:
           table-topk-limit: 10
           table-similarity-threshold: 0.2
           default-topk-limit: 8
           default-similarity-threshold: 0.4
-          batch-del-topk-limit: 5000
-          enable-hybrid-search: false
-          elasticsearch-min-score: 0.5
         llm-service-type: stream
-        report-template:
-          marked-url: https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/marked/12.0.0/marked.min.js
-          marked-fallback-url: /report/marked.min.js
-          echarts-url: https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/echarts/5.5.0/echarts.min.js
-          echarts-fallback-url: /report/echarts.min.js
         code-executor:
           # 运行Python代码的环境（生产环境建议使用docker，不建议使用local）
           code-pool-executor: local
@@ -60,18 +47,6 @@ spring:
             bucket-name: ${OSS_BUCKET_NAME:}
             custom-domain: ${OSS_CUSTOM_DOMAIN:}
         max-sql-retry-count: 10
-        max-sql-optimize-count: 10
-        sql-score-threshold: 0.95
-        text-splitter:
-          chunk-size: 1000
-          min-chunk-size-chars: 400
-          min-chunk-length-to-embed: 10
-          max-num-chunks: 5000
-          keep-separator: true
-          separators: ~
-        max-turn-history: 5
-        max-plan-length: 2000
-        max-columns-per-table: 50
   servlet:
     multipart:
       max-file-size: 10MB
