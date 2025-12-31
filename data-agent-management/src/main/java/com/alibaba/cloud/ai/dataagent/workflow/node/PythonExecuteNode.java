@@ -16,17 +16,18 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
-import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonParseUtil;
+import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
+import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorService;
-import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
+import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -37,7 +38,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 
 /**
  * 根据SQL查询结果生成Python代码，并运行Python代码获取运行结果。
@@ -55,10 +56,14 @@ public class PythonExecuteNode implements NodeAction {
 
 	private final JsonParseUtil jsonParseUtil;
 
-	public PythonExecuteNode(CodePoolExecutorService codePoolExecutor, JsonParseUtil jsonParseUtil) {
+	private final CodeExecutorProperties codeExecutorProperties;
+
+	public PythonExecuteNode(CodePoolExecutorService codePoolExecutor, JsonParseUtil jsonParseUtil,
+			CodeExecutorProperties codeExecutorProperties) {
 		this.codePoolExecutor = codePoolExecutor;
 		this.objectMapper = JsonUtil.getObjectMapper();
 		this.jsonParseUtil = jsonParseUtil;
+		this.codeExecutorProperties = codeExecutorProperties;
 	}
 
 	@Override
@@ -69,6 +74,10 @@ public class PythonExecuteNode implements NodeAction {
 			String pythonCode = StateUtil.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT);
 			List<Map<String, String>> sqlResults = StateUtil.hasValue(state, SQL_RESULT_LIST_MEMORY)
 					? StateUtil.getListValue(state, SQL_RESULT_LIST_MEMORY) : new ArrayList<>();
+
+			// 检查重试次数
+			int triesCount = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
+
 			CodePoolExecutorService.TaskRequest taskRequest = new CodePoolExecutorService.TaskRequest(pythonCode,
 					objectMapper.writeValueAsString(sqlResults), null);
 
@@ -78,6 +87,28 @@ public class PythonExecuteNode implements NodeAction {
 				String errorMsg = "Python Execute Failed!\nStdOut: " + taskResponse.stdOut() + "\nStdErr: "
 						+ taskResponse.stdErr() + "\nExceptionMsg: " + taskResponse.exceptionMsg();
 				log.error(errorMsg);
+
+				// 检查是否超过最大重试次数
+				if (triesCount >= codeExecutorProperties.getPythonMaxTriesCount()) {
+					log.error("Python执行失败且已超过最大重试次数（已尝试次数：{}），启动降级兜底逻辑。错误信息: {}", triesCount, errorMsg);
+
+					String fallbackOutput = "{}";
+
+					Flux<ChatResponse> fallbackDisplayFlux = Flux.create(emitter -> {
+						emitter.next(ChatResponseUtil.createResponse("开始执行Python代码..."));
+						emitter.next(ChatResponseUtil.createResponse("Python代码执行失败已超过最大重试次数，采用降级策略继续处理。"));
+						emitter.complete();
+					});
+
+					Flux<GraphResponse<StreamingOutput>> fallbackGenerator = FluxUtil
+						.createStreamingGeneratorWithMessages(this.getClass(), state,
+								v -> Map.of(PYTHON_EXECUTE_NODE_OUTPUT, fallbackOutput, PYTHON_IS_SUCCESS, false,
+										PYTHON_FALLBACK_MODE, true),
+								fallbackDisplayFlux);
+
+					return Map.of(PYTHON_EXECUTE_NODE_OUTPUT, fallbackGenerator);
+				}
+
 				throw new RuntimeException(errorMsg);
 			}
 

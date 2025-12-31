@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.file.impls;
 
-import com.alibaba.cloud.ai.dataagent.config.FileStorageProperties;
+import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;

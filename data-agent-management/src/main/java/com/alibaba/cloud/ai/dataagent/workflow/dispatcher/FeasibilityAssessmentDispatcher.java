@@ -20,8 +20,8 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.FEASIBILITY_ASSESSMENT_NODE_OUTPUT;
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.PLANNER_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.FEASIBILITY_ASSESSMENT_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLANNER_NODE;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
 
 @Slf4j

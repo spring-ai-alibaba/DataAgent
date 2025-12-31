@@ -15,9 +15,9 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.vectorstore;
 
-import com.alibaba.cloud.ai.dataagent.common.constant.Constant;
-import com.alibaba.cloud.ai.dataagent.common.constant.DocumentMetadataConstant;
-import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
+import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
+import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.dto.search.AgentSearchRequest;
 import com.alibaba.cloud.ai.dataagent.dto.search.HybridSearchRequest;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.HybridRetrievalStrategy;
@@ -178,12 +178,22 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 	@Override
 	public List<Document> getDocumentsForAgent(String agentId, String query, String vectorType) {
+		// 使用全局默认配置
+		int defaultTopK = dataAgentProperties.getVectorStore().getDefaultTopkLimit();
+		double defaultThreshold = dataAgentProperties.getVectorStore().getDefaultSimilarityThreshold();
+
+		return getDocumentsForAgent(agentId, query, vectorType, defaultTopK, defaultThreshold);
+	}
+
+	@Override
+	public List<Document> getDocumentsForAgent(String agentId, String query, String vectorType, int topK,
+			double threshold) {
 		AgentSearchRequest searchRequest = AgentSearchRequest.builder()
 			.agentId(agentId)
 			.docVectorType(vectorType)
 			.query(query)
-			.topK(dataAgentProperties.getVectorStore().getTopkLimit())
-			.similarityThreshold(dataAgentProperties.getVectorStore().getSimilarityThreshold())
+			.topK(topK) // 使用传入的参数
+			.similarityThreshold(threshold) // 使用传入的参数
 			.build();
 		return search(searchRequest);
 	}
@@ -192,7 +202,7 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	public List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK) {
 		Assert.notNull(filterExpression, "filterExpression cannot be null.");
 		if (topK == null)
-			topK = dataAgentProperties.getVectorStore().getTopkLimit();
+			topK = dataAgentProperties.getVectorStore().getDefaultTopkLimit();
 		SearchRequest searchRequest = SearchRequest.builder()
 			.query(DEFAULT)
 			.topK(topK)

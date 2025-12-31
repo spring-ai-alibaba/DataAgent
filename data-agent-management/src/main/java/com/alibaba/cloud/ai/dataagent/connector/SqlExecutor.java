@@ -17,8 +17,8 @@
 package com.alibaba.cloud.ai.dataagent.connector;
 
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
-import com.alibaba.cloud.ai.dataagent.common.enums.DatabaseDialectEnum;
-import com.alibaba.cloud.ai.dataagent.common.util.ResultSetConvertUtil;
+import com.alibaba.cloud.ai.dataagent.enums.DatabaseDialectEnum;
+import com.alibaba.cloud.ai.dataagent.util.ResultSetConvertUtil;
 import org.apache.commons.lang3.StringUtils;
 
 import java.sql.Connection;

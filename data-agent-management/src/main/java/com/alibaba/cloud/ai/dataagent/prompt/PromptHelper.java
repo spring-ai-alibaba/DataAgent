@@ -32,7 +32,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.alibaba.cloud.ai.dataagent.common.util.ReportTemplateUtil.cleanJsonExample;
+import static com.alibaba.cloud.ai.dataagent.util.ReportTemplateUtil.cleanJsonExample;
 
 public class PromptHelper {
 

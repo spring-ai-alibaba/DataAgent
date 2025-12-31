@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.dto.datasource;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 
 import java.io.Serializable;
 import java.util.List;
@@ -23,15 +23,15 @@ import java.util.Objects;
 
 public class SchemaInitRequest implements Serializable {
 
-	private DbConfig dbConfig;
+	private DbConfigBO dbConfig;
 
 	private List<String> tables;
 
-	public DbConfig getDbConfig() {
+	public DbConfigBO getDbConfig() {
 		return dbConfig;
 	}
 
-	public void setDbConfig(DbConfig dbConfig) {
+	public void setDbConfig(DbConfigBO dbConfig) {
 		this.dbConfig = dbConfig;
 	}
 

@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.code.impls;
 
-import com.alibaba.cloud.ai.dataagent.config.CodeExecutorProperties;
+import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;

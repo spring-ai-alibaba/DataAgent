@@ -22,9 +22,9 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
-import com.alibaba.cloud.ai.dataagent.common.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.common.util.StateUtil;
+import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 
 /**
  * Schema recall node that retrieves relevant database schema information based on
@@ -70,10 +70,24 @@ public class SchemaRecallNode implements NodeAction {
 		List<String> recalledTableNames = extractTableName(tableDocuments);
 		List<Document> columnDocuments = schemaService.getColumnDocumentsByTableName(agentId, recalledTableNames);
 
+		String failMessage = """
+				\n 未检索到相关数据表
+
+				这可能是因为：
+				1. 数据源尚未初始化。
+				2. 您的提问与当前数据库中的表结构无关。
+				3. 请尝试点击“初始化数据源”或换一个与业务相关的问题。
+				4. 如果你用A嵌入模型初始化数据源，却更换为B嵌入模型，请重新初始化数据源
+				流程已终止。
+				""";
+
 		Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
 			emitter.next(ChatResponseUtil.createResponse("开始初步召回Schema信息..."));
 			emitter.next(ChatResponseUtil.createResponse(
 					"初步表信息召回完成，数量: " + tableDocuments.size() + "，表名: " + String.join(", ", recalledTableNames)));
+			if (tableDocuments.isEmpty()) {
+				emitter.next(ChatResponseUtil.createResponse(failMessage));
+			}
 			emitter.next(ChatResponseUtil.createResponse("初步Schema信息召回完成."));
 			emitter.complete();
 		});

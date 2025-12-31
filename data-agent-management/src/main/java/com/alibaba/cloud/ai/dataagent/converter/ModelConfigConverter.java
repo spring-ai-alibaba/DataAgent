@@ -19,7 +19,7 @@ package com.alibaba.cloud.ai.dataagent.converter;
 
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
-import com.alibaba.cloud.ai.dataagent.common.enums.ModelType;
+import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import org.springframework.util.Assert;
 
 import java.time.LocalDateTime;

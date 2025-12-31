@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector.ddl;
 
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 
 public interface Ddl {
 

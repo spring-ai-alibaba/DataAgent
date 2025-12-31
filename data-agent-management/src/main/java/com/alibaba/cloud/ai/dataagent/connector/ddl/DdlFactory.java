@@ -15,8 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector.ddl;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -40,7 +40,7 @@ public class DdlFactory {
 		return ddlExecutorSet.containsKey(type);
 	}
 
-	public Ddl getDdlExecutorByDbConfig(DbConfig dbConfig) {
+	public Ddl getDdlExecutorByDbConfig(DbConfigBO dbConfig) {
 		BizDataSourceTypeEnum type = BizDataSourceTypeEnum.fromTypeName(dbConfig.getDialectType());
 		if (type == null) {
 			throw new RuntimeException("unknown db type");

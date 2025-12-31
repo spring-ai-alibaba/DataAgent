@@ -54,6 +54,7 @@
         <druid.version>1.2.22</druid.version>
         <postgresql.version>42.4.1</postgresql.version>
         <commons-collections.version>3.2.1</commons-collections.version>
+        <commons-io.version>2.18.0</commons-io.version>
         <commonmark.version>0.17.0</commonmark.version>
         <httpclient5.version>5.4.1</httpclient5.version>
         <commons-compress.version>1.27.1</commons-compress.version>
@@ -131,6 +132,11 @@
                 <groupId>commons-collections</groupId>
                 <artifactId>commons-collections</artifactId>
                 <version>${commons-collections.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.atlassian.commonmark</groupId>
@@ -229,7 +235,7 @@
     <dependencies>
         <!-- 在这里可以替换vector-store -->
         <!-- 如果不使用默认依赖的话，需要手动配置application.yml -->
-        <!--        统一openai接入以支持多厂商-->
+        <!-- 统一openai接入以支持多厂商-->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-openai</artifactId>
@@ -258,8 +264,8 @@
                 <version>${maven-checkstyle-plugin.version}</version>
                 <configuration>
                     <consoleOutput>true</consoleOutput>
-                    <configLocation>tools/src/checkstyle/checkstyle.xml</configLocation>
-                    <headerLocation>tools/src/checkstyle/checkstyle-header.txt</headerLocation>
+                    <configLocation>CI/src/checkstyle/checkstyle.xml</configLocation>
+                    <headerLocation>CI/src/checkstyle/checkstyle-header.txt</headerLocation>
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
                 </configuration>
                 <dependencies>

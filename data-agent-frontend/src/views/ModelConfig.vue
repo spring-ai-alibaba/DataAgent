@@ -135,7 +135,7 @@
                       v-if="!scope.row.isActive"
                       type="success"
                       size="small"
-                      @click="handleActivate(scope.row.id)"
+                      @click="handleActivate(scope.row.id, scope.row.modelType)"
                       :loading="activatingId === scope.row.id"
                     >
                       启用
@@ -477,10 +477,29 @@
         }
       };
 
-      const handleActivate = async (id?: number) => {
+      const handleActivate = async (id?: number, modelType?: string) => {
         if (!id) return;
 
         try {
+          // 如果是嵌入模型，显示确认提示
+          if (modelType === 'EMBEDDING') {
+            try {
+              await ElMessageBox.confirm(
+                '您正在更换嵌入模型，此操作风险较高！由于不同模型的向量空间不一致，切换后可能导致所有历史向量数据（含数据源、智能体知识、业务知识）将全部失效且无法检索。确定要执行吗？',
+                '切换嵌入模型确认',
+                {
+                  confirmButtonText: '确定继续',
+                  cancelButtonText: '取消',
+                  type: 'warning',
+                },
+              );
+            } catch (error) {
+              // 用户取消了操作
+              console.log('用户取消了嵌入模型切换');
+              return;
+            }
+          }
+
           activatingId.value = id;
           const result = await modelConfigService.activate(id);
           if (result.success) {

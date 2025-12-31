@@ -17,17 +17,17 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
-import com.alibaba.cloud.ai.dataagent.bo.schema.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dataagent.common.constant.Constant;
-import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
-import com.alibaba.cloud.ai.dataagent.common.util.*;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
+import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
 
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 
 import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
+import com.alibaba.cloud.ai.dataagent.util.*;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -41,7 +41,7 @@ import reactor.core.publisher.Flux;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 
 /**
  * SQL execution node that executes SQL queries against the database.
@@ -80,7 +80,7 @@ public class SqlExecuteNode implements NodeAction {
 		Integer agentId = Integer.valueOf(agentIdStr);
 
 		// Dynamically get the data source configuration for an agent
-		DbConfig dbConfig = databaseUtil.getAgentDbConfig(agentId);
+		DbConfigBO dbConfig = databaseUtil.getAgentDbConfig(agentId);
 
 		return executeSqlQuery(state, currentStep, sqlQuery, dbConfig, agentId);
 	}
@@ -100,7 +100,7 @@ public class SqlExecuteNode implements NodeAction {
 	 */
 	@SuppressWarnings("unchecked")
 	private Map<String, Object> executeSqlQuery(OverAllState state, Integer currentStep, String sqlQuery,
-			DbConfig dbConfig, Integer agentId) {
+			DbConfigBO dbConfig, Integer agentId) {
 		// Execute business logic first - actual SQL execution
 		DbQueryParameter dbQueryParameter = new DbQueryParameter();
 		dbQueryParameter.setSql(sqlQuery);
@@ -120,7 +120,7 @@ public class SqlExecuteNode implements NodeAction {
 			try {
 				// Execute SQL query and get results immediately
 				ResultSetBO resultSetBO = dbAccessor.executeSqlAndReturnObject(dbConfig, dbQueryParameter);
-				String jsonStr = resultSetBO.toJsonStr();
+				String jsonStr = JsonUtil.getObjectMapper().writeValueAsString(resultSetBO);
 
 				// 数据执行成功
 				emitter.next(ChatResponseUtil.createResponse("执行SQL完成"));

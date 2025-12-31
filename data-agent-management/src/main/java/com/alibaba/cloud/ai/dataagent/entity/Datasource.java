@@ -24,7 +24,6 @@ import java.time.LocalDateTime;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-import org.springframework.util.StringUtils;
 
 @Data
 @NoArgsConstructor
@@ -65,36 +64,6 @@ public class Datasource {
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
 	@DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
 	private LocalDateTime updateTime;
-
-	/**
-	 * Generate connection URL
-	 */
-	// todo: 改为策略模式
-	public void generateConnectionUrl() {
-		if (StringUtils.hasText(connectionUrl)) {
-			return;
-		}
-		if (host != null && port != null && databaseName != null) {
-			if ("mysql".equalsIgnoreCase(type)) {
-				this.connectionUrl = String.format(
-						"jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai",
-						host, port, databaseName);
-			}
-			else if ("postgresql".equalsIgnoreCase(type)) {
-				this.connectionUrl = String.format(
-						"jdbc:postgresql://%s:%d/%s?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai",
-						host, port, databaseName);
-			}
-			else if ("h2".equalsIgnoreCase(type)) {
-				this.connectionUrl = String.format(
-						"jdbc:h2:mem:%s;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=true;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE",
-						databaseName);
-			}
-			else if ("dameng".equalsIgnoreCase(type)) {
-				this.connectionUrl = String.format("jdbc:dm://%s:%d", host, port);
-			}
-		}
-	}
 
 	@Override
 	public String toString() {

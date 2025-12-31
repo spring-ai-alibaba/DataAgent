@@ -15,8 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.file.impls;
 
-import com.alibaba.cloud.ai.dataagent.config.FileStorageProperties;
-import com.alibaba.cloud.ai.dataagent.config.OssStorageProperties;
+import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
+import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
