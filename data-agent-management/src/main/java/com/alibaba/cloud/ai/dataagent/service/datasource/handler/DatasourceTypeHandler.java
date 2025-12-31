@@ -17,7 +17,7 @@
 package com.alibaba.cloud.ai.dataagent.service.datasource.handler;
 
 import com.alibaba.cloud.ai.dataagent.enums.DbAccessTypeEnum;
-import com.alibaba.cloud.ai.dataagent.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import org.springframework.util.StringUtils;
 
@@ -53,8 +53,8 @@ public interface DatasourceTypeHandler {
 		return buildConnectionUrl(datasource);
 	}
 
-	default DbConfig toDbConfig(Datasource datasource) {
-		DbConfig config = new DbConfig();
+	default DbConfigBO toDbConfig(Datasource datasource) {
+		DbConfigBO config = new DbConfigBO();
 		config.setUrl(resolveConnectionUrl(datasource));
 		config.setUsername(datasource.getUsername());
 		config.setPassword(datasource.getPassword());

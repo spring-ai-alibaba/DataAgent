@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector.pool;
 
-import com.alibaba.cloud.ai.dataagent.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
 
 import java.sql.Connection;
@@ -32,14 +32,14 @@ public interface DBConnectionPool extends AutoCloseable {
 	 * @param config the database configuration
 	 * @return ErrorCodeEnum indicating the result of the ping operation
 	 */
-	ErrorCodeEnum ping(DbConfig config);
+	ErrorCodeEnum ping(DbConfigBO config);
 
 	/**
 	 * Get a database connection from the pool.
 	 * @param config the database configuration
 	 * @return a Connection object representing the database connection
 	 */
-	Connection getConnection(DbConfig config);
+	Connection getConnection(DbConfigBO config);
 
 	boolean supportedDataSourceType(String type);
 

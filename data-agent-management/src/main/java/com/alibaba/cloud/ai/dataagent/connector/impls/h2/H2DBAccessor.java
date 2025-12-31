@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.h2;
+package com.alibaba.cloud.ai.dataagent.connector.impls.h2;
 
 import com.alibaba.cloud.ai.dataagent.connector.ddl.DdlFactory;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AbstractAccessor;

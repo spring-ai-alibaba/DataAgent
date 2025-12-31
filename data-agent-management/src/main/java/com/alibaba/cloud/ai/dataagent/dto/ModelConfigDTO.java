@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.dto;
 
-import com.alibaba.cloud.ai.dataagent.enums.InEnum;
+import com.alibaba.cloud.ai.dataagent.annotation.InEnum;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;

@@ -13,28 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.alibaba.cloud.ai.dataagent.connector.impls.sqlserver;
 
-package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.mysql;
-
-import com.alibaba.cloud.ai.dataagent.connector.ddl.DdlFactory;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AbstractAccessor;
+import com.alibaba.cloud.ai.dataagent.connector.ddl.DdlFactory;
 import com.alibaba.cloud.ai.dataagent.connector.pool.DBConnectionPoolFactory;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import org.springframework.stereotype.Service;
 
 /**
- * @author yuluo
- * @author <a href="mailto:yuluo08290126@gmail.com">yuluo</a>
+ * @author zihen
+ * @date 2025/12/14 17:34
  */
+@Service("sqlserverAccessor")
+public class SqlServerDBAccessor extends AbstractAccessor {
 
-@Service("mysqlAccessor")
-public class MySQLDBAccessor extends AbstractAccessor {
+	private final static String ACCESSOR_TYPE = "SqlServer_Accessor";
 
-	private final static String ACCESSOR_TYPE = "MySQL_Accessor";
-
-	protected MySQLDBAccessor(DdlFactory ddlFactory, DBConnectionPoolFactory poolFactory) {
-
-		super(ddlFactory, poolFactory.getPoolByDbType(BizDataSourceTypeEnum.MYSQL.getTypeName()));
+	public SqlServerDBAccessor(DdlFactory ddlFactory, DBConnectionPoolFactory poolFactory) {
+		super(ddlFactory, poolFactory.getPoolByDbType(BizDataSourceTypeEnum.SQL_SERVER.getTypeName()));
 	}
 
 	@Override
@@ -44,7 +41,7 @@ public class MySQLDBAccessor extends AbstractAccessor {
 
 	@Override
 	public boolean supportedDataSourceType(String type) {
-		return BizDataSourceTypeEnum.MYSQL.getTypeName().equalsIgnoreCase(type);
+		return BizDataSourceTypeEnum.SQL_SERVER.getTypeName().equalsIgnoreCase(type);
 	}
 
 }

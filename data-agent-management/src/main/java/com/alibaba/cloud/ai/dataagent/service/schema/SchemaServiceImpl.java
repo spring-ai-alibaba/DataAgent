@@ -24,7 +24,7 @@ import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.dataagent.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
@@ -112,7 +112,7 @@ public class SchemaServiceImpl implements SchemaService {
 	@Override
 	public Boolean schema(String agentId, SchemaInitRequest schemaInitRequest) throws Exception {
 		log.info("Starting schema initialization for agent: {}", agentId);
-		DbConfig config = schemaInitRequest.getDbConfig();
+		DbConfigBO config = schemaInitRequest.getDbConfig();
 		DbQueryParameter dqp = DbQueryParameter.from(config)
 			.setSchema(config.getSchema())
 			.setTables(schemaInitRequest.getTables());
@@ -175,7 +175,7 @@ public class SchemaServiceImpl implements SchemaService {
 	 * @param foreignKeyMap 外键映射
 	 * @throws Exception 处理失败时抛出异常
 	 */
-	private void processTablesInParallel(List<TableInfoBO> tables, DbConfig config,
+	private void processTablesInParallel(List<TableInfoBO> tables, DbConfigBO config,
 			Map<String, List<String>> foreignKeyMap) throws Exception {
 
 		// 根据CPU核心数确定并行度，但不超过表的数量
@@ -435,7 +435,7 @@ public class SchemaServiceImpl implements SchemaService {
 	 * @param dbConfig Database configuration
 	 */
 	@Override
-	public void extractDatabaseName(SchemaDTO schemaDTO, DbConfig dbConfig) {
+	public void extractDatabaseName(SchemaDTO schemaDTO, DbConfigBO dbConfig) {
 		String pattern = ":\\d+/([^/?&]+)";
 		if (BizDataSourceTypeEnum.isMysqlDialect(dbConfig.getDialectType())) {
 			Pattern regex = Pattern.compile(pattern);

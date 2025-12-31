@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.connector.pool;
 
-import com.alibaba.cloud.ai.dataagent.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.druid.pool.DruidDataSourceFactory;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
@@ -54,7 +54,7 @@ public abstract class AbstractDBConnectionPool implements DBConnectionPool {
 		return String.format("SELECT count(*) FROM information_schema.schemata WHERE schema_name = '%s'", schema);
 	}
 
-	public ErrorCodeEnum ping(DbConfig config) {
+	public ErrorCodeEnum ping(DbConfigBO config) {
 		String jdbcUrl = config.getUrl();
 		try (Connection connection = DriverManager.getConnection(jdbcUrl, config.getUsername(), config.getPassword());
 				Statement stmt = connection.createStatement();) {
@@ -79,7 +79,7 @@ public abstract class AbstractDBConnectionPool implements DBConnectionPool {
 		}
 	}
 
-	public Connection getConnection(DbConfig config) {
+	public Connection getConnection(DbConfigBO config) {
 
 		String jdbcUrl = config.getUrl();
 		int maxRetries = 3;

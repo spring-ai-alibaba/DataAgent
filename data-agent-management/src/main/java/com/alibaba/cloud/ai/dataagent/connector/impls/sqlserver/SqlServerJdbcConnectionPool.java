@@ -13,42 +13,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.dameng;
+package com.alibaba.cloud.ai.dataagent.connector.impls.sqlserver;
 
 import com.alibaba.cloud.ai.dataagent.connector.pool.AbstractDBConnectionPool;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
 import org.springframework.stereotype.Service;
 
-import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.OTHERS;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.*;
 
-@Service("damengJdbcConnectionPool")
-public class DamengJdbcConnectionPool extends AbstractDBConnectionPool {
-
-	private static final String DRIVER = "dm.jdbc.driver.DmDriver";
+/**
+ * @author zihen
+ * @date 2025/12/14 17:34
+ */
+@Service("sqlServerJdbcConnectionPool")
+public class SqlServerJdbcConnectionPool extends AbstractDBConnectionPool {
 
 	@Override
 	public String getDriver() {
-		return DRIVER;
+		return "com.microsoft.sqlserver.jdbc.SQLServerDriver";
 	}
 
 	@Override
 	public ErrorCodeEnum errorMapping(String sqlState) {
 		ErrorCodeEnum ret = ErrorCodeEnum.fromCode(sqlState);
-		if (ret != null && ret != OTHERS) {
+		if (ret != null) {
 			return ret;
 		}
-		return OTHERS;
+		return switch (sqlState) {
+			case "08S01" -> DATASOURCE_CONNECTION_FAILURE_08S01;
+			case "28000" -> PASSWORD_ERROR_28000;
+			case "S0001" -> DATABASE_NOT_EXIST_42000;
+			case "42000" -> DATABASE_NOT_EXIST_42000;
+			default -> OTHERS;
+		};
 	}
 
 	@Override
 	public boolean supportedDataSourceType(String type) {
-		return BizDataSourceTypeEnum.DAMENG.getTypeName().equals(type);
+		return BizDataSourceTypeEnum.SQL_SERVER.getTypeName().equalsIgnoreCase(type);
 	}
 
 	@Override
 	public String getConnectionPoolType() {
-		return BizDataSourceTypeEnum.DAMENG.getTypeName();
+		return BizDataSourceTypeEnum.SQL_SERVER.getTypeName();
 	}
 
 }

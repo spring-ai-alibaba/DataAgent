@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.postgre;
+package com.alibaba.cloud.ai.dataagent.connector.impls.mysql;
 
 import com.alibaba.cloud.ai.dataagent.connector.ddl.DdlFactory;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AbstractAccessor;
@@ -27,14 +27,14 @@ import org.springframework.stereotype.Service;
  * @author <a href="mailto:yuluo08290126@gmail.com">yuluo</a>
  */
 
-@Service("postgreAccessor")
-public class PostgreDBAccessor extends AbstractAccessor {
+@Service("mysqlAccessor")
+public class MySQLDBAccessor extends AbstractAccessor {
 
-	private final static String ACCESSOR_TYPE = "PostgreSQL_Accessor";
+	private final static String ACCESSOR_TYPE = "MySQL_Accessor";
 
-	protected PostgreDBAccessor(DdlFactory ddlFactory, DBConnectionPoolFactory poolFactory) {
+	protected MySQLDBAccessor(DdlFactory ddlFactory, DBConnectionPoolFactory poolFactory) {
 
-		super(ddlFactory, poolFactory.getPoolByDbType(BizDataSourceTypeEnum.POSTGRESQL.getTypeName()));
+		super(ddlFactory, poolFactory.getPoolByDbType(BizDataSourceTypeEnum.MYSQL.getTypeName()));
 	}
 
 	@Override
@@ -44,7 +44,7 @@ public class PostgreDBAccessor extends AbstractAccessor {
 
 	@Override
 	public boolean supportedDataSourceType(String type) {
-		return BizDataSourceTypeEnum.POSTGRESQL.getTypeName().equalsIgnoreCase(type);
+		return BizDataSourceTypeEnum.MYSQL.getTypeName().equalsIgnoreCase(type);
 	}
 
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.sqlserver;
+package com.alibaba.cloud.ai.dataagent.connector.impls.postgre;
 
 import com.alibaba.cloud.ai.dataagent.connector.pool.AbstractDBConnectionPool;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
@@ -22,16 +22,12 @@ import org.springframework.stereotype.Service;
 
 import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.*;
 
-/**
- * @author zihen
- * @date 2025/12/14 17:34
- */
-@Service("sqlServerJdbcConnectionPool")
-public class SqlServerJdbcConnectionPool extends AbstractDBConnectionPool {
+@Service("postgreSqlJdbcConnectionPool")
+public class PostgreSqlJdbcConnectionPool extends AbstractDBConnectionPool {
 
 	@Override
 	public String getDriver() {
-		return "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+		return "org.postgresql.Driver";
 	}
 
 	@Override
@@ -43,7 +39,6 @@ public class SqlServerJdbcConnectionPool extends AbstractDBConnectionPool {
 		return switch (sqlState) {
 			case "08S01" -> DATASOURCE_CONNECTION_FAILURE_08S01;
 			case "28000" -> PASSWORD_ERROR_28000;
-			case "S0001" -> DATABASE_NOT_EXIST_42000;
 			case "42000" -> DATABASE_NOT_EXIST_42000;
 			default -> OTHERS;
 		};
@@ -51,12 +46,12 @@ public class SqlServerJdbcConnectionPool extends AbstractDBConnectionPool {
 
 	@Override
 	public boolean supportedDataSourceType(String type) {
-		return BizDataSourceTypeEnum.SQL_SERVER.getTypeName().equalsIgnoreCase(type);
+		return BizDataSourceTypeEnum.POSTGRESQL.getTypeName().equals(type);
 	}
 
 	@Override
 	public String getConnectionPoolType() {
-		return BizDataSourceTypeEnum.SQL_SERVER.getTypeName();
+		return BizDataSourceTypeEnum.POSTGRESQL.getTypeName();
 	}
 
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.sqlserver;
+package com.alibaba.cloud.ai.dataagent.connector.impls.sqlserver;
 
 import com.alibaba.cloud.ai.dataagent.bo.schema.*;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;

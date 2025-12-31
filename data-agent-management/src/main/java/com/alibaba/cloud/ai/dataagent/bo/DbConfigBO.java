@@ -13,8 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.bo.schema.basebo;
+package com.alibaba.cloud.ai.dataagent.bo;
 
-public class DdlBaseBO {
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class DbConfigBO {
+
+	private String schema;
+
+	private String url;
+
+	private String username;
+
+	private String password;
+
+	private String connectionType;
+
+	private String dialectType;
 
 }

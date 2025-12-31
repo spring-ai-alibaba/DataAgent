@@ -23,7 +23,7 @@ import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
 import com.alibaba.cloud.ai.dataagent.connector.pool.DBConnectionPool;
 import com.alibaba.cloud.ai.dataagent.connector.pool.DBConnectionPoolFactory;
-import com.alibaba.cloud.ai.dataagent.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
@@ -163,7 +163,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 	 */
 	private boolean realConnectionTest(Datasource datasource) {
 		// Convert Datasource to DbConfig
-		DbConfig config = new DbConfig();
+		DbConfigBO config = new DbConfigBO();
 		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
 		String originalUrl = handler.resolveConnectionUrl(datasource);
 
@@ -212,7 +212,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 		}
 
 		// Create database configuration
-		DbConfig dbConfig = getDbConfig(datasource);
+		DbConfigBO dbConfig = getDbConfig(datasource);
 
 		// Create query parameters
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
@@ -234,7 +234,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 	}
 
 	@Override
-	public DbConfig getDbConfig(Datasource datasource) {
+	public DbConfigBO getDbConfig(Datasource datasource) {
 		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
 		return handler.toDbConfig(datasource);
 	}
@@ -250,7 +250,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 		}
 
 		// 创建数据库配置
-		DbConfig dbConfig = getDbConfig(datasource);
+		DbConfigBO dbConfig = getDbConfig(datasource);
 
 		// 创建查询参数
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);

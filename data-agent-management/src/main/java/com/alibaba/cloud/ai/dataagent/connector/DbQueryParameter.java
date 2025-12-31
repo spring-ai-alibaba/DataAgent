@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector;
 
-import com.alibaba.cloud.ai.dataagent.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import org.springframework.beans.BeanUtils;
 
 import java.util.List;
@@ -175,7 +175,7 @@ public class DbQueryParameter {
 		return this;
 	}
 
-	public static DbQueryParameter from(DbConfig config) {
+	public static DbQueryParameter from(DbConfigBO config) {
 		DbQueryParameter param = new DbQueryParameter();
 		BeanUtils.copyProperties(config, param);
 		return param;

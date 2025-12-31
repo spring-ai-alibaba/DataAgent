@@ -13,20 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.h2;
+package com.alibaba.cloud.ai.dataagent.connector.impls.postgre;
 
-import com.alibaba.cloud.ai.dataagent.connector.ddl.AbstractJdbcDdl;
-import com.alibaba.cloud.ai.dataagent.connector.SqlExecutor;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.SchemaInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
+import com.alibaba.cloud.ai.dataagent.connector.ddl.AbstractJdbcDdl;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.connector.SqlExecutor;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.sql.Connection;
@@ -37,12 +39,18 @@ import java.util.stream.Collectors;
 
 import static com.alibaba.cloud.ai.dataagent.util.ColumnTypeUtil.wrapType;
 
+/**
+ * @author jiuhe
+ * @since 2024/3/15
+ */
 @Service
-public class H2JdbcDdl extends AbstractJdbcDdl {
+public class PostgreJdbcDdl extends AbstractJdbcDdl {
+
+	private static final Logger log = LoggerFactory.getLogger(PostgreJdbcDdl.class);
 
 	@Override
 	public List<DatabaseInfoBO> showDatabases(Connection connection) {
-		String sql = "SELECT CATALOG_NAME FROM INFORMATION_SCHEMA.INFORMATION_SCHEMA_CATALOG_NAME;";
+		String sql = "select datname from pg_database;";
 		List<DatabaseInfoBO> databaseInfoList = Lists.newArrayList();
 		try {
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, sql);
@@ -67,7 +75,7 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<SchemaInfoBO> showSchemas(Connection connection) {
-		String sql = "SELECT schema_name FROM information_schema.schemata;";
+		String sql = "SELECT schema_name \n" + "FROM information_schema.schemata;";
 		List<SchemaInfoBO> schemaInfoList = Lists.newArrayList();
 		try {
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, sql);
@@ -92,12 +100,16 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<TableInfoBO> showTables(Connection connection, String schema, String tablePattern) {
-		String sql = "SELECT TABLE_NAME, REMARKS \n" + "FROM INFORMATION_SCHEMA.TABLES \n"
-				+ "WHERE TABLE_SCHEMA = '%s' \n";
+		String sql = "SELECT tb.table_name, d.description \n" + "FROM information_schema.tables tb \n"
+				+ "JOIN pg_class c ON c.relname = tb.table_name \n"
+				+ "JOIN pg_namespace n ON c.relnamespace = n.oid and tb.table_schema = n.nspname \n"
+				+ "LEFT JOIN pg_description d ON d.objoid = c.oid AND d.objsubid = '0' \n"
+				+ "WHERE tb.table_schema = '%s' \n";
 		if (StringUtils.isNotBlank(tablePattern)) {
-			sql += "AND TABLE_NAME LIKE CONCAT('%%','%s','%%') \n";
+			sql += "AND tb.table_name LIKE CONCAT('%%','%s','%%') \n";
 		}
 		sql += "limit 2000;";
+
 		List<TableInfoBO> tableInfoList = Lists.newArrayList();
 		try {
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection,
@@ -112,7 +124,7 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 				}
 				String tableName = resultArr[i][0];
 				String tableDesc = resultArr[i][1];
-				tableInfoList.add(TableInfoBO.builder().schema(schema).name(tableName).description(tableDesc).build());
+				tableInfoList.add(TableInfoBO.builder().name(tableName).description(tableDesc).build());
 			}
 		}
 		catch (SQLException e) {
@@ -124,8 +136,12 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<TableInfoBO> fetchTables(Connection connection, String schema, List<String> tables) {
-		String sql = "SELECT TABLE_NAME, REMARKS \n" + "FROM INFORMATION_SCHEMA.TABLES \n"
-				+ "WHERE TABLE_SCHEMA = '%s' \n" + "AND TABLE_NAME in(%s) \n" + "limit 200;";
+		String sql = "SELECT tb.table_name, d.description \n" + "FROM information_schema.tables tb \n"
+				+ "JOIN pg_class c ON c.relname = tb.table_name \n"
+				+ "JOIN pg_namespace n ON c.relnamespace = n.oid and tb.table_schema = n.nspname \n"
+				+ "LEFT JOIN pg_description d ON d.objoid = c.oid AND d.objsubid = '0' \n"
+				+ "WHERE tb.table_schema = '%s' \n" + "AND tb.table_name IN (%s) \n" + " limit 2000;";
+
 		List<TableInfoBO> tableInfoList = Lists.newArrayList();
 		String tableListStr = String.join(", ", tables.stream().map(x -> "'" + x + "'").collect(Collectors.toList()));
 		try {
@@ -141,7 +157,7 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 				}
 				String tableName = resultArr[i][0];
 				String tableDesc = resultArr[i][1];
-				tableInfoList.add(TableInfoBO.builder().schema(schema).name(tableName).description(tableDesc).build());
+				tableInfoList.add(TableInfoBO.builder().name(tableName).description(tableDesc).build());
 			}
 		}
 		catch (SQLException e) {
@@ -153,14 +169,20 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<ColumnInfoBO> showColumns(Connection connection, String schema, String table) {
-		String sql = "SELECT column_name, remarks, data_type, \n"
-				+ "CASE WHEN IS_IDENTITY = 'YES' THEN TRUE ELSE FALSE END AS 主键唯一, \n"
-				+ "CASE WHEN IS_NULLABLE = 'NO' THEN TRUE ELSE FALSE END AS 非空 \n" + "FROM information_schema.COLUMNS "
-				+ "WHERE table_schema='%s' " + "and table_name='%s';";
+		String sql = "\n" + "SELECT\n" + "    a.attname as column_name,\n"
+				+ "    col_description(a.attrelid, a.attnum) as column_description,\n"
+				+ "    pg_catalog.format_type(a.atttypid, a.atttypmod) as data_type,\n" + "    CASE\n"
+				+ "        WHEN a.attnum = ANY (ind.indkey) THEN true\n" + "        ELSE false\n" + "    END as 主键唯一,\n"
+				+ "     a.attnotnull as 非空\n" + "FROM\n" + "    pg_catalog.pg_attribute a\n" + "LEFT JOIN\n"
+				+ "    pg_catalog.pg_index ind ON ind.indrelid = a.attrelid AND ind.indisprimary\n" + "LEFT JOIN\n"
+				+ "    pg_catalog.pg_class c ON a.attrelid = c.oid\n" + "LEFT JOIN\n"
+				+ "    pg_catalog.pg_namespace n ON n.oid = c.relnamespace\n" + "WHERE\n" + "    c.relname = '%s'\n"
+				+ "    AND a.attnum > 0\n" + "    AND NOT a.attisdropped\n" + "    AND n.nspname = '%s'\n"
+				+ "ORDER BY\n" + "    a.attnum;";
 		List<ColumnInfoBO> columnInfoList = Lists.newArrayList();
 		try {
-			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, "INFORMATION_SCHEMA",
-					String.format(sql, schema, table));
+			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, null,
+					String.format(sql, table, schema));
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
 			}
@@ -187,18 +209,21 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<ForeignKeyInfoBO> showForeignKeys(Connection connection, String schema, List<String> tables) {
-		String sql = "SELECT \n" + "    kc.TABLE_NAME AS 表名,\n" + "    kc.COLUMN_NAME AS 列名,\n"
-				+ "    kc2.table_name AS 引用表名,\n" + "    kc2.column_name AS 引用列名\n" + "FROM \n"
-				+ "    information_schema.referential_constraints rc  \n"
-				+ "    join information_schema.key_column_usage kc on rc.constraint_name=kc.constraint_name \n"
-				+ "    join information_schema.key_column_usage kc2 on rc.unique_constraint_name=kc2.constraint_name \n"
-				+ "WHERE kc.constraint_schema='%s' and kc.table_name in (%s) and kc2.table_name in (%s);";
+		String sql = "SELECT\n" + "    tc.table_name,\n" + "    kcu.column_name,\n" + "    tc.constraint_name,\n"
+				+ "    ccu.table_name AS foreign_table_name,\n" + "    ccu.column_name AS foreign_column_name\n"
+				+ "FROM\n" + "    information_schema.table_constraints AS tc\n" + "JOIN\n"
+				+ "    information_schema.key_column_usage AS kcu\n"
+				+ "    ON tc.constraint_name = kcu.constraint_name\n" + "    AND tc.table_schema = kcu.table_schema\n"
+				+ "JOIN\n" + "    information_schema.constraint_column_usage AS ccu\n"
+				+ "    ON ccu.constraint_name = tc.constraint_name\n" + "    AND ccu.table_schema = tc.table_schema\n"
+				+ "WHERE\n" + "    tc.constraint_type = 'FOREIGN KEY'\n" + "    AND tc.table_schema='public'\n"
+				+ "    AND tc.table_name in (%s)";
 		List<ForeignKeyInfoBO> foreignKeyInfoList = Lists.newArrayList();
 		String tableListStr = String.join(", ", tables.stream().map(x -> "'" + x + "'").collect(Collectors.toList()));
 
 		try {
-			sql = String.format(sql, schema, tableListStr, tableListStr);
-			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, "INFORMATION_SCHEMA", sql);
+			sql = String.format(sql, tableListStr);
+			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, null, sql);
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
 			}
@@ -210,8 +235,8 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 				foreignKeyInfoList.add(ForeignKeyInfoBO.builder()
 					.table(resultArr[i][0])
 					.column(resultArr[i][1])
-					.referencedTable(resultArr[i][2])
-					.referencedColumn(resultArr[i][3])
+					.referencedTable(resultArr[i][3])
+					.referencedColumn(resultArr[i][4])
 					.build());
 			}
 		}
@@ -224,11 +249,11 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<String> sampleColumn(Connection connection, String schema, String table, String column) {
-		String sql = "SELECT \n" + "    `%s`\n" + "FROM \n" + "    `%s`.`%s`\n" + "LIMIT 99;";
+		String sql = "SELECT \n" + "    \"%s\"\n" + "FROM \n" + "    \"%s\"\n" + "LIMIT 99;";
 		List<String> sampleInfo = Lists.newArrayList();
 		try {
-			sql = String.format(sql, column, schema, table);
-			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, null, sql);
+			sql = String.format(sql, column, table);
+			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, schema, sql);
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
 			}
@@ -242,6 +267,8 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 		}
 		catch (SQLException e) {
 			// throw new RuntimeException(e);
+			log.error("sampleColumn error, sql:{}", sql);
+			log.error("sampleColumn error", e);
 		}
 
 		Set<String> siSet = sampleInfo.stream().collect(Collectors.toSet());
@@ -251,7 +278,7 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public ResultSetBO scanTable(Connection connection, String schema, String table) {
-		String sql = "SELECT *\n" + "FROM \n" + "    `%s`\n" + "LIMIT 20;";
+		String sql = "SELECT *\n" + "FROM \n" + "    %s\n" + "LIMIT 20;";
 		ResultSetBO resultSet = ResultSetBO.builder().build();
 		try {
 			resultSet = SqlExecutor.executeSqlAndReturnObject(connection, schema, String.format(sql, table));
@@ -264,7 +291,7 @@ public class H2JdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public BizDataSourceTypeEnum getDataSourceType() {
-		return BizDataSourceTypeEnum.H2;
+		return BizDataSourceTypeEnum.POSTGRESQL;
 	}
 
 }

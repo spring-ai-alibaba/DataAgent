@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge;
 
 import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
-import com.alibaba.cloud.ai.dataagent.enums.InEnum;
+import com.alibaba.cloud.ai.dataagent.annotation.InEnum;
 import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;

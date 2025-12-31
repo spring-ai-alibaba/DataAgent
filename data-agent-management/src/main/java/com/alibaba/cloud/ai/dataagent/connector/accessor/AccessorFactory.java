@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.connector.accessor;
 
-import com.alibaba.cloud.ai.dataagent.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import org.springframework.stereotype.Component;
 
@@ -46,7 +46,7 @@ public class AccessorFactory {
 		return accessorMap.containsKey(type);
 	}
 
-	public Accessor getAccessorByDbConfig(DbConfig dbConfig) {
+	public Accessor getAccessorByDbConfig(DbConfigBO dbConfig) {
 		if (dbConfig == null) {
 			throw new IllegalArgumentException("dbConfig cannot be null");
 		}

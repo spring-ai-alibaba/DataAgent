@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
-import com.alibaba.cloud.ai.dataagent.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
@@ -89,7 +89,7 @@ public class TableRelationNode implements NodeAction {
 		String agentIdStr = StateUtil.getStringValue(state, AGENT_ID);
 
 		// Execute business logic first - get final result immediately
-		DbConfig agentDbConfig = databaseUtil.getAgentDbConfig(Integer.valueOf(agentIdStr));
+		DbConfigBO agentDbConfig = databaseUtil.getAgentDbConfig(Integer.valueOf(agentIdStr));
 
 		List<String> logicalForeignKeys = getLogicalForeignKeys(Integer.valueOf(agentIdStr), tableDocuments);
 		log.info("Found {} logical foreign keys for agent: {}", logicalForeignKeys.size(), agentIdStr);
@@ -143,7 +143,7 @@ public class TableRelationNode implements NodeAction {
 	 * Builds initial schema from column and table documents.
 	 */
 	private SchemaDTO buildInitialSchema(String agentId, List<Document> columnDocuments, List<Document> tableDocuments,
-			DbConfig agentDbConfig, List<String> logicalForeignKeys) {
+										 DbConfigBO agentDbConfig, List<String> logicalForeignKeys) {
 		SchemaDTO schemaDTO = new SchemaDTO();
 
 		schemaService.extractDatabaseName(schemaDTO, agentDbConfig);
@@ -172,7 +172,7 @@ public class TableRelationNode implements NodeAction {
 	 * Processes schema selection based on input, evidence, and optional advice.
 	 */
 	private Flux<ChatResponse> processSchemaSelection(SchemaDTO schemaDTO, String input, String evidence,
-			OverAllState state, DbConfig agentDbConfig, Consumer<SchemaDTO> dtoConsumer) {
+													  OverAllState state, DbConfigBO agentDbConfig, Consumer<SchemaDTO> dtoConsumer) {
 		String schemaAdvice = StateUtil.getStringValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE, null);
 
 		Flux<ChatResponse> schemaFlux;

@@ -20,8 +20,8 @@ import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.config.DbConfig;
-import com.alibaba.cloud.ai.dataagent.connector.accessor.impls.h2.H2DBAccessor;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
+import com.alibaba.cloud.ai.dataagent.connector.impls.h2.H2DBAccessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -44,11 +44,11 @@ public class H2AccessorIntegrationTest {
 	@Autowired
 	private H2DBAccessor dbAccessor;
 
-	private DbConfig dbConfig;
+	private DbConfigBO dbConfig;
 
 	@BeforeEach
 	public void setUp() {
-		dbConfig = new DbConfig();
+		dbConfig = new DbConfigBO();
 		dbConfig.setConnectionType("jdbc");
 		dbConfig.setDialectType("h2");
 		dbConfig.setUrl(

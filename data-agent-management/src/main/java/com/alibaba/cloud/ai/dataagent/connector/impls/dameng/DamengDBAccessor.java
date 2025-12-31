@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.connector.accessor.impls.dameng;
+package com.alibaba.cloud.ai.dataagent.connector.impls.dameng;
 
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AbstractAccessor;
 import com.alibaba.cloud.ai.dataagent.connector.ddl.DdlFactory;
