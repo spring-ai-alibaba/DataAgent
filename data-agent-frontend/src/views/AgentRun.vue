@@ -71,8 +71,8 @@
                 </el-button>
               </div>
               <div
-                  v-else-if="message.messageType === 'markdown-report'"
-                  class="markdown-report-message"
+                v-else-if="message.messageType === 'markdown-report'"
+                class="markdown-report-message"
               >
                 <div class="markdown-report-header">
                   <div class="report-info">
@@ -80,9 +80,9 @@
                     <span>Markdown 报告已生成</span>
                   </div>
                   <el-button
-                      type="primary"
-                      size="large"
-                      @click="downloadMarkdownReportFromMessage(`${message.content}`)"
+                    type="primary"
+                    size="large"
+                    @click="downloadMarkdownReportFromMessage(`${message.content}`)"
                   >
                     <el-icon><Download /></el-icon>
                     下载Markdown报告
@@ -117,12 +117,12 @@
                 <template v-for="(nodeBlock, index) in nodeBlocks" :key="index">
                   <!-- 如果是 Markdown 报告节点，使用 Markdown 组件 -->
                   <div
-                      v-if="
+                    v-if="
                       nodeBlock.length > 0 &&
                       nodeBlock[0].nodeName === 'ReportGeneratorNode' &&
                       nodeBlock[0].textType === 'MARK_DOWN'
                     "
-                      class="agent-response-block"
+                    class="agent-response-block"
                   >
                     <div class="agent-response-title">
                       {{ nodeBlock[0].nodeName }}
@@ -134,10 +134,7 @@
                     </div>
                   </div>
                   <!-- 其他节点使用原来的 HTML 渲染方式 -->
-                  <div
-                      v-else
-                      v-html="generateNodeHtml(nodeBlock)"
-                  ></div>
+                  <div v-else v-html="generateNodeHtml(nodeBlock)"></div>
                 </template>
               </div>
             </div>
@@ -1144,8 +1141,7 @@
         // 如果是 ReportGeneratorNode 且类型为 MARK_DOWN，从 sessionState 获取完整内容
         // 这样可以实时显示流式接收到的 markdown 内容
         const firstNode = node[0];
-        if (firstNode.nodeName === 'ReportGeneratorNode' &&
-            firstNode.textType === 'MARK_DOWN') {
+        if (firstNode.nodeName === 'ReportGeneratorNode' && firstNode.textType === 'MARK_DOWN') {
           const sessionId = currentSession.value?.id;
           if (sessionId) {
             const sessionState = getSessionState(sessionId);

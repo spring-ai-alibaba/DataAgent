@@ -50,11 +50,11 @@
       // 创建自定义渲染器
       const createRenderer = () => {
         const renderer = new marked.Renderer();
-        
+
         // 重写代码块渲染
         renderer.code = (code: string, language: string | undefined) => {
           const lang = language || 'text';
-          
+
           // 尝试高亮代码
           let highlightedCode = code;
           if (lang && lang !== 'text') {
@@ -116,30 +116,30 @@
           if (!slotNodes || slotNodes.length === 0) {
             return '';
           }
-          
+
           // 提取所有文本节点
           const extractText = (node: any): string => {
             if (node === null || node === undefined) {
               return '';
             }
-            
+
             // 如果是字符串，直接返回
             if (typeof node === 'string') {
               return node;
             }
-            
+
             // 如果是数字，转换为字符串
             if (typeof node === 'number') {
               return String(node);
             }
-            
+
             // 如果是对象
             if (node && typeof node === 'object') {
               // Vue 3 的文本节点
               if (node.type === 3 || node.type === 'Text') {
                 return node.children || node.text || '';
               }
-              
+
               // 如果有 children 属性
               if (node.children) {
                 if (typeof node.children === 'string') {
@@ -149,21 +149,21 @@
                   return node.children.map(extractText).join('');
                 }
               }
-              
+
               // 如果有 text 属性
               if (node.text) {
                 return node.text;
               }
-              
+
               // 如果是数组（某些情况下）
               if (Array.isArray(node)) {
                 return node.map(extractText).join('');
               }
             }
-            
+
             return '';
           };
-          
+
           return slotNodes.map(extractText).join('');
         } catch (error) {
           console.error('Error extracting slot text:', error);
@@ -181,7 +181,7 @@
         } else {
           content = props.content || '';
         }
-        
+
         if (!content.trim()) {
           return '';
         }
@@ -248,13 +248,13 @@
           // 同时监听 prop 和插槽内容
           return getSlotText() || props.content;
         },
-        (newContent) => {
+        newContent => {
           // 内容变化时，computed 属性会自动重新计算
           // 这里可以添加调试日志
           if (process.env.NODE_ENV === 'development') {
             console.log('Markdown content updated, length:', newContent?.length || 0);
           }
-        }
+        },
       );
 
       // 组件挂载时设置复制函数
@@ -530,4 +530,3 @@
     text-decoration: line-through;
   }
 </style>
-
