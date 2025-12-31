@@ -23,7 +23,7 @@
         <!-- Spring AI Alibaba Version -->
         <spring-ai-alibaba.version>1.0.0.4</spring-ai-alibaba.version>
         <!-- Spring AI Alibaba DataAgent Version -->
-        <revision>1.0.0-RC1</revision>
+        <revision>1.0.0-SNAPSHOT</revision>
         <!-- DashScope SDK Version -->
         <dashscope-sdk-java.version>2.15.1</dashscope-sdk-java.version>
 
