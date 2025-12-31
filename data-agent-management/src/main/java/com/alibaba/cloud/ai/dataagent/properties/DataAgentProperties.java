@@ -78,14 +78,8 @@ public class DataAgentProperties {
 		// Marked.js (Markdown 解析器) 南方科技大学开源软件镜像站
 		private String markedUrl = "https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/marked/12.0.0/marked.min.js";
 
-		// Marked.js (Markdown 解析器) 本地回退路径
-		private String markedFallbackUrl = "/report/marked.min.js";
-
 		// ECharts (图表库) 南方科技大学开源软件镜像站
 		private String echartsUrl = "https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/echarts/5.5.0/echarts.min.js";
-
-		// ECharts (图表库) 本地回退路径
-		private String echartsFallbackUrl = "/report/echarts.min.js";
 
 	}
 
