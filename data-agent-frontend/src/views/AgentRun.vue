@@ -162,7 +162,7 @@
                   :content="
                     requestOptions.nl2sqlOnly
                       ? '该功能在NL2SQL模式下不能使用'
-                      : '开启HTML报告功能需要使用能力较强的模型，且模型配置中最大Token的值要大一些'
+                      : '开启HTML报告功能需要使用外部CDN资源，请确保CDN地址能访问，如需自定义详情参考文档配置'
                   "
                   placement="top"
                 >
