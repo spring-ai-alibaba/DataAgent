@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.hybrid.factory;
 
-import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.fusion.FusionStrategy;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.HybridRetrievalStrategy;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.impl.DefaultHybridRetrievalStrategy;

@@ -18,13 +18,13 @@ package com.alibaba.cloud.ai.dataagent.connector.accessor;
 
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.SchemaInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
-import com.alibaba.cloud.ai.dataagent.common.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 
 import java.util.List;
 
@@ -54,24 +54,24 @@ public interface Accessor {
 	 * information, table information, etc.
 	 * @throws Exception if an error occurs during database access
 	 */
-	<T> T accessDb(DbConfig dbConfig, String method, DbQueryParameter param) throws Exception;
+	<T> T accessDb(DbConfigBO dbConfig, String method, DbQueryParameter param) throws Exception;
 
-	List<DatabaseInfoBO> showDatabases(DbConfig dbConfig) throws Exception;
+	List<DatabaseInfoBO> showDatabases(DbConfigBO dbConfig) throws Exception;
 
-	List<SchemaInfoBO> showSchemas(DbConfig dbConfig) throws Exception;
+	List<SchemaInfoBO> showSchemas(DbConfigBO dbConfig) throws Exception;
 
-	List<TableInfoBO> showTables(DbConfig dbConfig, DbQueryParameter param) throws Exception;
+	List<TableInfoBO> showTables(DbConfigBO dbConfig, DbQueryParameter param) throws Exception;
 
-	List<TableInfoBO> fetchTables(DbConfig dbConfig, DbQueryParameter param) throws Exception;
+	List<TableInfoBO> fetchTables(DbConfigBO dbConfig, DbQueryParameter param) throws Exception;
 
-	List<ColumnInfoBO> showColumns(DbConfig dbConfig, DbQueryParameter param) throws Exception;
+	List<ColumnInfoBO> showColumns(DbConfigBO dbConfig, DbQueryParameter param) throws Exception;
 
-	List<ForeignKeyInfoBO> showForeignKeys(DbConfig dbConfig, DbQueryParameter param) throws Exception;
+	List<ForeignKeyInfoBO> showForeignKeys(DbConfigBO dbConfig, DbQueryParameter param) throws Exception;
 
-	List<String> sampleColumn(DbConfig dbConfig, DbQueryParameter param) throws Exception;
+	List<String> sampleColumn(DbConfigBO dbConfig, DbQueryParameter param) throws Exception;
 
-	ResultSetBO scanTable(DbConfig dbConfig, DbQueryParameter param) throws Exception;
+	ResultSetBO scanTable(DbConfigBO dbConfig, DbQueryParameter param) throws Exception;
 
-	ResultSetBO executeSqlAndReturnObject(DbConfig dbConfig, DbQueryParameter param) throws Exception;
+	ResultSetBO executeSqlAndReturnObject(DbConfigBO dbConfig, DbQueryParameter param) throws Exception;
 
 }

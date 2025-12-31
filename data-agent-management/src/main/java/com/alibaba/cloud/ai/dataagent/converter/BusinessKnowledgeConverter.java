@@ -17,7 +17,7 @@ package com.alibaba.cloud.ai.dataagent.converter;
 
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.businessknowledge.CreateBusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.dataagent.entity.BusinessKnowledge;
-import com.alibaba.cloud.ai.dataagent.common.enums.EmbeddingStatus;
+import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
 import com.alibaba.cloud.ai.dataagent.vo.BusinessKnowledgeVO;
 import org.springframework.stereotype.Component;
 

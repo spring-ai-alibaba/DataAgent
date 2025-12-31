@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.llm;
 
-import com.alibaba.cloud.ai.dataagent.config.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
 import com.alibaba.cloud.ai.dataagent.service.llm.impls.BlockLlmService;
 import com.alibaba.cloud.ai.dataagent.service.llm.impls.StreamLlmService;

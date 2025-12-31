@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.schema;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import org.springframework.ai.document.Document;
@@ -29,7 +29,7 @@ public interface SchemaService {
 
 	List<Document> getTableDocumentsForAgent(String agentId, String query);
 
-	void extractDatabaseName(SchemaDTO schemaDTO, DbConfig dbConfig);
+	void extractDatabaseName(SchemaDTO schemaDTO, DbConfigBO dbConfig);
 
 	void buildSchemaFromDocuments(String agentId, List<Document> columnDocumentList, List<Document> tableDocuments,
 			SchemaDTO schemaDTO);

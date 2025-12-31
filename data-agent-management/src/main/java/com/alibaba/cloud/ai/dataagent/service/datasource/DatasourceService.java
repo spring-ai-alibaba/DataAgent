@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.datasource;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
@@ -84,7 +84,7 @@ public interface DatasourceService {
 	 */
 	List<String> getTableColumns(Integer datasourceId, String tableName) throws Exception;
 
-	DbConfig getDbConfig(Datasource datasource);
+	DbConfigBO getDbConfig(Datasource datasource);
 
 	/**
 	 * 获取数据源的逻辑外键列表

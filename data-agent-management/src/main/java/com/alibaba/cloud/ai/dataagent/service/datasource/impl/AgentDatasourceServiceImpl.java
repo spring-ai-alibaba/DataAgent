@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.datasource.impl;
 
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
@@ -64,7 +64,7 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 			}
 
 			// Create database configuration
-			DbConfig dbConfig = datasourceService.getDbConfig(datasource);
+			DbConfigBO dbConfig = datasourceService.getDbConfig(datasource);
 
 			// Create SchemaInitRequest
 			SchemaInitRequest schemaInitRequest = new SchemaInitRequest();

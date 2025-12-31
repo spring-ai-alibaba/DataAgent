@@ -28,8 +28,8 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.STREAM_EVENT_COMPLETE;
-import static com.alibaba.cloud.ai.dataagent.common.constant.Constant.STREAM_EVENT_ERROR;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.STREAM_EVENT_COMPLETE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.STREAM_EVENT_ERROR;
 
 /**
  * @author zhangshenghang

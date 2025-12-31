@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.graph.Context;
 
-import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import lombok.Data;
 import org.springframework.http.codec.ServerSentEvent;

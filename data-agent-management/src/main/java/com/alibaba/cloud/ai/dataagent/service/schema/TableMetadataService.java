@@ -16,13 +16,13 @@
 package com.alibaba.cloud.ai.dataagent.service.schema;
 
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.common.util.SqlUtil;
+import com.alibaba.cloud.ai.dataagent.util.SqlUtil;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.dataagent.connector.config.DbConfig;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
@@ -52,7 +52,7 @@ public class TableMetadataService {
 	 * @param foreignKeyMap 外键映射
 	 * @throws Exception 处理失败时抛出异常
 	 */
-	public void batchEnrichTableMetadata(List<TableInfoBO> tables, DbConfig dbConfig,
+	public void batchEnrichTableMetadata(List<TableInfoBO> tables, DbConfigBO dbConfig,
 			Map<String, List<String>> foreignKeyMap) throws Exception {
 
 		// 1. 批量获取所有表的列信息
@@ -73,7 +73,7 @@ public class TableMetadataService {
 	 * @return 表名到列信息的映射
 	 * @throws Exception 获取列信息失败时抛出异常
 	 */
-	private Map<String, List<ColumnInfoBO>> fetchTableColumns(List<TableInfoBO> tables, DbConfig dbConfig)
+	private Map<String, List<ColumnInfoBO>> fetchTableColumns(List<TableInfoBO> tables, DbConfigBO dbConfig)
 			throws Exception {
 		Map<String, List<ColumnInfoBO>> tableColumnsMap = new HashMap<>();
 		Accessor accessor = accessorFactory.getAccessorByDbConfig(dbConfig);
@@ -186,7 +186,7 @@ public class TableMetadataService {
 	 * @param tableColumnsMap 表名到列信息的映射
 	 * @return 表名到列样本数据的映射
 	 */
-	private Map<String, Map<String, List<String>>> batchGetSampleDataForTables(DbConfig dbConfig,
+	private Map<String, Map<String, List<String>>> batchGetSampleDataForTables(DbConfigBO dbConfig,
 			Map<String, List<ColumnInfoBO>> tableColumnsMap) {
 
 		// 外层Map 键:表名，值:该表的列样本数据Map
@@ -226,7 +226,7 @@ public class TableMetadataService {
 	 * @param columns 列信息列表
 	 * @return 表的样本数据映射
 	 */
-	private Map<String, List<String>> fetchTableSampleData(DbConfig dbConfig, Accessor accessor, String tableName,
+	private Map<String, List<String>> fetchTableSampleData(DbConfigBO dbConfig, Accessor accessor, String tableName,
 			List<ColumnInfoBO> columns) {
 
 		try {

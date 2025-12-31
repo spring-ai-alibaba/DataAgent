@@ -15,10 +15,10 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.knowledge;
 
-import com.alibaba.cloud.ai.dataagent.common.constant.Constant;
-import com.alibaba.cloud.ai.dataagent.common.constant.DocumentMetadataConstant;
-import com.alibaba.cloud.ai.dataagent.common.enums.KnowledgeType;
-import com.alibaba.cloud.ai.dataagent.common.util.DocumentConverterUtil;
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
+import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
+import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
+import com.alibaba.cloud.ai.dataagent.util.DocumentConverterUtil;
 import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;

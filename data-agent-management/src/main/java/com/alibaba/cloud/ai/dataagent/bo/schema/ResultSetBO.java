@@ -15,9 +15,10 @@
  */
 package com.alibaba.cloud.ai.dataagent.bo.schema;
 
-import com.alibaba.cloud.ai.dataagent.common.util.JsonUtil;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,7 +26,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public final class ResultSetBO extends DdlBaseBO implements Cloneable {
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public final class ResultSetBO implements Cloneable {
 
 	private List<String> column;
 
@@ -35,94 +40,10 @@ public final class ResultSetBO extends DdlBaseBO implements Cloneable {
 
 	@Override
 	public ResultSetBO clone() {
-		return ResultSetBO.builder().column(new ArrayList<>(this.column)).data(this.data.stream().map(x -> {
-			HashMap<String, String> t = new HashMap<>();
-			t.putAll(x);
-			return t;
-		}).collect(Collectors.toList())).build();
-	}
-
-	public List<String> getColumn() {
-		return column;
-	}
-
-	public void setColumn(List<String> column) {
-		this.column = column;
-	}
-
-	public List<Map<String, String>> getData() {
-		return data;
-	}
-
-	public void setData(List<Map<String, String>> data) {
-		this.data = data;
-	}
-
-	public String getErrorMsg() {
-		return errorMsg;
-	}
-
-	public void setErrorMsg(String errorMsg) {
-		this.errorMsg = errorMsg;
-	}
-
-	@Override
-	public String toString() {
-		return "ResultSetBO{" + "column=" + column + ", data=" + data + ", errorMsg='" + errorMsg + '\'' + '}';
-	}
-
-	public static ResultSetBOBuilder builder() {
-		return new ResultSetBOBuilder();
-	}
-
-	public static final class ResultSetBOBuilder {
-
-		private List<String> column;
-
-		private List<Map<String, String>> data;
-
-		private String errorMsg;
-
-		private ResultSetBOBuilder() {
-		}
-
-		public ResultSetBOBuilder column(List<String> column) {
-			this.column = column;
-			return this;
-		}
-
-		public ResultSetBOBuilder data(List<Map<String, String>> data) {
-			this.data = data;
-			return this;
-		}
-
-		public ResultSetBOBuilder errorMsg(String errorMsg) {
-			this.errorMsg = errorMsg;
-			return this;
-		}
-
-		public ResultSetBO build() {
-			ResultSetBO resultSetBO = new ResultSetBO();
-			resultSetBO.setColumn(column);
-			resultSetBO.setData(data);
-			resultSetBO.setErrorMsg(errorMsg);
-			return resultSetBO;
-		}
-
-	}
-
-	/**
-	 * Convert current object to JSON string
-	 * @return JSON string
-	 */
-	public String toJsonStr() {
-		ObjectMapper objectMapper = JsonUtil.getObjectMapper();
-		try {
-			return objectMapper.writeValueAsString(this);
-		}
-		catch (JsonProcessingException e) {
-			throw new RuntimeException("Failed to convert object to JSON string", e);
-		}
+		return ResultSetBO.builder()
+			.column(new ArrayList<>(this.column))
+			.data(this.data.stream().map(HashMap::new).collect(Collectors.toList()))
+			.build();
 	}
 
 }

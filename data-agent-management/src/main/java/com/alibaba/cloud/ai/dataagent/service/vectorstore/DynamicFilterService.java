@@ -15,8 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.vectorstore;
 
-import com.alibaba.cloud.ai.dataagent.common.constant.Constant;
-import com.alibaba.cloud.ai.dataagent.common.constant.DocumentMetadataConstant;
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
+import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.BusinessKnowledgeMapper;
 import lombok.AllArgsConstructor;

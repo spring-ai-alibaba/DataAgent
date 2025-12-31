@@ -16,8 +16,8 @@
 
 package com.alibaba.cloud.ai.dataagent.service.code;
 
-import com.alibaba.cloud.ai.dataagent.common.enums.CodePoolExecutorEnum;
-import com.alibaba.cloud.ai.dataagent.config.CodeExecutorProperties;
+import com.alibaba.cloud.ai.dataagent.enums.CodePoolExecutorEnum;
+import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.service.code.impls.LocalCodePoolExecutorService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.util.StringUtils;
 
@@ -42,6 +43,7 @@ public class LocalCodePoolExecutorServiceTest {
 
 	private static final Logger logger = LoggerFactory.getLogger(LocalCodePoolExecutorServiceTest.class);
 
+	@Qualifier("codeExecutorProperties")
 	@Autowired
 	private CodeExecutorProperties properties;
 

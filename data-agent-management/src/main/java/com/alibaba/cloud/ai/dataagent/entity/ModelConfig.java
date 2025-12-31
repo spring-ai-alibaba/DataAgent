@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.entity;
 
-import com.alibaba.cloud.ai.dataagent.common.enums.ModelType;
+import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 

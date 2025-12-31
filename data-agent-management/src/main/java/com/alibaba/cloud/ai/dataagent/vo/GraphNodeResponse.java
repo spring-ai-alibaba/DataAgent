@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.vo;
 
-import com.alibaba.cloud.ai.dataagent.common.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

@@ -15,7 +15,16 @@
  */
 package com.alibaba.cloud.ai.dataagent.bo.schema;
 
-public class ForeignKeyInfoBO extends DdlBaseBO {
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ForeignKeyInfoBO {
 
 	private String table;
 
@@ -24,105 +33,5 @@ public class ForeignKeyInfoBO extends DdlBaseBO {
 	private String referencedTable;
 
 	private String referencedColumn;
-
-	public ForeignKeyInfoBO() {
-	}
-
-	public ForeignKeyInfoBO(String table, String column, String referencedTable, String referencedColumn) {
-		this.table = table;
-		this.column = column;
-		this.referencedTable = referencedTable;
-		this.referencedColumn = referencedColumn;
-	}
-
-	public String getTable() {
-		return table;
-	}
-
-	public void setTable(String table) {
-		this.table = table;
-	}
-
-	public String getColumn() {
-		return column;
-	}
-
-	public void setColumn(String column) {
-		this.column = column;
-	}
-
-	public String getReferencedTable() {
-		return referencedTable;
-	}
-
-	public void setReferencedTable(String referencedTable) {
-		this.referencedTable = referencedTable;
-	}
-
-	public String getReferencedColumn() {
-		return referencedColumn;
-	}
-
-	public void setReferencedColumn(String referencedColumn) {
-		this.referencedColumn = referencedColumn;
-	}
-
-	@Override
-	public String toString() {
-		return "ForeignKeyInfoBO{" + "table='" + table + '\'' + ", column='" + column + '\'' + ", referencedTable='"
-				+ referencedTable + '\'' + ", referencedColumn='" + referencedColumn + '\'' + '}';
-	}
-
-	public static ForeignKeyInfoBOBuilder builder() {
-		return new ForeignKeyInfoBOBuilder();
-	}
-
-	public static final class ForeignKeyInfoBOBuilder {
-
-		private String table;
-
-		private String column;
-
-		private String referencedTable;
-
-		private String referencedColumn;
-
-		private ForeignKeyInfoBOBuilder() {
-		}
-
-		public static ForeignKeyInfoBOBuilder aForeignKeyInfoBO() {
-			return new ForeignKeyInfoBOBuilder();
-		}
-
-		public ForeignKeyInfoBOBuilder table(String table) {
-			this.table = table;
-			return this;
-		}
-
-		public ForeignKeyInfoBOBuilder column(String column) {
-			this.column = column;
-			return this;
-		}
-
-		public ForeignKeyInfoBOBuilder referencedTable(String referencedTable) {
-			this.referencedTable = referencedTable;
-			return this;
-		}
-
-		public ForeignKeyInfoBOBuilder referencedColumn(String referencedColumn) {
-			this.referencedColumn = referencedColumn;
-			return this;
-		}
-
-		public ForeignKeyInfoBO build() {
-			ForeignKeyInfoBO foreignKeyInfoBO = new ForeignKeyInfoBO();
-			foreignKeyInfoBO.setTable(table);
-			foreignKeyInfoBO.setColumn(column);
-			foreignKeyInfoBO.setReferencedTable(referencedTable);
-			foreignKeyInfoBO.setReferencedColumn(referencedColumn);
-			return foreignKeyInfoBO;
-		}
-
-	}
 
 }

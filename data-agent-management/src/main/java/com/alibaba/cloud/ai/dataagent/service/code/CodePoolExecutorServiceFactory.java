@@ -16,7 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.service.code;
 
-import com.alibaba.cloud.ai.dataagent.config.CodeExecutorProperties;
+import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.service.code.impls.AiSimulationCodeExecutorService;
 import com.alibaba.cloud.ai.dataagent.service.code.impls.DockerCodePoolExecutorService;
 import com.alibaba.cloud.ai.dataagent.service.code.impls.LocalCodePoolExecutorService;

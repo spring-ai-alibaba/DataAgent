@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.controller;
 
-import com.alibaba.cloud.ai.dataagent.config.FileStorageProperties;
+import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

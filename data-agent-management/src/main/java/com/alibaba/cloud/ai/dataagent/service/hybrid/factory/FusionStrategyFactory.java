@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.hybrid.factory;
 
-import com.alibaba.cloud.ai.dataagent.common.constant.Constant;
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.fusion.FusionStrategy;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.fusion.impl.RrfFusionStrategy;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.fusion.impl.WeightedAverageStrategy;
