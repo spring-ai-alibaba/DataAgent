@@ -100,7 +100,7 @@ public class SqlExecuteNode implements NodeAction {
 	 */
 	@SuppressWarnings("unchecked")
 	private Map<String, Object> executeSqlQuery(OverAllState state, Integer currentStep, String sqlQuery,
-                                                DbConfigBO dbConfig, Integer agentId) {
+			DbConfigBO dbConfig, Integer agentId) {
 		// Execute business logic first - actual SQL execution
 		DbQueryParameter dbQueryParameter = new DbQueryParameter();
 		dbQueryParameter.setSql(sqlQuery);

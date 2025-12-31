@@ -143,7 +143,7 @@ public class TableRelationNode implements NodeAction {
 	 * Builds initial schema from column and table documents.
 	 */
 	private SchemaDTO buildInitialSchema(String agentId, List<Document> columnDocuments, List<Document> tableDocuments,
-										 DbConfigBO agentDbConfig, List<String> logicalForeignKeys) {
+			DbConfigBO agentDbConfig, List<String> logicalForeignKeys) {
 		SchemaDTO schemaDTO = new SchemaDTO();
 
 		schemaService.extractDatabaseName(schemaDTO, agentDbConfig);
@@ -172,7 +172,7 @@ public class TableRelationNode implements NodeAction {
 	 * Processes schema selection based on input, evidence, and optional advice.
 	 */
 	private Flux<ChatResponse> processSchemaSelection(SchemaDTO schemaDTO, String input, String evidence,
-													  OverAllState state, DbConfigBO agentDbConfig, Consumer<SchemaDTO> dtoConsumer) {
+			OverAllState state, DbConfigBO agentDbConfig, Consumer<SchemaDTO> dtoConsumer) {
 		String schemaAdvice = StateUtil.getStringValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE, null);
 
 		Flux<ChatResponse> schemaFlux;

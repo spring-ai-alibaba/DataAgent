@@ -121,7 +121,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 
 	@Override
 	public Flux<ChatResponse> fineSelect(SchemaDTO schemaDTO, String query, String evidence,
-                                         String sqlGenerateSchemaMissingAdvice, DbConfigBO specificDbConfig, Consumer<SchemaDTO> dtoConsumer) {
+			String sqlGenerateSchemaMissingAdvice, DbConfigBO specificDbConfig, Consumer<SchemaDTO> dtoConsumer) {
 		log.debug("Fine selecting schema for query: {} with evidences and specificDbConfig: {}", query,
 				specificDbConfig != null ? specificDbConfig.getUrl() : "default");
 

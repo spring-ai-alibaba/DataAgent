@@ -33,4 +33,5 @@ public class ForeignKeyInfoBO {
 	private String referencedTable;
 
 	private String referencedColumn;
+
 }

@@ -187,7 +187,7 @@ public class TableMetadataService {
 	 * @return 表名到列样本数据的映射
 	 */
 	private Map<String, Map<String, List<String>>> batchGetSampleDataForTables(DbConfigBO dbConfig,
-                                                                               Map<String, List<ColumnInfoBO>> tableColumnsMap) {
+			Map<String, List<ColumnInfoBO>> tableColumnsMap) {
 
 		// 外层Map 键:表名，值:该表的列样本数据Map
 		// 内层Map 键:列名，值:该列的样本数据
@@ -227,7 +227,7 @@ public class TableMetadataService {
 	 * @return 表的样本数据映射
 	 */
 	private Map<String, List<String>> fetchTableSampleData(DbConfigBO dbConfig, Accessor accessor, String tableName,
-                                                           List<ColumnInfoBO> columns) {
+			List<ColumnInfoBO> columns) {
 
 		try {
 			// 构建批量查询SQL，一次查询多个列的样本数据

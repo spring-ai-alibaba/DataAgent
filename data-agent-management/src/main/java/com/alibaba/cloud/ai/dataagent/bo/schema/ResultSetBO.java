@@ -40,7 +40,10 @@ public final class ResultSetBO implements Cloneable {
 
 	@Override
 	public ResultSetBO clone() {
-        return ResultSetBO.builder().column(new ArrayList<>(this.column)).data(this.data.stream().map(HashMap::new).collect(Collectors.toList())).build();
+		return ResultSetBO.builder()
+			.column(new ArrayList<>(this.column))
+			.data(this.data.stream().map(HashMap::new).collect(Collectors.toList()))
+			.build();
 	}
 
 }
