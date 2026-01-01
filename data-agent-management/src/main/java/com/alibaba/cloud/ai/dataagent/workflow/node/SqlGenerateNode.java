@@ -67,12 +67,13 @@ public class SqlGenerateNode implements NodeAction {
 		int count = state.value(SQL_GENERATE_COUNT, 0);
 		if (count >= properties.getMaxSqlRetryCount()) {
 			log.error("SQL generation failed after {} attempts, giving up", count);
-			Flux<ChatResponse> preFlux = Flux.just(ChatResponseUtil.createResponse(String.format("SQL次数生成超限，最大尝试次数：%d，已尝试次数:%d", properties.getMaxSqlRetryCount(), count)));
-			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
-					state, "正在进行重试评估...", "重试评估完成！", retryOutput -> {
-						String retryResult = retryOutput.trim();
-						return Map.of(SQL_EXECUTE_NODE_OUTPUT, retryResult, SQL_GENERATE_OUTPUT, StateGraph.END);
-					}, preFlux);
+			Flux<ChatResponse> preFlux = Flux.just(ChatResponseUtil.createResponse(
+					String.format("SQL次数生成超限，最大尝试次数：%d，已尝试次数:%d", properties.getMaxSqlRetryCount(), count)));
+			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil
+				.createStreamingGeneratorWithMessages(this.getClass(), state, "正在进行重试评估...", "重试评估完成！", retryOutput -> {
+					String retryResult = retryOutput.trim();
+					return Map.of(SQL_EXECUTE_NODE_OUTPUT, retryResult, SQL_GENERATE_OUTPUT, StateGraph.END);
+				}, preFlux);
 			// reset the sql generate count
 			return Map.of(SQL_GENERATE_OUTPUT, generator, SQL_GENERATE_COUNT, 0);
 		}
