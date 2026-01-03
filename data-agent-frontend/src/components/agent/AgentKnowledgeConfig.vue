@@ -131,6 +131,14 @@
           >
             句子
           </el-tag>
+          <el-tag
+            v-else-if="scope.row.splitterType === 'paragraph'"
+            type="success"
+            size="small"
+            round
+          >
+            段落
+          </el-tag>
           <el-tag v-else-if="scope.row.splitterType === 'semantic'" type="info" size="small" round>
             语义
           </el-tag>
@@ -298,6 +306,7 @@
           <el-option label="Token 分块" value="token" />
           <el-option label="递归分块" value="recursive" />
           <el-option label="句子分块" value="sentence" />
+          <el-option label="段落分块" value="paragraph" />
           <el-option label="语义分块" value="semantic" />
         </el-select>
         <div style="margin-top: 8px; font-size: 12px; color: #909399">
@@ -309,6 +318,9 @@
           </div>
           <div v-else-if="knowledgeForm.splitterType === 'sentence'">
             ✨ 保证句子完整性，语义不被截断，适合新闻和文章
+          </div>
+          <div v-else-if="knowledgeForm.splitterType === 'paragraph'">
+            📝 按自然段落分块，保留段落完整性，适合博客、书籍等
           </div>
           <div v-else-if="knowledgeForm.splitterType === 'semantic'">
             🧠 基于语义相似度智能分块，自动识别主题边界，适合论文和长文（会产生 embedding API

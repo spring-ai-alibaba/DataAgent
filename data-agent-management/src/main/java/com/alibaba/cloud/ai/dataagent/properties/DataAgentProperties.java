@@ -147,6 +147,12 @@ public class DataAgentProperties {
 		 */
 		private double similarityThreshold = 0.7;
 
+		// --- ParagraphTextSplitter 专用 ---
+		/**
+		 * 段落重叠数量 默认值：1（保留前一个分块的最后1个段落）
+		 */
+		private int paragraphOverlap = 1;
+
 	}
 
 	@Getter

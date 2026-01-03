@@ -19,7 +19,10 @@ package com.alibaba.cloud.ai.dataagent.config;
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
-import com.alibaba.cloud.ai.dataagent.splitter.CustomRecursiveCharacterTextSplitter;
+import com.alibaba.cloud.ai.transformer.splitter.RecursiveCharacterTextSplitter;
+import com.alibaba.cloud.ai.transformer.splitter.SentenceSplitter;
+import com.alibaba.cloud.ai.dataagent.splitter.SemanticTextSplitter;
+import com.alibaba.cloud.ai.dataagent.splitter.ParagraphTextSplitter;
 import com.alibaba.cloud.ai.dataagent.util.McpServerToolUtil;
 import com.alibaba.cloud.ai.dataagent.util.NodeBeanUtil;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
@@ -424,29 +427,20 @@ public class DataAgentConfiguration implements DisposableBean {
 	}
 
 	/**
-	 * 递归字符文本分块器（自定义实现）
+	 * 递归字符文本分块器
 	 * @param properties 分块配置
-	 * @return CustomRecursiveCharacterTextSplitter实例
+	 * @return RecursiveCharacterTextSplitter实例
 	 */
 	@Bean(name = "recursive")
 	public TextSplitter recursiveTextSplitter(DataAgentProperties properties) {
 		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
-		// 使用配置的分隔符列表，如果为null则使用默认分隔符
+		// RecursiveCharacterTextSplitter
 		String[] separators = textSplitterProps.getSeparators();
 		if (separators != null && separators.length > 0) {
-			return CustomRecursiveCharacterTextSplitter.builder()
-				.withChunkSize(textSplitterProps.getChunkSize())
-				.withMinChunkSizeChars(textSplitterProps.getMinChunkSizeChars())
-				.withChunkOverlap(textSplitterProps.getChunkOverlap())
-				.withSeparators(separators)
-				.build();
+			return new RecursiveCharacterTextSplitter(textSplitterProps.getChunkSize(), separators);
 		}
 		else {
-			return CustomRecursiveCharacterTextSplitter.builder()
-				.withChunkSize(textSplitterProps.getChunkSize())
-				.withMinChunkSizeChars(textSplitterProps.getMinChunkSizeChars())
-				.withChunkOverlap(textSplitterProps.getChunkOverlap())
-				.build();
+			return new RecursiveCharacterTextSplitter(textSplitterProps.getChunkSize());
 		}
 	}
 
@@ -458,14 +452,12 @@ public class DataAgentConfiguration implements DisposableBean {
 	@Bean(name = "sentence")
 	public TextSplitter sentenceSplitter(DataAgentProperties properties) {
 		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
-		return com.alibaba.cloud.ai.dataagent.splitter.SentenceSplitter.builder()
-			.withChunkSize(textSplitterProps.getChunkSize())
-			.withSentenceOverlap(textSplitterProps.getSentenceOverlap())
-			.build();
+		// SentenceSplitter
+		return new SentenceSplitter(textSplitterProps.getChunkSize());
 	}
 
 	/**
-	 * 语义分块器（基于 embedding 相似度）
+	 * 语义分块器
 	 * @param properties 分块配置
 	 * @param embeddingModel Embedding 模型
 	 * @return SemanticTextSplitter实例
@@ -473,11 +465,25 @@ public class DataAgentConfiguration implements DisposableBean {
 	@Bean(name = "semantic")
 	public TextSplitter semanticSplitter(DataAgentProperties properties, EmbeddingModel embeddingModel) {
 		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
-		return com.alibaba.cloud.ai.dataagent.splitter.SemanticTextSplitter.builder()
-			.withEmbeddingModel(embeddingModel)
-			.withMinChunkSize(textSplitterProps.getMinChunkSize())
-			.withMaxChunkSize(textSplitterProps.getMaxChunkSize())
-			.withSimilarityThreshold(textSplitterProps.getSimilarityThreshold())
+		return SemanticTextSplitter.builder()
+			.embeddingModel(embeddingModel)
+			.minChunkSize(textSplitterProps.getMinChunkSize())
+			.maxChunkSize(textSplitterProps.getMaxChunkSize())
+			.similarityThreshold(textSplitterProps.getSimilarityThreshold())
+			.build();
+	}
+
+	/**
+	 * 段落分块器
+	 * @param properties 分块配置
+	 * @return ParagraphTextSplitter实例
+	 */
+	@Bean(name = "paragraph")
+	public TextSplitter paragraphSplitter(DataAgentProperties properties) {
+		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
+		return ParagraphTextSplitter.builder()
+			.chunkSize(textSplitterProps.getChunkSize())
+			.paragraphOverlap(textSplitterProps.getParagraphOverlap())
 			.build();
 	}
 

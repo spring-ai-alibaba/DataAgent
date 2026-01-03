@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ * https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,255 +13,84 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.alibaba.cloud.ai.dataagent.splitter;
 
+import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.ai.transformer.splitter.TextSplitter;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
- * 语义分块器（Semantic Text Splitter）
+ * 语义文本分块器
  *
- * @author Zihenzzz
- * @since 2025/1/3
+ * @author zihenzzz
+ * @since 2025-01-03
  */
 @Slf4j
+@Builder
 public class SemanticTextSplitter extends TextSplitter {
 
-	/**
-	 * 句子分隔符正则表达式
-	 */
-	private static final Pattern SENTENCE_PATTERN = Pattern.compile("([^。！？；.!?;]+[。！？；.!?;]+[\"'）\\)\\]]*\\s*)");
-
-	/**
-	 * 默认最小分块大小（字符数）
-	 */
-	private static final int DEFAULT_MIN_CHUNK_SIZE = 200;
-
-	/**
-	 * 默认最大分块大小（字符数）
-	 */
-	private static final int DEFAULT_MAX_CHUNK_SIZE = 1000;
-
-	/**
-	 * 默认语义相似度阈值（0-1之间，越低越容易分块）
-	 */
-	private static final double DEFAULT_SIMILARITY_THRESHOLD = 0.7;
-
-	/**
-	 * Embedding 模型（用于计算句子向量）
-	 */
 	private final EmbeddingModel embeddingModel;
 
-	/**
-	 * 最小分块大小
-	 */
 	private final int minChunkSize;
 
-	/**
-	 * 最大分块大小
-	 */
 	private final int maxChunkSize;
 
-	/**
-	 * 语义相似度阈值（当相邻句子相似度低于此值时分块）
-	 */
 	private final double similarityThreshold;
 
 	/**
-	 * 私有构造函数，使用 Builder 构建
+	 * Embedding API 每批次最大句子数（阿里 text-embedding-v4 最多支持 10 个）
 	 */
-	private SemanticTextSplitter(Builder builder) {
-		this.embeddingModel = builder.embeddingModel;
-		this.minChunkSize = builder.minChunkSize > 0 ? builder.minChunkSize : DEFAULT_MIN_CHUNK_SIZE;
-		this.maxChunkSize = builder.maxChunkSize > 0 ? builder.maxChunkSize : DEFAULT_MAX_CHUNK_SIZE;
-		this.similarityThreshold = builder.similarityThreshold > 0 ? builder.similarityThreshold
-				: DEFAULT_SIMILARITY_THRESHOLD;
-
-		if (this.embeddingModel == null) {
-			throw new IllegalArgumentException("EmbeddingModel is required for SemanticTextSplitter");
-		}
-
-		log.info("Initialized SemanticTextSplitter with minChunkSize={}, maxChunkSize={}, similarityThreshold={}",
-				this.minChunkSize, this.maxChunkSize, this.similarityThreshold);
-	}
+	private static final int EMBEDDING_BATCH_SIZE = 10;
 
 	/**
-	 * 获取 Builder 实例
-	 * @return Builder 实例
+	 * 改进的句子分隔正则：支持标点符号、换行符、列表项等
 	 */
-	public static Builder builder() {
-		return new Builder();
-	}
+	private static final Pattern SENTENCE_PATTERN = Pattern.compile("([^。！？；.!?;\\n]+[。！？；.!?;]?|[^。！？；.!?;\\n]*\\n)");
 
 	/**
-	 * Builder 类，支持流式 API
+	 * 覆盖 splitText 方法，返回 List<String>
 	 */
-	public static class Builder {
-
-		private EmbeddingModel embeddingModel;
-
-		private int minChunkSize = DEFAULT_MIN_CHUNK_SIZE;
-
-		private int maxChunkSize = DEFAULT_MAX_CHUNK_SIZE;
-
-		private double similarityThreshold = DEFAULT_SIMILARITY_THRESHOLD;
-
-		/**
-		 * 设置 Embedding 模型（必需）
-		 * @param embeddingModel Embedding 模型
-		 * @return Builder 实例
-		 */
-		public Builder withEmbeddingModel(EmbeddingModel embeddingModel) {
-			this.embeddingModel = embeddingModel;
-			return this;
-		}
-
-		/**
-		 * 设置最小分块大小
-		 * @param minChunkSize 最小分块大小
-		 * @return Builder 实例
-		 */
-		public Builder withMinChunkSize(int minChunkSize) {
-			this.minChunkSize = minChunkSize;
-			return this;
-		}
-
-		/**
-		 * 设置最大分块大小
-		 * @param maxChunkSize 最大分块大小
-		 * @return Builder 实例
-		 */
-		public Builder withMaxChunkSize(int maxChunkSize) {
-			this.maxChunkSize = maxChunkSize;
-			return this;
-		}
-
-		/**
-		 * 设置语义相似度阈值
-		 * @param similarityThreshold 相似度阈值（0-1之间）
-		 * @return Builder 实例
-		 */
-		public Builder withSimilarityThreshold(double similarityThreshold) {
-			this.similarityThreshold = similarityThreshold;
-			return this;
-		}
-
-		/**
-		 * 构建 SemanticTextSplitter 实例
-		 * @return 分块器实例
-		 */
-		public SemanticTextSplitter build() {
-			return new SemanticTextSplitter(this);
-		}
-
-	}
-
-	/**
-	 * 实现 TextSplitter 的抽象方法 将单个文本切分为多个文本片段（按语义）
-	 * @param text 输入文本
-	 * @return 切分后的文本片段列表
-	 */
-	@Override
-	protected List<String> splitText(String text) {
-		return extractSentences(text);
-	}
-
-	/**
-	 * 将文档列表按语义策略拆分为多个文档
-	 * @param documents 输入文档列表
-	 * @return 分块后的文档列表
-	 */
-	@Override
-	public List<Document> apply(List<Document> documents) {
-		if (CollectionUtils.isEmpty(documents)) {
-			return new ArrayList<>();
-		}
-
-		List<Document> result = new ArrayList<>();
-
-		for (Document document : documents) {
-			String text = document.getText();
-			if (!StringUtils.hasText(text)) {
-				log.warn("Document content is empty, skipping");
-				continue;
-			}
-
-			List<Document> splitDocs = splitDocument(document);
-			result.addAll(splitDocs);
-		}
-
-		log.info("Split {} documents into {} chunks using semantic splitter", documents.size(), result.size());
-		return result;
-	}
-
-	/**
-	 * 拆分单个文档
-	 * @param document 原始文档
-	 * @return 分块后的文档列表
-	 */
-	private List<Document> splitDocument(Document document) {
-		String text = document.getText();
-
-		// 1. 提取所有句子
+	public List<String> splitText(String text) {
+		// 1. 提取句子
 		List<String> sentences = extractSentences(text);
-
 		if (sentences.isEmpty()) {
-			log.warn("No sentences extracted from document, returning original");
-			return List.of(document);
+			return List.of(text);
 		}
 
-		if (sentences.size() == 1) {
-			// 只有一个句子，直接返回
-			return List.of(createChunkDocument(sentences.get(0), document, 0));
-		}
+		log.debug("Extracted {} sentences from text", sentences.size());
 
-		log.debug("Extracted {} sentences from document", sentences.size());
+		// 2. 使用滑动窗口构建上下文句子（用于计算 embedding）
+		List<String> contextSentences = buildContextSentences(sentences);
 
-		// 2. 计算句子的 embedding 向量
-		List<float[]> sentenceEmbeddings = computeSentenceEmbeddings(sentences);
+		// 3. 分批调用 Embedding API
+		List<float[]> embeddings = batchEmbed(contextSentences);
 
-		// 3. 基于语义相似度进行分块
-		List<Document> result = semanticChunking(sentences, sentenceEmbeddings, document);
+		// 4. 计算相似度并确定切分点
+		List<Integer> splitIndices = findSplitIndices(embeddings);
 
-		log.debug("Split document into {} semantic chunks", result.size());
-		return result;
+		// 5. 根据切分点生成最终的文本块
+		return createChunks(sentences, splitIndices);
 	}
 
 	/**
-	 * 从文本中提取所有句子
-	 * @param text 原始文本
-	 * @return 句子列表
+	 * 提取句子（支持标点符号、换行符等多种分隔符）
 	 */
 	private List<String> extractSentences(String text) {
 		List<String> sentences = new ArrayList<>();
-
 		Matcher matcher = SENTENCE_PATTERN.matcher(text);
-		int lastEnd = 0;
 
 		while (matcher.find()) {
-			String sentence = matcher.group(1).trim();
-			if (StringUtils.hasText(sentence)) {
+			String sentence = matcher.group().trim();
+			if (!sentence.isEmpty()) {
 				sentences.add(sentence);
-			}
-			lastEnd = matcher.end();
-		}
-
-		// 处理最后剩余的文本
-		if (lastEnd < text.length()) {
-			String remaining = text.substring(lastEnd).trim();
-			if (StringUtils.hasText(remaining)) {
-				sentences.add(remaining);
 			}
 		}
 
@@ -269,147 +98,76 @@ public class SemanticTextSplitter extends TextSplitter {
 	}
 
 	/**
-	 * 计算所有句子的 embedding 向量
-	 * @param sentences 句子列表
-	 * @return embedding 向量列表
+	 * 使用滑动窗口构建上下文句子 Vector(i) = Embed(Sent[i-1] + Sent[i] + Sent[i+1])
 	 */
-	private List<float[]> computeSentenceEmbeddings(List<String> sentences) {
-		List<float[]> embeddings = new ArrayList<>();
-
-		try {
-			// 批量计算 embedding（提高效率）
-			EmbeddingResponse response = embeddingModel.embedForResponse(sentences);
-
-			for (int i = 0; i < response.getResults().size(); i++) {
-				float[] embedding = response.getResults().get(i).getOutput();
-				embeddings.add(embedding);
-			}
-
-			log.debug("Computed embeddings for {} sentences", sentences.size());
-		}
-		catch (Exception e) {
-			log.error("Failed to compute sentence embeddings, falling back to simple chunking", e);
-			// 如果 embedding 失败，返回空列表，后续会使用简单分块策略
-			return new ArrayList<>();
-		}
-
-		return embeddings;
-	}
-
-	/**
-	 * 基于语义相似度进行分块
-	 * @param sentences 句子列表
-	 * @param embeddings embedding 向量列表
-	 * @param originalDocument 原始文档
-	 * @return 分块后的文档列表
-	 */
-	private List<Document> semanticChunking(List<String> sentences, List<float[]> embeddings,
-			Document originalDocument) {
-
-		List<Document> result = new ArrayList<>();
-
-		// 如果 embedding 失败，使用简单的大小分块策略
-		if (embeddings.isEmpty()) {
-			return fallbackChunking(sentences, originalDocument);
-		}
-
-		List<String> currentChunk = new ArrayList<>();
-		int currentSize = 0;
+	private List<String> buildContextSentences(List<String> sentences) {
+		List<String> contextSentences = new ArrayList<>();
 
 		for (int i = 0; i < sentences.size(); i++) {
-			String sentence = sentences.get(i);
-			int sentenceSize = sentence.length();
+			StringBuilder context = new StringBuilder();
 
-			boolean shouldSplit = false;
-
-			// 检查是否需要分块
-			if (!currentChunk.isEmpty()) {
-				// 1. 如果超过最大分块大小，必须分块
-				if (currentSize + sentenceSize > this.maxChunkSize) {
-					shouldSplit = true;
-					log.debug("Splitting due to max size: current={}, sentence={}", currentSize, sentenceSize);
-				}
-				// 2. 如果达到最小分块大小，检查语义相似度
-				else if (currentSize >= this.minChunkSize && i < embeddings.size()) {
-					double similarity = cosineSimilarity(embeddings.get(i - 1), embeddings.get(i));
-					if (similarity < this.similarityThreshold) {
-						shouldSplit = true;
-						log.debug("Splitting due to low similarity: {}", similarity);
-					}
-				}
+			// 前一句（如果存在）
+			if (i > 0) {
+				context.append(sentences.get(i - 1)).append(" ");
 			}
 
-			if (shouldSplit) {
-				// 保存当前分块
-				String chunkContent = String.join("", currentChunk);
-				Document chunkDoc = createChunkDocument(chunkContent, originalDocument, result.size());
-				result.add(chunkDoc);
+			// 当前句
+			context.append(sentences.get(i));
 
-				// 开始新分块
-				currentChunk = new ArrayList<>();
-				currentSize = 0;
+			// 后一句（如果存在）
+			if (i < sentences.size() - 1) {
+				context.append(" ").append(sentences.get(i + 1));
 			}
 
-			// 添加当前句子
-			currentChunk.add(sentence);
-			currentSize += sentenceSize;
+			contextSentences.add(context.toString());
 		}
 
-		// 处理最后一个分块
-		if (!currentChunk.isEmpty()) {
-			String chunkContent = String.join("", currentChunk);
-			Document chunkDoc = createChunkDocument(chunkContent, originalDocument, result.size());
-			result.add(chunkDoc);
-		}
-
-		return result;
+		return contextSentences;
 	}
 
 	/**
-	 * 降级分块策略（当 embedding 失败时使用）
-	 * @param sentences 句子列表
-	 * @param originalDocument 原始文档
-	 * @return 分块后的文档列表
+	 * 分批调用 Embedding API
 	 */
-	private List<Document> fallbackChunking(List<String> sentences, Document originalDocument) {
-		log.warn("Using fallback chunking strategy (simple size-based)");
+	private List<float[]> batchEmbed(List<String> texts) {
+		List<float[]> allEmbeddings = new ArrayList<>();
 
-		List<Document> result = new ArrayList<>();
-		List<String> currentChunk = new ArrayList<>();
-		int currentSize = 0;
+		// 分批处理
+		for (int i = 0; i < texts.size(); i += EMBEDDING_BATCH_SIZE) {
+			int endIdx = Math.min(i + EMBEDDING_BATCH_SIZE, texts.size());
+			List<String> batch = texts.subList(i, endIdx);
 
-		for (String sentence : sentences) {
-			int sentenceSize = sentence.length();
+			log.debug("Processing embedding batch {}/{} (size: {})", (i / EMBEDDING_BATCH_SIZE) + 1,
+					(texts.size() + EMBEDDING_BATCH_SIZE - 1) / EMBEDDING_BATCH_SIZE, batch.size());
 
-			if (currentSize + sentenceSize > this.maxChunkSize && !currentChunk.isEmpty()) {
-				String chunkContent = String.join("", currentChunk);
-				result.add(createChunkDocument(chunkContent, originalDocument, result.size()));
+			try {
+				// 调用 Embedding API
+				EmbeddingResponse response = embeddingModel.embedForResponse(batch);
+				List<float[]> batchEmbeddings = response.getResults()
+					.stream()
+					.map(embedding -> embedding.getOutput())
+					.collect(Collectors.toList());
 
-				currentChunk = new ArrayList<>();
-				currentSize = 0;
+				allEmbeddings.addAll(batchEmbeddings);
 			}
-
-			currentChunk.add(sentence);
-			currentSize += sentenceSize;
+			catch (Exception e) {
+				log.error("Failed to get embeddings for batch starting at index {}", i, e);
+				// 失败时使用零向量作为占位符
+				for (int j = 0; j < batch.size(); j++) {
+					allEmbeddings.add(new float[768]); // 假设向量维度为 768
+				}
+			}
 		}
 
-		if (!currentChunk.isEmpty()) {
-			String chunkContent = String.join("", currentChunk);
-			result.add(createChunkDocument(chunkContent, originalDocument, result.size()));
-		}
-
-		return result;
+		return allEmbeddings;
 	}
 
 	/**
-	 * 计算两个向量的余弦相似度
-	 * @param vec1 向量1
-	 * @param vec2 向量2
-	 * @return 余弦相似度（0-1之间，1表示完全相同）
+	 * 计算余弦相似度
 	 */
 	private double cosineSimilarity(float[] vec1, float[] vec2) {
 		if (vec1.length != vec2.length) {
-			throw new IllegalArgumentException("Vectors must have the same length");
+			log.warn("Vector dimensions mismatch: {} vs {}", vec1.length, vec2.length);
+			return 0.0;
 		}
 
 		double dotProduct = 0.0;
@@ -430,32 +188,93 @@ public class SemanticTextSplitter extends TextSplitter {
 	}
 
 	/**
-	 * 创建分块文档
-	 * @param content 分块内容
-	 * @param originalDocument 原始文档
-	 * @param chunkIndex 分块索引
-	 * @return 分块后的文档
+	 * 找到语义切分点
 	 */
-	private Document createChunkDocument(String content, Document originalDocument, int chunkIndex) {
-		Document chunkDoc = new Document(content);
+	private List<Integer> findSplitIndices(List<float[]> embeddings) {
+		List<Integer> splitIndices = new ArrayList<>();
+		splitIndices.add(0); // 起始位置
 
-		// 复制元数据
-		if (originalDocument.getMetadata() != null) {
-			chunkDoc.getMetadata().putAll(originalDocument.getMetadata());
+		for (int i = 1; i < embeddings.size(); i++) {
+			double similarity = cosineSimilarity(embeddings.get(i - 1), embeddings.get(i));
+
+			// 相似度低于阈值，说明语义发生了较大变化，需要切分
+			if (similarity < similarityThreshold) {
+				log.debug("Found semantic boundary at sentence {} (similarity: {:.3f})", i, similarity);
+				splitIndices.add(i);
+			}
 		}
 
-		// 添加分块相关信息到元数据
-		chunkDoc.getMetadata().put("chunk_index", chunkIndex);
-		chunkDoc.getMetadata().put("chunk_size", content.length());
-		chunkDoc.getMetadata().put("splitter_type", "semantic");
-
-		return chunkDoc;
+		return splitIndices;
 	}
 
-	@Override
-	public String toString() {
-		return String.format("SemanticTextSplitter(minChunkSize=%d, maxChunkSize=%d, similarityThreshold=%.2f)",
-				this.minChunkSize, this.maxChunkSize, this.similarityThreshold);
+	/**
+	 * 根据切分点生成文本块
+	 */
+	private List<String> createChunks(List<String> sentences, List<Integer> splitIndices) {
+		List<String> chunks = new ArrayList<>();
+
+		for (int i = 0; i < splitIndices.size(); i++) {
+			int startIdx = splitIndices.get(i);
+			int endIdx = (i + 1 < splitIndices.size()) ? splitIndices.get(i + 1) : sentences.size();
+
+			StringBuilder chunkText = new StringBuilder();
+			for (int j = startIdx; j < endIdx; j++) {
+				chunkText.append(sentences.get(j));
+				if (j < endIdx - 1) {
+					chunkText.append(" ");
+				}
+			}
+
+			String chunk = chunkText.toString().trim();
+
+			// 检查块大小是否符合要求
+			if (chunk.length() >= minChunkSize) {
+				// 如果超过最大大小，进一步切分
+				if (chunk.length() > maxChunkSize) {
+					chunks.addAll(splitLargeChunk(chunk));
+				}
+				else {
+					chunks.add(chunk);
+				}
+			}
+			else if (!chunk.isEmpty()) {
+				// 太小的块，如果不是最后一个，尝试合并到下一个
+				if (i == splitIndices.size() - 1) {
+					chunks.add(chunk); // 最后一个块，即使很小也保留
+				}
+			}
+		}
+
+		log.info("Created {} semantic chunks from {} sentences", chunks.size(), sentences.size());
+		return chunks;
+	}
+
+	/**
+	 * 切分过大的块
+	 */
+	private List<String> splitLargeChunk(String chunk) {
+		List<String> subChunks = new ArrayList<>();
+		int start = 0;
+
+		while (start < chunk.length()) {
+			int end = Math.min(start + maxChunkSize, chunk.length());
+
+			// 尝试在句子边界处切分
+			if (end < chunk.length()) {
+				int lastPeriod = chunk.lastIndexOf('。', end);
+				int lastNewline = chunk.lastIndexOf('\n', end);
+				int splitPoint = Math.max(lastPeriod, lastNewline);
+
+				if (splitPoint > start + minChunkSize) {
+					end = splitPoint + 1;
+				}
+			}
+
+			subChunks.add(chunk.substring(start, end).trim());
+			start = end;
+		}
+
+		return subChunks;
 	}
 
 }
