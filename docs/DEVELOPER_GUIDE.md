@@ -184,6 +184,7 @@ public class AgentVectorStoreService {
 项目默认使用内存向量库 (`SimpleVectorStore`)。若需使用持久化向量库（如 PGVector, Milvus 等），请按照以下步骤操作：
 
 1. **引入依赖**: 在 `pom.xml` 中添加相应的 Spring AI Starter。
+   
    ```xml
    <!-- 例如：引入 PGvector -->
    <dependency>
@@ -191,8 +192,10 @@ public class AgentVectorStoreService {
        <artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
    </dependency>
    ```
-
+   
 2. **配置属性**: 在 `application.yml` 中添加对应向量库的连接配置。具体参数请参考 [Spring AI 官方文档](https://springdoc.cn/spring-ai/api/vectordbs.html)。
+
+2. **配置 `spring.ai.vectorstore.type`**。具体填写的值可以在引入上面的向量库starter后自行搜索 `VectorStoreAutoConfiguration`自动配置类，比如`es`的是`ElasticsearchVectorStoreAutoConfiguration`，该类里面可以看见`spring.ai.vectorstore.type`期望的是`elasticsearch`。
 
 
 #### ES Schema 配置示例
