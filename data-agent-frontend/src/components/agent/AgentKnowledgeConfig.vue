@@ -115,10 +115,20 @@
           <el-tag v-if="scope.row.splitterType === 'token'" type="primary" size="small" round>
             Token
           </el-tag>
-          <el-tag v-else-if="scope.row.splitterType === 'recursive'" type="success" size="small" round>
+          <el-tag
+            v-else-if="scope.row.splitterType === 'recursive'"
+            type="success"
+            size="small"
+            round
+          >
             递归
           </el-tag>
-          <el-tag v-else-if="scope.row.splitterType === 'sentence'" type="warning" size="small" round>
+          <el-tag
+            v-else-if="scope.row.splitterType === 'sentence'"
+            type="warning"
+            size="small"
+            round
+          >
             句子
           </el-tag>
           <el-tag v-else-if="scope.row.splitterType === 'semantic'" type="info" size="small" round>
@@ -301,7 +311,8 @@
             ✨ 保证句子完整性，语义不被截断，适合新闻和文章
           </div>
           <div v-else-if="knowledgeForm.splitterType === 'semantic'">
-            🧠 基于语义相似度智能分块，自动识别主题边界，适合论文和长文（会产生 embedding API 调用成本）
+            🧠 基于语义相似度智能分块，自动识别主题边界，适合论文和长文（会产生 embedding API
+            调用成本）
           </div>
         </div>
       </el-form-item>
