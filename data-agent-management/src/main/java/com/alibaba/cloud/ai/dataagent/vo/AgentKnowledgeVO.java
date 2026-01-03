@@ -52,6 +52,9 @@ public class AgentKnowledgeVO {
 	// 操作失败的错误信息
 	private String errorMsg;
 
+	// 分块策略类型：token, recursive
+	private String splitterType;
+
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
 	private LocalDateTime createdTime;
 

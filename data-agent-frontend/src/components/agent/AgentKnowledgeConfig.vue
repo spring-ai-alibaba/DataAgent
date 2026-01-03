@@ -110,6 +110,23 @@
           <span v-else>{{ scope.row.type }}</span>
         </template>
       </el-table-column>
+      <el-table-column label="分块策略" min-width="100px">
+        <template #default="scope">
+          <el-tag v-if="scope.row.splitterType === 'token'" type="primary" size="small" round>
+            Token
+          </el-tag>
+          <el-tag v-else-if="scope.row.splitterType === 'recursive'" type="success" size="small" round>
+            递归
+          </el-tag>
+          <el-tag v-else-if="scope.row.splitterType === 'sentence'" type="warning" size="small" round>
+            句子
+          </el-tag>
+          <el-tag v-else-if="scope.row.splitterType === 'semantic'" type="info" size="small" round>
+            语义
+          </el-tag>
+          <span v-else style="color: #909399; font-size: 12px">-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="处理状态" min-width="120px">
         <template #default="scope">
           <el-tag v-if="scope.row.embeddingStatus === 'COMPLETED'" type="success" round>
@@ -257,6 +274,38 @@
         <el-input v-model="knowledgeForm.title" placeholder="为这份知识起一个易于识别的名称" />
       </el-form-item>
 
+      <!-- 分块策略选择 (仅文档类型) -->
+      <el-form-item
+        v-if="knowledgeForm.type === 'DOCUMENT' && !isEdit"
+        label="分块策略"
+        prop="splitterType"
+      >
+        <el-select
+          v-model="knowledgeForm.splitterType"
+          placeholder="请选择分块策略"
+          style="width: 100%"
+        >
+          <el-option label="Token 分块" value="token" />
+          <el-option label="递归分块" value="recursive" />
+          <el-option label="句子分块" value="sentence" />
+          <el-option label="语义分块" value="semantic" />
+        </el-select>
+        <div style="margin-top: 8px; font-size: 12px; color: #909399">
+          <div v-if="knowledgeForm.splitterType === 'token'">
+            ⚡ 速度最快，按固定 token 数切分，适合代码和日志
+          </div>
+          <div v-else-if="knowledgeForm.splitterType === 'recursive'">
+            📚 平衡之选，保留文档结构（段落、章节），适合技术文档
+          </div>
+          <div v-else-if="knowledgeForm.splitterType === 'sentence'">
+            ✨ 保证句子完整性，语义不被截断，适合新闻和文章
+          </div>
+          <div v-else-if="knowledgeForm.splitterType === 'semantic'">
+            🧠 基于语义相似度智能分块，自动识别主题边界，适合论文和长文（会产生 embedding API 调用成本）
+          </div>
+        </div>
+      </el-form-item>
+
       <!-- 文件上传区域 -->
       <el-form-item v-if="knowledgeForm.type === 'DOCUMENT'" label="上传文件" required>
         <div v-if="!isEdit" style="width: 100%">
@@ -376,7 +425,7 @@
 
       // 表单数据
       const knowledgeForm: Ref<
-        AgentKnowledge & { question?: string; answer?: string; file?: File }
+        AgentKnowledge & { question?: string; answer?: string; file?: File; splitterType?: string }
       > = ref({
         agentId: props.agentId,
         title: '',
@@ -385,7 +434,8 @@
         isRecall: true,
         question: '',
         answer: '',
-      } as AgentKnowledge & { question?: string; answer?: string });
+        splitterType: 'recursive', // 默认使用递归分块
+      } as AgentKnowledge & { question?: string; answer?: string; splitterType?: string });
 
       // 切换筛选面板
       const toggleFilter = () => {
@@ -613,6 +663,10 @@
 
             if (knowledgeForm.value.type === 'DOCUMENT' && knowledgeForm.value.file) {
               formData.append('file', knowledgeForm.value.file);
+              // 添加分块策略参数
+              if (knowledgeForm.value.splitterType) {
+                formData.append('splitterType', knowledgeForm.value.splitterType);
+              }
             } else {
               if (knowledgeForm.value.content) {
                 formData.append('content', knowledgeForm.value.content);
@@ -656,7 +710,8 @@
           isRecall: true,
           question: '',
           answer: '',
-        } as AgentKnowledge & { question?: string; answer?: string };
+          splitterType: 'recursive', // 默认使用递归分块
+        } as AgentKnowledge & { question?: string; answer?: string; splitterType?: string };
         currentEditId.value = null;
         fileList.value = [];
       };

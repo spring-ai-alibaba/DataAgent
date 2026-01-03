@@ -115,8 +115,37 @@ public class DataAgentProperties {
 		private boolean keepSeparator = true;
 
 		// --- RecursiveCharacterTextSplitter 专用 ---
-		// 如果为 null，该类内部有默认的分隔符列表
+		/**
+		 * 重叠区域字符数 默认值：200
+		 */
+		private int chunkOverlap = 200;
+
+		/**
+		 * 分隔符列表（如果为 null，该类内部有默认的分隔符列表）
+		 */
 		private String[] separators = null;
+
+		// --- SentenceSplitter 专用 ---
+		/**
+		 * 句子重叠数量 默认值：1（保留前一个分块的最后1个句子）
+		 */
+		private int sentenceOverlap = 1;
+
+		// --- SemanticTextSplitter 专用 ---
+		/**
+		 * 最小分块大小 默认值：200
+		 */
+		private int minChunkSize = 200;
+
+		/**
+		 * 最大分块大小 默认值：1000
+		 */
+		private int maxChunkSize = 1000;
+
+		/**
+		 * 语义相似度阈值 默认值：0.7（0-1之间，越低越容易分块）
+		 */
+		private double similarityThreshold = 0.7;
 
 	}
 

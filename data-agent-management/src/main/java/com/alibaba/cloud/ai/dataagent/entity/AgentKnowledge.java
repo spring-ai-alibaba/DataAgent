@@ -68,6 +68,10 @@ public class AgentKnowledge {
 	// 文件类型
 	private String fileType;
 
+	// 分块策略类型：token, recursive
+	// 默认值是 token
+	private String splitterType;
+
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
 	private LocalDateTime createdTime;
 

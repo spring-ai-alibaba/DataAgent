@@ -19,6 +19,7 @@ package com.alibaba.cloud.ai.dataagent.config;
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
+import com.alibaba.cloud.ai.dataagent.splitter.CustomRecursiveCharacterTextSplitter;
 import com.alibaba.cloud.ai.dataagent.util.McpServerToolUtil;
 import com.alibaba.cloud.ai.dataagent.util.NodeBeanUtil;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
@@ -414,12 +415,70 @@ public class DataAgentConfiguration implements DisposableBean {
 		}
 	}
 
-	@Bean
+	@Bean(name = "token")
 	public TextSplitter textSplitter(DataAgentProperties properties) {
 		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
 		return new TokenTextSplitter(textSplitterProps.getChunkSize(), textSplitterProps.getMinChunkSizeChars(),
 				textSplitterProps.getMinChunkLengthToEmbed(), textSplitterProps.getMaxNumChunks(),
 				textSplitterProps.isKeepSeparator());
+	}
+
+	/**
+	 * 递归字符文本分块器（自定义实现）
+	 * @param properties 分块配置
+	 * @return CustomRecursiveCharacterTextSplitter实例
+	 */
+	@Bean(name = "recursive")
+	public TextSplitter recursiveTextSplitter(DataAgentProperties properties) {
+		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
+		// 使用配置的分隔符列表，如果为null则使用默认分隔符
+		String[] separators = textSplitterProps.getSeparators();
+		if (separators != null && separators.length > 0) {
+			return CustomRecursiveCharacterTextSplitter.builder()
+				.withChunkSize(textSplitterProps.getChunkSize())
+				.withMinChunkSizeChars(textSplitterProps.getMinChunkSizeChars())
+				.withChunkOverlap(textSplitterProps.getChunkOverlap())
+				.withSeparators(separators)
+				.build();
+		}
+		else {
+			return CustomRecursiveCharacterTextSplitter.builder()
+				.withChunkSize(textSplitterProps.getChunkSize())
+				.withMinChunkSizeChars(textSplitterProps.getMinChunkSizeChars())
+				.withChunkOverlap(textSplitterProps.getChunkOverlap())
+				.build();
+		}
+	}
+
+	/**
+	 * 句子分块器
+	 * @param properties 分块配置
+	 * @return SentenceSplitter实例
+	 */
+	@Bean(name = "sentence")
+	public TextSplitter sentenceSplitter(DataAgentProperties properties) {
+		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
+		return com.alibaba.cloud.ai.dataagent.splitter.SentenceSplitter.builder()
+			.withChunkSize(textSplitterProps.getChunkSize())
+			.withSentenceOverlap(textSplitterProps.getSentenceOverlap())
+			.build();
+	}
+
+	/**
+	 * 语义分块器（基于 embedding 相似度）
+	 * @param properties 分块配置
+	 * @param embeddingModel Embedding 模型
+	 * @return SemanticTextSplitter实例
+	 */
+	@Bean(name = "semantic")
+	public TextSplitter semanticSplitter(DataAgentProperties properties, EmbeddingModel embeddingModel) {
+		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
+		return com.alibaba.cloud.ai.dataagent.splitter.SemanticTextSplitter.builder()
+			.withEmbeddingModel(embeddingModel)
+			.withMinChunkSize(textSplitterProps.getMinChunkSize())
+			.withMaxChunkSize(textSplitterProps.getMaxChunkSize())
+			.withSimilarityThreshold(textSplitterProps.getSimilarityThreshold())
+			.build();
 	}
 
 }
