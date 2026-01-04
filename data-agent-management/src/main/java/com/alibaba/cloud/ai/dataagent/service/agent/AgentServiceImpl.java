@@ -53,6 +53,11 @@ public class AgentServiceImpl implements AgentService {
 	}
 
 	@Override
+	public Agent findByApiKey(String apiKey) {
+		return agentMapper.findByApiKey(apiKey);
+	}
+
+	@Override
 	public List<Agent> findByStatus(String status) {
 		return agentMapper.findByStatus(status);
 	}

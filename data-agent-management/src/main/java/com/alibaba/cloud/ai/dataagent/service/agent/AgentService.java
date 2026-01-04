@@ -26,6 +26,8 @@ public interface AgentService {
 
 	Agent findById(Long id);
 
+	Agent findByApiKey(String apiKey);
+
 	List<Agent> findByStatus(String status);
 
 	List<Agent> search(String keyword);

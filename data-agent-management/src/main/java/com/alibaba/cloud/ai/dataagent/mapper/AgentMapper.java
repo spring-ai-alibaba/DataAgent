@@ -35,6 +35,11 @@ public interface AgentMapper {
 	Agent findById(Long id);
 
 	@Select("""
+			SELECT * FROM agent WHERE api_key = #{apiKey} AND api_key_enabled = 1 LIMIT 1
+			""")
+	Agent findByApiKey(@Param("apiKey") String apiKey);
+
+	@Select("""
 			SELECT * FROM agent WHERE status = #{status} ORDER BY create_time DESC
 			""")
 	List<Agent> findByStatus(String status);
