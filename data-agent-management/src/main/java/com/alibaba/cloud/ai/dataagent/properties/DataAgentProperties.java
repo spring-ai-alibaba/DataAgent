@@ -123,6 +123,7 @@ public class DataAgentProperties {
 		@Getter
 		@Setter
 		public static class TokenTextSplitterConfig {
+
 			/**
 			 * 最小分块字符数 默认值：400
 			 */
@@ -142,6 +143,7 @@ public class DataAgentProperties {
 			 * 是否保留分隔符 默认值：true
 			 */
 			private boolean keepSeparator = true;
+
 		}
 
 		/**
@@ -150,6 +152,7 @@ public class DataAgentProperties {
 		@Getter
 		@Setter
 		public static class RecursiveTextSplitterConfig {
+
 			/**
 			 * 重叠区域字符数 默认值：200
 			 */
@@ -159,6 +162,7 @@ public class DataAgentProperties {
 			 * 分隔符列表（如果为 null，该类内部有默认的分隔符列表）
 			 */
 			private String[] separators = null;
+
 		}
 
 		/**
@@ -167,10 +171,12 @@ public class DataAgentProperties {
 		@Getter
 		@Setter
 		public static class SentenceTextSplitterConfig {
+
 			/**
 			 * 句子重叠数量 默认值：1（保留前一个分块的最后1个句子）
 			 */
 			private int sentenceOverlap = 1;
+
 		}
 
 		/**
@@ -179,6 +185,7 @@ public class DataAgentProperties {
 		@Getter
 		@Setter
 		public static class SemanticTextSplitterConfig {
+
 			/**
 			 * 最小分块大小 默认值：200
 			 */
@@ -193,6 +200,7 @@ public class DataAgentProperties {
 			 * 语义相似度阈值 默认值：0.7（0-1之间，越低越容易分块）
 			 */
 			private double similarityThreshold = 0.7;
+
 		}
 
 		/**
@@ -201,10 +209,12 @@ public class DataAgentProperties {
 		@Getter
 		@Setter
 		public static class ParagraphTextSplitterConfig {
+
 			/**
 			 * 段落重叠字符数 默认值：200（保留前一个分块的最后200个字符，而非段落数量）
 			 */
 			private int paragraphOverlapChars = 200;
+
 		}
 
 	}

@@ -423,8 +423,7 @@ public class DataAgentConfiguration implements DisposableBean {
 		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
 		DataAgentProperties.TextSplitter.TokenTextSplitterConfig config = textSplitterProps.getToken();
 		return new TokenTextSplitter(textSplitterProps.getChunkSize(), config.getMinChunkSizeChars(),
-				config.getMinChunkLengthToEmbed(), config.getMaxNumChunks(),
-				config.isKeepSeparator());
+				config.getMinChunkLengthToEmbed(), config.getMaxNumChunks(), config.isKeepSeparator());
 	}
 
 	/**

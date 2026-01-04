@@ -71,13 +71,13 @@ public class ParagraphTextSplitter extends TextSplitter {
 			// 如果单个段落就超过 chunkSize，需要先切分
 			if (trimmedParagraph.length() > chunkSize) {
 				log.debug("Paragraph is too large ({}), splitting further", trimmedParagraph.length());
-				
+
 				// 如果当前块有内容，先保存并处理 overlap
 				if (currentChunk.length() > 0) {
 					chunks.add(currentChunk.toString().trim());
 					currentChunk = extractOverlap(currentChunk.toString());
 				}
-				
+
 				// 切分大段落
 				List<String> subChunks = splitLargeParagraph(trimmedParagraph);
 				if (!subChunks.isEmpty()) {
@@ -86,7 +86,7 @@ public class ParagraphTextSplitter extends TextSplitter {
 						currentChunk.append("\n\n");
 					}
 					currentChunk.append(subChunks.get(0));
-					
+
 					// 其余子块作为独立块，并处理 overlap
 					for (int i = 1; i < subChunks.size(); i++) {
 						chunks.add(currentChunk.toString().trim());
@@ -138,19 +138,18 @@ public class ParagraphTextSplitter extends TextSplitter {
 		// 从块末尾提取指定字符数
 		int overlapStart = Math.max(0, chunk.length() - paragraphOverlapChars);
 		String overlapText = chunk.substring(overlapStart).trim();
-		
+
 		// 尝试从最后一个段落边界开始，避免截断段落
 		int lastParagraphBreak = overlapText.indexOf("\n\n");
 		if (lastParagraphBreak > 0) {
 			overlapText = overlapText.substring(lastParagraphBreak + 2);
 		}
-		
+
 		return new StringBuilder(overlapText);
 	}
 
 	/**
-	 * 切分过大的段落（防丢失内容）
-	 * 优先按句子切分，如果句子太大则按字符硬切
+	 * 切分过大的段落（防丢失内容） 优先按句子切分，如果句子太大则按字符硬切
 	 */
 	private List<String> splitLargeParagraph(String paragraph) {
 		List<String> subChunks = new ArrayList<>();
@@ -197,7 +196,8 @@ public class ParagraphTextSplitter extends TextSplitter {
 						currentChunk = new StringBuilder();
 					}
 					subChunks.addAll(splitByChars(remaining));
-				} else {
+				}
+				else {
 					// 检查是否可以添加到当前块
 					if (currentChunk.length() + remaining.length() > chunkSize && currentChunk.length() > 0) {
 						subChunks.add(currentChunk.toString().trim());
