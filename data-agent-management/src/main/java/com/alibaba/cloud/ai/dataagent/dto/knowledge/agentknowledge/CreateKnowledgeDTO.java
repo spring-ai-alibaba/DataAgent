@@ -63,4 +63,9 @@ public class CreateKnowledgeDTO {
 	 */
 	private MultipartFile file;
 
+	/**
+	 * 分块策略类型：token, recursive 默认值是 token
+	 */
+	private String splitterType;
+
 }
