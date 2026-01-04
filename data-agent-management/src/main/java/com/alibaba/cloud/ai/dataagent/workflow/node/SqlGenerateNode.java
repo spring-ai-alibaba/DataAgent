@@ -17,7 +17,6 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
-import com.alibaba.cloud.ai.dataagent.dto.planner.Plan;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
@@ -36,8 +35,6 @@ import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.converter.BeanOutputConverter;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -65,11 +62,6 @@ public class SqlGenerateNode implements NodeAction {
 	private final Nl2SqlService nl2SqlService;
 
 	private final DataAgentProperties properties;
-
-	private final BeanOutputConverter<Plan> converter = new BeanOutputConverter<>(new ParameterizedTypeReference<>() {
-	});
-
-	;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
