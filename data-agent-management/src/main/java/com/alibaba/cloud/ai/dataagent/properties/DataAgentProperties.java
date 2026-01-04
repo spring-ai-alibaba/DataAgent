@@ -87,71 +87,125 @@ public class DataAgentProperties {
 	@Setter
 	public static class TextSplitter {
 
-		// --- 通用参数 ---
 		/**
 		 * 默认分块大小，基于token数量 默认值：1000
 		 */
 		private int chunkSize = 1000;
 
-		// --- TokenTextSplitter 专用 ---
 		/**
-		 * 最小分块字符数 默认值：400
+		 * TokenTextSplitter 策略配置
 		 */
-		private int minChunkSizeChars = 400;
+		private TokenTextSplitterConfig token = new TokenTextSplitterConfig();
 
 		/**
-		 * 嵌入最小分块长度 默认值：10
+		 * RecursiveCharacterTextSplitter 策略配置
 		 */
-		private int minChunkLengthToEmbed = 10;
+		private RecursiveTextSplitterConfig recursive = new RecursiveTextSplitterConfig();
 
 		/**
-		 * 最大分块数量 默认值：5000
+		 * SentenceTextSplitter 策略配置
 		 */
-		private int maxNumChunks = 5000;
+		private SentenceTextSplitterConfig sentence = new SentenceTextSplitterConfig();
 
 		/**
-		 * 是否保留分隔符 默认值：true
+		 * SemanticTextSplitter 策略配置
 		 */
-		private boolean keepSeparator = true;
-
-		// --- RecursiveCharacterTextSplitter 专用 ---
-		/**
-		 * 重叠区域字符数 默认值：200
-		 */
-		private int chunkOverlap = 200;
+		private SemanticTextSplitterConfig semantic = new SemanticTextSplitterConfig();
 
 		/**
-		 * 分隔符列表（如果为 null，该类内部有默认的分隔符列表）
+		 * ParagraphTextSplitter 策略配置
 		 */
-		private String[] separators = null;
-
-		// --- SentenceSplitter 专用 ---
-		/**
-		 * 句子重叠数量 默认值：1（保留前一个分块的最后1个句子）
-		 */
-		private int sentenceOverlap = 1;
-
-		// --- SemanticTextSplitter 专用 ---
-		/**
-		 * 最小分块大小 默认值：200
-		 */
-		private int minChunkSize = 200;
+		private ParagraphTextSplitterConfig paragraph = new ParagraphTextSplitterConfig();
 
 		/**
-		 * 最大分块大小 默认值：1000
+		 * TokenTextSplitter 策略配置
 		 */
-		private int maxChunkSize = 1000;
+		@Getter
+		@Setter
+		public static class TokenTextSplitterConfig {
+			/**
+			 * 最小分块字符数 默认值：400
+			 */
+			private int minChunkSizeChars = 400;
+
+			/**
+			 * 嵌入最小分块长度 默认值：10
+			 */
+			private int minChunkLengthToEmbed = 10;
+
+			/**
+			 * 最大分块数量 默认值：5000
+			 */
+			private int maxNumChunks = 5000;
+
+			/**
+			 * 是否保留分隔符 默认值：true
+			 */
+			private boolean keepSeparator = true;
+		}
 
 		/**
-		 * 语义相似度阈值 默认值：0.7（0-1之间，越低越容易分块）
+		 * RecursiveCharacterTextSplitter 策略配置
 		 */
-		private double similarityThreshold = 0.7;
+		@Getter
+		@Setter
+		public static class RecursiveTextSplitterConfig {
+			/**
+			 * 重叠区域字符数 默认值：200
+			 */
+			private int chunkOverlap = 200;
 
-		// --- ParagraphTextSplitter 专用 ---
+			/**
+			 * 分隔符列表（如果为 null，该类内部有默认的分隔符列表）
+			 */
+			private String[] separators = null;
+		}
+
 		/**
-		 * 段落重叠数量 默认值：1（保留前一个分块的最后1个段落）
+		 * SentenceTextSplitter 策略配置
 		 */
-		private int paragraphOverlap = 1;
+		@Getter
+		@Setter
+		public static class SentenceTextSplitterConfig {
+			/**
+			 * 句子重叠数量 默认值：1（保留前一个分块的最后1个句子）
+			 */
+			private int sentenceOverlap = 1;
+		}
+
+		/**
+		 * SemanticTextSplitter 策略配置
+		 */
+		@Getter
+		@Setter
+		public static class SemanticTextSplitterConfig {
+			/**
+			 * 最小分块大小 默认值：200
+			 */
+			private int minChunkSize = 200;
+
+			/**
+			 * 最大分块大小 默认值：1000
+			 */
+			private int maxChunkSize = 1000;
+
+			/**
+			 * 语义相似度阈值 默认值：0.7（0-1之间，越低越容易分块）
+			 */
+			private double similarityThreshold = 0.7;
+		}
+
+		/**
+		 * ParagraphTextSplitter 策略配置
+		 */
+		@Getter
+		@Setter
+		public static class ParagraphTextSplitterConfig {
+			/**
+			 * 段落重叠字符数 默认值：200（保留前一个分块的最后200个字符，而非段落数量）
+			 */
+			private int paragraphOverlapChars = 200;
+		}
 
 	}
 

@@ -421,9 +421,10 @@ public class DataAgentConfiguration implements DisposableBean {
 	@Bean(name = "token")
 	public TextSplitter textSplitter(DataAgentProperties properties) {
 		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
-		return new TokenTextSplitter(textSplitterProps.getChunkSize(), textSplitterProps.getMinChunkSizeChars(),
-				textSplitterProps.getMinChunkLengthToEmbed(), textSplitterProps.getMaxNumChunks(),
-				textSplitterProps.isKeepSeparator());
+		DataAgentProperties.TextSplitter.TokenTextSplitterConfig config = textSplitterProps.getToken();
+		return new TokenTextSplitter(textSplitterProps.getChunkSize(), config.getMinChunkSizeChars(),
+				config.getMinChunkLengthToEmbed(), config.getMaxNumChunks(),
+				config.isKeepSeparator());
 	}
 
 	/**
@@ -434,8 +435,9 @@ public class DataAgentConfiguration implements DisposableBean {
 	@Bean(name = "recursive")
 	public TextSplitter recursiveTextSplitter(DataAgentProperties properties) {
 		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
+		DataAgentProperties.TextSplitter.RecursiveTextSplitterConfig config = textSplitterProps.getRecursive();
 		// RecursiveCharacterTextSplitter
-		String[] separators = textSplitterProps.getSeparators();
+		String[] separators = config.getSeparators();
 		if (separators != null && separators.length > 0) {
 			return new RecursiveCharacterTextSplitter(textSplitterProps.getChunkSize(), separators);
 		}
@@ -465,11 +467,12 @@ public class DataAgentConfiguration implements DisposableBean {
 	@Bean(name = "semantic")
 	public TextSplitter semanticSplitter(DataAgentProperties properties, EmbeddingModel embeddingModel) {
 		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
+		DataAgentProperties.TextSplitter.SemanticTextSplitterConfig config = textSplitterProps.getSemantic();
 		return SemanticTextSplitter.builder()
 			.embeddingModel(embeddingModel)
-			.minChunkSize(textSplitterProps.getMinChunkSize())
-			.maxChunkSize(textSplitterProps.getMaxChunkSize())
-			.similarityThreshold(textSplitterProps.getSimilarityThreshold())
+			.minChunkSize(config.getMinChunkSize())
+			.maxChunkSize(config.getMaxChunkSize())
+			.similarityThreshold(config.getSimilarityThreshold())
 			.build();
 	}
 
@@ -481,9 +484,10 @@ public class DataAgentConfiguration implements DisposableBean {
 	@Bean(name = "paragraph")
 	public TextSplitter paragraphSplitter(DataAgentProperties properties) {
 		DataAgentProperties.TextSplitter textSplitterProps = properties.getTextSplitter();
+		DataAgentProperties.TextSplitter.ParagraphTextSplitterConfig config = textSplitterProps.getParagraph();
 		return ParagraphTextSplitter.builder()
 			.chunkSize(textSplitterProps.getChunkSize())
-			.paragraphOverlap(textSplitterProps.getParagraphOverlap())
+			.paragraphOverlapChars(config.getParagraphOverlapChars())
 			.build();
 	}
 

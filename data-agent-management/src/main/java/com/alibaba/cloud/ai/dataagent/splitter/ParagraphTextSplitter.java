@@ -36,7 +36,10 @@ public class ParagraphTextSplitter extends TextSplitter {
 
 	private final int chunkSize;
 
-	private final int paragraphOverlap;
+	/**
+	 * 段落重叠字符数
+	 */
+	private final int paragraphOverlapChars;
 
 	/**
 	 * 段落分隔符：至少两个连续的换行符（可能包含空白字符）
@@ -58,7 +61,6 @@ public class ParagraphTextSplitter extends TextSplitter {
 
 		List<String> chunks = new ArrayList<>();
 		StringBuilder currentChunk = new StringBuilder();
-		List<String> recentParagraphs = new ArrayList<>(); // 用于 overlap
 
 		for (String paragraph : paragraphs) {
 			String trimmedParagraph = paragraph.trim();
@@ -66,26 +68,47 @@ public class ParagraphTextSplitter extends TextSplitter {
 				continue;
 			}
 
-			// 计算添加这个段落后的总长度
-			int potentialLength = currentChunk.length() + (currentChunk.length() > 0 ? 2 : 0)
-					+ trimmedParagraph.length();
+			// 如果单个段落就超过 chunkSize，需要先切分
+			if (trimmedParagraph.length() > chunkSize) {
+				log.debug("Paragraph is too large ({}), splitting further", trimmedParagraph.length());
+				
+				// 如果当前块有内容，先保存并处理 overlap
+				if (currentChunk.length() > 0) {
+					chunks.add(currentChunk.toString().trim());
+					currentChunk = extractOverlap(currentChunk.toString());
+				}
+				
+				// 切分大段落
+				List<String> subChunks = splitLargeParagraph(trimmedParagraph);
+				if (!subChunks.isEmpty()) {
+					// 将第一个子块添加到当前块
+					if (currentChunk.length() > 0) {
+						currentChunk.append("\n\n");
+					}
+					currentChunk.append(subChunks.get(0));
+					
+					// 其余子块作为独立块，并处理 overlap
+					for (int i = 1; i < subChunks.size(); i++) {
+						chunks.add(currentChunk.toString().trim());
+						currentChunk = extractOverlap(currentChunk.toString());
+						if (currentChunk.length() > 0) {
+							currentChunk.append("\n\n");
+						}
+						currentChunk.append(subChunks.get(i));
+					}
+				}
+				continue;
+			}
+
+			// 计算添加这个段落后的总长度（包括分隔符）
+			int separatorLength = currentChunk.length() > 0 ? 2 : 0; // "\n\n"
+			int potentialLength = currentChunk.length() + separatorLength + trimmedParagraph.length();
 
 			// 如果加上当前段落会超过 chunkSize，先保存当前块
 			if (potentialLength > chunkSize && currentChunk.length() > 0) {
 				chunks.add(currentChunk.toString().trim());
-
-				// 准备新块，加入 overlap 段落
-				currentChunk = new StringBuilder();
-				if (paragraphOverlap > 0 && !recentParagraphs.isEmpty()) {
-					int overlapCount = Math.min(paragraphOverlap, recentParagraphs.size());
-					for (int i = recentParagraphs.size() - overlapCount; i < recentParagraphs.size(); i++) {
-						if (currentChunk.length() > 0) {
-							currentChunk.append("\n\n");
-						}
-						currentChunk.append(recentParagraphs.get(i));
-					}
-				}
-				recentParagraphs.clear();
+				// 提取 overlap 内容作为新块的开始
+				currentChunk = extractOverlap(currentChunk.toString());
 			}
 
 			// 添加当前段落
@@ -93,15 +116,6 @@ public class ParagraphTextSplitter extends TextSplitter {
 				currentChunk.append("\n\n");
 			}
 			currentChunk.append(trimmedParagraph);
-			recentParagraphs.add(trimmedParagraph);
-
-			// 如果单个段落就超过 chunkSize，直接切分
-			if (trimmedParagraph.length() > chunkSize) {
-				log.debug("Paragraph is too large ({}), splitting further", trimmedParagraph.length());
-				chunks.addAll(splitLargeParagraph(trimmedParagraph));
-				currentChunk = new StringBuilder();
-				recentParagraphs.clear();
-			}
 		}
 
 		// 添加最后一个块
@@ -114,18 +128,57 @@ public class ParagraphTextSplitter extends TextSplitter {
 	}
 
 	/**
-	 * 切分过大的段落（按句子切分）
+	 * 从已完成的块中提取 overlap 内容（基于字符数）
+	 */
+	private StringBuilder extractOverlap(String chunk) {
+		if (paragraphOverlapChars <= 0 || chunk == null || chunk.isEmpty()) {
+			return new StringBuilder();
+		}
+
+		// 从块末尾提取指定字符数
+		int overlapStart = Math.max(0, chunk.length() - paragraphOverlapChars);
+		String overlapText = chunk.substring(overlapStart).trim();
+		
+		// 尝试从最后一个段落边界开始，避免截断段落
+		int lastParagraphBreak = overlapText.indexOf("\n\n");
+		if (lastParagraphBreak > 0) {
+			overlapText = overlapText.substring(lastParagraphBreak + 2);
+		}
+		
+		return new StringBuilder(overlapText);
+	}
+
+	/**
+	 * 切分过大的段落（防丢失内容）
+	 * 优先按句子切分，如果句子太大则按字符硬切
 	 */
 	private List<String> splitLargeParagraph(String paragraph) {
 		List<String> subChunks = new ArrayList<>();
 
-		// 简单按句子切分
-		Pattern sentencePattern = Pattern.compile("[^。！？.!?]+[。！？.!?]+");
+		// 1. 尝试按句子切分
+		Pattern sentencePattern = Pattern.compile("[^。！？.!?\\n]+[。！？.!?\\n]*");
 		Matcher matcher = sentencePattern.matcher(paragraph);
 
 		StringBuilder currentChunk = new StringBuilder();
+		int lastMatchEnd = 0;
+
 		while (matcher.find()) {
 			String sentence = matcher.group();
+			lastMatchEnd = matcher.end();
+
+			// 如果单个句子本身就超过 chunkSize，需要强制按字符硬切
+			if (sentence.length() > chunkSize) {
+				// 先保存当前块
+				if (currentChunk.length() > 0) {
+					subChunks.add(currentChunk.toString().trim());
+					currentChunk = new StringBuilder();
+				}
+				// 对超长句子按字符硬切
+				subChunks.addAll(splitByChars(sentence));
+				continue;
+			}
+
+			// 检查添加这个句子后是否会超过 chunkSize
 			if (currentChunk.length() + sentence.length() > chunkSize && currentChunk.length() > 0) {
 				subChunks.add(currentChunk.toString().trim());
 				currentChunk = new StringBuilder();
@@ -133,11 +186,51 @@ public class ParagraphTextSplitter extends TextSplitter {
 			currentChunk.append(sentence);
 		}
 
+		// 2. 处理正则没匹配到的剩余部分（防止丢字）
+		if (lastMatchEnd < paragraph.length()) {
+			String remaining = paragraph.substring(lastMatchEnd);
+			if (!remaining.trim().isEmpty()) {
+				// 如果剩余部分太长，按字符硬切
+				if (remaining.length() > chunkSize) {
+					if (currentChunk.length() > 0) {
+						subChunks.add(currentChunk.toString().trim());
+						currentChunk = new StringBuilder();
+					}
+					subChunks.addAll(splitByChars(remaining));
+				} else {
+					// 检查是否可以添加到当前块
+					if (currentChunk.length() + remaining.length() > chunkSize && currentChunk.length() > 0) {
+						subChunks.add(currentChunk.toString().trim());
+						currentChunk = new StringBuilder();
+					}
+					currentChunk.append(remaining);
+				}
+			}
+		}
+
+		// 3. 添加最后一个块
 		if (currentChunk.length() > 0) {
 			subChunks.add(currentChunk.toString().trim());
 		}
 
 		return subChunks;
+	}
+
+	/**
+	 * 按固定字符数强制切分（保底逻辑）
+	 */
+	private List<String> splitByChars(String text) {
+		List<String> chunks = new ArrayList<>();
+		int start = 0;
+		while (start < text.length()) {
+			int end = Math.min(start + chunkSize, text.length());
+			String chunk = text.substring(start, end).trim();
+			if (!chunk.isEmpty()) {
+				chunks.add(chunk);
+			}
+			start = end;
+		}
+		return chunks;
 	}
 
 }
