@@ -145,9 +145,10 @@ public class SqlExecuteNode implements NodeAction {
 
 				// Prepare the final result object
 				// Store List of SQL query results for use by code execution node
-				result
-					.putAll(Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedResults, SQL_REGENERATE_REASON, SqlRetryDto.empty(),
-							SQL_RESULT_LIST_MEMORY, resultSetBO.getData(), PLAN_CURRENT_STEP, currentStep + 1));
+				// Reset sql generate count retry times when sql execute success
+				result.putAll(Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedResults, SQL_REGENERATE_REASON,
+						SqlRetryDto.empty(), SQL_RESULT_LIST_MEMORY, resultSetBO.getData(), PLAN_CURRENT_STEP,
+						currentStep + 1, SQL_GENERATE_COUNT, 0));
 			}
 			catch (Exception e) {
 				String errorMessage = e.getMessage();
