@@ -42,7 +42,7 @@ public class SecurityConfig {
 
 	@Bean
 	public ApiKeyAuthenticationFilter apiKeyAuthenticationFilter(AgentService agentService,
-                                                                 ChatSessionService chatSessionService) {
+			ChatSessionService chatSessionService) {
 		List<RequestMatcher> matchers = List.of(new AntPathRequestMatcher(PROTECTED_PATHS[0]),
 				new AntPathRequestMatcher(PROTECTED_PATHS[1]), new AntPathRequestMatcher(PROTECTED_PATHS[2]),
 				new AntPathRequestMatcher(PROTECTED_PATHS[3]));
@@ -56,7 +56,8 @@ public class SecurityConfig {
 			.csrf(AbstractHttpConfigurer::disable)
 			.httpBasic(AbstractHttpConfigurer::disable)
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
+			.authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/api/**")
+				.permitAll()
 				.requestMatchers(PROTECTED_PATHS)
 				.authenticated()
 				.anyRequest()

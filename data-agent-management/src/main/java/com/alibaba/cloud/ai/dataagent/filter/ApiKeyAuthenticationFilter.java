@@ -39,14 +39,21 @@ import java.util.Map;
 public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
 	static final String API_KEY_HEADER = "X-API-Key";
+
 	private static final String AGENT_SESSIONS_PATTERN = "/api/agent/{agentId}/sessions/**";
+
 	private static final String AGENT_SESSIONS_BASE_PATTERN = "/api/agent/{agentId}/sessions";
+
 	private static final String SESSIONS_PATTERN = "/api/sessions/{sessionId}/**";
+
 	private static final String SESSIONS_BASE_PATTERN = "/api/sessions/{sessionId}";
 
 	private final List<RequestMatcher> protectedMatchers;
+
 	private final AgentService agentService;
+
 	private final ChatSessionService chatSessionService;
+
 	private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
 	public ApiKeyAuthenticationFilter(List<RequestMatcher> protectedMatchers, AgentService agentService,
