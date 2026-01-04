@@ -12,6 +12,7 @@
     <img src="https://img.shields.io/badge/Spring%20Boot-3.2+-green" alt="Spring Boot">
     <img src="https://img.shields.io/badge/Java-17+-orange" alt="Java">
     <img src="https://img.shields.io/badge/License-Apache%202.0-red" alt="License">
+    <a href="https://deepwiki.com/spring-ai-alibaba/DataAgent"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   </p>
 
    <p>
