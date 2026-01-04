@@ -17,13 +17,10 @@
 package com.alibaba.cloud.ai.dataagent.connector.pool;
 
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
-import com.alibaba.druid.pool.DruidDataSource;
-import com.alibaba.druid.pool.DruidDataSourceFactory;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.sql.DataSource;
+import com.alibaba.druid.pool.DruidDataSource;
+import com.alibaba.druid.pool.DruidDataSourceFactory;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -31,6 +28,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.sql.DataSource;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public abstract class AbstractDBConnectionPool implements DBConnectionPool {
@@ -57,7 +56,7 @@ public abstract class AbstractDBConnectionPool implements DBConnectionPool {
 	public ErrorCodeEnum ping(DbConfigBO config) {
 		String jdbcUrl = config.getUrl();
 		try (Connection connection = DriverManager.getConnection(jdbcUrl, config.getUsername(), config.getPassword());
-				Statement stmt = connection.createStatement();) {
+				Statement stmt = connection.createStatement()) {
 			if (BizDataSourceTypeEnum.isPgDialect(config.getConnectionType())) {
 				ResultSet rs = stmt.executeQuery(getSelectSchemaSQL(config.getSchema()));
 				if (rs.next()) {
