@@ -249,6 +249,16 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Docker Java Client -->
+        <dependency>
+            <groupId>com.github.docker-java</groupId>
+            <artifactId>docker-java-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.docker-java</groupId>
+            <artifactId>docker-java-transport-zerodep</artifactId>
+        </dependency>
+
     </dependencies>
     <repositories>
         <repository>
