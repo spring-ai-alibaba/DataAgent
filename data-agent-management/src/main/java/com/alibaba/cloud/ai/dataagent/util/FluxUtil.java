@@ -135,9 +135,10 @@ public final class FluxUtil {
 	private static Flux<GraphResponse<StreamingOutput>> toStreamingResponseFlux(String nodeName, OverAllState state,
 			Flux<ChatResponse> sourceFlux, Supplier<Map<String, Object>> resultSupplier) {
 		Flux<GraphResponse<StreamingOutput>> streamingFlux = sourceFlux
-			.filter(response -> response != null && response.getResult() != null && response.getResult().getOutput() != null)
-			.map(response -> GraphResponse.of(new StreamingOutput<>(response.getResult().getOutput(), response, nodeName, "",
-					state, OutputType.from(true, nodeName))));
+			.filter(response -> response != null && response.getResult() != null
+					&& response.getResult().getOutput() != null)
+			.map(response -> GraphResponse.of(new StreamingOutput<>(response.getResult().getOutput(), response,
+					nodeName, "", state, OutputType.from(true, nodeName))));
 
 		return streamingFlux.concatWith(Mono.fromSupplier(() -> GraphResponse.done(resultSupplier.get())))
 			.onErrorResume(error -> Flux.just(GraphResponse.error(error)));

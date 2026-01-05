@@ -121,7 +121,8 @@ public class ModelConfigOpsService {
 		catch (Exception e) {
 			try {
 				log.error("Failed to test model connection. Config: {}", objectMapper.writeValueAsString(config), e);
-			} catch (JsonProcessingException e1) {
+			}
+			catch (JsonProcessingException e1) {
 				log.error("Failed to convert config to JSON. Config: {}", config, e1);
 				throw new RuntimeException("Failed to convert config to JSON. Config: " + config, e1);
 			}

@@ -91,7 +91,8 @@ public class SchemaServiceImpl implements SchemaService {
 		Set<String> relatedNamesFromForeignKeys = extractRelatedNamesFromForeignKeys(mutableTableDocuments);
 
 		// 通过外键加载缺失的表和列
-		List<String> missingTables = getMissingTableNamesWithForeignKeySet(mutableTableDocuments, relatedNamesFromForeignKeys);
+		List<String> missingTables = getMissingTableNamesWithForeignKeySet(mutableTableDocuments,
+				relatedNamesFromForeignKeys);
 		if (!missingTables.isEmpty()) {
 			loadMissingTableDocuments(agentId, mutableTableDocuments, missingTables);
 			loadMissingColDocForMissingTables(agentId, mutableColumnDocuments, missingTables);

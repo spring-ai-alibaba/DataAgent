@@ -137,14 +137,12 @@ public class TableRelationNode implements NodeAction {
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, v -> resultMap, displayFlux);
 
-		// Return generator and essential state values that need to be available immediately
-		// DB_DIALECT_TYPE must be returned directly so it's available in state for subsequent nodes
-		return Map.of(
-			TABLE_RELATION_OUTPUT, generator,
-			DB_DIALECT_TYPE, agentDbConfig.getDialectType(),
-			TABLE_RELATION_RETRY_COUNT, 0,
-			TABLE_RELATION_EXCEPTION_OUTPUT, ""
-		);
+		// Return generator and essential state values that need to be available
+		// immediately
+		// DB_DIALECT_TYPE must be returned directly so it's available in state for
+		// subsequent nodes
+		return Map.of(TABLE_RELATION_OUTPUT, generator, DB_DIALECT_TYPE, agentDbConfig.getDialectType(),
+				TABLE_RELATION_RETRY_COUNT, 0, TABLE_RELATION_EXCEPTION_OUTPUT, "");
 
 	}
 
