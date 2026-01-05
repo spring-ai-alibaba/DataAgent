@@ -147,6 +147,9 @@ public final class Constant {
 	// 人类复核相关
 	public static final String HUMAN_REVIEW_ENABLED = "HUMAN_REVIEW_ENABLED";
 
+	// Human feedback data payload
+	public static final String HUMAN_FEEDBACK_DATA = "HUMAN_FEEDBACK_DATA";
+
 	// 控制是否生成Markdown简洁报告
 	public static final String PLAIN_REPORT = "PLAIN_REPORT";
 

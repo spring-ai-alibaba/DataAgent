@@ -28,7 +28,6 @@ import com.alibaba.cloud.ai.dataagent.util.*;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
-import com.alibaba.cloud.ai.graph.streaming.FluxConverter;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -93,11 +92,9 @@ public class EvidenceRecallNode implements NodeAction {
 					return resultMap;
 				});
 
-		Flux<GraphResponse<StreamingOutput>> evidenceFlux = FluxConverter.builder()
-			.startingNode(this.getClass().getSimpleName())
-			.startingState(state)
-			.mapResult(r -> resultMap)
-			.build(evidenceDisplaySink.asFlux().map(ChatResponseUtil::createPureResponse));
+		Flux<GraphResponse<StreamingOutput>> evidenceFlux = FluxUtil.createStreamingGenerator(this.getClass(), state,
+				evidenceDisplaySink.asFlux().map(ChatResponseUtil::createPureResponse), Flux.empty(), Flux.empty(),
+				result -> resultMap);
 		return Map.of(EVIDENCE, generator.concatWith(evidenceFlux));
 	}
 

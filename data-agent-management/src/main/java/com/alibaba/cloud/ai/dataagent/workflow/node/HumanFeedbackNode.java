@@ -49,16 +49,16 @@ public class HumanFeedbackNode implements NodeAction {
 			return updated;
 		}
 
-		// 等待用户反馈
-		OverAllState.HumanFeedback humanFeedback = state.humanFeedback();
-		if (humanFeedback == null) {
+		Map<String, Object> feedbackData = StateUtil.getObjectValue(state, HUMAN_FEEDBACK_DATA, Map.class, Map.of());
+		if (feedbackData.isEmpty()) {
 			updated.put("human_next_node", "WAIT_FOR_FEEDBACK");
 			return updated;
 		}
 
 		// 处理反馈结果
-		Map<String, Object> feedbackData = humanFeedback.data();
-		boolean approved = (boolean) feedbackData.getOrDefault("feedback", true);
+		Object approvedValue = feedbackData.getOrDefault("feedback", true);
+		boolean approved = approvedValue instanceof Boolean approvedBoolean ? approvedBoolean
+				: Boolean.parseBoolean(approvedValue.toString());
 
 		if (approved) {
 			log.info("Plan approved → execution");
@@ -78,7 +78,6 @@ public class HumanFeedbackNode implements NodeAction {
 					StringUtils.hasLength(feedbackContent) ? feedbackContent : "Plan rejected by user");
 			// 这边清空旧的计划输出
 			updated.put(PLANNER_NODE_OUTPUT, "");
-			state.withoutResume();
 		}
 
 		return updated;
