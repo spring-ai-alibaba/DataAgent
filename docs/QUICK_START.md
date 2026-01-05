@@ -62,9 +62,16 @@ spring:
 
 ![add-model.png](../img/add-model.png)
 
-注意，如Qwen，OpenAi,Deepseek,Siliconflow(硅基流动) 等兼容Open Ai的厂商不需要更改Completions 路径和Embedding路径。
-目前项目的对话模型和向量模型都统一OpenAI 接口规范接入，模型的接入配置如Ollama参考spring ai 文档的OpenAI API 兼容性章节
-如果是自己部署的模型，baseurl和completions-path就是完整的chat模型地址，向量模型同理。
+1. 标准提供商接入 如果您使用的是系统内置支持的 AI 提供商（如 OpenAI, Deepseek 等），通常只需要提供模型名称（Model Name）和 API Key。
+
+2. 自定义及本地模型接入 (Ollama/自建网关) 本系统基于 Spring AI 架构，支持标准的 OpenAI 接口协议。如果您接入的是 Ollama 或其他自定义网关，请注意以下几点：
+
+	- 协议兼容：请参考 Spring AI 官方文档中关于 OpenAI 兼容性的说明，确保您的网关响应格式符合标准。
+
+	- 地址配置：针对自部署模型，请准确填写 base-url（基础地址）和 completions-path（请求路径）。系统会将两者拼接为完整的调用地址，例如：http://localhost:11434/v1/chat/completions
+
+3. 故障排查 如发现配置后无法调用，建议优先使用 Postman 对接您的接口地址进行测试，确认网络连通性及参数格式无误。
+
 
 ### 2.4 嵌入模型批处理策略配置
 
