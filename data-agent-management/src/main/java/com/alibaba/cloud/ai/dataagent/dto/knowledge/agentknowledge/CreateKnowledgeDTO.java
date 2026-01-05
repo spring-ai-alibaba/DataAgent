@@ -42,7 +42,7 @@ public class CreateKnowledgeDTO {
 	private String title;
 
 	/**
-	 * 知识类型：DOCUMENT, QA, FAQ
+	 * 知识类型：DOCUMENT, ENUM, QA, FAQ
 	 */
 	@NotBlank(message = "知识类型不能为空")
 	@InEnum(value = KnowledgeType.class, message = "type只能是DOCUMENT/QA/FAQ 之一")

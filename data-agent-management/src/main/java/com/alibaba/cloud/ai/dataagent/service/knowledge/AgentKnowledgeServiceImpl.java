@@ -66,7 +66,8 @@ public class AgentKnowledgeServiceImpl implements AgentKnowledgeService {
 		String storagePath = null;
 		checkCreateKnowledgeDto(createKnowledgeDto);
 
-		if (createKnowledgeDto.getType().equals(KnowledgeType.DOCUMENT.getCode())) {
+		if (createKnowledgeDto.getType().equals(KnowledgeType.DOCUMENT.getCode())
+				|| createKnowledgeDto.getType().equals(KnowledgeType.ENUM.getCode())) {
 			// 将文件保存到磁盘
 			try {
 				storagePath = fileStorageService.storeFile(createKnowledgeDto.getFile(), AGENT_KNOWLEDGE_FILE_PATH);

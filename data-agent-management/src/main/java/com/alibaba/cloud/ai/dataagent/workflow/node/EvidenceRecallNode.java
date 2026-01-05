@@ -233,6 +233,9 @@ public class EvidenceRecallNode implements NodeAction {
 			if (KnowledgeType.FAQ.getCode().equals(knowledgeType) || KnowledgeType.QA.getCode().equals(knowledgeType)) {
 				processFaqOrQaKnowledge(doc, i, result);
 			}
+			else if (KnowledgeType.ENUM.getCode().equals(knowledgeType)) {
+				processEnumKnowledge(doc, i, result);
+			}
 			else {
 				processDocumentKnowledge(doc, i, result);
 			}
@@ -247,38 +250,48 @@ public class EvidenceRecallNode implements NodeAction {
 	private void processFaqOrQaKnowledge(Document doc, int index, StringBuilder result) {
 		Map<String, Object> metadata = doc.getMetadata();
 		String content = doc.getText();
-		Integer knowledgeId = (Integer) metadata.get(DocumentMetadataConstant.DB_AGENT_KNOWLEDGE_ID);
+		Integer knowledgeId = getKnowledgeIdFromMetadata(metadata);
 		String knowledgeType = (String) metadata.get(DocumentMetadataConstant.CONCRETE_AGENT_KNOWLEDGE_TYPE);
 
 		log.debug("Processing {} type knowledge with id: {}", knowledgeType, knowledgeId);
 
-		if (knowledgeId != null) {
-			try {
-				AgentKnowledge knowledge = agentKnowledgeMapper.selectById(knowledgeId);
-				if (knowledge != null) {
-					String title = knowledge.getTitle();
-					// 格式：[来源: xxx] Q: xxx A: xxx
-					result.append(index + 1).append(". [来源: ");
-					result.append(title.isEmpty() ? "知识库" : title);
-					result.append("] Q: ").append(content).append(" A: ").append(knowledge.getContent()).append("\n");
+		AgentKnowledge knowledge = getAgentKnowledgeById(knowledgeId);
+		String title = knowledge != null ? knowledge.getTitle() : "";
+		String sourceInfo = title.isEmpty() ? "知识库" : title;
 
-					log.debug("Successfully processed {} knowledge with title: {}", knowledgeType, title);
-				}
-				else {
-					log.warn("Knowledge not found for id: {}", knowledgeId);
-				}
-			}
-			catch (Exception e) {
-				log.error("Error getting knowledge by id: {}", knowledgeId, e);
-				// 如果获取失败，使用原始内容
-				result.append(index + 1).append(". [来源: 知识库] ").append(content).append("\n");
-			}
+		if (knowledge != null) {
+			// 格式：[来源: xxx] Q: xxx A: xxx
+			appendKnowledgeResult(result, index, sourceInfo, "Q: " + content + " A: " + knowledge.getContent());
+			log.debug("Successfully processed {} knowledge with title: {}", knowledgeType, title);
 		}
 		else {
-			// 如果没有知识ID，使用原始内容
-			log.error("No knowledge id found for agent knowledge document: {}", doc.getId());
-			result.append(index + 1).append(". [来源: 知识库] ").append(content).append("\n");
+			// 如果获取失败，使用原始内容
+			appendKnowledgeResult(result, index, "知识库", content);
 		}
+	}
+
+	/**
+	 * 处理ENUM类型的知识
+	 */
+	private void processEnumKnowledge(Document doc, int index, StringBuilder result) {
+		Map<String, Object> metadata = doc.getMetadata();
+		String name = doc.getText(); // ENUM类型中，text存储的是枚举名称
+		Integer knowledgeId = getKnowledgeIdFromMetadata(metadata);
+		Object codeObj = metadata.get(DocumentMetadataConstant.CODE);
+
+		// 尝试多种可能的字段名：column, fieldName, field_name
+		Object column = metadata.get(DocumentMetadataConstant.COLUMN);
+
+		log.debug("Processing ENUM type knowledge with id: {}, name: {}, metadata keys: {}, code: {}, column: {}",
+				knowledgeId, name, metadata.keySet(), codeObj, column);
+
+		AgentKnowledge knowledge = getAgentKnowledgeById(knowledgeId);
+		String title = knowledge != null ? knowledge.getTitle() : "";
+		String sourceInfo = title.isEmpty() ? "枚举" : title;
+
+		// 组装枚举内容，格式：字段名可选值：枚举名称=code
+		String enumContent = buildEnumContent(name, column, codeObj);
+		appendKnowledgeResult(result, index, sourceInfo, enumContent);
 	}
 
 	/**
@@ -287,38 +300,95 @@ public class EvidenceRecallNode implements NodeAction {
 	private void processDocumentKnowledge(Document doc, int index, StringBuilder result) {
 		Map<String, Object> metadata = doc.getMetadata();
 		String content = doc.getText();
-		Integer knowledgeId = ((Number) metadata.get(DocumentMetadataConstant.DB_AGENT_KNOWLEDGE_ID)).intValue();
+		Integer knowledgeId = getKnowledgeIdFromMetadata(metadata);
 		String knowledgeType = (String) metadata.get(DocumentMetadataConstant.CONCRETE_AGENT_KNOWLEDGE_TYPE);
-		String title = "";
-		String sourceFilename = "";
 
 		log.debug("Processing {} type knowledge with id: {}", knowledgeType, knowledgeId);
 
-		if (knowledgeId != null) {
-			try {
-				AgentKnowledge knowledge = agentKnowledgeMapper.selectById(knowledgeId);
-				if (knowledge != null) {
-					title = knowledge.getTitle();
-					sourceFilename = knowledge.getSourceFilename();
-
-					log.debug("Successfully processed {} knowledge with title: {}, source file: {}", knowledgeType,
-							title, sourceFilename);
-				}
-				else {
-					log.warn("Knowledge not found for id: {}", knowledgeId);
-				}
-			}
-			catch (Exception e) {
-				log.error("Error getting knowledge by id: {}", knowledgeId, e);
-			}
-		}
+		AgentKnowledge knowledge = getAgentKnowledgeById(knowledgeId);
+		String title = knowledge != null ? knowledge.getTitle() : "";
+		String sourceFilename = knowledge != null ? knowledge.getSourceFilename() : "";
 
 		// 构建来源信息，格式为"标题-文件名"
+		String sourceInfo = buildDocumentSourceInfo(title, sourceFilename);
+		appendKnowledgeResult(result, index, sourceInfo, content);
+
+		if (knowledge != null) {
+			log.debug("Successfully processed {} knowledge with title: {}, source file: {}", knowledgeType, title,
+					sourceFilename);
+		}
+	}
+
+	/**
+	 * 从metadata中提取knowledgeId
+	 */
+	private Integer getKnowledgeIdFromMetadata(Map<String, Object> metadata) {
+		Object knowledgeIdObj = metadata.get(DocumentMetadataConstant.DB_AGENT_KNOWLEDGE_ID);
+		if (knowledgeIdObj == null) {
+			return null;
+		}
+		if (knowledgeIdObj instanceof Integer) {
+			return (Integer) knowledgeIdObj;
+		}
+		if (knowledgeIdObj instanceof Number) {
+			return ((Number) knowledgeIdObj).intValue();
+		}
+		return null;
+	}
+
+	/**
+	 * 根据knowledgeId获取AgentKnowledge对象
+	 */
+	private AgentKnowledge getAgentKnowledgeById(Integer knowledgeId) {
+		if (knowledgeId == null) {
+			return null;
+		}
+		try {
+			AgentKnowledge knowledge = agentKnowledgeMapper.selectById(knowledgeId);
+			if (knowledge == null) {
+				log.warn("Knowledge not found for id: {}", knowledgeId);
+			}
+			return knowledge;
+		}
+		catch (Exception e) {
+			log.error("Error getting knowledge by id: {}", knowledgeId, e);
+			return null;
+		}
+	}
+
+	/**
+	 * 构建DOCUMENT类型知识的来源信息，格式为"标题-文件名"
+	 */
+	private String buildDocumentSourceInfo(String title, String sourceFilename) {
 		String sourceInfo = title.isEmpty() ? "文档" : title;
-		if (!sourceFilename.isEmpty()) {
+		if (sourceFilename != null && !sourceFilename.isEmpty()) {
 			sourceInfo += "-" + sourceFilename;
 		}
+		return sourceInfo;
+	}
 
+	/**
+	 * 构建ENUM类型知识的内容，格式：字段名=code：枚举名称 例如：lb_subclass_code=11：内网穿透白名单
+	 * 这样模型可以清楚地看到字段名和code值的对应关系，优先使用code值进行精确查询
+	 */
+	private String buildEnumContent(String name, Object fieldNameObj, Object codeObj) {
+		StringBuilder contentBuilder = new StringBuilder();
+		if (fieldNameObj != null) {
+			contentBuilder.append(fieldNameObj);
+			// 如果有code值，显示为：字段名=code：枚举名称
+			if (codeObj != null) {
+				contentBuilder.append("=").append(codeObj);
+			}
+			contentBuilder.append("：");
+		}
+		contentBuilder.append(name);
+		return contentBuilder.toString();
+	}
+
+	/**
+	 * 追加知识结果到StringBuilder，格式：[来源: sourceInfo] content
+	 */
+	private void appendKnowledgeResult(StringBuilder result, int index, String sourceInfo, String content) {
 		result.append(index + 1).append(". [来源: ");
 		result.append(sourceInfo);
 		result.append("] ").append(content).append("\n");
@@ -336,9 +406,29 @@ public class EvidenceRecallNode implements NodeAction {
 		for (int i = 0; i < allDocuments.size(); i++) {
 			Document doc = allDocuments.get(i);
 			String content = doc.getText();
+			if (content == null) {
+				continue;
+			}
 
-			// 限制每个文档摘要的长度，最多显示100个字符
-			String summary = content.length() > 100 ? content.substring(0, 100) + "..." : content;
+			Map<String, Object> metadata = doc.getMetadata();
+			String knowledgeType = (String) metadata.get(DocumentMetadataConstant.CONCRETE_AGENT_KNOWLEDGE_TYPE);
+			String summary;
+
+			// 对于ENUM类型知识
+			if (KnowledgeType.ENUM.getCode().equals(knowledgeType)) {
+				Object column = metadata.get(DocumentMetadataConstant.COLUMN);
+				Object code = metadata.get(DocumentMetadataConstant.CODE);
+				if (column != null) {
+					summary = column + "：" + content + "=" + code;
+				}
+				else {
+					summary = content;
+				}
+			}
+			else {
+				// 对于其他类型，限制每个文档摘要的长度，最多显示100个字符
+				summary = content.length() > 100 ? content.substring(0, 100) + "..." : content;
+			}
 
 			sink.tryEmitNext(String.format("证据%d: %s\n", i + 1, summary));
 		}

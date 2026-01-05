@@ -17,13 +17,44 @@
 package com.alibaba.cloud.ai.dataagent.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class JsonUtil {
 
+	@Getter
 	private static final ObjectMapper objectMapper = new ObjectMapper();
 
-	public static ObjectMapper getObjectMapper() {
-		return objectMapper;
+	/**
+	 * 将对象转换为JSON字符串
+	 * @param obj 对象
+	 * @return JSON字符串
+	 */
+	public static String toJson(Object obj) {
+		try {
+			return objectMapper.writeValueAsString(obj);
+		}
+		catch (Exception e) {
+			log.error(e.getMessage(), e);
+			return null;
+		}
+	}
+
+	/**
+	 * 将JSON字符串转换为指定类型的对象
+	 * @param json JSON字符串
+	 * @param clazz 目标对象类型
+	 * @return 目标对象
+	 */
+	public static <T> T parse(String json, Class<T> clazz) {
+		try {
+			return objectMapper.readValue(json, clazz);
+		}
+		catch (Exception e) {
+			log.error(e.getMessage(), e);
+			return null;
+		}
 	}
 
 }

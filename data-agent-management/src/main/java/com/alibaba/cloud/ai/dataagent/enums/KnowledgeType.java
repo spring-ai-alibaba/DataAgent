@@ -30,6 +30,11 @@ public enum KnowledgeType {
 	DOCUMENT("DOCUMENT", "文档类型"),
 
 	/**
+	 * 枚举类型
+	 */
+	ENUM("ENUM", "枚举类型"),
+
+	/**
 	 * 问答类型
 	 */
 	QA("QA", "问答类型"),

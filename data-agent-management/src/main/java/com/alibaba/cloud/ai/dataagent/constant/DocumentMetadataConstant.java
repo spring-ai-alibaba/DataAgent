@@ -31,6 +31,9 @@ public final class DocumentMetadataConstant {
 	// name
 	public static final String NAME = "name";
 
+	// code
+	public static final String CODE = "code";
+
 	// tableName
 	public static final String TABLE_NAME = "tableName";
 

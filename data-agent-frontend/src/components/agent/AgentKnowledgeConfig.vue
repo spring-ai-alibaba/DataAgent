@@ -213,6 +213,7 @@
           style="width: 100%"
         >
           <el-option label="文档 (文件上传)" value="DOCUMENT" />
+          <el-option label="码表 (枚举列表)" value="ENUM" />
           <el-option label="问答对 (Q&A)" value="QA" />
           <el-option label="常见问题 (FAQ)" value="FAQ" />
         </el-select>
@@ -258,7 +259,7 @@
       </el-form-item>
 
       <!-- 文件上传区域 -->
-      <el-form-item v-if="knowledgeForm.type === 'DOCUMENT'" label="上传文件" required>
+      <el-form-item v-if="knowledgeForm.type === 'DOCUMENT' || 'ENUM'" label="上传文件" required>
         <div v-if="!isEdit" style="width: 100%">
           <el-upload
             :auto-upload="false"
@@ -573,7 +574,7 @@
           return;
         }
 
-        if (knowledgeForm.value.type === 'DOCUMENT') {
+        if (knowledgeForm.value.type === 'DOCUMENT' || knowledgeForm.value.type === 'ENUM') {
           if (!isEdit.value && !knowledgeForm.value.file && fileList.value.length === 0) {
             ElMessage.warning('请上传文件');
             return;
@@ -611,7 +612,8 @@
             formData.append('type', knowledgeForm.value.type || 'DOCUMENT');
             formData.append('isRecall', knowledgeForm.value.isRecall ? '1' : '0');
 
-            if (knowledgeForm.value.type === 'DOCUMENT' && knowledgeForm.value.file) {
+            if ((knowledgeForm.value.type === 'DOCUMENT' || knowledgeForm.value.type === 'ENUM')
+                && knowledgeForm.value.file) {
               formData.append('file', knowledgeForm.value.file);
             } else {
               if (knowledgeForm.value.content) {
