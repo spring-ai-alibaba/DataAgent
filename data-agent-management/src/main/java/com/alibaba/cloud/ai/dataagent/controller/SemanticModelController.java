@@ -16,14 +16,23 @@
 package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelAddDTO;
+import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelBatchImportDTO;
+import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelImportItem;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
+import com.alibaba.cloud.ai.dataagent.service.semantic.SemanticModelExcelService;
 import com.alibaba.cloud.ai.dataagent.service.semantic.SemanticModelService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
+import com.alibaba.cloud.ai.dataagent.vo.BatchImportResult;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -38,6 +47,8 @@ import java.util.List;
 public class SemanticModelController {
 
 	private final SemanticModelService semanticModelService;
+
+	private final SemanticModelExcelService excelService;
 
 	@GetMapping
 	public ApiResponse<List<SemanticModel>> list(@RequestParam(value = "keyword", required = false) String keyword,
@@ -103,6 +114,70 @@ public class SemanticModelController {
 	public ApiResponse<Boolean> disableFields(@RequestBody @NotEmpty(message = "ID列表不能为空") List<Long> ids) {
 		ids.forEach(semanticModelService::disableSemanticModel);
 		return ApiResponse.success("Semantic models disabled successfully", true);
+	}
+
+	/**
+	 * 批量导入语义模型（JSON格式）
+	 */
+	@PostMapping("/batch-import")
+	public ApiResponse<BatchImportResult> batchImport(@RequestBody @Valid SemanticModelBatchImportDTO dto) {
+		log.info("开始批量导入语义模型: agentId={}, 数量={}", dto.getAgentId(), dto.getItems().size());
+		BatchImportResult result = semanticModelService.batchImport(dto);
+		log.info("批量导入完成: 总数={}, 成功={}, 失败={}", result.getTotal(), result.getSuccessCount(),
+				result.getFailCount());
+		return ApiResponse.success("批量导入完成", result);
+	}
+
+	/**
+	 * 下载Excel导入模板
+	 */
+	@GetMapping("/template/download")
+	public ResponseEntity<byte[]> downloadTemplate() {
+		try {
+			byte[] template = excelService.generateTemplate();
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+			headers.setContentDispositionFormData("attachment", "semantic_model_template.xlsx");
+			return ResponseEntity.ok().headers(headers).body(template);
+		}
+		catch (Exception e) {
+			log.error("生成Excel模板失败", e);
+			return ResponseEntity.internalServerError().build();
+		}
+	}
+
+	/**
+	 * Excel文件导入
+	 */
+	@PostMapping("/import/excel")
+	public ApiResponse<BatchImportResult> importExcel(@RequestParam("file") MultipartFile file,
+			@RequestParam("agentId") Integer agentId) {
+		try {
+			log.info("开始Excel导入: agentId={}, 文件名={}", agentId, file.getOriginalFilename());
+
+			// 解析Excel文件
+			List<SemanticModelImportItem> items = excelService.parseExcel(file);
+
+			// 执行批量导入
+			SemanticModelBatchImportDTO dto = SemanticModelBatchImportDTO.builder()
+				.agentId(agentId)
+				.items(items)
+				.build();
+
+			BatchImportResult result = semanticModelService.batchImport(dto);
+			log.info("Excel导入完成: 总数={}, 成功={}, 失败={}", result.getTotal(), result.getSuccessCount(),
+					result.getFailCount());
+
+			return ApiResponse.success("Excel导入完成", result);
+		}
+		catch (IllegalArgumentException e) {
+			log.error("Excel导入失败: {}", e.getMessage());
+			return ApiResponse.error("Excel导入失败: " + e.getMessage());
+		}
+		catch (Exception e) {
+			log.error("Excel导入失败", e);
+			return ApiResponse.error("Excel导入失败: " + e.getMessage());
+		}
 	}
 
 }

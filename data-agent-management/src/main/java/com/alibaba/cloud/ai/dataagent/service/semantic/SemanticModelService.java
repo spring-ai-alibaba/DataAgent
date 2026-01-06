@@ -17,7 +17,9 @@
 package com.alibaba.cloud.ai.dataagent.service.semantic;
 
 import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelAddDTO;
+import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelBatchImportDTO;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
+import com.alibaba.cloud.ai.dataagent.vo.BatchImportResult;
 
 import java.util.List;
 
@@ -62,5 +64,10 @@ public interface SemanticModelService {
 	default void deleteSemanticModels(List<Long> ids) {
 		ids.forEach(this::deleteSemanticModel);
 	}
+
+	/**
+	 * 批量导入语义模型（支持覆盖已存在的记录）
+	 */
+	BatchImportResult batchImport(SemanticModelBatchImportDTO dto);
 
 }

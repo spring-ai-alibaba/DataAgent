@@ -144,4 +144,19 @@ public interface SemanticModelMapper {
 	List<SemanticModel> selectByDatasourceIdAndTableNames(@Param("datasourceId") Integer datasourceId,
 			@Param("tableNames") List<String> tableNames);
 
+	/**
+	 * 根据agentId、tableName和columnName查询语义模型（用于批量导入时判断是否存在）
+	 */
+	@Select("""
+			SELECT * FROM semantic_model
+			WHERE agent_id = #{agentId}
+			  AND table_name = #{tableName}
+			  AND column_name = #{columnName}
+			LIMIT 1
+			""")
+	SemanticModel selectByAgentIdAndTableNameAndColumnName(
+			@Param("agentId") Integer agentId,
+			@Param("tableName") String tableName,
+			@Param("columnName") String columnName);
+
 }

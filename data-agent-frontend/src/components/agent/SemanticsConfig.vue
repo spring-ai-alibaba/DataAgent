@@ -41,6 +41,9 @@
               <el-icon><Search /></el-icon>
             </template>
           </el-input>
+          <el-button @click="openBatchImportDialog" size="large" type="success" round :icon="Upload">
+            批量导入
+          </el-button>
           <el-button @click="openCreateDialog" size="large" type="primary" round :icon="Plus">
             添加语义模型
           </el-button>
@@ -152,14 +155,120 @@
       </div>
     </template>
   </el-dialog>
+
+  <!-- 批量导入Dialog -->
+  <el-dialog v-model="batchImportDialogVisible" title="批量导入语义模型" width="900">
+    <el-alert
+      title="导入说明"
+      type="info"
+      :closable="false"
+      style="margin-bottom: 20px"
+    >
+      <p>1. 支持JSON和Excel两种导入方式</p>
+      <p>2. 如果记录已存在（相同表名+字段名），将自动覆盖更新</p>
+      <p>3. 枚举字段信息可以直接写在"业务描述"中，例如：枚举值：1=资产工单, 2=账号工单</p>
+      <p>4. 必填字段：表名、字段名、业务名称、数据类型</p>
+    </el-alert>
+
+    <!-- 导入方式选择 -->
+    <el-radio-group v-model="importMode" style="margin-bottom: 20px">
+      <el-radio-button value="json">JSON导入</el-radio-button>
+      <el-radio-button value="excel">Excel导入</el-radio-button>
+    </el-radio-group>
+
+    <el-tabs v-model="importTab">
+      <!-- JSON导入 -->
+      <el-tab-pane label="JSON输入" name="input" v-if="importMode === 'json'">
+        <el-input
+          v-model="importJsonText"
+          type="textarea"
+          :rows="15"
+          placeholder="请输入JSON格式的数据..."
+          style="font-family: 'Courier New', monospace"
+        />
+        <div style="margin-top: 10px; text-align: right">
+          <el-button @click="loadTemplate" size="small">加载模板</el-button>
+          <el-button @click="validateJson" size="small" type="primary">验证JSON</el-button>
+        </div>
+      </el-tab-pane>
+
+      <!-- Excel导入 -->
+      <el-tab-pane label="Excel上传" name="input" v-if="importMode === 'excel'">
+        <div style="text-align: center; padding: 40px 0">
+          <el-upload
+            ref="uploadRef"
+            :auto-upload="false"
+            :limit="1"
+            accept=".xlsx,.xls"
+            :on-change="handleFileChange"
+            :on-exceed="handleExceed"
+            drag
+          >
+            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+            <div class="el-upload__text">
+              将Excel文件拖到此处，或<em>点击上传</em>
+            </div>
+            <template #tip>
+              <div class="el-upload__tip">
+                只能上传 xlsx/xls 文件，且不超过 10MB
+              </div>
+            </template>
+          </el-upload>
+          <div style="margin-top: 20px">
+            <el-button @click="downloadExcelTemplate" type="primary" plain>
+              下载Excel模板
+            </el-button>
+          </div>
+        </div>
+      </el-tab-pane>
+
+      <el-tab-pane label="导入结果" name="result" :disabled="!importResult">
+        <el-result
+          v-if="importResult"
+          :icon="importResult.failCount === 0 ? 'success' : 'warning'"
+          :title="importResult.failCount === 0 ? '导入成功' : '部分导入失败'"
+        >
+          <template #sub-title>
+            <p>总数：{{ importResult.total }} | 成功：{{ importResult.successCount }} | 失败：{{ importResult.failCount }}</p>
+          </template>
+          <template #extra>
+            <div v-if="importResult.errors.length > 0" style="text-align: left; max-height: 300px; overflow-y: auto">
+              <el-alert
+                v-for="(error, index) in importResult.errors"
+                :key="index"
+                :title="error"
+                type="error"
+                :closable="false"
+                style="margin-bottom: 10px"
+              />
+            </div>
+          </template>
+        </el-result>
+      </el-tab-pane>
+    </el-tabs>
+
+    <template #footer>
+      <div style="text-align: right">
+        <el-button @click="batchImportDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="executeBatchImport" :loading="importing" v-if="importMode === 'json'">
+          开始导入
+        </el-button>
+        <el-button type="primary" @click="executeExcelImport" :loading="importing" v-if="importMode === 'excel'">
+          开始导入
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
 </template>
 
 <script lang="ts">
   import { defineComponent, ref, onMounted, Ref } from 'vue';
-  import { Plus, Search } from '@element-plus/icons-vue';
+  import { Plus, Search, Upload, UploadFilled } from '@element-plus/icons-vue';
   import semanticModelService, {
     SemanticModel,
     SemanticModelAddDto,
+    SemanticModelImportItem,
+    BatchImportResult,
   } from '@/services/semanticModel';
   import { ElMessage, ElMessageBox } from 'element-plus';
 
@@ -335,9 +444,166 @@
         loadSemanticModels();
       });
 
+      // 批量导入相关状态
+      const batchImportDialogVisible: Ref<boolean> = ref(false);
+      const importJsonText: Ref<string> = ref('');
+      const importTab: Ref<string> = ref('input');
+      const importResult: Ref<BatchImportResult | null> = ref(null);
+      const importing: Ref<boolean> = ref(false);
+      const importMode: Ref<string> = ref('json'); // 导入方式：json 或 excel
+      const uploadedFile: Ref<File | null> = ref(null); // 上传的Excel文件
+
+      // 打开批量导入对话框
+      const openBatchImportDialog = () => {
+        batchImportDialogVisible.value = true;
+        importTab.value = 'input';
+        importResult.value = null;
+        importJsonText.value = '';
+        importMode.value = 'json';
+        uploadedFile.value = null;
+      };
+
+      // 加载JSON模板
+      const loadTemplate = () => {
+        const template = [
+          {
+            tableName: 'work_order',
+            columnName: 'order_type',
+            businessName: '工单类型',
+            synonyms: '类型,工单种类',
+            businessDesc: '用于区分工单种类。枚举值：1=资产工单, 2=账号工单',
+            dataType: 'int',
+          },
+          {
+            tableName: 'work_order',
+            columnName: 'status',
+            businessName: '工单状态',
+            synonyms: '状态,处理状态',
+            businessDesc: '工单当前处理状态。枚举值：0=待处理, 1=处理中, 2=已完成, 3=已关闭',
+            dataType: 'int',
+          },
+        ];
+        importJsonText.value = JSON.stringify(template, null, 2);
+        ElMessage.success('模板已加载');
+      };
+
+      // 验证JSON格式
+      const validateJson = () => {
+        try {
+          const data = JSON.parse(importJsonText.value);
+          if (!Array.isArray(data)) {
+            ElMessage.error('JSON格式错误：数据必须是数组');
+            return false;
+          }
+          if (data.length === 0) {
+            ElMessage.error('导入数据不能为空');
+            return false;
+          }
+          // 验证必填字段
+          for (let i = 0; i < data.length; i++) {
+            const item = data[i];
+            if (!item.tableName || !item.columnName || !item.businessName || !item.dataType) {
+              ElMessage.error(`第${i + 1}条记录缺少必填字段（tableName, columnName, businessName, dataType）`);
+              return false;
+            }
+          }
+          ElMessage.success('JSON格式验证通过');
+          return true;
+        } catch (error) {
+          ElMessage.error('JSON格式错误：' + (error as Error).message);
+          return false;
+        }
+      };
+
+      // 执行批量导入
+      const executeBatchImport = async () => {
+        if (!validateJson()) {
+          return;
+        }
+
+        try {
+          importing.value = true;
+          const items: SemanticModelImportItem[] = JSON.parse(importJsonText.value);
+          const result = await semanticModelService.batchImport({
+            agentId: props.agentId,
+            items,
+          });
+
+          importResult.value = result;
+          importTab.value = 'result';
+
+          if (result.failCount === 0) {
+            ElMessage.success(`批量导入成功！共导入${result.successCount}条记录`);
+          } else {
+            ElMessage.warning(`批量导入完成！成功${result.successCount}条，失败${result.failCount}条`);
+          }
+
+          // 刷新列表
+          await loadSemanticModels();
+        } catch (error) {
+          ElMessage.error('批量导入失败：' + (error as Error).message);
+          console.error('Failed to batch import:', error);
+        } finally {
+          importing.value = false;
+        }
+      };
+
+      // Excel文件变化处理
+      const handleFileChange = (file: any) => {
+        uploadedFile.value = file.raw;
+      };
+
+      // 文件超出限制处理
+      const handleExceed = () => {
+        ElMessage.warning('只能上传一个文件');
+      };
+
+      // 下载Excel模板
+      const downloadExcelTemplate = async () => {
+        try {
+          await semanticModelService.downloadTemplate();
+          ElMessage.success('模板下载成功');
+        } catch (error) {
+          ElMessage.error('模板下载失败：' + (error as Error).message);
+          console.error('Failed to download template:', error);
+        }
+      };
+
+      // 执行Excel导入
+      const executeExcelImport = async () => {
+        if (!uploadedFile.value) {
+          ElMessage.error('请先上传Excel文件');
+          return;
+        }
+
+        try {
+          importing.value = true;
+          const result = await semanticModelService.importExcel(uploadedFile.value, props.agentId);
+
+          importResult.value = result;
+          importTab.value = 'result';
+
+          if (result.failCount === 0) {
+            ElMessage.success(`Excel导入成功！共导入${result.successCount}条记录`);
+          } else {
+            ElMessage.warning(`Excel导入完成！成功${result.successCount}条，失败${result.failCount}条`);
+          }
+
+          // 刷新列表
+          await loadSemanticModels();
+        } catch (error) {
+          ElMessage.error('Excel导入失败：' + (error as Error).message);
+          console.error('Failed to import excel:', error);
+        } finally {
+          importing.value = false;
+        }
+      };
+
       return {
         Plus,
         Search,
+        Upload,
+        UploadFilled,
         semanticModelList,
         dialogVisible,
         isEdit,
@@ -349,6 +615,22 @@
         toggleStatus,
         saveModel,
         handleSearch,
+        // 批量导入相关
+        batchImportDialogVisible,
+        importJsonText,
+        importTab,
+        importResult,
+        importing,
+        importMode,
+        openBatchImportDialog,
+        loadTemplate,
+        validateJson,
+        executeBatchImport,
+        // Excel导入相关
+        handleFileChange,
+        handleExceed,
+        downloadExcelTemplate,
+        executeExcelImport,
       };
     },
   });
