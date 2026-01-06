@@ -82,21 +82,26 @@ public class SchemaServiceImpl implements SchemaService {
 	public void buildSchemaFromDocuments(String agentId, List<Document> currentColumnDocuments,
 			List<Document> tableDocuments, SchemaDTO schemaDTO) {
 
+		// 创建可变列表副本，避免不可变集合异常
+		List<Document> mutableColumnDocuments = new ArrayList<>(currentColumnDocuments);
+		List<Document> mutableTableDocuments = new ArrayList<>(tableDocuments);
+
 		// 如果外键关系是"订单表.订单ID=订单详情表.订单ID"，那么 relatedNamesFromForeignKeys
 		// 将包含"订单表.订单ID"和"订单详情表.订单ID"
-		Set<String> relatedNamesFromForeignKeys = extractRelatedNamesFromForeignKeys(tableDocuments);
+		Set<String> relatedNamesFromForeignKeys = extractRelatedNamesFromForeignKeys(mutableTableDocuments);
 
 		// 通过外键加载缺失的表和列
-		List<String> missingTables = getMissingTableNamesWithForeignKeySet(tableDocuments, relatedNamesFromForeignKeys);
+		List<String> missingTables = getMissingTableNamesWithForeignKeySet(mutableTableDocuments,
+				relatedNamesFromForeignKeys);
 		if (!missingTables.isEmpty()) {
-			loadMissingTableDocuments(agentId, tableDocuments, missingTables);
-			loadMissingColDocForMissingTables(agentId, currentColumnDocuments, missingTables);
+			loadMissingTableDocuments(agentId, mutableTableDocuments, missingTables);
+			loadMissingColDocForMissingTables(agentId, mutableColumnDocuments, missingTables);
 		}
 
 		// Build table list
-		List<TableDTO> tableList = buildTableListFromDocuments(tableDocuments);
+		List<TableDTO> tableList = buildTableListFromDocuments(mutableTableDocuments);
 		// Attach columns to corresponding tables
-		attachColumnsToTables(currentColumnDocuments, tableList);
+		attachColumnsToTables(mutableColumnDocuments, tableList);
 
 		// Finally assemble SchemaDTO
 		schemaDTO.setTable(tableList);

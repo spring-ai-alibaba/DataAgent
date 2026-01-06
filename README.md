@@ -8,8 +8,8 @@
   </p>
 
   <p>
-    <a href="https://github.com/alibaba/spring-ai-alibaba"><img src="https://img.shields.io/badge/Spring%20AI%20Alibaba-1.0.4-blue" alt="Spring AI Alibaba"></a>
-    <img src="https://img.shields.io/badge/Spring%20Boot-3.2+-green" alt="Spring Boot">
+    <a href="https://github.com/alibaba/spring-ai-alibaba"><img src="https://img.shields.io/badge/Spring%20AI%20Alibaba-1.1.0.0-blue" alt="Spring AI Alibaba"></a>
+    <img src="https://img.shields.io/badge/Spring%20Boot-3.4.8+-green" alt="Spring Boot">
     <img src="https://img.shields.io/badge/Java-17+-orange" alt="Java">
     <img src="https://img.shields.io/badge/License-Apache%202.0-red" alt="License">
     <a href="https://deepwiki.com/spring-ai-alibaba/DataAgent"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>

@@ -1,4 +1,4 @@
-#Copyright 2024-2025 the original author or authors.
+#Copyright 2024-2026 the original author or authors.
 #
 #Licensed under the Apache License, Version 2.0 (the "License");
 #you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ services:
       context: ..
       dockerfile: ./docker-file/Dockerfile-backend
       tags:
-        - saa-data-agent-backend:1.0.0.4-SNAPSHOT
+        - saa-data-agent-backend:1.0.0-SNAPSHOT
     container_name: data-agent-backend
     environment:
       - NL2SQL_DATASOURCE_URL=jdbc:mysql://mysql:3306/nl2sql_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
@@ -63,7 +63,7 @@ services:
       context: ..
       dockerfile: ./docker-file/Dockerfile-frontend
       tags:
-        - saa-data-agent-frontend:1.0.0.4-SNAPSHOT
+        - saa-data-agent-frontend:1.0.0-SNAPSHOT
     container_name: data-agent-frontend
     ports:
       - "3000:3000"  # 只暴露前端端口

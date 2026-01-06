@@ -136,6 +136,7 @@ public class DataAgentConfiguration implements DisposableBean {
 			keyStrategyHashMap.put(TABLE_RELATION_OUTPUT, KeyStrategy.REPLACE);
 			keyStrategyHashMap.put(TABLE_RELATION_EXCEPTION_OUTPUT, KeyStrategy.REPLACE);
 			keyStrategyHashMap.put(TABLE_RELATION_RETRY_COUNT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(DB_DIALECT_TYPE, KeyStrategy.REPLACE);
 			// Feasibility Assessment 节点输出
 			keyStrategyHashMap.put(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, KeyStrategy.REPLACE);
 			// sql generate节点输出
@@ -167,6 +168,7 @@ public class DataAgentConfiguration implements DisposableBean {
 			keyStrategyHashMap.put(IS_ONLY_NL2SQL, KeyStrategy.REPLACE);
 			// Human Review keys
 			keyStrategyHashMap.put(HUMAN_REVIEW_ENABLED, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(HUMAN_FEEDBACK_DATA, KeyStrategy.REPLACE);
 			// Final result
 			keyStrategyHashMap.put(RESULT, KeyStrategy.REPLACE);
 			return keyStrategyHashMap;

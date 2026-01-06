@@ -98,6 +98,10 @@ public class TableRelationNode implements NodeAction {
 				logicalForeignKeys);
 
 		Map<String, Object> resultMap = new HashMap<>();
+		// 将 DB_DIALECT_TYPE 添加到 resultMap，确保它在 generator 完成时被写入 state
+		resultMap.put(DB_DIALECT_TYPE, agentDbConfig.getDialectType());
+		resultMap.put(TABLE_RELATION_RETRY_COUNT, 0);
+		resultMap.put(TABLE_RELATION_EXCEPTION_OUTPUT, "");
 
 		Flux<ChatResponse> schemaFlux = processSchemaSelection(initialSchema, canonicalQuery, evidence, state,
 				agentDbConfig, result -> {
@@ -133,9 +137,12 @@ public class TableRelationNode implements NodeAction {
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, v -> resultMap, displayFlux);
 
-		// need to reset retry count and exception
-		return Map.of(TABLE_RELATION_OUTPUT, generator, TABLE_RELATION_RETRY_COUNT, 0, TABLE_RELATION_EXCEPTION_OUTPUT,
-				"", DB_DIALECT_TYPE, agentDbConfig.getDialectType());
+		// Return generator and essential state values that need to be available
+		// immediately
+		// DB_DIALECT_TYPE must be returned directly so it's available in state for
+		// subsequent nodes
+		return Map.of(TABLE_RELATION_OUTPUT, generator, DB_DIALECT_TYPE, agentDbConfig.getDialectType(),
+				TABLE_RELATION_RETRY_COUNT, 0, TABLE_RELATION_EXCEPTION_OUTPUT, "");
 
 	}
 

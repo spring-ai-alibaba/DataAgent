@@ -21,7 +21,7 @@
 
     <properties>
         <!-- Spring AI Alibaba Version -->
-        <spring-ai-alibaba.version>1.0.0.4</spring-ai-alibaba.version>
+        <spring-ai-alibaba.version>1.1.0.0</spring-ai-alibaba.version>
         <!-- Spring AI Alibaba DataAgent Version -->
         <revision>1.0.0-SNAPSHOT</revision>
         <!-- DashScope SDK Version -->
@@ -35,7 +35,7 @@
         <maven.compiler.target>${java.version}</maven.compiler.target>
 
         <!-- Spring version -->
-        <spring-ai.version>1.0.1</spring-ai.version>
+        <spring-ai.version>1.1.0</spring-ai.version>
         <spring-boot.version>3.4.8</spring-boot.version>
         <springdoc-openapi.version>2.8.8</springdoc-openapi.version>
         <spring-javaformat-maven-plugin.version>0.0.39</spring-javaformat-maven-plugin.version>

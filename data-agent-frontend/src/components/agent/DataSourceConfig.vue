@@ -193,7 +193,7 @@
             plain
           >
             <el-icon style="margin-right: 4px"><Connection /></el-icon>
-            模型配置
+            逻辑外键配置
           </el-button>
           <el-button
             @click="removeAgentDatasource(scope.row)"
@@ -485,10 +485,10 @@
     </div>
   </el-dialog>
 
-  <!-- 模型配置Dialog（逻辑外键管理） -->
+  <!-- 逻辑外键配置Dialog（逻辑外键管理） -->
   <el-dialog
     v-model="foreignKeyDialogVisible"
-    title="模型配置"
+    title="逻辑外键配置"
     width="900px"
     :close-on-click-modal="false"
   >
