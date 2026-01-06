@@ -82,4 +82,6 @@ header:
     - '**/*.properties'
     - 'CI/linter/codespell/.codespell.ignorewords'
     - 'CI/linter/codespell/.codespell.skip'
+    - 'mvnw'
+    - 'mvnw.cmd'
   comment: never

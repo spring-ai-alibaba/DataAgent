@@ -16,12 +16,11 @@
 package com.alibaba.cloud.ai.dataagent.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 /**
  * Semantic Model Configuration Entity Class
@@ -40,7 +39,7 @@ public class SemanticModel {
 	/**
 	 * 关联的智能体ID
 	 */
-	private Integer agentId;
+	private Long agentId;
 
 	/**
 	 * 关联的数据源ID

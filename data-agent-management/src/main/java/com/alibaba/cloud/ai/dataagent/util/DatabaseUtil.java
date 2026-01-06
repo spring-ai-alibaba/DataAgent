@@ -15,9 +15,9 @@
  */
 package com.alibaba.cloud.ai.dataagent.util;
 
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
@@ -39,7 +39,7 @@ public class DatabaseUtil {
 
 	private final DatasourceService datasourceService;
 
-	public DbConfigBO getAgentDbConfig(Integer agentId) {
+	public DbConfigBO getAgentDbConfig(Long agentId) {
 		log.info("Getting datasource config for agent: {}", agentId);
 
 		// Get the enabled data source for the agent
@@ -52,7 +52,7 @@ public class DatabaseUtil {
 		return dbConfig;
 	}
 
-	public Accessor getAgentAccessor(Integer agentId) {
+	public Accessor getAgentAccessor(Long agentId) {
 		DbConfigBO dbConfig = getAgentDbConfig(agentId);
 		return accessorFactory.getAccessorByDbConfig(dbConfig);
 	}

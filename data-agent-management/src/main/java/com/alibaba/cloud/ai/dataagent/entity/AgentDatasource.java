@@ -16,14 +16,12 @@
 package com.alibaba.cloud.ai.dataagent.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import org.springframework.format.annotation.DateTimeFormat;
-
 import java.time.LocalDateTime;
 import java.util.List;
-
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 
 @Data
 @NoArgsConstructor
@@ -32,7 +30,7 @@ public class AgentDatasource {
 
 	private Integer id;
 
-	private Integer agentId;
+	private Long agentId;
 
 	private Integer datasourceId;
 
@@ -52,7 +50,7 @@ public class AgentDatasource {
 	// 当前数据源选中的表
 	private List<String> selectTables;
 
-	public AgentDatasource(Integer agentId, Integer datasourceId) {
+	public AgentDatasource(Long agentId, Integer datasourceId) {
 		this.agentId = agentId;
 		this.datasourceId = datasourceId;
 		this.isActive = 1;
