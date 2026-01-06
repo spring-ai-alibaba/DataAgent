@@ -24,7 +24,6 @@ import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import com.alibaba.cloud.ai.graph.*;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
-import com.alibaba.cloud.ai.graph.state.StateSnapshot;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
@@ -34,6 +33,7 @@ import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -65,7 +65,7 @@ public class GraphServiceImpl implements GraphService {
 	@Override
 	public String nl2sql(String naturalQuery, String agentId) throws GraphRunnerException {
 		OverAllState state = compiledGraph
-			.call(Map.of(IS_ONLY_NL2SQL, true, INPUT_KEY, naturalQuery, AGENT_ID, agentId),
+			.invoke(Map.of(IS_ONLY_NL2SQL, true, INPUT_KEY, naturalQuery, AGENT_ID, agentId),
 					RunnableConfig.builder().build())
 			.orElseThrow();
 		return state.value(SQL_GENERATE_OUTPUT, "");
@@ -126,7 +126,7 @@ public class GraphServiceImpl implements GraphService {
 		}
 		String multiTurnContext = multiTurnContextManager.buildContext(threadId);
 		multiTurnContextManager.beginTurn(threadId, query);
-		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStream(Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query,
+		Flux<NodeOutput> nodeOutputFlux = compiledGraph.stream(Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query,
 				AGENT_ID, agentId, HUMAN_REVIEW_ENABLED, humanReviewEnabled, PLAIN_REPORT, graphRequest.isPlainReport(),
 				MULTI_TURN_CONTEXT, multiTurnContext), RunnableConfig.builder().threadId(threadId).build());
 		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
@@ -149,18 +149,26 @@ public class GraphServiceImpl implements GraphService {
 		}
 		Map<String, Object> feedbackData = Map.of("feedback", !graphRequest.isRejectedPlan(), "feedback_content",
 				feedbackContent);
-		OverAllState.HumanFeedback humanFeedback = new OverAllState.HumanFeedback(feedbackData, HUMAN_FEEDBACK_NODE);
-		StateSnapshot stateSnapshot = compiledGraph.getState(RunnableConfig.builder().threadId(threadId).build());
-		OverAllState resumeState = stateSnapshot.state();
-		resumeState.withResume();
-		resumeState.withHumanFeedback(humanFeedback);
 		if (graphRequest.isRejectedPlan()) {
 			multiTurnContextManager.restartLastTurn(threadId);
 		}
-		resumeState.updateState(Map.of(MULTI_TURN_CONTEXT, multiTurnContextManager.buildContext(threadId)));
+		Map<String, Object> stateUpdate = new HashMap<>();
+		stateUpdate.put(HUMAN_FEEDBACK_DATA, feedbackData);
+		stateUpdate.put(MULTI_TURN_CONTEXT, multiTurnContextManager.buildContext(threadId));
 
-		Flux<NodeOutput> nodeOutputFlux = compiledGraph.fluxStreamFromInitialNode(resumeState,
-				RunnableConfig.builder().threadId(threadId).build());
+		RunnableConfig baseConfig = RunnableConfig.builder().threadId(threadId).build();
+		RunnableConfig updatedConfig;
+		try {
+			updatedConfig = compiledGraph.updateState(baseConfig, stateUpdate);
+		}
+		catch (Exception e) {
+			throw new IllegalStateException("Failed to update graph state for human feedback", e);
+		}
+		RunnableConfig resumeConfig = RunnableConfig.builder(updatedConfig)
+			.addMetadata(RunnableConfig.HUMAN_FEEDBACK_METADATA_KEY, feedbackData)
+			.build();
+
+		Flux<NodeOutput> nodeOutputFlux = compiledGraph.stream(null, resumeConfig);
 		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
 	}
 

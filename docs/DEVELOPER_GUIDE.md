@@ -334,7 +334,6 @@ public class AgentVectorStoreService {
 | `bucket-name` | OSS 存储桶名称 | - |
 | `custom-domain` | 自定义域名 | - |
 
-| `custom-domain` | 自定义域名 | - |
 
 ### 8. 数据库初始化配置 (Database Initialization)
 

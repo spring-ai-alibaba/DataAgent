@@ -19,13 +19,14 @@ package com.alibaba.cloud.ai.dataagent.util;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
-import com.alibaba.cloud.ai.graph.streaming.FluxConverter;
+import com.alibaba.cloud.ai.graph.streaming.OutputType;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.function.Function;
 
 /**
@@ -100,11 +101,8 @@ public final class FluxUtil {
 		if (completionMessage != null) {
 			wrapperFlux = wrapperFlux.concatWith(Flux.just(ChatResponseUtil.createResponse(completionMessage)));
 		}
-		return FluxConverter.builder()
-			.startingNode(nodeName)
-			.startingState(state)
-			.mapResult(r -> resultMapper.apply(collectedResult.toString()))
-			.build(wrapperFlux);
+		return toStreamingResponseFlux(nodeName, state, wrapperFlux,
+				() -> resultMapper.apply(collectedResult.toString()));
 	}
 
 	public static Flux<GraphResponse<StreamingOutput>> createStreamingGeneratorWithMessages(
@@ -130,11 +128,20 @@ public final class FluxUtil {
 		// Used to collect actual processing results
 		final StringBuilder collectedResult = new StringBuilder();
 		sourceFlux = sourceFlux.doOnNext(r -> collectedResult.append(ChatResponseUtil.getText(r)));
-		return FluxConverter.builder()
-			.startingNode(nodeName)
-			.startingState(state)
-			.mapResult(r -> sourceMapper.apply(collectedResult.toString()))
-			.build(Flux.concat(preFlux, sourceFlux, sufFlux));
+		return toStreamingResponseFlux(nodeName, state, Flux.concat(preFlux, sourceFlux, sufFlux),
+				() -> sourceMapper.apply(collectedResult.toString()));
+	}
+
+	private static Flux<GraphResponse<StreamingOutput>> toStreamingResponseFlux(String nodeName, OverAllState state,
+			Flux<ChatResponse> sourceFlux, Supplier<Map<String, Object>> resultSupplier) {
+		Flux<GraphResponse<StreamingOutput>> streamingFlux = sourceFlux
+			.filter(response -> response != null && response.getResult() != null
+					&& response.getResult().getOutput() != null)
+			.map(response -> GraphResponse.of(new StreamingOutput<>(response.getResult().getOutput(), response,
+					nodeName, "", state, OutputType.from(true, nodeName))));
+
+		return streamingFlux.concatWith(Mono.fromSupplier(() -> GraphResponse.done(resultSupplier.get())))
+			.onErrorResume(error -> Flux.just(GraphResponse.error(error)));
 	}
 
 }
