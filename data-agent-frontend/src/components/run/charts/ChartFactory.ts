@@ -19,17 +19,7 @@ import { PieChart } from './PieChart';
 import { BarChart } from './BarChart';
 import { LineChart } from './LineChart';
 
-export const COLOR_PANEL = [
-  '#09b0d3',
-  '#0082fc',
-  '#fdd845',
-  '#22ed7c',
-  '#1d27c9',
-  '#05f8d6',
-  '#f9e264',
-  '#f47a75',
-  '#009db2',
-];
+export const COLOR_PANEL = ['#5584FF', '#36CBCB', '#4ECB74', '#FAD337', '#F2637B', '#975FEE'];
 
 export class ChartFactory {
   static createChart(chartType: ChartTypes, id: string, name: string): BaseChart | null {

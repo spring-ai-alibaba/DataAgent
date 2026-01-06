@@ -46,6 +46,7 @@ export class PieChart extends BaseChart {
     const pieData = this.data.map((item, index) => ({
       name: item[nameAxis.value] || `Item ${index}`,
       value: parseFloat(item[valueAxis.value]) || 0,
+      itemStyle: index < 6 ? { color: COLOR_PANEL[index] } : undefined,
     }));
 
     if (!this.chartInstance) {
@@ -65,7 +66,6 @@ export class PieChart extends BaseChart {
         orient: 'horizontal',
         bottom: 0,
       },
-      color: COLOR_PANEL,
       series: [
         {
           name: this._name || '饼图',

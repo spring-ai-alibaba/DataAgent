@@ -44,13 +44,15 @@ export class BarChart extends BaseChart {
     }
 
     const xAxisData = this.data.map(item => item[xAxis.value]);
-    const seriesData = yAxes.map(yAxis => ({
+    const seriesData = yAxes.map((yAxis, index) => ({
       name: yAxis.name,
       type: 'bar',
       data: this.data.map(item => {
         const value = item[yAxis.value];
         return isNaN(Number(value)) ? value : Number(value);
       }),
+      // 只对前6个图例使用指定颜色，超出部分使用ECharts默认颜色
+      color: index < 6 ? COLOR_PANEL[index] : undefined,
     }));
 
     if (!this.chartInstance) {
@@ -69,7 +71,6 @@ export class BarChart extends BaseChart {
         orient: 'horizontal',
         bottom: 0,
       },
-      color: COLOR_PANEL,
       xAxis: {
         type: 'category',
         data: xAxisData,
