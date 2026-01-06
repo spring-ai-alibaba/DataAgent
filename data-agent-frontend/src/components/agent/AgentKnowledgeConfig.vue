@@ -612,8 +612,10 @@
             formData.append('type', knowledgeForm.value.type || 'DOCUMENT');
             formData.append('isRecall', knowledgeForm.value.isRecall ? '1' : '0');
 
-            if ((knowledgeForm.value.type === 'DOCUMENT' || knowledgeForm.value.type === 'ENUM')
-                && knowledgeForm.value.file) {
+            if (
+              (knowledgeForm.value.type === 'DOCUMENT' || knowledgeForm.value.type === 'ENUM') &&
+              knowledgeForm.value.file
+            ) {
               formData.append('file', knowledgeForm.value.file);
             } else {
               if (knowledgeForm.value.content) {
