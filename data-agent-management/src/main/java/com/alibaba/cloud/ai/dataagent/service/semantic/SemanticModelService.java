@@ -65,9 +65,6 @@ public interface SemanticModelService {
 		ids.forEach(this::deleteSemanticModel);
 	}
 
-	/**
-	 * 批量导入语义模型（支持覆盖已存在的记录）
-	 */
 	BatchImportResult batchImport(SemanticModelBatchImportDTO dto);
 
 }

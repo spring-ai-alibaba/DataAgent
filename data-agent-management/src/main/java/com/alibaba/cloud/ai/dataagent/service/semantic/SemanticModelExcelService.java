@@ -3,17 +3,15 @@ package com.alibaba.cloud.ai.dataagent.service.semantic;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelImportItem;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Excel导入导出服务
+ * Excel解析
  */
 @Service
 @Slf4j
@@ -34,56 +32,6 @@ public class SemanticModelExcelService {
 	private static final int COL_BUSINESS_DESC = 5;
 
 	/**
-	 * 生成Excel模板
-	 */
-	public byte[] generateTemplate() throws IOException {
-		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-			Sheet sheet = workbook.createSheet("语义模型导入模板");
-
-			// 创建标题行样式
-			CellStyle headerStyle = workbook.createCellStyle();
-			headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-			headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-			headerStyle.setBorderBottom(BorderStyle.THIN);
-			headerStyle.setBorderTop(BorderStyle.THIN);
-			headerStyle.setBorderLeft(BorderStyle.THIN);
-			headerStyle.setBorderRight(BorderStyle.THIN);
-			Font headerFont = workbook.createFont();
-			headerFont.setBold(true);
-			headerStyle.setFont(headerFont);
-
-			// 创建标题行
-			Row headerRow = sheet.createRow(0);
-			for (int i = 0; i < HEADERS.length; i++) {
-				Cell cell = headerRow.createCell(i);
-				cell.setCellValue(HEADERS[i]);
-				cell.setCellStyle(headerStyle);
-				sheet.setColumnWidth(i, 20 * 256); // 设置列宽
-			}
-
-			// 添加示例数据
-			Row exampleRow1 = sheet.createRow(1);
-			exampleRow1.createCell(COL_TABLE_NAME).setCellValue("t_user");
-			exampleRow1.createCell(COL_COLUMN_NAME).setCellValue("user_gender");
-			exampleRow1.createCell(COL_BUSINESS_NAME).setCellValue("性别");
-			exampleRow1.createCell(COL_DATA_TYPE).setCellValue("varchar");
-			exampleRow1.createCell(COL_SYNONYMS).setCellValue("用户性别");
-			exampleRow1.createCell(COL_BUSINESS_DESC).setCellValue("用户性别。枚举值：0=未知, 1=男, 2=女");
-
-			Row exampleRow2 = sheet.createRow(2);
-			exampleRow2.createCell(COL_TABLE_NAME).setCellValue("t_account");
-			exampleRow2.createCell(COL_COLUMN_NAME).setCellValue("account_status");
-			exampleRow2.createCell(COL_BUSINESS_NAME).setCellValue("账号状态");
-			exampleRow2.createCell(COL_DATA_TYPE).setCellValue("varchar");
-			exampleRow2.createCell(COL_SYNONYMS).setCellValue("状态");
-			exampleRow2.createCell(COL_BUSINESS_DESC).setCellValue("账号生命周期状态。枚举值：0=未激活, 1=正常, 2=冻结, 3=注销");
-
-			workbook.write(out);
-			return out.toByteArray();
-		}
-	}
-
-	/**
 	 * 解析Excel文件
 	 */
 	public List<SemanticModelImportItem> parseExcel(MultipartFile file) throws IOException {
@@ -92,7 +40,6 @@ public class SemanticModelExcelService {
 		try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
 			Sheet sheet = workbook.getSheetAt(0);
 
-			// 跳过标题行，从第二行开始读取
 			for (int i = 1; i <= sheet.getLastRowNum(); i++) {
 				Row row = sheet.getRow(i);
 				if (row == null) {
@@ -167,7 +114,7 @@ public class SemanticModelExcelService {
 	}
 
 	/**
-	 * 获取单元格值（转换为字符串）
+	 * 获取单元格值
 	 */
 	private String getCellValueAsString(Cell cell) {
 		if (cell == null) {
@@ -182,7 +129,6 @@ public class SemanticModelExcelService {
 					return cell.getDateCellValue().toString();
 				}
 				else {
-					// 避免科学计数法
 					return String.valueOf((long) cell.getNumericCellValue());
 				}
 			case BOOLEAN:

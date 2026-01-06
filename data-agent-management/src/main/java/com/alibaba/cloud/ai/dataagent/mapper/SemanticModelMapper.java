@@ -145,7 +145,7 @@ public interface SemanticModelMapper {
 			@Param("tableNames") List<String> tableNames);
 
 	/**
-	 * 根据agentId、tableName和columnName查询语义模型（用于批量导入时判断是否存在）
+     * Query semantic model based on agentId, tableName, and columnName
 	 */
 	@Select("""
 			SELECT * FROM semantic_model

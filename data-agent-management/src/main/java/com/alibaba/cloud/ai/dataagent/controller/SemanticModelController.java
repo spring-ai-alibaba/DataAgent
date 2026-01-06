@@ -34,6 +34,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -128,13 +130,14 @@ public class SemanticModelController {
 		return ApiResponse.success("批量导入完成", result);
 	}
 
-	/**
-	 * 下载Excel导入模板
-	 */
 	@GetMapping("/template/download")
 	public ResponseEntity<byte[]> downloadTemplate() {
 		try {
-			byte[] template = excelService.generateTemplate();
+			Path templatePath = Path.of("uploads", "data-agent", "execl", "semantic_model_template.xlsx");
+			if (!Files.exists(templatePath)) {
+				return ResponseEntity.notFound().build();
+			}
+			byte[] template = Files.readAllBytes(templatePath);
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
 			headers.setContentDispositionFormData("attachment", "semantic_model_template.xlsx");
@@ -146,19 +149,15 @@ public class SemanticModelController {
 		}
 	}
 
-	/**
-	 * Excel文件导入
-	 */
+
 	@PostMapping("/import/excel")
 	public ApiResponse<BatchImportResult> importExcel(@RequestParam("file") MultipartFile file,
 			@RequestParam("agentId") Integer agentId) {
 		try {
 			log.info("开始Excel导入: agentId={}, 文件名={}", agentId, file.getOriginalFilename());
 
-			// 解析Excel文件
 			List<SemanticModelImportItem> items = excelService.parseExcel(file);
 
-			// 执行批量导入
 			SemanticModelBatchImportDTO dto = SemanticModelBatchImportDTO.builder()
 				.agentId(agentId)
 				.items(items)
