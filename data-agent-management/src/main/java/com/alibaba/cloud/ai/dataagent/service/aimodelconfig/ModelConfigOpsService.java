@@ -124,7 +124,6 @@ public class ModelConfigOpsService {
 			}
 			catch (JsonProcessingException e1) {
 				log.error("Failed to convert config to JSON. Config: {}", config, e1);
-				throw new RuntimeException("Failed to convert config to JSON. Config: " + config, e1);
 			}
 			// 重新抛出异常，让 Controller 捕获并展示给前端
 			// 如果是 OpenAiHttpException，通常包含具体的 API 错误信息
