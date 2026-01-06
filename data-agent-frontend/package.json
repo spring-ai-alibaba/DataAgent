@@ -19,6 +19,7 @@
     "axios": "^1.6.0",
     "element-plus": "^2.9.11",
     "dompurify": "^3.2.4",
+    "echarts": "^6.0.0",
     "highlight.js": "^11.11.1",
     "marked": "^12.0.2",
     "vue": "^3.4.0",

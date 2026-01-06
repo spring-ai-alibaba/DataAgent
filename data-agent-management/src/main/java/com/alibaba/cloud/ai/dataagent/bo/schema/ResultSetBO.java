@@ -32,6 +32,14 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public final class ResultSetBO implements Cloneable {
 
+	private String type;
+
+	private String title;
+
+	private String x;
+
+	private List<String> y;
+
 	private List<String> column;
 
 	private List<Map<String, String>> data;
