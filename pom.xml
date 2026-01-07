@@ -292,12 +292,12 @@
         <configuration>
           <java>
             <removeUnusedImports/>
-          </java>
-          <licenseHeader>
-            <content>
-              <![CDATA[
+            <ratchetFrom>origin/main</ratchetFrom>
+            <licenseHeader>
+              <content>
+                <![CDATA[
 /*
- * Copyright 2024-2026 the original author or authors.
+ * Copyright $YEAR the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -311,9 +311,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ ]]>
-            </content>
-            <delimiter>(package|import)</delimiter>
-          </licenseHeader>
+              </content>
+              <delimiter>(package|import)</delimiter>
+            </licenseHeader>
+          </java>
         </configuration>
         <executions>
           <execution>
