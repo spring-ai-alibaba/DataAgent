@@ -139,12 +139,12 @@ public class SemanticModelController {
 				log.error("模板文件不存在: excel/semantic_model_template.xlsx");
 				return ResponseEntity.notFound().build();
 			}
-			
+
 			byte[] template;
 			try (InputStream inputStream = resource.getInputStream()) {
 				template = StreamUtils.copyToByteArray(inputStream);
 			}
-			
+
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
 			headers.setContentDispositionFormData("attachment", "semantic_model_template.xlsx");
