@@ -27,15 +27,16 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-  @ExceptionHandler(InvalidInputException.class)
-  @ResponseStatus(HttpStatus.BAD_REQUEST)
-  public ApiResponse<Object> handleInvalidInputException(InvalidInputException e) {
-    return ApiResponse.error(e.getMessage(), e.getData());
-  }
+	@ExceptionHandler(InvalidInputException.class)
+	@ResponseStatus(HttpStatus.BAD_REQUEST)
+	public ApiResponse<Object> handleInvalidInputException(InvalidInputException e) {
+		return ApiResponse.error(e.getMessage(), e.getData());
+	}
 
-  @ExceptionHandler(InternalServerException.class)
-  @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-  public ApiResponse<Object> handleInvalidInputException(InternalServerException e) {
-    return ApiResponse.error(e.getMessage());
-  }
+	@ExceptionHandler(InternalServerException.class)
+	@ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+	public ApiResponse<Object> handleInvalidInputException(InternalServerException e) {
+		return ApiResponse.error(e.getMessage());
+	}
+
 }

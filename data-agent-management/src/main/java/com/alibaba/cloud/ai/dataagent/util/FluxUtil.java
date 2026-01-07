@@ -33,162 +33,112 @@ import reactor.core.publisher.Mono;
  */
 public final class FluxUtil {
 
-  private FluxUtil() {}
+	private FluxUtil() {
+	}
 
-  /**
-   * 级联两个具有前后关系的Flux
-   *
-   * @param originFlux 第一个Flux
-   * @param nextFluxFunc 根据第一个Flux的聚合结果生成第二个Flux
-   * @param aggregator 聚合第一个Flux的所有数据
-   * @param preFlux 在第一个Flux前添加的信息Flux
-   * @param middleFlux 在第一个Flux和第二个Flux之间添加的信息Flux
-   * @param endFlux 在第二个Flux后添加的信息Flux
-   */
-  public static <T, R> Flux<T> cascadeFlux(
-      Flux<T> originFlux,
-      Function<R, Flux<T>> nextFluxFunc,
-      Function<Flux<T>, Mono<R>> aggregator,
-      Flux<T> preFlux,
-      Flux<T> middleFlux,
-      Flux<T> endFlux) {
-    // 缓存原始流避免重复执行
-    Flux<T> cachedOrigin = originFlux.cache();
+	/**
+	 * 级联两个具有前后关系的Flux
+	 * @param originFlux 第一个Flux
+	 * @param nextFluxFunc 根据第一个Flux的聚合结果生成第二个Flux
+	 * @param aggregator 聚合第一个Flux的所有数据
+	 * @param preFlux 在第一个Flux前添加的信息Flux
+	 * @param middleFlux 在第一个Flux和第二个Flux之间添加的信息Flux
+	 * @param endFlux 在第二个Flux后添加的信息Flux
+	 */
+	public static <T, R> Flux<T> cascadeFlux(Flux<T> originFlux, Function<R, Flux<T>> nextFluxFunc,
+			Function<Flux<T>, Mono<R>> aggregator, Flux<T> preFlux, Flux<T> middleFlux, Flux<T> endFlux) {
+		// 缓存原始流避免重复执行
+		Flux<T> cachedOrigin = originFlux.cache();
 
-    // 聚合结果
-    Mono<R> aggregatedResult = aggregator.apply(cachedOrigin).cache();
+		// 聚合结果
+		Mono<R> aggregatedResult = aggregator.apply(cachedOrigin).cache();
 
-    // 构建完整流
-    Flux<T> secondFlux = aggregatedResult.flatMapMany(nextFluxFunc);
+		// 构建完整流
+		Flux<T> secondFlux = aggregatedResult.flatMapMany(nextFluxFunc);
 
-    return preFlux
-        .concatWith(cachedOrigin)
-        .concatWith(middleFlux)
-        .concatWith(secondFlux)
-        .concatWith(endFlux);
-  }
+		return preFlux.concatWith(cachedOrigin).concatWith(middleFlux).concatWith(secondFlux).concatWith(endFlux);
+	}
 
-  /**
-   * 级联两个具有前后关系的Flux
-   *
-   * @param originFlux 第一个Flux
-   * @param nextFluxFunc 根据第一个Flux的聚合结果生成第二个Flux
-   * @param aggregator 聚合第一个Flux的所有数据
-   */
-  public static <T, R> Flux<T> cascadeFlux(
-      Flux<T> originFlux,
-      Function<R, Flux<T>> nextFluxFunc,
-      Function<Flux<T>, Mono<R>> aggregator) {
-    return cascadeFlux(
-        originFlux, nextFluxFunc, aggregator, Flux.empty(), Flux.empty(), Flux.empty());
-  }
+	/**
+	 * 级联两个具有前后关系的Flux
+	 * @param originFlux 第一个Flux
+	 * @param nextFluxFunc 根据第一个Flux的聚合结果生成第二个Flux
+	 * @param aggregator 聚合第一个Flux的所有数据
+	 */
+	public static <T, R> Flux<T> cascadeFlux(Flux<T> originFlux, Function<R, Flux<T>> nextFluxFunc,
+			Function<Flux<T>, Mono<R>> aggregator) {
+		return cascadeFlux(originFlux, nextFluxFunc, aggregator, Flux.empty(), Flux.empty(), Flux.empty());
+	}
 
-  /**
-   * Quickly create streaming generator with start and end messages
-   *
-   * @param nodeClass node class
-   * @param state state
-   * @param startMessage start message
-   * @param completionMessage completion message
-   * @param resultMapper result mapping function
-   * @param sourceFlux source data stream
-   * @return Flux instance
-   */
-  public static Flux<GraphResponse<StreamingOutput>> createStreamingGeneratorWithMessages(
-      Class<? extends NodeAction> nodeClass,
-      OverAllState state,
-      String startMessage,
-      String completionMessage,
-      Function<String, Map<String, Object>> resultMapper,
-      Flux<ChatResponse> sourceFlux) {
-    String nodeName = nodeClass.getSimpleName();
+	/**
+	 * Quickly create streaming generator with start and end messages
+	 * @param nodeClass node class
+	 * @param state state
+	 * @param startMessage start message
+	 * @param completionMessage completion message
+	 * @param resultMapper result mapping function
+	 * @param sourceFlux source data stream
+	 * @return Flux instance
+	 */
+	public static Flux<GraphResponse<StreamingOutput>> createStreamingGeneratorWithMessages(
+			Class<? extends NodeAction> nodeClass, OverAllState state, String startMessage, String completionMessage,
+			Function<String, Map<String, Object>> resultMapper, Flux<ChatResponse> sourceFlux) {
+		String nodeName = nodeClass.getSimpleName();
 
-    // Used to collect actual processing results
-    final StringBuilder collectedResult = new StringBuilder();
+		// Used to collect actual processing results
+		final StringBuilder collectedResult = new StringBuilder();
 
-    // wrapperFlux
-    Flux<ChatResponse> startFlux =
-        (startMessage == null
-            ? Flux.empty()
-            : Flux.just(ChatResponseUtil.createResponse(startMessage)));
-    Flux<ChatResponse> wrapperFlux =
-        startFlux.concatWith(
-            sourceFlux.doOnNext(
-                chatResponse -> {
-                  String text = ChatResponseUtil.getText(chatResponse);
-                  collectedResult.append(text);
-                }));
-    if (completionMessage != null) {
-      wrapperFlux =
-          wrapperFlux.concatWith(Flux.just(ChatResponseUtil.createResponse(completionMessage)));
-    }
-    return toStreamingResponseFlux(
-        nodeName, state, wrapperFlux, () -> resultMapper.apply(collectedResult.toString()));
-  }
+		// wrapperFlux
+		Flux<ChatResponse> startFlux = (startMessage == null ? Flux.empty()
+				: Flux.just(ChatResponseUtil.createResponse(startMessage)));
+		Flux<ChatResponse> wrapperFlux = startFlux.concatWith(sourceFlux.doOnNext(chatResponse -> {
+			String text = ChatResponseUtil.getText(chatResponse);
+			collectedResult.append(text);
+		}));
+		if (completionMessage != null) {
+			wrapperFlux = wrapperFlux.concatWith(Flux.just(ChatResponseUtil.createResponse(completionMessage)));
+		}
+		return toStreamingResponseFlux(nodeName, state, wrapperFlux,
+				() -> resultMapper.apply(collectedResult.toString()));
+	}
 
-  public static Flux<GraphResponse<StreamingOutput>> createStreamingGeneratorWithMessages(
-      Class<? extends NodeAction> nodeClass,
-      OverAllState state,
-      Function<String, Map<String, Object>> resultMapper,
-      Flux<ChatResponse> sourceFlux) {
-    return createStreamingGeneratorWithMessages(
-        nodeClass, state, null, null, resultMapper, sourceFlux);
-  }
+	public static Flux<GraphResponse<StreamingOutput>> createStreamingGeneratorWithMessages(
+			Class<? extends NodeAction> nodeClass, OverAllState state,
+			Function<String, Map<String, Object>> resultMapper, Flux<ChatResponse> sourceFlux) {
+		return createStreamingGeneratorWithMessages(nodeClass, state, null, null, resultMapper, sourceFlux);
+	}
 
-  /**
-   * create streaming generator with start and end flux
-   *
-   * @param nodeClass node class
-   * @param state state
-   * @param sourceFlux source data stream
-   * @param preFlux preFlux
-   * @param sufFlux sufFlux
-   * @param sourceMapper result of <code>sourceFlux</code> mapping function
-   * @return Flux instance
-   */
-  public static Flux<GraphResponse<StreamingOutput>> createStreamingGenerator(
-      Class<? extends NodeAction> nodeClass,
-      OverAllState state,
-      Flux<ChatResponse> sourceFlux,
-      Flux<ChatResponse> preFlux,
-      Flux<ChatResponse> sufFlux,
-      Function<String, Map<String, Object>> sourceMapper) {
-    String nodeName = nodeClass.getSimpleName();
-    // Used to collect actual processing results
-    final StringBuilder collectedResult = new StringBuilder();
-    sourceFlux = sourceFlux.doOnNext(r -> collectedResult.append(ChatResponseUtil.getText(r)));
-    return toStreamingResponseFlux(
-        nodeName,
-        state,
-        Flux.concat(preFlux, sourceFlux, sufFlux),
-        () -> sourceMapper.apply(collectedResult.toString()));
-  }
+	/**
+	 * create streaming generator with start and end flux
+	 * @param nodeClass node class
+	 * @param state state
+	 * @param sourceFlux source data stream
+	 * @param preFlux preFlux
+	 * @param sufFlux sufFlux
+	 * @param sourceMapper result of <code>sourceFlux</code> mapping function
+	 * @return Flux instance
+	 */
+	public static Flux<GraphResponse<StreamingOutput>> createStreamingGenerator(Class<? extends NodeAction> nodeClass,
+			OverAllState state, Flux<ChatResponse> sourceFlux, Flux<ChatResponse> preFlux, Flux<ChatResponse> sufFlux,
+			Function<String, Map<String, Object>> sourceMapper) {
+		String nodeName = nodeClass.getSimpleName();
+		// Used to collect actual processing results
+		final StringBuilder collectedResult = new StringBuilder();
+		sourceFlux = sourceFlux.doOnNext(r -> collectedResult.append(ChatResponseUtil.getText(r)));
+		return toStreamingResponseFlux(nodeName, state, Flux.concat(preFlux, sourceFlux, sufFlux),
+				() -> sourceMapper.apply(collectedResult.toString()));
+	}
 
-  private static Flux<GraphResponse<StreamingOutput>> toStreamingResponseFlux(
-      String nodeName,
-      OverAllState state,
-      Flux<ChatResponse> sourceFlux,
-      Supplier<Map<String, Object>> resultSupplier) {
-    Flux<GraphResponse<StreamingOutput>> streamingFlux =
-        sourceFlux
-            .filter(
-                response ->
-                    response != null
-                        && response.getResult() != null
-                        && response.getResult().getOutput() != null)
-            .map(
-                response ->
-                    GraphResponse.of(
-                        new StreamingOutput<>(
-                            response.getResult().getOutput(),
-                            response,
-                            nodeName,
-                            "",
-                            state,
-                            OutputType.from(true, nodeName))));
+	private static Flux<GraphResponse<StreamingOutput>> toStreamingResponseFlux(String nodeName, OverAllState state,
+			Flux<ChatResponse> sourceFlux, Supplier<Map<String, Object>> resultSupplier) {
+		Flux<GraphResponse<StreamingOutput>> streamingFlux = sourceFlux
+			.filter(response -> response != null && response.getResult() != null
+					&& response.getResult().getOutput() != null)
+			.map(response -> GraphResponse.of(new StreamingOutput<>(response.getResult().getOutput(), response,
+					nodeName, "", state, OutputType.from(true, nodeName))));
 
-    return streamingFlux
-        .concatWith(Mono.fromSupplier(() -> GraphResponse.done(resultSupplier.get())))
-        .onErrorResume(error -> Flux.just(GraphResponse.error(error)));
-  }
+		return streamingFlux.concatWith(Mono.fromSupplier(() -> GraphResponse.done(resultSupplier.get())))
+			.onErrorResume(error -> Flux.just(GraphResponse.error(error)));
+	}
+
 }
