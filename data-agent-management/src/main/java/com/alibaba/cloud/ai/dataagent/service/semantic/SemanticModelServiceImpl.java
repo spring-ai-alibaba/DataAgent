@@ -172,8 +172,8 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 			SemanticModelImportItem item = dto.getItems().get(i);
 			try {
 				// 检查是否已存在
-				SemanticModel existing = semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(
-						dto.getAgentId(), item.getTableName(), item.getColumnName());
+				SemanticModel existing = semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(dto.getAgentId(),
+						item.getTableName(), item.getColumnName());
 
 				if (existing != null) {
 					// 更新已存在的记录
@@ -183,8 +183,8 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 					existing.setColumnComment(item.getColumnComment());
 					existing.setDataType(item.getDataType());
 					semanticModelMapper.updateById(existing);
-					log.info("更新语义模型: agentId={}, tableName={}, columnName={}", dto.getAgentId(),
-							item.getTableName(), item.getColumnName());
+					log.info("更新语义模型: agentId={}, tableName={}, columnName={}", dto.getAgentId(), item.getTableName(),
+							item.getColumnName());
 				}
 				else {
 					// 插入新记录
@@ -201,18 +201,18 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 						.status(1) // 默认启用
 						.build();
 					semanticModelMapper.insert(newModel);
-					log.info("插入语义模型: agentId={}, tableName={}, columnName={}", dto.getAgentId(),
-							item.getTableName(), item.getColumnName());
+					log.info("插入语义模型: agentId={}, tableName={}, columnName={}", dto.getAgentId(), item.getTableName(),
+							item.getColumnName());
 				}
 
 				result.setSuccessCount(result.getSuccessCount() + 1);
 			}
 			catch (Exception e) {
-				log.error("导入第{}条记录失败: tableName={}, columnName={}", i + 1, item.getTableName(),
-						item.getColumnName(), e);
+				log.error("导入第{}条记录失败: tableName={}, columnName={}", i + 1, item.getTableName(), item.getColumnName(),
+						e);
 				result.setFailCount(result.getFailCount() + 1);
-				result.addError(String.format("第%d条记录失败 (%s.%s): %s", i + 1, item.getTableName(),
-						item.getColumnName(), e.getMessage()));
+				result.addError(String.format("第%d条记录失败 (%s.%s): %s", i + 1, item.getTableName(), item.getColumnName(),
+						e.getMessage()));
 			}
 		}
 

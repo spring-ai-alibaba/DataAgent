@@ -145,7 +145,7 @@ public interface SemanticModelMapper {
 			@Param("tableNames") List<String> tableNames);
 
 	/**
-     * Query semantic model based on agentId, tableName, and columnName
+	 * Query semantic model based on agentId, tableName, and columnName
 	 */
 	@Select("""
 			SELECT * FROM semantic_model
@@ -154,9 +154,7 @@ public interface SemanticModelMapper {
 			  AND column_name = #{columnName}
 			LIMIT 1
 			""")
-	SemanticModel selectByAgentIdAndTableNameAndColumnName(
-			@Param("agentId") Integer agentId,
-			@Param("tableName") String tableName,
-			@Param("columnName") String columnName);
+	SemanticModel selectByAgentIdAndTableNameAndColumnName(@Param("agentId") Integer agentId,
+			@Param("tableName") String tableName, @Param("columnName") String columnName);
 
 }

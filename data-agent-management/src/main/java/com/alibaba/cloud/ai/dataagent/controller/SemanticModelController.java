@@ -27,15 +27,17 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StreamUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
 /**
@@ -125,30 +127,34 @@ public class SemanticModelController {
 	public ApiResponse<BatchImportResult> batchImport(@RequestBody @Valid SemanticModelBatchImportDTO dto) {
 		log.info("开始批量导入语义模型: agentId={}, 数量={}", dto.getAgentId(), dto.getItems().size());
 		BatchImportResult result = semanticModelService.batchImport(dto);
-		log.info("批量导入完成: 总数={}, 成功={}, 失败={}", result.getTotal(), result.getSuccessCount(),
-				result.getFailCount());
+		log.info("批量导入完成: 总数={}, 成功={}, 失败={}", result.getTotal(), result.getSuccessCount(), result.getFailCount());
 		return ApiResponse.success("批量导入完成", result);
 	}
 
 	@GetMapping("/template/download")
 	public ResponseEntity<byte[]> downloadTemplate() {
 		try {
-			Path templatePath = Path.of("uploads", "data-agent", "execl", "semantic_model_template.xlsx");
-			if (!Files.exists(templatePath)) {
+			ClassPathResource resource = new ClassPathResource("excel/semantic_model_template.xlsx");
+			if (!resource.exists()) {
+				log.error("模板文件不存在: excel/semantic_model_template.xlsx");
 				return ResponseEntity.notFound().build();
 			}
-			byte[] template = Files.readAllBytes(templatePath);
+			
+			byte[] template;
+			try (InputStream inputStream = resource.getInputStream()) {
+				template = StreamUtils.copyToByteArray(inputStream);
+			}
+			
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
 			headers.setContentDispositionFormData("attachment", "semantic_model_template.xlsx");
 			return ResponseEntity.ok().headers(headers).body(template);
 		}
-		catch (Exception e) {
-			log.error("生成Excel模板失败", e);
+		catch (IOException e) {
+			log.error("读取Excel模板失败", e);
 			return ResponseEntity.internalServerError().build();
 		}
 	}
-
 
 	@PostMapping("/import/excel")
 	public ApiResponse<BatchImportResult> importExcel(@RequestParam("file") MultipartFile file,
