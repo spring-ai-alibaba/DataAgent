@@ -26,6 +26,73 @@ export interface ChartData {
 
 export type ChartTypes = 'table' | 'bar' | 'column' | 'line' | 'pie';
 
+// 基础颜色面板，作为扩展颜色数组的前6个色值
+export const COLOR_PANEL = ['#5584FF', '#36CBCB', '#4ECB74', '#FAD337', '#F2637B', '#975FEE'];
+
+// 扩展颜色数组，包含基础颜色面板、ECharts默认颜色和额外颜色
+export const EXTENDED_COLORS = [
+  // 基础颜色面板作为前6个色值
+  ...COLOR_PANEL,
+  // ECharts默认颜色（不包括与COLOR_PANEL重复的部分）
+  '#5470c6',
+  '#91cc75',
+  '#fac858',
+  '#ee6666',
+  '#73c0de',
+  '#3ba272',
+  '#fc8452',
+  '#9a60b4',
+  '#ea7ccc',
+  // 额外补充颜色
+  '#0082fc',
+  '#fdd845',
+  '#22ed7c',
+  '#1d27c9',
+  '#05f8d6',
+  '#f9e264',
+  '#f47a75',
+  '#009db2',
+];
+
+// 生成随机颜色的函数
+export const generateRandomColor = (): string => {
+  return `#${Math.floor(Math.random() * 16777215)
+    .toString(16)
+    .padStart(6, '0')}`;
+};
+
+// 生成指定长度的唯一颜色数组
+export const generateUniqueColors = (count: number): string[] => {
+  const colors: string[] = [];
+  const usedColors = new Set<string>();
+
+  for (let i = 0; i < count; i++) {
+    let color: string;
+
+    if (i < EXTENDED_COLORS.length) {
+      // 使用预定义颜色
+      color = EXTENDED_COLORS[i];
+      // 检查预定义颜色是否已被使用（防止EXTENDED_COLORS数组中可能存在的重复）
+      if (usedColors.has(color)) {
+        // 如果已被使用，生成随机颜色
+        do {
+          color = generateRandomColor();
+        } while (usedColors.has(color));
+      }
+    } else {
+      // 生成随机颜色并确保唯一
+      do {
+        color = generateRandomColor();
+      } while (usedColors.has(color));
+    }
+
+    colors.push(color);
+    usedColors.add(color);
+  }
+
+  return colors;
+};
+
 export abstract class BaseChart {
   id: string;
   _name: string = 'base-chart';

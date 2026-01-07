@@ -15,8 +15,7 @@
  */
 
 import * as echarts from 'echarts';
-import { BaseChart } from './BaseChart';
-import { COLOR_PANEL } from './ChartFactory';
+import { BaseChart, generateUniqueColors } from './BaseChart';
 
 export class PieChart extends BaseChart {
   private chartInstance: echarts.ECharts | null = null;
@@ -43,10 +42,13 @@ export class PieChart extends BaseChart {
       return;
     }
 
+    // 生成足够的唯一颜色
+    const colors: string[] = generateUniqueColors(this.data.length);
+
     const pieData = this.data.map((item, index) => ({
       name: item[nameAxis.value] || `Item ${index}`,
       value: parseFloat(item[valueAxis.value]) || 0,
-      itemStyle: index < 6 ? { color: COLOR_PANEL[index] } : undefined,
+      itemStyle: { color: colors[index] },
     }));
 
     if (!this.chartInstance) {

@@ -15,8 +15,7 @@
  */
 
 import * as echarts from 'echarts';
-import { BaseChart } from './BaseChart';
-import { COLOR_PANEL } from './ChartFactory';
+import { BaseChart, generateUniqueColors } from './BaseChart';
 
 export class LineChart extends BaseChart {
   private chartInstance: echarts.ECharts | null = null;
@@ -44,6 +43,7 @@ export class LineChart extends BaseChart {
     }
 
     const xAxisData = this.data.map(item => item[xAxis.value]);
+    const colors: string[] = generateUniqueColors(yAxes.length);
     const seriesData = yAxes.map((yAxis, index) => ({
       name: yAxis.name,
       type: 'line',
@@ -53,7 +53,7 @@ export class LineChart extends BaseChart {
         return isNaN(Number(value)) ? value : Number(value);
       }),
       // 只对前6个图例使用指定颜色，超出部分使用ECharts默认颜色
-      color: index < 6 ? COLOR_PANEL[index] : undefined,
+      color: colors[index],
     }));
 
     if (!this.chartInstance) {

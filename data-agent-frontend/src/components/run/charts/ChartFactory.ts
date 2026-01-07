@@ -19,8 +19,6 @@ import { PieChart } from './PieChart';
 import { BarChart } from './BarChart';
 import { LineChart } from './LineChart';
 
-export const COLOR_PANEL = ['#5584FF', '#36CBCB', '#4ECB74', '#FAD337', '#F2637B', '#975FEE'];
-
 export class ChartFactory {
   static createChart(chartType: ChartTypes, id: string, name: string): BaseChart | null {
     switch (chartType) {
