@@ -34,7 +34,9 @@
 
   // 判断是否显示图表
   const showChart = computed(() => {
-    return props.resultSetData.type && props.resultSetData.type !== 'table';
+    return (
+      props.resultSetData.displayStyle?.type && props.resultSetData.displayStyle?.type !== 'table'
+    );
   });
 
   // 生成表格HTML
@@ -148,7 +150,7 @@
     <!-- 头部区域 -->
     <div class="agent-response-title result-set-header-bar">
       <div class="agent-response-title">
-        {{ resultSetData.title || '查询结果' }}
+        {{ resultSetData.displayStyle?.title || '查询结果' }}
       </div>
       <div v-if="showChart" class="buttons-bar">
         <div class="chart-select-container">

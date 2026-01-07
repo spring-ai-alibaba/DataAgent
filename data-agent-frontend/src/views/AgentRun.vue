@@ -552,7 +552,10 @@
               try {
                 const resultSetData: ResultSetData = JSON.parse(node[0].text);
                 // 如果type不是table，保存一个特殊的标记，以便在历史消息中能够正确显示
-                if (resultSetData.type && resultSetData.type !== 'table') {
+                if (
+                  resultSetData.displayStyle?.type &&
+                  resultSetData.displayStyle?.type !== 'table'
+                ) {
                   const aiMessage: ChatMessage = {
                     sessionId,
                     role: 'assistant',
@@ -984,7 +987,10 @@
 
               // 如果type是table，保持原有逻辑生成表格HTML
               // 否则返回空字符串，因为已经在模板中用ResultSetDisplay组件处理了
-              if (resultSetData.type === 'table' || !resultSetData.type) {
+              if (
+                resultSetData.displayStyle?.type === 'table' ||
+                !resultSetData.displayStyle?.type
+              ) {
                 const tableHtml = generateResultSetTable(
                   resultSetData,
                   resultSetDisplayConfig.value.pageSize,

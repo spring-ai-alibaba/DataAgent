@@ -16,6 +16,7 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
+import com.alibaba.cloud.ai.dataagent.bo.schema.ResultDisplayStyleBO;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
@@ -231,30 +232,39 @@ public class SqlExecuteNode implements NodeAction {
 				// 解析JSON并填充到ResultSetBO中
 				Map<String, Object> chartConfig = OBJECT_MAPPER.readValue(chartConfigJson, Map.class);
 
-				// 提取图表配置信息并设置到ResultSetBO
+				// 创建ResultDisplayStyleBO对象
+				ResultDisplayStyleBO displayStyle = new ResultDisplayStyleBO();
+
+				// 提取图表配置信息并设置到ResultDisplayStyleBO
 				if (chartConfig.containsKey("type")) {
-					resultSetBO.setType((String) chartConfig.get("type"));
+					displayStyle.setType((String) chartConfig.get("type"));
+				}
+				else {
+					displayStyle.setType("table");
 				}
 				if (chartConfig.containsKey("title")) {
-					resultSetBO.setTitle((String) chartConfig.get("title"));
+					displayStyle.setTitle((String) chartConfig.get("title"));
 				}
 				if (chartConfig.containsKey("x")) {
-					resultSetBO.setX((String) chartConfig.get("x"));
+					displayStyle.setX((String) chartConfig.get("x"));
 				}
 				if (chartConfig.containsKey("y")) {
 					Object yValue = chartConfig.get("y");
 					if (yValue instanceof String) {
 						String yStr = (String) yValue;
 						// 将逗号分隔的字符串转换为列表
-						resultSetBO.setY(java.util.Arrays.asList(yStr.split(",")));
+						displayStyle.setY(java.util.Arrays.asList(yStr.split(",")));
 					}
 					else if (yValue instanceof List) {
-						resultSetBO.setY((List<String>) yValue);
+						displayStyle.setY((List<String>) yValue);
 					}
 				}
 
+				// 将displayStyle设置到resultSetBO
+				resultSetBO.setDisplayStyle(displayStyle);
+
 				log.info("Successfully enriched ResultSetBO with chart config: type={}, title={}, x={}, y={}",
-						chartConfig.get("type"), resultSetBO.getTitle(), resultSetBO.getX(), resultSetBO.getY());
+						displayStyle.getType(), displayStyle.getTitle(), displayStyle.getX(), displayStyle.getY());
 			}
 			else {
 				log.warn("LLM returned empty chart config, using default settings");

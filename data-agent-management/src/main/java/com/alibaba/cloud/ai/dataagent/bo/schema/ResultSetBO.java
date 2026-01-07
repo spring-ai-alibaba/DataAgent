@@ -32,13 +32,7 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public final class ResultSetBO implements Cloneable {
 
-	private String type;
-
-	private String title;
-
-	private String x;
-
-	private List<String> y;
+	private ResultDisplayStyleBO displayStyle;
 
 	private List<String> column;
 
@@ -49,6 +43,7 @@ public final class ResultSetBO implements Cloneable {
 	@Override
 	public ResultSetBO clone() {
 		return ResultSetBO.builder()
+			.displayStyle(this.displayStyle)
 			.column(new ArrayList<>(this.column))
 			.data(this.data.stream().map(HashMap::new).collect(Collectors.toList()))
 			.build();

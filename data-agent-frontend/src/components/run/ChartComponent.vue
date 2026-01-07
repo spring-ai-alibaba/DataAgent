@@ -31,7 +31,6 @@
   const chartId = `chart-${Math.random().toString(36).substr(2, 9)}`;
 
   const initChart = () => {
-    console.log('初始化图表');
     if (!chartRef.value || !props.resultSetData.data || props.resultSetData.data.length === 0) {
       return;
     }
@@ -46,24 +45,24 @@
     chartRef.value.id = chartId;
 
     // 解析图表类型
-    const chartType = (props.resultSetData.type as ChartTypes) || 'bar';
-    const chartTitle = props.resultSetData.title || '数据可视化';
+    const chartType = (props.resultSetData.displayStyle?.type as ChartTypes) || 'bar';
+    const chartTitle = props.resultSetData.displayStyle?.title || '数据可视化';
 
     // 创建图表轴配置
     const axes: ChartAxis[] = [];
 
     // 添加x轴
-    if (props.resultSetData.x) {
+    if (props.resultSetData.displayStyle?.x) {
       axes.push({
-        name: props.resultSetData.x,
-        value: props.resultSetData.x,
+        name: props.resultSetData.displayStyle.x,
+        value: props.resultSetData.displayStyle.x,
         type: 'x',
       });
     }
 
     // 添加y轴
-    if (props.resultSetData.y && Array.isArray(props.resultSetData.y)) {
-      props.resultSetData.y.forEach(yField => {
+    if (props.resultSetData.displayStyle?.y && Array.isArray(props.resultSetData.displayStyle.y)) {
+      props.resultSetData.displayStyle.y.forEach(yField => {
         axes.push({
           name: yField,
           value: yField,
@@ -122,12 +121,12 @@
 
   // 使用计算属性提取图表渲染所需的关键数据
   const chartKeyData = computed(() => {
-    const { type, title, x, y, data } = props.resultSetData;
+    const { displayStyle, data } = props.resultSetData;
     return {
-      type,
-      title,
-      x,
-      y,
+      type: displayStyle?.type,
+      title: displayStyle?.title,
+      x: displayStyle?.x,
+      y: displayStyle?.y,
       data: JSON.stringify(data), // 使用JSON.stringify来深度比较数据数组
     };
   });
