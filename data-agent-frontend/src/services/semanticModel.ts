@@ -164,7 +164,10 @@ class SemanticModelService {
    * @param dto 批量导入DTO
    */
   async batchImport(dto: SemanticModelBatchImportDTO): Promise<BatchImportResult> {
-    const response = await axios.post<ApiResponse<BatchImportResult>>(`${API_BASE_URL}/batch-import`, dto);
+    const response = await axios.post<ApiResponse<BatchImportResult>>(
+      `${API_BASE_URL}/batch-import`,
+      dto,
+    );
     return response.data.data || { total: 0, successCount: 0, failCount: 0, errors: [] };
   }
 
@@ -185,7 +188,7 @@ class SemanticModelService {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-      }
+      },
     );
     return response.data.data || { total: 0, successCount: 0, failCount: 0, errors: [] };
   }
@@ -211,4 +214,10 @@ class SemanticModelService {
 }
 
 export default new SemanticModelService();
-export type { SemanticModel, SemanticModelAddDto, SemanticModelImportItem, SemanticModelBatchImportDTO, BatchImportResult };
+export type {
+  SemanticModel,
+  SemanticModelAddDto,
+  SemanticModelImportItem,
+  SemanticModelBatchImportDTO,
+  BatchImportResult,
+};

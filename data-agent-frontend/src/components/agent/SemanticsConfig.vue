@@ -41,7 +41,13 @@
               <el-icon><Search /></el-icon>
             </template>
           </el-input>
-          <el-button @click="openBatchImportDialog" size="large" type="success" round :icon="Upload">
+          <el-button
+            @click="openBatchImportDialog"
+            size="large"
+            type="success"
+            round
+            :icon="Upload"
+          >
             批量导入
           </el-button>
           <el-button @click="openCreateDialog" size="large" type="primary" round :icon="Plus">
@@ -158,12 +164,7 @@
 
   <!-- 批量导入Dialog -->
   <el-dialog v-model="batchImportDialogVisible" title="批量导入语义模型" width="900">
-    <el-alert
-      title="导入说明"
-      type="info"
-      :closable="false"
-      style="margin-bottom: 20px"
-    >
+    <el-alert title="导入说明" type="info" :closable="false" style="margin-bottom: 20px">
       <p>1. 支持JSON和Excel两种导入方式</p>
       <p>2. 如果记录已存在（相同表名+字段名），将自动覆盖更新</p>
       <p>3. 枚举字段信息可以直接写在"业务描述"中，例如：枚举值：1=资产工单, 2=账号工单</p>
@@ -206,18 +207,15 @@
           >
             <el-icon class="el-icon--upload"><upload-filled /></el-icon>
             <div class="el-upload__text">
-              将Excel文件拖到此处，或<em>点击上传</em>
+              将Excel文件拖到此处，或
+              <em>点击上传</em>
             </div>
             <template #tip>
-              <div class="el-upload__tip">
-                只能上传 xlsx/xls 文件，且不超过 10MB
-              </div>
+              <div class="el-upload__tip">只能上传 xlsx/xls 文件，且不超过 10MB</div>
             </template>
           </el-upload>
           <div style="margin-top: 20px">
-            <el-button @click="downloadExcelTemplate" type="primary" plain>
-              下载Excel模板
-            </el-button>
+            <el-button @click="downloadExcelTemplate" type="primary" plain>下载Excel模板</el-button>
           </div>
         </div>
       </el-tab-pane>
@@ -229,10 +227,17 @@
           :title="importResult.failCount === 0 ? '导入成功' : '部分导入失败'"
         >
           <template #sub-title>
-            <p>总数：{{ importResult.total }} | 成功：{{ importResult.successCount }} | 失败：{{ importResult.failCount }}</p>
+            <p>
+              总数：{{ importResult.total }} | 成功：{{ importResult.successCount }} | 失败：{{
+                importResult.failCount
+              }}
+            </p>
           </template>
           <template #extra>
-            <div v-if="importResult.errors.length > 0" style="text-align: left; max-height: 300px; overflow-y: auto">
+            <div
+              v-if="importResult.errors.length > 0"
+              style="text-align: left; max-height: 300px; overflow-y: auto"
+            >
               <el-alert
                 v-for="(error, index) in importResult.errors"
                 :key="index"
@@ -250,10 +255,20 @@
     <template #footer>
       <div style="text-align: right">
         <el-button @click="batchImportDialogVisible = false">关闭</el-button>
-        <el-button type="primary" @click="executeBatchImport" :loading="importing" v-if="importMode === 'json'">
+        <el-button
+          type="primary"
+          @click="executeBatchImport"
+          :loading="importing"
+          v-if="importMode === 'json'"
+        >
           开始导入
         </el-button>
-        <el-button type="primary" @click="executeExcelImport" :loading="importing" v-if="importMode === 'excel'">
+        <el-button
+          type="primary"
+          @click="executeExcelImport"
+          :loading="importing"
+          v-if="importMode === 'excel'"
+        >
           开始导入
         </el-button>
       </div>
@@ -503,7 +518,9 @@
           for (let i = 0; i < data.length; i++) {
             const item = data[i];
             if (!item.tableName || !item.columnName || !item.businessName || !item.dataType) {
-              ElMessage.error(`第${i + 1}条记录缺少必填字段（tableName, columnName, businessName, dataType）`);
+              ElMessage.error(
+                `第${i + 1}条记录缺少必填字段（tableName, columnName, businessName, dataType）`,
+              );
               return false;
             }
           }
@@ -535,7 +552,9 @@
           if (result.failCount === 0) {
             ElMessage.success(`批量导入成功！共导入${result.successCount}条记录`);
           } else {
-            ElMessage.warning(`批量导入完成！成功${result.successCount}条，失败${result.failCount}条`);
+            ElMessage.warning(
+              `批量导入完成！成功${result.successCount}条，失败${result.failCount}条`,
+            );
           }
 
           // 刷新列表
@@ -586,7 +605,9 @@
           if (result.failCount === 0) {
             ElMessage.success(`Excel导入成功！共导入${result.successCount}条记录`);
           } else {
-            ElMessage.warning(`Excel导入完成！成功${result.successCount}条，失败${result.failCount}条`);
+            ElMessage.warning(
+              `Excel导入完成！成功${result.successCount}条，失败${result.failCount}条`,
+            );
           }
 
           // 刷新列表

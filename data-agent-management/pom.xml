@@ -254,6 +254,7 @@
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
             <version>5.2.5</version>
+        </dependency>
         <!-- Docker Java Client -->
         <dependency>
             <groupId>com.github.docker-java</groupId>
