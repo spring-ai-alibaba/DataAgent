@@ -248,13 +248,6 @@
             <artifactId>DmJdbcDriver18</artifactId>
             <scope>runtime</scope>
         </dependency>
-
-        <!-- Apache POI for Excel processing -->
-        <dependency>
-            <groupId>org.apache.poi</groupId>
-            <artifactId>poi-ooxml</artifactId>
-            <version>5.2.5</version>
-        </dependency>
         <!-- EasyExcel for flexible Excel processing -->
         <dependency>
             <groupId>com.alibaba</groupId>
