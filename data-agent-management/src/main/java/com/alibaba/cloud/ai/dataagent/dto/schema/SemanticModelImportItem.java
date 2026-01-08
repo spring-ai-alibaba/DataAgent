@@ -17,11 +17,14 @@
 package com.alibaba.cloud.ai.dataagent.dto.schema;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 /**
  * 语义模型导入项
@@ -50,5 +53,11 @@ public class SemanticModelImportItem {
 
 	@NotBlank(message = "数据类型不能为空")
 	private String dataType;
+
+	/**
+	 * 创建时间（可选，用于导入时指定创建时间）
+	 */
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+	private LocalDateTime createTime;
 
 }

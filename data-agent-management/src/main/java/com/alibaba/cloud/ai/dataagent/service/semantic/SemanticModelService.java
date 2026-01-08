@@ -20,6 +20,7 @@ import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelAddDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelBatchImportDTO;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
 import com.alibaba.cloud.ai.dataagent.vo.BatchImportResult;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -66,5 +67,13 @@ public interface SemanticModelService {
 	}
 
 	BatchImportResult batchImport(SemanticModelBatchImportDTO dto);
+
+	/**
+	 * 从Excel文件导入语义模型
+	 * @param file Excel文件
+	 * @param agentId 智能体ID
+	 * @return 导入结果
+	 */
+	BatchImportResult importFromExcel(MultipartFile file, Integer agentId);
 
 }

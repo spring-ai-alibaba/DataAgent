@@ -17,9 +17,7 @@ package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelAddDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelBatchImportDTO;
-import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelImportItem;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
-import com.alibaba.cloud.ai.dataagent.service.semantic.SemanticModelExcelService;
 import com.alibaba.cloud.ai.dataagent.service.semantic.SemanticModelService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import com.alibaba.cloud.ai.dataagent.vo.BatchImportResult;
@@ -50,9 +48,9 @@ import java.util.List;
 @AllArgsConstructor
 public class SemanticModelController {
 
-	private final SemanticModelService semanticModelService;
+	private static final String TEMPLATE_FILE_NAME = "semantic_model_template.xlsx";
 
-	private final SemanticModelExcelService excelService;
+	private final SemanticModelService semanticModelService;
 
 	@GetMapping
 	public ApiResponse<List<SemanticModel>> list(@RequestParam(value = "keyword", required = false) String keyword,
@@ -106,6 +104,15 @@ public class SemanticModelController {
 		return ApiResponse.success("Semantic model deleted successfully", true);
 	}
 
+	/**
+	 * 批量删除语义模型
+	 */
+	@DeleteMapping("/batch")
+	public ApiResponse<Boolean> batchDelete(@RequestBody @NotEmpty(message = "ID列表不能为空") List<Long> ids) {
+		semanticModelService.deleteSemanticModels(ids);
+		return ApiResponse.success("批量删除成功", true);
+	}
+
 	// Enable
 	@PutMapping("/enable")
 	public ApiResponse<Boolean> enableFields(@RequestBody @NotEmpty(message = "ID列表不能为空") List<Long> ids) {
@@ -134,9 +141,9 @@ public class SemanticModelController {
 	@GetMapping("/template/download")
 	public ResponseEntity<byte[]> downloadTemplate() {
 		try {
-			ClassPathResource resource = new ClassPathResource("excel/semantic_model_template.xlsx");
+			ClassPathResource resource = new ClassPathResource("excel/" + TEMPLATE_FILE_NAME);
 			if (!resource.exists()) {
-				log.error("模板文件不存在: excel/semantic_model_template.xlsx");
+				log.error("模板文件不存在: excel/{}", TEMPLATE_FILE_NAME);
 				return ResponseEntity.notFound().build();
 			}
 
@@ -147,7 +154,7 @@ public class SemanticModelController {
 
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-			headers.setContentDispositionFormData("attachment", "semantic_model_template.xlsx");
+			headers.setContentDispositionFormData("attachment", TEMPLATE_FILE_NAME);
 			return ResponseEntity.ok().headers(headers).body(template);
 		}
 		catch (IOException e) {
@@ -160,19 +167,7 @@ public class SemanticModelController {
 	public ApiResponse<BatchImportResult> importExcel(@RequestParam("file") MultipartFile file,
 			@RequestParam("agentId") Integer agentId) {
 		try {
-			log.info("开始Excel导入: agentId={}, 文件名={}", agentId, file.getOriginalFilename());
-
-			List<SemanticModelImportItem> items = excelService.parseExcel(file);
-
-			SemanticModelBatchImportDTO dto = SemanticModelBatchImportDTO.builder()
-				.agentId(agentId)
-				.items(items)
-				.build();
-
-			BatchImportResult result = semanticModelService.batchImport(dto);
-			log.info("Excel导入完成: 总数={}, 成功={}, 失败={}", result.getTotal(), result.getSuccessCount(),
-					result.getFailCount());
-
+			BatchImportResult result = semanticModelService.importFromExcel(file, agentId);
 			return ApiResponse.success("Excel导入完成", result);
 		}
 		catch (IllegalArgumentException e) {

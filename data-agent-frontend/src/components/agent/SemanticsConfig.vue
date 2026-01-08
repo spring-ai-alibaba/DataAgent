@@ -26,6 +26,17 @@
       <el-row style="display: flex; justify-content: space-between; align-items: center">
         <el-col :span="12">
           <h3>语义模型列表</h3>
+          <el-button
+            v-if="selectedModels.length > 0"
+            @click="batchDeleteModels"
+            size="default"
+            type="danger"
+            plain
+            :icon="Delete"
+            style="margin-left: 10px"
+          >
+            批量删除 ({{ selectedModels.length }})
+          </el-button>
         </el-col>
         <el-col :span="12" style="text-align: right">
           <el-input
@@ -57,7 +68,13 @@
       </el-row>
     </div>
 
-    <el-table :data="semanticModelList" style="width: 100%" border>
+    <el-table
+      :data="semanticModelList"
+      style="width: 100%"
+      border
+      @selection-change="handleSelectionChange"
+    >
+      <el-table-column type="selection" width="55" />
       <el-table-column prop="id" label="ID" min-width="60px" />
       <el-table-column prop="tableName" label="表名" min-width="120px" />
       <el-table-column prop="columnName" label="数据库字段名" min-width="120px" />
@@ -278,7 +295,7 @@
 
 <script lang="ts">
   import { defineComponent, ref, onMounted, Ref } from 'vue';
-  import { Plus, Search, Upload, UploadFilled } from '@element-plus/icons-vue';
+  import { Plus, Search, Upload, UploadFilled, Delete } from '@element-plus/icons-vue';
   import semanticModelService, {
     SemanticModel,
     SemanticModelAddDto,
@@ -303,6 +320,7 @@
       const dialogVisible: Ref<boolean> = ref(false);
       const isEdit: Ref<boolean> = ref(false);
       const searchKeyword: Ref<string> = ref('');
+      const selectedModels: Ref<SemanticModel[]> = ref([]);
       const modelForm: Ref<SemanticModel> = ref({
         tableName: '',
         columnName: '',
@@ -331,6 +349,43 @@
           agentId: props.agentId,
         } as SemanticModel;
         dialogVisible.value = true;
+      };
+
+      // 处理表格选择变化
+      const handleSelectionChange = (selection: SemanticModel[]) => {
+        selectedModels.value = selection;
+      };
+
+      // 批量删除语义模型
+      const batchDeleteModels = async () => {
+        if (selectedModels.value.length === 0) {
+          ElMessage.warning('请先选择要删除的语义模型');
+          return;
+        }
+
+        try {
+          await ElMessageBox.confirm(
+            `确定要删除选中的 ${selectedModels.value.length} 个语义模型吗？`,
+            '确认批量删除',
+            {
+              confirmButtonText: '确定',
+              cancelButtonText: '取消',
+              type: 'warning',
+            },
+          );
+
+          const ids = selectedModels.value.map((model) => model.id).filter((id) => id !== undefined) as number[];
+          const result = await semanticModelService.batchDelete(ids);
+          if (result) {
+            ElMessage.success(`成功删除 ${ids.length} 个语义模型`);
+            selectedModels.value = [];
+            await loadSemanticModels();
+          } else {
+            ElMessage.error('批量删除失败');
+          }
+        } catch {
+          // 用户取消操作时不显示错误消息
+        }
       };
 
       // 处理搜索
@@ -625,12 +680,16 @@
         Search,
         Upload,
         UploadFilled,
+        Delete,
         semanticModelList,
         dialogVisible,
         isEdit,
         searchKeyword,
+        selectedModels,
         modelForm,
         openCreateDialog,
+        handleSelectionChange,
+        batchDeleteModels,
         editModel,
         deleteModel,
         toggleStatus,

@@ -142,6 +142,17 @@ class SemanticModelService {
   }
 
   /**
+   * 批量删除语义模型
+   * @param ids 语义模型 ID 列表
+   */
+  async batchDelete(ids: number[]): Promise<boolean> {
+    const response = await axios.delete<ApiResponse>(`${API_BASE_URL}/batch`, {
+      data: ids,
+    });
+    return response.data.success;
+  }
+
+  /**
    * 启用语义模型
    * @param ids 语义模型 ID 列表
    */

@@ -39,6 +39,8 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 
 	private final AgentDatasourceMapper agentDatasourceMapper;
 
+	private final SemanticModelExcelService excelService;
+
 	@Override
 	public List<SemanticModel> getAll() {
 		return semanticModelMapper.selectAll();
@@ -199,6 +201,7 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 						.columnComment(item.getColumnComment())
 						.dataType(item.getDataType())
 						.status(1) // 默认启用
+						.createdTime(item.getCreateTime() != null ? item.getCreateTime() : java.time.LocalDateTime.now())
 						.build();
 					semanticModelMapper.insert(newModel);
 					log.info("插入语义模型: agentId={}, tableName={}, columnName={}", dto.getAgentId(), item.getTableName(),
@@ -217,6 +220,39 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 		}
 
 		return result;
+	}
+
+	@Override
+	public BatchImportResult importFromExcel(MultipartFile file, Integer agentId) {
+		log.info("开始Excel导入: agentId={}, 文件名={}", agentId, file.getOriginalFilename());
+
+		try {
+			// 解析Excel文件
+			List<SemanticModelImportItem> items = excelService.parseExcel(file);
+
+			// 组装DTO
+			SemanticModelBatchImportDTO dto = SemanticModelBatchImportDTO.builder()
+				.agentId(agentId)
+				.items(items)
+				.build();
+
+			// 执行批量导入
+			BatchImportResult result = batchImport(dto);
+			log.info("Excel导入完成: 总数={}, 成功={}, 失败={}", result.getTotal(), result.getSuccessCount(),
+					result.getFailCount());
+
+			return result;
+		}
+		catch (Exception e) {
+			log.error("Excel导入失败", e);
+			BatchImportResult result = BatchImportResult.builder()
+				.total(0)
+				.successCount(0)
+				.failCount(0)
+				.build();
+			result.addError("Excel导入失败: " + e.getMessage());
+			return result;
+		}
 	}
 
 }
