@@ -378,7 +378,9 @@
             },
           );
 
-          const ids = selectedModels.value.map((model) => model.id).filter((id) => id !== undefined) as number[];
+          const ids = selectedModels.value
+            .map(model => model.id)
+            .filter(id => id !== undefined) as number[];
           const result = await semanticModelService.batchDelete(ids);
           if (result) {
             ElMessage.success(`成功删除 ${ids.length} 个语义模型`);

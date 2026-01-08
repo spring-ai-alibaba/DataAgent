@@ -175,8 +175,8 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 			SemanticModelImportItem item = dto.getItems().get(i);
 			try {
 				// 检查是否已存在
-				SemanticModel existing = semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(dto.getAgentId().intValue(),
-						item.getTableName(), item.getColumnName());
+				SemanticModel existing = semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(
+						dto.getAgentId().intValue(), item.getTableName(), item.getColumnName());
 
 				if (existing != null) {
 					// 更新已存在的记录
@@ -202,7 +202,8 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 						.columnComment(item.getColumnComment())
 						.dataType(item.getDataType())
 						.status(1) // 默认启用
-						.createdTime(item.getCreateTime() != null ? item.getCreateTime() : java.time.LocalDateTime.now())
+						.createdTime(
+								item.getCreateTime() != null ? item.getCreateTime() : java.time.LocalDateTime.now())
 						.build();
 					semanticModelMapper.insert(newModel);
 					log.info("插入语义模型: agentId={}, tableName={}, columnName={}", dto.getAgentId(), item.getTableName(),
@@ -246,11 +247,7 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 		}
 		catch (Exception e) {
 			log.error("Excel导入失败", e);
-			BatchImportResult result = BatchImportResult.builder()
-				.total(0)
-				.successCount(0)
-				.failCount(0)
-				.build();
+			BatchImportResult result = BatchImportResult.builder().total(0).successCount(0).failCount(0).build();
 			result.addError("Excel导入失败: " + e.getMessage());
 			return result;
 		}
