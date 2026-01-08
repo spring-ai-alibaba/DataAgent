@@ -113,7 +113,7 @@ public class TableRelationNode implements NodeAction {
 
 					// 根据agentId和表名列表获取语义模型
 					List<SemanticModel> semanticModels = semanticModelService
-						.getByAgentIdAndTableNames(Integer.valueOf(agentIdStr), tableNames);
+						.getByAgentIdAndTableNames(Long.valueOf(agentIdStr), tableNames);
 
 					// 构建语义模型提示并存储到resultMap中
 					String semanticModelPrompt = buildSemanticModelPrompt(semanticModels);

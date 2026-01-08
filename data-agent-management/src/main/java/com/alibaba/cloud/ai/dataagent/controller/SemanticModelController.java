@@ -165,7 +165,7 @@ public class SemanticModelController {
 
 	@PostMapping("/import/excel")
 	public ApiResponse<BatchImportResult> importExcel(@RequestParam("file") MultipartFile file,
-			@RequestParam("agentId") Integer agentId) {
+			@RequestParam("agentId") Long agentId) {
 		try {
 			BatchImportResult result = semanticModelService.importFromExcel(file, agentId);
 			return ApiResponse.success("Excel导入完成", result);

@@ -27,6 +27,7 @@ import com.alibaba.cloud.ai.dataagent.vo.BatchImportResult;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -52,7 +53,7 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 	}
 
 	@Override
-	public List<SemanticModel> getByAgentIdAndTableNames(Integer agentId, List<String> tableNames) {
+	public List<SemanticModel> getByAgentIdAndTableNames(Long agentId, List<String> tableNames) {
 		Integer datasourceId = findDatasourceIdByAgentId(agentId);
 
 		if (datasourceId == null || tableNames == null || tableNames.isEmpty()) {
@@ -75,7 +76,7 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 	@Override
 	public boolean addSemanticModel(SemanticModelAddDTO dto) {
 		// 根据agentId查询关联的datasourceId
-		Integer datasourceId = findDatasourceIdByAgentId(dto.getAgentId());
+		Integer datasourceId = findDatasourceIdByAgentId(dto.getAgentId().longValue());
 
 		// 转换DTO为Entity
 		SemanticModel semanticModel = SemanticModel.builder()
@@ -100,8 +101,8 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 	/**
 	 * 根据agentId查找关联的datasourceId 如果有多个数据源，返回第一个启用的数据源
 	 */
-	private Integer findDatasourceIdByAgentId(Integer agentId) {
-		List<AgentDatasource> agentDatasources = agentDatasourceMapper.selectByAgentId(agentId);
+	private Integer findDatasourceIdByAgentId(Long agentId) {
+		List<AgentDatasource> agentDatasources = agentDatasourceMapper.selectByAgentId(agentId.intValue());
 
 		if (agentDatasources.isEmpty()) {
 			throw new RuntimeException("No datasource found for Agent ID " + agentId);
@@ -174,7 +175,7 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 			SemanticModelImportItem item = dto.getItems().get(i);
 			try {
 				// 检查是否已存在
-				SemanticModel existing = semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(dto.getAgentId(),
+				SemanticModel existing = semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(dto.getAgentId().intValue(),
 						item.getTableName(), item.getColumnName());
 
 				if (existing != null) {
@@ -191,7 +192,7 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 				else {
 					// 插入新记录
 					SemanticModel newModel = SemanticModel.builder()
-						.agentId(dto.getAgentId())
+						.agentId(dto.getAgentId().intValue())
 						.datasourceId(datasourceId)
 						.tableName(item.getTableName())
 						.columnName(item.getColumnName())
@@ -223,7 +224,7 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 	}
 
 	@Override
-	public BatchImportResult importFromExcel(MultipartFile file, Integer agentId) {
+	public BatchImportResult importFromExcel(MultipartFile file, Long agentId) {
 		log.info("开始Excel导入: agentId={}, 文件名={}", agentId, file.getOriginalFilename());
 
 		try {

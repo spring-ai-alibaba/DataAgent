@@ -30,7 +30,7 @@ public interface SemanticModelService {
 
 	List<SemanticModel> getEnabledByAgentId(Long agentId);
 
-	List<SemanticModel> getByAgentIdAndTableNames(Integer agentId, List<String> tableNames);
+	List<SemanticModel> getByAgentIdAndTableNames(Long agentId, List<String> tableNames);
 
 	SemanticModel getById(Long id);
 
@@ -74,6 +74,6 @@ public interface SemanticModelService {
 	 * @param agentId 智能体ID
 	 * @return 导入结果
 	 */
-	BatchImportResult importFromExcel(MultipartFile file, Integer agentId);
+	BatchImportResult importFromExcel(MultipartFile file, Long agentId);
 
 }

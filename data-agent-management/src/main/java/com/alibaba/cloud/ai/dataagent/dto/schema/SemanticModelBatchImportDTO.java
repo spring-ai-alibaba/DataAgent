@@ -36,7 +36,7 @@ import java.util.List;
 public class SemanticModelBatchImportDTO {
 
 	@NotNull(message = "智能体ID不能为空")
-	private Integer agentId;
+	private Long agentId;
 
 	@NotEmpty(message = "导入数据不能为空")
 	@Valid

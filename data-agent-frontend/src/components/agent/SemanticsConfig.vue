@@ -88,7 +88,11 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" min-width="120px" />
+      <el-table-column label="创建时间" min-width="160px">
+        <template #default="scope">
+          {{ formatDateTime(scope.row.createdTime || scope.row.createTime) }}
+        </template>
+      </el-table-column>
       <el-table-column label="操作" min-width="180px">
         <template #default="scope">
           <el-button @click="editModel(scope.row)" size="small" type="primary" round plain>
@@ -675,6 +679,25 @@
         }
       };
 
+      // 格式化日期时间
+      const formatDateTime = (dateTime: string | undefined) => {
+        if (!dateTime) return '-';
+        try {
+          const date = new Date(dateTime);
+          return date.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+          });
+        } catch {
+          return dateTime;
+        }
+      };
+
       return {
         Plus,
         Search,
@@ -711,6 +734,8 @@
         handleExceed,
         downloadExcelTemplate,
         executeExcelImport,
+        // 工具函数
+        formatDateTime,
       };
     },
   });

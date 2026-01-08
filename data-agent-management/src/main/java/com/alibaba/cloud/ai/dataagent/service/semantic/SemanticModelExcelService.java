@@ -17,144 +17,75 @@
 package com.alibaba.cloud.ai.dataagent.service.semantic;
 
 import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelImportItem;
+import com.alibaba.excel.EasyExcel;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.ss.usermodel.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Excel解析
+ * Excel解析服务
  */
 @Service
 @Slf4j
 public class SemanticModelExcelService {
 
-	private static final String[] HEADERS = { "表名*", "字段名*", "业务名称*", "数据类型*", "同义词", "业务描述" };
-
-	private static final int COL_TABLE_NAME = 0;
-
-	private static final int COL_COLUMN_NAME = 1;
-
-	private static final int COL_BUSINESS_NAME = 2;
-
-	private static final int COL_DATA_TYPE = 3;
-
-	private static final int COL_SYNONYMS = 4;
-
-	private static final int COL_BUSINESS_DESC = 5;
-
 	/**
 	 * 解析Excel文件
 	 */
 	public List<SemanticModelImportItem> parseExcel(MultipartFile file) throws IOException {
-		List<SemanticModelImportItem> items = new ArrayList<>();
+		log.info("开始解析Excel文件: {}", file.getOriginalFilename());
 
-		try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
-			Sheet sheet = workbook.getSheetAt(0);
+		try {
+			// 使用 EasyExcel 同步读取，自动根据 @ExcelProperty 注解映射列
+			List<SemanticModelImportItem> items = EasyExcel.read(file.getInputStream())
+				.head(SemanticModelImportItem.class)
+				.sheet()
+				.doReadSync();
 
-			for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-				Row row = sheet.getRow(i);
-				if (row == null) {
-					continue;
-				}
-
-				// 检查是否为空行
-				if (isEmptyRow(row)) {
-					continue;
-				}
-
-				// 读取必填字段
-				String tableName = getCellValueAsString(row.getCell(COL_TABLE_NAME));
-				String columnName = getCellValueAsString(row.getCell(COL_COLUMN_NAME));
-				String businessName = getCellValueAsString(row.getCell(COL_BUSINESS_NAME));
-				String dataType = getCellValueAsString(row.getCell(COL_DATA_TYPE));
-
-				// 验证必填字段
-				if (tableName == null || tableName.trim().isEmpty()) {
-					throw new IllegalArgumentException("第" + (i + 1) + "行：表名不能为空");
-				}
-				if (columnName == null || columnName.trim().isEmpty()) {
-					throw new IllegalArgumentException("第" + (i + 1) + "行：字段名不能为空");
-				}
-				if (businessName == null || businessName.trim().isEmpty()) {
-					throw new IllegalArgumentException("第" + (i + 1) + "行：业务名称不能为空");
-				}
-				if (dataType == null || dataType.trim().isEmpty()) {
-					throw new IllegalArgumentException("第" + (i + 1) + "行：数据类型不能为空");
-				}
-
-				// 读取可选字段
-				String synonyms = getCellValueAsString(row.getCell(COL_SYNONYMS));
-				String businessDesc = getCellValueAsString(row.getCell(COL_BUSINESS_DESC));
-
-				// 构建导入项
-				SemanticModelImportItem item = SemanticModelImportItem.builder()
-					.tableName(tableName.trim())
-					.columnName(columnName.trim())
-					.businessName(businessName.trim())
-					.dataType(dataType.trim())
-					.synonyms(synonyms != null ? synonyms.trim() : null)
-					.businessDescription(businessDesc != null ? businessDesc.trim() : null)
-					.build();
-
-				items.add(item);
+			if (items == null || items.isEmpty()) {
+				throw new IllegalArgumentException("Excel文件中没有有效数据");
 			}
-		}
 
-		if (items.isEmpty()) {
-			throw new IllegalArgumentException("Excel文件中没有有效数据");
-		}
+			// 验证必填字段
+			for (int i = 0; i < items.size(); i++) {
+				SemanticModelImportItem item = items.get(i);
+				int rowNum = i + 2;
 
-		log.info("成功解析Excel文件，共{}条记录", items.size());
-		return items;
-	}
+				if (item.getTableName() == null || item.getTableName().trim().isEmpty()) {
+					throw new IllegalArgumentException("第" + rowNum + "行：表名不能为空");
+				}
+				if (item.getColumnName() == null || item.getColumnName().trim().isEmpty()) {
+					throw new IllegalArgumentException("第" + rowNum + "行：字段名不能为空");
+				}
+				if (item.getBusinessName() == null || item.getBusinessName().trim().isEmpty()) {
+					throw new IllegalArgumentException("第" + rowNum + "行：业务名称不能为空");
+				}
+				if (item.getDataType() == null || item.getDataType().trim().isEmpty()) {
+					throw new IllegalArgumentException("第" + rowNum + "行：数据类型不能为空");
+				}
 
-	/**
-	 * 判断是否为空行
-	 */
-	private boolean isEmptyRow(Row row) {
-		for (int i = 0; i < HEADERS.length; i++) {
-			Cell cell = row.getCell(i);
-			if (cell != null && cell.getCellType() != CellType.BLANK) {
-				String value = getCellValueAsString(cell);
-				if (value != null && !value.trim().isEmpty()) {
-					return false;
+				// 清理字段值
+				item.setTableName(item.getTableName().trim());
+				item.setColumnName(item.getColumnName().trim());
+				item.setBusinessName(item.getBusinessName().trim());
+				item.setDataType(item.getDataType().trim());
+				if (item.getSynonyms() != null) {
+					item.setSynonyms(item.getSynonyms().trim());
+				}
+				if (item.getBusinessDescription() != null) {
+					item.setBusinessDescription(item.getBusinessDescription().trim());
 				}
 			}
-		}
-		return true;
-	}
 
-	/**
-	 * 获取单元格值
-	 */
-	private String getCellValueAsString(Cell cell) {
-		if (cell == null) {
-			return null;
+			log.info("成功解析Excel文件，共{}条记录", items.size());
+			return items;
 		}
-
-		switch (cell.getCellType()) {
-			case STRING:
-				return cell.getStringCellValue();
-			case NUMERIC:
-				if (DateUtil.isCellDateFormatted(cell)) {
-					return cell.getDateCellValue().toString();
-				}
-				else {
-					return String.valueOf((long) cell.getNumericCellValue());
-				}
-			case BOOLEAN:
-				return String.valueOf(cell.getBooleanCellValue());
-			case FORMULA:
-				return cell.getCellFormula();
-			case BLANK:
-				return null;
-			default:
-				return null;
+		catch (Exception e) {
+			log.error("解析Excel文件失败: {}", file.getOriginalFilename(), e);
+			throw new IOException("解析Excel文件失败: " + e.getMessage(), e);
 		}
 	}
 
