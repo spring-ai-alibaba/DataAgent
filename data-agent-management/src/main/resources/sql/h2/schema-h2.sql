@@ -17,10 +17,10 @@ CREATE TABLE IF NOT EXISTS agent (
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     human_review_enabled TINYINT DEFAULT 0 COMMENT '是否启用计划人工复核 0-否，1-是',
     PRIMARY KEY (id),
-    INDEX idx_name (name),
-    INDEX idx_status (status),
-    INDEX idx_category (category),
-    INDEX idx_admin_id (admin_id)
+    INDEX idx_agent_name (name),
+    INDEX idx_agent_status (status),
+    INDEX idx_agent_category (category),
+    INDEX idx_agent_admin_id (admin_id)
     ) ENGINE = InnoDB COMMENT = '智能体表';
 
 -- 业务知识表
@@ -37,64 +37,60 @@ CREATE TABLE IF NOT EXISTS business_knowledge (
   error_msg VARCHAR(255) DEFAULT NULL COMMENT '操作失败的错误信息',
   is_deleted INT DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',
   PRIMARY KEY (id),
-  INDEX idx_business_term (business_term),
-  INDEX idx_agent_id (agent_id),
-  INDEX idx_is_recall (is_recall),
-  INDEX idx_embedding_status (embedding_status),
-  INDEX idx_is_deleted (is_deleted),
+  INDEX idx_business_knowledge_business_term (business_term),
+  INDEX idx_business_knowledge_agent_id (agent_id),
+  INDEX idx_business_knowledge_is_recall (is_recall),
+  INDEX idx_business_knowledge_embedding_status (embedding_status),
+  INDEX idx_business_knowledge_is_deleted (is_deleted),
   FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '业务知识表';
 
 -- 语义模型表
 CREATE TABLE IF NOT EXISTS semantic_model (
   id INT NOT NULL AUTO_INCREMENT,
-  agent_id INT COMMENT '关联的智能体ID',
-  field_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '智能体字段名称',
-  synonyms TEXT COMMENT '字段名称同义词',
-  origin_name VARCHAR(255) DEFAULT '' COMMENT '原始字段名',
-  description TEXT COMMENT '字段描述',
-  origin_description VARCHAR(255) COMMENT '原始字段描述',
-  type VARCHAR(255) DEFAULT '' COMMENT '字段类型 (integer, varchar....)',
-  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  is_recall TINYINT DEFAULT 0 COMMENT '0 停用 1 启用',
-  status TINYINT DEFAULT 0 COMMENT '0 停用 1 启用',
+  agent_id INT NOT NULL COMMENT '关联的智能体ID',
+  datasource_id INT NOT NULL COMMENT '关联的数据源ID',
+  table_name VARCHAR(255) NOT NULL COMMENT '关联的表名',
+  column_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '数据库中的物理字段名 (例如: csat_score)',
+  business_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '业务名/别名 (例如: 客户满意度分数)',
+  synonyms TEXT COMMENT '业务名的同义词 (例如: 满意度,客户评分)',
+  business_description TEXT COMMENT '业务描述 (用于向LLM解释字段的业务含义)',
+  column_comment VARCHAR(255) DEFAULT NULL COMMENT '数据库中的物理字段的原始注释 ',
+  data_type VARCHAR(255) NOT NULL DEFAULT '' COMMENT '物理数据类型 (例如: int, varchar(20))',
+  status TINYINT NOT NULL DEFAULT 1 COMMENT '0 停用 1 启用',
+  created_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
-  INDEX idx_agent_id_sm (agent_id),
-  INDEX idx_field_name (field_name),
-  INDEX idx_status_sm (status),
-  INDEX idx_is_recall_sm (is_recall),
-  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE SET NULL
+  INDEX idx_semantic_model_agent_id (agent_id),
+  INDEX idx_semantic_model_business_name (business_name),
+  INDEX idx_semantic_model_status (status),
+  CONSTRAINT fk_semantic_model_agent FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '语义模型表';
 
 
 -- 智能体知识表
 CREATE TABLE IF NOT EXISTS agent_knowledge (
-  id INT NOT NULL AUTO_INCREMENT,
-  agent_id INT NOT NULL COMMENT '智能体ID',
-  title VARCHAR(255) NOT NULL COMMENT '知识标题',
-  type VARCHAR(50) DEFAULT 'DOCUMENT' COMMENT '知识类型：DOCUMENT-文档，QA-问答，FAQ-常见问题',
+  id INT NOT NULL AUTO_INCREMENT COMMENT '主键ID, 用于内部关联',
+  agent_id INT NOT NULL COMMENT '关联的智能体ID',
+  title VARCHAR(255) NOT NULL COMMENT '知识的标题 (用户定义, 用于在UI上展示和识别)',
+  type VARCHAR(50) NOT NULL COMMENT '知识类型: DOCUMENT-文档, QA-问答, FAQ-常见问题',
   question TEXT COMMENT '问题 (仅当type为QA或FAQ时使用)',
-  content TEXT COMMENT '知识内容 (对于QA/FAQ是答案; 对于DOCUMENT, 此字段通常为空)',
+  content MEDIUMTEXT COMMENT '知识内容 (对于QA/FAQ是答案; 对于DOCUMENT, 此字段通常为空)',
   is_recall INT DEFAULT 1 COMMENT '业务状态: 1=召回, 0=非召回',
-  embedding_status VARCHAR(50) DEFAULT 'PENDING' COMMENT '向量化状态：PENDING待处理，PROCESSING处理中，COMPLETED已完成，FAILED失败',
-  error_msg VARCHAR(255) COMMENT '操作失败的错误信息',
-  source_filename VARCHAR(500) COMMENT '上传时的原始文件名',
-  file_path VARCHAR(500) COMMENT '文件在服务器上的物理存储路径',
-  file_size BIGINT COMMENT '文件大小（字节）',
-  file_type VARCHAR(100) COMMENT '文件类型（pdf,md,markdown,doc等）',
-  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  embedding_status VARCHAR(20) DEFAULT NULL COMMENT '向量化状态：PENDING待处理，PROCESSING处理中，COMPLETED已完成，FAILED失败',
+  error_msg VARCHAR(255) DEFAULT NULL COMMENT '操作失败的错误信息',
+  source_filename VARCHAR(500) DEFAULT NULL COMMENT '上传时的原始文件名',
+  file_path VARCHAR(500) DEFAULT NULL COMMENT '文件在服务器上的物理存储路径',
+  file_size BIGINT DEFAULT NULL COMMENT '文件大小 (字节)',
+  file_type VARCHAR(255) DEFAULT NULL COMMENT '文件类型（pdf,md,markdown,doc等）',
+  created_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   is_deleted INT DEFAULT 0 COMMENT '逻辑删除字段，0=未删除, 1=已删除',
   is_resource_cleaned INT DEFAULT 0 COMMENT '0=物理资源（文件和向量）未清理, 1=物理资源已清理',
   PRIMARY KEY (id),
-  INDEX idx_agent_id_ak (agent_id),
-  INDEX idx_title (title),
-  INDEX idx_type (type),
-  INDEX idx_embedding_status (embedding_status),
-  INDEX idx_is_deleted (is_deleted),
-  INDEX idx_is_recall_ak (is_recall),
-  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
+  INDEX idx_agent_knowledge_agent_id_status (agent_id, is_recall),
+  INDEX idx_agent_knowledge_embedding_status (embedding_status),
+  INDEX idx_agent_knowledge_is_deleted (is_deleted)
 ) ENGINE = InnoDB COMMENT = '智能体知识表';
 
 -- 数据源表
@@ -102,8 +98,8 @@ CREATE TABLE IF NOT EXISTS datasource (
   id INT NOT NULL AUTO_INCREMENT,
   name VARCHAR(255) NOT NULL COMMENT '数据源名称',
   type VARCHAR(50) NOT NULL COMMENT '数据源类型：mysql, postgresql',
-  host VARCHAR(255)  COMMENT '主机地址',
-  port INT  COMMENT '端口号',
+  host VARCHAR(255) NOT NULL COMMENT '主机地址',
+  port INT NOT NULL COMMENT '端口号',
   database_name VARCHAR(255) NOT NULL COMMENT '数据库名称',
   username VARCHAR(255) NOT NULL COMMENT '用户名',
   password VARCHAR(255) NOT NULL COMMENT '密码（加密存储）',
@@ -115,10 +111,10 @@ CREATE TABLE IF NOT EXISTS datasource (
   create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
-  INDEX idx_name_d (name),
-  INDEX idx_type_d (type),
-  INDEX idx_status_d (status),
-  INDEX idx_creator_id (creator_id)
+  INDEX idx_datasource_name (name),
+  INDEX idx_datasource_type (type),
+  INDEX idx_datasource_status (status),
+  INDEX idx_datasource_creator_id (creator_id)
 ) ENGINE = InnoDB COMMENT = '数据源表';
 
 -- 逻辑外键配置表
@@ -132,11 +128,11 @@ CREATE TABLE IF NOT EXISTS logical_relation (
   relation_type VARCHAR(20) DEFAULT NULL COMMENT '关系类型: 1:1, 1:N, N:1 (辅助LLM理解数据基数，可选)',
   description VARCHAR(500) DEFAULT NULL COMMENT '业务描述: 存入Prompt中帮助LLM理解 (例如: 订单表通过buyer_uid关联用户表id)',
   is_deleted TINYINT(1) DEFAULT 0 COMMENT '逻辑删除: 0-未删除, 1-已删除',
-  created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  created_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
-  INDEX idx_datasource_id (datasource_id) COMMENT '加速根据数据源查找关系的查询',
-  INDEX idx_source_table (datasource_id, source_table_name) COMMENT '加速根据表名查找关系的查询',
+  INDEX idx_logical_relation_datasource_id (datasource_id),
+  INDEX idx_logical_relation_source_table (datasource_id, source_table_name),
   FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '逻辑外键配置表';
 
@@ -150,9 +146,9 @@ CREATE TABLE IF NOT EXISTS agent_datasource (
   update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
   UNIQUE KEY uk_agent_datasource (agent_id, datasource_id),
-  INDEX idx_agent_id_ad (agent_id),
-  INDEX idx_datasource_id (datasource_id),
-  INDEX idx_is_active (is_active),
+  INDEX idx_agent_datasource_agent_id (agent_id),
+  INDEX idx_agent_datasource_datasource_id (datasource_id),
+  INDEX idx_agent_datasource_is_active (is_active),
   FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE,
   FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '智能体数据源关联表';
@@ -167,9 +163,9 @@ CREATE TABLE IF NOT EXISTS agent_preset_question (
   create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
-  INDEX idx_agent_id_apq (agent_id),
-  INDEX idx_sort_order (sort_order),
-  INDEX idx_is_active_apq (is_active),
+  INDEX idx_agent_preset_question_agent_id (agent_id),
+  INDEX idx_agent_preset_question_sort_order (sort_order),
+  INDEX idx_agent_preset_question_is_active (is_active),
   FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '智能体预设问题表';
 
@@ -184,11 +180,11 @@ CREATE TABLE IF NOT EXISTS chat_session (
   create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
-  INDEX idx_agent_id_cs (agent_id),
-  INDEX idx_user_id (user_id),
-  INDEX idx_status_cs (status),
-  INDEX idx_is_pinned (is_pinned),
-  INDEX idx_create_time (create_time),
+  INDEX idx_chat_session_agent_id (agent_id),
+  INDEX idx_chat_session_user_id (user_id),
+  INDEX idx_chat_session_status (status),
+  INDEX idx_chat_session_is_pinned (is_pinned),
+  INDEX idx_chat_session_create_time (create_time),
   FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '聊天会话表';
 
@@ -202,10 +198,10 @@ CREATE TABLE IF NOT EXISTS chat_message (
   metadata JSON COMMENT '元数据（JSON格式）',
   create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (id),
-  INDEX idx_session_id (session_id),
-  INDEX idx_role (role),
-  INDEX idx_message_type (message_type),
-  INDEX idx_create_time_cm (create_time),
+  INDEX idx_chat_message_session_id (session_id),
+  INDEX idx_chat_message_role (role),
+  INDEX idx_chat_message_message_type (message_type),
+  INDEX idx_chat_message_create_time (create_time),
   FOREIGN KEY (session_id) REFERENCES chat_session(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '聊天消息表';
 
@@ -217,31 +213,33 @@ CREATE TABLE IF NOT EXISTS user_prompt_config (
   agent_id INT COMMENT '关联的智能体ID，为空表示全局配置',
   system_prompt TEXT NOT NULL COMMENT '用户自定义系统Prompt内容',
   enabled TINYINT DEFAULT 1 COMMENT '是否启用该配置：0-禁用，1-启用',
+  description TEXT COMMENT '配置描述',
   priority INT DEFAULT 0 COMMENT '配置优先级，数字越大优先级越高',
   display_order INT DEFAULT 0 COMMENT '配置显示顺序，数字越小越靠前',
   create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   creator VARCHAR(255) COMMENT '创建者',
   PRIMARY KEY (id),
-  INDEX idx_prompt_type (prompt_type),
-  INDEX idx_agent_id (agent_id),
-  INDEX idx_enabled (enabled),
-  INDEX idx_create_time_upc (create_time),
-  INDEX idx_prompt_type_enabled_priority (prompt_type, enabled, priority DESC),
-  INDEX idx_display_order (display_order ASC)
+  INDEX idx_user_prompt_config_prompt_type (prompt_type),
+  INDEX idx_user_prompt_config_agent_id (agent_id),
+  INDEX idx_user_prompt_config_enabled (enabled),
+  INDEX idx_user_prompt_config_create_time (create_time),
+  INDEX idx_user_prompt_config_type_enabled_priority (prompt_type, agent_id, enabled, priority DESC),
+  INDEX idx_user_prompt_config_display_order (display_order ASC)
 ) ENGINE = InnoDB COMMENT = '用户Prompt配置表';
 
-CREATE TABLE IF NOT EXISTS agent_datasource_tables (
-    id INT NOT NULL AUTO_INCREMENT,
-    agent_datasource_id INT NOT NULL COMMENT '智能体数据源ID',
-    table_name VARCHAR(255) NOT NULL COMMENT '数据表名',
-    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_agent_datasource_table (agent_datasource_id, table_name),
-    INDEX idx_agent_datasource_id (agent_datasource_id),
-    INDEX idx_table_name (table_name),
-    FOREIGN KEY (agent_datasource_id) REFERENCES agent_datasource(id) ON DELETE CASCADE ON UPDATE CASCADE
+CREATE TABLE IF NOT EXISTS agent_datasource_tables
+(
+    id                  INT AUTO_INCREMENT PRIMARY KEY,
+    agent_datasource_id INT                                 NOT NULL COMMENT '智能体数据源ID',
+    table_name          VARCHAR(255)                        NOT NULL COMMENT '数据表名',
+    create_time         TIMESTAMP DEFAULT CURRENT_TIMESTAMP NULL COMMENT '创建时间',
+    update_time         TIMESTAMP DEFAULT CURRENT_TIMESTAMP NULL COMMENT '更新时间',
+    CONSTRAINT uk_agent_datasource_tables_agent_datasource_id_table_name
+        UNIQUE (agent_datasource_id, table_name),
+    CONSTRAINT fk_agent_datasource_tables_agent_datasource_id
+        FOREIGN KEY (agent_datasource_id) REFERENCES agent_datasource (id)
+            ON UPDATE CASCADE ON DELETE CASCADE
     ) ENGINE = InnoDB COMMENT = '某个智能体某个数据源所选中的数据表';
 
 
@@ -252,7 +250,7 @@ CREATE TABLE IF NOT EXISTS `model_config` (
   `base_url` varchar(255) NOT NULL COMMENT '关键配置',
   `api_key` varchar(255) NOT NULL COMMENT 'API密钥',
   `model_name` varchar(255) NOT NULL COMMENT '模型名称',
-  `temperature` decimal(10,2) unsigned DEFAULT '0.00' COMMENT '温度参数',
+  `temperature` decimal(10,2) DEFAULT '0.00' COMMENT '温度参数',
   `is_active` tinyint(1) DEFAULT '0' COMMENT '是否激活',
   `max_tokens` int(11) DEFAULT '2000' COMMENT '输出响应最大令牌数',
   `model_type` varchar(20) NOT NULL DEFAULT 'CHAT' COMMENT '模型类型 (CHAT/EMBEDDING)',
@@ -262,4 +260,4 @@ CREATE TABLE IF NOT EXISTS `model_config` (
   `updated_time` datetime DEFAULT NULL COMMENT '更新时间',
   `is_deleted` int(11) DEFAULT '0' COMMENT '0=未删除, 1=已删除',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB;
