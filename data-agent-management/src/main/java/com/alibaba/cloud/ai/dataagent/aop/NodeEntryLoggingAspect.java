@@ -34,7 +34,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class NodeEntryLoggingAspect {
 
-	@Pointcut("execution(* com.alibaba.cloud.ai.dataagent.node..*.apply(com.alibaba.cloud.ai.graph.OverAllState))")
+	@Pointcut("execution(* com.alibaba.cloud.ai.dataagent.workflow.node..*.apply(com.alibaba.cloud.ai.graph.OverAllState))")
 	public void nodeEntry() {
 	}
 

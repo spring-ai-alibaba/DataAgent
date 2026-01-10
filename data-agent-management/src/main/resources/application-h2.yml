@@ -1,0 +1,76 @@
+server:
+  port: 8065
+
+# 存储 DataAgent 业务数据的数据库，并非Agent分析数据的来源
+spring:
+  datasource:
+    url: jdbc:h2:mem:nl2sql_database;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=true;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE
+    username: root
+    password: root
+    driver-class-name: org.h2.Driver
+    type: com.alibaba.druid.pool.DruidDataSource
+  sql:
+    init:
+      mode: always
+      schema-locations:
+        - classpath:sql/h2/schema-h2.sql
+        - classpath:sql/h2/product_schema-h2.sql
+      data-locations:
+        - classpath:sql/h2/data-h2.sql
+        - classpath:sql/h2/product_data-h2.sql
+      continue-on-error: true
+      separator: ;
+      encoding: utf-8
+  # H2 控制台配置（开发环境启用）
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  ai:
+    vectorstore:
+      type: simple
+    alibaba:
+      data-agent:
+        vector-store:
+          table-topk-limit: 10
+          table-similarity-threshold: 0.2
+          default-topk-limit: 8
+          default-similarity-threshold: 0.4
+        llm-service-type: stream
+        code-executor:
+          # 运行Python代码的环境（生产环境建议使用docker，不建议使用local）
+          code-pool-executor: local
+          # Python执行的最大重试次数
+          python-max-tries-count: 5
+        file:
+          type: local
+          path-prefix: data-agent
+          # 当前目录下不要用点， ./uploads win下拼接完整格式路径会解析不了，比如 data-agent/./uploads win识别不了
+          path: uploads
+          url-prefix: /uploads
+          imageSize: 2097152
+          oss:
+            access-key-id: ${OSS_ACCESS_KEY_ID:}
+            access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+            endpoint: ${OSS_ENDPOINT:}
+            bucket-name: ${OSS_BUCKET_NAME:}
+            custom-domain: ${OSS_CUSTOM_DOMAIN:}
+        max-sql-retry-count: 10
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+      enabled: true
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+
+# 日志配置
+logging:
+  level:
+    com.alibaba.cloud.ai.dataagent.service: debug
+    com.alibaba.cloud.ai.dataagent.workflow.node: debug
+    com.alibaba.cloud.ai.mapper: debug
+    org.springframework.jdbc: debug

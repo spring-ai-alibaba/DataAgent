@@ -72,20 +72,27 @@
               </div>
               <div
                 v-else-if="message.messageType === 'markdown-report'"
-                class="html-report-message"
+                class="markdown-report-message"
               >
-                <div class="report-info">
-                  <el-icon><Document /></el-icon>
-                  <span>Markdown 报告已生成</span>
+                <div class="markdown-report-header">
+                  <div class="report-info">
+                    <el-icon><Document /></el-icon>
+                    <span>Markdown 报告已生成</span>
+                  </div>
+                  <el-button
+                    type="primary"
+                    size="large"
+                    @click="downloadMarkdownReportFromMessage(`${message.content}`)"
+                  >
+                    <el-icon><Download /></el-icon>
+                    下载Markdown报告
+                  </el-button>
                 </div>
-                <el-button
-                  type="primary"
-                  size="large"
-                  @click="downloadMarkdownReportFromMessage(`${message.content}`)"
-                >
-                  <el-icon><Download /></el-icon>
-                  下载Markdown报告
-                </el-button>
+                <div class="markdown-report-content">
+                  <Markdown>
+                    {{ message.content }}
+                  </Markdown>
+                </div>
               </div>
               <!-- 文本类型消息使用原有布局 -->
               <div v-else :class="['message', message.role]">
@@ -107,11 +114,28 @@
                 <span>智能体正在处理中...</span>
               </div>
               <div class="agent-response-container">
-                <div
-                  v-for="(nodeBlock, index) in nodeBlocks"
-                  :key="index"
-                  v-html="generateNodeHtml(nodeBlock)"
-                ></div>
+                <template v-for="(nodeBlock, index) in nodeBlocks" :key="index">
+                  <!-- 如果是 Markdown 报告节点，使用 Markdown 组件 -->
+                  <div
+                    v-if="
+                      nodeBlock.length > 0 &&
+                      nodeBlock[0].nodeName === 'ReportGeneratorNode' &&
+                      nodeBlock[0].textType === 'MARK_DOWN'
+                    "
+                    class="agent-response-block"
+                  >
+                    <div class="agent-response-title">
+                      {{ nodeBlock[0].nodeName }}
+                    </div>
+                    <div class="agent-response-content">
+                      <Markdown :generating="isStreaming">
+                        {{ getMarkdownContentFromNode(nodeBlock) }}
+                      </Markdown>
+                    </div>
+                  </div>
+                  <!-- 其他节点使用原来的 HTML 渲染方式 -->
+                  <div v-else v-html="generateNodeHtml(nodeBlock)"></div>
+                </template>
               </div>
             </div>
           </div>
@@ -271,6 +295,7 @@
   import HumanFeedback from '@/components/run/HumanFeedback.vue';
   import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
   import PresetQuestions from '@/components/run/PresetQuestions.vue';
+  import Markdown from '@/components/run/Markdown.vue';
 
   // 扩展Window接口以包含自定义方法
   declare global {
@@ -292,6 +317,7 @@
       HumanFeedback,
       ChatSessionSidebar,
       PresetQuestions,
+      Markdown,
     },
     created() {
       window.copyTextToClipboard = btn => {
@@ -1106,6 +1132,46 @@
         return tableHtml;
       };
 
+      // 从节点块中提取 Markdown 内容
+      const getMarkdownContentFromNode = (node: GraphNodeResponse[]): string => {
+        if (!node || node.length === 0) {
+          return '';
+        }
+
+        // 如果是 ReportGeneratorNode 且类型为 MARK_DOWN，从 sessionState 获取完整内容
+        // 这样可以实时显示流式接收到的 markdown 内容
+        const firstNode = node[0];
+        if (firstNode.nodeName === 'ReportGeneratorNode' && firstNode.textType === 'MARK_DOWN') {
+          const sessionId = currentSession.value?.id;
+          if (sessionId) {
+            const sessionState = getSessionState(sessionId);
+            // 返回实时更新的 markdown 内容
+            return sessionState.markdownReportContent || '';
+          }
+        }
+
+        // 否则从节点中提取所有 MARK_DOWN 类型的文本
+        let markdown = '';
+        for (let idx = 0; idx < node.length; idx++) {
+          if (node[idx].textType === 'MARK_DOWN') {
+            let p = idx;
+            for (; p < node.length; p++) {
+              if (node[p].textType !== 'MARK_DOWN') {
+                break;
+              }
+              markdown += node[p].text;
+            }
+            if (p < node.length) {
+              idx = p - 1;
+            } else {
+              break;
+            }
+          }
+        }
+
+        return markdown;
+      };
+
       // HTML转义函数
       const escapeHtml = (text: string): string => {
         const div = document.createElement('div');
@@ -1132,6 +1198,7 @@
         showHumanFeedback,
         lastRequest,
         resultSetDisplayConfig,
+        getMarkdownContentFromNode,
         selectSession,
         sendMessage,
         formatMessageContent,
@@ -1318,6 +1385,13 @@
     word-wrap: break-word;
   }
 
+  /* 当 agent-response-content 包含 Markdown 组件时，重置样式 */
+  .agent-response-content .markdown-container {
+    line-height: 1.4;
+    white-space: normal;
+    font-family: inherit;
+  }
+
   .agent-response-content pre {
     margin: 0;
     background: transparent;
@@ -1375,6 +1449,28 @@
     background: #f8fbff;
     border-radius: 12px;
     border: 1px solid #e1f0ff;
+  }
+
+  /* Markdown报告消息样式 */
+  .markdown-report-message {
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .markdown-report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .markdown-report-content {
+    margin-top: 16px;
   }
 
   .report-info {

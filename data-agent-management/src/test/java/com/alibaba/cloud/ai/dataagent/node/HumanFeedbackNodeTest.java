@@ -1,5 +1,5 @@
 /*
- * Copyright 2024-2025 the original author or authors.
+ * Copyright 2024-2026 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,11 +42,12 @@ class HumanFeedbackNodeTest {
 		state.registerKeyAndStrategy(PLAN_CURRENT_STEP, new ReplaceStrategy());
 		state.registerKeyAndStrategy(HUMAN_REVIEW_ENABLED, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PLAN_VALIDATION_ERROR, new ReplaceStrategy());
+		state.registerKeyAndStrategy(HUMAN_FEEDBACK_DATA, new ReplaceStrategy());
 	}
 
 	@Test
 	void testApproveFlow() throws Exception {
-		state.withHumanFeedback(new OverAllState.HumanFeedback(Map.of("feedback", true), null));
+		state.updateState(Map.of(HUMAN_FEEDBACK_DATA, Map.of("feedback", true)));
 
 		Map<String, Object> result = node.apply(state);
 		assertEquals(PLAN_EXECUTOR_NODE, result.get("human_next_node"));
@@ -57,8 +58,7 @@ class HumanFeedbackNodeTest {
 	@Test
 	void testRejectFlowWithContent() throws Exception {
 		state.updateState(Map.of(PLAN_REPAIR_COUNT, 0));
-		state.withHumanFeedback(
-				new OverAllState.HumanFeedback(Map.of("feedback", false, "feedback_content", "需要补充过滤条件"), null));
+		state.updateState(Map.of(HUMAN_FEEDBACK_DATA, Map.of("feedback", false, "feedback_content", "需要补充过滤条件")));
 
 		Map<String, Object> result = node.apply(state);
 		assertEquals(PLANNER_NODE, result.get("human_next_node"));
@@ -71,7 +71,7 @@ class HumanFeedbackNodeTest {
 	@Test
 	void testRejectFlowWithoutContent() throws Exception {
 		state.updateState(Map.of(PLAN_REPAIR_COUNT, 2));
-		state.withHumanFeedback(new OverAllState.HumanFeedback(Map.of("feedback", false), null));
+		state.updateState(Map.of(HUMAN_FEEDBACK_DATA, Map.of("feedback", false)));
 
 		Map<String, Object> result = node.apply(state);
 		assertEquals(PLANNER_NODE, result.get("human_next_node"));
@@ -97,8 +97,7 @@ class HumanFeedbackNodeTest {
 	@Test
 	void testRejectFlowClearsPlanNextNode() throws Exception {
 		state.updateState(Map.of(PLAN_REPAIR_COUNT, 0));
-		state.withHumanFeedback(
-				new OverAllState.HumanFeedback(Map.of("feedback", false, "feedback_content", "再次修正"), null));
+		state.updateState(Map.of(HUMAN_FEEDBACK_DATA, Map.of("feedback", false, "feedback_content", "再次修正")));
 
 		Map<String, Object> result = node.apply(state);
 		assertEquals(PLANNER_NODE, result.get("human_next_node"));
