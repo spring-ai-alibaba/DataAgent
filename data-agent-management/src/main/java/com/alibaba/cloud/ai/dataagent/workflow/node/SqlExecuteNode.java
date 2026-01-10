@@ -73,7 +73,7 @@ public class SqlExecuteNode implements NodeAction {
 	/**
 	 * 调用大模型生成图表配置的默认超时时间，单位毫秒
 	 */
-	private static final long DEFAULT_TIMEOUT_MILLIS = 2000L;
+	private static final long DEFAULT_GENERATE_CHART_TIMEOUT_MILLIS = 2000L;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -226,7 +226,7 @@ public class SqlExecuteNode implements NodeAction {
 				.map(chatResponse -> chatResponse.getResult().getOutput().getText())
 				.collectList()
 				.map(textList -> String.join("", textList))
-				.block(Duration.ofMillis(DEFAULT_TIMEOUT_MILLIS));
+				.block(Duration.ofMillis(DEFAULT_GENERATE_CHART_TIMEOUT_MILLIS));
 
 			if (chartConfigJson != null && !chartConfigJson.trim().isEmpty()) {
 				String content = MarkdownParserUtil.extractText(chartConfigJson.trim());
