@@ -25,7 +25,7 @@ import java.util.List;
 /**
  * 结果集显示样式配置类，用于定义数据集的图表显示方式。
  *
- * @author zhangshenghang
+ * @author fudawei
  */
 @Data
 @Builder

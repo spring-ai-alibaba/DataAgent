@@ -35,8 +35,7 @@ import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -69,10 +68,12 @@ public class SqlExecuteNode implements NodeAction {
 
 	private final LlmService llmService;
 
-	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-		.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-
 	private static final int SAMPLE_DATA_NUMBER = 20;
+
+	/**
+	 * 调用大模型生成图表配置的默认超时时间，单位毫秒
+	 */
+	private static final long DEFAULT_TIMEOUT_MILLIS = 2000L;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -195,8 +196,9 @@ public class SqlExecuteNode implements NodeAction {
 			String userQuery = StateUtil.getCanonicalQuery(state);
 
 			// 将SQL结果转换为JSON字符串，限制数据量以避免提示词过长
-			String sqlResultJson = OBJECT_MAPPER.writeValueAsString(resultSetBO.getData() != null
-					? resultSetBO.getData().stream().limit(SAMPLE_DATA_NUMBER).toList() : null);
+			String sqlResultJson = JsonUtil.getObjectMapper()
+				.writeValueAsString(resultSetBO.getData() != null
+						? resultSetBO.getData().stream().limit(SAMPLE_DATA_NUMBER).toList() : null);
 
 			// 构建用户提示词，包含SQL结果数据
 			String userPrompt = String.format("""
@@ -212,10 +214,8 @@ public class SqlExecuteNode implements NodeAction {
 			String fullPrompt = PromptLoader.loadPrompt("data-view-analyze");
 			// 分割系统提示词和用户提示词模板
 			String[] parts = fullPrompt.split("=== 用户输入 ===", 2);
-			String systemPromptTemplate = parts[0].trim();
-
 			// 渲染系统提示词（当前没有变量，直接使用模板内容）
-			String systemPrompt = systemPromptTemplate;
+			String systemPrompt = parts[0].trim();
 
 			log.debug("Built chart config generation system prompt as follows \n {} \n", systemPrompt);
 			log.debug("Built chart config generation user prompt as follows \n {} \n", userPrompt);
@@ -226,11 +226,12 @@ public class SqlExecuteNode implements NodeAction {
 				.map(chatResponse -> chatResponse.getResult().getOutput().getText())
 				.collectList()
 				.map(textList -> String.join("", textList))
-				.block();
+				.block(Duration.ofMillis(DEFAULT_TIMEOUT_MILLIS));
 
 			if (chartConfigJson != null && !chartConfigJson.trim().isEmpty()) {
+				String content = MarkdownParserUtil.extractText(chartConfigJson.trim());
 				// 解析JSON并填充到ResultSetBO中
-				Map<String, Object> chartConfig = OBJECT_MAPPER.readValue(chartConfigJson, Map.class);
+				Map<String, Object> chartConfig = JsonUtil.getObjectMapper().readValue(content, Map.class);
 
 				// 创建ResultDisplayStyleBO对象
 				ResultDisplayStyleBO displayStyle = new ResultDisplayStyleBO();
@@ -259,11 +260,9 @@ public class SqlExecuteNode implements NodeAction {
 						displayStyle.setY((List<String>) yValue);
 					}
 				}
-
 				// 将displayStyle设置到resultSetBO
 				resultSetBO.setDisplayStyle(displayStyle);
-
-				log.info("Successfully enriched ResultSetBO with chart config: type={}, title={}, x={}, y={}",
+				log.debug("Successfully enriched ResultSetBO with chart config: type={}, title={}, x={}, y={}",
 						displayStyle.getType(), displayStyle.getTitle(), displayStyle.getX(), displayStyle.getY());
 			}
 			else {
