@@ -16,12 +16,13 @@
 
 <script setup lang="ts">
   import { onMounted, onUnmounted, ref, watch, computed } from 'vue';
-  import type { ResultSetData } from '@/services/resultSet';
+  import type { ResultData } from '@/services/resultSet';
+  import type { ResultDisplayStyleBO } from '@/services/resultSet';
   import { ChartFactory } from './charts/ChartFactory';
   import { BaseChart, ChartAxis, ChartTypes } from './charts/BaseChart';
 
   const props = defineProps<{
-    resultSetData: ResultSetData;
+    resultData: ResultData;
   }>();
 
   const chartRef = ref<HTMLDivElement>();
@@ -31,7 +32,11 @@
   const chartId = `chart-${Math.random().toString(36).substr(2, 9)}`;
 
   const initChart = () => {
-    if (!chartRef.value || !props.resultSetData.data || props.resultSetData.data.length === 0) {
+    if (
+      !chartRef.value ||
+      !props.resultData.resultSet.data ||
+      props.resultData.resultSet.data.length === 0
+    ) {
       return;
     }
 
@@ -45,24 +50,24 @@
     chartRef.value.id = chartId;
 
     // 解析图表类型
-    const chartType = (props.resultSetData.displayStyle?.type as ChartTypes) || 'bar';
-    const chartTitle = props.resultSetData.displayStyle?.title || '数据可视化';
+    const chartType = (props.resultData.displayStyle?.type as ChartTypes) || 'bar';
+    const chartTitle = props.resultData.displayStyle?.title || '数据可视化';
 
     // 创建图表轴配置
     const axes: ChartAxis[] = [];
 
     // 添加x轴
-    if (props.resultSetData.displayStyle?.x) {
+    if (props.resultData.displayStyle?.x) {
       axes.push({
-        name: props.resultSetData.displayStyle.x,
-        value: props.resultSetData.displayStyle.x,
+        name: props.resultData.displayStyle.x,
+        value: props.resultData.displayStyle.x,
         type: 'x',
       });
     }
 
     // 添加y轴
-    if (props.resultSetData.displayStyle?.y && Array.isArray(props.resultSetData.displayStyle.y)) {
-      props.resultSetData.displayStyle.y.forEach(yField => {
+    if (props.resultData.displayStyle?.y && Array.isArray(props.resultData.displayStyle.y)) {
+      props.resultData.displayStyle.y.forEach(yField => {
         axes.push({
           name: yField,
           value: yField,
@@ -72,17 +77,21 @@
     }
 
     // 如果没有指定轴，使用默认轴
-    if (axes.length === 0 && props.resultSetData.column && props.resultSetData.column.length > 0) {
+    if (
+      axes.length === 0 &&
+      props.resultData.resultSet.column &&
+      props.resultData.resultSet.column.length > 0
+    ) {
       axes.push({
-        name: props.resultSetData.column[0],
-        value: props.resultSetData.column[0],
+        name: props.resultData.resultSet.column[0],
+        value: props.resultData.resultSet.column[0],
         type: 'x',
       });
 
-      if (props.resultSetData.column.length > 1) {
+      if (props.resultData.resultSet.column.length > 1) {
         axes.push({
-          name: props.resultSetData.column[1],
-          value: props.resultSetData.column[1],
+          name: props.resultData.resultSet.column[1],
+          value: props.resultData.resultSet.column[1],
           type: 'y',
         });
       }
@@ -93,7 +102,7 @@
 
     if (chartInstance) {
       // 初始化图表数据
-      chartInstance.init(axes, props.resultSetData.data);
+      chartInstance.init(axes, props.resultData.resultSet.data);
       // 渲染图表
       chartInstance.render();
     }
@@ -121,7 +130,8 @@
 
   // 使用计算属性提取图表渲染所需的关键数据
   const chartKeyData = computed(() => {
-    const { displayStyle, data } = props.resultSetData;
+    const displayStyle: ResultDisplayStyleBO = props.resultData.displayStyle || {};
+    const data = props.resultData.resultSet.data || [];
     return {
       type: displayStyle?.type,
       title: displayStyle?.title,

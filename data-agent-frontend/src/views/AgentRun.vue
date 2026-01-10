@@ -60,7 +60,7 @@
               <div v-else-if="message.messageType === 'result-set'" class="result-set-message">
                 <ResultSetDisplay
                   v-if="message.content"
-                  :resultSetData="JSON.parse(message.content)"
+                  :resultData="JSON.parse(message.content)"
                   :pageSize="resultSetDisplayConfig.pageSize"
                 />
               </div>
@@ -152,7 +152,7 @@
                     <div class="agent-response-content">
                       <ResultSetDisplay
                         v-if="nodeBlock[0].text"
-                        :resultSetData="JSON.parse(nodeBlock[0].text)"
+                        :resultData="JSON.parse(nodeBlock[0].text)"
                         :pageSize="resultSetDisplayConfig.pageSize"
                       />
                     </div>
@@ -314,7 +314,11 @@
     TextType,
   } from '@/services/graph';
   import { type Agent } from '@/services/agent';
-  import { type ResultSetData, type ResultSetDisplayConfig } from '@/services/resultSet';
+  import {
+    type ResultData,
+    type ResultSetData,
+    type ResultSetDisplayConfig,
+  } from '@/services/resultSet';
   import { SessionRuntimeState, useSessionStateManager } from '@/services/sessionStateManager';
   import HumanFeedback from '@/components/run/HumanFeedback.vue';
   import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
@@ -550,12 +554,9 @@
             // 特殊处理RESULT_SET节点
             if (node.length > 0 && node[0].textType === TextType.RESULT_SET) {
               try {
-                const resultSetData: ResultSetData = JSON.parse(node[0].text);
+                const resultData: ResultData = JSON.parse(node[0].text);
                 // 如果type不是table，保存一个特殊的标记，以便在历史消息中能够正确显示
-                if (
-                  resultSetData.displayStyle?.type &&
-                  resultSetData.displayStyle?.type !== 'table'
-                ) {
+                if (resultData.displayStyle?.type && resultData.displayStyle?.type !== 'table') {
                   const aiMessage: ChatMessage = {
                     sessionId,
                     role: 'assistant',
@@ -966,7 +967,8 @@
 
             try {
               // 解析JSON字符串
-              const resultSetData: ResultSetData = JSON.parse(node[idx].text);
+              const resultData: ResultData = JSON.parse(node[idx].text);
+              const resultSetData = resultData.resultSet;
 
               // 检查是否有错误信息
               if (resultSetData.errorMsg) {
@@ -987,10 +989,7 @@
 
               // 如果type是table，保持原有逻辑生成表格HTML
               // 否则返回空字符串，因为已经在模板中用ResultSetDisplay组件处理了
-              if (
-                resultSetData.displayStyle?.type === 'table' ||
-                !resultSetData.displayStyle?.type
-              ) {
+              if (resultData.displayStyle?.type === 'table' || !resultData.displayStyle?.type) {
                 const tableHtml = generateResultSetTable(
                   resultSetData,
                   resultSetDisplayConfig.value.pageSize,

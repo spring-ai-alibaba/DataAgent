@@ -16,7 +16,8 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
-import com.alibaba.cloud.ai.dataagent.bo.schema.ResultDisplayStyleBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.DisplayStyleBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.ResultBO;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
@@ -130,26 +131,31 @@ public class SqlExecuteNode implements NodeAction {
 			emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign()));
 			emitter.next(ChatResponseUtil.createResponse(sqlQuery));
 			emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()));
+			ResultBO resultBO = ResultBO.builder().build();
 
 			try {
 				// Execute SQL query and get results immediately
 				ResultSetBO resultSetBO = dbAccessor.executeSqlAndReturnObject(dbConfig, dbQueryParameter);
 				// 调用大模型获取图表配置信息并填充到ResultSetBO中
-				enrichResultSetBOWithChartConfig(state, resultSetBO);
-				String jsonStr = JsonUtil.getObjectMapper().writeValueAsString(resultSetBO);
+				DisplayStyleBO displayStyleBO = enrichResultSetWithChartConfig(state, resultSetBO);
+				resultBO.setResultSet(resultSetBO);
+				resultBO.setDisplayStyle(displayStyleBO);
+
+				String strResultSetJson = JsonUtil.getObjectMapper().writeValueAsString(resultSetBO);
+				String strResultJson = JsonUtil.getObjectMapper().writeValueAsString(resultBO);
 
 				// 数据执行成功
 				emitter.next(ChatResponseUtil.createResponse("执行SQL完成"));
 				emitter.next(ChatResponseUtil.createResponse("SQL查询结果："));
 				emitter.next(ChatResponseUtil.createPureResponse(TextType.RESULT_SET.getStartSign()));
-				emitter.next(ChatResponseUtil.createPureResponse(jsonStr));
+				emitter.next(ChatResponseUtil.createPureResponse(strResultJson));
 				emitter.next(ChatResponseUtil.createPureResponse(TextType.RESULT_SET.getEndSign()));
 
 				// Update step results with the query output
 				Map<String, String> existingResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,
 						Map.class, new HashMap<>());
 				Map<String, String> updatedResults = PlanProcessUtil.addStepResult(existingResults, currentStep,
-						jsonStr);
+						strResultSetJson);
 
 				log.info("SQL execution successful, result count: {}",
 						resultSetBO.getData() != null ? resultSetBO.getData().size() : 0);
@@ -190,7 +196,7 @@ public class SqlExecuteNode implements NodeAction {
 	 * @param state 整体状态
 	 * @param resultSetBO SQL执行结果
 	 */
-	private void enrichResultSetBOWithChartConfig(OverAllState state, ResultSetBO resultSetBO) {
+	private DisplayStyleBO enrichResultSetWithChartConfig(OverAllState state, ResultSetBO resultSetBO) {
 		try {
 			// 获取用户查询
 			String userQuery = StateUtil.getCanonicalQuery(state);
@@ -234,7 +240,7 @@ public class SqlExecuteNode implements NodeAction {
 				Map<String, Object> chartConfig = JsonUtil.getObjectMapper().readValue(content, Map.class);
 
 				// 创建ResultDisplayStyleBO对象
-				ResultDisplayStyleBO displayStyle = new ResultDisplayStyleBO();
+				DisplayStyleBO displayStyle = new DisplayStyleBO();
 
 				// 提取图表配置信息并设置到ResultDisplayStyleBO
 				if (chartConfig.containsKey("type")) {
@@ -260,10 +266,9 @@ public class SqlExecuteNode implements NodeAction {
 						displayStyle.setY((List<String>) yValue);
 					}
 				}
-				// 将displayStyle设置到resultSetBO
-				resultSetBO.setDisplayStyle(displayStyle);
 				log.debug("Successfully enriched ResultSetBO with chart config: type={}, title={}, x={}, y={}",
 						displayStyle.getType(), displayStyle.getTitle(), displayStyle.getX(), displayStyle.getY());
+				return displayStyle;
 			}
 			else {
 				log.warn("LLM returned empty chart config, using default settings");
@@ -273,6 +278,7 @@ public class SqlExecuteNode implements NodeAction {
 			log.error("Failed to enrich ResultSetBO with chart config", e);
 			// 不抛出异常，允许流程继续执行
 		}
+		return null;
 	}
 
 }

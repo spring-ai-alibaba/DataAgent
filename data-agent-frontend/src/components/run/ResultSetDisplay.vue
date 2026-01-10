@@ -17,7 +17,7 @@
 <script setup lang="ts">
   import { ref, computed, nextTick } from 'vue';
   import ChartComponent from './ChartComponent.vue';
-  import type { ResultSetData } from '@/services/resultSet';
+  import type { ResultData } from '@/services/resultSet';
   import {
     Grid as ICON_TABLE,
     Histogram as ICON_CHART,
@@ -26,7 +26,7 @@
   import { ElMessage } from 'element-plus';
 
   const props = defineProps<{
-    resultSetData: ResultSetData;
+    resultData: ResultData;
     pageSize: number;
   }>();
 
@@ -35,14 +35,17 @@
   // 判断是否显示图表
   const showChart = computed(() => {
     return (
-      props.resultSetData.displayStyle?.type && props.resultSetData.displayStyle?.type !== 'table'
+      props.resultData &&
+      props.resultData.displayStyle?.type &&
+      props.resultData.displayStyle?.type !== 'table'
     );
   });
 
   // 生成表格HTML
   const generateTableHtml = (): string => {
-    const columns = props.resultSetData.column || [];
-    const allData = props.resultSetData.data || [];
+    const resultSet = props.resultData?.resultSet || {};
+    const columns = resultSet.column || [];
+    const allData = resultSet.data || [];
     const total = allData.length;
     const pageSize = props.pageSize;
 
@@ -108,7 +111,8 @@
   // 复制JSON数据到剪贴板
   const copyJsonData = () => {
     try {
-      const jsonData = JSON.stringify(props.resultSetData.data, null, 2);
+      const data = props.resultData?.resultSet?.data || [];
+      const jsonData = JSON.stringify(data, null, 2);
       navigator.clipboard
         .writeText(jsonData)
         .then(() => {
@@ -132,15 +136,20 @@
 </script>
 
 <template>
-  <div v-if="resultSetData.errorMsg" class="result-set-error">
-    错误: {{ resultSetData.errorMsg }}
+  <div
+    v-if="resultData && resultData.resultSet && resultData.resultSet.errorMsg"
+    class="result-set-error"
+  >
+    错误: {{ resultData.resultSet.errorMsg }}
   </div>
   <div
     v-else-if="
-      !resultSetData.column ||
-      resultSetData.column.length === 0 ||
-      !resultSetData.data ||
-      resultSetData.data.length === 0
+      !resultData ||
+      !resultData.resultSet ||
+      !resultData.resultSet.column ||
+      resultData.resultSet.column.length === 0 ||
+      !resultData.resultSet.data ||
+      resultData.resultSet.data.length === 0
     "
     class="result-set-empty"
   >
@@ -150,7 +159,7 @@
     <!-- 头部区域 -->
     <div class="agent-response-title result-set-header-bar">
       <div class="agent-response-title">
-        {{ resultSetData.displayStyle?.title || '查询结果' }}
+        {{ resultData.displayStyle?.title || '查询结果' }}
       </div>
       <div v-if="showChart" class="buttons-bar">
         <div class="chart-select-container">
@@ -191,7 +200,7 @@
 
     <!-- 显示区域 -->
     <div class="result-show-area">
-      <ChartComponent v-if="isChartView && showChart" :resultSetData="resultSetData" />
+      <ChartComponent v-if="isChartView && showChart" :resultData="resultData" />
       <div v-else v-html="generateTableHtml()"></div>
     </div>
   </div>

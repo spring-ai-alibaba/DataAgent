@@ -31,7 +31,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ResultDisplayStyleBO {
+public class DisplayStyleBO {
 
 	/**
 	 * 图表类型，如：table, bar, line, pie等
