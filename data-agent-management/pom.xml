@@ -248,7 +248,12 @@
             <artifactId>DmJdbcDriver18</artifactId>
             <scope>runtime</scope>
         </dependency>
-
+        <!-- EasyExcel for flexible Excel processing -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>easyexcel</artifactId>
+            <version>3.3.4</version>
+        </dependency>
         <!-- Docker Java Client -->
         <dependency>
             <groupId>com.github.docker-java</groupId>

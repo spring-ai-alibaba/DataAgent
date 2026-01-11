@@ -16,15 +16,26 @@
 package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelAddDTO;
+import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelBatchImportDTO;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
 import com.alibaba.cloud.ai.dataagent.service.semantic.SemanticModelService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
+import com.alibaba.cloud.ai.dataagent.vo.BatchImportResult;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.StreamUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
 /**
@@ -36,6 +47,8 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 @AllArgsConstructor
 public class SemanticModelController {
+
+	private static final String TEMPLATE_FILE_NAME = "semantic_model_template.xlsx";
 
 	private final SemanticModelService semanticModelService;
 
@@ -91,6 +104,15 @@ public class SemanticModelController {
 		return ApiResponse.success("Semantic model deleted successfully", true);
 	}
 
+	/**
+	 * 批量删除语义模型
+	 */
+	@DeleteMapping("/batch")
+	public ApiResponse<Boolean> batchDelete(@RequestBody @NotEmpty(message = "ID列表不能为空") List<Long> ids) {
+		semanticModelService.deleteSemanticModels(ids);
+		return ApiResponse.success("批量删除成功", true);
+	}
+
 	// Enable
 	@PutMapping("/enable")
 	public ApiResponse<Boolean> enableFields(@RequestBody @NotEmpty(message = "ID列表不能为空") List<Long> ids) {
@@ -103,6 +125,59 @@ public class SemanticModelController {
 	public ApiResponse<Boolean> disableFields(@RequestBody @NotEmpty(message = "ID列表不能为空") List<Long> ids) {
 		ids.forEach(semanticModelService::disableSemanticModel);
 		return ApiResponse.success("Semantic models disabled successfully", true);
+	}
+
+	/**
+	 * 批量导入语义模型（JSON格式）
+	 */
+	@PostMapping("/batch-import")
+	public ApiResponse<BatchImportResult> batchImport(@RequestBody @Valid SemanticModelBatchImportDTO dto) {
+		log.info("开始批量导入语义模型: agentId={}, 数量={}", dto.getAgentId(), dto.getItems().size());
+		BatchImportResult result = semanticModelService.batchImport(dto);
+		log.info("批量导入完成: 总数={}, 成功={}, 失败={}", result.getTotal(), result.getSuccessCount(), result.getFailCount());
+		return ApiResponse.success("批量导入完成", result);
+	}
+
+	@GetMapping("/template/download")
+	public ResponseEntity<byte[]> downloadTemplate() {
+		try {
+			ClassPathResource resource = new ClassPathResource("excel/" + TEMPLATE_FILE_NAME);
+			if (!resource.exists()) {
+				log.error("模板文件不存在: excel/{}", TEMPLATE_FILE_NAME);
+				return ResponseEntity.notFound().build();
+			}
+
+			byte[] template;
+			try (InputStream inputStream = resource.getInputStream()) {
+				template = StreamUtils.copyToByteArray(inputStream);
+			}
+
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+			headers.setContentDispositionFormData("attachment", TEMPLATE_FILE_NAME);
+			return ResponseEntity.ok().headers(headers).body(template);
+		}
+		catch (IOException e) {
+			log.error("读取Excel模板失败", e);
+			return ResponseEntity.internalServerError().build();
+		}
+	}
+
+	@PostMapping("/import/excel")
+	public ApiResponse<BatchImportResult> importExcel(@RequestParam("file") MultipartFile file,
+			@RequestParam("agentId") Long agentId) {
+		try {
+			BatchImportResult result = semanticModelService.importFromExcel(file, agentId);
+			return ApiResponse.success("Excel导入完成", result);
+		}
+		catch (IllegalArgumentException e) {
+			log.error("Excel导入失败: {}", e.getMessage());
+			return ApiResponse.error("Excel导入失败: " + e.getMessage());
+		}
+		catch (Exception e) {
+			log.error("Excel导入失败", e);
+			return ApiResponse.error("Excel导入失败: " + e.getMessage());
+		}
 	}
 
 }

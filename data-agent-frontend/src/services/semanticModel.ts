@@ -44,6 +44,28 @@ interface SemanticModelAddDto {
   dataType: string;
 }
 
+interface SemanticModelImportItem {
+  tableName: string;
+  columnName: string;
+  businessName: string;
+  synonyms?: string;
+  businessDescription?: string;
+  columnComment?: string;
+  dataType: string;
+}
+
+interface SemanticModelBatchImportDTO {
+  agentId: number;
+  items: SemanticModelImportItem[];
+}
+
+interface BatchImportResult {
+  total: number;
+  successCount: number;
+  failCount: number;
+  errors: string[];
+}
+
 const API_BASE_URL = '/api/semantic-model';
 
 class SemanticModelService {
@@ -120,6 +142,17 @@ class SemanticModelService {
   }
 
   /**
+   * 批量删除语义模型
+   * @param ids 语义模型 ID 列表
+   */
+  async batchDelete(ids: number[]): Promise<boolean> {
+    const response = await axios.delete<ApiResponse>(`${API_BASE_URL}/batch`, {
+      data: ids,
+    });
+    return response.data.success;
+  }
+
+  /**
    * 启用语义模型
    * @param ids 语义模型 ID 列表
    */
@@ -136,7 +169,66 @@ class SemanticModelService {
     const response = await axios.put<ApiResponse>(`${API_BASE_URL}/disable`, ids);
     return response.data.success;
   }
+
+  /**
+   * 批量导入语义模型
+   * @param dto 批量导入DTO
+   */
+  async batchImport(dto: SemanticModelBatchImportDTO): Promise<BatchImportResult> {
+    const response = await axios.post<ApiResponse<BatchImportResult>>(
+      `${API_BASE_URL}/batch-import`,
+      dto,
+    );
+    return response.data.data || { total: 0, successCount: 0, failCount: 0, errors: [] };
+  }
+
+  /**
+   * Excel文件导入
+   * @param file Excel文件
+   * @param agentId 智能体ID
+   */
+  async importExcel(file: File, agentId: number): Promise<BatchImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('agentId', agentId.toString());
+
+    const response = await axios.post<ApiResponse<BatchImportResult>>(
+      `${API_BASE_URL}/import/excel`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    );
+    return response.data.data || { total: 0, successCount: 0, failCount: 0, errors: [] };
+  }
+
+  /**
+   * 下载Excel模板
+   */
+  async downloadTemplate(): Promise<void> {
+    const response = await axios.get(`${API_BASE_URL}/template/download`, {
+      responseType: 'blob',
+    });
+
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'semantic_model_template.xlsx');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }
 }
 
 export default new SemanticModelService();
-export type { SemanticModel, SemanticModelAddDto };
+export type {
+  SemanticModel,
+  SemanticModelAddDto,
+  SemanticModelImportItem,
+  SemanticModelBatchImportDTO,
+  BatchImportResult,
+};
