@@ -17,7 +17,6 @@ package com.alibaba.cloud.ai.dataagent.splitter;
 
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.document.Document; // 假设你用的是Spring AI
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.ai.transformer.splitter.TextSplitter;
@@ -26,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * 生产级语义文本分块器 策略：滑动窗口Embedding + 语义相似度切分 + 最大长度强制切分
