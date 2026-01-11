@@ -13,39 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export interface ResultData {
-  displayStyle?: ResultDisplayStyleBO;
-  resultSet: ResultSetData;
-}
 
-export interface ResultDisplayStyleBO {
-  type: string;
-  title: string;
-  x: string;
-  y: Array<string>;
-}
-/**
- * 结果集数据结构
- */
-export interface ResultSetData {
-  column: string[];
-  data: Array<Record<string, string>>;
-  errorMsg?: string;
-}
+import { BaseChart, ChartTypes } from './BaseChart';
+import { PieChart } from './PieChart';
+import { BarChart } from './BarChart';
+import { LineChart } from './LineChart';
 
-/**
- * 分页配置
- */
-export interface PaginationConfig {
-  currentPage: number;
-  pageSize: number;
-  total: number;
-}
-
-/**
- * 结果集显示配置
- */
-export interface ResultSetDisplayConfig {
-  showSqlResults: boolean;
-  pageSize: number;
+export class ChartFactory {
+  static createChart(chartType: ChartTypes, id: string, name: string): BaseChart | null {
+    switch (chartType) {
+      case 'pie':
+        return new PieChart(id, name);
+      case 'bar':
+      case 'column':
+        return new BarChart(id, name);
+      case 'line':
+        return new LineChart(id, name);
+      default:
+        console.error(`Unsupported chart type: ${chartType}`);
+        return null;
+    }
+  }
 }

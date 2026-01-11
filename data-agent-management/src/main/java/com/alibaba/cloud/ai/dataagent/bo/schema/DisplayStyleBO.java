@@ -13,39 +13,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export interface ResultData {
-  displayStyle?: ResultDisplayStyleBO;
-  resultSet: ResultSetData;
-}
+package com.alibaba.cloud.ai.dataagent.bo.schema;
 
-export interface ResultDisplayStyleBO {
-  type: string;
-  title: string;
-  x: string;
-  y: Array<string>;
-}
-/**
- * 结果集数据结构
- */
-export interface ResultSetData {
-  column: string[];
-  data: Array<Record<string, string>>;
-  errorMsg?: string;
-}
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 /**
- * 分页配置
+ * 结果集显示样式配置类，用于定义数据集的图表显示方式。
+ *
+ * @author fudawei
  */
-export interface PaginationConfig {
-  currentPage: number;
-  pageSize: number;
-  total: number;
-}
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class DisplayStyleBO {
 
-/**
- * 结果集显示配置
- */
-export interface ResultSetDisplayConfig {
-  showSqlResults: boolean;
-  pageSize: number;
+	/**
+	 * 图表类型，如：table, bar, line, pie等
+	 */
+	private String type;
+
+	/**
+	 * 图表标题
+	 */
+	private String title;
+
+	/**
+	 * X轴字段名
+	 */
+	private String x;
+
+	/**
+	 * Y轴字段名列表
+	 */
+	private List<String> y;
+
 }

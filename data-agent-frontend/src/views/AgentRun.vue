@@ -56,6 +56,14 @@
             >
               <!-- HTML类型消息直接渲染 -->
               <div v-if="message.messageType === 'html'" v-html="message.content"></div>
+              <!-- 数据集消息尝试图表渲染 -->
+              <div v-else-if="message.messageType === 'result-set'" class="result-set-message">
+                <ResultSetDisplay
+                  v-if="message.content"
+                  :resultData="JSON.parse(message.content)"
+                  :pageSize="resultSetDisplayConfig.pageSize"
+                />
+              </div>
               <div v-else-if="message.messageType === 'html-report'" class="html-report-message">
                 <div class="report-info">
                   <el-icon><Document /></el-icon>
@@ -131,6 +139,22 @@
                       <Markdown :generating="isStreaming">
                         {{ getMarkdownContentFromNode(nodeBlock) }}
                       </Markdown>
+                    </div>
+                  </div>
+                  <!-- 如果是 RESULT_SET 节点，使用 ResultSetDisplay 组件 -->
+                  <div
+                    v-else-if="nodeBlock.length > 0 && nodeBlock[0].textType === 'RESULT_SET'"
+                    class="agent-response-block"
+                  >
+                    <div class="agent-response-title">
+                      {{ nodeBlock[0].nodeName }}
+                    </div>
+                    <div class="agent-response-content">
+                      <ResultSetDisplay
+                        v-if="nodeBlock[0].text"
+                        :resultData="JSON.parse(nodeBlock[0].text)"
+                        :pageSize="resultSetDisplayConfig.pageSize"
+                      />
                     </div>
                   </div>
                   <!-- 其他节点使用原来的 HTML 渲染方式 -->
@@ -290,12 +314,17 @@
     TextType,
   } from '@/services/graph';
   import { type Agent } from '@/services/agent';
-  import { type ResultSetData, type ResultSetDisplayConfig } from '@/services/resultSet';
+  import {
+    type ResultData,
+    type ResultSetData,
+    type ResultSetDisplayConfig,
+  } from '@/services/resultSet';
   import { SessionRuntimeState, useSessionStateManager } from '@/services/sessionStateManager';
   import HumanFeedback from '@/components/run/HumanFeedback.vue';
   import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
   import PresetQuestions from '@/components/run/PresetQuestions.vue';
   import Markdown from '@/components/run/Markdown.vue';
+  import ResultSetDisplay from '@/components/run/ResultSetDisplay.vue';
 
   // 扩展Window接口以包含自定义方法
   declare global {
@@ -318,6 +347,7 @@
       ChatSessionSidebar,
       PresetQuestions,
       Markdown,
+      ResultSetDisplay,
     },
     created() {
       window.copyTextToClipboard = btn => {
@@ -521,6 +551,27 @@
           const saveNodeMessage = (node: GraphNodeResponse[]): Promise<void> => {
             if (!node || !node.length) return Promise.resolve();
 
+            // 特殊处理RESULT_SET节点
+            if (node.length > 0 && node[0].textType === TextType.RESULT_SET) {
+              try {
+                const resultData: ResultData = JSON.parse(node[0].text);
+                // 如果type不是table，保存一个特殊的标记，以便在历史消息中能够正确显示
+                if (resultData.displayStyle?.type && resultData.displayStyle?.type !== 'table') {
+                  const aiMessage: ChatMessage = {
+                    sessionId,
+                    role: 'assistant',
+                    content: node[0].text, // 保存原始JSON数据
+                    messageType: 'result-set', // 使用特殊的messageType
+                  };
+                  return ChatService.saveMessage(sessionId, aiMessage).catch(error => {
+                    console.error('保存AI消息失败:', error);
+                  });
+                }
+              } catch (error) {
+                console.error('解析结果集JSON失败:', error);
+              }
+            }
+
             // 使用generateNodeHtml方法生成HTML代码，确保显示与保存一致
             const nodeHtml = generateNodeHtml(node);
 
@@ -616,6 +667,19 @@
                     ]);
                   }
                 }
+              } else if (response.textType === TextType.RESULT_SET) {
+                currentNodeName = 'result_set';
+                if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
+                  const savePromise = saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]);
+                  pendingSavePromises.push(savePromise);
+                }
+                // 创建新的节点块
+                const newBlock: GraphNodeResponse = {
+                  ...response,
+                  text: response.text,
+                };
+                sessionState.nodeBlocks.push([newBlock]);
+                currentBlockIndex = sessionState.nodeBlocks.length - 1;
               } else {
                 // 处理其他节点（同步处理逻辑）
                 const isNewNode: boolean =
@@ -903,7 +967,8 @@
 
             try {
               // 解析JSON字符串
-              const resultSetData: ResultSetData = JSON.parse(node[idx].text);
+              const resultData: ResultData = JSON.parse(node[idx].text);
+              const resultSetData = resultData.resultSet;
 
               // 检查是否有错误信息
               if (resultSetData.errorMsg) {
@@ -922,12 +987,16 @@
                 continue;
               }
 
-              // 生成表格HTML
-              const tableHtml = generateResultSetTable(
-                resultSetData,
-                resultSetDisplayConfig.value.pageSize,
-              );
-              content += tableHtml;
+              // 如果type是table，保持原有逻辑生成表格HTML
+              // 否则返回空字符串，因为已经在模板中用ResultSetDisplay组件处理了
+              if (resultData.displayStyle?.type === 'table' || !resultData.displayStyle?.type) {
+                const tableHtml = generateResultSetTable(
+                  resultSetData,
+                  resultSetDisplayConfig.value.pageSize,
+                );
+                content += tableHtml;
+              }
+              // 如果type不是table，不生成HTML，由模板中的ResultSetDisplay组件处理
             } catch (error) {
               console.error('解析结果集JSON失败:', error);
               content += `<div class="result-set-error">解析结果集数据失败: ${error.message}</div>`;
@@ -1674,6 +1743,10 @@
     border-radius: 4px;
     margin: 8px 0;
     text-align: center;
+  }
+
+  .result-set-message {
+    width: 100%;
   }
 
   /* 响应式设计 */

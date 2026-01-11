@@ -13,39 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export interface ResultData {
-  displayStyle?: ResultDisplayStyleBO;
-  resultSet: ResultSetData;
-}
+package com.alibaba.cloud.ai.dataagent.bo.schema;
 
-export interface ResultDisplayStyleBO {
-  type: string;
-  title: string;
-  x: string;
-  y: Array<string>;
-}
-/**
- * 结果集数据结构
- */
-export interface ResultSetData {
-  column: string[];
-  data: Array<Record<string, string>>;
-  errorMsg?: string;
-}
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-/**
- * 分页配置
- */
-export interface PaginationConfig {
-  currentPage: number;
-  pageSize: number;
-  total: number;
-}
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ResultBO {
 
-/**
- * 结果集显示配置
- */
-export interface ResultSetDisplayConfig {
-  showSqlResults: boolean;
-  pageSize: number;
+	private ResultSetBO resultSet;
+
+	private DisplayStyleBO displayStyle;
+
 }
