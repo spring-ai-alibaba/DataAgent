@@ -1,3 +1,18 @@
+/*
+ * Copyright 2024-2025 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.alibaba.cloud.ai.dataagent.splitter;
 
 import lombok.Builder;
@@ -10,8 +25,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 生产级段落文本分块器
- * 特性：递归降级策略（段落->句子->字符）、智能Overlap、防文本丢失
+ * 生产级段落文本分块器 特性：递归降级策略（段落->句子->字符）、智能Overlap、防文本丢失
  *
  * @author zihenzzz
  * @since 2025-01-03
@@ -72,7 +86,8 @@ public class ParagraphTextSplitter extends TextSplitter {
 					int potentialLen = currentChunk.length() + (currentChunk.length() > 0 ? 2 : 0) + subChunk.length();
 
 					if (potentialLen > chunkSize) {
-						// 如果加上 Overlap 会超限，那也没办法，只能舍弃 Overlap (或者先把 Overlap 存为一个独立块，但这通常没必要)
+						// 如果加上 Overlap 会超限，那也没办法，只能舍弃 Overlap (或者先把 Overlap
+						// 存为一个独立块，但这通常没必要)
 						// 我们选择：强制结算 Overlap (如果有的话)，然后重新开始当前 subChunk
 						if (currentChunk.length() > 0) {
 							// 这里通常意味着 Overlap 本身就挺大，或者 subChunk 很大
@@ -125,8 +140,7 @@ public class ParagraphTextSplitter extends TextSplitter {
 	}
 
 	/**
-	 * 从已完成的块中提取 overlap 内容
-	 * 策略：尝试智能贴合段落边界，如果找不到段落边界，则硬截取
+	 * 从已完成的块中提取 overlap 内容 策略：尝试智能贴合段落边界，如果找不到段落边界，则硬截取
 	 */
 	private StringBuilder extractOverlap(String chunk) {
 		if (paragraphOverlapChars <= 0 || chunk == null || chunk.isEmpty()) {
@@ -199,7 +213,8 @@ public class ParagraphTextSplitter extends TextSplitter {
 						currentChunk = new StringBuilder();
 					}
 					subChunks.addAll(splitByChars(remaining));
-				} else {
+				}
+				else {
 					if (currentChunk.length() + remaining.length() > chunkSize && currentChunk.length() > 0) {
 						subChunks.add(currentChunk.toString().trim());
 						currentChunk = new StringBuilder();
@@ -226,4 +241,5 @@ public class ParagraphTextSplitter extends TextSplitter {
 		}
 		return chunks;
 	}
+
 }

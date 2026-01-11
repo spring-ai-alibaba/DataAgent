@@ -1,3 +1,18 @@
+/*
+ * Copyright 2024-2025 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.alibaba.cloud.ai.dataagent.splitter;
 
 import lombok.Builder;
@@ -14,8 +29,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * 生产级语义文本分块器
- * 策略：滑动窗口Embedding + 语义相似度切分 + 最大长度强制切分
+ * 生产级语义文本分块器 策略：滑动窗口Embedding + 语义相似度切分 + 最大长度强制切分
  *
  * @author zihenzzz
  * @since 2025-01-03
@@ -33,8 +47,7 @@ public class SemanticTextSplitter extends TextSplitter {
 	private final double similarityThreshold; // 建议 0.7 - 0.8
 
 	/**
-	 * Embedding API 每批次最大句子数
-	 * 阿里 text-embedding-v4 支持 10，OpenAI 支持更多。建议可配置。
+	 * Embedding API 每批次最大句子数 阿里 text-embedding-v4 支持 10，OpenAI 支持更多。建议可配置。
 	 */
 	@Builder.Default
 	private int embeddingBatchSize = 10;
@@ -144,8 +157,8 @@ public class SemanticTextSplitter extends TextSplitter {
 
 	// 简单的中文判断，用于决定拼接时加不加空格
 	private boolean isChinese(String str) {
-		return str.codePoints().anyMatch(codepoint ->
-				Character.UnicodeScript.of(codepoint) == Character.UnicodeScript.HAN);
+		return str.codePoints()
+			.anyMatch(codepoint -> Character.UnicodeScript.of(codepoint) == Character.UnicodeScript.HAN);
 	}
 
 	/**
@@ -156,7 +169,8 @@ public class SemanticTextSplitter extends TextSplitter {
 		Matcher matcher = SENTENCE_PATTERN.matcher(text);
 		while (matcher.find()) {
 			String s = matcher.group().trim();
-			if (!s.isEmpty()) sentences.add(s);
+			if (!s.isEmpty())
+				sentences.add(s);
 		}
 		return sentences;
 	}
@@ -168,9 +182,11 @@ public class SemanticTextSplitter extends TextSplitter {
 		List<String> contextSentences = new ArrayList<>();
 		for (int i = 0; i < sentences.size(); i++) {
 			StringBuilder context = new StringBuilder();
-			if (i > 0) context.append(sentences.get(i - 1)).append(" ");
+			if (i > 0)
+				context.append(sentences.get(i - 1)).append(" ");
 			context.append(sentences.get(i));
-			if (i < sentences.size() - 1) context.append(" ").append(sentences.get(i + 1));
+			if (i < sentences.size() - 1)
+				context.append(" ").append(sentences.get(i + 1));
 			contextSentences.add(context.toString());
 		}
 		return contextSentences;
@@ -193,24 +209,28 @@ public class SemanticTextSplitter extends TextSplitter {
 				for (var result : response.getResults()) {
 					allEmbeddings.add(result.getOutput());
 				}
-			} catch (Exception e) {
+			}
+			catch (Exception e) {
 				log.error("Embedding failed for batch {}-{}", i, endIdx, e);
 				// 填充零向量，长度假设 768，生产环境最好动态获取或配置
-				for (int k = 0; k < batch.size(); k++) allEmbeddings.add(new float[768]);
+				for (int k = 0; k < batch.size(); k++)
+					allEmbeddings.add(new float[768]);
 			}
 		}
 		return allEmbeddings;
 	}
 
 	private double cosineSimilarity(float[] vec1, float[] vec2) {
-		if (vec1 == null || vec2 == null || vec1.length != vec2.length) return 0.0;
+		if (vec1 == null || vec2 == null || vec1.length != vec2.length)
+			return 0.0;
 		double dot = 0.0, norm1 = 0.0, norm2 = 0.0;
 		for (int i = 0; i < vec1.length; i++) {
 			dot += vec1[i] * vec2[i];
 			norm1 += vec1[i] * vec1[i];
 			norm2 += vec2[i] * vec2[i];
 		}
-		if (norm1 == 0 || norm2 == 0) return 0.0; // 零向量处理
+		if (norm1 == 0 || norm2 == 0)
+			return 0.0; // 零向量处理
 		return dot / (Math.sqrt(norm1) * Math.sqrt(norm2));
 	}
 
@@ -224,4 +244,5 @@ public class SemanticTextSplitter extends TextSplitter {
 		}
 		return result;
 	}
+
 }
