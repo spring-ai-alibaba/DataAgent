@@ -25,41 +25,41 @@ import java.util.List;
 
 public interface SemanticModelService {
 
-  List<SemanticModel> getAll();
+	List<SemanticModel> getAll();
 
-  List<SemanticModel> getEnabledByAgentId(Long agentId);
+	List<SemanticModel> getEnabledByAgentId(Long agentId);
 
-  List<SemanticModel> getByAgentIdAndTableNames(Long agentId, List<String> tableNames);
+	List<SemanticModel> getByAgentIdAndTableNames(Long agentId, List<String> tableNames);
 
-  SemanticModel getById(Long id);
+	SemanticModel getById(Long id);
 
-  void addSemanticModel(SemanticModel semanticModel);
+	void addSemanticModel(SemanticModel semanticModel);
 
-  boolean addSemanticModel(SemanticModelAddDTO dto);
+	boolean addSemanticModel(SemanticModelAddDTO dto);
 
-  void enableSemanticModel(Long id);
+	void enableSemanticModel(Long id);
 
-  void disableSemanticModel(Long id);
+	void disableSemanticModel(Long id);
 
-  List<SemanticModel> getByAgentId(Long agentId);
+	List<SemanticModel> getByAgentId(Long agentId);
 
-  List<SemanticModel> search(String keyword);
+	List<SemanticModel> search(String keyword);
 
-  void deleteSemanticModel(Long id);
+	void deleteSemanticModel(Long id);
 
-  void updateSemanticModel(Long id, SemanticModel semanticModel);
+	void updateSemanticModel(Long id, SemanticModel semanticModel);
 
-  default void addSemanticModels(List<SemanticModel> semanticModels) {
-    semanticModels.forEach(this::addSemanticModel);
-  }
+	default void addSemanticModels(List<SemanticModel> semanticModels) {
+		semanticModels.forEach(this::addSemanticModel);
+	}
 
-  default void enableSemanticModels(List<Long> ids) {
-    ids.forEach(this::enableSemanticModel);
-  }
+	default void enableSemanticModels(List<Long> ids) {
+		ids.forEach(this::enableSemanticModel);
+	}
 
-  default void disableSemanticModels(List<Long> ids) {
-    ids.forEach(this::disableSemanticModel);
-  }
+	default void disableSemanticModels(List<Long> ids) {
+		ids.forEach(this::disableSemanticModel);
+	}
 
 	default void deleteSemanticModels(List<Long> ids) {
 		ids.forEach(this::deleteSemanticModel);

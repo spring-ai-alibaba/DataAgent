@@ -73,9 +73,9 @@ import reactor.core.publisher.Flux;
 @AllArgsConstructor
 public class SqlExecuteNode implements NodeAction {
 
-  private final DatabaseUtil databaseUtil;
+	private final DatabaseUtil databaseUtil;
 
-  private final Nl2SqlService nl2SqlService;
+	private final Nl2SqlService nl2SqlService;
 
 	private final LlmService llmService;
 
@@ -86,26 +86,26 @@ public class SqlExecuteNode implements NodeAction {
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
-    Integer currentStep = PlanProcessUtil.getCurrentStepNumber(state);
+		Integer currentStep = PlanProcessUtil.getCurrentStepNumber(state);
 
-    String sqlQuery = StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT);
-    sqlQuery = nl2SqlService.sqlTrim(sqlQuery);
+		String sqlQuery = StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT);
+		sqlQuery = nl2SqlService.sqlTrim(sqlQuery);
 
-    log.info("Executing SQL query: {}", sqlQuery);
+		log.info("Executing SQL query: {}", sqlQuery);
 
-    // Get the agent ID from the state
-    String agentIdStr = StateUtil.getStringValue(state, Constant.AGENT_ID);
-    if (StringUtils.isBlank(agentIdStr)) {
-      throw new IllegalStateException("Agent ID cannot be empty.");
-    }
+		// Get the agent ID from the state
+		String agentIdStr = StateUtil.getStringValue(state, Constant.AGENT_ID);
+		if (StringUtils.isBlank(agentIdStr)) {
+			throw new IllegalStateException("Agent ID cannot be empty.");
+		}
 
-    Long agentId = Long.valueOf(agentIdStr);
+		Long agentId = Long.valueOf(agentIdStr);
 
-    // Dynamically get the data source configuration for an agent
-    DbConfigBO dbConfig = databaseUtil.getAgentDbConfig(agentId);
+		// Dynamically get the data source configuration for an agent
+		DbConfigBO dbConfig = databaseUtil.getAgentDbConfig(agentId);
 
-    return executeSqlQuery(state, currentStep, sqlQuery, dbConfig, agentId);
-  }
+		return executeSqlQuery(state, currentStep, sqlQuery, dbConfig, agentId);
+	}
 
 	/**
 	 * Executes the SQL query against the database and handles the results.
