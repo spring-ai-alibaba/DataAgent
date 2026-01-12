@@ -292,7 +292,6 @@
         <configuration>
           <java>
             <removeUnusedImports/>
-<<<<<<< HEAD
             <ratchetFrom>origin/main</ratchetFrom>
             <licenseHeader>
               <content>
@@ -315,8 +314,6 @@
               </content>
               <delimiter>(package|import)</delimiter>
             </licenseHeader>
-=======
->>>>>>> b09f162 (refactor: unfiy the angentId to Long, and remove ResponseEntity in AgentController)
           </java>
         </configuration>
         <executions>

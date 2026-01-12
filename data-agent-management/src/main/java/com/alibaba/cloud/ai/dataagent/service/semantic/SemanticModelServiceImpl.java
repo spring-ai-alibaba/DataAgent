@@ -25,11 +25,13 @@ import com.alibaba.cloud.ai.dataagent.mapper.SemanticModelMapper;
 import com.alibaba.cloud.ai.dataagent.vo.BatchImportResult;
 import java.util.List;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @AllArgsConstructor
+@Slf4j
 public class SemanticModelServiceImpl implements SemanticModelService {
 
 	private final SemanticModelMapper semanticModelMapper;
