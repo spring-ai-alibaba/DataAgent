@@ -529,9 +529,14 @@
               <span style="font-family: monospace">{{ scope.row.sourceColumnName }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="关系" width="60px" align="center">
-            <template #default>
-              <el-icon color="#999"><Link /></el-icon>
+          <el-table-column label="关系类型" min-width="90px" align="center">
+            <template #default="scope">
+              <span style="color: #999; margin-right: 4px">
+                <el-icon><Link /></el-icon>
+              </span>
+              <span style="font-family: monospace">
+                {{ scope.row.relationType || '-' }}
+              </span>
             </template>
           </el-table-column>
           <el-table-column prop="targetTableName" label="关联表 (Target)" min-width="100px">
@@ -696,6 +701,27 @@
               <el-icon style="margin-right: 4px"><Check /></el-icon>
               {{ editingForeignKey ? '更新' : '添加' }}
             </el-button>
+          </el-col>
+        </el-row>
+
+        <el-row style="margin-top: 10px">
+          <el-col :span="24">
+            <div style="margin-bottom: 5px">
+              <label style="font-size: 12px; font-weight: 600; color: #666">
+                关系类型 (Relation Type)
+              </label>
+            </div>
+            <el-select
+              v-model="newForeignKey.relationType"
+              placeholder="选择关系类型（可选）"
+              size="large"
+              clearable
+              style="width: 100%"
+            >
+              <el-option label="1:1 (一对一)" value="1:1" />
+              <el-option label="1:N (一对多)" value="1:N" />
+              <el-option label="N:1 (多对一)" value="N:1" />
+            </el-select>
           </el-col>
         </el-row>
 
