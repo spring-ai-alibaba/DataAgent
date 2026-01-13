@@ -115,6 +115,7 @@ public class PromptHelper {
 		params.put("schema_info", schemaInfo);
 		params.put("evidence", sqlGenerationDTO.getEvidence());
 		params.put("execution_description", sqlGenerationDTO.getExecutionDescription());
+		params.put("previous_step_results", StringUtils.defaultIfBlank(sqlGenerationDTO.getPreviousStepResults(), "无"));
 		return PromptConstant.getNewSqlGeneratorPromptTemplate().render(params);
 	}
 
@@ -169,6 +170,7 @@ public class PromptHelper {
 		params.put("error_sql", sqlGenerationDTO.getSql());
 		params.put("error_message", sqlGenerationDTO.getExceptionMessage());
 		params.put("execution_description", sqlGenerationDTO.getExecutionDescription());
+		params.put("previous_step_results", StringUtils.defaultIfBlank(sqlGenerationDTO.getPreviousStepResults(), "无"));
 
 		return PromptConstant.getSqlErrorFixerPromptTemplate().render(params);
 	}
