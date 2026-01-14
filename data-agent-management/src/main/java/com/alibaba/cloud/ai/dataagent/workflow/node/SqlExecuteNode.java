@@ -15,38 +15,47 @@
  */
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_CURRENT_STEP;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_COUNT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_REGENERATE_REASON;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_RESULT_LIST_MEMORY;
+
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DisplayStyleBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultBO;
-import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
-import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
-import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.constant.Constant;
-import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
-
+import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
+import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptLoader;
+import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
-
-import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
-import com.alibaba.cloud.ai.dataagent.util.*;
+import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
+import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.util.MarkdownParserUtil;
+import com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil;
+import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 
 /**
  * SQL execution node that executes SQL queries against the database.
@@ -68,12 +77,9 @@ public class SqlExecuteNode implements NodeAction {
 
 	private final LlmService llmService;
 
-	private static final int SAMPLE_DATA_NUMBER = 20;
+	private final DataAgentProperties properties;
 
-	/**
-	 * 调用大模型生成图表配置的默认超时时间，单位毫秒
-	 */
-	private static final long DEFAULT_GENERATE_CHART_TIMEOUT_MILLIS = 2000L;
+	private static final int SAMPLE_DATA_NUMBER = 20;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -196,6 +202,14 @@ public class SqlExecuteNode implements NodeAction {
 	 * @param resultSetBO SQL执行结果
 	 */
 	private DisplayStyleBO enrichResultSetWithChartConfig(OverAllState state, ResultSetBO resultSetBO) {
+		// 创建ResultDisplayStyleBO对象
+		DisplayStyleBO displayStyle = new DisplayStyleBO();
+		if (!this.properties.isEnableSqlResultChart()) {
+			log.debug("Sql result chart is disabled, set display style as table default");
+			displayStyle.setType("table");
+			return displayStyle;
+		}
+
 		try {
 			// 获取用户查询
 			String userQuery = StateUtil.getCanonicalQuery(state);
@@ -226,20 +240,15 @@ public class SqlExecuteNode implements NodeAction {
 			log.debug("Built chart config generation user prompt as follows \n {} \n", userPrompt);
 
 			// 调用LLM生成图表配置（使用系统提示词和用户提示词）
-			// 由于需要同步获取结果，这里使用block方式调用
-			String chartConfigJson = llmService.call(systemPrompt, userPrompt)
-				.map(chatResponse -> chatResponse.getResult().getOutput().getText())
-				.collectList()
-				.map(textList -> String.join("", textList))
-				.block(Duration.ofMillis(DEFAULT_GENERATE_CHART_TIMEOUT_MILLIS));
+			String chartConfigJson = llmService.toStringFlux(llmService.call(systemPrompt, userPrompt))
+				.collect(StringBuilder::new, StringBuilder::append)
+				.map(StringBuilder::toString)
+				.block(Duration.ofMillis(properties.getEnrichSqlResultTimeout()));
 
 			if (chartConfigJson != null && !chartConfigJson.trim().isEmpty()) {
 				String content = MarkdownParserUtil.extractText(chartConfigJson.trim());
 				// 解析JSON并填充到ResultSetBO中
 				Map<String, Object> chartConfig = JsonUtil.getObjectMapper().readValue(content, Map.class);
-
-				// 创建ResultDisplayStyleBO对象
-				DisplayStyleBO displayStyle = new DisplayStyleBO();
 
 				// 提取图表配置信息并设置到ResultDisplayStyleBO
 				if (chartConfig.containsKey("type")) {

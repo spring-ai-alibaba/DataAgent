@@ -70,6 +70,16 @@ public class DataAgentProperties {
 	// 每张表的最大预估列数
 	private int maxColumnsPerTable = 50;
 
+	/**
+	 * 是否启用SQL执行结果图表判断，默认启用
+	 */
+	private boolean enableSqlResultChart = true;
+
+	/**
+	 * 执行SQL结果图表化超时时间，默认3000ms
+	 */
+	private Long enrichSqlResultTimeout = 3000L;
+
 	@Getter
 	@Setter
 	public static class ReportTemplate {

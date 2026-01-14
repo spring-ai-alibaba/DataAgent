@@ -143,16 +143,18 @@ public class AgentVectorStoreService {
 
 ### 1. 通用配置
 
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| `spring.ai.alibaba.data-agent.llm-service-type` | LLM服务类型 (STREAM/BLOCK) | STREAM |
-| `spring.ai.alibaba.data-agent.max-sql-retry-count` | SQL执行失败重试次数 | 10 |
-| `spring.ai.alibaba.data-agent.max-sql-optimize-count` | SQL优化最多次数 | 10 |
-| `spring.ai.alibaba.data-agent.sql-score-threshold` | SQL优化分数阈值 | 0.95 |
-| `spring.ai.alibaba.data-agent.maxturnhistory` | 最多保留的对话轮数 | 5 |
-| `spring.ai.alibaba.data-agent.maxplanlength` | 单次规划最大长度限制 | 2000 |
-| `spring.ai.alibaba.data-agent.max-columns-per-table` | 每张表的最大预估列数 | 50 |
-| `spring.ai.alibaba.data-agent.fusion-strategy` | 多路召回结果融合策略 | rrf |
+| 配置项                                                    | 说明 | 默认值    |
+|--------------------------------------------------------|------|--------|
+| `spring.ai.alibaba.data-agent.llm-service-type`        | LLM服务类型 (STREAM/BLOCK) | STREAM |
+| `spring.ai.alibaba.data-agent.max-sql-retry-count`     | SQL执行失败重试次数 | 10     |
+| `spring.ai.alibaba.data-agent.max-sql-optimize-count`  | SQL优化最多次数 | 10     |
+| `spring.ai.alibaba.data-agent.sql-score-threshold`     | SQL优化分数阈值 | 0.95   |
+| `spring.ai.alibaba.data-agent.maxturnhistory`          | 最多保留的对话轮数 | 5      |
+| `spring.ai.alibaba.data-agent.maxplanlength`           | 单次规划最大长度限制 | 2000   |
+| `spring.ai.alibaba.data-agent.max-columns-per-table`   | 每张表的最大预估列数 | 50     |
+| `spring.ai.alibaba.data-agent.fusion-strategy`         | 多路召回结果融合策略 | rrf    |
+| `spring.ai.alibaba.data-agent.enable-sql-result-chart` | 是否启用SQL执行结果图表判断 | true   |
+| `spring.ai.alibaba.data-agent.enrich-sql-result-timeout` | 执行SQL结果图表化超时时间，单位毫秒 | 3000   |
 
 ### 2. 嵌入模型批处理策略 (Embedding Batch)
 
