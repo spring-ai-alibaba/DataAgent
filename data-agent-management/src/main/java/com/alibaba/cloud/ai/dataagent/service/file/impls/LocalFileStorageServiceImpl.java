@@ -50,7 +50,7 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 
 			String storagePath = buildStoragePath(subPath, filename);
 
-			Path filePath = fileStorageProperties.getBasePath().resolve(storagePath).resolve(filename).normalize();
+			Path filePath = fileStorageProperties.getLocalBasePath().resolve(storagePath).resolve(filename);
 
 			checkPathSecurity(filePath);
 
@@ -73,7 +73,7 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 	@Override
 	public boolean deleteFile(String filePath) {
 		try {
-			Path fullPath = fileStorageProperties.getBasePath().resolve(filePath);
+			Path fullPath = fileStorageProperties.getLocalBasePath().resolve(filePath);
 			checkPathSecurity(fullPath);
 			if (Files.exists(fullPath)) {
 				Files.deleteIfExists(fullPath);
@@ -93,7 +93,7 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 
 	@Override
 	public String getFileUrl(String filePath) {
-		checkPathSecurity(fileStorageProperties.getBasePath().resolve(filePath));
+		checkPathSecurity(fileStorageProperties.getLocalBasePath().resolve(filePath));
 		try {
 			ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
 				.getRequestAttributes();
@@ -113,7 +113,7 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 
 	@Override
 	public Resource getFileResource(String filePath) {
-		Path fullPath = fileStorageProperties.getBasePath().resolve(filePath);
+		Path fullPath = fileStorageProperties.getLocalBasePath().resolve(filePath);
 		checkPathSecurity(fullPath);
 		if (Files.exists(fullPath)) {
 			return new FileSystemResource(fullPath);
@@ -128,7 +128,7 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 	 * @param filePath 文件访问路径
 	 */
 	private void checkPathSecurity(Path filePath) {
-		if (!filePath.startsWith(fileStorageProperties.getBasePath())) {
+		if (!filePath.normalize().startsWith(fileStorageProperties.getLocalBasePath())) {
 			throw new SecurityException("Invalid file path");
 		}
 	}
