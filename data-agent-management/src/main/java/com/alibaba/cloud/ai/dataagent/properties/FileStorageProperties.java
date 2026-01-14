@@ -57,7 +57,11 @@ public class FileStorageProperties {
 	 */
 	private long imageSize = 2L * 1024 * 1024;
 
-	public Path getBasePath() {
+	/**
+	 * 获取本地保存路径,并规范化
+	 * @return 本地保存根路径
+	 */
+	public Path getLocalBasePath() {
 		return Path.of(path).normalize();
 	}
 
