@@ -169,7 +169,7 @@ public class PythonExecuteNode implements NodeAction {
 
 	private List<List<Map<String, String>>> convertExecutionResultsToList(HashMap<String, String> executionResults) {
 		List<List<Map<String, String>>> convertedResults = new ArrayList<>();
-		if(executionResults.isEmpty()){
+		if (executionResults.isEmpty()) {
 			return convertedResults;
 		}
 		// 按照步骤顺序处理结果
@@ -187,7 +187,8 @@ public class PythonExecuteNode implements NodeAction {
 					if (stepData != null) {
 						convertedResults.add(stepData);
 					}
-				} catch (Exception e) {
+				}
+				catch (Exception e) {
 					log.error("Failed to parse execution result for step {}: {}", stepKey, e.getMessage());
 				}
 			}

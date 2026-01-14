@@ -110,8 +110,8 @@ public class PythonGenerateNode implements NodeAction {
 			.render(Map.of("python_memory", codeExecutorProperties.getLimitMemory().toString(), "python_timeout",
 					codeExecutorProperties.getCodeTimeout(), "database_schema",
 					objectMapper.writeValueAsString(schemaDTO), "sample_input",
-					objectMapper.writeValueAsString(sqlResultsLimit),
-					"plan_description", objectMapper.writeValueAsString(toolParameters)));
+					objectMapper.writeValueAsString(sqlResultsLimit), "plan_description",
+					objectMapper.writeValueAsString(toolParameters)));
 
 		Flux<ChatResponse> pythonGenerateFlux = llmService.call(systemPrompt, userPrompt);
 
@@ -132,10 +132,10 @@ public class PythonGenerateNode implements NodeAction {
 		return Map.of(PYTHON_GENERATE_NODE_OUTPUT, generator);
 	}
 
-	//从executionResults中获取sql结果的样例
+	// 从executionResults中获取sql结果的样例
 	private List<List<Map<String, String>>> convertExecutionResultsToList(HashMap<String, String> executionResults) {
 		List<List<Map<String, String>>> convertedResults = new ArrayList<>();
-		if(executionResults.isEmpty()){
+		if (executionResults.isEmpty()) {
 			return convertedResults;
 		}
 		// 按照步骤顺序处理结果
@@ -153,7 +153,8 @@ public class PythonGenerateNode implements NodeAction {
 					if (stepData != null) {
 						convertedResults.add(stepData.stream().limit(SAMPLE_DATA_NUMBER).toList());
 					}
-				} catch (Exception e) {
+				}
+				catch (Exception e) {
 					log.error("Failed to parse execution result for step {}: {}", stepKey, e.getMessage());
 				}
 			}
