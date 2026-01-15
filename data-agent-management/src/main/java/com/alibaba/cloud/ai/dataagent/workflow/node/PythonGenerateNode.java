@@ -16,7 +16,6 @@
 
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
-import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
@@ -39,7 +38,6 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +75,8 @@ public class PythonGenerateNode implements NodeAction {
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 		HashMap<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,
 				HashMap.class, new HashMap<>());
-		List<List<Map<String, String>>> sqlResultsLimit = convertExecutionResultsToList(executionResults);
+		List<List<Map<String, String>>> sqlResultsLimit = PlanProcessUtil
+			.convertExecutionResultsToList(executionResults, SAMPLE_DATA_NUMBER);
 
 		boolean codeRunSuccess = StateUtil.getObjectValue(state, PYTHON_IS_SUCCESS, Boolean.class, true);
 		int triesCount = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
@@ -130,37 +129,6 @@ public class PythonGenerateNode implements NodeAction {
 						Flux.just(ChatResponseUtil.createPureResponse(TextType.PYTHON.getEndSign()))));
 
 		return Map.of(PYTHON_GENERATE_NODE_OUTPUT, generator);
-	}
-
-	// 从executionResults中获取sql结果的样例
-	private List<List<Map<String, String>>> convertExecutionResultsToList(HashMap<String, String> executionResults) {
-		List<List<Map<String, String>>> convertedResults = new ArrayList<>();
-		if (executionResults.isEmpty()) {
-			return convertedResults;
-		}
-		// 按照步骤顺序处理结果
-		for (int i = 1; i <= executionResults.size(); i++) {
-			String stepKey = "step_" + i;
-			String jsonResult = executionResults.get(stepKey);
-
-			if (jsonResult != null && !jsonResult.isEmpty()) {
-				try {
-					// 将 JSON 字符串转换为 ResultSetBO 对象
-					ResultSetBO resultSetBO = objectMapper.readValue(jsonResult, ResultSetBO.class);
-
-					// 提取 ResultSetBO 中的 data 字段
-					List<Map<String, String>> stepData = resultSetBO.getData();
-					if (stepData != null) {
-						convertedResults.add(stepData.stream().limit(SAMPLE_DATA_NUMBER).toList());
-					}
-				}
-				catch (Exception e) {
-					log.error("Failed to parse execution result for step {}: {}", stepKey, e.getMessage());
-				}
-			}
-		}
-
-		return convertedResults;
 	}
 
 }
