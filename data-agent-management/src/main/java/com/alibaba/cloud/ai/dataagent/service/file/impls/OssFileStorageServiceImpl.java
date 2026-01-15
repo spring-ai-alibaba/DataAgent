@@ -144,6 +144,10 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 		}
 	}
 
+	/**
+	 * This implementation throws IllegalStateException if attempting to read the
+	 * underlying stream multiple times.
+	 */
 	@Override
 	public Resource getFileResource(String filePath) {
 
