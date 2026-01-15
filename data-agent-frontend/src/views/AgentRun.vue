@@ -82,24 +82,37 @@
                 v-else-if="message.messageType === 'markdown-report'"
                 class="markdown-report-message"
               >
-                <div class="markdown-report-header">
+                <div
+                  class="markdown-report-header"
+                  style="display: flex; justify-content: space-between; align-items: center"
+                >
                   <div class="report-info">
                     <el-icon><Document /></el-icon>
                     <span>Markdown 报告已生成</span>
                   </div>
-                  <el-button
-                    type="primary"
-                    size="large"
-                    @click="downloadMarkdownReportFromMessage(`${message.content}`)"
-                  >
-                    <el-icon><Download /></el-icon>
-                    下载Markdown报告
-                  </el-button>
+                  <el-button-group size="large">
+                    <el-button
+                      type="primary"
+                      @click="downloadMarkdownReportFromMessage(`${message.content}`)"
+                    >
+                      <el-icon><Download /></el-icon>
+                      下载Markdown报告
+                    </el-button>
+                    <el-button
+                      type="success"
+                      @click="downloadHtmlReportFromMessageByServer(`${message.content}`)"
+                    >
+                      <el-icon><Download /></el-icon>
+                      下载HTML报告
+                    </el-button>
+                  </el-button-group>
                 </div>
                 <div class="markdown-report-content">
-                  <Markdown>
-                    {{ message.content }}
-                  </Markdown>
+                  <markdown-agent-container
+                    class="md-body"
+                    :content="message.content"
+                    :options="options"
+                  />
                 </div>
               </div>
               <!-- 文本类型消息使用原有布局 -->
@@ -136,9 +149,11 @@
                       {{ nodeBlock[0].nodeName }}
                     </div>
                     <div class="agent-response-content">
-                      <Markdown :generating="isStreaming">
-                        {{ getMarkdownContentFromNode(nodeBlock) }}
-                      </Markdown>
+                      <markdown-agent-container
+                        class="md-body"
+                        :content="getMarkdownContentFromNode(nodeBlock)"
+                        :options="options"
+                      />
                     </div>
                   </div>
                   <!-- 如果是 RESULT_SET 节点，使用 ResultSetDisplay 组件 -->
@@ -323,7 +338,7 @@
   import HumanFeedback from '@/components/run/HumanFeedback.vue';
   import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
   import PresetQuestions from '@/components/run/PresetQuestions.vue';
-  import Markdown from '@/components/run/Markdown.vue';
+  import MarkdownAgentContainer from '@/components/run/markdown';
   import ResultSetDisplay from '@/components/run/ResultSetDisplay.vue';
 
   // 扩展Window接口以包含自定义方法
@@ -346,7 +361,7 @@
       HumanFeedback,
       ChatSessionSidebar,
       PresetQuestions,
-      Markdown,
+      MarkdownAgentContainer,
       ResultSetDisplay,
     },
     created() {
@@ -420,6 +435,17 @@
         useSessionStateManager();
       const isStreaming = ref(false);
       const nodeBlocks = ref<GraphNodeResponse[][]>([]);
+      const options = ref({
+        markdownIt: {
+          linkify: true,
+        },
+        linkAttributes: {
+          attrs: {
+            target: '_self',
+            rel: 'noopener',
+          },
+        },
+      });
       const requestOptions = ref({
         humanFeedback: false,
         nl2sqlOnly: false,
@@ -875,6 +901,25 @@
         ElMessage.success('HTML报告下载成功');
       };
 
+      // 服务器端下载html报告
+      const downloadHtmlReportFromMessageByServer = async (content: string) => {
+        if (!content) {
+          ElMessage.warning('没有可下载的HTML报告');
+          return;
+        }
+        if (!currentSession.value) {
+          ElMessage.warning('当前没有会话信息');
+          return;
+        }
+        try {
+          await ChatService.downloadHtmlReport(currentSession.value.id, content);
+          ElMessage.success('HTML报告下载成功');
+        } catch (error) {
+          console.error('下载HTML报告失败:', error);
+          ElMessage.error('下载HTML报告失败');
+        }
+      };
+
       const downloadMarkdownReportFromMessage = (content: string) => {
         if (!content) {
           ElMessage.warning('没有可下载的Markdown报告');
@@ -1267,6 +1312,7 @@
         showHumanFeedback,
         lastRequest,
         resultSetDisplayConfig,
+        options,
         getMarkdownContentFromNode,
         selectSession,
         sendMessage,
@@ -1276,6 +1322,7 @@
         handleNl2sqlOnlyChange,
         downloadHtmlReportFromMessage,
         downloadMarkdownReportFromMessage,
+        downloadHtmlReportFromMessageByServer,
         markdownToHtml,
         resetReportState,
         handleHumanFeedback,
