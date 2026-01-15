@@ -50,7 +50,7 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 
 			String storagePath = buildStoragePath(subPath, filename);
 
-			Path filePath = fileStorageProperties.getLocalBasePath().resolve(storagePath).resolve(filename);
+			Path filePath = fileStorageProperties.getLocalBasePath().resolve(storagePath);
 
 			checkPathSecurity(filePath);
 
