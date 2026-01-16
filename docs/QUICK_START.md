@@ -1,3 +1,5 @@
+中文 | [English](./QUICK_START-en.md)
+
 # 快速开始
 
 本文档将指导您完成 DataAgent 的安装、配置和首次运行。

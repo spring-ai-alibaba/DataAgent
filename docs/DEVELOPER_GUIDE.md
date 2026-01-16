@@ -1,3 +1,5 @@
+中文 | [English](./DEVELOPER_GUIDE-en.md)
+
 # 开发者文档
 
 欢迎参与 DataAgent 项目的开发！本文档将帮助您了解如何为项目做出贡献。
