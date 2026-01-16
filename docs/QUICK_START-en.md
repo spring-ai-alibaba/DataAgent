@@ -52,11 +52,11 @@ spring:
 
 Auto initialization is enabled by default (`spring.sql.init.mode: always`).
 
-> For information on how to disable auto initialization, please refer to [Developer Guide - Database Initialization Configuration](DEVELOPER_GUIDE_EN.md#8-database-initialization).
+> For information on how to disable auto initialization, please refer to [Developer Guide - Database Initialization Configuration](DEVELOPER_GUIDE-en.md#8-database-initialization).
 
 ### 2.3 Configure Model
 
-> If you need to manually manage model dependencies (not using default Starter), please refer to [Developer Guide - Dependency Extension Configuration](DEVELOPER_GUIDE_EN.md#9-dependency-extension).
+> If you need to manually manage model dependencies (not using default Starter), please refer to [Developer Guide - Dependency Extension Configuration](DEVELOPER_GUIDE-en.md#9-dependency-extension).
 
 Start the project, click on Model Configuration, add a new model and fill in your API key.
 
@@ -75,7 +75,7 @@ Start the project, click on Model Configuration, add a new model and fill in you
 
 ### 2.4 Embedding Model Batch Processing Strategy Configuration
 
-> For detailed configuration parameters, please refer to [Developer Guide - Development Configuration Manual](DEVELOPER_GUIDE_EN.md#development-configuration-manual).
+> For detailed configuration parameters, please refer to [Developer Guide - Development Configuration Manual](DEVELOPER_GUIDE-en.md#development-configuration-manual).
 
 ### 2.5 Vector Store Configuration
 
@@ -175,15 +175,15 @@ Below is the ES schema structure. For other vector stores like Milvus, PG, etc.,
 
 #### 2.5.3 Vector Store Configuration Parameters
 
-> For detailed configuration parameters, please refer to [Developer Guide - Development Configuration Manual](DEVELOPER_GUIDE_EN.md#development-configuration-manual).
+> For detailed configuration parameters, please refer to [Developer Guide - Development Configuration Manual](DEVELOPER_GUIDE-en.md#development-configuration-manual).
 
 ### 2.6 Retrieval Fusion Strategy
 
-> For detailed configuration parameters, please refer to [Developer Guide - Development Configuration Manual](DEVELOPER_GUIDE_EN.md#development-configuration-manual).
+> For detailed configuration parameters, please refer to [Developer Guide - Development Configuration Manual](DEVELOPER_GUIDE-en.md#development-configuration-manual).
 
 ### 2.7 Replace Vector Store Implementation
 
-> For information on how to replace the default in-memory vector store (e.g., using PGVector, Milvus, etc.), please refer to [Developer Guide - Dependency Extension Configuration](DEVELOPER_GUIDE_EN.md#9-dependency-extension).
+> For information on how to replace the default in-memory vector store (e.g., using PGVector, Milvus, etc.), please refer to [Developer Guide - Dependency Extension Configuration](DEVELOPER_GUIDE-en.md#9-dependency-extension).
 
 ## 3. Start Management Backend
 
@@ -327,6 +327,6 @@ If human feedback mode is enabled, the agent will wait for user confirmation aft
 
 ## Next Steps
 
-- Learn about [Architecture Design](ARCHITECTURE_EN.md) to understand the system principles in depth
-- Check [Advanced Features](ADVANCED_FEATURES_EN.md) to learn about more advanced features
-- Read [Developer Documentation](DEVELOPER_GUIDE_EN.md) to contribute to the project
+- Learn about [Architecture Design](ARCHITECTURE-en.md) to understand the system principles in depth
+- Check [Advanced Features](ADVANCED_FEATURES-en.md) to learn about more advanced features
+- Read [Developer Documentation](DEVELOPER_GUIDE-en.md) to contribute to the project
