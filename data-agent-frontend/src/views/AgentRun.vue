@@ -441,7 +441,7 @@
         },
         linkAttributes: {
           attrs: {
-            target: '_self',
+            target: '_blank',
             rel: 'noopener',
           },
         },
