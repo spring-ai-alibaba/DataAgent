@@ -1,3 +1,5 @@
+[中文](./KNOWLEDGE_USAGE.md) | English
+
 ---
 
 # DataAgent Knowledge Configuration Best Practices Guide

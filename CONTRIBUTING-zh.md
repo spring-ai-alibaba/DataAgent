@@ -1,3 +1,5 @@
+中文 | [English](./CONTRIBUTING-en.md)
+
 ## 如何贡献
 
 ## 感谢你为 Spring AI Alibaba-DateAgent 贡献！

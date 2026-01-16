@@ -1,3 +1,5 @@
+[中文](./QUICK_START.md) | English
+
 # Quick Start
 
 This document will guide you through the installation, configuration, and first run of DataAgent.

@@ -1,3 +1,5 @@
+[中文](./CONTRIBUTING-zh.md) | English
+
 ## How to Contribute
 
 ## Thank you for contributing to Spring AI Alibaba-DataAgent!

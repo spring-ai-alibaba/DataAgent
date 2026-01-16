@@ -1,3 +1,5 @@
+[中文](./ARCHITECTURE.md) | English
+
 # Architecture Design
 
 This document provides a detailed introduction to DataAgent's system architecture, core capabilities, and technical implementation.

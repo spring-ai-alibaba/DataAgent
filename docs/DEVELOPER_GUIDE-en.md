@@ -1,3 +1,5 @@
+[中文](./DEVELOPER_GUIDE.md) | English
+
 # Developer Guide
 
 Welcome to participate in the development of the DataAgent project! This document will help you understand how to contribute to the project.

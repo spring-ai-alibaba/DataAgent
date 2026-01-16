@@ -1,4 +1,5 @@
 <div align="center">
+  <p><a href="./README.md">中文</a> | English</p>
   <h1>Spring AI Alibaba DataAgent</h1>
   <p>
     <strong>Enterprise-grade Intelligent Data Analyst powered by <a href="https://github.com/alibaba/spring-ai-alibaba" target="_blank">Spring AI Alibaba</a></strong>

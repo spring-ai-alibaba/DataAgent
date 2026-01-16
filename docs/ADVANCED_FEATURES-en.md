@@ -1,3 +1,5 @@
+[中文](./ADVANCED_FEATURES.md) | English
+
 # Advanced Features
 
 This document introduces the advanced features and custom configuration options of DataAgent.
