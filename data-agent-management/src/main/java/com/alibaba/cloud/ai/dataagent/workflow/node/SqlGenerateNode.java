@@ -15,10 +15,13 @@
  */
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
+import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
+import com.alibaba.cloud.ai.dataagent.dto.planner.Plan;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
@@ -35,6 +38,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
@@ -57,6 +61,16 @@ import static com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil.getCurrentExec
 @Component
 @AllArgsConstructor
 public class SqlGenerateNode implements NodeAction {
+
+	/**
+	 * 上一步结果注入到 SQL 生成提示词时，最多保留的行数（避免提示词过长）。
+	 */
+	private static final int PREVIOUS_STEP_RESULT_SAMPLE_SIZE = 20;
+
+	/**
+	 * 上一步结果注入到 SQL 生成提示词时，最多保留的字符数（兜底，避免极端情况下提示词爆炸）。
+	 */
+	private static final int PREVIOUS_STEP_RESULT_MAX_CHARS = 8000;
 
 	private final Nl2SqlService nl2SqlService;
 
@@ -134,11 +148,13 @@ public class SqlGenerateNode implements NodeAction {
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 		String userQuery = StateUtil.getCanonicalQuery(state);
 		String dialect = StateUtil.getStringValue(state, DB_DIALECT_TYPE);
+		String previousStepResults = buildPreviousStepResults(state);
 
 		SqlGenerationDTO sqlGenerationDTO = SqlGenerationDTO.builder()
 			.evidence(evidence)
 			.query(userQuery)
 			.schemaDTO(schemaDTO)
+			.previousStepResults(previousStepResults)
 			.sql(originalSql)
 			.exceptionMessage(errorMsg)
 			.executionDescription(executionDescription)
@@ -150,6 +166,85 @@ public class SqlGenerateNode implements NodeAction {
 
 	private Flux<String> handleGenerateSql(OverAllState state, String executionDescription) {
 		return handleRetryGenerateSql(state, null, null, executionDescription);
+	}
+
+	/**
+	 * 组装“上一步执行结果”提示词上下文，供后续 SQL 生成将其作为过滤条件参考。
+	 * <p>
+	 * 约定：执行结果由 {@link com.alibaba.cloud.ai.dataagent.workflow.node.SqlExecuteNode} 写入
+	 * {@code SQL_EXECUTE_NODE_OUTPUT}，key 为 {@code step_n}。
+	 */
+	@SuppressWarnings("unchecked")
+	private String buildPreviousStepResults(OverAllState state) {
+		int currentStep = PlanProcessUtil.getCurrentStepNumber(state);
+		if (currentStep <= 1) {
+			return "无";
+		}
+
+		Map<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
+				new HashMap<>());
+		if (executionResults.isEmpty()) {
+			return "无";
+		}
+
+		String previousStepKey = "step_" + (currentStep - 1);
+		String previousStepResult = executionResults.get(previousStepKey);
+		if (!StringUtils.hasText(previousStepResult)) {
+			return "无";
+		}
+
+		String previousStepInstruction = null;
+		try {
+			Plan plan = PlanProcessUtil.getPlan(state);
+			ExecutionStep prevStep = PlanProcessUtil.getCurrentExecutionStep(plan, currentStep - 1);
+			if (prevStep != null && prevStep.getToolParameters() != null) {
+				previousStepInstruction = prevStep.getToolParameters().getInstruction();
+			}
+		}
+		catch (Exception ignore) {
+			// 仅用于补充提示词上下文，解析失败时不影响 SQL 生成主流程
+		}
+
+		String compactResult = compactPreviousStepResult(previousStepResult);
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("上一步: ").append(previousStepKey).append("\n");
+		if (StringUtils.hasText(previousStepInstruction)) {
+			sb.append("上一步任务: ").append(previousStepInstruction).append("\n");
+		}
+		sb.append("上一步结果(JSON，可能已裁剪): ").append(compactResult);
+		return sb.toString();
+	}
+
+	private String compactPreviousStepResult(String previousStepResult) {
+		if (!StringUtils.hasText(previousStepResult)) {
+			return "无";
+		}
+
+		String trimmed = previousStepResult.trim();
+		if (trimmed.length() <= PREVIOUS_STEP_RESULT_MAX_CHARS) {
+			return trimmed;
+		}
+		try {
+			ResultSetBO resultSetBO = JsonUtil.getObjectMapper().readValue(trimmed, ResultSetBO.class);
+			if (resultSetBO != null && resultSetBO.getData() != null
+					&& resultSetBO.getData().size() > PREVIOUS_STEP_RESULT_SAMPLE_SIZE) {
+				ResultSetBO compact = ResultSetBO.builder()
+					.column(resultSetBO.getColumn())
+					.data(resultSetBO.getData().subList(0, PREVIOUS_STEP_RESULT_SAMPLE_SIZE))
+					.errorMsg(resultSetBO.getErrorMsg())
+					.build();
+				trimmed = JsonUtil.getObjectMapper().writeValueAsString(compact);
+			}
+		}
+		catch (Exception ignore) {
+			// 不是标准 ResultSetBO JSON 时，直接走字符串裁剪兜底
+		}
+
+		if (trimmed.length() > PREVIOUS_STEP_RESULT_MAX_CHARS) {
+			trimmed = trimmed.substring(0, PREVIOUS_STEP_RESULT_MAX_CHARS) + "...(已截断)";
+		}
+		return trimmed;
 	}
 
 }
