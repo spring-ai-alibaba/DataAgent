@@ -20,13 +20,12 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.OutputType;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-import java.util.Map;
-import java.util.function.Supplier;
-import java.util.function.Function;
 
 /**
  * @author vlsmb
@@ -35,7 +34,6 @@ import java.util.function.Function;
 public final class FluxUtil {
 
 	private FluxUtil() {
-
 	}
 
 	/**

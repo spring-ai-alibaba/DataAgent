@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.mapper;
 
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
+import java.util.List;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
@@ -23,62 +24,52 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
-import java.util.List;
-
 @Mapper
 public interface AgentDatasourceMapper {
 
-	/**
-	 * Query associated data sources by agent ID (including data source details)
-	 */
+	/** Query associated data sources by agent ID (including data source details) */
 	@Select("SELECT ad.*, d.name, d.type, d.host, d.port, d.database_name, "
 			+ "d.connection_url, d.username, d.password, d.status, d.test_status, d.description "
 			+ "FROM agent_datasource ad " + "LEFT JOIN datasource d ON ad.datasource_id = d.id "
 			+ "WHERE ad.agent_id = #{agentId} " + "ORDER BY ad.create_time DESC")
-	List<AgentDatasource> selectByAgentIdWithDatasource(@Param("agentId") Integer agentId);
+	List<AgentDatasource> selectByAgentIdWithDatasource(@Param("agentId") Long agentId);
 
-	/**
-	 * Query associated data sources by agent ID
-	 */
+	/** Query associated data sources by agent ID */
 	@Select("SELECT * FROM agent_datasource WHERE agent_id = #{agentId} ORDER BY create_time DESC")
-	List<AgentDatasource> selectByAgentId(@Param("agentId") Integer agentId);
+	List<AgentDatasource> selectByAgentId(@Param("agentId") Long agentId);
 
-	/**
-	 * Query association by agent ID and data source ID
-	 */
+	/** Query association by agent ID and data source ID */
 	@Select("SELECT * FROM agent_datasource WHERE agent_id = #{agentId} AND datasource_id = #{datasourceId}")
-	AgentDatasource selectByAgentIdAndDatasourceId(@Param("agentId") Integer agentId,
+	AgentDatasource selectByAgentIdAndDatasourceId(@Param("agentId") Long agentId,
 			@Param("datasourceId") Integer datasourceId);
 
-	/**
-	 * Disable all data sources for an agent
-	 */
+	/** Disable all data sources for an agent */
 	@Update("UPDATE agent_datasource SET is_active = 0 WHERE agent_id = #{agentId}")
-	int disableAllByAgentId(@Param("agentId") Integer agentId);
+	int disableAllByAgentId(@Param("agentId") Long agentId);
 
 	/**
 	 * Count the number of enabled data sources for an agent (excluding the specified data
 	 * source)
 	 */
 	@Select("SELECT COUNT(*) FROM agent_datasource WHERE agent_id = #{agentId} AND is_active = 1 AND datasource_id != #{excludeDatasourceId}")
-	int countActiveByAgentIdExcluding(@Param("agentId") Integer agentId,
+	int countActiveByAgentIdExcluding(@Param("agentId") Long agentId,
 			@Param("excludeDatasourceId") Integer excludeDatasourceId);
 
 	@Delete("DELETE FROM agent_datasource WHERE datasource_id = #{datasourceId}")
 	int deleteAllByDatasourceId(@Param("datasourceId") Integer datasourceId);
 
 	@Insert("INSERT INTO agent_datasource (agent_id, datasource_id, is_active) VALUES (#{agentId}, #{datasourceId}, 1)")
-	int createNewRelationEnabled(@Param("agentId") Integer agentId, @Param("datasourceId") Integer datasourceId);
+	int createNewRelationEnabled(@Param("agentId") Long agentId, @Param("datasourceId") Integer datasourceId);
 
 	@Update("UPDATE agent_datasource SET is_active = #{isActive} WHERE agent_id = #{agentId} AND datasource_id = #{datasourceId}")
-	int updateRelation(@Param("agentId") Integer agentId, @Param("datasourceId") Integer datasourceId,
+	int updateRelation(@Param("agentId") Long agentId, @Param("datasourceId") Integer datasourceId,
 			@Param("isActive") Integer isActive);
 
-	default int enableRelation(Integer agentId, Integer datasourceId) {
+	default int enableRelation(Long agentId, Integer datasourceId) {
 		return updateRelation(agentId, datasourceId, 1);
 	}
 
 	@Delete("DELETE FROM agent_datasource WHERE agent_id = #{agentId} AND datasource_id = #{datasourceId}")
-	int removeRelation(@Param("agentId") Integer agentId, @Param("datasourceId") Integer datasourceId);
+	int removeRelation(@Param("agentId") Long agentId, @Param("datasourceId") Integer datasourceId);
 
 }

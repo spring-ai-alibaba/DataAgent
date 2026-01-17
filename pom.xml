@@ -63,7 +63,7 @@
     <jsonschema.version>4.37.0</jsonschema.version>
     <h2.version>2.3.232</h2.version>
     <dameng.version>8.1.3.140</dameng.version>
-    <testcontainers.version>1.19.3</testcontainers.version>
+    <testcontainers.version>1.21.4</testcontainers.version>
     <elasticsearch-client.version>8.18.0</elasticsearch-client.version>
   </properties>
 

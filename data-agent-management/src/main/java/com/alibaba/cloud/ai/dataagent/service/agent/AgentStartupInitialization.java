@@ -19,16 +19,15 @@ import com.alibaba.cloud.ai.dataagent.entity.Agent;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 
 @Slf4j
 @Service
@@ -60,9 +59,7 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 		}
 	}
 
-	/**
-	 * Initialize all published agents
-	 */
+	/** Initialize all published agents */
 	private void initializePublishedAgents() {
 		try {
 			List<Agent> publishedAgents = agentService.findByStatus("published");
@@ -130,8 +127,7 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 				return true;
 			}
 
-			AgentDatasource activeDatasource = agentDatasourceService
-				.getCurrentAgentDatasource(Math.toIntExact(agentId));
+			AgentDatasource activeDatasource = agentDatasourceService.getCurrentAgentDatasource(agentId);
 
 			Integer datasourceId = activeDatasource.getDatasourceId();
 
