@@ -46,6 +46,8 @@ public class ParagraphTextSplitter extends TextSplitter {
 	 */
 	private static final Pattern PARAGRAPH_PATTERN = Pattern.compile("\\n\\s*\\n+");
 
+	private static final Pattern sentencePattern = Pattern.compile("[^。！？.!?\\n]+[。！？.!?\\n]*");
+
 	@Override
 	public List<String> splitText(String text) {
 		if (text == null || text.trim().isEmpty()) {
@@ -178,7 +180,6 @@ public class ParagraphTextSplitter extends TextSplitter {
 		List<String> subChunks = new ArrayList<>();
 
 		// 1. 尝试按句子切分
-		Pattern sentencePattern = Pattern.compile("[^。！？.!?\\n]+[。！？.!?\\n]*");
 		Matcher matcher = sentencePattern.matcher(paragraph);
 
 		StringBuilder currentChunk = new StringBuilder();

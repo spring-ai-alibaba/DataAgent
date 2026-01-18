@@ -197,9 +197,9 @@ public class DataAgentProperties {
 			private int maxChunkSize = 1000;
 
 			/**
-			 * 语义相似度阈值 默认值：0.7（0-1之间，越低越容易分块）
+			 * 语义相似度阈值 默认值：0.5（0-1之间，越低越容易分块）
 			 */
-			private double similarityThreshold = 0.7;
+			private double similarityThreshold = 0.5;
 
 		}
 
