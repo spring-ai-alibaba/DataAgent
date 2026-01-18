@@ -85,8 +85,10 @@ public class AgentKnowledgeServiceImpl implements AgentKnowledgeService {
 			throw new RuntimeException("Failed to create knowledge in database.");
 		}
 
-		eventPublisher.publishEvent(new AgentKnowledgeEmbeddingEvent(this, knowledge.getId()));
-		log.info("Knowledge created and event published. Id: {}", knowledge.getId());
+		eventPublisher
+			.publishEvent(new AgentKnowledgeEmbeddingEvent(this, knowledge.getId(), knowledge.getSplitterType()));
+		log.info("Knowledge created and event published. Id: {}, splitterType: {}", knowledge.getId(),
+				knowledge.getSplitterType());
 
 		return agentKnowledgeConverter.toVo(knowledge);
 	}
@@ -210,12 +212,13 @@ public class AgentKnowledgeServiceImpl implements AgentKnowledgeService {
 		}
 
 		// 重置状态
-		// 立刻给用户反馈“已变成处理中”
+		// 立刻给用户反馈"已变成处理中"
 		knowledge.setEmbeddingStatus(EmbeddingStatus.PENDING);
 		knowledge.setErrorMsg("");
 		agentKnowledgeMapper.update(knowledge);
-		eventPublisher.publishEvent(new AgentKnowledgeEmbeddingEvent(this, knowledge.getId()));
-		log.info("Retry embedding for knowledgeId: {}", id);
+		eventPublisher
+			.publishEvent(new AgentKnowledgeEmbeddingEvent(this, knowledge.getId(), knowledge.getSplitterType()));
+		log.info("Retry embedding for knowledgeId: {}, splitterType: {}", id, knowledge.getSplitterType());
 	}
 
 }

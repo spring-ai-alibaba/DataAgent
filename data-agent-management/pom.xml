@@ -169,7 +169,12 @@
             <artifactId>spring-ai-alibaba-graph-core</artifactId>
             <version>${spring-ai-alibaba.version}</version>
         </dependency>
-
+        <!--文本分割策略:递归和句子分割-->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-dashscope</artifactId>
+            <version>${spring-ai-alibaba.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.github.victools</groupId>
             <artifactId>jsonschema-generator</artifactId>

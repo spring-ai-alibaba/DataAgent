@@ -37,8 +37,8 @@ public interface AgentKnowledgeMapper {
 
 	@Insert("""
 
-			INSERT INTO agent_knowledge (agent_id, title, content, type, question, is_recall, embedding_status, source_filename, file_path, file_size, file_type, is_deleted, is_resource_cleaned, created_time, updated_time)
-			VALUES (#{agentId}, #{title}, #{content}, #{type}, #{question}, #{isRecall}, #{embeddingStatus}, #{sourceFilename}, #{filePath}, #{fileSize}, #{fileType}, #{isDeleted}, #{isResourceCleaned}, #{createdTime}, #{updatedTime})
+			INSERT INTO agent_knowledge (agent_id, title, content, type, question, is_recall, embedding_status, source_filename, file_path, file_size, file_type, splitter_type, is_deleted, is_resource_cleaned, created_time, updated_time)
+			VALUES (#{agentId}, #{title}, #{content}, #{type}, #{question}, #{isRecall}, #{embeddingStatus}, #{sourceFilename}, #{filePath}, #{fileSize}, #{fileType}, #{splitterType}, #{isDeleted}, #{isResourceCleaned}, #{createdTime}, #{updatedTime})
 
 			""")
 	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
@@ -59,6 +59,7 @@ public interface AgentKnowledgeMapper {
 				<if test="filePath != null">file_path = #{filePath},</if>
 				<if test="fileSize != null">file_size = #{fileSize},</if>
 				<if test="fileType != null">file_type = #{fileType},</if>
+				<if test="splitterType != null">splitter_type = #{splitterType},</if>
 				<if test="isDeleted != null">is_deleted = #{isDeleted},</if>
 				<if test="isResourceCleaned != null">is_resource_cleaned = #{isResourceCleaned},</if>
 				updated_time = NOW()

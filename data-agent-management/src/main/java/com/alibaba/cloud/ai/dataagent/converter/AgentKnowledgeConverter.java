@@ -38,6 +38,7 @@ public class AgentKnowledgeConverter {
 		vo.setContent(po.getContent());
 		vo.setIsRecall(po.getIsRecall() == 1);
 		vo.setEmbeddingStatus(po.getEmbeddingStatus());
+		vo.setSplitterType(po.getSplitterType());
 		vo.setErrorMsg(po.getErrorMsg());
 		vo.setCreatedTime(po.getCreatedTime());
 		vo.setUpdatedTime(po.getUpdatedTime());
@@ -69,6 +70,13 @@ public class AgentKnowledgeConverter {
 			knowledge.setFileSize(createKnowledgeDto.getFile().getSize());
 			knowledge.setFileType(createKnowledgeDto.getFile().getContentType());
 		}
+
+		// 设置分块策略类型，默认值为token
+		String splitterType = createKnowledgeDto.getSplitterType();
+		if (splitterType == null || splitterType.isBlank()) {
+			splitterType = "token";
+		}
+		knowledge.setSplitterType(splitterType);
 
 		return knowledge;
 	}
