@@ -47,11 +47,9 @@
       rel: 'noopener',
     },
   };
-  const DEFAULT_OPTIONS_KATEX = { throwOnError: false, errorColor: '#cc0000' };
-  const DEFAULT_OPTIONS_TASKLISTS = null;
 
   export default {
-    name: 'markdown-it-vue',
+    name: 'MarkdownAgentContainer',
     props: {
       content: {
         type: String,
@@ -65,8 +63,6 @@
               linkify: true,
             },
             linkAttributes: DEFAULT_OPTIONS_LINK_ATTRIBUTES,
-            katex: DEFAULT_OPTIONS_KATEX,
-            tasklists: DEFAULT_OPTIONS_TASKLISTS,
           };
         },
       },
@@ -88,8 +84,14 @@
               content.match(/\{/g)?.length === content.match(/\}/g)?.length;
             if (hasValidJson) {
               const options = JSON.parse(content);
-              const chart = echarts.init(element);
-              chart.setOption(options);
+              const existingChart = echarts.getInstanceByDom(element);
+              if (existingChart) {
+                // 复用已存在的图表实例，避免重复初始化导致的内存泄漏
+                existingChart.setOption(options, true);
+              } else {
+                const chart = echarts.init(element);
+                chart.setOption(options);
+              }
             } else {
               // 如果JSON不完整，不做任何处理，保持原始状态
               console.log(
@@ -142,15 +144,6 @@
       },
       get() {
         return this.md;
-      },
-      hdlClick(e) {
-        if (this.viewer && e.target.tagName == 'IMG') {
-          this.index = this.urlList.indexOf(e.target.src) || 0;
-          this.showViewer = true;
-        }
-      },
-      closeViewer() {
-        this.showViewer = false;
       },
     },
   };

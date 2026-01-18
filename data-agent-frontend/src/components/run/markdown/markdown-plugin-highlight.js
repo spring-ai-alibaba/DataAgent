@@ -46,15 +46,19 @@ const highlightPlugin = md => {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
     };
+    const rawLang = typeof lang === 'string' ? lang : '';
+    const safeLangForAttr = rawLang.toLowerCase().replace(/[^a-z0-9_-]+/g, '');
+    const langClass = safeLangForAttr || 'plaintext';
+    const langLabel = lang ? lang.toUpperCase() : 'TEXT';
 
     return `<div class="code-block-wrapper">
       <div class="code-block-header">
-        <span class="code-language">${lang ? lang.toUpperCase() : 'TEXT'}</span>
+        <span class="code-language">${escapeHtml(langLabel)}</span>
         <button class="code-copy-button" onclick="copyCodeBlock(this)" data-code="${escapeHtml(code)}">
           复制
         </button>
       </div>
-      <pre class="hljs"><code class="language-${lang}">${cnt}</code></pre>
+      <pre class="hljs"><code class="language-${langClass}">${cnt}</code></pre>
     </div>`;
   };
 };

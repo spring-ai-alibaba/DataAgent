@@ -26,8 +26,8 @@ export default md => {
       if (hasValidJson) {
         try {
           const json = JSON.parse(code);
-          const width = json.width || '100%';
-          const height = json.height || 400;
+          const width = '100%';
+          const height = 400;
           return `<div style="width:${width};height:${height}px" class="md-echarts">${JSON.stringify(json)}</div>`;
         } catch (e) {
           // JSON.parse exception
