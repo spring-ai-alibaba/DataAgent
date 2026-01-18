@@ -330,7 +330,7 @@ public class AgentVectorStoreService {
 |--------|------|--------|
 | `min-chunk-size` | 最小分块大小（字符数） | 200 |
 | `max-chunk-size` | 最大分块大小（字符数） | 1000 |
-| `similarity-threshold` | 语义相似度阈值（0-1之间，值越低越容易分块） | 0.7 |
+| `similarity-threshold` | 语义相似度阈值（0-1之间，值越低越容易分块） | 0.5 |
 
 #### 4.6 ParagraphTextSplitter 配置 (paragraph)
 
