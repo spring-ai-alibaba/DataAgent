@@ -144,9 +144,7 @@ public class PromptHelper {
 		params.put("user_requirements_and_plan", userRequirementsAndPlan);
 		params.put("analysis_steps_and_data", analysisStepsAndData);
 		params.put("summary_and_recommendations", summaryAndRecommendations);
-		// html 模板的echarts示例
-		if (!plainReport)
-			params.put("json_example", cleanJsonExample);
+		params.put("json_example", cleanJsonExample);
 
 		// Build optional optimization section content from user configs
 		String optimizationSection = buildOptimizationSection(optimizationConfigs, params);
