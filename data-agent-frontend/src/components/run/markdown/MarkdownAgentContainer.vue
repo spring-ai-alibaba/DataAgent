@@ -27,6 +27,7 @@
   import MarkdownPluginHighlight from './markdown-plugin-highlight';
 
   import * as echarts from 'echarts';
+  import { EXTENDED_COLORS } from '../charts/BaseChart';
 
   // 防抖函数
   function debounce(func, wait) {
@@ -84,6 +85,9 @@
               content.match(/\{/g)?.length === content.match(/\}/g)?.length;
             if (hasValidJson) {
               const options = JSON.parse(content);
+              if (!options.color) {
+                options.color = EXTENDED_COLORS;
+              }
               const existingChart = echarts.getInstanceByDom(element);
               if (existingChart) {
                 // 复用已存在的图表实例，避免重复初始化导致的内存泄漏
