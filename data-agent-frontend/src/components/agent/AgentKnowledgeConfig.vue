@@ -346,7 +346,7 @@
               <em>点击选择文件</em>
             </div>
             <template #tip>
-              <div class="el-upload__tip">支持 PDF, DOCX, TXT, MD 等格式</div>
+              <div class="el-upload__tip">支持 PDF, DOCX, TXT, MD 等格式(注意：PDT,TXT等纯文本文件如果不是UTF-8编码可能导致读取失败)</div>
               <div v-if="fileList.length > 0" class="el-upload__tip" style="color: #409eff">
                 文件大小: {{ formatFileSize(fileList[0].size) }}
               </div>
