@@ -15,6 +15,18 @@
  */
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.AGENT_ID;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.DB_DIALECT_TYPE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.EVIDENCE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.GENEGRATED_SEMANTIC_MODEL_PROMPT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_SCHEMA_MISSING_ADVICE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_EXCEPTION_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_RETRY_COUNT;
+import static com.alibaba.cloud.ai.dataagent.prompt.PromptHelper.buildSemanticModelPrompt;
+
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
@@ -24,17 +36,25 @@ import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
-import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
-import com.alibaba.cloud.ai.graph.GraphResponse;
-import com.alibaba.cloud.ai.graph.OverAllState;
-import com.alibaba.cloud.ai.graph.action.NodeAction;
-import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
 import com.alibaba.cloud.ai.dataagent.service.semantic.SemanticModelService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
+import com.alibaba.cloud.ai.graph.GraphResponse;
+import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -42,17 +62,11 @@ import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-import java.util.*;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
-
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
-import static com.alibaba.cloud.ai.dataagent.prompt.PromptHelper.buildSemanticModelPrompt;
-
 /**
  * Table relationship inference node that automatically completes complex structures like
  * JOINs and foreign keys.
  *
+ * <p>
  * This node is responsible for: - Inferring relationships between tables and fields -
  * Building initial schema from documents - Processing schema selection based on input and
  * evidence - Handling schema advice for missing information
@@ -88,9 +102,9 @@ public class TableRelationNode implements NodeAction {
 		String agentIdStr = StateUtil.getStringValue(state, AGENT_ID);
 
 		// Execute business logic first - get final result immediately
-		DbConfigBO agentDbConfig = databaseUtil.getAgentDbConfig(Integer.valueOf(agentIdStr));
+		DbConfigBO agentDbConfig = databaseUtil.getAgentDbConfig(Long.valueOf(agentIdStr));
 
-		List<String> logicalForeignKeys = getLogicalForeignKeys(Integer.valueOf(agentIdStr), tableDocuments);
+		List<String> logicalForeignKeys = getLogicalForeignKeys(Long.valueOf(agentIdStr), tableDocuments);
 		log.info("Found {} logical foreign keys for agent: {}", logicalForeignKeys.size(), agentIdStr);
 
 		SchemaDTO initialSchema = buildInitialSchema(agentIdStr, columnDocuments, tableDocuments, agentDbConfig,
@@ -142,12 +156,9 @@ public class TableRelationNode implements NodeAction {
 		// subsequent nodes
 		return Map.of(TABLE_RELATION_OUTPUT, generator, DB_DIALECT_TYPE, agentDbConfig.getDialectType(),
 				TABLE_RELATION_RETRY_COUNT, 0, TABLE_RELATION_EXCEPTION_OUTPUT, "");
-
 	}
 
-	/**
-	 * Builds initial schema from column and table documents.
-	 */
+	/** Builds initial schema from column and table documents. */
 	private SchemaDTO buildInitialSchema(String agentId, List<Document> columnDocuments, List<Document> tableDocuments,
 			DbConfigBO agentDbConfig, List<String> logicalForeignKeys) {
 		SchemaDTO schemaDTO = new SchemaDTO();
@@ -174,9 +185,7 @@ public class TableRelationNode implements NodeAction {
 		return schemaDTO;
 	}
 
-	/**
-	 * Processes schema selection based on input, evidence, and optional advice.
-	 */
+	/** Processes schema selection based on input, evidence, and optional advice. */
 	private Flux<ChatResponse> processSchemaSelection(SchemaDTO schemaDTO, String input, String evidence,
 			OverAllState state, DbConfigBO agentDbConfig, Consumer<SchemaDTO> dtoConsumer) {
 		String schemaAdvice = StateUtil.getStringValue(state, SQL_GENERATE_SCHEMA_MISSING_ADVICE, null);
@@ -199,10 +208,8 @@ public class TableRelationNode implements NodeAction {
 					ChatResponseUtil.createResponse("\n\n选择数据表完成。")));
 	}
 
-	/**
-	 * 获取逻辑外键信息，并过滤只保留与当前召回表相关的外键
-	 */
-	private List<String> getLogicalForeignKeys(Integer agentId, List<Document> tableDocuments) {
+	/** 获取逻辑外键信息，并过滤只保留与当前召回表相关的外键 */
+	private List<String> getLogicalForeignKeys(Long agentId, List<Document> tableDocuments) {
 		try {
 			// 获取当前 agent 激活的数据源
 			AgentDatasource agentDatasource = agentDatasourceService.getCurrentAgentDatasource(agentId);
