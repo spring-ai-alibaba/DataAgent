@@ -82,20 +82,7 @@
 
 # 输出格式 (必须是合法的 JSON)
 请注意：`tool_parameters` 对象是动态的，请根据 `tool_to_use` 仅填充必要的字段，**不要输出值为 null 的字段**。
-
-\{
-  "thought_process": "简要描述你的分析思路。必须明确提到你检查了哪些表和字段",
-  "execution_plan": [
-    \{
-      "step": 1,
-      "tool_to_use": "工具名称",
-      "tool_parameters": \{
-        "instruction": "当工具名称tool_to_use是SQL_GENERATE_NODE时这里的值为 当前步骤要做的详细的 SQL 需求，是PYTHON_GENERATE_NODE时填当前步骤要做的详细的编程需求",
-        "summary_and_recommendations": "仅 REPORT 节点需要此字段，报告的大纲。"
-      \}
-    \}
-  ]
-\}
+{format}
 
 ---
 # 示例（EXAMPLE）
