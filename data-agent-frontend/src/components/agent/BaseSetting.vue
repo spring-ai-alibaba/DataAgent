@@ -107,7 +107,8 @@
     <el-row :gutter="20">
       <el-col :span="24">
         <div class="form-item form-switch">
-          <el-switch v-model="props.agent.humanReviewEnabled" size="large" />
+          <el-switch v-model="props.agent.humanReviewEnabled" :active-value="1"
+                     :inactive-value="0" size="large" />
           <span>启用计划人工复核</span>
           <el-text class="mx-1">（开启后，Planner 计划会在执行前等待人工复核）</el-text>
         </div>
