@@ -47,7 +47,7 @@ public class AgentDatasourceController {
 	 * Information Source" function on the frontend
 	 */
 	@PostMapping("/init")
-	public ApiResponse initSchema(@PathVariable Long agentId) {
+	public ApiResponse<?> initSchema(@PathVariable Long agentId) {
 		// 防止前端恶意请求，dto数据应该在后端获取
 		try {
 			AgentDatasource agentDatasource = agentDatasourceService.getCurrentAgentDatasource(agentId);
@@ -86,7 +86,7 @@ public class AgentDatasourceController {
 
 	/** Get list of data sources configured for agent */
 	@GetMapping
-	public ApiResponse getAgentDatasource(@PathVariable Long agentId) {
+	public ApiResponse<List<AgentDatasource>> getAgentDatasource(@PathVariable Long agentId) {
 		try {
 			log.info("Getting datasources for agent: {}", agentId);
 			List<AgentDatasource> datasources = agentDatasourceService.getAgentDatasource(agentId);
@@ -100,7 +100,7 @@ public class AgentDatasourceController {
 	}
 
 	@GetMapping("/active")
-	public ApiResponse getActiveAgentDatasource(@PathVariable Long agentId) {
+	public ApiResponse<AgentDatasource> getActiveAgentDatasource(@PathVariable Long agentId) {
 		try {
 			log.info("Getting active datasource for agent: {}", agentId);
 			AgentDatasource datasource = agentDatasourceService.getCurrentAgentDatasource(agentId);
@@ -114,7 +114,8 @@ public class AgentDatasourceController {
 
 	/** Add data source for agent */
 	@PostMapping("/{datasourceId}")
-	public ApiResponse addDatasourceToAgent(@PathVariable Long agentId, @PathVariable Integer datasourceId) {
+	public ApiResponse<AgentDatasource> addDatasourceToAgent(@PathVariable Long agentId,
+			@PathVariable Integer datasourceId) {
 		try {
 			if (datasourceId == null) {
 				throw new InvalidInputException("数据源ID不能为空");
@@ -130,7 +131,7 @@ public class AgentDatasourceController {
 
 	// 更新选择的数据表
 	@PostMapping("/tables")
-	public ApiResponse updateDatasourceTables(@PathVariable Long agentId,
+	public ApiResponse<?> updateDatasourceTables(@PathVariable Long agentId,
 			@RequestBody @Validated UpdateDatasourceTablesDTO dto) {
 		try {
 			dto.setTables(Optional.ofNullable(dto.getTables()).orElse(List.of()));
@@ -145,7 +146,7 @@ public class AgentDatasourceController {
 
 	/** Remove data source association from agent */
 	@DeleteMapping("/{datasourceId}")
-	public ApiResponse removeDatasourceFromAgent(@PathVariable Long agentId, @PathVariable Integer datasourceId) {
+	public ApiResponse<?> removeDatasourceFromAgent(@PathVariable Long agentId, @PathVariable Integer datasourceId) {
 		try {
 			agentDatasourceService.removeDatasourceFromAgent(agentId, datasourceId);
 			return ApiResponse.success("数据源已移除");
@@ -157,7 +158,8 @@ public class AgentDatasourceController {
 
 	/** 启用/禁用智能体的数据源 */
 	@PutMapping("/toggle")
-	public ApiResponse toggleDatasourceForAgent(@PathVariable Long agentId, @RequestBody ToggleDatasourceDTO dto) {
+	public ApiResponse<AgentDatasource> toggleDatasourceForAgent(@PathVariable Long agentId,
+			@RequestBody ToggleDatasourceDTO dto) {
 		try {
 			Boolean isActive = dto.getIsActive();
 			Integer datasourceId = dto.getDatasourceId();
