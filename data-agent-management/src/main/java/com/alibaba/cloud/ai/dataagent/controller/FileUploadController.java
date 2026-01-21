@@ -16,21 +16,24 @@
 package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.vo.UploadResponse;
-
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 文件上传控制器
@@ -89,9 +92,10 @@ public class FileUploadController {
 	@GetMapping("/**")
 	public ResponseEntity<byte[]> getFile(HttpServletRequest request) {
 		try {
+			String requestMapPath = this.getClass().getAnnotation(RequestMapping.class).value()[0];
 			String requestPath = request.getRequestURI();
 			String urlPrefix = fileStorageProperties.getUrlPrefix();
-			String filePath = requestPath.substring(urlPrefix.length());
+			String filePath = requestPath.substring(requestMapPath.length() + urlPrefix.length());
 
 			Path fullPath = Paths.get(fileStorageProperties.getPath(), filePath);
 
