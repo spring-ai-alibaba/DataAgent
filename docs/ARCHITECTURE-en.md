@@ -1,10 +1,10 @@
-中文 | [English](./ARCHITECTURE-en.md)
+[中文](./ARCHITECTURE.md) | English
 
-# 架构设计
+# Architecture Design
 
-本文档详细介绍 DataAgent 的系统架构、核心能力和技术实现。
+This document provides a detailed introduction to DataAgent's system architecture, core capabilities, and technical implementation.
 
-## 📐 总体架构图
+## Overall Architecture Diagram
 
 ```mermaid
 %%{init: {"theme": "base", "flowchart": {"curve": "basis", "nodeSpacing": 35, "rankSpacing": 45}, "themeVariables": {"lineColor": "#475569", "primaryTextColor": "#1F2937"}}}%%
@@ -108,7 +108,7 @@ flowchart LR
   style Exec fill:#FFF1F2,stroke:#EF4444,stroke-width:1.5px
 ```
 
-## 🔄 运行时主流程
+## Runtime Main Flow
 
 ```mermaid
 %%{init: {"theme": "base", "flowchart": {"curve": "basis", "nodeSpacing": 30, "rankSpacing": 40}, "themeVariables": {"lineColor": "#475569", "primaryTextColor": "#1F2937"}}}%%
@@ -182,19 +182,19 @@ flowchart TD
   class Report output
 ```
 
-## 🎯 关键能力说明
+## Key Capability Description
 
-### 1. 人类反馈机制
+### 1. Human Feedback Mechanism
 
-#### 说明要点
+#### Key Points
 
-- **入口**: 运行时请求参数 `humanFeedback=true`（`GraphController` → `GraphServiceImpl`）
-- **数据字段**: `agent.human_review_enabled` 用于保存配置，运行时以请求参数为准
-- **图编排**: `PlanExecutorNode` 检测 `HUMAN_REVIEW_ENABLED`，转入 `HumanFeedbackNode`
-- **暂停与恢复**: `CompiledGraph` 使用 `interruptBefore(HUMAN_FEEDBACK_NODE)`，无反馈时进入"等待"，反馈到达后通过 `threadId` 继续执行
-- **反馈结果**: 同意继续执行；拒绝则回到 `PlannerNode` 并触发重新规划
+- **Entry**: Runtime request parameter `humanFeedback=true` (`GraphController` → `GraphServiceImpl`)
+- **Data Field**: `agent.human_review_enabled` is used to save configuration; runtime uses request parameter
+- **Graph Orchestration**: `PlanExecutorNode` detects `HUMAN_REVIEW_ENABLED`, transitions to `HumanFeedbackNode`
+- **Pause and Resume**: `CompiledGraph` uses `interruptBefore(HUMAN_FEEDBACK_NODE)`, enters "wait" state when no feedback, continues execution through `threadId` when feedback arrives
+- **Feedback Result**: Approve continues execution; Reject returns to `PlannerNode` and triggers replanning
 
-#### 架构图
+#### Architecture Diagram
 
 ```mermaid
 flowchart LR
@@ -222,7 +222,7 @@ flowchart LR
   class Human,FeedbackPayload feedback
 ```
 
-#### 流程图
+#### Flow Diagram
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
@@ -254,17 +254,17 @@ sequenceDiagram
   GS->>CTX: finishTurn update history
 ```
 
-### 2. Prompt 配置与自动优化
+### 2. Prompt Configuration and Auto-Optimization
 
-#### 说明要点
+#### Key Points
 
-- **配置入口**: `/api/prompt-config/*`，数据表 `user_prompt_config`
-- **作用范围**: 支持按 `agentId` 绑定或全局配置（`agentId` 为空）
-- **Prompt 类型**: `report-generator`、`planner`、`sql-generator`、`python-generator`、`rewrite`
-- **自动优化方式**: `ReportGeneratorNode` 拉取启用配置（按 `priority` 与 `display_order` 排序），通过 `PromptHelper.buildReportGeneratorPromptWithOptimization` 拼接"优化要求"
-- **当前实现重点**: 报告生成节点已落地优化；其他类型为预留能力
+- **Configuration Entry**: `/api/prompt-config/*`, data table `user_prompt_config`
+- **Scope**: Supports binding by `agentId` or global configuration (`agentId` is null)
+- **Prompt Types**: `report-generator`, `planner`, `sql-generator`, `python-generator`, `rewrite`
+- **Auto-Optimization Method**: `ReportGeneratorNode` fetches enabled configurations (sorted by `priority` and `display_order`), concatenates "optimization requirements" through `PromptHelper.buildReportGeneratorPromptWithOptimization`
+- **Current Implementation Focus**: Report generation node has implemented optimization; other types are reserved capabilities
 
-#### 架构图
+#### Architecture Diagram
 
 ```mermaid
 flowchart LR
@@ -291,7 +291,7 @@ flowchart LR
   class LlmSvc llm
 ```
 
-#### 流程图
+#### Flow Diagram
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
@@ -306,11 +306,11 @@ sequenceDiagram
   participant H as PromptHelper
   participant L as LLM
 
-  A->>API: 保存并启用优化配置
+  A->>API: Save and enable optimization config
   API->>Svc: saveOrUpdateConfig
   Svc->>Mapper: insert or update
   Mapper->>DB: write config
-  A->>R: 触发报告生成
+  A->>R: Trigger report generation
   R->>Svc: getActiveConfigsByType
   Svc->>Mapper: select active configs
   Mapper->>DB: read configs
@@ -320,16 +320,16 @@ sequenceDiagram
   L-->>R: report content
 ```
 
-### 3. RAG 检索增强
+### 3. RAG Retrieval Enhancement
 
-#### 说明要点
+#### Key Points
 
-- **查询重写**: `EvidenceRecallNode` 调用 LLM 生成独立检索问题
-- **召回通道**: `AgentVectorStoreService` 执行向量检索；可选混合检索（向量+关键词，`AbstractHybridRetrievalStrategy`）
-- **文档类型**: 业务知识 + 智能体知识，按元数据过滤并合并为 evidence 注入后续 prompt
-- **关键配置**: `spring.ai.alibaba.data-agent.vector-store.enable-hybrid-search` 及相似度/TopK 等参数
+- **Query Rewriting**: `EvidenceRecallNode` calls LLM to generate independent retrieval questions
+- **Recall Channels**: `AgentVectorStoreService` performs vector retrieval; optional hybrid retrieval (vector + keyword, `AbstractHybridRetrievalStrategy`)
+- **Document Types**: Business knowledge + Agent knowledge, filtered by metadata and merged as evidence injected into subsequent prompts
+- **Key Configuration**: `spring.ai.alibaba.data-agent.vector-store.enable-hybrid-search` and similarity/TopK parameters
 
-#### 架构图
+#### Architecture Diagram
 
 ```mermaid
 flowchart LR
@@ -359,7 +359,7 @@ flowchart LR
   class Keyword data
 ```
 
-#### 流程图
+#### Flow Diagram
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
@@ -375,8 +375,8 @@ sequenceDiagram
   participant M as AgentKnowledgeMapper
   participant DB as Knowledge DB
 
-  U->>E: 原始问题
-  E->>L: 查询重写并注入多轮上下文
+  U->>E: Original question
+  E->>L: Query rewrite with multi-turn context injection
   L-->>E: standaloneQuery
   E->>F: build filter by agent and type
   F-->>E: filter expression
@@ -391,15 +391,15 @@ sequenceDiagram
   E-->>U: evidence summary and snippets
 ```
 
-### 4. 报告生成与摘要生成
+### 4. Report Generation and Summary Generation
 
-#### 说明要点
+#### Key Points
 
-- **报告节点**: `ReportGeneratorNode` 读取计划、SQL/Python 结果与摘要建议（`summary_and_recommendations`）
-- **输出格式**: 默认 HTML，`plainReport=true` 输出 Markdown（简洁报告）
-- **优化提示词**: 自动拼接优化配置后生成报告
+- **Report Node**: `ReportGeneratorNode` reads plan, SQL/Python results and summary suggestions (`summary_and_recommendations`)
+- **Output Format**: Default HTML, `plainReport=true` outputs Markdown (concise report)
+- **Optimization Prompts**: Automatically concatenates optimization configuration before generating report
 
-#### 架构图
+#### Architecture Diagram
 
 ```mermaid
 flowchart LR
@@ -427,7 +427,7 @@ flowchart LR
   class PlanData,SqlResults,PyResults,PromptDB,Templates data
 ```
 
-#### 流程图
+#### Flow Diagram
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
@@ -440,7 +440,7 @@ sequenceDiagram
   participant L as LLM
   participant C as Client
 
-  P->>R: 计划与执行结果
+  P->>R: Plan and execution results
   R->>S: get optimization configs
   S-->>R: configs
   R->>H: build report prompt
@@ -450,16 +450,16 @@ sequenceDiagram
   R-->>C: HTML Markdown streaming output
 ```
 
-### 5. 流式输出与多轮对话
+### 5. Streaming Output and Multi-turn Conversation
 
-#### 说明要点
+#### Key Points
 
-- **流式输出**: `GraphController` SSE + `GraphServiceImpl` 流式处理
-- **文本标记**: `TextType` 在流中标记 SQL/JSON/HTML/Markdown，前端据此渲染
-- **多轮对话**: `MultiTurnContextManager` 记录"用户问题+规划结果"，注入到后续请求
-- **模式切换**: `spring.ai.alibaba.data-agent.llm-service-type` 支持 `STREAM/BLOCK`
+- **Streaming Output**: `GraphController` SSE + `GraphServiceImpl` streaming processing
+- **Text Markers**: `TextType` marks SQL/JSON/HTML/Markdown in the stream, frontend renders accordingly
+- **Multi-turn Conversation**: `MultiTurnContextManager` records "user question + planning results", injected into subsequent requests
+- **Mode Switching**: `spring.ai.alibaba.data-agent.llm-service-type` supports `STREAM/BLOCK`
 
-#### 架构图
+#### Architecture Diagram
 
 ```mermaid
 flowchart LR
@@ -491,7 +491,7 @@ flowchart LR
   class TextType,Stop control
 ```
 
-#### 流程图
+#### Flow Diagram
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
@@ -523,15 +523,15 @@ sequenceDiagram
   GS->>CTX: discardPending
 ```
 
-### 6. MCP 与多模型调度
+### 6. MCP and Multi-Model Scheduling
 
-#### 说明要点
+#### Key Points
 
-- **MCP**: `McpServerService` 提供 NL2SQL 与 Agent 列表工具，使用 Mcp Server Boot Starter
-- **多模型调度**: `ModelConfig*` 配置模型，`AiModelRegistry` 缓存当前 Chat/Embedding 模型并支持热切换（同一时间每类仅一个激活模型）
-- **已内置工具**: `nl2SqlToolCallback`、`listAgentsToolCallback`
+- **MCP**: `McpServerService` provides NL2SQL and Agent list tools, using Mcp Server Boot Starter
+- **Multi-Model Scheduling**: `ModelConfig*` configures models, `AiModelRegistry` caches current Chat/Embedding models and supports hot-swapping (only one active model per type at a time)
+- **Built-in Tools**: `nl2SqlToolCallback`, `listAgentsToolCallback`
 
-#### 架构图
+#### Architecture Diagram
 
 ```mermaid
 flowchart LR
@@ -563,7 +563,7 @@ flowchart LR
   class ChatLLM,EmbeddingLLM llm
 ```
 
-#### 流程图
+#### Flow Diagram
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
@@ -592,16 +592,16 @@ sequenceDiagram
   McpSvc-->>MCP: tool response
 ```
 
-### 7. API Key 与权限管理
+### 7. API Key and Permission Management
 
-#### 说明要点
+#### Key Points
 
-- **管理端**: `AgentController` 支持生成、重置、删除与启用/禁用 API Key
-- **数据字段**: `agent.api_key` 与 `agent.api_key_enabled`
-- **调用方式**: 请求头 `X-API-Key`（需自行实现后端校验逻辑）
-- **注意**: 默认后端未对 `X-API-Key` 做鉴权拦截，生产需自行补充
+- **Management**: `AgentController` supports generating, resetting, deleting, and enabling/disabling API Keys
+- **Data Fields**: `agent.api_key` and `agent.api_key_enabled`
+- **Calling Method**: Request header `X-API-Key` (requires implementing backend validation logic yourself)
+- **Note**: By default, the backend does not intercept `X-API-Key` for authentication; production needs to add validation yourself
 
-#### 架构图
+#### Architecture Diagram
 
 ```mermaid
 flowchart LR
@@ -626,7 +626,7 @@ flowchart LR
   class Auth control
 ```
 
-#### 流程图
+#### Flow Diagram
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
@@ -640,11 +640,11 @@ sequenceDiagram
   participant G as GraphController
   participant Auth as Optional Auth Interceptor
 
-  U->>API: 生成并启用 API Key
+  U->>API: Generate and enable API Key
   API->>S: generateApiKey
   S->>M: update agent key
   M->>DB: write api_key
-  U->>G: 调用业务接口并带 X-API-Key
+  U->>G: Call business interface with X-API-Key
   opt custom auth enabled
     G->>Auth: validate api key
     Auth->>DB: check api_key_enabled
@@ -652,16 +652,16 @@ sequenceDiagram
   G-->>U: response
 ```
 
-### 8. Python 执行与结果回传
+### 8. Python Execution and Result Return
 
-#### 说明要点
+#### Key Points
 
-- **代码生成**: `PythonGenerateNode` 根据计划与 SQL 结果生成 Python
-- **代码执行**: `PythonExecuteNode` 使用 `CodePoolExecutorService`（Docker/Local/AI 模拟）
-- **执行配置**: `spring.ai.alibaba.data-agent.code-executor.*`（默认 Docker 镜像 `continuumio/anaconda3:latest`）
-- **结果回传**: 执行结果写回 `PYTHON_EXECUTE_NODE_OUTPUT`，`PythonAnalyzeNode` 汇总后写入 `SQL_EXECUTE_NODE_OUTPUT`，用于最终报告
+- **Code Generation**: `PythonGenerateNode` generates Python based on plan and SQL results
+- **Code Execution**: `PythonExecuteNode` uses `CodePoolExecutorService` (Docker/Local/AI simulation)
+- **Execution Configuration**: `spring.ai.alibaba.data-agent.code-executor.*` (default Docker image `continuumio/anaconda3:latest`)
+- **Result Return**: Execution results are written back to `PYTHON_EXECUTE_NODE_OUTPUT`, `PythonAnalyzeNode` summarizes and writes to `SQL_EXECUTE_NODE_OUTPUT` for final report
 
-#### 架构图
+#### Architecture Diagram
 
 ```mermaid
 flowchart LR
@@ -687,7 +687,7 @@ flowchart LR
   class Queue,TempFiles,StdIO,JsonParse data
 ```
 
-#### 流程图
+#### Flow Diagram
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
@@ -703,7 +703,7 @@ sequenceDiagram
   participant A as PythonAnalyzeNode
   participant R as ReportGeneratorNode
 
-  P->>G: 进入Python步骤并传入指令
+  P->>G: Enter Python step with instructions
   G->>L: generate python code
   L-->>G: python code
   G->>E: pass code and sql results
@@ -720,8 +720,8 @@ sequenceDiagram
 
 
 
-## 🔗 相关文档
+## Related Documents
 
-- [快速开始](QUICK_START.md) - 安装配置指南
-- [高级功能](ADVANCED_FEATURES.md) - API调用和MCP服务器
-- [开发者文档](DEVELOPER_GUIDE.md) - 贡献指南
+- [Quick Start](QUICK_START-en.md) - Installation and configuration guide
+- [Advanced Features](ADVANCED_FEATURES-en.md) - API calls and MCP server
+- [Developer Documentation](DEVELOPER_GUIDE-en.md) - Contribution guide

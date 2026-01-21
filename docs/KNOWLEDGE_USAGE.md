@@ -1,3 +1,5 @@
+中文 | [English](./KNOWLEDGE_USAGE-en.md)
+
 ---
 
 # DataAgent 知识配置最佳实践指南

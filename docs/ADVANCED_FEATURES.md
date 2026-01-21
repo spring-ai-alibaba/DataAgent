@@ -1,3 +1,5 @@
+中文 | [English](./ADVANCED_FEATURES-en.md)
+
 # 高级功能使用
 
 本文档介绍 DataAgent 的高级功能和自定义配置选项。
