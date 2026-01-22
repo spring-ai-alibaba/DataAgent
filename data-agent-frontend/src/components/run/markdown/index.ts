@@ -15,8 +15,9 @@
  */
 
 import MarkdownAgentContainer from './MarkdownAgentContainer.vue';
+import type { App } from 'vue';
 
-const install = function (Vue) {
+const install = function (Vue: App): void {
   Vue.component(MarkdownAgentContainer.name, MarkdownAgentContainer);
 };
 

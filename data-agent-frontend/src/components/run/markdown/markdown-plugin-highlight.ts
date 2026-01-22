@@ -19,18 +19,26 @@ import hljs from 'highlight.js/lib/core';
 import Sql from 'highlight.js/lib/languages/sql';
 import Python from 'highlight.js/lib/languages/python';
 import Json from 'highlight.js/lib/languages/json';
+import type { MarkdownIt } from 'markdown-it';
 
 hljs.registerLanguage('sql', Sql);
 hljs.registerLanguage('json', Json);
 hljs.registerLanguage('python', Python);
 
-const highlightPlugin = md => {
+// 扩展 Window 接口以包含 copyCodeBlock 方法
+declare global {
+  interface Window {
+    copyCodeBlock?: (btn: HTMLElement) => void;
+  }
+}
+
+const highlightPlugin = (md: MarkdownIt) => {
   md.renderer.rules.fence = (tokens, idx) => {
     const token = tokens[idx];
     const code = token.content;
     const lang = token.info;
     const langObj = hljs.getLanguage(lang);
-    let cnt;
+    let cnt: string;
     if (langObj) {
       cnt = hljs.highlight(lang, code).value;
     } else {
@@ -38,7 +46,7 @@ const highlightPlugin = md => {
     }
 
     // 使用HTML实体编码确保特殊字符被正确处理
-    const escapeHtml = text => {
+    const escapeHtml = (text: string): string => {
       return text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -65,7 +73,7 @@ const highlightPlugin = md => {
 
 // 代码块复制函数
 if (typeof window !== 'undefined' && !window.copyCodeBlock) {
-  window.copyCodeBlock = btn => {
+  window.copyCodeBlock = (btn: HTMLElement) => {
     const code = btn.getAttribute('data-code');
     if (!code) return;
 
@@ -75,7 +83,9 @@ if (typeof window !== 'undefined' && !window.copyCodeBlock) {
     const parser = new DOMParser();
     const decodedCode = parser
       .parseFromString(`<div>${code}</div>`, 'text/html')
-      .querySelector('div').textContent;
+      .querySelector('div')?.textContent;
+
+    if (!decodedCode) return;
 
     navigator.clipboard
       .writeText(decodedCode)

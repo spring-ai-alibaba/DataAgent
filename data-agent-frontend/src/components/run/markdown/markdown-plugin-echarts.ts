@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-export default md => {
+import type { MarkdownIt } from 'markdown-it';
+
+export default (md: MarkdownIt) => {
   const temp = md.renderer.rules.fence.bind(md.renderer.rules);
   md.renderer.rules.fence = (tokens, idx, options, env, slf) => {
     const token = tokens[idx];
@@ -32,7 +34,7 @@ export default md => {
         } catch (e) {
           // JSON.parse exception
           // 如果解析失败，但结构看起来完整，可能是JSON格式问题，尝试提供更友好的错误信息
-          return `<pre>echarts配置格式错误: ${e.message}</pre>`;
+          return `<pre>echarts配置格式错误: ${(e as Error).message}</pre>`;
         }
       } else {
         // 如果JSON结构不完整，返回原始代码块，不进行渲染

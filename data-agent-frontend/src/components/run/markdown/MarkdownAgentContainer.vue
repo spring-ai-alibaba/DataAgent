@@ -20,24 +20,32 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
   import MarkdownIt from 'markdown-it';
   import MarkdownItContainer from 'markdown-it-container';
-  import MarkdownPluginEcharts from './markdown-plugin-echarts';
-  import MarkdownPluginHighlight from './markdown-plugin-highlight';
+  import MarkdownPluginEcharts from './markdown-plugin-echarts.ts';
+  import MarkdownPluginHighlight from './markdown-plugin-highlight.ts';
 
   import * as echarts from 'echarts';
   import { EXTENDED_COLORS } from '../charts/BaseChart';
+  import { defineComponent } from 'vue';
 
   // 防抖函数
-  function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
+  function debounce<T extends (...args: any[]) => any>(
+    func: T,
+    wait: number,
+  ): (...args: Parameters<T>) => void {
+    let timeout: NodeJS.Timeout | null = null;
+    return function executedFunction(...args: Parameters<T>) {
       const later = () => {
-        clearTimeout(timeout);
+        if (timeout) {
+          clearTimeout(timeout);
+        }
         func(...args);
       };
-      clearTimeout(timeout);
+      if (timeout) {
+        clearTimeout(timeout);
+      }
       timeout = setTimeout(later, wait);
     };
   }
@@ -49,7 +57,21 @@
     },
   };
 
-  export default {
+  // 定义组件选项类型
+  interface Options {
+    markdownIt?: {
+      linkify?: boolean;
+      [key: string]: any;
+    };
+    linkAttributes?: {
+      attrs: {
+        target: string;
+        rel: string;
+      };
+    };
+  }
+
+  export default defineComponent({
     name: 'MarkdownAgentContainer',
     props: {
       content: {
@@ -57,7 +79,7 @@
         default: '',
       },
       options: {
-        type: Object,
+        type: Object as () => Options,
         default() {
           return {
             markdownIt: {
@@ -67,6 +89,22 @@
           };
         },
       },
+    },
+    emits: ['render-complete'],
+    data() {
+      const optMarkdownIt = this.options.markdownIt;
+
+      const md = new MarkdownIt(optMarkdownIt)
+        .use(MarkdownPluginHighlight)
+        .use(MarkdownPluginEcharts)
+        .use(MarkdownItContainer);
+      return {
+        md,
+        showViewer: false,
+        index: 0,
+        urlList: [] as string[],
+        renderECharts: () => {}, // 初始化 renderECharts 方法
+      };
     },
     created() {
       // 创建防抖版本的ECharts渲染函数
@@ -115,42 +153,31 @@
     watch: {
       content: {
         immediate: true,
-        handler(val) {
+        handler(val: string) {
           this.$nextTick(() => {
-            this.$refs['markdown-agent-container'].innerHTML = this.md.render(val);
-            // 调用防抖后的ECharts渲染函数
-            this.renderECharts();
-            const list = [];
-            this.urlList = list;
-            // emit event
-            this.$emit('render-complete');
+            const container = this.$refs['markdown-agent-container'] as HTMLElement;
+            if (container) {
+              container.innerHTML = this.md.render(val);
+              // 调用防抖后的ECharts渲染函数
+              this.renderECharts();
+              const list: string[] = [];
+              this.urlList = list;
+              // emit event
+              this.$emit('render-complete');
+            }
           });
         },
       },
     },
-    data() {
-      const optMarkdownIt = this.options.markdownIt;
-
-      const md = new MarkdownIt(optMarkdownIt)
-        .use(MarkdownPluginHighlight)
-        .use(MarkdownPluginEcharts)
-        .use(MarkdownItContainer);
-      return {
-        md,
-        showViewer: false,
-        index: 0,
-        urlList: [],
-      };
-    },
     methods: {
-      use(plugin, options) {
+      use(plugin: any, options?: any) {
         this.md.use(plugin, options);
       },
       get() {
         return this.md;
       },
     },
-  };
+  });
 </script>
 
 <style scoped>
