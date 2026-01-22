@@ -1,11 +1,11 @@
 /*
- * Copyright 2024-2025 the original author or authors.
+ * Copyright 2024-2026 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.bo.schema;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -36,21 +37,25 @@ public class DisplayStyleBO {
 	/**
 	 * 图表类型，如：table, bar, line, pie等
 	 */
+	@JsonPropertyDescription("图表类型，取值范围：table、 bar、 line、 pie等")
 	private String type;
 
 	/**
 	 * 图表标题
 	 */
+	@JsonPropertyDescription("图表标题")
 	private String title;
 
 	/**
 	 * X轴字段名
 	 */
+	@JsonPropertyDescription("X轴字段名")
 	private String x;
 
 	/**
 	 * Y轴字段名列表
 	 */
+	@JsonPropertyDescription("Y轴字段名列表")
 	private List<String> y;
 
 }
