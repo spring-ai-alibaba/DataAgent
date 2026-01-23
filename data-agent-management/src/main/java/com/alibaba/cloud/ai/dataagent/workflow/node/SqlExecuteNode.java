@@ -32,13 +32,14 @@ import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
 import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
-import com.alibaba.cloud.ai.dataagent.prompt.PromptLoader;
+import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.util.MarkdownParserUtil;
 import com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil;
@@ -49,7 +50,6 @@ import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,6 +80,8 @@ public class SqlExecuteNode implements NodeAction {
 	private final LlmService llmService;
 
 	private final DataAgentProperties properties;
+
+	private final JsonParseUtil jsonParseUtil;
 
 	private static final int SAMPLE_DATA_NUMBER = 20;
 
@@ -232,7 +234,7 @@ public class SqlExecuteNode implements NodeAction {
 					""", userQuery != null ? userQuery : "数据可视化", sqlResultJson);
 
 			// 加载data-view-analyze提示词模板（系统提示词）
-			String fullPrompt = PromptLoader.loadPrompt("data-view-analyze");
+			String fullPrompt = PromptHelper.buildDataViewAnalysisPrompt();
 			// 分割系统提示词和用户提示词模板
 			String[] parts = fullPrompt.split("=== 用户输入 ===", 2);
 			// 渲染系统提示词（当前没有变量，直接使用模板内容）
@@ -246,36 +248,9 @@ public class SqlExecuteNode implements NodeAction {
 				.collect(StringBuilder::new, StringBuilder::append)
 				.map(StringBuilder::toString)
 				.block(Duration.ofMillis(properties.getEnrichSqlResultTimeout()));
-
 			if (chartConfigJson != null && !chartConfigJson.trim().isEmpty()) {
 				String content = MarkdownParserUtil.extractText(chartConfigJson.trim());
-				// 解析JSON并填充到ResultSetBO中
-				Map<String, Object> chartConfig = JsonUtil.getObjectMapper().readValue(content, Map.class);
-
-				// 提取图表配置信息并设置到ResultDisplayStyleBO
-				if (chartConfig.containsKey("type")) {
-					displayStyle.setType((String) chartConfig.get("type"));
-				}
-				else {
-					displayStyle.setType("table");
-				}
-				if (chartConfig.containsKey("title")) {
-					displayStyle.setTitle((String) chartConfig.get("title"));
-				}
-				if (chartConfig.containsKey("x")) {
-					displayStyle.setX((String) chartConfig.get("x"));
-				}
-				if (chartConfig.containsKey("y")) {
-					Object yValue = chartConfig.get("y");
-					if (yValue instanceof String) {
-						String yStr = (String) yValue;
-						// 将逗号分隔的字符串转换为列表
-						displayStyle.setY(java.util.Arrays.asList(yStr.split(",")));
-					}
-					else if (yValue instanceof List) {
-						displayStyle.setY((List<String>) yValue);
-					}
-				}
+				displayStyle = jsonParseUtil.tryConvertToObject(content, DisplayStyleBO.class);
 				log.debug("Successfully enriched ResultSetBO with chart config: type={}, title={}, x={}, y={}",
 						displayStyle.getType(), displayStyle.getTitle(), displayStyle.getX(), displayStyle.getY());
 				return displayStyle;

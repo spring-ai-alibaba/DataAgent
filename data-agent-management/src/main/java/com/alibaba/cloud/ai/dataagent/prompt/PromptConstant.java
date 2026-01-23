@@ -96,4 +96,8 @@ public class PromptConstant {
 		return new PromptTemplate(PromptLoader.loadPrompt("json-fix"));
 	}
 
+	public static PromptTemplate getDataViewAnalyzePromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("data-view-analyze"));
+	}
+
 }
