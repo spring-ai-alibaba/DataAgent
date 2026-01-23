@@ -24,6 +24,7 @@ export interface Datasource {
   host?: string;
   port?: number;
   databaseName?: string;
+  schema?: string;
   username?: string;
   password?: string;
   connectionUrl?: string;

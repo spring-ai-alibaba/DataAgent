@@ -214,7 +214,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		// Create query parameters
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
-		queryParam.setSchema(datasource.getDatabaseName());
+		// Note: schema is already set in DbConfigBO from datasource configuration
 
 		// Query table list
 		Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
@@ -252,7 +252,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		// 创建查询参数
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
-		queryParam.setSchema(datasource.getDatabaseName());
+		// Note: schema is already set in DbConfigBO from datasource configuration
 		queryParam.setTable(tableName);
 
 		// 查询字段列表

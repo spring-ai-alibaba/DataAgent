@@ -299,12 +299,22 @@
           </el-col>
         </el-row>
         <el-row :gutter="20">
-          <el-col>
+          <el-col :span="newDatasource.type === 'postgresql' ? 12 : 24">
             <div class="form-item">
               <label>数据库名 *</label>
               <el-input
                 v-model="newDatasource.databaseName"
-                placeholder="请输入数据库（schema）名称"
+                placeholder="请输入数据库名称"
+                size="large"
+              />
+            </div>
+          </el-col>
+          <el-col :span="12" v-if="newDatasource.type === 'postgresql'">
+            <div class="form-item">
+              <label>Schema</label>
+              <el-input
+                v-model="newDatasource.schema"
+                placeholder="默认为 public"
                 size="large"
               />
             </div>
@@ -417,12 +427,22 @@
       </el-col>
     </el-row>
     <el-row :gutter="20">
-      <el-col>
+      <el-col :span="editingDatasource.type === 'postgresql' ? 12 : 24">
         <div class="form-item">
           <label>数据库名 *</label>
           <el-input
             v-model="editingDatasource.databaseName"
-            placeholder="请输入数据库（schema）名称"
+            placeholder="请输入数据库名称"
+            size="large"
+          />
+        </div>
+      </el-col>
+      <el-col :span="12" v-if="editingDatasource.type === 'postgresql'">
+        <div class="form-item">
+          <label>Schema</label>
+          <el-input
+            v-model="editingDatasource.schema"
+            placeholder="默认为 public"
             size="large"
           />
         </div>
@@ -1053,6 +1073,12 @@
           ElMessage.error(formErrors.join('\r\n'));
           return;
         }
+
+        // 如果是 PostgreSQL 且未设置 schema，默认设置为 'public'
+        if (newDatasource.value.type === 'postgresql' && !newDatasource.value.schema) {
+          newDatasource.value.schema = 'public';
+        }
+
         try {
           const datasource: Datasource = await datasourceService.createDatasource(
             newDatasource.value,
@@ -1078,6 +1104,11 @@
         if (formErrors.length > 0) {
           ElMessage.error(formErrors.join('\n'));
           return;
+        }
+
+        // 如果是 PostgreSQL 且未设置 schema，默认设置为 'public'
+        if (editingDatasource.value.type === 'postgresql' && !editingDatasource.value.schema) {
+          editingDatasource.value.schema = 'public';
         }
 
         try {

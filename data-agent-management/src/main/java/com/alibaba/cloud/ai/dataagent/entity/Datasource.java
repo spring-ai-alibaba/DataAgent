@@ -42,6 +42,8 @@ public class Datasource {
 
 	private String databaseName;
 
+	private String schema;
+
 	private String username;
 
 	private String password;
