@@ -312,11 +312,7 @@
           <el-col :span="12" v-if="newDatasource.type === 'postgresql'">
             <div class="form-item">
               <label>Schema</label>
-              <el-input
-                v-model="newDatasource.schema"
-                placeholder="默认为 public"
-                size="large"
-              />
+              <el-input v-model="newDatasource.schema" placeholder="默认为 public" size="large" />
             </div>
           </el-col>
         </el-row>
@@ -440,11 +436,7 @@
       <el-col :span="12" v-if="editingDatasource.type === 'postgresql'">
         <div class="form-item">
           <label>Schema</label>
-          <el-input
-            v-model="editingDatasource.schema"
-            placeholder="默认为 public"
-            size="large"
-          />
+          <el-input v-model="editingDatasource.schema" placeholder="默认为 public" size="large" />
         </div>
       </el-col>
     </el-row>
