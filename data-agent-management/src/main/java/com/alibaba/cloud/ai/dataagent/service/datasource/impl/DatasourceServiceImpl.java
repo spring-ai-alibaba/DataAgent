@@ -215,12 +215,9 @@ public class DatasourceServiceImpl implements DatasourceService {
 		// Create query parameters
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
 
-		// 提取schema名称（对于PostgreSQL是 "database|schema" 格式中的schema部分）
-		String schemaName = datasource.getDatabaseName();
-		if ("postgresql".equalsIgnoreCase(datasource.getType()) && schemaName != null && schemaName.contains("|")) {
-			String[] parts = schemaName.split("\\|");
-			schemaName = parts.length > 1 ? parts[1] : parts[0];
-		}
+		// 提取schema名称
+		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
+		String schemaName = handler.extractSchemaName(datasource);
 		queryParam.setSchema(schemaName);
 
 		// Query table list
@@ -260,12 +257,9 @@ public class DatasourceServiceImpl implements DatasourceService {
 		// 创建查询参数
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
 
-		// 提取schema名称（对于PostgreSQL是 "database|schema" 格式中的schema部分）
-		String schemaName = datasource.getDatabaseName();
-		if ("postgresql".equalsIgnoreCase(datasource.getType()) && schemaName != null && schemaName.contains("|")) {
-			String[] parts = schemaName.split("\\|");
-			schemaName = parts.length > 1 ? parts[1] : parts[0];
-		}
+		// 提取schema名称
+		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
+		String schemaName = handler.extractSchemaName(datasource);
 		queryParam.setSchema(schemaName);
 		queryParam.setTable(tableName);
 

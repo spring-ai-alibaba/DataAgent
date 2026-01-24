@@ -45,24 +45,14 @@ public class PostgreSqlDatasourceTypeHandler implements DatasourceTypeHandler {
 	}
 
 	@Override
-	public DbConfigBO toDbConfig(Datasource datasource) {
-		DbConfigBO config = new DbConfigBO();
-		config.setUrl(resolveConnectionUrl(datasource));
-		config.setUsername(datasource.getUsername());
-		config.setPassword(datasource.getPassword());
-		config.setConnectionType(connectionType());
-		config.setDialectType(dialectType());
-
+	public String extractSchemaName(Datasource datasource) {
 		// 提取schema名（format: "database|schema"，取schema部分）
 		String databaseName = datasource.getDatabaseName();
-		String schemaName = databaseName;
 		if (databaseName != null && databaseName.contains("|")) {
 			String[] parts = databaseName.split("\\|");
-			schemaName = parts.length > 1 ? parts[1] : parts[0];
+			return parts.length > 1 ? parts[1] : parts[0];
 		}
-		config.setSchema(schemaName);
-
-		return config;
+		return databaseName;
 	}
 
 }

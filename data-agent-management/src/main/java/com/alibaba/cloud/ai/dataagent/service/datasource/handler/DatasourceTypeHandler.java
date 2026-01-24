@@ -52,6 +52,10 @@ public interface DatasourceTypeHandler {
 		return buildConnectionUrl(datasource);
 	}
 
+	default String extractSchemaName(Datasource datasource) {
+		return datasource.getDatabaseName();
+	}
+
 	default DbConfigBO toDbConfig(Datasource datasource) {
 		DbConfigBO config = new DbConfigBO();
 		config.setUrl(resolveConnectionUrl(datasource));
@@ -59,7 +63,7 @@ public interface DatasourceTypeHandler {
 		config.setPassword(datasource.getPassword());
 		config.setConnectionType(connectionType());
 		config.setDialectType(dialectType());
-		config.setSchema(datasource.getDatabaseName());
+		config.setSchema(extractSchemaName(datasource));
 		return config;
 	}
 
