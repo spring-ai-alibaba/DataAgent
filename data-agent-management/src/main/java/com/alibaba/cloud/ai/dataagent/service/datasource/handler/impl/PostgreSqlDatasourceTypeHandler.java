@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.datasource.handler.impl;
 
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeHandler;
@@ -41,6 +42,27 @@ public class PostgreSqlDatasourceTypeHandler implements DatasourceTypeHandler {
 		return String.format(
 				"jdbc:postgresql://%s:%d/%s?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai",
 				datasource.getHost(), datasource.getPort(), databaseName);
+	}
+
+	@Override
+	public DbConfigBO toDbConfig(Datasource datasource) {
+		DbConfigBO config = new DbConfigBO();
+		config.setUrl(resolveConnectionUrl(datasource));
+		config.setUsername(datasource.getUsername());
+		config.setPassword(datasource.getPassword());
+		config.setConnectionType(connectionType());
+		config.setDialectType(dialectType());
+
+		// 提取schema名（format: "database|schema"，取schema部分）
+		String databaseName = datasource.getDatabaseName();
+		String schemaName = databaseName;
+		if (databaseName != null && databaseName.contains("|")) {
+			String[] parts = databaseName.split("\\|");
+			schemaName = parts.length > 1 ? parts[1] : parts[0];
+		}
+		config.setSchema(schemaName);
+
+		return config;
 	}
 
 }
