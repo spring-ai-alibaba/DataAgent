@@ -187,6 +187,52 @@ class ChatService {
       throw error;
     }
   }
+
+  /**
+   * 下载HTML报告
+   * @param sessionId 会话ID
+   * @param content 报告内容
+   */
+  async downloadHtmlReport(sessionId: string, content: string): Promise<void> {
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/sessions/${sessionId}/reports/html`,
+        content,
+        {
+          responseType: 'blob', // 重要：设置响应类型为blob
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8', // 明确设置内容类型和编码
+          },
+        },
+      );
+
+      // 从响应头中获取文件名
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = 'report.html';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?([^;"]+)"?/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // 创建下载链接并触发下载
+      const blob = new Blob([response.data], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(`下载失败: ${error.message}`);
+      }
+      throw error;
+    }
+  }
 }
 
 export default new ChatService();
