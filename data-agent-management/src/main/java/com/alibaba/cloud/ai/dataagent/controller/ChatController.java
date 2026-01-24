@@ -21,9 +21,15 @@ import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
 import com.alibaba.cloud.ai.dataagent.service.chat.ChatMessageService;
 import com.alibaba.cloud.ai.dataagent.service.chat.ChatSessionService;
 import com.alibaba.cloud.ai.dataagent.service.chat.SessionTitleService;
+import com.alibaba.cloud.ai.dataagent.util.ReportTemplateUtil;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -46,6 +52,8 @@ public class ChatController {
 	private final ChatMessageService chatMessageService;
 
 	private final SessionTitleService sessionTitleService;
+
+	private final ReportTemplateUtil reportTemplateUtil;
 
 	/**
 	 * Get session list for an agent
@@ -171,6 +179,34 @@ public class ChatController {
 		catch (Exception e) {
 			log.error("Delete session error for session {}: {}", sessionId, e.getMessage(), e);
 			return ResponseEntity.internalServerError().body(ApiResponse.error("删除失败"));
+		}
+	}
+
+	/**
+	 * Download HTML report
+	 */
+	@PostMapping("/sessions/{sessionId}/reports/html")
+	public ResponseEntity<byte[]> convertAndDownloadHtml(@PathVariable(value = "sessionId") String sessionId,
+			@RequestBody String content) {
+		try {
+			if (!StringUtils.hasText(content)) {
+				return ResponseEntity.badRequest().build();
+			}
+			log.debug("Download HTML report for session {}", sessionId);
+			StringBuilder htmlContent = new StringBuilder();
+			htmlContent.append(reportTemplateUtil.getHeader());
+			htmlContent.append(content);
+			htmlContent.append(reportTemplateUtil.getFooter());
+			String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+			String filename = "report_" + timestamp + ".html";
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(new MediaType("text", "html", StandardCharsets.UTF_8));
+			headers.setContentDispositionFormData("attachment", filename);
+			return ResponseEntity.ok().headers(headers).body(htmlContent.toString().getBytes(StandardCharsets.UTF_8));
+		}
+		catch (Exception e) {
+			log.error("Download HTML report error for session {}: {}", sessionId, e.getMessage(), e);
+			return ResponseEntity.internalServerError().build();
 		}
 	}
 
