@@ -419,15 +419,13 @@
       const requestOptions = ref({
         humanFeedback: false,
         nl2sqlOnly: false,
-        plainReport: false,
       });
 
       // 监听NL2SQL开关变化
       const handleNl2sqlOnlyChange = (value: boolean) => {
         if (value) {
-          // 当仅NL2SQL开启时，禁用人工反馈和简洁报告，并设为false
+          // 当仅NL2SQL开启时，禁用人工反馈，并设为false
           requestOptions.value.humanFeedback = false;
-          requestOptions.value.plainReport = false;
         }
       };
       const autoScroll = ref(true);
@@ -512,7 +510,6 @@
             query: userInput.value,
             humanFeedback: requestOptions.value.humanFeedback,
             nl2sqlOnly: requestOptions.value.nl2sqlOnly,
-            plainReport: requestOptions.value.plainReport,
             rejectedPlan: false,
             humanFeedbackContent: null,
             threadId: sessionState.lastRequest?.threadId || null,
@@ -582,9 +579,6 @@
               console.error('保存AI消息失败:', error);
             });
           };
-
-          // 反转plainReport的值
-          request.plainReport = !request.plainReport;
 
           // 发送流式请求
           const closeStream = await GraphService.streamSearch(
@@ -842,33 +836,6 @@
           return message.content.replace(/\n/g, '<br>');
         }
         return message.content;
-      };
-
-      // 从消息内容下载HTML报告
-      const downloadHtmlReportFromMessage = (content: string) => {
-        if (!content) {
-          ElMessage.warning('没有可下载的HTML报告');
-          return;
-        }
-
-        // 去除可能的Markdown前后缀
-        if (content.startsWith('```html')) {
-          content = content.substring(7);
-        }
-        if (content.endsWith('```')) {
-          content = content.substring(0, content.length - 3);
-        }
-
-        const blob = new Blob([content], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `report_${new Date().getTime()}.html`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        ElMessage.success('HTML报告下载成功');
       };
 
       // 服务器端下载html报告
@@ -1290,7 +1257,6 @@
         formatNodeContent,
         generateNodeHtml,
         handleNl2sqlOnlyChange,
-        downloadHtmlReportFromMessage,
         downloadMarkdownReportFromMessage,
         downloadHtmlReportFromMessageByServer,
         markdownToHtml,

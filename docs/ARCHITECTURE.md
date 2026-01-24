@@ -394,7 +394,6 @@ sequenceDiagram
 #### 说明要点
 
 - **报告节点**: `ReportGeneratorNode` 读取计划、SQL/Python 结果与摘要建议（`summary_and_recommendations`）
-- **输出格式**: 默认 HTML，`plainReport=true` 输出 Markdown（简洁报告）
 - **优化提示词**: 自动拼接优化配置后生成报告
 
 #### 架构图
