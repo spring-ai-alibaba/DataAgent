@@ -19,7 +19,6 @@ import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
-
 import java.util.List;
 
 public interface DatasourceService {
@@ -74,7 +73,7 @@ public interface DatasourceService {
 	 */
 	// 应该使用 AgentDatasourceService 中的方法
 	@Deprecated
-	List<AgentDatasource> getAgentDatasource(Integer agentId);
+	List<AgentDatasource> getAgentDatasource(Long agentId);
 
 	List<String> getDatasourceTables(Integer datasourceId) throws Exception;
 

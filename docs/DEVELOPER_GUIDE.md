@@ -1,3 +1,5 @@
+中文 | [English](./DEVELOPER_GUIDE-en.md)
+
 # 开发者文档
 
 欢迎参与 DataAgent 项目的开发！本文档将帮助您了解如何为项目做出贡献。
@@ -282,14 +284,67 @@ public class AgentVectorStoreService {
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter`
 
+#### 4.1 全局配置
+
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
-| `chunk-size` | 默认分块大小 (基于token) | 1000 |
+| `chunk-size` | 默认分块大小（基于token数量，所有策略共享） | 1000 |
+
+#### 4.2 TokenTextSplitter 配置 (token)
+
+配置前缀: `spring.ai.alibaba.data-agent.text-splitter.token`
+
+基于 Token 数量的文本切分策略，适用于需要精确控制 token 数量的场景。
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
 | `min-chunk-size-chars` | 最小分块字符数 | 400 |
 | `min-chunk-length-to-embed` | 嵌入最小分块长度 | 10 |
 | `max-num-chunks` | 最大分块数量 | 5000 |
 | `keep-separator` | 是否保留分隔符 | true |
-| `separators` | 自定义分隔符列表 | null (使用默认) |
+
+#### 4.3 RecursiveCharacterTextSplitter 配置 (recursive)
+
+配置前缀: `spring.ai.alibaba.data-agent.text-splitter.recursive`
+
+递归字符文本切分策略，按照字符顺序递归尝试不同的分隔符进行切分。
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `chunk-overlap` | 重叠区域字符数（相邻分块之间的重叠字符数） | 200 |
+| `separators` | 自定义分隔符列表（数组格式，如果为 null 则使用默认分隔符列表） | null |
+
+#### 4.4 SentenceTextSplitter 配置 (sentence)
+
+配置前缀: `spring.ai.alibaba.data-agent.text-splitter.sentence`
+
+基于句子的文本切分策略，按照句子边界进行切分，适合处理自然语言文本。
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `sentence-overlap` | 句子重叠数量（保留前一个分块的最后 N 个句子） | 1 |
+
+#### 4.5 SemanticTextSplitter 配置 (semantic)
+
+配置前缀: `spring.ai.alibaba.data-agent.text-splitter.semantic`
+
+基于语义相似度的文本切分策略，通过 Embedding 模型计算语义相似度来决定切分点，能够保持语义完整性。
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `min-chunk-size` | 最小分块大小（字符数） | 200 |
+| `max-chunk-size` | 最大分块大小（字符数） | 1000 |
+| `similarity-threshold` | 语义相似度阈值（0-1之间，值越低越容易分块） | 0.5 |
+
+#### 4.6 ParagraphTextSplitter 配置 (paragraph)
+
+配置前缀: `spring.ai.alibaba.data-agent.text-splitter.paragraph`
+
+基于段落的文本切分策略，按照段落边界进行切分。
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `paragraph-overlap-chars` | 段落重叠字符数（保留前一个分块的最后 N 个字符，而非段落数量） | 200 |
 
 
 ### 5. 代码执行器配置 (Code Executor)

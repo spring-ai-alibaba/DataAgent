@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS agent_knowledge (
   file_path VARCHAR(500) DEFAULT NULL COMMENT '文件在服务器上的物理存储路径',
   file_size BIGINT DEFAULT NULL COMMENT '文件大小 (字节)',
   file_type VARCHAR(255) DEFAULT NULL COMMENT '文件类型（pdf,md,markdown,doc等）',
+  splitter_type VARCHAR(50) DEFAULT 'token' COMMENT '分块策略类型：token, recursive, sentence, semantic',
   created_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   is_deleted INT DEFAULT 0 COMMENT '逻辑删除字段，0=未删除, 1=已删除',

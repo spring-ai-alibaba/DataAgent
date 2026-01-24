@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.dto.planner;
 import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -31,9 +32,11 @@ import java.util.List;
 public class Plan {
 
 	@JsonProperty("thought_process")
+	@JsonPropertyDescription("简要描述你的分析思路。必须明确提到你检查了哪些表和字段")
 	private String thoughtProcess;
 
 	@JsonProperty("execution_plan")
+	@JsonPropertyDescription("执行计划的步骤列表")
 	private List<ExecutionStep> executionPlan;
 
 	@Override

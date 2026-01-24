@@ -1,3 +1,5 @@
+中文 | [English](./ARCHITECTURE-en.md)
+
 # 架构设计
 
 本文档详细介绍 DataAgent 的系统架构、核心能力和技术实现。

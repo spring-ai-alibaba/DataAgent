@@ -20,17 +20,18 @@ import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.ObjectMetadata;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.Resource;
-import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 阿里云OSS文件存储服务实现
@@ -77,7 +78,7 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 			if (originalFilename != null && originalFilename.contains(".")) {
 				extension = originalFilename.substring(originalFilename.lastIndexOf("."));
 			}
-			String filename = UUID.randomUUID().toString() + extension;
+			String filename = UUID.randomUUID() + extension;
 
 			String objectKey = buildObjectKey(subPath, filename);
 
@@ -143,11 +144,26 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 		}
 	}
 
+	/**
+	 * This implementation throws IllegalStateException if attempting to read the
+	 * underlying stream multiple times.
+	 */
 	@Override
 	public Resource getFileResource(String filePath) {
-		// TODO 实现
-		log.error("Getting resource from oss not implement");
-		return null;
+
+		if (!StringUtils.hasText(filePath)) {
+			log.info("获取文件失败，路径为空");
+			return null;
+		}
+
+		OSSObject result = ossClient.getObject(ossProperties.getBucketName(), filePath);
+		// todo: 临时处理,只能读取一次,不能重复读
+		return new InputStreamResource(result.getObjectContent()) {
+			@Override
+			public long contentLength() {
+				return result.getObjectMetadata().getContentLength();
+			}
+		};
 	}
 
 	/**

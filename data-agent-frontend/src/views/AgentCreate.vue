@@ -138,16 +138,6 @@
                 </div>
               </el-col>
             </el-row>
-
-            <el-row :gutter="20">
-              <el-col :span="24">
-                <div class="form-item form-switch">
-                  <el-switch v-model="agentForm.humanReviewEnabled" size="large" />
-                  <span>启用计划人工复核</span>
-                  <el-text class="mx-1">（开启后，Planner 计划会在执行前等待人工复核）</el-text>
-                </div>
-              </el-col>
-            </el-row>
           </div>
         </div>
 
