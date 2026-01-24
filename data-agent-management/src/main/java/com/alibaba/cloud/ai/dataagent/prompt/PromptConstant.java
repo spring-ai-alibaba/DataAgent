@@ -64,10 +64,6 @@ public class PromptConstant {
 		return new PromptTemplate(PromptLoader.loadPrompt("planner"));
 	}
 
-	public static PromptTemplate getReportGeneratorPromptTemplate() {
-		return new PromptTemplate(PromptLoader.loadPrompt("report-generator"));
-	}
-
 	public static PromptTemplate getReportGeneratorPlainPromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("report-generator-plain"));
 	}

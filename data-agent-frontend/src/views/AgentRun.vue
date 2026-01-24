@@ -64,20 +64,6 @@
                   :pageSize="resultSetDisplayConfig.pageSize"
                 />
               </div>
-              <div v-else-if="message.messageType === 'html-report'" class="html-report-message">
-                <div class="report-info">
-                  <el-icon><Document /></el-icon>
-                  <span>HTML报告已生成</span>
-                </div>
-                <el-button
-                  type="primary"
-                  size="large"
-                  @click="downloadHtmlReportFromMessage(`${message.content}`)"
-                >
-                  <el-icon><Download /></el-icon>
-                  下载HTML报告
-                </el-button>
-              </div>
               <div
                 v-else-if="message.messageType === 'markdown-report'"
                 class="markdown-report-message"
@@ -88,7 +74,7 @@
                 >
                   <div class="report-info">
                     <el-icon><Document /></el-icon>
-                    <span>Markdown 报告已生成</span>
+                    <span>报告已生成</span>
                   </div>
                   <el-button-group size="large">
                     <el-button
@@ -218,22 +204,6 @@
                   :disabled="isStreaming || showHumanFeedback"
                   @change="handleNl2sqlOnlyChange"
                 />
-              </div>
-              <div class="switch-item">
-                <span class="switch-label">HTML报告</span>
-                <el-tooltip
-                  :content="
-                    requestOptions.nl2sqlOnly
-                      ? '该功能在NL2SQL模式下不能使用'
-                      : '开启HTML报告功能需要使用外部CDN资源，请确保CDN地址能访问，如需自定义详情参考文档配置'
-                  "
-                  placement="top"
-                >
-                  <el-switch
-                    v-model="requestOptions.plainReport"
-                    :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback"
-                  />
-                </el-tooltip>
               </div>
               <div class="switch-item">
                 <span class="switch-label">自动Scroll</span>

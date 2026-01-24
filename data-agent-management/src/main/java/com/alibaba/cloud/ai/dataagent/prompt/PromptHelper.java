@@ -137,8 +137,7 @@ public class PromptHelper {
 	 * @return built prompt
 	 */
 	public static String buildReportGeneratorPromptWithOptimization(String userRequirementsAndPlan,
-			String analysisStepsAndData, String summaryAndRecommendations, List<UserPromptConfig> optimizationConfigs,
-			boolean plainReport) {
+			String analysisStepsAndData, String summaryAndRecommendations, List<UserPromptConfig> optimizationConfigs) {
 
 		Map<String, Object> params = new HashMap<>();
 		params.put("user_requirements_and_plan", userRequirementsAndPlan);
@@ -150,10 +149,8 @@ public class PromptHelper {
 		String optimizationSection = buildOptimizationSection(optimizationConfigs, params);
 		params.put("optimization_section", optimizationSection);
 
-		// Render using the chosen report generator template
-		return (plainReport ? PromptConstant.getReportGeneratorPlainPromptTemplate()
-				: PromptConstant.getReportGeneratorPromptTemplate())
-			.render(params);
+		// only plain report
+		return PromptConstant.getReportGeneratorPlainPromptTemplate().render(params);
 	}
 
 	public static String buildSqlErrorFixerPrompt(SqlGenerationDTO sqlGenerationDTO) {
