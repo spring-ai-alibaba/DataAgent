@@ -31,6 +31,7 @@ import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -90,9 +91,10 @@ public class PlannerNode implements NodeAction {
 		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 
 		// 构建模板参数
+		BeanOutputConverter<Plan> beanOutputConverter = new BeanOutputConverter<>(Plan.class);
 		Map<String, Object> params = Map.of("user_question", userPrompt, "schema", schemaStr, "evidence", evidence,
-				"semantic_model", semanticModel, "plan_validation_error", formatValidationError(validationError));
-
+				"semantic_model", semanticModel, "plan_validation_error", formatValidationError(validationError),
+				"format", beanOutputConverter.getFormat());
 		// 生成计划
 		String plannerPrompt = PromptConstant.getPlannerPromptTemplate().render(params);
 		log.debug("Planner prompt: as follows \n{}\n", plannerPrompt);
