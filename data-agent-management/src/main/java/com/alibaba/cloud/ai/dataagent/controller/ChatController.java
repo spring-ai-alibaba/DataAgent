@@ -186,12 +186,13 @@ public class ChatController {
 	 * Download HTML report
 	 */
 	@PostMapping("/sessions/{sessionId}/reports/html")
-	public ResponseEntity<byte[]> downloadHtmlReport(@PathVariable(value = "sessionId") String sessionId,
+	public ResponseEntity<byte[]> convertAndDownloadHtml(@PathVariable(value = "sessionId") String sessionId,
 			@RequestBody String content) {
 		try {
 			if (!StringUtils.hasText(content)) {
 				return ResponseEntity.badRequest().build();
 			}
+			log.debug("Download HTML report for session {}", sessionId);
 			StringBuilder htmlContent = new StringBuilder();
 			htmlContent.append(reportTemplateUtil.getHeader());
 			htmlContent.append(content);
