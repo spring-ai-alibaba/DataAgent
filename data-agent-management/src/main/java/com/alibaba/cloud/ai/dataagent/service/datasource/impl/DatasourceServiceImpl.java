@@ -214,7 +214,14 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		// Create query parameters
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
-		// Note: schema is already set in DbConfigBO from datasource configuration
+
+		// 提取schema名称（对于PostgreSQL是 "database|schema" 格式中的schema部分）
+		String schemaName = datasource.getDatabaseName();
+		if ("postgresql".equalsIgnoreCase(datasource.getType()) && schemaName != null && schemaName.contains("|")) {
+			String[] parts = schemaName.split("\\|");
+			schemaName = parts.length > 1 ? parts[1] : parts[0];
+		}
+		queryParam.setSchema(schemaName);
 
 		// Query table list
 		Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
@@ -252,7 +259,14 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		// 创建查询参数
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
-		// Note: schema is already set in DbConfigBO from datasource configuration
+
+		// 提取schema名称（对于PostgreSQL是 "database|schema" 格式中的schema部分）
+		String schemaName = datasource.getDatabaseName();
+		if ("postgresql".equalsIgnoreCase(datasource.getType()) && schemaName != null && schemaName.contains("|")) {
+			String[] parts = schemaName.split("\\|");
+			schemaName = parts.length > 1 ? parts[1] : parts[0];
+		}
+		queryParam.setSchema(schemaName);
 		queryParam.setTable(tableName);
 
 		// 查询字段列表

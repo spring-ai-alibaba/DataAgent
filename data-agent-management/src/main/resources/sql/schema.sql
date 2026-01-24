@@ -102,7 +102,6 @@ CREATE TABLE IF NOT EXISTS datasource (
   host VARCHAR(255) NOT NULL COMMENT '主机地址',
   port INT NOT NULL COMMENT '端口号',
   database_name VARCHAR(255) NOT NULL COMMENT '数据库名称',
-  `schema` VARCHAR(255) DEFAULT NULL COMMENT 'Schema名称（PostgreSQL等数据库使用，如public）',
   username VARCHAR(255) NOT NULL COMMENT '用户名',
   password VARCHAR(255) NOT NULL COMMENT '密码（加密存储）',
   connection_url VARCHAR(1000) COMMENT '完整连接URL',

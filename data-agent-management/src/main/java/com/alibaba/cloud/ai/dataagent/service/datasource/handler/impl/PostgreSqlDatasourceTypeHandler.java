@@ -15,12 +15,10 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.datasource.handler.impl;
 
-import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeHandler;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 @Component
 public class PostgreSqlDatasourceTypeHandler implements DatasourceTypeHandler {
@@ -35,28 +33,14 @@ public class PostgreSqlDatasourceTypeHandler implements DatasourceTypeHandler {
 		if (!hasRequiredConnectionFields(datasource)) {
 			return datasource.getConnectionUrl();
 		}
+		// 提取数据库名（format: "database|schema"，只取database部分）
+		String databaseName = datasource.getDatabaseName();
+		if (databaseName != null && databaseName.contains("|")) {
+			databaseName = databaseName.split("\\|")[0];
+		}
 		return String.format(
 				"jdbc:postgresql://%s:%d/%s?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai",
-				datasource.getHost(), datasource.getPort(), datasource.getDatabaseName());
-	}
-
-	@Override
-	public DbConfigBO toDbConfig(Datasource datasource) {
-		DbConfigBO config = new DbConfigBO();
-		config.setUrl(resolveConnectionUrl(datasource));
-		config.setUsername(datasource.getUsername());
-		config.setPassword(datasource.getPassword());
-		config.setConnectionType(connectionType());
-		config.setDialectType(dialectType());
-
-		// For PostgreSQL, use the schema field if set, otherwise default to "public"
-		String schema = datasource.getSchema();
-		if (!StringUtils.hasText(schema)) {
-			schema = "public";
-		}
-		config.setSchema(schema);
-
-		return config;
+				datasource.getHost(), datasource.getPort(), databaseName);
 	}
 
 }
