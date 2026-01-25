@@ -88,11 +88,11 @@ public class SchemaRecallNode implements NodeAction {
 				emitter.complete();
 			});
 
-			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(
-					this.getClass(), state, currentState -> {
-						return Map.of(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, Collections.emptyList(),
-								COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, Collections.emptyList());
-					}, displayFlux);
+			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil
+				.createStreamingGeneratorWithMessages(this.getClass(), state, currentState -> {
+					return Map.of(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, Collections.emptyList(),
+							COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, Collections.emptyList());
+				}, displayFlux);
 
 			return Map.of(SCHEMA_RECALL_NODE_OUTPUT, generator);
 		}
@@ -102,8 +102,7 @@ public class SchemaRecallNode implements NodeAction {
 				schemaService.getTableDocumentsByDatasources(datasourceIds, input));
 		// extract table names
 		List<String> recalledTableNames = extractTableName(tableDocuments);
-		List<Document> columnDocuments = schemaService.getColumnDocumentsByTableName(datasourceIds,
-				recalledTableNames);
+		List<Document> columnDocuments = schemaService.getColumnDocumentsByTableName(datasourceIds, recalledTableNames);
 
 		String failMessage = """
 				\n 未检索到相关数据表
