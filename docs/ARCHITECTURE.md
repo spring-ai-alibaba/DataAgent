@@ -189,7 +189,7 @@ flowchart TD
 #### 说明要点
 
 - **入口**: 运行时请求参数 `humanFeedback=true`（`GraphController` → `GraphServiceImpl`）
-- **数据字段**: `agent.human_review_enabled` 用于保存配置，运行时以请求参数为准
+- **数据字段**: `human_review_enabled`以运行时请求参数为准
 - **图编排**: `PlanExecutorNode` 检测 `HUMAN_REVIEW_ENABLED`，转入 `HumanFeedbackNode`
 - **暂停与恢复**: `CompiledGraph` 使用 `interruptBefore(HUMAN_FEEDBACK_NODE)`，无反馈时进入"等待"，反馈到达后通过 `threadId` 继续执行
 - **反馈结果**: 同意继续执行；拒绝则回到 `PlannerNode` 并触发重新规划
