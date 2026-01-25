@@ -297,8 +297,8 @@ public class SchemaServiceImpl implements SchemaService {
 			conditions.add(b.eq(Constant.DATASOURCE_ID, datasourceIds.get(0).toString()).build());
 		}
 		else {
-			conditions.add(b.in(Constant.DATASOURCE_ID, datasourceIds.stream().map(Object::toString).toArray())
-				.build());
+			conditions
+				.add(b.in(Constant.DATASOURCE_ID, datasourceIds.stream().map(Object::toString).toArray()).build());
 		}
 		conditions.add(b.eq(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.TABLE).build());
 

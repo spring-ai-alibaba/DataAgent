@@ -207,8 +207,8 @@ public class DynamicFilterService {
 			conditions.add(b.eq(Constant.DATASOURCE_ID, datasourceIds.get(0).toString()).build());
 		}
 		else {
-			conditions.add(b.in(Constant.DATASOURCE_ID, datasourceIds.stream().map(Object::toString).toArray())
-				.build());
+			conditions
+				.add(b.in(Constant.DATASOURCE_ID, datasourceIds.stream().map(Object::toString).toArray()).build());
 		}
 
 		// 2. 基础条件：vectorType = TABLE
@@ -240,8 +240,8 @@ public class DynamicFilterService {
 			conditions.add(b.eq(Constant.DATASOURCE_ID, datasourceIds.get(0).toString()).build());
 		}
 		else {
-			conditions.add(b.in(Constant.DATASOURCE_ID, datasourceIds.stream().map(Object::toString).toArray())
-				.build());
+			conditions
+				.add(b.in(Constant.DATASOURCE_ID, datasourceIds.stream().map(Object::toString).toArray()).build());
 		}
 
 		// 2. VectorType 条件
