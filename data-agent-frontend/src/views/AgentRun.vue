@@ -64,42 +64,41 @@
                   :pageSize="resultSetDisplayConfig.pageSize"
                 />
               </div>
-              <div v-else-if="message.messageType === 'html-report'" class="html-report-message">
-                <div class="report-info">
-                  <el-icon><Document /></el-icon>
-                  <span>HTML报告已生成</span>
-                </div>
-                <el-button
-                  type="primary"
-                  size="large"
-                  @click="downloadHtmlReportFromMessage(`${message.content}`)"
-                >
-                  <el-icon><Download /></el-icon>
-                  下载HTML报告
-                </el-button>
-              </div>
               <div
                 v-else-if="message.messageType === 'markdown-report'"
                 class="markdown-report-message"
               >
-                <div class="markdown-report-header">
+                <div
+                  class="markdown-report-header"
+                  style="display: flex; justify-content: space-between; align-items: center"
+                >
                   <div class="report-info">
                     <el-icon><Document /></el-icon>
-                    <span>Markdown 报告已生成</span>
+                    <span>报告已生成</span>
                   </div>
-                  <el-button
-                    type="primary"
-                    size="large"
-                    @click="downloadMarkdownReportFromMessage(`${message.content}`)"
-                  >
-                    <el-icon><Download /></el-icon>
-                    下载Markdown报告
-                  </el-button>
+                  <el-button-group size="large">
+                    <el-button
+                      type="primary"
+                      @click="downloadMarkdownReportFromMessage(`${message.content}`)"
+                    >
+                      <el-icon><Download /></el-icon>
+                      下载Markdown报告
+                    </el-button>
+                    <el-button
+                      type="success"
+                      @click="downloadHtmlReportFromMessageByServer(`${message.content}`)"
+                    >
+                      <el-icon><Download /></el-icon>
+                      下载HTML报告
+                    </el-button>
+                  </el-button-group>
                 </div>
                 <div class="markdown-report-content">
-                  <Markdown>
-                    {{ message.content }}
-                  </Markdown>
+                  <markdown-agent-container
+                    class="md-body"
+                    :content="message.content"
+                    :options="options"
+                  />
                 </div>
               </div>
               <!-- 文本类型消息使用原有布局 -->
@@ -136,9 +135,11 @@
                       {{ nodeBlock[0].nodeName }}
                     </div>
                     <div class="agent-response-content">
-                      <Markdown :generating="isStreaming">
-                        {{ getMarkdownContentFromNode(nodeBlock) }}
-                      </Markdown>
+                      <markdown-agent-container
+                        class="md-body"
+                        :content="getMarkdownContentFromNode(nodeBlock)"
+                        :options="options"
+                      />
                     </div>
                   </div>
                   <!-- 如果是 RESULT_SET 节点，使用 ResultSetDisplay 组件 -->
@@ -203,22 +204,6 @@
                   :disabled="isStreaming || showHumanFeedback"
                   @change="handleNl2sqlOnlyChange"
                 />
-              </div>
-              <div class="switch-item">
-                <span class="switch-label">HTML报告</span>
-                <el-tooltip
-                  :content="
-                    requestOptions.nl2sqlOnly
-                      ? '该功能在NL2SQL模式下不能使用'
-                      : '开启HTML报告功能需要使用外部CDN资源，请确保CDN地址能访问，如需自定义详情参考文档配置'
-                  "
-                  placement="top"
-                >
-                  <el-switch
-                    v-model="requestOptions.plainReport"
-                    :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback"
-                  />
-                </el-tooltip>
               </div>
               <div class="switch-item">
                 <span class="switch-label">自动Scroll</span>
@@ -323,7 +308,7 @@
   import HumanFeedback from '@/components/run/HumanFeedback.vue';
   import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
   import PresetQuestions from '@/components/run/PresetQuestions.vue';
-  import Markdown from '@/components/run/Markdown.vue';
+  import MarkdownAgentContainer from '@/components/run/markdown';
   import ResultSetDisplay from '@/components/run/ResultSetDisplay.vue';
 
   // 扩展Window接口以包含自定义方法
@@ -346,7 +331,7 @@
       HumanFeedback,
       ChatSessionSidebar,
       PresetQuestions,
-      Markdown,
+      MarkdownAgentContainer,
       ResultSetDisplay,
     },
     created() {
@@ -420,18 +405,27 @@
         useSessionStateManager();
       const isStreaming = ref(false);
       const nodeBlocks = ref<GraphNodeResponse[][]>([]);
+      const options = ref({
+        markdownIt: {
+          linkify: true,
+        },
+        linkAttributes: {
+          attrs: {
+            target: '_blank',
+            rel: 'noopener',
+          },
+        },
+      });
       const requestOptions = ref({
         humanFeedback: false,
         nl2sqlOnly: false,
-        plainReport: false,
       });
 
       // 监听NL2SQL开关变化
       const handleNl2sqlOnlyChange = (value: boolean) => {
         if (value) {
-          // 当仅NL2SQL开启时，禁用人工反馈和简洁报告，并设为false
+          // 当仅NL2SQL开启时，禁用人工反馈，并设为false
           requestOptions.value.humanFeedback = false;
-          requestOptions.value.plainReport = false;
         }
       };
       const autoScroll = ref(true);
@@ -516,7 +510,6 @@
             query: userInput.value,
             humanFeedback: requestOptions.value.humanFeedback,
             nl2sqlOnly: requestOptions.value.nl2sqlOnly,
-            plainReport: requestOptions.value.plainReport,
             rejectedPlan: false,
             humanFeedbackContent: null,
             threadId: sessionState.lastRequest?.threadId || null,
@@ -586,9 +579,6 @@
               console.error('保存AI消息失败:', error);
             });
           };
-
-          // 反转plainReport的值
-          request.plainReport = !request.plainReport;
 
           // 发送流式请求
           const closeStream = await GraphService.streamSearch(
@@ -848,31 +838,23 @@
         return message.content;
       };
 
-      // 从消息内容下载HTML报告
-      const downloadHtmlReportFromMessage = (content: string) => {
+      // 服务器端下载html报告
+      const downloadHtmlReportFromMessageByServer = async (content: string) => {
         if (!content) {
           ElMessage.warning('没有可下载的HTML报告');
           return;
         }
-
-        // 去除可能的Markdown前后缀
-        if (content.startsWith('```html')) {
-          content = content.substring(7);
+        if (!currentSession.value) {
+          ElMessage.warning('当前没有会话信息');
+          return;
         }
-        if (content.endsWith('```')) {
-          content = content.substring(0, content.length - 3);
+        try {
+          await ChatService.downloadHtmlReport(currentSession.value.id, content);
+          ElMessage.success('HTML报告下载成功');
+        } catch (error) {
+          console.error('下载HTML报告失败:', error);
+          ElMessage.error('下载HTML报告失败');
         }
-
-        const blob = new Blob([content], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `report_${new Date().getTime()}.html`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        ElMessage.success('HTML报告下载成功');
       };
 
       const downloadMarkdownReportFromMessage = (content: string) => {
@@ -1267,6 +1249,7 @@
         showHumanFeedback,
         lastRequest,
         resultSetDisplayConfig,
+        options,
         getMarkdownContentFromNode,
         selectSession,
         sendMessage,
@@ -1274,8 +1257,8 @@
         formatNodeContent,
         generateNodeHtml,
         handleNl2sqlOnlyChange,
-        downloadHtmlReportFromMessage,
         downloadMarkdownReportFromMessage,
+        downloadHtmlReportFromMessageByServer,
         markdownToHtml,
         resetReportState,
         handleHumanFeedback,
