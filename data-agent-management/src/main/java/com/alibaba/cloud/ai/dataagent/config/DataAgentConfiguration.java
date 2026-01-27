@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.config;
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
+import com.alibaba.cloud.ai.dataagent.service.vectorstore.SimpleVectorStoreInitialization;
 import com.alibaba.cloud.ai.dataagent.splitter.SentenceSplitter;
 import com.alibaba.cloud.ai.transformer.splitter.RecursiveCharacterTextSplitter;
 import com.alibaba.cloud.ai.dataagent.splitter.SemanticTextSplitter;
@@ -58,6 +59,7 @@ import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.web.client.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -267,6 +269,13 @@ public class DataAgentConfiguration implements DisposableBean {
 	@ConditionalOnProperty(name = "spring.ai.vectorstore.type", havingValue = "simple", matchIfMissing = true)
 	public VectorStore simpleVectorStore(EmbeddingModel embeddingModel) {
 		return SimpleVectorStore.builder(embeddingModel).build();
+	}
+
+	@Bean
+	@ConditionalOnProperty(name = "spring.ai.vectorstore.type", havingValue = "simple", matchIfMissing = true)
+	@DependsOn("simpleVectorStore")
+	public SimpleVectorStoreInitialization simpleVectorStoreInitialization(SimpleVectorStore vectorStore, DataAgentProperties properties) {
+		return new SimpleVectorStoreInitialization(vectorStore, properties);
 	}
 
 	@Bean
