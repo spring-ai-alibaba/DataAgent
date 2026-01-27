@@ -70,10 +70,6 @@ public class AgentServiceImpl implements AgentService {
 			// Add
 			agent.setCreateTime(now);
 			agent.setUpdateTime(now);
-			// 确保 humanReviewEnabled 不为 null
-			if (agent.getHumanReviewEnabled() == null) {
-				agent.setHumanReviewEnabled(0);
-			}
 			if (agent.getApiKeyEnabled() == null) {
 				agent.setApiKeyEnabled(0);
 			}
@@ -83,10 +79,6 @@ public class AgentServiceImpl implements AgentService {
 		else {
 			// Update
 			agent.setUpdateTime(now);
-			// 确保 humanReviewEnabled 不为 null
-			if (agent.getHumanReviewEnabled() == null) {
-				agent.setHumanReviewEnabled(0);
-			}
 			if (agent.getApiKeyEnabled() == null) {
 				agent.setApiKeyEnabled(0);
 			}

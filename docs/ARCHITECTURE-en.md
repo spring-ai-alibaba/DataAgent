@@ -189,7 +189,7 @@ flowchart TD
 #### Key Points
 
 - **Entry**: Runtime request parameter `humanFeedback=true` (`GraphController` → `GraphServiceImpl`)
-- **Data Field**: `agent.human_review_enabled` is used to save configuration; runtime uses request parameter
+- **Data Field**: `human_review_enabled` uses request parameter
 - **Graph Orchestration**: `PlanExecutorNode` detects `HUMAN_REVIEW_ENABLED`, transitions to `HumanFeedbackNode`
 - **Pause and Resume**: `CompiledGraph` uses `interruptBefore(HUMAN_FEEDBACK_NODE)`, enters "wait" state when no feedback, continues execution through `threadId` when feedback arrives
 - **Feedback Result**: Approve continues execution; Reject returns to `PlannerNode` and triggers replanning

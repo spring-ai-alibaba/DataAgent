@@ -72,7 +72,6 @@ public class MappersTest {
 			.tags("t")
 			.createTime(LocalDateTime.now().withNano(0))
 			.updateTime(LocalDateTime.now().withNano(0))
-			.humanReviewEnabled(0)
 			.build();
 		agentMapper.insert(agent);
 		return agent.getId();
@@ -97,7 +96,6 @@ public class MappersTest {
 			.tags("test")
 			.createTime(LocalDateTime.now().withNano(0))
 			.updateTime(LocalDateTime.now().withNano(0))
-			.humanReviewEnabled(0)
 			.build();
 		int insert = agentMapper.insert(agent);
 		Assertions.assertEquals(1, insert);
