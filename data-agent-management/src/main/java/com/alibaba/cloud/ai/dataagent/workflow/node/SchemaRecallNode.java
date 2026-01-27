@@ -106,8 +106,9 @@ public class SchemaRecallNode implements NodeAction {
 		// metadata中的name字段
 		for (Document document : tableDocuments) {
 			String name = (String) document.getMetadata().get("name");
-			if (name != null && !name.isEmpty())
+			if (name != null && !name.isEmpty()) {
 				tableNames.add(name);
+			}
 		}
 		log.info("At this SchemaRecallNode, Recall tables are: {}", tableNames);
 		return tableNames;
