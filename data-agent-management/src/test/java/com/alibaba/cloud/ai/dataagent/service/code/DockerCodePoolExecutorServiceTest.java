@@ -50,7 +50,9 @@ public class DockerCodePoolExecutorServiceTest {
 
 	@BeforeEach
 	public void init() {
-		this.properties.setCodeTimeout("5s");
+		this.properties.setCoreContainerNum(5);
+		this.properties.setTempContainerNum(5);
+		this.properties.setTaskQueueSize(10);
 		this.properties.setCodePoolExecutor(CodePoolExecutorEnum.DOCKER);
 		this.codePoolExecutorService = new DockerCodePoolExecutorService(properties);
 	}
@@ -143,33 +145,41 @@ public class DockerCodePoolExecutorServiceTest {
 		final int taskNum = 7;
 		CountDownLatch countDownLatch = new CountDownLatch(taskNum);
 		AtomicInteger successTask = new AtomicInteger(0);
+		AtomicInteger failedTask = new AtomicInteger(0);
 
-		Consumer<Consumer<DockerCodePoolExecutorServiceTest>> submitTask = consumer -> {
-			executorService.submit(() -> {
-				try {
-					consumer.accept(this);
-					successTask.incrementAndGet();
-				}
-				catch (Exception e) {
-					throw new RuntimeException(e);
-				}
-				finally {
-					countDownLatch.countDown();
-				}
-			});
-		};
+		try {
+			Consumer<Consumer<DockerCodePoolExecutorServiceTest>> submitTask = consumer -> {
+				executorService.submit(() -> {
+					try {
+						consumer.accept(this);
+						successTask.incrementAndGet();
+					}
+					catch (Exception e) {
+						log.error("Task Failed {}", e.getMessage(), e);
+						failedTask.incrementAndGet();
+					}
+					finally {
+						countDownLatch.countDown();
+					}
+				});
+			};
 
-		submitTask.accept(DockerCodePoolExecutorServiceTest::testNormalCode);
-		submitTask.accept(DockerCodePoolExecutorServiceTest::testPipInstall);
-		submitTask.accept(DockerCodePoolExecutorServiceTest::testTimeoutCode);
-		submitTask.accept(DockerCodePoolExecutorServiceTest::testErrorCode);
-		submitTask.accept(DockerCodePoolExecutorServiceTest::testNeedInput);
-		submitTask.accept(DockerCodePoolExecutorServiceTest::testStudentScoreAnalysis);
-		submitTask.accept(DockerCodePoolExecutorServiceTest::testPandasCode);
+			submitTask.accept(DockerCodePoolExecutorServiceTest::testNormalCode);
+			submitTask.accept(DockerCodePoolExecutorServiceTest::testPipInstall);
+			submitTask.accept(DockerCodePoolExecutorServiceTest::testTimeoutCode);
+			submitTask.accept(DockerCodePoolExecutorServiceTest::testErrorCode);
+			submitTask.accept(DockerCodePoolExecutorServiceTest::testNeedInput);
+			submitTask.accept(DockerCodePoolExecutorServiceTest::testStudentScoreAnalysis);
+			submitTask.accept(DockerCodePoolExecutorServiceTest::testPandasCode);
 
-		assert countDownLatch.await(600L, TimeUnit.SECONDS);
-		log.info("Success Task Number: {}", successTask.get());
-		Assertions.assertEquals(taskNum, successTask.get());
+			assert countDownLatch.await(70L, TimeUnit.SECONDS);
+			log.info("Success Task Number: {},Failed Task Number: {}", successTask.get(), failedTask.get());
+			Assertions.assertEquals(taskNum, successTask.get());
+		}
+		finally {
+			executorService.shutdown();
+		}
+
 	}
 
 }
