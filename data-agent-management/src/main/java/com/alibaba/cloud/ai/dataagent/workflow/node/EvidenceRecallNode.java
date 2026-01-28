@@ -244,7 +244,7 @@ public class EvidenceRecallNode implements NodeAction {
 	private void processFaqOrQaKnowledge(Document doc, int index, StringBuilder result) {
 		Map<String, Object> metadata = doc.getMetadata();
 		String content = doc.getText();
-		Integer knowledgeId = (Integer) metadata.get(DocumentMetadataConstant.DB_AGENT_KNOWLEDGE_ID);
+		Integer knowledgeId = ((Number) metadata.get(DocumentMetadataConstant.DB_AGENT_KNOWLEDGE_ID)).intValue();
 		String knowledgeType = (String) metadata.get(DocumentMetadataConstant.CONCRETE_AGENT_KNOWLEDGE_TYPE);
 
 		log.debug("Processing {} type knowledge with id: {}", knowledgeType, knowledgeId);
