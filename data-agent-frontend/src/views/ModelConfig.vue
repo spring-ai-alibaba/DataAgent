@@ -214,12 +214,11 @@
 
           <el-form-item label="API密钥" prop="apiKey" :required="formData.provider !== 'custom'">
             <el-input
-                v-model="formData.apiKey"
-                type="password"
-                show-password
-                :placeholder="formData.provider === 'custom' ? '可选填' : '请输入API密钥'"
+              v-model="formData.apiKey"
+              type="password"
+              show-password
+              :placeholder="formData.provider === 'custom' ? '可选填' : '请输入API密钥'"
             />
-
           </el-form-item>
 
           <el-form-item label="Base URL" prop="baseUrl">
