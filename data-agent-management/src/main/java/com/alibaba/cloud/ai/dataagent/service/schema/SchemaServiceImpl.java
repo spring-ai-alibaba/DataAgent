@@ -89,14 +89,14 @@ public class SchemaServiceImpl implements SchemaService {
 		List<Document> mutableColumnDocuments = new ArrayList<>(currentColumnDocuments);
 		List<Document> mutableTableDocuments = new ArrayList<>(tableDocuments);
 
-		// 从 tableDocuments 中提取 datasourceIds
-		List<Integer> datasourceIds = mutableTableDocuments.stream()
+		// 从 tableDocuments 中提取 datasourceId
+		Integer datasourceId = mutableTableDocuments.stream()
 			.map(doc -> doc.getMetadata().get(Constant.DATASOURCE_ID))
 			.filter(Objects::nonNull)
 			.map(Object::toString)
 			.map(Integer::valueOf)
-			.distinct()
-			.collect(Collectors.toList());
+			.findFirst()
+			.orElse(null);
 
 		// 如果外键关系是"订单表.订单ID=订单详情表.订单ID"，那么 relatedNamesFromForeignKeys
 		// 将包含"订单表.订单ID"和"订单详情表.订单ID"
@@ -105,9 +105,9 @@ public class SchemaServiceImpl implements SchemaService {
 		// 通过外键加载缺失的表和列
 		List<String> missingTables = getMissingTableNamesWithForeignKeySet(mutableTableDocuments,
 				relatedNamesFromForeignKeys);
-		if (!missingTables.isEmpty() && !datasourceIds.isEmpty()) {
-			loadMissingTableDocuments(datasourceIds, mutableTableDocuments, missingTables);
-			loadMissingColDocForMissingTables(datasourceIds, mutableColumnDocuments, missingTables);
+		if (!missingTables.isEmpty() && datasourceId != null) {
+			loadMissingTableDocuments(datasourceId, mutableTableDocuments, missingTables);
+			loadMissingColDocForMissingTables(datasourceId, mutableColumnDocuments, missingTables);
 		}
 
 		// Build table list
@@ -328,16 +328,13 @@ public class SchemaServiceImpl implements SchemaService {
 		return new ArrayList<>(missingTables);
 	}
 
-	private void loadMissingTableDocuments(List<Integer> datasourceIds, List<Document> tableDocuments,
+	private void loadMissingTableDocuments(Integer datasourceId, List<Document> tableDocuments,
 			List<String> missingTableNames) {
 		// 加载缺失的表文档
-		List<Document> foundTableDocs = new ArrayList<>();
-		for (Integer datasourceId : datasourceIds) {
-			foundTableDocs.addAll(this.getTableDocuments(datasourceId, missingTableNames));
-		}
+		List<Document> foundTableDocs = this.getTableDocuments(datasourceId, missingTableNames);
 		if (foundTableDocs.size() > missingTableNames.size())
-			log.error("When we search missing tables:{},  more than expected tables for datasources: {}",
-					missingTableNames, datasourceIds);
+			log.error("When we search missing tables:{},  more than expected tables for datasource: {}",
+					missingTableNames, datasourceId);
 
 		if (!foundTableDocs.isEmpty()) {
 			// 使用公共方法添加去重后的文档
@@ -345,13 +342,10 @@ public class SchemaServiceImpl implements SchemaService {
 		}
 	}
 
-	private void loadMissingColDocForMissingTables(List<Integer> datasourceIds, List<Document> curColDocs,
+	private void loadMissingColDocForMissingTables(Integer datasourceId, List<Document> curColDocs,
 			List<String> missingTableNames) {
 		// 加载缺失的列文档
-		List<Document> foundColumnDocs = new ArrayList<>();
-		for (Integer datasourceId : datasourceIds) {
-			foundColumnDocs.addAll(this.getColumnDocumentsByTableName(datasourceId, missingTableNames));
-		}
+		List<Document> foundColumnDocs = this.getColumnDocumentsByTableName(datasourceId, missingTableNames);
 		if (!foundColumnDocs.isEmpty()) {
 			// 使用公共方法添加去重后的文档
 			addUniqueDocuments(curColDocs, foundColumnDocs, DocumentMetadataConstant.COLUMN, missingTableNames);

@@ -67,11 +67,11 @@ public class SchemaRecallNode implements NodeAction {
 		String input = queryEnhanceOutputDTO.getCanonicalQuery();
 		String agentId = StateUtil.getStringValue(state, AGENT_ID);
 
-		// 查询 Agent 的所有激活数据源
-		List<Integer> datasourceIds = agentDatasourceMapper.selectActiveDatasourceIdsByAgentId(Long.valueOf(agentId));
+		// 查询 Agent 的激活数据源
+		Integer datasourceId = agentDatasourceMapper.selectActiveDatasourceIdByAgentId(Long.valueOf(agentId));
 
-		if (datasourceIds.isEmpty()) {
-			log.warn("Agent {} has no active datasources", agentId);
+		if (datasourceId == null) {
+			log.warn("Agent {} has no active datasource", agentId);
 			// 返回空结果
 			String noDataSourceMessage = """
 					\n 该智能体没有激活的数据源
@@ -99,10 +99,10 @@ public class SchemaRecallNode implements NodeAction {
 
 		// Execute business logic first - recall schema information immediately
 		List<Document> tableDocuments = new ArrayList<>(
-				schemaService.getTableDocumentsByDatasources(datasourceIds.get(0), input));
+				schemaService.getTableDocumentsByDatasources(datasourceId, input));
 		// extract table names
 		List<String> recalledTableNames = extractTableName(tableDocuments);
-		List<Document> columnDocuments = schemaService.getColumnDocumentsByTableName(datasourceIds.get(0), recalledTableNames);
+		List<Document> columnDocuments = schemaService.getColumnDocumentsByTableName(datasourceId, recalledTableNames);
 
 		String failMessage = """
 				\n 未检索到相关数据表
