@@ -212,12 +212,12 @@
             />
           </el-form-item>
 
-          <el-form-item label="API密钥" prop="apiKey">
+          <el-form-item label="API密钥" prop="apiKey" :required="formData.provider !== 'custom'">
             <el-input
               v-model="formData.apiKey"
               type="password"
               show-password
-              placeholder="请输入API密钥"
+              :placeholder="formData.provider === 'custom' ? '可选填' : '请输入API密钥'"
             />
           </el-form-item>
 
@@ -346,7 +346,20 @@
         provider: [{ required: true, message: '请选择提供商', trigger: 'change' }],
         modelType: [{ required: true, message: '请选择模型类型', trigger: 'change' }],
         modelName: [{ required: true, message: '请输入模型名称', trigger: 'blur' }],
-        apiKey: [{ required: true, message: '请输入API密钥', trigger: 'blur' }],
+        apiKey: [
+          {
+            validator: (_rule, value, callback) => {
+              if (formData.value.provider === 'custom') {
+                callback();
+              } else if (!value || value.trim() === '') {
+                callback(new Error('请输入API密钥'));
+              } else {
+                callback();
+              }
+            },
+            trigger: 'blur',
+          },
+        ],
         baseUrl: [{ required: true, message: '请输入API地址', trigger: 'blur' }],
         temperature: [
           { type: 'number', min: 0, max: 2, message: '温度值必须在0-2之间', trigger: 'blur' },
