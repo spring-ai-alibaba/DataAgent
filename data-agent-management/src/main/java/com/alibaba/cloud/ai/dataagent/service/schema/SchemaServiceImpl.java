@@ -284,8 +284,8 @@ public class SchemaServiceImpl implements SchemaService {
 	}
 
 	@Override
-	public List<Document> getTableDocumentsByDatasources(List<Integer> datasourceIds, String query) {
-		Assert.notEmpty(datasourceIds, "datasourceIds cannot be empty");
+	public List<Document> getTableDocumentsByDatasources(Integer datasourceId, String query) {
+		Assert.notNull(datasourceId, "datasourceId cannot be null");
 		int tableTopK = dataAgentProperties.getVectorStore().getTableTopkLimit();
 		double tableThreshold = dataAgentProperties.getVectorStore().getTableSimilarityThreshold();
 
@@ -293,13 +293,7 @@ public class SchemaServiceImpl implements SchemaService {
 		FilterExpressionBuilder b = new FilterExpressionBuilder();
 		List<Filter.Expression> conditions = new ArrayList<>();
 
-		if (datasourceIds.size() == 1) {
-			conditions.add(b.eq(Constant.DATASOURCE_ID, datasourceIds.get(0).toString()).build());
-		}
-		else {
-			conditions
-				.add(b.in(Constant.DATASOURCE_ID, datasourceIds.stream().map(Object::toString).toArray()).build());
-		}
+		conditions.add(b.eq(Constant.DATASOURCE_ID, datasourceId.toString()).build());
 		conditions.add(b.eq(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.TABLE).build());
 
 		Filter.Expression filterExpression = DynamicFilterService.combineWithAnd(conditions);
@@ -337,7 +331,10 @@ public class SchemaServiceImpl implements SchemaService {
 	private void loadMissingTableDocuments(List<Integer> datasourceIds, List<Document> tableDocuments,
 			List<String> missingTableNames) {
 		// 加载缺失的表文档
-		List<Document> foundTableDocs = this.getTableDocuments(datasourceIds, missingTableNames);
+		List<Document> foundTableDocs = new ArrayList<>();
+		for (Integer datasourceId : datasourceIds) {
+			foundTableDocs.addAll(this.getTableDocuments(datasourceId, missingTableNames));
+		}
 		if (foundTableDocs.size() > missingTableNames.size())
 			log.error("When we search missing tables:{},  more than expected tables for datasources: {}",
 					missingTableNames, datasourceIds);
@@ -351,7 +348,10 @@ public class SchemaServiceImpl implements SchemaService {
 	private void loadMissingColDocForMissingTables(List<Integer> datasourceIds, List<Document> curColDocs,
 			List<String> missingTableNames) {
 		// 加载缺失的列文档
-		List<Document> foundColumnDocs = this.getColumnDocumentsByTableName(datasourceIds, missingTableNames);
+		List<Document> foundColumnDocs = new ArrayList<>();
+		for (Integer datasourceId : datasourceIds) {
+			foundColumnDocs.addAll(this.getColumnDocumentsByTableName(datasourceId, missingTableNames));
+		}
 		if (!foundColumnDocs.isEmpty()) {
 			// 使用公共方法添加去重后的文档
 			addUniqueDocuments(curColDocs, foundColumnDocs, DocumentMetadataConstant.COLUMN, missingTableNames);
@@ -494,12 +494,12 @@ public class SchemaServiceImpl implements SchemaService {
 	}
 
 	@Override
-	public List<Document> getTableDocuments(List<Integer> datasourceIds, List<String> tableNames) {
-		Assert.notEmpty(datasourceIds, "DatasourceIds cannot be empty.");
+	public List<Document> getTableDocuments(Integer datasourceId, List<String> tableNames) {
+		Assert.notNull(datasourceId, "DatasourceId cannot be null.");
 		if (tableNames.isEmpty())
 			return Collections.emptyList();
 		// 通过元数据过滤查找目标表
-		Filter.Expression filterExpression = DynamicFilterService.buildFilterExpressionForSearchTables(datasourceIds,
+		Filter.Expression filterExpression = DynamicFilterService.buildFilterExpressionForSearchTables(datasourceId,
 				tableNames);
 		if (filterExpression == null) {
 			log.error("FilterExpression is null.This should not happen when tableNames is not Empty, ");
@@ -509,13 +509,13 @@ public class SchemaServiceImpl implements SchemaService {
 	}
 
 	@Override
-	public List<Document> getColumnDocumentsByTableName(List<Integer> datasourceIds, List<String> tableNames) {
-		Assert.notEmpty(datasourceIds, "DatasourceIds cannot be empty.");
+	public List<Document> getColumnDocumentsByTableName(Integer datasourceId, List<String> tableNames) {
+		Assert.notNull(datasourceId, "DatasourceId cannot be null.");
 		if (tableNames.isEmpty()) {
 			log.warn("TableNames is empty.We need talbeNames to search their columns");
 			return Collections.emptyList();
 		}
-		Filter.Expression filterExpression = dynamicFilterService.buildFilterExpressionForSearchColumns(datasourceIds,
+		Filter.Expression filterExpression = dynamicFilterService.buildFilterExpressionForSearchColumns(datasourceId,
 				tableNames);
 		if (filterExpression == null) {
 			log.error("FilterExpression is null.This should not happen when tableNames is not Empty, ");
