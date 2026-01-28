@@ -35,49 +35,52 @@ import java.nio.file.Paths;
 @RequiredArgsConstructor
 public class SimpleVectorStoreInitialization implements ApplicationRunner, DisposableBean {
 
-    private final SimpleVectorStore vectorStore;
-    private final DataAgentProperties properties;
+	private final SimpleVectorStore vectorStore;
 
-    public void load() {
-        File file = new File(properties.getVectorStore().getFilePath());
+	private final DataAgentProperties properties;
 
-        if (!file.exists()) {
-            log.info("No locally serialized vector database file was found.");
-            return;
-        }
+	public void load() {
+		File file = new File(properties.getVectorStore().getFilePath());
 
-        try {
-            vectorStore.load(file);
-        } catch (Throwable throwable) {
-            log.error("Failed to load the locally serialized vector database file.", throwable);
-        }
-    }
+		if (!file.exists()) {
+			log.info("No locally serialized vector database file was found.");
+			return;
+		}
 
-    public void save() {
-        log.info("Serialize the vector database to a local file.");
-        Path path = Paths.get(properties.getVectorStore().getFilePath());
+		try {
+			vectorStore.load(file);
+		}
+		catch (Throwable throwable) {
+			log.error("Failed to load the locally serialized vector database file.", throwable);
+		}
+	}
 
-        try {
-            Files.createDirectories(path.getParent());
+	public void save() {
+		log.info("Serialize the vector database to a local file.");
+		Path path = Paths.get(properties.getVectorStore().getFilePath());
 
-            if (!Files.exists(path)) {
-                Files.createFile(path);
-            }
+		try {
+			Files.createDirectories(path.getParent());
 
-            vectorStore.save(path.toFile());
-        } catch (Throwable t) {
-            log.error("An exception occurred while serializing the vector database to a local file.", t);
-        }
-    }
+			if (!Files.exists(path)) {
+				Files.createFile(path);
+			}
 
+			vectorStore.save(path.toFile());
+		}
+		catch (Throwable t) {
+			log.error("An exception occurred while serializing the vector database to a local file.", t);
+		}
+	}
 
-    @Override
-    public void run(ApplicationArguments args) throws Exception {
-        this.load();
-    }
+	@Override
+	public void run(ApplicationArguments args) throws Exception {
+		this.load();
+	}
 
-    @Override
-    public void destroy() {
-        this.save();
-    }
+	@Override
+	public void destroy() {
+		this.save();
+	}
+
 }

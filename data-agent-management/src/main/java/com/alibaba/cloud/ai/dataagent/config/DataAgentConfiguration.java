@@ -274,7 +274,8 @@ public class DataAgentConfiguration implements DisposableBean {
 	@Bean
 	@ConditionalOnProperty(name = "spring.ai.vectorstore.type", havingValue = "simple", matchIfMissing = true)
 	@DependsOn("simpleVectorStore")
-	public SimpleVectorStoreInitialization simpleVectorStoreInitialization(SimpleVectorStore vectorStore, DataAgentProperties properties) {
+	public SimpleVectorStoreInitialization simpleVectorStoreInitialization(SimpleVectorStore vectorStore,
+			DataAgentProperties properties) {
 		return new SimpleVectorStoreInitialization(vectorStore, properties);
 	}
 
