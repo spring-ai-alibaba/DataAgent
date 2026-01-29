@@ -38,6 +38,10 @@ public interface AgentDatasourceMapper {
 	@Select("SELECT * FROM agent_datasource WHERE agent_id = #{agentId} ORDER BY create_time DESC")
 	List<AgentDatasource> selectByAgentId(@Param("agentId") Long agentId);
 
+	/** Query active datasource ID by agent ID */
+	@Select("SELECT datasource_id FROM agent_datasource WHERE agent_id = #{agentId} AND is_active = 1")
+	Integer selectActiveDatasourceIdByAgentId(@Param("agentId") Long agentId);
+
 	/** Query association by agent ID and data source ID */
 	@Select("SELECT * FROM agent_datasource WHERE agent_id = #{agentId} AND datasource_id = #{datasourceId}")
 	AgentDatasource selectByAgentIdAndDatasourceId(@Param("agentId") Long agentId,

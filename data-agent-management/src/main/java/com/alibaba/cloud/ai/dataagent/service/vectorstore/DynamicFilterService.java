@@ -197,12 +197,13 @@ public class DynamicFilterService {
 		return escaped;
 	}
 
-	public static Filter.Expression buildFilterExpressionForSearchTables(String agentId, List<String> tableNames) {
+	public static Filter.Expression buildFilterExpressionForSearchTables(Integer datasourceId,
+			List<String> tableNames) {
 		FilterExpressionBuilder b = new FilterExpressionBuilder();
 		List<Filter.Expression> conditions = new ArrayList<>();
 
-		// 1. 基础条件：agentId
-		conditions.add(b.eq(Constant.AGENT_ID, agentId).build());
+		// 1. 基础条件：datasourceId
+		conditions.add(b.eq(Constant.DATASOURCE_ID, datasourceId.toString()).build());
 
 		// 2. 基础条件：vectorType = TABLE
 		conditions.add(b.eq(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.TABLE).build());
@@ -218,7 +219,8 @@ public class DynamicFilterService {
 		return combineWithAnd(conditions);
 	}
 
-	public Filter.Expression buildFilterExpressionForSearchColumns(String agentId, List<String> upstreamTableNames) {
+	public Filter.Expression buildFilterExpressionForSearchColumns(Integer datasourceId,
+			List<String> upstreamTableNames) {
 		if (upstreamTableNames == null || upstreamTableNames.isEmpty()) {
 			log.warn("Upstream table names list is empty. Returning empty filter signal.");
 			return null;
@@ -227,8 +229,8 @@ public class DynamicFilterService {
 		FilterExpressionBuilder b = new FilterExpressionBuilder();
 		List<Filter.Expression> conditions = new ArrayList<>();
 
-		// 1. AgentId 条件
-		conditions.add(b.eq(Constant.AGENT_ID, agentId).build());
+		// 1. DatasourceId 条件
+		conditions.add(b.eq(Constant.DATASOURCE_ID, datasourceId.toString()).build());
 
 		// 2. VectorType 条件
 		conditions.add(b.eq(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.COLUMN).build());

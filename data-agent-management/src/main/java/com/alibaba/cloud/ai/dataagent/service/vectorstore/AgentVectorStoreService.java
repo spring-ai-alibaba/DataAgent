@@ -33,6 +33,8 @@ public interface AgentVectorStoreService {
 
 	Boolean deleteDocumentsByMetedata(String agentId, Map<String, Object> metadata);
 
+	Boolean deleteDocumentsByMetadata(Map<String, Object> metadata);
+
 	/**
 	 * Get documents for specified agent
 	 */
