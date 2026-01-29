@@ -28,7 +28,7 @@ import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.OTHERS;
 @Service("oracleJdbcConnectionPool")
 public class OracleJdbcConnectionPool extends AbstractDBConnectionPool {
 
-	private final static String DRIVER = "com.mysql.cj.jdbc.Driver";
+	private final static String DRIVER = "oracle.jdbc.OracleDriver";
 
 	@Override
 	public String getDriver() {

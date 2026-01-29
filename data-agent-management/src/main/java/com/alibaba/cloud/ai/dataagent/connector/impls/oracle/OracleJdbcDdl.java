@@ -107,9 +107,9 @@ public class OracleJdbcDdl extends AbstractJdbcDdl {
 		try {
 			String ownerSchema = getSchema(connection, schema);
 			StringBuilder sql = new StringBuilder();
-			sql.append("SELECT t.TABLE_NAME, c.COMMENTS FROM USER_TABLES t ");
-			sql.append("LEFT JOIN USER_TAB_COMMENTS c ON t.TABLE_NAME = c.TABLE_NAME ");
-			sql.append("WHERE 1=1 ");
+			sql.append("SELECT t.TABLE_NAME, c.COMMENTS FROM ALL_TABLES t ");
+			sql.append("LEFT JOIN ALL_TAB_COMMENTS c ON t.TABLE_NAME = c.TABLE_NAME AND t.OWNER = c.OWNER ");
+			sql.append("WHERE t.OWNER = '").append(ownerSchema).append("' ");
 
 			if (StringUtils.isNotBlank(tablePattern)) {
 				sql.append("AND t.TABLE_NAME LIKE '%").append(tablePattern.toUpperCase()).append("%' ");
@@ -151,11 +151,10 @@ public class OracleJdbcDdl extends AbstractJdbcDdl {
 				.map(x -> "'" + x.toUpperCase() + "'")
 				.collect(Collectors.joining(", "));
 
-			String sql = String.format(
-					"SELECT t.TABLE_NAME, c.COMMENTS FROM USER_TABLES t "
-							+ "LEFT JOIN USER_TAB_COMMENTS c ON t.TABLE_NAME = c.TABLE_NAME "
-							+ "WHERE t.TABLE_NAME IN (%s) " + "AND ROWNUM <= 200 " + "ORDER BY t.TABLE_NAME",
-					tableListStr);
+			String sql = String.format("SELECT t.TABLE_NAME, c.COMMENTS FROM ALL_TABLES t "
+					+ "LEFT JOIN ALL_TAB_COMMENTS c ON t.TABLE_NAME = c.TABLE_NAME AND t.OWNER = c.OWNER "
+					+ "WHERE t.OWNER = '%s' AND t.TABLE_NAME IN (%s) " + "AND ROWNUM <= 200 " + "ORDER BY t.TABLE_NAME",
+					ownerSchema, tableListStr);
 
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, sql);
 			if (resultArr.length <= 1) {
@@ -186,15 +185,17 @@ public class OracleJdbcDdl extends AbstractJdbcDdl {
 			String upperTable = table.toUpperCase();
 
 			String sql = String.format("SELECT " + "    c.COLUMN_NAME, " + "    cc.COMMENTS, " + "    c.DATA_TYPE, "
-					+ "    CASE WHEN EXISTS ( " + "        SELECT 1 FROM USER_CONSTRAINTS uc "
-					+ "        JOIN USER_CONS_COLUMNS ucc ON uc.CONSTRAINT_NAME = ucc.CONSTRAINT_NAME "
-					+ "        WHERE uc.CONSTRAINT_TYPE = 'P' " + "            AND uc.TABLE_NAME = c.TABLE_NAME "
+					+ "    CASE WHEN EXISTS ( " + "        SELECT 1 FROM ALL_CONSTRAINTS uc "
+					+ "        JOIN ALL_CONS_COLUMNS ucc ON uc.CONSTRAINT_NAME = ucc.CONSTRAINT_NAME AND uc.OWNER = ucc.OWNER "
+					+ "        WHERE uc.CONSTRAINT_TYPE = 'P' " + "            AND uc.OWNER = '%s' "
+					+ "            AND uc.TABLE_NAME = c.TABLE_NAME "
 					+ "            AND ucc.COLUMN_NAME = c.COLUMN_NAME "
 					+ "    ) THEN 'true' ELSE 'false' END AS IS_PRIMARY, "
 					+ "    CASE WHEN c.NULLABLE = 'N' THEN 'true' ELSE 'false' END AS IS_NOT_NULL "
-					+ "FROM USER_TAB_COLUMNS c " + "LEFT JOIN USER_COL_COMMENTS cc ON c.TABLE_NAME = cc.TABLE_NAME "
-					+ "    AND c.COLUMN_NAME = cc.COLUMN_NAME " + "WHERE c.TABLE_NAME = '%s' " + "ORDER BY c.COLUMN_ID",
-					upperTable);
+					+ "FROM ALL_TAB_COLUMNS c " + "LEFT JOIN ALL_COL_COMMENTS cc ON c.TABLE_NAME = cc.TABLE_NAME "
+					+ "    AND c.OWNER = cc.OWNER AND c.COLUMN_NAME = cc.COLUMN_NAME "
+					+ "WHERE c.OWNER = '%s' AND c.TABLE_NAME = '%s' " + "ORDER BY c.COLUMN_ID", ownerSchema,
+					ownerSchema, upperTable);
 
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, null, sql);
 			if (resultArr.length <= 1) {
@@ -234,17 +235,17 @@ public class OracleJdbcDdl extends AbstractJdbcDdl {
 				.map(x -> "'" + x.toUpperCase() + "'")
 				.collect(Collectors.joining(", "));
 
-			String sql = String.format(
-					"SELECT " + "    ucc1.TABLE_NAME, " + "    ucc1.COLUMN_NAME, " + "    uc.CONSTRAINT_NAME, "
-							+ "    ucc2.TABLE_NAME AS REFERENCED_TABLE_NAME, "
-							+ "    ucc2.COLUMN_NAME AS REFERENCED_COLUMN_NAME " + "FROM USER_CONSTRAINTS uc "
-							+ "JOIN USER_CONS_COLUMNS ucc1 ON uc.CONSTRAINT_NAME = ucc1.CONSTRAINT_NAME "
-							+ "JOIN USER_CONSTRAINTS uc_ref ON uc.R_CONSTRAINT_NAME = uc_ref.CONSTRAINT_NAME "
-							+ "JOIN USER_CONS_COLUMNS ucc2 ON uc_ref.CONSTRAINT_NAME = ucc2.CONSTRAINT_NAME "
-							+ "    AND ucc1.POSITION = ucc2.POSITION " + "WHERE uc.CONSTRAINT_TYPE = 'R' "
-							+ "    AND ucc1.TABLE_NAME IN (%s) " + "    AND ucc2.TABLE_NAME IN (%s) "
-							+ "ORDER BY ucc1.TABLE_NAME, uc.CONSTRAINT_NAME, ucc1.POSITION",
-					tableListStr, tableListStr);
+			String sql = String.format("SELECT " + "    ucc1.TABLE_NAME, " + "    ucc1.COLUMN_NAME, "
+					+ "    uc.CONSTRAINT_NAME, " + "    ucc2.TABLE_NAME AS REFERENCED_TABLE_NAME, "
+					+ "    ucc2.COLUMN_NAME AS REFERENCED_COLUMN_NAME " + "FROM ALL_CONSTRAINTS uc "
+					+ "JOIN ALL_CONS_COLUMNS ucc1 ON uc.CONSTRAINT_NAME = ucc1.CONSTRAINT_NAME AND uc.OWNER = ucc1.OWNER "
+					+ "JOIN ALL_CONSTRAINTS uc_ref ON uc.R_CONSTRAINT_NAME = uc_ref.CONSTRAINT_NAME AND uc.R_OWNER = uc_ref.OWNER "
+					+ "JOIN ALL_CONS_COLUMNS ucc2 ON uc_ref.CONSTRAINT_NAME = ucc2.CONSTRAINT_NAME AND uc_ref.OWNER = ucc2.OWNER "
+					+ "    AND ucc1.POSITION = ucc2.POSITION " + "WHERE uc.CONSTRAINT_TYPE = 'R' "
+					+ "    AND uc.OWNER = '%s' " + "    AND ucc1.TABLE_NAME IN (%s) "
+					+ "    AND ucc2.TABLE_NAME IN (%s) "
+					+ "ORDER BY ucc1.TABLE_NAME, uc.CONSTRAINT_NAME, ucc1.POSITION", ownerSchema, tableListStr,
+					tableListStr);
 
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, null, sql);
 			if (resultArr.length <= 1) {
