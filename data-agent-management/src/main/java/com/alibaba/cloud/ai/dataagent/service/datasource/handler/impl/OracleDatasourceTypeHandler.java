@@ -55,7 +55,8 @@ public class OracleDatasourceTypeHandler implements DatasourceTypeHandler {
 				return parts[1]; // Return the schema name
 			}
 		}
-		// If no schema specified, return null to let OracleJdbcDdl.getSchema() use getUserName()
+		// If no schema specified, return null to let OracleJdbcDdl.getSchema() use
+		// getUserName()
 		return null;
 	}
 

@@ -68,7 +68,6 @@ public class SqlExecutor {
 				}
 			}
 
-
 			try (ResultSet rs = statement.executeQuery(sql)) {
 				return ResultSetBuilder.buildFrom(rs, schema);
 			}
