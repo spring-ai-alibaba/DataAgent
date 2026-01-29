@@ -313,7 +313,10 @@
               />
             </div>
           </el-col>
-          <el-col :span="12" v-if="newDatasource.type === 'postgresql' || newDatasource.type === 'oracle'">
+          <el-col
+            :span="12"
+            v-if="newDatasource.type === 'postgresql' || newDatasource.type === 'oracle'"
+          >
             <div class="form-item">
               <label>Schema 名 *</label>
               <el-input
@@ -444,7 +447,10 @@
           />
         </div>
       </el-col>
-      <el-col :span="12" v-if="editingDatasource.type === 'postgresql' || editingDatasource.type === 'oracle'">
+      <el-col
+        :span="12"
+        v-if="editingDatasource.type === 'postgresql' || editingDatasource.type === 'oracle'"
+      >
         <div class="form-item">
           <label>Schema 名 *</label>
           <el-input
@@ -1088,7 +1094,8 @@
       };
 
       const createNewDatasource = async () => {
-        const needsSchema = newDatasource.value.type === 'postgresql' || newDatasource.value.type === 'oracle';
+        const needsSchema =
+          newDatasource.value.type === 'postgresql' || newDatasource.value.type === 'oracle';
         const formErrors: string[] = validateDatasourceForm(
           newDatasource.value,
           needsSchema,
@@ -1120,7 +1127,9 @@
       const editDatasource = (row: Datasource) => {
         editingDatasource.value = JSON.parse(JSON.stringify(row));
         // 如果是PostgreSQL或Oracle，分离数据库名和schema名
-        const needsSchema = editingDatasource.value.type === 'postgresql' || editingDatasource.value.type === 'oracle';
+        const needsSchema =
+          editingDatasource.value.type === 'postgresql' ||
+          editingDatasource.value.type === 'oracle';
         if (needsSchema && editingDatasource.value.databaseName) {
           const parts = editingDatasource.value.databaseName.split('|');
           if (parts.length === 2) {
@@ -1136,7 +1145,9 @@
       };
 
       const saveEditDatasource = async () => {
-        const needsSchema = editingDatasource.value.type === 'postgresql' || editingDatasource.value.type === 'oracle';
+        const needsSchema =
+          editingDatasource.value.type === 'postgresql' ||
+          editingDatasource.value.type === 'oracle';
         const formErrors: string[] = validateDatasourceForm(
           editingDatasource.value,
           needsSchema,
