@@ -52,6 +52,7 @@ import org.springframework.aop.TargetSource;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -267,13 +268,12 @@ public class DataAgentConfiguration implements DisposableBean {
 	@Bean
 	@ConditionalOnMissingBean(VectorStore.class)
 	@ConditionalOnProperty(name = "spring.ai.vectorstore.type", havingValue = "simple", matchIfMissing = true)
-	public VectorStore simpleVectorStore(EmbeddingModel embeddingModel) {
+	public SimpleVectorStore simpleVectorStore(EmbeddingModel embeddingModel) {
 		return SimpleVectorStore.builder(embeddingModel).build();
 	}
 
 	@Bean
-	@ConditionalOnProperty(name = "spring.ai.vectorstore.type", havingValue = "simple", matchIfMissing = true)
-	@DependsOn("simpleVectorStore")
+	@ConditionalOnBean(SimpleVectorStore.class)
 	public SimpleVectorStoreInitialization simpleVectorStoreInitialization(SimpleVectorStore vectorStore,
 			DataAgentProperties properties) {
 		return new SimpleVectorStoreInitialization(vectorStore, properties);
