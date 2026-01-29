@@ -313,10 +313,14 @@
               />
             </div>
           </el-col>
-          <el-col :span="12" v-if="newDatasource.type === 'postgresql'">
+          <el-col :span="12" v-if="newDatasource.type === 'postgresql' || newDatasource.type === 'oracle'">
             <div class="form-item">
               <label>Schema 名 *</label>
-              <el-input v-model="pgSchema" placeholder="例如：public" size="large" />
+              <el-input
+                v-model="schemaName"
+                :placeholder="newDatasource.type === 'postgresql' ? '例如：public' : '例如：SYSTEM'"
+                size="large"
+              />
             </div>
           </el-col>
         </el-row>
@@ -440,10 +444,14 @@
           />
         </div>
       </el-col>
-      <el-col :span="12" v-if="editingDatasource.type === 'postgresql'">
+      <el-col :span="12" v-if="editingDatasource.type === 'postgresql' || editingDatasource.type === 'oracle'">
         <div class="form-item">
           <label>Schema 名 *</label>
-          <el-input v-model="pgSchemaEdit" placeholder="例如：public" size="large" />
+          <el-input
+            v-model="schemaNameEdit"
+            :placeholder="editingDatasource.type === 'postgresql' ? '例如：public' : '例如：SYSTEM'"
+            size="large"
+          />
         </div>
       </el-col>
     </el-row>
@@ -817,9 +825,9 @@
       const editDialogVisible: Ref<boolean> = ref(false);
       const editingDatasource: Ref<Datasource> = ref({} as Datasource);
 
-      // PostgreSQL 额外的schema字段
-      const pgSchema: Ref<string> = ref('');
-      const pgSchemaEdit: Ref<string> = ref('');
+      // PostgreSQL/Oracle 额外的schema字段
+      const schemaName: Ref<string> = ref('');
+      const schemaNameEdit: Ref<string> = ref('');
 
       // 数据表管理相关状态
       const tableLists: Ref<Record<number, string[]>> = ref({});
@@ -850,7 +858,7 @@
         if (newValue) {
           loadAllDatasource();
           newDatasource.value = { port: 3306 } as Datasource;
-          pgSchema.value = '';
+          schemaName.value = '';
         }
       });
 
@@ -1039,8 +1047,8 @@
 
       const validateDatasourceForm = (
         datasourceForm: Datasource,
-        isPostgres: boolean = false,
-        pgSchemaValue: string = '',
+        needsSchema: boolean = false,
+        schemaValue: string = '',
       ): string[] => {
         const errors: string[] = [];
 
@@ -1064,7 +1072,7 @@
           errors.push('数据库名不能为空');
         }
 
-        if (isPostgres && (!pgSchemaValue || pgSchemaValue.trim() === '')) {
+        if (needsSchema && (!schemaValue || schemaValue.trim() === '')) {
           errors.push('Schema 名不能为空');
         }
 
@@ -1080,20 +1088,20 @@
       };
 
       const createNewDatasource = async () => {
-        const isPostgres = newDatasource.value.type === 'postgresql';
+        const needsSchema = newDatasource.value.type === 'postgresql' || newDatasource.value.type === 'oracle';
         const formErrors: string[] = validateDatasourceForm(
           newDatasource.value,
-          isPostgres,
-          pgSchema.value,
+          needsSchema,
+          schemaName.value,
         );
         if (formErrors.length > 0) {
           ElMessage.error(formErrors.join('\r\n'));
           return;
         }
         try {
-          // 如果是PostgreSQL，合并数据库名和schema名
-          if (isPostgres && pgSchema.value) {
-            newDatasource.value.databaseName = `${newDatasource.value.databaseName}|${pgSchema.value}`;
+          // 如果是PostgreSQL或Oracle，合并数据库名和schema名
+          if (needsSchema && schemaName.value) {
+            newDatasource.value.databaseName = `${newDatasource.value.databaseName}|${schemaName.value}`;
           }
           const datasource: Datasource = await datasourceService.createDatasource(
             newDatasource.value,
@@ -1111,27 +1119,28 @@
       };
       const editDatasource = (row: Datasource) => {
         editingDatasource.value = JSON.parse(JSON.stringify(row));
-        // 如果是PostgreSQL，分离数据库名和schema名
-        if (editingDatasource.value.type === 'postgresql' && editingDatasource.value.databaseName) {
+        // 如果是PostgreSQL或Oracle，分离数据库名和schema名
+        const needsSchema = editingDatasource.value.type === 'postgresql' || editingDatasource.value.type === 'oracle';
+        if (needsSchema && editingDatasource.value.databaseName) {
           const parts = editingDatasource.value.databaseName.split('|');
           if (parts.length === 2) {
             editingDatasource.value.databaseName = parts[0];
-            pgSchemaEdit.value = parts[1];
+            schemaNameEdit.value = parts[1];
           } else {
-            pgSchemaEdit.value = '';
+            schemaNameEdit.value = '';
           }
         } else {
-          pgSchemaEdit.value = '';
+          schemaNameEdit.value = '';
         }
         editDialogVisible.value = true;
       };
 
       const saveEditDatasource = async () => {
-        const isPostgres = editingDatasource.value.type === 'postgresql';
+        const needsSchema = editingDatasource.value.type === 'postgresql' || editingDatasource.value.type === 'oracle';
         const formErrors: string[] = validateDatasourceForm(
           editingDatasource.value,
-          isPostgres,
-          pgSchemaEdit.value,
+          needsSchema,
+          schemaNameEdit.value,
         );
         if (formErrors.length > 0) {
           ElMessage.error(formErrors.join('\n'));
@@ -1139,9 +1148,9 @@
         }
 
         try {
-          // 如果是PostgreSQL，合并数据库名和schema名
-          if (isPostgres && pgSchemaEdit.value) {
-            editingDatasource.value.databaseName = `${editingDatasource.value.databaseName}|${pgSchemaEdit.value}`;
+          // 如果是PostgreSQL或Oracle，合并数据库名和schema名
+          if (needsSchema && schemaNameEdit.value) {
+            editingDatasource.value.databaseName = `${editingDatasource.value.databaseName}|${schemaNameEdit.value}`;
           }
           const response: Datasource = await datasourceService.updateDatasource(
             editingDatasource.value.id!,
@@ -1563,9 +1572,9 @@
         clearAllTables,
         truncateText,
         handleExpandChange,
-        // PostgreSQL Schema字段
-        pgSchema,
-        pgSchemaEdit,
+        // PostgreSQL/Oracle Schema字段
+        schemaName,
+        schemaNameEdit,
         // 逻辑外键管理
         Connection,
         Link,

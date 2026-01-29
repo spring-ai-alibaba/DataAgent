@@ -117,7 +117,7 @@ public class OracleJdbcDdl extends AbstractJdbcDdl {
 			sql.append("AND ROWNUM <= 2000 ");
 			sql.append("ORDER BY t.TABLE_NAME");
 
-			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, sql.toString());
+			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, ownerSchema, sql.toString());
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
 			}

@@ -44,4 +44,19 @@ public class OracleDatasourceTypeHandler implements DatasourceTypeHandler {
 		return url;
 	}
 
+	@Override
+	public String extractSchemaName(Datasource datasource) {
+		// For Oracle, schema is stored in databaseName as "serviceName|schemaName"
+		// Extract the schema part after the | separator
+		String databaseName = datasource.getDatabaseName();
+		if (databaseName != null && databaseName.contains("|")) {
+			String[] parts = databaseName.split("\\|");
+			if (parts.length == 2) {
+				return parts[1]; // Return the schema name
+			}
+		}
+		// If no schema specified, return null to let OracleJdbcDdl.getSchema() use getUserName()
+		return null;
+	}
+
 }
