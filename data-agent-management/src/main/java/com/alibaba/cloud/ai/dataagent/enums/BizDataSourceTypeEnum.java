@@ -150,6 +150,10 @@ public enum BizDataSourceTypeEnum {
 		return isDialect(typeName, DatabaseDialectEnum.POSTGRESQL.getCode());
 	}
 
+	public static boolean isOracleDialect(String typeName) {
+		return isDialect(typeName, DatabaseDialectEnum.ORACLE.getCode());
+	}
+
 	public static boolean isAdbPg(String typeName) {
 		BizDataSourceTypeEnum te = fromTypeName(typeName);
 		if (te == null) {
