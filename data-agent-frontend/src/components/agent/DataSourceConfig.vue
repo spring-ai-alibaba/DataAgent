@@ -81,7 +81,7 @@
                     :span="6"
                     style="margin-bottom: 10px"
                   >
-                    <el-checkbox :label="table" size="large">
+                    <el-checkbox :label="table" :value="table" size="large">
                       {{ table }}
                     </el-checkbox>
                   </el-col>
@@ -913,10 +913,36 @@
               usedDatasource.selectTables == null ||
               usedDatasource.selectTables.length === 0
             ) {
-              ElMessage.warning(
-                '当前启用的数据源没有选择相应的数据表！请点击相应数据源左侧按钮，选择相应数据表并更新！',
-              );
-              return;
+              // 服务端未保存选择时，若本地已有勾选则先同步到服务端再继续初始化
+              const activeDsId = usedDatasource.datasource?.id ?? usedDatasource.datasourceId;
+              const localSelected =
+                activeDsId != null ? selectedTables.value[activeDsId] : undefined;
+              if (
+                activeDsId != null &&
+                localSelected &&
+                Array.isArray(localSelected) &&
+                localSelected.length > 0
+              ) {
+                const updateRes = await agentDatasourceService.updateDatasourceTables(
+                  String(props.agentId),
+                  { datasourceId: activeDsId, tables: localSelected },
+                );
+                if (updateRes.success) {
+                  // 同步本地缓存
+                  const agentDs = agentDatasourceList.value.find(
+                    item => item.datasource?.id === activeDsId,
+                  );
+                  if (agentDs) agentDs.selectTables = [...localSelected];
+                } else {
+                  ElMessage.warning('保存已选数据表失败，请重试');
+                  return;
+                }
+              } else {
+                ElMessage.warning(
+                  '当前启用的数据源没有选择相应的数据表！请点击相应数据源左侧按钮，选择相应数据表并更新！',
+                );
+                return;
+              }
             }
           } catch {
             ElMessage.warning(
@@ -1204,13 +1230,11 @@
           const tables = await datasourceService.getDatasourceTables(datasource.id);
           tableLists.value[datasource.id] = tables;
 
-          // 如果没有初始化已选择的表，则使用当前已选择的表
-          if (!selectedTables.value[datasource.id]) {
-            const agentDatasource = agentDatasourceList.value.find(
-              item => item.datasource?.id === datasource.id,
-            );
-            selectedTables.value[datasource.id] = agentDatasource?.selectTables || [];
-          }
+          // 加载表列表时始终同步初始化已选表（保证 el-checkbox-group v-model 绑定到有效数组）
+          const agentDatasource = agentDatasourceList.value.find(
+            item => item.datasource?.id === datasource.id,
+          );
+          selectedTables.value[datasource.id] = [...(agentDatasource?.selectTables || [])];
 
           ElMessage.success(`成功加载 ${tables.length} 个表`);
         } catch (error) {
