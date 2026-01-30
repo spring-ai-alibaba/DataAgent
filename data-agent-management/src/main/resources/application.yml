@@ -47,6 +47,12 @@ spring:
             bucket-name: ${OSS_BUCKET_NAME:}
             custom-domain: ${OSS_CUSTOM_DOMAIN:}
         max-sql-retry-count: 10
+        ai-proxy:
+          enabled: false       # 是否启用ai代理，生产环境建议默认 false
+          host:                # 代理主机地址
+          port:                # 代理端口
+          username:            # 代理用户名（可选）
+          password:            # 代理密码（可选）
   servlet:
     multipart:
       max-file-size: 10MB
