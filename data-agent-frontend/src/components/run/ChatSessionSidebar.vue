@@ -23,17 +23,11 @@
     <!-- 收起时只显示展开按钮 -->
     <div v-if="collapsed" class="sidebar-collapsed">
       <el-tooltip content="展开会话列表" placement="right">
-        <el-button
-          type="primary"
-          circle
-          class="expand-btn"
-          @click="collapsed = false"
-        >
+        <el-button type="primary" circle class="expand-btn" @click="collapsed = false">
           <el-icon><DArrowRight /></el-icon>
         </el-button>
       </el-tooltip>
-      <el-tooltip content="返回" placement="right">
-      </el-tooltip>
+      <el-tooltip content="返回" placement="right"></el-tooltip>
     </div>
 
     <!-- 展开时显示完整内容 -->
@@ -45,28 +39,29 @@
             <el-icon><ArrowLeft /></el-icon>
           </el-button> -->
           <!-- 头像居中 -->
-          <el-avatar :src="agent.avatar" size="large" style="margin: 0 auto">{{ agent.name }}</el-avatar>
-         
+          <el-avatar :src="agent.avatar" size="large" style="margin: 0 auto">
+            {{ agent.name }}
+          </el-avatar>
+
           <div class="header-right">
             <el-tooltip content="收起会话列表" placement="bottom">
               <el-button type="default" circle size="large" @click="collapsed = true">
                 <el-icon><DArrowLeft /></el-icon>
               </el-button>
             </el-tooltip>
-          
-          </div>          
+          </div>
         </div>
         <!-- 在一行并且左80%右20%排列 gap8px -->
         <div class="new-session-section d-flex justify-content-between gap-8px">
           <div style="width: 80%">
-            <el-button type="primary" @click="createNewSession" style="width:100%">
+            <el-button type="primary" @click="createNewSession" style="width: 100%">
               <el-icon><Plus /></el-icon>
               新建会话
             </el-button>
           </div>
           <div>
             <el-button type="danger" @click="clearAllSessions">
-               <el-icon><Delete /></el-icon>
+              <el-icon><Delete /></el-icon>
             </el-button>
           </div>
         </div>
@@ -76,52 +71,52 @@
 
       <!-- 会话列表 -->
       <div class="session-list" style="margin-top: 20px">
-      <div
-        v-for="session in sessions"
-        :key="session.id"
-        :class="[
-          'session-item',
-          { active: handleGetCurrentSession()?.id === session.id, pinned: session.isPinned },
-        ]"
-        @click="handleSelectSession(session)"
-      >
-        <div class="session-header">
-          <span
-            class="session-title"
-            @dblclick="startEditSessionTitle(session)"
-            v-if="!session.editing"
-          >
-            {{ session.title || '新会话' }}
-          </span>
-          <el-input
-            v-else
-            v-model="session.editingTitle"
-            size="small"
-            @blur="saveSessionTitle(session)"
-            @keyup.enter="saveSessionTitle(session)"
-            @keyup.esc="cancelEditSessionTitle(session)"
-            ref="sessionTitleInputRef"
-          />
-          <div class="session-actions">
-            <el-button type="text" size="small" @click.stop="startEditSessionTitle(session)">
-              <el-icon><Edit /></el-icon>
-            </el-button>
-            <el-button type="text" size="small" @click.stop="togglePinSession(session)">
-              <el-icon>
-                <StarFilled v-if="session.isPinned" />
-                <Star v-else />
-              </el-icon>
-            </el-button>
-            <el-button type="text" size="small" @click.stop="deleteSession(session)">
-              <el-icon><Delete /></el-icon>
-            </el-button>
+        <div
+          v-for="session in sessions"
+          :key="session.id"
+          :class="[
+            'session-item',
+            { active: handleGetCurrentSession()?.id === session.id, pinned: session.isPinned },
+          ]"
+          @click="handleSelectSession(session)"
+        >
+          <div class="session-header">
+            <span
+              class="session-title"
+              @dblclick="startEditSessionTitle(session)"
+              v-if="!session.editing"
+            >
+              {{ session.title || '新会话' }}
+            </span>
+            <el-input
+              v-else
+              v-model="session.editingTitle"
+              size="small"
+              @blur="saveSessionTitle(session)"
+              @keyup.enter="saveSessionTitle(session)"
+              @keyup.esc="cancelEditSessionTitle(session)"
+              ref="sessionTitleInputRef"
+            />
+            <div class="session-actions">
+              <el-button type="text" size="small" @click.stop="startEditSessionTitle(session)">
+                <el-icon><Edit /></el-icon>
+              </el-button>
+              <el-button type="text" size="small" @click.stop="togglePinSession(session)">
+                <el-icon>
+                  <StarFilled v-if="session.isPinned" />
+                  <Star v-else />
+                </el-icon>
+              </el-button>
+              <el-button type="text" size="small" @click.stop="deleteSession(session)">
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </div>
+          </div>
+          <div class="session-time">
+            {{ formatTime(session.updateTime || session.createTime) }}
           </div>
         </div>
-        <div class="session-time">
-          {{ formatTime(session.updateTime || session.createTime) }}
-        </div>
       </div>
-    </div>
     </template>
   </el-aside>
 </template>
@@ -132,7 +127,15 @@
   import { useRouter, useRoute } from 'vue-router';
   import { ElMessage, ElMessageBox } from 'element-plus';
   import ChatService from '../../services/chat';
-  import { ArrowLeft, Plus, Delete, Star, StarFilled, Edit, DArrowLeft, DArrowRight } from '@element-plus/icons-vue';
+  import {
+    Plus,
+    Delete,
+    Star,
+    StarFilled,
+    Edit,
+    DArrowLeft,
+    DArrowRight,
+  } from '@element-plus/icons-vue';
   import { type Agent } from '../../services/agent';
   import { type ChatSession } from '../../services/chat';
 
@@ -151,7 +154,6 @@
   export default defineComponent({
     name: 'ChatSessionSidebar',
     components: {
-      ArrowLeft,
       Plus,
       Delete,
       Star,

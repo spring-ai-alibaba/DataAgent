@@ -100,10 +100,7 @@
                       下载HTML报告
                     </el-button>
                     <el-tooltip content="全屏查看报告" placement="top">
-                      <el-button
-                        type="info"
-                        @click="openReportFullscreen(message.content)"
-                      >
+                      <el-button type="info" @click="openReportFullscreen(message.content)">
                         <el-icon><FullScreen /></el-icon>
                         全屏
                       </el-button>
@@ -194,8 +191,6 @@
           :handleFeedback="handleHumanFeedback"
         />
 
-     
-
         <!-- 输入区域 -->
         <div class="input-area" v-if="currentSession">
           <div class="input-controls">
@@ -224,58 +219,58 @@
                 :onQuestionClick="handlePresetQuestionClick"
               />
               <div class="switch-group">
-              <div class="switch-item">
-                <span class="switch-label">人工反馈</span>
-                <el-tooltip
-                  :disabled="!requestOptions.nl2sqlOnly"
-                  content="该功能在NL2SQL模式下不能使用"
-                  placement="top"
-                >
+                <div class="switch-item">
+                  <span class="switch-label">人工反馈</span>
+                  <el-tooltip
+                    :disabled="!requestOptions.nl2sqlOnly"
+                    content="该功能在NL2SQL模式下不能使用"
+                    placement="top"
+                  >
+                    <el-switch
+                      v-model="requestOptions.humanFeedback"
+                      :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback"
+                    />
+                  </el-tooltip>
+                </div>
+                <div class="switch-item">
+                  <span class="switch-label">仅NL2SQL</span>
                   <el-switch
-                    v-model="requestOptions.humanFeedback"
-                    :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback"
-                  />
-                </el-tooltip>
-              </div>
-              <div class="switch-item">
-                <span class="switch-label">仅NL2SQL</span>
-                <el-switch
-                  v-model="requestOptions.nl2sqlOnly"
-                  :disabled="isStreaming || showHumanFeedback"
-                  @change="handleNl2sqlOnlyChange"
-                />
-              </div>
-              <div class="switch-item">
-                <span class="switch-label">自动Scroll</span>
-                <el-switch v-model="autoScroll" />
-              </div>
-              <div class="switch-item">
-                <span class="switch-label">显示SQL结果</span>
-                <el-tooltip
-                  content="启用本功能会将SQL查询结果存储到DataAgent项目的数据库中，如果数据量较大不建议开启本功能"
-                  placement="top"
-                >
-                  <el-switch
-                    v-model="resultSetDisplayConfig.showSqlResults"
+                    v-model="requestOptions.nl2sqlOnly"
                     :disabled="isStreaming || showHumanFeedback"
+                    @change="handleNl2sqlOnlyChange"
                   />
-                </el-tooltip>
-              </div>
-              <div class="switch-item">
-                <span class="switch-label">每页数量</span>
-                <el-select
-                  v-model="resultSetDisplayConfig.pageSize"
-                  :disabled="isStreaming || showHumanFeedback"
-                  style="width: 80px"
-                >
-                  <el-option label="5" :value="5" />
-                  <el-option label="10" :value="10" />
-                  <el-option label="20" :value="20" />
-                  <el-option label="50" :value="50" />
-                  <el-option label="100" :value="100" />
-                </el-select>
-              </div>
-              <!-- <div class="switch-item">
+                </div>
+                <div class="switch-item">
+                  <span class="switch-label">自动Scroll</span>
+                  <el-switch v-model="autoScroll" />
+                </div>
+                <div class="switch-item">
+                  <span class="switch-label">显示SQL结果</span>
+                  <el-tooltip
+                    content="启用本功能会将SQL查询结果存储到DataAgent项目的数据库中，如果数据量较大不建议开启本功能"
+                    placement="top"
+                  >
+                    <el-switch
+                      v-model="resultSetDisplayConfig.showSqlResults"
+                      :disabled="isStreaming || showHumanFeedback"
+                    />
+                  </el-tooltip>
+                </div>
+                <div class="switch-item">
+                  <span class="switch-label">每页数量</span>
+                  <el-select
+                    v-model="resultSetDisplayConfig.pageSize"
+                    :disabled="isStreaming || showHumanFeedback"
+                    style="width: 80px"
+                  >
+                    <el-option label="5" :value="5" />
+                    <el-option label="10" :value="10" />
+                    <el-option label="20" :value="20" />
+                    <el-option label="50" :value="50" />
+                    <el-option label="100" :value="100" />
+                  </el-select>
+                </div>
+                <!-- <div class="switch-item">
                 <span class="switch-label">报告格式</span>
                 <el-radio-group v-model="requestOptions.reportFormat" size="small">
                   <el-radio-button value="markdown">Markdown</el-radio-button>
@@ -320,7 +315,11 @@
 
     <!-- 报告全屏遮罩 -->
     <Teleport to="body">
-      <div v-if="showReportFullscreen" class="report-fullscreen-overlay" @click.self="closeReportFullscreen">
+      <div
+        v-if="showReportFullscreen"
+        class="report-fullscreen-overlay"
+        @click.self="closeReportFullscreen"
+      >
         <div class="report-fullscreen-container">
           <div class="report-fullscreen-header">
             <span class="report-fullscreen-title">
@@ -342,7 +341,11 @@
               :content="fullscreenReportContent"
               :options="options"
             />
-            <ReportHtmlView v-else :content="fullscreenReportContent" class="report-fullscreen-body" />
+            <ReportHtmlView
+              v-else
+              :content="fullscreenReportContent"
+              class="report-fullscreen-body"
+            />
           </div>
         </div>
       </div>
@@ -354,7 +357,16 @@
   import { ref, defineComponent, onMounted, nextTick, computed } from 'vue';
   import { useRoute } from 'vue-router';
   import { ElMessage } from 'element-plus';
-  import { Loading, Promotion, Document, Download, CircleClose, FullScreen, Close, ArrowDown } from '@element-plus/icons-vue';
+  import {
+    Loading,
+    Promotion,
+    Document,
+    Download,
+    CircleClose,
+    FullScreen,
+    Close,
+    ArrowDown,
+  } from '@element-plus/icons-vue';
   import hljs from 'highlight.js';
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
