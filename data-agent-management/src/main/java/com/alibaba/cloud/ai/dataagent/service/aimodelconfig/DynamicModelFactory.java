@@ -64,10 +64,10 @@ public class DynamicModelFactory {
 		// 2. 构建 OpenAiApi (核心通讯对象)
 		String apiKey = StringUtils.hasText(config.getApiKey()) ? config.getApiKey() : "";
 		OpenAiApi.Builder apiBuilder = OpenAiApi.builder()
-				.apiKey(apiKey)
-				.baseUrl(config.getBaseUrl())
-				.restClientBuilder(getProxiedRestClientBuilder())
-				.webClientBuilder(getProxiedWebClientBuilder());
+			.apiKey(apiKey)
+			.baseUrl(config.getBaseUrl())
+			.restClientBuilder(getProxiedRestClientBuilder())
+			.webClientBuilder(getProxiedWebClientBuilder());
 
 		if (StringUtils.hasText(config.getCompletionsPath())) {
 			apiBuilder.completionsPath(config.getCompletionsPath());
@@ -94,10 +94,10 @@ public class DynamicModelFactory {
 
 		String apiKey = StringUtils.hasText(config.getApiKey()) ? config.getApiKey() : "";
 		OpenAiApi.Builder apiBuilder = OpenAiApi.builder()
-				.apiKey(apiKey)
-				.baseUrl(config.getBaseUrl())
-				.restClientBuilder(getProxiedRestClientBuilder())
-				.webClientBuilder(getProxiedWebClientBuilder());
+			.apiKey(apiKey)
+			.baseUrl(config.getBaseUrl())
+			.restClientBuilder(getProxiedRestClientBuilder())
+			.webClientBuilder(getProxiedWebClientBuilder());
 
 		if (StringUtils.hasText(config.getEmbeddingsPath())) {
 			apiBuilder.embeddingsPath(config.getEmbeddingsPath());
@@ -124,20 +124,17 @@ public class DynamicModelFactory {
 
 		BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
 		if (StringUtils.hasText(proxyProperties.getUsername())) {
-			credsProvider.setCredentials(
-					new AuthScope(proxyProperties.getHost(), proxyProperties.getPort()),
+			credsProvider.setCredentials(new AuthScope(proxyProperties.getHost(), proxyProperties.getPort()),
 					new UsernamePasswordCredentials(proxyProperties.getUsername(),
-							proxyProperties.getPassword().toCharArray())
-			);
+							proxyProperties.getPassword().toCharArray()));
 		}
 
 		CloseableHttpClient httpClient = HttpClients.custom()
-				.setProxy(new HttpHost(proxyProperties.getHost(), proxyProperties.getPort()))
-				.setDefaultCredentialsProvider(credsProvider)
-				.build();
+			.setProxy(new HttpHost(proxyProperties.getHost(), proxyProperties.getPort()))
+			.setDefaultCredentialsProvider(credsProvider)
+			.build();
 
-		return RestClient.builder()
-				.requestFactory(new HttpComponentsClientHttpRequestFactory(httpClient));
+		return RestClient.builder().requestFactory(new HttpComponentsClientHttpRequestFactory(httpClient));
 	}
 
 	private WebClient.Builder getProxiedWebClientBuilder() {
@@ -145,21 +142,17 @@ public class DynamicModelFactory {
 			return WebClient.builder();
 		}
 
-		HttpClient nettyClient = HttpClient.create()
-                .responseTimeout(java.time.Duration.ofMinutes(3))
-				.proxy(p -> {
-					ProxyProvider.Builder proxyBuilder = p.type(ProxyProvider.Proxy.HTTP)
-							.host(proxyProperties.getHost())
-							.port(proxyProperties.getPort());
+		HttpClient nettyClient = HttpClient.create().responseTimeout(java.time.Duration.ofMinutes(3)).proxy(p -> {
+			ProxyProvider.Builder proxyBuilder = p.type(ProxyProvider.Proxy.HTTP)
+				.host(proxyProperties.getHost())
+				.port(proxyProperties.getPort());
 
-					if (StringUtils.hasText(proxyProperties.getUsername())) {
-						proxyBuilder.username(proxyProperties.getUsername())
-								.password(s -> proxyProperties.getPassword());
-					}
-				});
+			if (StringUtils.hasText(proxyProperties.getUsername())) {
+				proxyBuilder.username(proxyProperties.getUsername()).password(s -> proxyProperties.getPassword());
+			}
+		});
 
-		return WebClient.builder()
-				.clientConnector(new ReactorClientHttpConnector(nettyClient));
+		return WebClient.builder().clientConnector(new ReactorClientHttpConnector(nettyClient));
 	}
 
 }
