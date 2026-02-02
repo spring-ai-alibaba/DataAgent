@@ -479,6 +479,7 @@ body {
   border-top-color: #333;
   margin-bottom: 1px;
 }
+
 /* ========================================
    现代化组件样式系统
    ======================================== */
@@ -505,7 +506,8 @@ body {
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  -webkit-tap-highlight-color: transparent; /* 避免移动端点击高亮导致的闪白 */
+  -webkit-tap-highlight-color: transparent;
+  /* 避免移动端点击高亮导致的闪白 */
 }
 
 .btn::before {
@@ -1113,18 +1115,23 @@ body {
 .gap-xs {
   gap: var(--space-xs);
 }
+
 .gap-sm {
   gap: var(--space-sm);
 }
+
 .gap-base {
   gap: var(--space-base);
 }
+
 .gap-md {
   gap: var(--space-md);
 }
+
 .gap-lg {
   gap: var(--space-lg);
 }
+
 .gap-xl {
   gap: var(--space-xl);
 }
@@ -1133,21 +1140,27 @@ body {
 .text-primary {
   color: var(--text-primary);
 }
+
 .text-secondary {
   color: var(--text-secondary);
 }
+
 .text-tertiary {
   color: var(--text-tertiary);
 }
+
 .text-success {
   color: var(--success-color);
 }
+
 .text-warning {
   color: var(--warning-color);
 }
+
 .text-error {
   color: var(--error-color);
 }
+
 .text-info {
   color: var(--info-color);
 }
@@ -1155,9 +1168,11 @@ body {
 .text-center {
   text-align: center;
 }
+
 .text-left {
   text-align: left;
 }
+
 .text-right {
   text-align: right;
 }
@@ -1165,15 +1180,19 @@ body {
 .font-weight-light {
   font-weight: var(--font-weight-light);
 }
+
 .font-weight-normal {
   font-weight: var(--font-weight-normal);
 }
+
 .font-weight-medium {
   font-weight: var(--font-weight-medium);
 }
+
 .font-weight-semibold {
   font-weight: var(--font-weight-semibold);
 }
+
 .font-weight-bold {
   font-weight: var(--font-weight-bold);
 }
@@ -1190,6 +1209,7 @@ body {
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -1201,6 +1221,7 @@ body {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1212,6 +1233,7 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+
   to {
     opacity: 0;
     transform: translateY(-10px);
@@ -1378,6 +1400,8 @@ body {
   overflow-wrap: break-word;
   word-break: break-all;
   hyphens: auto;
+  color: #333333;
+  /*适配黑夜模式*/
 }
 
 .agent-response-content pre {
@@ -1391,6 +1415,8 @@ body {
   word-wrap: break-word;
   white-space: pre-wrap;
   box-sizing: border-box;
+  color: #333333;
+  /*适配黑夜模式 */
 }
 
 .agent-response-content code {
@@ -1399,6 +1425,8 @@ body {
   border-radius: 3px;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 12px;
+  color: #333333;
+  /*适配黑夜模式 */
 }
 
 .agent-response-content .language-sql {

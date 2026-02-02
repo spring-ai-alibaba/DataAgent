@@ -24,17 +24,17 @@ import java.util.List;
 
 public interface SchemaService {
 
-	Boolean schema(String agentId, SchemaInitRequest schemaInitRequest) throws Exception;
+	Boolean schema(Integer datasourceId, SchemaInitRequest schemaInitRequest) throws Exception;
 
-	List<Document> getTableDocumentsForAgent(String agentId, String query);
+	List<Document> getTableDocumentsByDatasource(Integer datasourceId, String query);
 
 	void extractDatabaseName(SchemaDTO schemaDTO, DbConfigBO dbConfig);
 
 	void buildSchemaFromDocuments(String agentId, List<Document> columnDocumentList, List<Document> tableDocuments,
 			SchemaDTO schemaDTO);
 
-	List<Document> getTableDocuments(String agentId, List<String> tableNames);
+	List<Document> getTableDocuments(Integer datasourceId, List<String> tableNames);
 
-	List<Document> getColumnDocumentsByTableName(String agentId, List<String> tableNames);
+	List<Document> getColumnDocumentsByTableName(Integer datasourceId, List<String> tableNames);
 
 }

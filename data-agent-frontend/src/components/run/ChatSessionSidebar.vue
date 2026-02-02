@@ -15,76 +15,109 @@
 -->
 
 <template>
-  <el-aside width="320px" style="background-color: white; border-right: 1px solid #e8e8e8">
-    <!-- 顶部操作栏 -->
-    <div class="sidebar-header">
-      <div class="header-controls">
-        <el-button type="primary" @click="goBack" circle>
-          <el-icon><ArrowLeft /></el-icon>
+  <el-aside
+    :width="collapsed ? '48px' : '320px'"
+    class="chat-session-sidebar"
+    :class="{ collapsed }"
+  >
+    <!-- 收起时只显示展开按钮 -->
+    <div v-if="collapsed" class="sidebar-collapsed">
+      <el-tooltip content="展开会话列表" placement="right">
+        <el-button type="primary" circle class="expand-btn" @click="collapsed = false">
+          <el-icon><DArrowRight /></el-icon>
         </el-button>
-        <el-avatar :src="agent.avatar" size="large">{{ agent.name }}</el-avatar>
-        <el-button type="danger" @click="clearAllSessions" circle>
-          <el-icon><Delete /></el-icon>
-        </el-button>
-      </div>
-      <div class="new-session-section">
-        <el-button type="primary" @click="createNewSession" style="width: 100%">
-          <el-icon><Plus /></el-icon>
-          新建会话
-        </el-button>
-      </div>
+      </el-tooltip>
+      <el-tooltip content="返回" placement="right"></el-tooltip>
     </div>
 
-    <el-divider style="margin: 0" />
+    <!-- 展开时显示完整内容 -->
+    <template v-else>
+      <!-- 顶部操作栏 -->
+      <div class="sidebar-header">
+        <div class="header-controls">
+          <!-- <el-button type="primary" @click="goBack" circle>
+            <el-icon><ArrowLeft /></el-icon>
+          </el-button> -->
+          <!-- 头像居中 -->
+          <el-avatar :src="agent.avatar" size="large" style="margin: 0 auto">
+            {{ agent.name }}
+          </el-avatar>
 
-    <!-- 会话列表 -->
-    <div class="session-list" style="margin-top: 20px">
-      <div
-        v-for="session in sessions"
-        :key="session.id"
-        :class="[
-          'session-item',
-          { active: handleGetCurrentSession()?.id === session.id, pinned: session.isPinned },
-        ]"
-        @click="handleSelectSession(session)"
-      >
-        <div class="session-header">
-          <span
-            class="session-title"
-            @dblclick="startEditSessionTitle(session)"
-            v-if="!session.editing"
-          >
-            {{ session.title || '新会话' }}
-          </span>
-          <el-input
-            v-else
-            v-model="session.editingTitle"
-            size="small"
-            @blur="saveSessionTitle(session)"
-            @keyup.enter="saveSessionTitle(session)"
-            @keyup.esc="cancelEditSessionTitle(session)"
-            ref="sessionTitleInputRef"
-          />
-          <div class="session-actions">
-            <el-button type="text" size="small" @click.stop="startEditSessionTitle(session)">
-              <el-icon><Edit /></el-icon>
+          <div class="header-right">
+            <el-tooltip content="收起会话列表" placement="bottom">
+              <el-button type="default" circle size="large" @click="collapsed = true">
+                <el-icon><DArrowLeft /></el-icon>
+              </el-button>
+            </el-tooltip>
+          </div>
+        </div>
+        <!-- 在一行并且左80%右20%排列 gap8px -->
+        <div class="new-session-section d-flex justify-content-between gap-8px">
+          <div style="width: 80%">
+            <el-button type="primary" @click="createNewSession" style="width: 100%">
+              <el-icon><Plus /></el-icon>
+              新建会话
             </el-button>
-            <el-button type="text" size="small" @click.stop="togglePinSession(session)">
-              <el-icon>
-                <StarFilled v-if="session.isPinned" />
-                <Star v-else />
-              </el-icon>
-            </el-button>
-            <el-button type="text" size="small" @click.stop="deleteSession(session)">
+          </div>
+          <div>
+            <el-button type="danger" @click="clearAllSessions">
               <el-icon><Delete /></el-icon>
             </el-button>
           </div>
         </div>
-        <div class="session-time">
-          {{ formatTime(session.updateTime || session.createTime) }}
+      </div>
+
+      <el-divider style="margin: 0" />
+
+      <!-- 会话列表 -->
+      <div class="session-list" style="margin-top: 20px">
+        <div
+          v-for="session in sessions"
+          :key="session.id"
+          :class="[
+            'session-item',
+            { active: handleGetCurrentSession()?.id === session.id, pinned: session.isPinned },
+          ]"
+          @click="handleSelectSession(session)"
+        >
+          <div class="session-header">
+            <span
+              class="session-title"
+              @dblclick="startEditSessionTitle(session)"
+              v-if="!session.editing"
+            >
+              {{ session.title || '新会话' }}
+            </span>
+            <el-input
+              v-else
+              v-model="session.editingTitle"
+              size="small"
+              @blur="saveSessionTitle(session)"
+              @keyup.enter="saveSessionTitle(session)"
+              @keyup.esc="cancelEditSessionTitle(session)"
+              ref="sessionTitleInputRef"
+            />
+            <div class="session-actions">
+              <el-button type="text" size="small" @click.stop="startEditSessionTitle(session)">
+                <el-icon><Edit /></el-icon>
+              </el-button>
+              <el-button type="text" size="small" @click.stop="togglePinSession(session)">
+                <el-icon>
+                  <StarFilled v-if="session.isPinned" />
+                  <Star v-else />
+                </el-icon>
+              </el-button>
+              <el-button type="text" size="small" @click.stop="deleteSession(session)">
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </div>
+          </div>
+          <div class="session-time">
+            {{ formatTime(session.updateTime || session.createTime) }}
+          </div>
         </div>
       </div>
-    </div>
+    </template>
   </el-aside>
 </template>
 
@@ -94,7 +127,15 @@
   import { useRouter, useRoute } from 'vue-router';
   import { ElMessage, ElMessageBox } from 'element-plus';
   import ChatService from '../../services/chat';
-  import { ArrowLeft, Plus, Delete, Star, StarFilled, Edit } from '@element-plus/icons-vue';
+  import {
+    Plus,
+    Delete,
+    Star,
+    StarFilled,
+    Edit,
+    DArrowLeft,
+    DArrowRight,
+  } from '@element-plus/icons-vue';
   import { type Agent } from '../../services/agent';
   import { type ChatSession } from '../../services/chat';
 
@@ -113,12 +154,13 @@
   export default defineComponent({
     name: 'ChatSessionSidebar',
     components: {
-      ArrowLeft,
       Plus,
       Delete,
       Star,
       StarFilled,
       Edit,
+      DArrowLeft,
+      DArrowRight,
     },
     props: {
       agent: {
@@ -144,6 +186,7 @@
     },
     setup(props) {
       const sessions = ref<ExtendedChatSession[]>([]);
+      const collapsed = ref(false);
       const sessionEventSource = ref<EventSource | null>(null);
       let reconnectTimer: number | null = null;
       let isComponentActive = true;
@@ -357,6 +400,7 @@
 
       return {
         sessions,
+        collapsed,
         formatTime,
         goBack,
         createNewSession,
@@ -372,6 +416,34 @@
 </script>
 
 <style scoped>
+  .chat-session-sidebar {
+    background-color: white;
+    border-right: 1px solid #e8e8e8;
+    transition: width 0.3s ease;
+    overflow: hidden;
+  }
+
+  .chat-session-sidebar.collapsed {
+    overflow: visible;
+  }
+
+  /* 收起状态 */
+  .sidebar-collapsed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 12px;
+  }
+
+  .sidebar-collapsed .expand-btn {
+    flex-shrink: 0;
+  }
+
+  .sidebar-collapsed .back-btn {
+    flex-shrink: 0;
+  }
+
   /* 左侧边栏样式 */
   .sidebar-header {
     padding: 20px;
@@ -382,6 +454,12 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   /* 会话列表样式 */
