@@ -43,7 +43,6 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - ./config/postgres:/docker-entrypoint-initdb.d
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 30s

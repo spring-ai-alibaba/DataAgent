@@ -40,9 +40,10 @@ services:
         - saa-data-agent-backend:1.0.0-SNAPSHOT
     container_name: data-agent-backend
     environment:
-      - NL2SQL_DATASOURCE_URL=jdbc:mysql://mysql:3306/nl2sql_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - NL2SQL_DATASOURCE_USERNAME=root
-      - NL2SQL_DATASOURCE_PASSWORD=root
+      - DATA_AGENT_DATASOURCE_URL=jdbc:mysql://mysql:3306/nl2sql_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - DATA_AGENT_DATASOURCE_USERNAME=root
+      - DATA_AGENT_DATASOURCE_PASSWORD=root
+      - DATA_AGENT_DATASOURCE_SQL_INIT=always
       - AI_DASHSCOPE_API_KEY=${AI_DASHSCOPE_API_KEY}
     ports:
       - "8065:8065"

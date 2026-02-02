@@ -11,7 +11,7 @@ spring:
     type: com.alibaba.druid.pool.DruidDataSource
   sql:
     init:
-      mode: never
+      mode: ${DATA_AGENT_DATASOURCE_SQL_INIT:never}
       schema-locations: classpath:sql/schema.sql
       data-locations: classpath:sql/data.sql
       continue-on-error: true
