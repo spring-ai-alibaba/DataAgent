@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.alibaba.cloud.ai.dataagent.prompt;
 
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
@@ -48,7 +47,7 @@ class PromptHelperSqlGenerationPromptTest {
 	}
 
 	@Test
-	@DisplayName("SQL生成提示词应注入上一步结果")
+	@DisplayName("SQL生成提示词应注入执行计划与历史执行结果")
 	void newSqlGeneratorShouldIncludePreviousStepResults() {
 		SchemaDTO schemaDTO = buildMinimalSchema();
 		String previousStepResults = "上一步: step_1\n上一步结果: {\"column\":[\"id\"],\"data\":[{\"id\":\"1\"}]}";
@@ -64,12 +63,12 @@ class PromptHelperSqlGenerationPromptTest {
 
 		String prompt = PromptHelper.buildNewSqlGeneratorPrompt(dto);
 
-		assertAll(() -> assertTrue(prompt.contains("## 5. 上一步执行结果"), "应包含上一步执行结果章节"),
+		assertAll(() -> assertTrue(prompt.contains("## 5. 执行计划与历史执行结果"), "应包含执行计划与历史执行结果章节"),
 				() -> assertTrue(prompt.contains(previousStepResults), "应包含注入的上一步结果内容"));
 	}
 
 	@Test
-	@DisplayName("SQL修复提示词缺省上一步结果时应填充为无")
+	@DisplayName("SQL修复提示词缺省历史执行结果时应填充为无")
 	void sqlErrorFixerShouldDefaultPreviousStepResultsToNone() {
 		SchemaDTO schemaDTO = buildMinimalSchema();
 
@@ -85,7 +84,7 @@ class PromptHelperSqlGenerationPromptTest {
 
 		String prompt = PromptHelper.buildSqlErrorFixerPrompt(dto);
 
-		assertAll(() -> assertTrue(prompt.contains("## 5. 上一步执行结果"), "应包含上一步执行结果章节"),
+		assertAll(() -> assertTrue(prompt.contains("## 5. 执行计划与历史执行结果"), "应包含执行计划与历史执行结果章节"),
 				() -> assertTrue(prompt.contains("\n无\n"), "缺省时应填充为无"));
 	}
 

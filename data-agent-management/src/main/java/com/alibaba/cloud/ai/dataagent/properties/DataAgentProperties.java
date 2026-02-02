@@ -51,6 +51,16 @@ public class DataAgentProperties {
 	private int maxSqlOptimizeCount = 10;
 
 	/**
+	 * SQL 多步骤场景：写入提示词的“历史执行结果”最多保留的行数（避免提示词过长）。
+	 */
+	private int sqlPreviousStepResultSampleSize = 20;
+
+	/**
+	 * SQL 多步骤场景：写入提示词的“历史执行结果”最多保留的字符数（兜底，避免极端情况下提示词爆炸）。
+	 */
+	private int sqlPreviousStepResultMaxChars = 8000;
+
+	/**
 	 * sql优化分数阈值
 	 */
 	private double sqlScoreThreshold = 0.95;

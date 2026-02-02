@@ -62,16 +62,6 @@ import static com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil.getCurrentExec
 @AllArgsConstructor
 public class SqlGenerateNode implements NodeAction {
 
-	/**
-	 * 上一步结果注入到 SQL 生成提示词时，最多保留的行数（避免提示词过长）。
-	 */
-	private static final int PREVIOUS_STEP_RESULT_SAMPLE_SIZE = 20;
-
-	/**
-	 * 上一步结果注入到 SQL 生成提示词时，最多保留的字符数（兜底，避免极端情况下提示词爆炸）。
-	 */
-	private static final int PREVIOUS_STEP_RESULT_MAX_CHARS = 8000;
-
 	private final Nl2SqlService nl2SqlService;
 
 	private final DataAgentProperties properties;
@@ -169,51 +159,94 @@ public class SqlGenerateNode implements NodeAction {
 	}
 
 	/**
-	 * 组装“上一步执行结果”提示词上下文，供后续 SQL 生成将其作为过滤条件参考。
+	 * 组装“执行计划 + 历史步骤执行结果”提示词上下文，供后续 SQL 生成/修复在多步骤场景下建立依赖关系。
 	 * <p>
 	 * 约定：执行结果由 {@link com.alibaba.cloud.ai.dataagent.workflow.node.SqlExecuteNode} 写入
-	 * {@code SQL_EXECUTE_NODE_OUTPUT}，key 为 {@code step_n}。
+	 * {@code SQL_EXECUTE_NODE_OUTPUT}，key 由 {@link PlanProcessUtil#buildStepKey(int)}
+	 * 生成（形如 {@code step_n}）。
 	 */
 	@SuppressWarnings("unchecked")
 	private String buildPreviousStepResults(OverAllState state) {
 		int currentStep = PlanProcessUtil.getCurrentStepNumber(state);
-		if (currentStep <= 1) {
-			return "无";
-		}
 
-		Map<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
-				new HashMap<>());
-		if (executionResults.isEmpty()) {
-			return "无";
-		}
-
-		String previousStepKey = "step_" + (currentStep - 1);
-		String previousStepResult = executionResults.get(previousStepKey);
-		if (!StringUtils.hasText(previousStepResult)) {
-			return "无";
-		}
-
-		String previousStepInstruction = null;
+		Plan plan = null;
 		try {
-			Plan plan = PlanProcessUtil.getPlan(state);
-			ExecutionStep prevStep = PlanProcessUtil.getCurrentExecutionStep(plan, currentStep - 1);
-			if (prevStep != null && prevStep.getToolParameters() != null) {
-				previousStepInstruction = prevStep.getToolParameters().getInstruction();
-			}
+			plan = PlanProcessUtil.getPlan(state);
 		}
 		catch (Exception ignore) {
 			// 仅用于补充提示词上下文，解析失败时不影响 SQL 生成主流程
 		}
 
-		String compactResult = compactPreviousStepResult(previousStepResult);
-
 		StringBuilder sb = new StringBuilder();
-		sb.append("上一步: ").append(previousStepKey).append("\n");
-		if (StringUtils.hasText(previousStepInstruction)) {
-			sb.append("上一步任务: ").append(previousStepInstruction).append("\n");
+		sb.append("执行计划(用于理解每一步要做什么/可能的依赖关系):\n");
+		if (plan == null || plan.getExecutionPlan() == null || plan.getExecutionPlan().isEmpty()) {
+			sb.append("无\n");
 		}
-		sb.append("上一步结果(JSON，可能已裁剪): ").append(compactResult);
-		return sb.toString();
+		else {
+			for (int i = 0; i < plan.getExecutionPlan().size(); i++) {
+				int stepNumber = i + 1;
+				ExecutionStep step = plan.getExecutionPlan().get(i);
+				sb.append(stepNumber).append(". ").append(step.getToolToUse());
+
+				String instruction = step.getToolParameters() != null ? step.getToolParameters().getInstruction()
+						: null;
+				if (StringUtils.hasText(instruction)) {
+					sb.append(" - ").append(instruction);
+				}
+				if (stepNumber == currentStep) {
+					sb.append(" (当前步骤)");
+				}
+				sb.append("\n");
+			}
+		}
+
+		sb.append("\n历史执行结果(截至当前步骤之前，已截断):\n");
+		if (currentStep <= 1) {
+			sb.append("无");
+			return sb.toString();
+		}
+
+		Map<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
+				new HashMap<>());
+		if (executionResults.isEmpty()) {
+			sb.append("无");
+			return sb.toString();
+		}
+
+		boolean hasAny = false;
+		for (int stepNumber = 1; stepNumber <= currentStep - 1; stepNumber++) {
+			String stepKey = PlanProcessUtil.buildStepKey(stepNumber);
+			String stepResult = executionResults.get(stepKey);
+			if (!StringUtils.hasText(stepResult)) {
+				continue;
+			}
+
+			hasAny = true;
+			sb.append(stepKey).append("\n");
+
+			String stepInstruction = null;
+			if (plan != null) {
+				try {
+					ExecutionStep prevStep = PlanProcessUtil.getCurrentExecutionStep(plan, stepNumber);
+					if (prevStep != null && prevStep.getToolParameters() != null) {
+						stepInstruction = prevStep.getToolParameters().getInstruction();
+					}
+				}
+				catch (Exception ignore) {
+					// ignore
+				}
+			}
+			if (StringUtils.hasText(stepInstruction)) {
+				sb.append("任务: ").append(stepInstruction).append("\n");
+			}
+			sb.append("结果(JSON，可能已裁剪): ").append(compactPreviousStepResult(stepResult)).append("\n\n");
+		}
+
+		if (!hasAny) {
+			sb.append("无");
+		}
+
+		return sb.toString().trim();
 	}
 
 	private String compactPreviousStepResult(String previousStepResult) {
@@ -221,17 +254,22 @@ public class SqlGenerateNode implements NodeAction {
 			return "无";
 		}
 
-		String trimmed = previousStepResult.trim();
-		if (trimmed.length() <= PREVIOUS_STEP_RESULT_MAX_CHARS) {
-			return trimmed;
+		int sampleSize = properties.getSqlPreviousStepResultSampleSize();
+		int maxChars = properties.getSqlPreviousStepResultMaxChars();
+		if (sampleSize < 0) {
+			sampleSize = 20;
 		}
+		if (maxChars < 0) {
+			maxChars = 8000;
+		}
+
+		String trimmed = previousStepResult.trim();
 		try {
 			ResultSetBO resultSetBO = JsonUtil.getObjectMapper().readValue(trimmed, ResultSetBO.class);
-			if (resultSetBO != null && resultSetBO.getData() != null
-					&& resultSetBO.getData().size() > PREVIOUS_STEP_RESULT_SAMPLE_SIZE) {
+			if (resultSetBO != null && resultSetBO.getData() != null && resultSetBO.getData().size() > sampleSize) {
 				ResultSetBO compact = ResultSetBO.builder()
 					.column(resultSetBO.getColumn())
-					.data(resultSetBO.getData().subList(0, PREVIOUS_STEP_RESULT_SAMPLE_SIZE))
+					.data(resultSetBO.getData().subList(0, sampleSize))
 					.errorMsg(resultSetBO.getErrorMsg())
 					.build();
 				trimmed = JsonUtil.getObjectMapper().writeValueAsString(compact);
@@ -241,8 +279,8 @@ public class SqlGenerateNode implements NodeAction {
 			// 不是标准 ResultSetBO JSON 时，直接走字符串裁剪兜底
 		}
 
-		if (trimmed.length() > PREVIOUS_STEP_RESULT_MAX_CHARS) {
-			trimmed = trimmed.substring(0, PREVIOUS_STEP_RESULT_MAX_CHARS) + "...(已截断)";
+		if (trimmed.length() > maxChars) {
+			trimmed = trimmed.substring(0, maxChars) + "...(已截断)";
 		}
 		return trimmed;
 	}
