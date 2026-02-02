@@ -17,7 +17,6 @@ package com.alibaba.cloud.ai.dataagent.service.file.impls;
 
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
-import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,10 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.util.StringUtils;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @Slf4j
 @AllArgsConstructor
@@ -94,20 +90,7 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 	@Override
 	public String getFileUrl(String filePath) {
 		checkPathSecurity(fileStorageProperties.getLocalBasePath().resolve(filePath));
-		try {
-			ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
-				.getRequestAttributes();
-			if (attributes != null) {
-				HttpServletRequest request = attributes.getRequest();
-				return ServletUriComponentsBuilder.fromRequestUri(request)
-					.replacePath(fileStorageProperties.getUrlPrefix() + "/" + filePath)
-					.build()
-					.toUriString();
-			}
-		}
-		catch (Exception e) {
-			log.warn("动态构建URL失败，使用相对路径", e);
-		}
+		// 返回相对路径，前端会自动基于当前域名访问
 		return fileStorageProperties.getUrlPrefix() + "/" + filePath;
 	}
 

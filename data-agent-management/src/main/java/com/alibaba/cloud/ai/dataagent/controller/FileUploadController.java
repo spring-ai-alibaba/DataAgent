@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.dataagent.controller;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.vo.UploadResponse;
-import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -90,10 +90,10 @@ public class FileUploadController {
 	 * 获取文件
 	 */
 	@GetMapping("/**")
-	public ResponseEntity<byte[]> getFile(HttpServletRequest request) {
+	public ResponseEntity<byte[]> getFile(ServerHttpRequest request) {
 		try {
 			String requestMapPath = this.getClass().getAnnotation(RequestMapping.class).value()[0];
-			String requestPath = request.getRequestURI();
+			String requestPath = request.getPath().value();
 			String urlPrefix = fileStorageProperties.getUrlPrefix();
 			String filePath = requestPath.substring(requestMapPath.length() + urlPrefix.length());
 
