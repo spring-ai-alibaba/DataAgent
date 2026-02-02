@@ -57,4 +57,5 @@ modified_mcp_config.json
 .idea/LocalCodeIndex/
 
 uploads/*
+vectorstore/*
 .java-version
