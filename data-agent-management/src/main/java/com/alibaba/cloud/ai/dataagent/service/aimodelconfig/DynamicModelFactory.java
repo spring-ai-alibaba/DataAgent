@@ -16,7 +16,6 @@
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
-import com.alibaba.cloud.ai.dataagent.properties.AiProxyProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.auth.AuthScope;
@@ -49,8 +48,6 @@ import reactor.netty.transport.ProxyProvider;
 @RequiredArgsConstructor
 public class DynamicModelFactory {
 
-	private final AiProxyProperties proxyProperties;
-
 	/**
 	 * 统一使用 OpenAiChatModel，通过 baseUrl 实现多厂商兼容
 	 */
@@ -66,8 +63,8 @@ public class DynamicModelFactory {
 		OpenAiApi.Builder apiBuilder = OpenAiApi.builder()
 			.apiKey(apiKey)
 			.baseUrl(config.getBaseUrl())
-			.restClientBuilder(getProxiedRestClientBuilder())
-			.webClientBuilder(getProxiedWebClientBuilder());
+			.restClientBuilder(getProxiedRestClientBuilder(config))
+			.webClientBuilder(getProxiedWebClientBuilder(config));
 
 		if (StringUtils.hasText(config.getCompletionsPath())) {
 			apiBuilder.completionsPath(config.getCompletionsPath());
@@ -96,8 +93,8 @@ public class DynamicModelFactory {
 		OpenAiApi.Builder apiBuilder = OpenAiApi.builder()
 			.apiKey(apiKey)
 			.baseUrl(config.getBaseUrl())
-			.restClientBuilder(getProxiedRestClientBuilder())
-			.webClientBuilder(getProxiedWebClientBuilder());
+			.restClientBuilder(getProxiedRestClientBuilder(config))
+			.webClientBuilder(getProxiedWebClientBuilder(config));
 
 		if (StringUtils.hasText(config.getEmbeddingsPath())) {
 			apiBuilder.embeddingsPath(config.getEmbeddingsPath());
@@ -117,38 +114,47 @@ public class DynamicModelFactory {
 		Assert.hasText(config.getModelName(), "modelName must not be empty");
 	}
 
-	private RestClient.Builder getProxiedRestClientBuilder() {
-		if (!proxyProperties.isEnabled()) {
+	private RestClient.Builder getProxiedRestClientBuilder(ModelConfigDTO config) {
+		if (config.getProxyEnabled() == null || !config.getProxyEnabled()) {
 			return RestClient.builder();
 		}
 
+		// 打印同步代理日志
+		log.info("【Proxy-Init】Model [{}] is using SYNC proxy -> {}:{}",
+				config.getModelName(), config.getProxyHost(), config.getProxyPort());
+
 		BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
-		if (StringUtils.hasText(proxyProperties.getUsername())) {
-			credsProvider.setCredentials(new AuthScope(proxyProperties.getHost(), proxyProperties.getPort()),
-					new UsernamePasswordCredentials(proxyProperties.getUsername(),
-							proxyProperties.getPassword().toCharArray()));
+		if (StringUtils.hasText(config.getProxyUsername())) {
+			log.info("【Proxy-Auth】Enabling Basic Auth for SYNC proxy, user: {}", config.getProxyUsername());
+			credsProvider.setCredentials(new AuthScope(config.getProxyHost(), config.getProxyPort()),
+					new UsernamePasswordCredentials(config.getProxyUsername(),
+							config.getProxyPassword().toCharArray()));
 		}
 
 		CloseableHttpClient httpClient = HttpClients.custom()
-			.setProxy(new HttpHost(proxyProperties.getHost(), proxyProperties.getPort()))
+			.setProxy(new HttpHost(config.getProxyHost(), config.getProxyPort()))
 			.setDefaultCredentialsProvider(credsProvider)
 			.build();
 
 		return RestClient.builder().requestFactory(new HttpComponentsClientHttpRequestFactory(httpClient));
 	}
 
-	private WebClient.Builder getProxiedWebClientBuilder() {
-		if (!proxyProperties.isEnabled()) {
+	private WebClient.Builder getProxiedWebClientBuilder(ModelConfigDTO config) {
+		if (config.getProxyEnabled() == null || !config.getProxyEnabled()) {
 			return WebClient.builder();
 		}
 
+		log.info("【Proxy-Init】Model [{}] is using ASYNC (Netty) proxy -> {}:{}",
+				config.getModelName(), config.getProxyHost(), config.getProxyPort());
+
 		HttpClient nettyClient = HttpClient.create().responseTimeout(java.time.Duration.ofMinutes(3)).proxy(p -> {
 			ProxyProvider.Builder proxyBuilder = p.type(ProxyProvider.Proxy.HTTP)
-				.host(proxyProperties.getHost())
-				.port(proxyProperties.getPort());
+				.host(config.getProxyHost())
+				.port(config.getProxyPort());
 
-			if (StringUtils.hasText(proxyProperties.getUsername())) {
-				proxyBuilder.username(proxyProperties.getUsername()).password(s -> proxyProperties.getPassword());
+			if (StringUtils.hasText(config.getProxyUsername())) {
+				log.info("【Proxy-Auth】Enabling Basic Auth for ASYNC proxy, user: {}", config.getProxyUsername());
+				proxyBuilder.username(config.getProxyUsername()).password(s -> config.getProxyPassword());
 			}
 		});
 
