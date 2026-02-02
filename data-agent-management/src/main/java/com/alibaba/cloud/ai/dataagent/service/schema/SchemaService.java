@@ -26,7 +26,7 @@ public interface SchemaService {
 
 	Boolean schema(Integer datasourceId, SchemaInitRequest schemaInitRequest) throws Exception;
 
-	List<Document> getTableDocumentsByDatasources(Integer datasourceId, String query);
+	List<Document> getTableDocumentsByDatasource(Integer datasourceId, String query);
 
 	void extractDatabaseName(SchemaDTO schemaDTO, DbConfigBO dbConfig);
 

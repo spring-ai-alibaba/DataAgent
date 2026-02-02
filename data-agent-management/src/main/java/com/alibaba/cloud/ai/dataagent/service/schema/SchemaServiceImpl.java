@@ -284,7 +284,7 @@ public class SchemaServiceImpl implements SchemaService {
 	}
 
 	@Override
-	public List<Document> getTableDocumentsByDatasources(Integer datasourceId, String query) {
+	public List<Document> getTableDocumentsByDatasource(Integer datasourceId, String query) {
 		Assert.notNull(datasourceId, "datasourceId cannot be null");
 		int tableTopK = dataAgentProperties.getVectorStore().getTableTopkLimit();
 		double tableThreshold = dataAgentProperties.getVectorStore().getTableSimilarityThreshold();

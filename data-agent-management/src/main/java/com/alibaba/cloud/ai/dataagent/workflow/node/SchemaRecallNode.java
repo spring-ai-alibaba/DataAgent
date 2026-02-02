@@ -99,7 +99,7 @@ public class SchemaRecallNode implements NodeAction {
 
 		// Execute business logic first - recall schema information immediately
 		List<Document> tableDocuments = new ArrayList<>(
-				schemaService.getTableDocumentsByDatasources(datasourceId, input));
+				schemaService.getTableDocumentsByDatasource(datasourceId, input));
 		// extract table names
 		List<String> recalledTableNames = extractTableName(tableDocuments);
 		List<Document> columnDocuments = schemaService.getColumnDocumentsByTableName(datasourceId, recalledTableNames);
