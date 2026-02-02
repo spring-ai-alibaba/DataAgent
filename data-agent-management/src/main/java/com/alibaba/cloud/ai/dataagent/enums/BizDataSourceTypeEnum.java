@@ -35,6 +35,11 @@ public enum BizDataSourceTypeEnum {
 	 */
 	SQL_SERVER(6, "sqlserver", DatabaseDialectEnum.SQL_SERVER.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
+	/**
+	 * Oracle database
+	 */
+	ORACLE(7, "oracle", DatabaseDialectEnum.ORACLE.getCode(), DbAccessTypeEnum.JDBC.getCode()),
+
 	HOLOGRESS(10, "hologress", DatabaseDialectEnum.POSTGRESQL.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
 	MYSQL_VPC(11, "mysql-vpc", DatabaseDialectEnum.MYSQL.getCode(), DbAccessTypeEnum.JDBC.getCode()),
@@ -143,6 +148,10 @@ public enum BizDataSourceTypeEnum {
 
 	public static boolean isPgDialect(String typeName) {
 		return isDialect(typeName, DatabaseDialectEnum.POSTGRESQL.getCode());
+	}
+
+	public static boolean isOracleDialect(String typeName) {
+		return isDialect(typeName, DatabaseDialectEnum.ORACLE.getCode());
 	}
 
 	public static boolean isAdbPg(String typeName) {
