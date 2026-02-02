@@ -290,6 +290,11 @@ public class DataAgentProperties {
 		 */
 		private double elasticsearchMinScore = 0.5;
 
+		/**
+		 * SimpleVectorStore本地序列化文件地址
+		 */
+		private String filePath = "./vectorstore/vectorstore.json";
+
 	}
 
 }
