@@ -106,15 +106,44 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	public void addDocuments(String agentId, List<Document> documents) {
 		Assert.notNull(agentId, "AgentId cannot be null.");
 		Assert.notEmpty(documents, "Documents cannot be empty.");
-		// 校验文档中metadata中包含的agentId
+
+		// 验证文档中 metadata 的一致性
 		for (Document document : documents) {
 			Assert.notNull(document.getMetadata(), "Document metadata cannot be null.");
-			Assert.isTrue(document.getMetadata().containsKey(Constant.AGENT_ID),
-					"Document metadata must contain agentId.");
-			Assert.isTrue(document.getMetadata().get(Constant.AGENT_ID).equals(agentId),
-					"Document metadata agentId does not match.");
+
+			String vectorType = (String) document.getMetadata().get(DocumentMetadataConstant.VECTOR_TYPE);
+
+			// 根据 vectorType 验证不同的字段
+			if (DocumentMetadataConstant.TABLE.equals(vectorType)
+					|| DocumentMetadataConstant.COLUMN.equals(vectorType)) {
+				// 表和列必须包含 datasourceId
+				Assert.isTrue(document.getMetadata().containsKey(Constant.DATASOURCE_ID),
+						"Document metadata must contain datasourceId for TABLE/COLUMN type.");
+			}
+			else {
+				// 知识库和业务术语必须包含 agentId
+				Assert.isTrue(document.getMetadata().containsKey(Constant.AGENT_ID),
+						"Document metadata must contain agentId.");
+				Assert.isTrue(document.getMetadata().get(Constant.AGENT_ID).equals(agentId),
+						"Document metadata agentId does not match.");
+			}
 		}
 		vectorStore.add(documents);
+	}
+
+	@Override
+	public Boolean deleteDocumentsByMetadata(Map<String, Object> metadata) {
+		Assert.notNull(metadata, "Metadata cannot be null.");
+		String filterExpression = buildFilterExpressionString(metadata);
+
+		if (vectorStore instanceof SimpleVectorStore) {
+			batchDelDocumentsWithFilter(filterExpression);
+		}
+		else {
+			vectorStore.delete(filterExpression);
+		}
+
+		return true;
 	}
 
 	@Override

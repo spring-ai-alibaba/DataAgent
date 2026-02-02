@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
+import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -32,6 +33,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -54,6 +56,8 @@ public class SchemaRecallNode implements NodeAction {
 
 	private final SchemaService schemaService;
 
+	private final AgentDatasourceMapper agentDatasourceMapper;
+
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
@@ -63,11 +67,42 @@ public class SchemaRecallNode implements NodeAction {
 		String input = queryEnhanceOutputDTO.getCanonicalQuery();
 		String agentId = StateUtil.getStringValue(state, AGENT_ID);
 
+		// 查询 Agent 的激活数据源
+		Integer datasourceId = agentDatasourceMapper.selectActiveDatasourceIdByAgentId(Long.valueOf(agentId));
+
+		if (datasourceId == null) {
+			log.warn("Agent {} has no active datasource", agentId);
+			// 返回空结果
+			String noDataSourceMessage = """
+					\n 该智能体没有激活的数据源
+
+					这可能是因为：
+					1. 数据源尚未配置或关联。
+					2. 所有数据源都已被禁用。
+					3. 请先配置并激活数据源。
+					流程已终止。
+					""";
+
+			Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
+				emitter.next(ChatResponseUtil.createResponse(noDataSourceMessage));
+				emitter.complete();
+			});
+
+			Flux<GraphResponse<StreamingOutput>> generator = FluxUtil
+				.createStreamingGeneratorWithMessages(this.getClass(), state, currentState -> {
+					return Map.of(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, Collections.emptyList(),
+							COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, Collections.emptyList());
+				}, displayFlux);
+
+			return Map.of(SCHEMA_RECALL_NODE_OUTPUT, generator);
+		}
+
 		// Execute business logic first - recall schema information immediately
-		List<Document> tableDocuments = new ArrayList<>(schemaService.getTableDocumentsForAgent(agentId, input));
+		List<Document> tableDocuments = new ArrayList<>(
+				schemaService.getTableDocumentsByDatasource(datasourceId, input));
 		// extract table names
 		List<String> recalledTableNames = extractTableName(tableDocuments);
-		List<Document> columnDocuments = schemaService.getColumnDocumentsByTableName(agentId, recalledTableNames);
+		List<Document> columnDocuments = schemaService.getColumnDocumentsByTableName(datasourceId, recalledTableNames);
 
 		String failMessage = """
 				\n 未检索到相关数据表
