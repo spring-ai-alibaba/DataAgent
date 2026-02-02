@@ -43,11 +43,11 @@ public class ModelConfigConverter {
 			.modelType(entity.getModelType().getCode())
 			.completionsPath(entity.getCompletionsPath())
 			.embeddingsPath(entity.getEmbeddingsPath())
-				.proxyEnabled(entity.getProxyEnabled())
-				.proxyHost(entity.getProxyHost())
-				.proxyPort(entity.getProxyPort())
-				.proxyUsername(entity.getProxyUsername())
-				.proxyPassword(entity.getProxyPassword())
+			.proxyEnabled(entity.getProxyEnabled())
+			.proxyHost(entity.getProxyHost())
+			.proxyPort(entity.getProxyPort())
+			.proxyUsername(entity.getProxyUsername())
+			.proxyPassword(entity.getProxyPassword())
 			.build();
 	}
 

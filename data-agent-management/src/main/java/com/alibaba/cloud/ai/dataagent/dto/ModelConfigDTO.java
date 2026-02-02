@@ -58,7 +58,7 @@ public class ModelConfigDTO {
 
 	private Boolean isActive = true;
 
-	//模型代理配置，默认关闭（使用直连）
+	// 模型代理配置，默认关闭（使用直连）
 	private Boolean proxyEnabled = false;
 
 	private String proxyHost;

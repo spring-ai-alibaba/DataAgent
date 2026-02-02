@@ -120,8 +120,8 @@ public class DynamicModelFactory {
 		}
 
 		// 打印同步代理日志
-		log.info("【Proxy-Init】Model [{}] is using SYNC proxy -> {}:{}",
-				config.getModelName(), config.getProxyHost(), config.getProxyPort());
+		log.info("【Proxy-Init】Model [{}] is using SYNC proxy -> {}:{}", config.getModelName(), config.getProxyHost(),
+				config.getProxyPort());
 
 		BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
 		if (StringUtils.hasText(config.getProxyUsername())) {
@@ -144,8 +144,8 @@ public class DynamicModelFactory {
 			return WebClient.builder();
 		}
 
-		log.info("【Proxy-Init】Model [{}] is using ASYNC (Netty) proxy -> {}:{}",
-				config.getModelName(), config.getProxyHost(), config.getProxyPort());
+		log.info("【Proxy-Init】Model [{}] is using ASYNC (Netty) proxy -> {}:{}", config.getModelName(),
+				config.getProxyHost(), config.getProxyPort());
 
 		HttpClient nettyClient = HttpClient.create().responseTimeout(java.time.Duration.ofMinutes(3)).proxy(p -> {
 			ProxyProvider.Builder proxyBuilder = p.type(ProxyProvider.Proxy.HTTP)

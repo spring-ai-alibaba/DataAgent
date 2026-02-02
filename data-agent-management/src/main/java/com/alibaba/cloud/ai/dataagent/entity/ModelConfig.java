@@ -59,7 +59,7 @@ public class ModelConfig {
 	// 0=未删除, 1=已删除
 	private Integer isDeleted;
 
-	//ai-proxy设置（默认关闭，使用直连）
+	// ai-proxy设置（默认关闭，使用直连）
 	private Boolean proxyEnabled;
 
 	private String proxyHost;
