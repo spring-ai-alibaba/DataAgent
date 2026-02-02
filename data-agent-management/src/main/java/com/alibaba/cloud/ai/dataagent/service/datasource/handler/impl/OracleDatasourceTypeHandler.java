@@ -21,11 +21,11 @@ import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeH
 import org.springframework.stereotype.Component;
 
 @Component
-public class PostgreSqlDatasourceTypeHandler implements DatasourceTypeHandler {
+public class OracleDatasourceTypeHandler implements DatasourceTypeHandler {
 
 	@Override
 	public String typeName() {
-		return BizDataSourceTypeEnum.POSTGRESQL.getTypeName();
+		return BizDataSourceTypeEnum.ORACLE.getTypeName();
 	}
 
 	@Override
@@ -33,25 +33,31 @@ public class PostgreSqlDatasourceTypeHandler implements DatasourceTypeHandler {
 		if (!hasRequiredConnectionFields(datasource)) {
 			return datasource.getConnectionUrl();
 		}
-		// 提取数据库名（format: "database|schema"，只取database部分）
-		String databaseName = datasource.getDatabaseName();
-		if (databaseName != null && databaseName.contains("|")) {
-			databaseName = databaseName.split("\\|")[0];
-		}
-		return String.format(
-				"jdbc:postgresql://%s:%d/%s?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai",
-				datasource.getHost(), datasource.getPort(), databaseName);
+		// Oracle JDBC URL format: jdbc:oracle:thin:@host:port/serviceName
+		return String.format("jdbc:oracle:thin:@%s:%d/%s", datasource.getHost(), datasource.getPort(),
+				datasource.getDatabaseName());
+	}
+
+	@Override
+	public String normalizeTestUrl(Datasource datasource, String url) {
+		// Oracle doesn't require additional parameters for basic connectivity
+		return url;
 	}
 
 	@Override
 	public String extractSchemaName(Datasource datasource) {
-		// 提取schema名（format: "database|schema"，取schema部分）
+		// For Oracle, schema is stored in databaseName as "serviceName|schemaName"
+		// Extract the schema part after the | separator
 		String databaseName = datasource.getDatabaseName();
 		if (databaseName != null && databaseName.contains("|")) {
 			String[] parts = databaseName.split("\\|");
-			return parts.length > 1 ? parts[1] : parts[0];
+			if (parts.length == 2) {
+				return parts[1]; // Return the schema name
+			}
 		}
-		return databaseName;
+		// If no schema specified, return null to let OracleJdbcDdl.getSchema() use
+		// getUserName()
+		return null;
 	}
 
 }

@@ -270,6 +270,7 @@
                 <el-option key="postgresql" label="PostgreSQL" value="postgresql" />
                 <el-option key="sqlserver" label="SQL Server" value="sqlserver" />
                 <el-option key="dameng" label="达梦(Dameng)" value="dameng" />
+                <el-option key="oracle" label="Oracle" value="oracle" />
               </el-select>
             </div>
           </el-col>
@@ -299,12 +300,28 @@
           </el-col>
         </el-row>
         <el-row :gutter="20">
-          <el-col>
+          <el-col :span="12">
             <div class="form-item">
-              <label>数据库名 *</label>
+              <label v-if="newDatasource.type === 'postgresql'">数据库名 *</label>
+              <label v-else>数据库名 *</label>
               <el-input
                 v-model="newDatasource.databaseName"
-                placeholder="请输入数据库（schema）名称"
+                :placeholder="
+                  newDatasource.type === 'postgresql' ? '例如：postgres' : '请输入数据库名称'
+                "
+                size="large"
+              />
+            </div>
+          </el-col>
+          <el-col
+            :span="12"
+            v-if="newDatasource.type === 'postgresql' || newDatasource.type === 'oracle'"
+          >
+            <div class="form-item">
+              <label>Schema 名 *</label>
+              <el-input
+                v-model="schemaName"
+                :placeholder="newDatasource.type === 'postgresql' ? '例如：public' : '例如：SYSTEM'"
                 size="large"
               />
             </div>
@@ -417,12 +434,28 @@
       </el-col>
     </el-row>
     <el-row :gutter="20">
-      <el-col>
+      <el-col :span="12">
         <div class="form-item">
-          <label>数据库名 *</label>
+          <label v-if="editingDatasource.type === 'postgresql'">数据库名 *</label>
+          <label v-else>数据库名 *</label>
           <el-input
             v-model="editingDatasource.databaseName"
-            placeholder="请输入数据库（schema）名称"
+            :placeholder="
+              editingDatasource.type === 'postgresql' ? '例如：postgres' : '请输入数据库名称'
+            "
+            size="large"
+          />
+        </div>
+      </el-col>
+      <el-col
+        :span="12"
+        v-if="editingDatasource.type === 'postgresql' || editingDatasource.type === 'oracle'"
+      >
+        <div class="form-item">
+          <label>Schema 名 *</label>
+          <el-input
+            v-model="schemaNameEdit"
+            :placeholder="editingDatasource.type === 'postgresql' ? '例如：public' : '例如：SYSTEM'"
             size="large"
           />
         </div>
@@ -798,6 +831,10 @@
       const editDialogVisible: Ref<boolean> = ref(false);
       const editingDatasource: Ref<Datasource> = ref({} as Datasource);
 
+      // PostgreSQL/Oracle 额外的schema字段
+      const schemaName: Ref<string> = ref('');
+      const schemaNameEdit: Ref<string> = ref('');
+
       // 数据表管理相关状态
       const tableLists: Ref<Record<number, string[]>> = ref({});
       const selectedTables: Ref<Record<number, string[]>> = ref({});
@@ -827,6 +864,7 @@
         if (newValue) {
           loadAllDatasource();
           newDatasource.value = { port: 3306 } as Datasource;
+          schemaName.value = '';
         }
       });
 
@@ -1013,7 +1051,11 @@
         await addDatasourceToAgent(datasourceId);
       };
 
-      const validateDatasourceForm = (datasourceForm: Datasource): string[] => {
+      const validateDatasourceForm = (
+        datasourceForm: Datasource,
+        needsSchema: boolean = false,
+        schemaValue: string = '',
+      ): string[] => {
         const errors: string[] = [];
 
         if (!datasourceForm.name || datasourceForm.name.trim() === '') {
@@ -1036,6 +1078,10 @@
           errors.push('数据库名不能为空');
         }
 
+        if (needsSchema && (!schemaValue || schemaValue.trim() === '')) {
+          errors.push('Schema 名不能为空');
+        }
+
         if (!datasourceForm.username || datasourceForm.username.trim() === '') {
           errors.push('用户名不能为空');
         }
@@ -1048,12 +1094,22 @@
       };
 
       const createNewDatasource = async () => {
-        const formErrors: string[] = validateDatasourceForm(newDatasource.value);
+        const needsSchema =
+          newDatasource.value.type === 'postgresql' || newDatasource.value.type === 'oracle';
+        const formErrors: string[] = validateDatasourceForm(
+          newDatasource.value,
+          needsSchema,
+          schemaName.value,
+        );
         if (formErrors.length > 0) {
           ElMessage.error(formErrors.join('\r\n'));
           return;
         }
         try {
+          // 如果是PostgreSQL或Oracle，合并数据库名和schema名
+          if (needsSchema && schemaName.value) {
+            newDatasource.value.databaseName = `${newDatasource.value.databaseName}|${schemaName.value}`;
+          }
           const datasource: Datasource = await datasourceService.createDatasource(
             newDatasource.value,
           );
@@ -1070,17 +1126,43 @@
       };
       const editDatasource = (row: Datasource) => {
         editingDatasource.value = JSON.parse(JSON.stringify(row));
+        // 如果是PostgreSQL或Oracle，分离数据库名和schema名
+        const needsSchema =
+          editingDatasource.value.type === 'postgresql' ||
+          editingDatasource.value.type === 'oracle';
+        if (needsSchema && editingDatasource.value.databaseName) {
+          const parts = editingDatasource.value.databaseName.split('|');
+          if (parts.length === 2) {
+            editingDatasource.value.databaseName = parts[0];
+            schemaNameEdit.value = parts[1];
+          } else {
+            schemaNameEdit.value = '';
+          }
+        } else {
+          schemaNameEdit.value = '';
+        }
         editDialogVisible.value = true;
       };
 
       const saveEditDatasource = async () => {
-        const formErrors: string[] = validateDatasourceForm(editingDatasource.value);
+        const needsSchema =
+          editingDatasource.value.type === 'postgresql' ||
+          editingDatasource.value.type === 'oracle';
+        const formErrors: string[] = validateDatasourceForm(
+          editingDatasource.value,
+          needsSchema,
+          schemaNameEdit.value,
+        );
         if (formErrors.length > 0) {
           ElMessage.error(formErrors.join('\n'));
           return;
         }
 
         try {
+          // 如果是PostgreSQL或Oracle，合并数据库名和schema名
+          if (needsSchema && schemaNameEdit.value) {
+            editingDatasource.value.databaseName = `${editingDatasource.value.databaseName}|${schemaNameEdit.value}`;
+          }
           const response: Datasource = await datasourceService.updateDatasource(
             editingDatasource.value.id!,
             editingDatasource.value,
@@ -1501,6 +1583,9 @@
         clearAllTables,
         truncateText,
         handleExpandChange,
+        // PostgreSQL/Oracle Schema字段
+        schemaName,
+        schemaNameEdit,
         // 逻辑外键管理
         Connection,
         Link,

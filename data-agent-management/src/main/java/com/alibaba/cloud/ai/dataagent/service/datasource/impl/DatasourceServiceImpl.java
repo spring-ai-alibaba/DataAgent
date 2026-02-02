@@ -214,7 +214,11 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		// Create query parameters
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
-		queryParam.setSchema(datasource.getDatabaseName());
+
+		// 提取schema名称
+		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
+		String schemaName = handler.extractSchemaName(datasource);
+		queryParam.setSchema(schemaName);
 
 		// Query table list
 		Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
@@ -252,7 +256,11 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		// 创建查询参数
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
-		queryParam.setSchema(datasource.getDatabaseName());
+
+		// 提取schema名称
+		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
+		String schemaName = handler.extractSchemaName(datasource);
+		queryParam.setSchema(schemaName);
 		queryParam.setTable(tableName);
 
 		// 查询字段列表

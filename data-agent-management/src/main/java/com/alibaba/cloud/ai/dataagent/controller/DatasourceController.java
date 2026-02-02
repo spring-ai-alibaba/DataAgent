@@ -19,15 +19,27 @@ import com.alibaba.cloud.ai.dataagent.dto.schema.CreateLogicalRelationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.UpdateLogicalRelationDTO;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
+import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
+import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 // todo: 不要吞掉所有异常，可以直接抛出，写一个Advice拦截异常并做日志
 @Slf4j
@@ -43,47 +55,40 @@ public class DatasourceController {
 	 * Get all data source list
 	 */
 	@GetMapping
-	public ResponseEntity<List<Datasource>> getAllDatasource(
-			@RequestParam(value = "status", required = false) String status,
+	public List<Datasource> getAllDatasource(@RequestParam(value = "status", required = false) String status,
 			@RequestParam(value = "type", required = false) String type) {
 
-		List<Datasource> datasources;
+		List<Datasource> result;
 
-		if (status != null && !status.isEmpty()) {
-			datasources = datasourceService.getDatasourceByStatus(status);
+		if (StringUtils.isNotBlank(status)) {
+			result = datasourceService.getDatasourceByStatus(status);
 		}
-		else if (type != null && !type.isEmpty()) {
-			datasources = datasourceService.getDatasourceByType(type);
+		else if (StringUtils.isNotBlank(type)) {
+			result = datasourceService.getDatasourceByType(type);
 		}
 		else {
-			datasources = datasourceService.getAllDatasource();
+			result = datasourceService.getAllDatasource();
 		}
 
-		return ResponseEntity.ok(datasources);
+		return result;
 	}
 
 	/**
 	 * Get data source details by ID
 	 */
 	@GetMapping("/{id}")
-	public ResponseEntity<Datasource> getDatasourceById(@PathVariable(value = "id") Integer id) {
-		Datasource datasource = datasourceService.getDatasourceById(id);
-		if (datasource != null) {
-			return ResponseEntity.ok(datasource);
-		}
-		else {
-			return ResponseEntity.notFound().build();
-		}
+	public Datasource getDatasourceById(@PathVariable Integer id) {
+		return checkDatasourceExists(id);
 	}
 
 	@GetMapping("/{id}/tables")
-	public ResponseEntity<List<String>> getDatasourceTables(@PathVariable(value = "id") Integer id) {
+	public List<String> getDatasourceTables(@PathVariable Integer id) {
+		checkDatasourceExists(id);
 		try {
-			List<String> tables = datasourceService.getDatasourceTables(id);
-			return ResponseEntity.ok(tables);
+			return datasourceService.getDatasourceTables(id);
 		}
 		catch (Exception e) {
-			return ResponseEntity.badRequest().build();
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
 		}
 	}
 
@@ -91,13 +96,12 @@ public class DatasourceController {
 	 * Create data source
 	 */
 	@PostMapping
-	public ResponseEntity<Datasource> createDatasource(@RequestBody Datasource datasource) {
+	public Datasource createDatasource(@RequestBody Datasource datasource) {
 		try {
-			Datasource created = datasourceService.createDatasource(datasource);
-			return ResponseEntity.ok(created);
+			return datasourceService.createDatasource(datasource);
 		}
 		catch (Exception e) {
-			return ResponseEntity.badRequest().build();
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
 		}
 	}
 
@@ -105,14 +109,13 @@ public class DatasourceController {
 	 * Update data source
 	 */
 	@PutMapping("/{id}")
-	public ResponseEntity<Datasource> updateDatasource(@PathVariable(value = "id") Integer id,
-			@RequestBody Datasource datasource) {
+	public Datasource updateDatasource(@PathVariable Integer id, @RequestBody Datasource datasource) {
+		checkDatasourceExists(id);
 		try {
-			Datasource updated = datasourceService.updateDatasource(id, datasource);
-			return ResponseEntity.ok(updated);
+			return datasourceService.updateDatasource(id, datasource);
 		}
 		catch (Exception e) {
-			return ResponseEntity.badRequest().build();
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
 		}
 	}
 
@@ -120,13 +123,17 @@ public class DatasourceController {
 	 * Delete data source
 	 */
 	@DeleteMapping("/{id}")
-	public ResponseEntity<ApiResponse> deleteDatasource(@PathVariable(value = "id") Integer id) {
+	public ApiResponse deleteDatasource(@PathVariable Integer id) {
 		try {
+			checkDatasourceExists(id);
 			datasourceService.deleteDatasource(id);
-			return ResponseEntity.ok(ApiResponse.success("数据源删除成功"));
+			return ApiResponse.success("数据源删除成功");
+		}
+		catch (ResponseStatusException e) {
+			throw new InvalidInputException(e.getMessage());
 		}
 		catch (Exception e) {
-			return ResponseEntity.badRequest().body(ApiResponse.error("删除失败：" + e.getMessage()));
+			throw new InternalServerException("删除失败：" + e.getMessage());
 		}
 	}
 
@@ -134,14 +141,13 @@ public class DatasourceController {
 	 * Test data source connection
 	 */
 	@PostMapping("/{id}/test")
-	public ResponseEntity<ApiResponse> testConnection(@PathVariable(value = "id") Integer id) {
+	public ApiResponse testConnection(@PathVariable Integer id) {
 		try {
 			boolean success = datasourceService.testConnection(id);
-			ApiResponse response = success ? ApiResponse.success("连接测试成功") : ApiResponse.error("连接测试失败");
-			return ResponseEntity.ok(response);
+			return success ? ApiResponse.success("连接测试成功") : ApiResponse.error("连接测试失败");
 		}
 		catch (Exception e) {
-			return ResponseEntity.badRequest().body(ApiResponse.error("测试失败：" + e.getMessage()));
+			throw new InternalServerException("测试失败：" + e.getMessage());
 		}
 	}
 
@@ -149,14 +155,13 @@ public class DatasourceController {
 	 * 获取数据源表的字段列表
 	 */
 	@GetMapping("/{id}/tables/{tableName}/columns")
-	public ApiResponse<List<String>> getTableColumns(@PathVariable(value = "id") Integer id,
-			@PathVariable(value = "tableName") String tableName) {
+	public ApiResponse<List<String>> getTableColumns(@PathVariable Integer id, @PathVariable String tableName) {
 		try {
 			List<String> columns = datasourceService.getTableColumns(id, tableName);
 			return ApiResponse.success("获取字段列表成功", columns);
 		}
 		catch (Exception e) {
-			return ApiResponse.error("获取字段列表失败：" + e.getMessage());
+			throw new InternalServerException("获取字段列表失败：" + e.getMessage());
 		}
 	}
 
@@ -171,7 +176,7 @@ public class DatasourceController {
 		}
 		catch (Exception e) {
 			log.error("Failed to get logical relations for datasource: {}", datasourceId, e);
-			return ApiResponse.error("获取逻辑外键失败：" + e.getMessage());
+			throw new InternalServerException("获取逻辑外键失败：" + e.getMessage());
 		}
 	}
 
@@ -196,7 +201,7 @@ public class DatasourceController {
 		}
 		catch (Exception e) {
 			log.error("Failed to add logical relation for datasource: {}", datasourceId, e);
-			return ApiResponse.error("添加逻辑外键失败：" + e.getMessage());
+			throw new InternalServerException("添加逻辑外键失败：" + e.getMessage());
 		}
 	}
 
@@ -205,7 +210,7 @@ public class DatasourceController {
 	 */
 	@PutMapping("/{id}/logical-relations/{relationId}")
 	public ApiResponse<LogicalRelation> updateLogicalRelation(@PathVariable(value = "id") Integer datasourceId,
-			@PathVariable(value = "relationId") Integer relationId, @RequestBody UpdateLogicalRelationDTO dto) {
+			@PathVariable Integer relationId, @RequestBody UpdateLogicalRelationDTO dto) {
 		try {
 			LogicalRelation logicalRelation = LogicalRelation.builder()
 				.sourceTableName(dto.getSourceTableName())
@@ -222,7 +227,7 @@ public class DatasourceController {
 		}
 		catch (Exception e) {
 			log.error("Failed to update logical relation {} for datasource: {}", relationId, datasourceId, e);
-			return ApiResponse.error("更新逻辑外键失败：" + e.getMessage());
+			throw new InternalServerException("更新逻辑外键失败：" + e.getMessage());
 		}
 	}
 
@@ -231,14 +236,14 @@ public class DatasourceController {
 	 */
 	@DeleteMapping("/{id}/logical-relations/{relationId}")
 	public ApiResponse<Void> deleteLogicalRelation(@PathVariable(value = "id") Integer datasourceId,
-			@PathVariable(value = "relationId") Integer relationId) {
+			@PathVariable Integer relationId) {
 		try {
 			datasourceService.deleteLogicalRelation(datasourceId, relationId);
 			return ApiResponse.success("success delete logical relation");
 		}
 		catch (Exception e) {
 			log.error("Failed to delete logical relation {} for datasource: {}", relationId, datasourceId, e);
-			return ApiResponse.error("删除逻辑外键失败：" + e.getMessage());
+			throw new InternalServerException("删除逻辑外键失败：" + e.getMessage());
 		}
 	}
 
@@ -254,8 +259,16 @@ public class DatasourceController {
 		}
 		catch (Exception e) {
 			log.error("Failed to save logical relations for datasource: {}", datasourceId, e);
-			return ApiResponse.error("批量保存逻辑外键失败：" + e.getMessage());
+			throw new InternalServerException("批量保存逻辑外键失败：" + e.getMessage());
 		}
+	}
+
+	private Datasource checkDatasourceExists(Integer id) {
+		Datasource datasource = datasourceService.getDatasourceById(id);
+		if (datasource == null) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Datasource: [%s] not found".formatted(id));
+		}
+		return datasource;
 	}
 
 }

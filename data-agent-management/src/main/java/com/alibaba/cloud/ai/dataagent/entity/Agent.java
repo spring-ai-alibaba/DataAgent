@@ -63,8 +63,4 @@ public class Agent {
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
 	private LocalDateTime updateTime;
 
-	// Whether human review is enabled for this agent
-	@Builder.Default
-	private Integer humanReviewEnabled = 0; // 0/1 for JDBC compatibility
-
 }

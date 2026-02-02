@@ -29,7 +29,9 @@ public enum DatabaseDialectEnum {
 
 	DAMENG("Dameng"),
 
-	SQL_SERVER("SqlServer");
+	SQL_SERVER("SqlServer"),
+
+	ORACLE("Oracle");
 
 	public final String code;
 

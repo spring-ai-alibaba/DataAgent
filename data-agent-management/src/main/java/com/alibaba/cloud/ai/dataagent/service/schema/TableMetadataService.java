@@ -79,7 +79,9 @@ public class TableMetadataService {
 		Accessor accessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 
 		for (TableInfoBO table : tables) {
-			DbQueryParameter tableDqp = DbQueryParameter.from(dbConfig).setTable(table.getName());
+			DbQueryParameter tableDqp = DbQueryParameter.from(dbConfig)
+				.setSchema(dbConfig.getSchema())
+				.setTable(table.getName());
 			List<ColumnInfoBO> columnInfoBOS = accessor.showColumns(dbConfig, tableDqp);
 			tableColumnsMap.put(table.getName(), columnInfoBOS);
 		}

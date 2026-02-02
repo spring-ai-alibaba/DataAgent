@@ -66,8 +66,8 @@ public interface AgentMapper {
 	List<Agent> findByConditions(@Param("status") String status, @Param("keyword") String keyword);
 
 	@Insert("""
-			INSERT INTO agent (name, description, avatar, status, api_key, api_key_enabled, prompt, category, admin_id, tags, create_time, update_time, human_review_enabled)
-			VALUES (#{name}, #{description}, #{avatar}, #{status}, #{apiKey}, #{apiKeyEnabled}, #{prompt}, #{category}, #{adminId}, #{tags}, #{createTime}, #{updateTime}, #{humanReviewEnabled})
+			INSERT INTO agent (name, description, avatar, status, api_key, api_key_enabled, prompt, category, admin_id, tags, create_time, update_time)
+			VALUES (#{name}, #{description}, #{avatar}, #{status}, #{apiKey}, #{apiKeyEnabled}, #{prompt}, #{category}, #{adminId}, #{tags}, #{createTime}, #{updateTime})
 			""")
 	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
 	int insert(Agent agent);
@@ -86,7 +86,6 @@ public interface AgentMapper {
 			            <if test='category != null'>category = #{category},</if>
 			            <if test='adminId != null'>admin_id = #{adminId},</if>
 			            <if test='tags != null'>tags = #{tags},</if>
-			            <if test='humanReviewEnabled != null'>human_review_enabled = #{humanReviewEnabled},</if>
 			            update_time = NOW()
 			          </trim>
 			          WHERE id = #{id}
