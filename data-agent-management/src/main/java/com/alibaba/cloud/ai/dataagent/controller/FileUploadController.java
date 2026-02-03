@@ -15,9 +15,12 @@
  */
 package com.alibaba.cloud.ai.dataagent.controller;
 
+import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
+import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
-import com.alibaba.cloud.ai.dataagent.vo.UploadResponse;
+import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
+import com.alibaba.cloud.ai.dataagent.vo.FileStorageVo;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -56,33 +59,29 @@ public class FileUploadController {
 	 * 上传头像图片
 	 */
 	@PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	public ResponseEntity<UploadResponse> uploadAvatar(@RequestParam("file") MultipartFile file) {
+	public ApiResponse<FileStorageVo> uploadAvatar(@RequestParam("file") MultipartFile file) {
 		try {
 			// 验证文件类型
 			String contentType = file.getContentType();
 			if (contentType == null || !contentType.startsWith("image/")) {
-				return ResponseEntity.badRequest().body(UploadResponse.error("只支持图片文件"));
+				throw new InvalidInputException("只支持图片文件");
 			}
 
 			// 校验文件大小
 			long maxImageSize = fileStorageProperties.getImageSize();
 			if (file.getSize() > maxImageSize) {
-				return ResponseEntity.badRequest().body(UploadResponse.error("图片大小超限，最大允许：" + maxImageSize + " 字节"));
+				throw new InvalidInputException("图片大小超限，最大允许：" + maxImageSize + " 字节");
 			}
 
 			// 使用文件存储服务存储文件
-			String filePath = fileStorageService.storeFile(file, "avatars");
-			String fileUrl = fileStorageService.getFileUrl(filePath);
+			FileStorageVo fileStorageVo = fileStorageService.storeFile(file, "avatars");
 
-			// 提取文件名
-			String filename = filePath.substring(filePath.lastIndexOf("/") + 1);
-
-			return ResponseEntity.ok(UploadResponse.ok("上传成功", fileUrl, filename));
+			return ApiResponse.success("上传成功", fileStorageVo);
 
 		}
 		catch (Exception e) {
 			log.error("头像上传失败", e);
-			return ResponseEntity.internalServerError().body(UploadResponse.error("上传失败: " + e.getMessage()));
+			throw new InternalServerException("上传失败: " + e.getMessage());
 		}
 	}
 

@@ -17,33 +17,33 @@ package com.alibaba.cloud.ai.dataagent.service.file;
 
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
-import com.alibaba.cloud.ai.dataagent.service.file.impls.LocalFileStorageServiceImpl;
-import com.alibaba.cloud.ai.dataagent.service.file.impls.OssFileStorageServiceImpl;
+import com.alibaba.cloud.ai.dataagent.service.file.impls.LocalFileStorageProviderImpl;
+import com.alibaba.cloud.ai.dataagent.service.file.impls.OssFileStorageProviderImpl;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.stereotype.Component;
 
 @Component
 @AllArgsConstructor
-public class FileStorageServiceFactory implements FactoryBean<FileStorageService> {
+public class FileStorageProviderFactory implements FactoryBean<FileStorageProvider> {
 
 	private final FileStorageProperties properties;
 
 	private final OssStorageProperties ossProperties;
 
 	@Override
-	public FileStorageService getObject() {
-		if (FileStorageServiceEnum.OSS.equals(properties.getType())) {
-			return new OssFileStorageServiceImpl(properties, ossProperties);
+	public FileStorageProvider getObject() {
+		if (FileStorageProviderEnum.OSS.equals(properties.getType())) {
+			return new OssFileStorageProviderImpl(properties, ossProperties);
 		}
 		else {
-			return new LocalFileStorageServiceImpl(properties);
+			return new LocalFileStorageProviderImpl(properties);
 		}
 	}
 
 	@Override
 	public Class<?> getObjectType() {
-		return FileStorageService.class;
+		return FileStorageProvider.class;
 	}
 
 }

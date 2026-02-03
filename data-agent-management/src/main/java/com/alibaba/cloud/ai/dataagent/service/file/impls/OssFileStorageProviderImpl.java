@@ -17,7 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.file.impls;
 
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
-import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
+import com.alibaba.cloud.ai.dataagent.service.file.FileStorageProvider;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.model.OSSObject;
@@ -26,7 +26,6 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -37,7 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
  * 阿里云OSS文件存储服务实现
  */
 @Slf4j
-public class OssFileStorageServiceImpl implements FileStorageService {
+public class OssFileStorageProviderImpl implements FileStorageProvider {
 
 	private final FileStorageProperties fileStorageProperties;
 
@@ -45,7 +44,7 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 
 	private OSS ossClient;
 
-	public OssFileStorageServiceImpl(FileStorageProperties fileStorageProperties, OssStorageProperties ossProperties) {
+	public OssFileStorageProviderImpl(FileStorageProperties fileStorageProperties, OssStorageProperties ossProperties) {
 		this.fileStorageProperties = fileStorageProperties;
 		this.ossProperties = ossProperties;
 	}
@@ -66,31 +65,21 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 	}
 
 	@Override
-	public String storeFile(MultipartFile file, String subPath) {
+	public String storeFile(MultipartFile file, String filePath) {
 		try {
 			if (file == null || file.isEmpty()) {
 				log.warn("文件为空，无法上传到OSS");
 				return null;
 			}
-
-			String originalFilename = file.getOriginalFilename();
-			String extension = "";
-			if (originalFilename != null && originalFilename.contains(".")) {
-				extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-			}
-			String filename = UUID.randomUUID() + extension;
-
-			String objectKey = buildObjectKey(subPath, filename);
-
 			ObjectMetadata metadata = new ObjectMetadata();
 			metadata.setContentLength(file.getSize());
 			metadata.setContentType(file.getContentType());
 			metadata.setCacheControl("no-cache");
 
 			try (InputStream inputStream = file.getInputStream()) {
-				ossClient.putObject(ossProperties.getBucketName(), objectKey, inputStream, metadata);
-				log.info("文件上传成功: {}", objectKey);
-				return objectKey;
+				ossClient.putObject(ossProperties.getBucketName(), filePath, inputStream, metadata);
+				log.info("文件上传成功: {}", filePath);
+				return filePath;
 			}
 			catch (IOException e) {
 				log.error("文件存储失败，获取输入流错误", e);
