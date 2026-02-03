@@ -31,6 +31,13 @@ public class SqlGenerationDTO {
 
 	private SchemaDTO schemaDTO;
 
+	/**
+	 * 上一步（或前序）执行结果上下文，用于多步骤查询时作为后续 SQL 的过滤条件参考。
+	 * <p>
+	 * 该字段主要用于提示词注入，不参与业务计算。
+	 */
+	private String previousStepResults;
+
 	private String sql;
 
 	private String exceptionMessage;
