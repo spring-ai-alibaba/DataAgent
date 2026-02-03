@@ -68,7 +68,7 @@ public class FileResourceCleanerTask {
 	}
 
 	private void cleanupSingleRecord(FileStorage fileStorage) {
-		
+
 		Long id = fileStorage.getId();
 		boolean fileDeleted = fileStorageService.deleteFileResource(fileStorage);
 
