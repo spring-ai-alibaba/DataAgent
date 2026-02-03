@@ -102,6 +102,19 @@ public class FileStorageServiceImpl implements FileStorageService {
 		return fileStorageProvider.deleteFile(filePath);
 	}
 
+	public boolean deleteFileResource(FileStorage fileStorage) {
+		// 1. 删除文件
+		boolean fileDeleted = deleteFileResource(fileStorage.getFilePath());
+
+		// 2. 更新清理状态
+		if (fileDeleted) {
+			fileStorage.setIsCleaned(1);
+			fileStorage.setUpdatedTime(LocalDateTime.now());
+			fileStorageMapper.update(fileStorage);
+		}
+		return fileDeleted;
+	}
+
 	public boolean deleteFileById(Long id) {
 		FileStorage fileStorage = fileStorageMapper.findById(id);
 		return deleteFile(fileStorage);

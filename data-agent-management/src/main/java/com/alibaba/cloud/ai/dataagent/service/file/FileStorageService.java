@@ -47,6 +47,13 @@ public interface FileStorageService {
 
 	/**
 	 * 删除文件
+	 * @param fileStorage 文件信息
+	 * @return 是否删除成功
+	 */
+	boolean deleteFileResource(FileStorage fileStorage);
+
+	/**
+	 * 删除文件
 	 * @param id 文件Id
 	 * @return 是否删除成功
 	 */
