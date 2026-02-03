@@ -12,7 +12,7 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-FROM openjdk:17-jdk-slim as build
+FROM eclipse-temurin:17-jdk-jammy as build
 
 WORKDIR /app
 
@@ -42,12 +42,15 @@ RUN apt update && apt install -y maven git
 #  </profiles>\
 #</settings>' > aliyun-settings.xml
 
-RUN git clone https://github.com/spring-ai-alibaba/DataAgent.git \
-    && cd DataAgent &&  \
-    mvn install -DskipTests
+# 复制本地代码到构建容器
+COPY . /app/DataAgent
+
+# 进入项目目录并构建
+WORKDIR /app/DataAgent
+RUN mvn install -DskipTests
 #    mvn install -DskipTests -s ../aliyun-settings.xml
 
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jdk-jammy
 
 WORKDIR /app
 
