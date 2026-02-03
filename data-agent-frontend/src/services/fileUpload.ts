@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 import axios from 'axios';
-import {ApiResponse} from "@/services/common.ts";
+import { ApiResponse } from '@/services/common.ts';
 
 /**
  * 业务API服务
@@ -40,8 +40,8 @@ export const fileUploadApi = {
     try {
       const response = await axios.post<FileUploadResult>(url, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+          'Content-Type': 'multipart/form-data',
+        },
       });
       if (response.data.success) {
         return response.data.data ?? null;
