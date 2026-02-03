@@ -278,25 +278,44 @@
 
         <el-form-item label="启用代理">
           <el-switch v-model="formData.proxyEnabled" />
-          <span class="form-tip" style="margin-left: 10px;">如果您的服务器处于受限内网，请开启代理以连接 AI 服务</span>
+          <span class="form-tip" style="margin-left: 10px">
+            如果您的服务器处于受限内网，请开启代理以连接 AI 服务
+          </span>
         </el-form-item>
 
         <transition name="el-fade-in">
           <div v-if="formData.proxyEnabled">
             <el-form-item label="代理主机" prop="proxyHost" :required="formData.proxyEnabled">
-              <el-input v-model="formData.proxyHost" placeholder="例如: 127.0.0.1 或 proxy.example.com" />
+              <el-input
+                v-model="formData.proxyHost"
+                placeholder="例如: 127.0.0.1 或 proxy.example.com"
+              />
             </el-form-item>
 
             <el-form-item label="代理端口" prop="proxyPort" :required="formData.proxyEnabled">
-              <el-input-number v-model="formData.proxyPort" :min="1" :max="65535" controls-position="right" style="width: 100%" />
+              <el-input-number
+                v-model="formData.proxyPort"
+                :min="1"
+                :max="65535"
+                controls-position="right"
+                style="width: 100%"
+              />
             </el-form-item>
 
             <el-form-item label="代理用户名" prop="proxyUsername">
-              <el-input v-model="formData.proxyUsername" placeholder="可选，代理服务器需要认证时填写" />
+              <el-input
+                v-model="formData.proxyUsername"
+                placeholder="可选，代理服务器需要认证时填写"
+              />
             </el-form-item>
 
             <el-form-item label="代理密码" prop="proxyPassword">
-              <el-input v-model="formData.proxyPassword" type="password" show-password placeholder="可选" />
+              <el-input
+                v-model="formData.proxyPassword"
+                type="password"
+                show-password
+                placeholder="可选"
+              />
             </el-form-item>
           </div>
         </transition>
@@ -414,8 +433,8 @@
                 callback();
               }
             },
-            trigger: 'blur'
-          }
+            trigger: 'blur',
+          },
         ],
         proxyPort: [
           {
@@ -426,8 +445,8 @@
                 callback();
               }
             },
-            trigger: 'blur'
-          }
+            trigger: 'blur',
+          },
         ],
       };
 
