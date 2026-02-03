@@ -18,7 +18,6 @@ package com.alibaba.cloud.ai.dataagent.event;
 import com.alibaba.cloud.ai.dataagent.entity.FileStorage;
 import com.alibaba.cloud.ai.dataagent.mapper.FileStorageMapper;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
-import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -49,20 +48,14 @@ public class FileEventListener {
 		}
 
 		try {
-			// 3. 删除文件
-			boolean fileDeleted = fileStorageService.deleteFileResource(fileStorage.getFilePath());
-
-			// 4. 更新清理状态
+			// 2. 删除文件
+			boolean fileDeleted = fileStorageService.deleteFileResource(fileStorage);
 			if (fileDeleted) {
-				// 只有都成功了，才标记为资源已清理
-				fileStorage.setIsCleaned(1);
-				fileStorage.setUpdatedTime(LocalDateTime.now());
-				fileStorageMapper.update(fileStorage);
 				log.info("Resources cleaned up successfully. FileId: {}", id);
 			}
 			else {
 				log.error("Cleanup incomplete. FileId: {}, FileDeleted: {}", id, fileDeleted);
-				// isResourceCleaned=0，有定时任务兜底清理。
+				// isCleaned=0，有定时任务兜底清理。
 			}
 
 		}

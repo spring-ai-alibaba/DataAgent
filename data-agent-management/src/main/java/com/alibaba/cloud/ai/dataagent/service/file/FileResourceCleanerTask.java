@@ -68,15 +68,11 @@ public class FileResourceCleanerTask {
 	}
 
 	private void cleanupSingleRecord(FileStorage fileStorage) {
+		
 		Long id = fileStorage.getId();
-		// B. 删除文件
-		boolean fileDeleted = fileStorageService.deleteFileResource(fileStorage.getFilePath());
+		boolean fileDeleted = fileStorageService.deleteFileResource(fileStorage);
 
-		// C. 如果都清理干净了，更新数据库状态
 		if (fileDeleted) {
-			fileStorage.setIsCleaned(1);
-			fileStorage.setUpdatedTime(LocalDateTime.now());
-			mapper.update(fileStorage);
 			log.info("Zombie resource cleaned: ID={}", id);
 		}
 		else {
