@@ -62,6 +62,11 @@ public class SqlExecutor {
 					statement.execute("use " + schema + ";");
 				}
 			}
+			else if (dialect.equals(DatabaseDialectEnum.ORACLE.code)) {
+				if (StringUtils.isNotEmpty(schema)) {
+					statement.execute("ALTER SESSION SET CURRENT_SCHEMA = " + schema);
+				}
+			}
 
 			try (ResultSet rs = statement.executeQuery(sql)) {
 				return ResultSetBuilder.buildFrom(rs, schema);
@@ -110,6 +115,11 @@ public class SqlExecutor {
 			else if (dialect.equals(DatabaseDialectEnum.POSTGRESQL.code)) {
 				if (StringUtils.isNotEmpty(databaseOrSchema)) {
 					statement.execute("set search_path = '" + databaseOrSchema + "';");
+				}
+			}
+			else if (dialect.equals(DatabaseDialectEnum.ORACLE.code)) {
+				if (StringUtils.isNotEmpty(databaseOrSchema)) {
+					statement.execute("ALTER SESSION SET CURRENT_SCHEMA = " + databaseOrSchema);
 				}
 			}
 

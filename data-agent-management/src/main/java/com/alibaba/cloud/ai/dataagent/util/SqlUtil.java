@@ -47,6 +47,10 @@ public class SqlUtil {
 			// SQL Server 使用 TOP
 			return String.format("SELECT TOP %d %s FROM %s", limit, columnNames, tableName);
 		}
+		else if (BizDataSourceTypeEnum.isOracleDialect(typeName)) {
+			// Oracle 使用 FETCH FIRST (Oracle 12c+)
+			return String.format("SELECT %s FROM %s FETCH FIRST %d ROWS ONLY", columnNames, tableName, limit);
+		}
 		else {
 			// MySQL, PostgreSQL, H2, SQLite 通用 LIMIT
 			return String.format("SELECT %s FROM %s LIMIT %d", columnNames, tableName, limit);

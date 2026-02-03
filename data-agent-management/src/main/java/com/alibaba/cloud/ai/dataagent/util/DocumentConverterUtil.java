@@ -35,14 +35,14 @@ import java.util.stream.Collectors;
 @Slf4j
 public class DocumentConverterUtil {
 
-	public static List<Document> convertColumnsToDocuments(String agentId, List<TableInfoBO> tables) {
+	public static List<Document> convertColumnsToDocuments(Integer datasourceId, List<TableInfoBO> tables) {
 		List<Document> documents = new ArrayList<>();
 		for (TableInfoBO table : tables) {
 			// 使用已经处理过的列数据，避免重复查询
 			List<ColumnInfoBO> columns = table.getColumns();
 			if (columns != null) {
 				for (ColumnInfoBO column : columns) {
-					documents.add(DocumentConverterUtil.convertColumnToDocumentForAgent(agentId, table, column));
+					documents.add(DocumentConverterUtil.convertColumnToDocument(datasourceId, table, column));
 				}
 			}
 		}
@@ -51,11 +51,12 @@ public class DocumentConverterUtil {
 
 	/**
 	 * Converts a column info object to a Document for vector storage.
+	 * @param datasourceId the datasource ID
 	 * @param tableInfoBO the table information containing schema details
 	 * @param columnInfoBO the column information to convert
 	 * @return Document object with column metadata
 	 */
-	public static Document convertColumnToDocumentForAgent(String agentId, TableInfoBO tableInfoBO,
+	public static Document convertColumnToDocument(Integer datasourceId, TableInfoBO tableInfoBO,
 			ColumnInfoBO columnInfoBO) {
 		String text = StringUtils.isBlank(columnInfoBO.getDescription()) ? columnInfoBO.getName()
 				: columnInfoBO.getDescription();
@@ -67,7 +68,7 @@ public class DocumentConverterUtil {
 		metadata.put("primary", columnInfoBO.isPrimary());
 		metadata.put("notnull", columnInfoBO.isNotnull());
 		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.COLUMN);
-		metadata.put(Constant.AGENT_ID, agentId);
+		metadata.put(Constant.DATASOURCE_ID, datasourceId.toString());
 
 		if (columnInfoBO.getSamples() != null) {
 			metadata.put("samples", columnInfoBO.getSamples());
@@ -78,10 +79,11 @@ public class DocumentConverterUtil {
 
 	/**
 	 * Converts a table info object to a Document for vector storage.
+	 * @param datasourceId the datasource ID
 	 * @param tableInfoBO the table information to convert
 	 * @return Document object with table metadata
 	 */
-	public static Document convertTableToDocumentForAgent(String agentId, TableInfoBO tableInfoBO) {
+	public static Document convertTableToDocument(Integer datasourceId, TableInfoBO tableInfoBO) {
 		String text = StringUtils.isBlank(tableInfoBO.getDescription()) ? tableInfoBO.getName()
 				: tableInfoBO.getDescription();
 		Map<String, Object> metadata = new HashMap<>();
@@ -91,13 +93,13 @@ public class DocumentConverterUtil {
 		metadata.put("foreignKey", Optional.ofNullable(tableInfoBO.getForeignKey()).orElse(""));
 		metadata.put("primaryKey", Optional.ofNullable(tableInfoBO.getPrimaryKeys()).orElse(new ArrayList<>()));
 		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.TABLE);
-		metadata.put(Constant.AGENT_ID, agentId);
+		metadata.put(Constant.DATASOURCE_ID, datasourceId.toString());
 		return new Document(text, metadata);
 	}
 
-	public static List<Document> convertTablesToDocuments(String agentId, List<TableInfoBO> tables) {
+	public static List<Document> convertTablesToDocuments(Integer datasourceId, List<TableInfoBO> tables) {
 		return tables.stream()
-			.map(table -> DocumentConverterUtil.convertTableToDocumentForAgent(agentId, table))
+			.map(table -> DocumentConverterUtil.convertTableToDocument(datasourceId, table))
 			.collect(Collectors.toList());
 	}
 

@@ -75,6 +75,14 @@
                   <div class="report-info">
                     <el-icon><Document /></el-icon>
                     <span>报告已生成</span>
+                    <el-radio-group
+                      v-model="requestOptions.reportFormat"
+                      size="small"
+                      class="report-format-inline"
+                    >
+                      <el-radio-button value="markdown">Markdown</el-radio-button>
+                      <el-radio-button value="html">HTML</el-radio-button>
+                    </el-radio-group>
                   </div>
                   <el-button-group size="large">
                     <el-button
@@ -91,14 +99,22 @@
                       <el-icon><Download /></el-icon>
                       下载HTML报告
                     </el-button>
+                    <el-tooltip content="全屏查看报告" placement="top">
+                      <el-button type="info" @click="openReportFullscreen(message.content)">
+                        <el-icon><FullScreen /></el-icon>
+                        全屏
+                      </el-button>
+                    </el-tooltip>
                   </el-button-group>
                 </div>
                 <div class="markdown-report-content">
                   <markdown-agent-container
+                    v-if="requestOptions.reportFormat === 'markdown'"
                     class="md-body"
                     :content="message.content"
                     :options="options"
                   />
+                  <ReportHtmlView v-else :content="message.content" />
                 </div>
               </div>
               <!-- 文本类型消息使用原有布局 -->
@@ -122,7 +138,7 @@
               </div>
               <div class="agent-response-container">
                 <template v-for="(nodeBlock, index) in nodeBlocks" :key="index">
-                  <!-- 如果是 Markdown 报告节点，使用 Markdown 组件 -->
+                  <!-- 如果是 Markdown 报告节点，使用 Markdown 或 HTML 组件 -->
                   <div
                     v-if="
                       nodeBlock.length > 0 &&
@@ -136,10 +152,12 @@
                     </div>
                     <div class="agent-response-content">
                       <markdown-agent-container
+                        v-if="requestOptions.reportFormat === 'markdown'"
                         class="md-body"
                         :content="getMarkdownContentFromNode(nodeBlock)"
                         :options="options"
                       />
+                      <ReportHtmlView v-else :content="getMarkdownContentFromNode(nodeBlock)" />
                     </div>
                   </div>
                   <!-- 如果是 RESULT_SET 节点，使用 ResultSetDisplay 组件 -->
@@ -173,67 +191,92 @@
           :handleFeedback="handleHumanFeedback"
         />
 
-        <!-- 预设问题区域 -->
-        <PresetQuestions
-          v-if="currentSession && agent.id"
-          :agentId="agent.id"
-          :onQuestionClick="handlePresetQuestionClick"
-        />
-
         <!-- 输入区域 -->
         <div class="input-area" v-if="currentSession">
           <div class="input-controls">
-            <div class="switch-group">
-              <div class="switch-item">
-                <span class="switch-label">人工反馈</span>
-                <el-tooltip
-                  :disabled="!requestOptions.nl2sqlOnly"
-                  content="该功能在NL2SQL模式下不能使用"
-                  placement="top"
-                >
+            <div
+              class="input-controls-header"
+              @click="inputControlsCollapsed = !inputControlsCollapsed"
+            >
+              <span class="input-controls-title">更多选项</span>
+              <el-button
+                type="primary"
+                size="small"
+                class="input-controls-toggle-btn"
+                :class="{ collapsed: inputControlsCollapsed }"
+              >
+                <el-icon class="input-controls-toggle-icon">
+                  <ArrowDown />
+                </el-icon>
+                {{ inputControlsCollapsed ? '展开' : '收起' }}
+              </el-button>
+            </div>
+            <div v-show="!inputControlsCollapsed" class="input-controls-body">
+              <!-- 预设问题区域 -->
+              <PresetQuestions
+                v-if="currentSession && agent.id"
+                :agentId="agent.id"
+                :onQuestionClick="handlePresetQuestionClick"
+              />
+              <div class="switch-group">
+                <div class="switch-item">
+                  <span class="switch-label">人工反馈</span>
+                  <el-tooltip
+                    :disabled="!requestOptions.nl2sqlOnly"
+                    content="该功能在NL2SQL模式下不能使用"
+                    placement="top"
+                  >
+                    <el-switch
+                      v-model="requestOptions.humanFeedback"
+                      :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback"
+                    />
+                  </el-tooltip>
+                </div>
+                <div class="switch-item">
+                  <span class="switch-label">仅NL2SQL</span>
                   <el-switch
-                    v-model="requestOptions.humanFeedback"
-                    :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback"
-                  />
-                </el-tooltip>
-              </div>
-              <div class="switch-item">
-                <span class="switch-label">仅NL2SQL</span>
-                <el-switch
-                  v-model="requestOptions.nl2sqlOnly"
-                  :disabled="isStreaming || showHumanFeedback"
-                  @change="handleNl2sqlOnlyChange"
-                />
-              </div>
-              <div class="switch-item">
-                <span class="switch-label">自动Scroll</span>
-                <el-switch v-model="autoScroll" />
-              </div>
-              <div class="switch-item">
-                <span class="switch-label">显示SQL结果</span>
-                <el-tooltip
-                  content="启用本功能会将SQL查询结果存储到DataAgent项目的数据库中，如果数据量较大不建议开启本功能"
-                  placement="top"
-                >
-                  <el-switch
-                    v-model="resultSetDisplayConfig.showSqlResults"
+                    v-model="requestOptions.nl2sqlOnly"
                     :disabled="isStreaming || showHumanFeedback"
+                    @change="handleNl2sqlOnlyChange"
                   />
-                </el-tooltip>
-              </div>
-              <div class="switch-item">
-                <span class="switch-label">每页数量</span>
-                <el-select
-                  v-model="resultSetDisplayConfig.pageSize"
-                  :disabled="isStreaming || showHumanFeedback"
-                  style="width: 80px"
-                >
-                  <el-option label="5" :value="5" />
-                  <el-option label="10" :value="10" />
-                  <el-option label="20" :value="20" />
-                  <el-option label="50" :value="50" />
-                  <el-option label="100" :value="100" />
-                </el-select>
+                </div>
+                <div class="switch-item">
+                  <span class="switch-label">自动Scroll</span>
+                  <el-switch v-model="autoScroll" />
+                </div>
+                <div class="switch-item">
+                  <span class="switch-label">显示SQL结果</span>
+                  <el-tooltip
+                    content="启用本功能会将SQL查询结果存储到DataAgent项目的数据库中，如果数据量较大不建议开启本功能"
+                    placement="top"
+                  >
+                    <el-switch
+                      v-model="resultSetDisplayConfig.showSqlResults"
+                      :disabled="isStreaming || showHumanFeedback"
+                    />
+                  </el-tooltip>
+                </div>
+                <div class="switch-item">
+                  <span class="switch-label">每页数量</span>
+                  <el-select
+                    v-model="resultSetDisplayConfig.pageSize"
+                    :disabled="isStreaming || showHumanFeedback"
+                    style="width: 80px"
+                  >
+                    <el-option label="5" :value="5" />
+                    <el-option label="10" :value="10" />
+                    <el-option label="20" :value="20" />
+                    <el-option label="50" :value="50" />
+                    <el-option label="100" :value="100" />
+                  </el-select>
+                </div>
+                <!-- <div class="switch-item">
+                <span class="switch-label">报告格式</span>
+                <el-radio-group v-model="requestOptions.reportFormat" size="small">
+                  <el-radio-button value="markdown">Markdown</el-radio-button>
+                  <el-radio-button value="html">HTML</el-radio-button>
+                </el-radio-group>
+              </div> -->
               </div>
             </div>
           </div>
@@ -269,6 +312,44 @@
         </div>
       </el-main>
     </el-container>
+
+    <!-- 报告全屏遮罩 -->
+    <Teleport to="body">
+      <div
+        v-if="showReportFullscreen"
+        class="report-fullscreen-overlay"
+        @click.self="closeReportFullscreen"
+      >
+        <div class="report-fullscreen-container">
+          <div class="report-fullscreen-header">
+            <span class="report-fullscreen-title">
+              {{ requestOptions.reportFormat === 'markdown' ? 'Markdown 报告' : 'HTML 报告' }}
+            </span>
+            <el-button
+              type="danger"
+              circle
+              class="report-fullscreen-close"
+              @click="closeReportFullscreen"
+            >
+              <el-icon><Close /></el-icon>
+            </el-button>
+          </div>
+          <div class="report-fullscreen-content">
+            <markdown-agent-container
+              v-if="requestOptions.reportFormat === 'markdown'"
+              class="md-body report-fullscreen-body"
+              :content="fullscreenReportContent"
+              :options="options"
+            />
+            <ReportHtmlView
+              v-else
+              :content="fullscreenReportContent"
+              class="report-fullscreen-body"
+            />
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </BaseLayout>
 </template>
 
@@ -276,7 +357,16 @@
   import { ref, defineComponent, onMounted, nextTick, computed } from 'vue';
   import { useRoute } from 'vue-router';
   import { ElMessage } from 'element-plus';
-  import { Loading, Promotion, Document, Download, CircleClose } from '@element-plus/icons-vue';
+  import {
+    Loading,
+    Promotion,
+    Document,
+    Download,
+    CircleClose,
+    FullScreen,
+    Close,
+    ArrowDown,
+  } from '@element-plus/icons-vue';
   import hljs from 'highlight.js';
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
@@ -309,6 +399,7 @@
   import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
   import PresetQuestions from '@/components/run/PresetQuestions.vue';
   import MarkdownAgentContainer from '@/components/run/markdown';
+  import ReportHtmlView from '@/components/run/ReportHtmlView.vue';
   import ResultSetDisplay from '@/components/run/ResultSetDisplay.vue';
 
   // 扩展Window接口以包含自定义方法
@@ -328,10 +419,14 @@
       Document,
       Download,
       CircleClose,
+      FullScreen,
+      Close,
+      ArrowDown,
       HumanFeedback,
       ChatSessionSidebar,
       PresetQuestions,
       MarkdownAgentContainer,
+      ReportHtmlView,
       ResultSetDisplay,
     },
     created() {
@@ -419,7 +514,11 @@
       const requestOptions = ref({
         humanFeedback: false,
         nl2sqlOnly: false,
+        reportFormat: 'markdown' as 'markdown' | 'html', // 'markdown' | 'html'，控制报告展示方式
       });
+      const showReportFullscreen = ref(false);
+      const fullscreenReportContent = ref('');
+      const inputControlsCollapsed = ref(false);
 
       // 监听NL2SQL开关变化
       const handleNl2sqlOnlyChange = (value: boolean) => {
@@ -857,6 +956,16 @@
         }
       };
 
+      const openReportFullscreen = (content: string) => {
+        fullscreenReportContent.value = content;
+        showReportFullscreen.value = true;
+      };
+
+      const closeReportFullscreen = () => {
+        showReportFullscreen.value = false;
+        fullscreenReportContent.value = '';
+      };
+
       const downloadMarkdownReportFromMessage = (content: string) => {
         if (!content) {
           ElMessage.warning('没有可下载的Markdown报告');
@@ -1242,6 +1351,9 @@
         userInput,
         isStreaming,
         requestOptions,
+        showReportFullscreen,
+        fullscreenReportContent,
+        inputControlsCollapsed,
         autoScroll,
         chatContainer,
         nodeBlocks,
@@ -1257,6 +1369,8 @@
         formatNodeContent,
         generateNodeHtml,
         handleNl2sqlOnlyChange,
+        openReportFullscreen,
+        closeReportFullscreen,
         downloadMarkdownReportFromMessage,
         downloadHtmlReportFromMessageByServer,
         markdownToHtml,
@@ -1528,10 +1642,68 @@
   .report-info {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     color: #409eff;
     font-size: 16px;
     font-weight: 500;
+  }
+
+  .report-format-inline {
+    margin-left: 8px;
+  }
+
+  /* 报告全屏样式 */
+  .report-fullscreen-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .report-fullscreen-container {
+    width: 100%;
+    max-width: 1200px;
+    height: 90vh;
+    background: white;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+
+  .report-fullscreen-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid #e8e8e8;
+    background: #f8f9fa;
+    flex-shrink: 0;
+  }
+
+  .report-fullscreen-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #303133;
+  }
+
+  .report-fullscreen-close {
+    flex-shrink: 0;
+  }
+
+  .report-fullscreen-content {
+    flex: 1;
+    overflow: auto;
+    padding: 24px;
+  }
+
+  .report-fullscreen-body {
+    min-height: 100%;
   }
 
   /* 输入区域样式 */
@@ -1544,12 +1716,48 @@
 
   .input-controls {
     margin-bottom: 12px;
-    padding-bottom: 12px;
     border-bottom: 1px solid #f0f0f0;
+  }
+
+  .input-controls-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    cursor: pointer;
+    user-select: none;
+    color: #606266;
+    font-size: 14px;
+  }
+
+  .input-controls-header:hover {
+    color: #409eff;
+  }
+
+  .input-controls-title {
+    font-weight: 500;
+  }
+
+  .input-controls-toggle-btn {
+    flex-shrink: 0;
+  }
+
+  .input-controls-toggle-btn .input-controls-toggle-icon {
+    margin-right: 4px;
+    transition: transform 0.2s ease;
+  }
+
+  .input-controls-toggle-btn.collapsed .input-controls-toggle-icon {
+    transform: rotate(-90deg);
+  }
+
+  .input-controls-body {
+    padding-bottom: 12px;
   }
 
   .switch-group {
     display: flex;
+    flex-wrap: wrap;
     gap: 20px;
     align-items: center;
   }
