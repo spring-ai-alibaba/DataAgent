@@ -15,27 +15,25 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.file.impls;
 
+import com.alibaba.cloud.ai.dataagent.entity.FileStorage;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
-import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
+import com.alibaba.cloud.ai.dataagent.service.file.FileStorageProvider;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.ObjectMetadata;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.UUID;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.buffer.DataBufferUtils;
-import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -43,7 +41,7 @@ import reactor.core.scheduler.Schedulers;
  * 阿里云OSS文件存储服务实现
  */
 @Slf4j
-public class OssFileStorageServiceImpl implements FileStorageService {
+public class OssFileStorageProviderImpl implements FileStorageProvider {
 
 	private final FileStorageProperties fileStorageProperties;
 
@@ -51,7 +49,7 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 
 	private OSS ossClient;
 
-	public OssFileStorageServiceImpl(FileStorageProperties fileStorageProperties, OssStorageProperties ossProperties) {
+	public OssFileStorageProviderImpl(FileStorageProperties fileStorageProperties, OssStorageProperties ossProperties) {
 		this.fileStorageProperties = fileStorageProperties;
 		this.ossProperties = ossProperties;
 	}
@@ -72,79 +70,32 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 	}
 
 	@Override
-	public Mono<String> storeFile(FilePart file, String subPath) {
-		if (file == null || !StringUtils.hasText(file.filename())) {
-			log.warn("文件为空，无法上传到OSS");
-			return Mono.error(new IllegalArgumentException("文件为空，无法上传到OSS"));
-		}
-
-		String originalFilename = file.filename();
-		String extension = "";
-		if (originalFilename.contains(".")) {
-			extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-		}
-		String filename = UUID.randomUUID() + extension;
-		String objectKey = buildObjectKey(subPath, filename);
-
-		// 获取 Content-Type
-		MediaType contentType = file.headers().getContentType();
-		String contentTypeStr = contentType != null ? contentType.toString() : "application/octet-stream";
-
-		// 使用 DataBufferUtils 收集文件内容，然后在 boundedElastic 线程池上执行 OSS 上传
-		return DataBufferUtils.join(file.content()).flatMap(dataBuffer -> {
-			byte[] bytes = new byte[dataBuffer.readableByteCount()];
-			dataBuffer.read(bytes);
-			DataBufferUtils.release(dataBuffer);
-
-			return Mono.fromCallable(() -> {
-				ObjectMetadata metadata = new ObjectMetadata();
-				metadata.setContentLength(bytes.length);
-				metadata.setContentType(contentTypeStr);
-				metadata.setCacheControl("no-cache");
-
-				try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
-					ossClient.putObject(ossProperties.getBucketName(), objectKey, inputStream, metadata);
-					log.info("文件上传成功: {}", objectKey);
-					return objectKey;
-				}
-			}).subscribeOn(Schedulers.boundedElastic());
-		}).onErrorMap(e -> {
-			log.error("文件存储失败，上传OSS失败", e);
-			return new RuntimeException("文件存储失败: " + e.getMessage(), e);
-		});
-	}
-
-	@Override
-	public String storeFile(MultipartFile file, String subPath) {
+	public void storeFile(FilePart file, FileStorage fileStorage) {
 		try {
-			if (file == null || file.isEmpty()) {
-				log.warn("文件为空，无法上传到OSS");
-				throw new IllegalArgumentException("文件为空，无法上传到OSS");
-			}
-
-			String originalFilename = file.getOriginalFilename();
-			String extension = "";
-			if (originalFilename != null && originalFilename.contains(".")) {
-				extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-			}
-			String filename = UUID.randomUUID() + extension;
-
-			String objectKey = buildObjectKey(subPath, filename);
-
 			ObjectMetadata metadata = new ObjectMetadata();
-			metadata.setContentLength(file.getSize());
-			metadata.setContentType(file.getContentType());
+			metadata.setContentLength(fileStorage.getFileSize());
+			metadata.setContentType(fileStorage.getFileType());
 			metadata.setCacheControl("no-cache");
 
-			try (InputStream inputStream = file.getInputStream()) {
-				ossClient.putObject(ossProperties.getBucketName(), objectKey, inputStream, metadata);
-				log.info("文件上传成功: {}", objectKey);
-				return objectKey;
-			}
-		}
-		catch (IOException e) {
-			log.error("文件存储失败，获取输入流错误", e);
-			throw new RuntimeException("文件存储失败: " + e.getMessage(), e);
+			Path tempFile = Path.of("/tmp/uploads/" + fileStorage.getFilePath());
+
+			file.transferTo(tempFile).then(Mono.fromCallable(() -> {
+				// 在阻塞线程池中处理文件
+				try (InputStream is = Files.newInputStream(tempFile)) {
+					ossClient.putObject(ossProperties.getBucketName(), fileStorage.getFilePath(), is, metadata);
+					log.info("文件上传成功: {}", fileStorage);
+					return "处理成功";
+				}
+			}).subscribeOn(Schedulers.boundedElastic())).publishOn(Schedulers.boundedElastic()).doFinally(signal -> {
+				// 清理临时文件
+				try {
+					Files.deleteIfExists(tempFile);
+				}
+				catch (IOException e) {
+					// 记录日志
+				}
+			}).block();
+
 		}
 		catch (Exception e) {
 			log.error("文件存储失败，上传OSS失败", e);

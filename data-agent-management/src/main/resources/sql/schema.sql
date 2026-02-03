@@ -2,25 +2,25 @@
 
 -- 智能体表
 CREATE TABLE IF NOT EXISTS agent (
-    id INT NOT NULL AUTO_INCREMENT,
-    name VARCHAR(255) NOT NULL COMMENT '智能体名称',
-    description TEXT COMMENT '智能体描述',
-    avatar TEXT COMMENT '头像URL',
-    status VARCHAR(50) DEFAULT 'draft' COMMENT '状态：draft-待发布，published-已发布，offline-已下线',
-    api_key VARCHAR(255) DEFAULT NULL COMMENT '访问 API Key，格式 sk-xxx',
-    api_key_enabled TINYINT DEFAULT 0 COMMENT 'API Key 是否启用：0-禁用，1-启用',
-    prompt TEXT COMMENT '自定义Prompt配置',
-    category VARCHAR(100) COMMENT '分类',
-    admin_id BIGINT COMMENT '管理员ID',
-    tags TEXT COMMENT '标签，逗号分隔',
-    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (id),
-    INDEX idx_name (name),
-    INDEX idx_status (status),
-    INDEX idx_category (category),
-    INDEX idx_admin_id (admin_id)
-    ) ENGINE = InnoDB COMMENT = '智能体表';
+  id INT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(255) NOT NULL COMMENT '智能体名称',
+  description TEXT COMMENT '智能体描述',
+  avatar TEXT COMMENT '头像URL',
+  status VARCHAR(50) DEFAULT 'draft' COMMENT '状态：draft-待发布，published-已发布，offline-已下线',
+  api_key VARCHAR(255) DEFAULT NULL COMMENT '访问 API Key，格式 sk-xxx',
+  api_key_enabled TINYINT DEFAULT 0 COMMENT 'API Key 是否启用：0-禁用，1-启用',
+  prompt TEXT COMMENT '自定义Prompt配置',
+  category VARCHAR(100) COMMENT '分类',
+  admin_id BIGINT COMMENT '管理员ID',
+  tags TEXT COMMENT '标签，逗号分隔',
+  create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (id),
+  INDEX idx_name (name),
+  INDEX idx_status (status),
+  INDEX idx_category (category),
+  INDEX idx_admin_id (admin_id)
+) ENGINE = InnoDB COMMENT = '智能体表';
 
 -- 业务知识表
 CREATE TABLE IF NOT EXISTS business_knowledge (
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS business_knowledge (
   INDEX idx_is_recall (is_recall),
   INDEX idx_embedding_status (embedding_status),
   INDEX idx_is_deleted (is_deleted),
-  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
+  FOREIGN KEY (agent_id) REFERENCES agent (id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '业务知识表';
 
 -- 语义模型表
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS `semantic_model` (
   KEY `idx_field_name` (`business_name`) USING BTREE,
   KEY `idx_status` (`status`) USING BTREE,
   CONSTRAINT `fk_semantic_model_agent` FOREIGN KEY (`agent_id`) REFERENCES `agent` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC COMMENT='语义模型表';
+) ENGINE = InnoDB AUTO_INCREMENT = 4 DEFAULT CHARSET = utf8mb4 COMMENT ='语义模型表';
 
 
 -- 智能体知识表
@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS `agent_knowledge` (
   `is_recall` int(11) DEFAULT 1 COMMENT '业务状态: 1=召回, 0=非召回',
   `embedding_status` varchar(20) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '向量化状态：PENDING待处理，PROCESSING处理中，COMPLETED已完成，FAILED失败',
   `error_msg` varchar(255) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '操作失败的错误信息',
+  `file_id` int COMMENT '文件ID',
   `source_filename` varchar(500) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '上传时的原始文件名',
   `file_path` varchar(500) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '文件在服务器上的物理存储路径',
   `file_size` bigint(20) DEFAULT NULL COMMENT '文件大小 (字节)',
@@ -88,10 +89,10 @@ CREATE TABLE IF NOT EXISTS `agent_knowledge` (
   `is_deleted` int(11) DEFAULT 0 COMMENT '逻辑删除字段，0=未删除, 1=已删除',
   `is_resource_cleaned` int(11) DEFAULT 0 COMMENT '0=物理资源（文件和向量）未清理, 1=物理资源已清理',
   PRIMARY KEY (`id`) USING BTREE,
-  KEY `idx_agent_id_status` (`agent_id`,`is_recall`) USING BTREE,
+  KEY `idx_agent_id_status` (`agent_id`, `is_recall`) USING BTREE,
   KEY `idx_embedding_status` (`embedding_status`) USING BTREE,
   KEY `idx_is_deleted` (`is_deleted`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC COMMENT='智能体知识源管理表 (支持文档、QA、FAQ)';
+) ENGINE = InnoDB AUTO_INCREMENT = 18 DEFAULT CHARSET = utf8mb4 COMMENT ='智能体知识源管理表 (支持文档、QA、FAQ)';
 
 -- 数据源表
 CREATE TABLE IF NOT EXISTS datasource (
@@ -133,7 +134,7 @@ CREATE TABLE IF NOT EXISTS logical_relation (
   PRIMARY KEY (id),
   INDEX idx_datasource_id (datasource_id) COMMENT '加速根据数据源查找关系的查询',
   INDEX idx_source_table (datasource_id, source_table_name) COMMENT '加速根据表名查找关系的查询',
-  FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON DELETE CASCADE
+  FOREIGN KEY (datasource_id) REFERENCES datasource (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '逻辑外键配置表';
 
 -- 智能体数据源关联表
@@ -149,8 +150,8 @@ CREATE TABLE IF NOT EXISTS agent_datasource (
   INDEX idx_agent_id (agent_id),
   INDEX idx_datasource_id (datasource_id),
   INDEX idx_is_active (is_active),
-  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE,
-  FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON DELETE CASCADE
+  FOREIGN KEY (agent_id) REFERENCES agent (id) ON DELETE CASCADE,
+  FOREIGN KEY (datasource_id) REFERENCES datasource (id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '智能体数据源关联表';
 
 -- 智能体预设问题表
@@ -166,7 +167,7 @@ CREATE TABLE IF NOT EXISTS agent_preset_question (
   INDEX idx_agent_id (agent_id),
   INDEX idx_sort_order (sort_order),
   INDEX idx_is_active (is_active),
-  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
+  FOREIGN KEY (agent_id) REFERENCES agent (id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '智能体预设问题表';
 
 -- 会话表
@@ -185,7 +186,7 @@ CREATE TABLE IF NOT EXISTS chat_session (
   INDEX idx_status (status),
   INDEX idx_is_pinned (is_pinned),
   INDEX idx_create_time (create_time),
-  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
+  FOREIGN KEY (agent_id) REFERENCES agent (id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '聊天会话表';
 
 -- 消息表
@@ -202,7 +203,7 @@ CREATE TABLE IF NOT EXISTS chat_message (
   INDEX idx_role (role),
   INDEX idx_message_type (message_type),
   INDEX idx_create_time (create_time),
-  FOREIGN KEY (session_id) REFERENCES chat_session(id) ON DELETE CASCADE
+  FOREIGN KEY (session_id) REFERENCES chat_session (id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '聊天消息表';
 
 -- 用户Prompt配置表
@@ -228,43 +229,61 @@ CREATE TABLE IF NOT EXISTS user_prompt_config (
   INDEX idx_display_order (display_order ASC)
 ) ENGINE = InnoDB COMMENT = '用户Prompt配置表';
 
-create table if not exists agent_datasource_tables
-(
-    id                  int auto_increment primary key,
-    agent_datasource_id int                                 not null comment '智能体数据源ID',
-    table_name          varchar(255)                        not null comment '数据表名',
-    create_time         timestamp default CURRENT_TIMESTAMP null comment '创建时间',
-    update_time         timestamp default CURRENT_TIMESTAMP null comment '更新时间',
-    constraint agent_datasource_tables_agent_datasource_id_table_name_uindex
-        unique (agent_datasource_id, table_name),
-    constraint agent_datasource_tables_agent_datasource_id_fk
-        foreign key (agent_datasource_id) references agent_datasource (id)
-            on update cascade on delete cascade
+create table if not exists agent_datasource_tables (
+  id int auto_increment primary key,
+  agent_datasource_id int not null comment '智能体数据源ID',
+  table_name varchar(255) not null comment '数据表名',
+  create_time timestamp default CURRENT_TIMESTAMP null comment '创建时间',
+  update_time timestamp default CURRENT_TIMESTAMP null comment '更新时间',
+  constraint agent_datasource_tables_agent_datasource_id_table_name_uindex
+    unique (agent_datasource_id, table_name),
+  constraint agent_datasource_tables_agent_datasource_id_fk
+    foreign key (agent_datasource_id) references agent_datasource (id)
+      on update cascade on delete cascade
 )
-    comment '某个智能体某个数据源所选中的数据表';
+  comment '某个智能体某个数据源所选中的数据表';
 
 
 -- 模型配置表
 CREATE TABLE IF NOT EXISTS `model_config` (
-                                              `id` int(11) NOT NULL AUTO_INCREMENT,
-    `provider` varchar(255) NOT NULL COMMENT '厂商标识 (方便前端展示回显，实际调用主要靠 baseUrl)',
-    `base_url` varchar(255) NOT NULL COMMENT '关键配置',
-    `api_key` varchar(255) NOT NULL COMMENT 'API密钥',
-    `model_name` varchar(255) NOT NULL COMMENT '模型名称',
-    `temperature` decimal(10,2) unsigned DEFAULT '0.00' COMMENT '温度参数',
-    `is_active` tinyint(1) DEFAULT '0' COMMENT '是否激活',
-    `max_tokens` int(11) DEFAULT '2000' COMMENT '输出响应最大令牌数',
-    `model_type` varchar(20) NOT NULL DEFAULT 'CHAT' COMMENT '模型类型 (CHAT/EMBEDDING)',
-    `completions_path` varchar(255) DEFAULT NULL COMMENT 'Chat模型专用。附加到 Base URL 的路径。例如OpenAi的/v1/chat/completions',
-    `embeddings_path` varchar(255) DEFAULT NULL COMMENT '嵌入模型专用。附加到 Base URL 的路径。',
-    `created_time` datetime DEFAULT NULL COMMENT '创建时间',
-    `updated_time` datetime DEFAULT NULL COMMENT '更新时间',
-    `is_deleted` int(11) DEFAULT '0' COMMENT '0=未删除, 1=已删除',
-    -- 新增 AI 代理配置字段（默认关闭以确保零侵入性）
-    `proxy_enabled` tinyint(1) DEFAULT '0' COMMENT '是否启用代理：0-禁用，1-启用',
-    `proxy_host` varchar(255) DEFAULT NULL COMMENT '代理主机地址',
-    `proxy_port` int(11) DEFAULT NULL COMMENT '代理端口',
-    `proxy_username` varchar(255) DEFAULT NULL COMMENT '代理用户名（可选）',
-    `proxy_password` varchar(255) DEFAULT NULL COMMENT '代理密码（可选）',
-    PRIMARY KEY (`id`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `provider` varchar(255) NOT NULL COMMENT '厂商标识 (方便前端展示回显，实际调用主要靠 baseUrl)',
+  `base_url` varchar(255) NOT NULL COMMENT '关键配置',
+  `api_key` varchar(255) NOT NULL COMMENT 'API密钥',
+  `model_name` varchar(255) NOT NULL COMMENT '模型名称',
+  `temperature` decimal(10, 2) unsigned DEFAULT '0.00' COMMENT '温度参数',
+  `is_active` tinyint(1) DEFAULT '0' COMMENT '是否激活',
+  `max_tokens` int(11) DEFAULT '2000' COMMENT '输出响应最大令牌数',
+  `model_type` varchar(20) NOT NULL DEFAULT 'CHAT' COMMENT '模型类型 (CHAT/EMBEDDING)',
+  `completions_path` varchar(255) DEFAULT NULL COMMENT 'Chat模型专用。附加到 Base URL 的路径。例如OpenAi的/v1/chat/completions',
+  `embeddings_path` varchar(255) DEFAULT NULL COMMENT '嵌入模型专用。附加到 Base URL 的路径。',
+  `created_time` datetime DEFAULT NULL COMMENT '创建时间',
+  `updated_time` datetime DEFAULT NULL COMMENT '更新时间',
+  `is_deleted` int(11) DEFAULT '0' COMMENT '0=未删除, 1=已删除',
+  -- 新增 AI 代理配置字段（默认关闭以确保零侵入性）
+  `proxy_enabled` tinyint(1) DEFAULT '0' COMMENT '是否启用代理：0-禁用，1-启用',
+  `proxy_host` varchar(255) DEFAULT NULL COMMENT '代理主机地址',
+  `proxy_port` int(11) DEFAULT NULL COMMENT '代理端口',
+  `proxy_username` varchar(255) DEFAULT NULL COMMENT '代理用户名（可选）',
+  `proxy_password` varchar(255) DEFAULT NULL COMMENT '代理密码（可选）',
+  PRIMARY KEY (`id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- 文件存储表
+CREATE TABLE `file_storage` (
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `filename` VARCHAR(255) NOT NULL COMMENT '文件名',
+  `file_path` VARCHAR(1024) NOT NULL COMMENT '文件路径',
+  `file_size` INT DEFAULT NULL COMMENT '文件大小（字节）',
+  `file_type` VARCHAR(255) DEFAULT NULL COMMENT '文件类型',
+  `file_extension` VARCHAR(20) DEFAULT NULL COMMENT '文件后缀，如：.jpg/.pdf/.docx',
+  `storage_type` VARCHAR(50) NOT NULL COMMENT '存储类型：LOCAL/S3/OSS',
+  `is_deleted` TINYINT(1) NOT NULL DEFAULT '0' COMMENT '删除状态：0=未删除, 1=已删除',
+  `is_cleaned` TINYINT(1) NOT NULL DEFAULT '0' COMMENT '清理状态：0=物理资源未清理, 1=物理资源已清理',
+  `created_time` DATETIME DEFAULT NULL COMMENT '创建时间',
+  `updated_time` DATETIME DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_filename` (`filename`),
+  KEY `idx_file_path` (`file_path`),
+  KEY `idx_updated_time` (`updated_time`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='文件存储表';

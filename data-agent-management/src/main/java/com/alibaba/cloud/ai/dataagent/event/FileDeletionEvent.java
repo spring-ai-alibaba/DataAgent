@@ -13,10 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.file;
+package com.alibaba.cloud.ai.dataagent.event;
 
-public enum FileStorageServiceEnum {
+import java.time.Clock;
+import lombok.Getter;
+import org.springframework.context.ApplicationEvent;
 
-	LOCAL, OSS
+@Getter
+public class FileDeletionEvent extends ApplicationEvent {
+
+	private final Long fileId;
+
+	public FileDeletionEvent(Object source, Long fileId) {
+		super(source, Clock.systemDefaultZone());
+		this.fileId = fileId;
+	}
 
 }
