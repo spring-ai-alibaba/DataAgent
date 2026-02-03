@@ -29,8 +29,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Manage SSE streams that push session updates to frontend.
- * 一个 agent 对应一个共享的 sink，多个连接共享同一个 sink。
+ * Manage SSE streams that push session updates to frontend. 一个 agent 对应一个共享的
+ * sink，多个连接共享同一个 sink。
  */
 @Slf4j
 @Service
@@ -41,12 +41,10 @@ public class SessionEventPublisher {
 	public Flux<ServerSentEvent<SessionUpdateEvent>> register(Integer agentId) {
 		AgentSessionSink sink = sinks.computeIfAbsent(agentId, id -> new AgentSessionSink());
 		Flux<ServerSentEvent<SessionUpdateEvent>> heartbeat = Flux.interval(Duration.ofSeconds(2))
-				.map(i -> ServerSentEvent.<SessionUpdateEvent>builder()
-						.comment("heartbeat")
-						.build());
+			.map(i -> ServerSentEvent.<SessionUpdateEvent>builder().comment("heartbeat").build());
 		sink.increment();
 		log.debug("Registered subscriber for agent {}, current count: {}", agentId, sink.subscribers.get());
-		return Flux.merge(heartbeat,sink.sink.asFlux()).doFinally(signalType -> cleanup(agentId, sink, signalType));
+		return Flux.merge(heartbeat, sink.sink.asFlux()).doFinally(signalType -> cleanup(agentId, sink, signalType));
 	}
 
 	public void publishTitleUpdated(Integer agentId, String sessionId, String title) {
