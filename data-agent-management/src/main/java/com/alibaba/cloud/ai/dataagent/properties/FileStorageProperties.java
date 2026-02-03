@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.properties;
 
 import com.alibaba.cloud.ai.dataagent.constant.Constant;
-import com.alibaba.cloud.ai.dataagent.service.file.FileStorageServiceEnum;
+import com.alibaba.cloud.ai.dataagent.service.file.FileStorageProviderEnum;
 import java.nio.file.Path;
 import lombok.Getter;
 import lombok.Setter;
@@ -35,7 +35,7 @@ public class FileStorageProperties {
 	/**
 	 * 存储类型：local（本地存储）、oss（阿里云OSS）
 	 */
-	private FileStorageServiceEnum type = FileStorageServiceEnum.LOCAL;
+	private FileStorageProviderEnum type = FileStorageProviderEnum.LOCAL;
 
 	/**
 	 * 对象存储路径前缀（通用配置，对OSS和本地存储都适用）

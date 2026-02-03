@@ -15,8 +15,6 @@
  */
 package com.alibaba.cloud.ai.dataagent.controller;
 
-import com.alibaba.cloud.ai.dataagent.service.file.ByteArrayMultipartFile;
-import com.alibaba.cloud.ai.dataagent.vo.PageResult;
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.AgentKnowledgeQueryDTO;
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.CreateKnowledgeDTO;
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.UpdateKnowledgeDTO;
@@ -24,18 +22,26 @@ import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeService;
 import com.alibaba.cloud.ai.dataagent.vo.AgentKnowledgeVO;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import com.alibaba.cloud.ai.dataagent.vo.PageResponse;
+import com.alibaba.cloud.ai.dataagent.vo.PageResult;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-
-import java.util.List;
 
 /**
  * Agent Knowledge Management Controller
@@ -79,39 +85,18 @@ public class AgentKnowledgeController {
 			@RequestPart(value = "content", required = false) String content,
 			@RequestPart(value = "file", required = false) FilePart filePart,
 			@RequestPart(value = "splitterType", required = false) String splitterType) {
+		
+		return Mono.fromCallable(() -> {
+			CreateKnowledgeDTO dto = buildCreateKnowledgeDTO(agentId, title, type, question, content, filePart,
+					splitterType);
+			AgentKnowledgeVO knowledge = agentKnowledgeService.createKnowledge(dto);
+			return ApiResponse.success("创建知识成功，后台向量存储开始更新，请耐心等待...", knowledge);
+		}).subscribeOn(Schedulers.boundedElastic());
 
-		// 如果没有文件，直接同步处理
-		if (filePart == null) {
-			return Mono.fromCallable(() -> {
-				CreateKnowledgeDTO dto = buildCreateKnowledgeDTO(agentId, title, type, question, content, null,
-						splitterType);
-				AgentKnowledgeVO knowledge = agentKnowledgeService.createKnowledge(dto);
-				return ApiResponse.success("创建知识成功，后台向量存储开始更新，请耐心等待...", knowledge);
-			}).subscribeOn(Schedulers.boundedElastic());
-		}
-
-		// 有文件时，先读取文件内容再处理
-		String filename = filePart.filename();
-		String fileContentType = filePart.headers().getContentType() != null
-				? filePart.headers().getContentType().toString() : "application/octet-stream";
-
-		return DataBufferUtils.join(filePart.content()).flatMap(dataBuffer -> {
-			byte[] bytes = new byte[dataBuffer.readableByteCount()];
-			dataBuffer.read(bytes);
-			DataBufferUtils.release(dataBuffer);
-
-			return Mono.fromCallable(() -> {
-				MultipartFile multipartFile = new ByteArrayMultipartFile(bytes, filename, fileContentType);
-				CreateKnowledgeDTO dto = buildCreateKnowledgeDTO(agentId, title, type, question, content, multipartFile,
-						splitterType);
-				AgentKnowledgeVO knowledge = agentKnowledgeService.createKnowledge(dto);
-				return ApiResponse.success("创建知识成功，后台向量存储开始更新，请耐心等待...", knowledge);
-			}).subscribeOn(Schedulers.boundedElastic());
-		});
 	}
 
 	private CreateKnowledgeDTO buildCreateKnowledgeDTO(String agentId, String title, String type, String question,
-			String content, MultipartFile file, String splitterType) {
+			String content, FilePart file, String splitterType) {
 		CreateKnowledgeDTO dto = new CreateKnowledgeDTO();
 		dto.setAgentId(Integer.parseInt(agentId));
 		dto.setTitle(title);
