@@ -59,26 +59,23 @@ public class FileUploadController {
 	@PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	public Mono<ResponseEntity<UploadResponse>> uploadAvatar(@RequestPart("file") FilePart file) {
 		// 验证文件类型
-		String contentType = file.headers().getContentType() != null
-				? file.headers().getContentType().toString()
+		String contentType = file.headers().getContentType() != null ? file.headers().getContentType().toString()
 				: null;
 		if (contentType == null || !contentType.startsWith("image/")) {
 			return Mono.just(ResponseEntity.badRequest().body(UploadResponse.error("只支持图片文件")));
 		}
 
 		// 使用文件存储服务存储文件
-		return fileStorageService.storeFile(file, "avatars")
-			.map(filePath -> {
-				String fileUrl = fileStorageService.getFileUrl(filePath);
-				// 提取文件名
-				String filename = filePath.substring(filePath.lastIndexOf("/") + 1);
-				return ResponseEntity.ok(UploadResponse.ok("上传成功", fileUrl, filename));
-			})
-			.onErrorResume(e -> {
-				log.error("头像上传失败", e);
-				return Mono.just(ResponseEntity.internalServerError()
-					.body(UploadResponse.error("上传失败: " + e.getMessage())));
-			});
+		return fileStorageService.storeFile(file, "avatars").map(filePath -> {
+			String fileUrl = fileStorageService.getFileUrl(filePath);
+			// 提取文件名
+			String filename = filePath.substring(filePath.lastIndexOf("/") + 1);
+			return ResponseEntity.ok(UploadResponse.ok("上传成功", fileUrl, filename));
+		}).onErrorResume(e -> {
+			log.error("头像上传失败", e);
+			return Mono
+				.just(ResponseEntity.internalServerError().body(UploadResponse.error("上传失败: " + e.getMessage())));
+		});
 	}
 
 	/**

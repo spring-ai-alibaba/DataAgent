@@ -173,28 +173,24 @@ public class SemanticModelController {
 		Long agentIdLong = Long.parseLong(agentId);
 		String filename = file.filename();
 
-		return DataBufferUtils.join(file.content())
-			.flatMap(dataBuffer -> {
-				byte[] bytes = new byte[dataBuffer.readableByteCount()];
-				dataBuffer.read(bytes);
-				DataBufferUtils.release(dataBuffer);
+		return DataBufferUtils.join(file.content()).flatMap(dataBuffer -> {
+			byte[] bytes = new byte[dataBuffer.readableByteCount()];
+			dataBuffer.read(bytes);
+			DataBufferUtils.release(dataBuffer);
 
-				return Mono.fromCallable(() -> {
-					try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
-						BatchImportResult result = semanticModelService.importFromExcel(inputStream, filename,
-								agentIdLong);
-						return ApiResponse.success("Excel导入完成", result);
-					}
-				}).subscribeOn(Schedulers.boundedElastic());
-			})
-			.onErrorResume(IllegalArgumentException.class, e -> {
-				log.error("Excel导入失败: {}", e.getMessage());
-				return Mono.just(ApiResponse.error("Excel导入失败: " + e.getMessage()));
-			})
-			.onErrorResume(Exception.class, e -> {
-				log.error("Excel导入失败", e);
-				return Mono.just(ApiResponse.error("Excel导入失败: " + e.getMessage()));
-			});
+			return Mono.fromCallable(() -> {
+				try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
+					BatchImportResult result = semanticModelService.importFromExcel(inputStream, filename, agentIdLong);
+					return ApiResponse.success("Excel导入完成", result);
+				}
+			}).subscribeOn(Schedulers.boundedElastic());
+		}).onErrorResume(IllegalArgumentException.class, e -> {
+			log.error("Excel导入失败: {}", e.getMessage());
+			return Mono.just(ApiResponse.error("Excel导入失败: " + e.getMessage()));
+		}).onErrorResume(Exception.class, e -> {
+			log.error("Excel导入失败", e);
+			return Mono.just(ApiResponse.error("Excel导入失败: " + e.getMessage()));
+		});
 	}
 
 }

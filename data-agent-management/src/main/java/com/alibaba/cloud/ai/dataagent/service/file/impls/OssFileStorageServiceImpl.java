@@ -91,29 +91,27 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 		String contentTypeStr = contentType != null ? contentType.toString() : "application/octet-stream";
 
 		// 使用 DataBufferUtils 收集文件内容，然后在 boundedElastic 线程池上执行 OSS 上传
-		return DataBufferUtils.join(file.content())
-			.flatMap(dataBuffer -> {
-				byte[] bytes = new byte[dataBuffer.readableByteCount()];
-				dataBuffer.read(bytes);
-				DataBufferUtils.release(dataBuffer);
+		return DataBufferUtils.join(file.content()).flatMap(dataBuffer -> {
+			byte[] bytes = new byte[dataBuffer.readableByteCount()];
+			dataBuffer.read(bytes);
+			DataBufferUtils.release(dataBuffer);
 
-				return Mono.fromCallable(() -> {
-					ObjectMetadata metadata = new ObjectMetadata();
-					metadata.setContentLength(bytes.length);
-					metadata.setContentType(contentTypeStr);
-					metadata.setCacheControl("no-cache");
+			return Mono.fromCallable(() -> {
+				ObjectMetadata metadata = new ObjectMetadata();
+				metadata.setContentLength(bytes.length);
+				metadata.setContentType(contentTypeStr);
+				metadata.setCacheControl("no-cache");
 
-					try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
-						ossClient.putObject(ossProperties.getBucketName(), objectKey, inputStream, metadata);
-						log.info("文件上传成功: {}", objectKey);
-						return objectKey;
-					}
-				}).subscribeOn(Schedulers.boundedElastic());
-			})
-			.onErrorMap(e -> {
-				log.error("文件存储失败，上传OSS失败", e);
-				return new RuntimeException("文件存储失败: " + e.getMessage(), e);
-			});
+				try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
+					ossClient.putObject(ossProperties.getBucketName(), objectKey, inputStream, metadata);
+					log.info("文件上传成功: {}", objectKey);
+					return objectKey;
+				}
+			}).subscribeOn(Schedulers.boundedElastic());
+		}).onErrorMap(e -> {
+			log.error("文件存储失败，上传OSS失败", e);
+			return new RuntimeException("文件存储失败: " + e.getMessage(), e);
+		});
 	}
 
 	@Override
