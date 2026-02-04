@@ -29,6 +29,11 @@ export interface ModelConfig {
   isActive?: boolean;
   completionsPath?: string; // 对话模型路径
   embeddingsPath?: string; // 嵌入模型路径
+  proxyEnabled?: boolean; //代理开关，默认为关闭（直连）
+  proxyHost?: string;
+  proxyPort?: number;
+  proxyUsername?: string;
+  proxyPassword?: string;
 }
 
 export interface ModelCheckReady {

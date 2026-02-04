@@ -119,6 +119,11 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		oldEntity.setCompletionsPath(dto.getCompletionsPath()); // 路径字段
 		oldEntity.setEmbeddingsPath(dto.getEmbeddingsPath()); // 路径字段
 		oldEntity.setUpdatedTime(LocalDateTime.now()); // 更新时间
+		oldEntity.setProxyEnabled(dto.getProxyEnabled());
+		oldEntity.setProxyHost(dto.getProxyHost());
+		oldEntity.setProxyPort(dto.getProxyPort());
+		oldEntity.setProxyUsername(dto.getProxyUsername());
+		oldEntity.setProxyPassword(dto.getProxyPassword());
 
 		// 只有当前端传来的 Key 不包含 "****" 时，才说明用户真的改了 Key，否则保持原样
 		if (dto.getApiKey() != null && !dto.getApiKey().contains("****")) {
