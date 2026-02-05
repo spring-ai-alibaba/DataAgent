@@ -43,6 +43,11 @@ public class ModelConfigConverter {
 			.modelType(entity.getModelType().getCode())
 			.completionsPath(entity.getCompletionsPath())
 			.embeddingsPath(entity.getEmbeddingsPath())
+			.proxyEnabled(entity.getProxyEnabled())
+			.proxyHost(entity.getProxyHost())
+			.proxyPort(entity.getProxyPort())
+			.proxyUsername(entity.getProxyUsername())
+			.proxyPassword(entity.getProxyPassword())
 			.build();
 	}
 
@@ -64,6 +69,11 @@ public class ModelConfigConverter {
 		entity.setModelType(ModelType.fromCode(dto.getModelType()));
 		entity.setCompletionsPath(dto.getCompletionsPath());
 		entity.setEmbeddingsPath(dto.getEmbeddingsPath());
+		entity.setProxyEnabled(dto.getProxyEnabled());
+		entity.setProxyHost(dto.getProxyHost());
+		entity.setProxyPort(dto.getProxyPort());
+		entity.setProxyUsername(dto.getProxyUsername());
+		entity.setProxyPassword(dto.getProxyPassword());
 		// 默认值处理
 		entity.setIsActive(false);
 		entity.setIsDeleted(0);
