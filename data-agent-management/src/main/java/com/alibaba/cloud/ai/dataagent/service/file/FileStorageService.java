@@ -61,16 +61,16 @@ public interface FileStorageService {
 
 	/**
 	 * 获取文件访问URL
-	 * @param filePath 文件路径
+	 * @param fileStorage 文件存储信息
 	 * @return 访问URL
 	 */
-	String getFileUrl(String filePath);
+	String getFileUrl(FileStorage fileStorage);
 
 	/**
 	 * 获取文件资源对象
-	 * @param filePath 文件路径
+	 * @param fileStorage 文件路径
 	 * @return 文件资源对象
 	 */
-	Resource getFileResource(String filePath);
+	Resource getFileResource(FileStorage fileStorage);
 
 }
