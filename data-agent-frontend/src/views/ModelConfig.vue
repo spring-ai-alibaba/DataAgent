@@ -212,8 +212,6 @@
             </el-radio-group>
           </el-form-item>
 
-
-
           <el-form-item label="模型名称" prop="modelName">
             <el-input
               v-model="formData.modelName"
@@ -246,6 +244,7 @@
                 v-model="modelTier"
                 placeholder="请选择模型规模"
                 style="width: 100%"
+                @change="onModelTierChange"
             >
               <el-option label="极速模型" value="FLASH" />
               <el-option label="标准模型" value="STANDARD" />
@@ -437,6 +436,13 @@
           formData.value.modelTier = undefined; // 嵌入模型不区分规模
         } else if (modelType === 'CHAT') {
           formData.value.modelTier = modelTier.value;
+        }
+      };
+
+      const onModelTierChange = (tier: string) => {
+        modelTier.value = tier;
+        if (formData.value.modelType === 'CHAT') {
+          formData.value.modelTier = tier;
         }
       };
 
@@ -713,6 +719,7 @@
         getProviderTagType,
         updateBaseUrlByProvider,
         onModelTypeChange,
+        onModelTierChange,
         Plus,
         Refresh,
       };
