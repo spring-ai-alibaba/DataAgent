@@ -155,23 +155,4 @@ public class OssFileStorageProviderImpl implements FileStorageProvider {
 		};
 	}
 
-	/**
-	 * 构建OSS对象键
-	 */
-	private String buildObjectKey(String subPath, String filename) {
-		StringBuilder keyBuilder = new StringBuilder();
-
-		if (StringUtils.hasText(fileStorageProperties.getPathPrefix())) {
-			keyBuilder.append(fileStorageProperties.getPathPrefix()).append("/");
-		}
-
-		if (StringUtils.hasText(subPath)) {
-			keyBuilder.append(subPath).append("/");
-		}
-
-		keyBuilder.append(filename);
-
-		return keyBuilder.toString();
-	}
-
 }

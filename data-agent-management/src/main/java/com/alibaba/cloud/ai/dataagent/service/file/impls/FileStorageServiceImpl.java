@@ -20,9 +20,12 @@ import com.alibaba.cloud.ai.dataagent.event.FileDeletionEvent;
 import com.alibaba.cloud.ai.dataagent.mapper.FileStorageMapper;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageProvider;
+import com.alibaba.cloud.ai.dataagent.service.file.FileStorageProviderEnum;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.vo.FileStorageVo;
 import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -35,7 +38,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class FileStorageServiceImpl implements FileStorageService {
 
-	private final FileStorageProvider fileStorageProvider;
+	private final Map<String, FileStorageProvider> fileStorageProviders;
 
 	private final FileStorageProperties fileStorageProperties;
 
@@ -54,7 +57,7 @@ public class FileStorageServiceImpl implements FileStorageService {
 
 		String filePath = buildFilePath(subPath, filename);
 
-		fileStorageProvider.storeFile(file, filePath);
+		getStorageProvider(fileStorageProperties.getType()).storeFile(file, filePath);
 
 		FileStorage storage = FileStorage.builder()
 			.filename(originalFilename)
@@ -74,9 +77,19 @@ public class FileStorageServiceImpl implements FileStorageService {
 		return FileStorageVo.builder()
 			.id(storage.getId())
 			.filePath(storage.getFilePath())
-			.url(getFileUrl(filePath))
+			.url(getFileUrl(storage))
 			.filename(storage.getFilename())
 			.build();
+	}
+
+	private FileStorageProvider getStorageProvider(FileStorageProviderEnum storageProviderEnum) {
+		if (storageProviderEnum == null) {
+			storageProviderEnum = fileStorageProperties.getType();
+		}
+		if (!fileStorageProviders.containsKey(storageProviderEnum.name().toLowerCase(Locale.ROOT))) {
+			throw new IllegalArgumentException("Invalid storage provider: " + storageProviderEnum);
+		}
+		return fileStorageProviders.get(storageProviderEnum.name().toLowerCase(Locale.ROOT));
 	}
 
 	@Override
@@ -85,12 +98,12 @@ public class FileStorageServiceImpl implements FileStorageService {
 	}
 
 	public boolean deleteFileResource(String filePath) {
-		return fileStorageProvider.deleteFile(filePath);
+		return getStorageProvider(fileStorageProperties.getType()).deleteFile(filePath);
 	}
 
 	public boolean deleteFileResource(FileStorage fileStorage) {
 		// 1. 删除文件
-		boolean fileDeleted = deleteFileResource(fileStorage.getFilePath());
+		boolean fileDeleted = getStorageProvider(fileStorage.getStorageType()).deleteFile(fileStorage.getFilePath());
 
 		// 2. 更新清理状态
 		if (fileDeleted) {
@@ -114,12 +127,14 @@ public class FileStorageServiceImpl implements FileStorageService {
 		return true;
 	}
 
-	public String getFileUrl(String filePath) {
-		return fileStorageProvider.getFileUrl(filePath);
+	@Override
+	public String getFileUrl(FileStorage fileStorage) {
+		return getStorageProvider(fileStorage.getStorageType()).getFileUrl(fileStorage.getFilePath());
 	}
 
-	public Resource getFileResource(String filePath) {
-		return fileStorageProvider.getFileResource(filePath);
+	@Override
+	public Resource getFileResource(FileStorage fileStorage) {
+		return getStorageProvider(fileStorage.getStorageType()).getFileResource(fileStorage.getFilePath());
 	}
 
 	/**
