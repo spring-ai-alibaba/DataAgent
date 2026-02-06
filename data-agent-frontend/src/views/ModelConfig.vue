@@ -403,7 +403,7 @@
         baseUrl: '',
         modelName: '',
         modelType: 'CHAT',
-        modelTier: undefined,
+        modelTier: 'STANDARD', // 因为默认是对话模型，所以默认模型规模设置为标准模型
         temperature: 0.0,
         maxTokens: 2000,
         completionsPath: '',
@@ -555,6 +555,7 @@
         if (!formRef.value) return;
 
         try {
+          console.log("正在验证表单...", formData.value);
           await formRef.value.validate();
           submitting.value = true;
 
@@ -570,6 +571,7 @@
             }
           } else {
             // 新增配置
+            console.log("提交的表单数据:", formData.value);
             const result = await modelConfigService.add(formData.value);
             if (result.success) {
               ElMessage.success('配置添加成功');
