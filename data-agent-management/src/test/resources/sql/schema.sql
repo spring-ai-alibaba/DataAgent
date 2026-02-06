@@ -220,10 +220,17 @@ CREATE TABLE IF NOT EXISTS `model_config` (
   `is_active` tinyint(1) DEFAULT '0' COMMENT '是否激活',
   `max_tokens` int(11) DEFAULT '2000' COMMENT '输出响应最大令牌数',
   `model_type` varchar(20) NOT NULL DEFAULT 'CHAT' COMMENT '模型类型 (CHAT/EMBEDDING)',
+  `model_tier` varchar(20) DEFAULT NULL COMMENT '模型规模，仅对话模型有效 (FLASH/STANDARD/THINKING)',
   `completions_path` varchar(255) DEFAULT NULL COMMENT 'Chat模型专用。附加到 Base URL 的路径。例如OpenAi的/v1/chat/completions',
   `embeddings_path` varchar(255) DEFAULT NULL COMMENT '嵌入模型专用。附加到 Base URL 的路径。',
   `created_time` datetime DEFAULT NULL COMMENT '创建时间',
   `updated_time` datetime DEFAULT NULL COMMENT '更新时间',
   `is_deleted` int(11) DEFAULT '0' COMMENT '0=未删除, 1=已删除',
-  PRIMARY KEY (`id`)
+  -- 新增 AI 代理配置字段（默认关闭以确保零侵入性）
+  `proxy_enabled` tinyint(1) DEFAULT '0' COMMENT '是否启用代理：0-禁用，1-启用',
+  `proxy_host` varchar(255) DEFAULT NULL COMMENT '代理主机地址',
+  `proxy_port` int(11) DEFAULT NULL COMMENT '代理端口',
+  `proxy_username` varchar(255) DEFAULT NULL COMMENT '代理用户名（可选）',
+  `proxy_password` varchar(255) DEFAULT NULL COMMENT '代理密码（可选）',
+PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -16,7 +16,9 @@
 package com.alibaba.cloud.ai.dataagent.dto;
 
 import com.alibaba.cloud.ai.dataagent.annotation.InEnum;
+import com.alibaba.cloud.ai.dataagent.enums.ModelTier;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
+import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -45,6 +47,10 @@ public class ModelConfigDTO {
 	@NotBlank(message = "modelType must not be empty")
 	@InEnum(value = ModelType.class, message = "CHAT/EMBEDDING 之一")
 	private String modelType;
+
+	@Nullable
+	@InEnum(value = ModelTier.class, message = "仅对聊天模型有效，FLASH/STANDARD/THINKING 之一")
+	private String modelTier;
 
 	// 仅当厂商路径非标准时填写，例如 "/custom/chat"
 	private String completionsPath;

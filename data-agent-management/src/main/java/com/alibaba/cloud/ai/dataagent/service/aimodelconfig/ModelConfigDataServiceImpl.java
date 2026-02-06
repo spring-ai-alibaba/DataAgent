@@ -166,7 +166,12 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 
 	@Override
 	public ModelConfigDTO getActiveConfigByTypeAndTier(ModelType modelType, ModelTier modelTier) {
-		return getActiveConfigByType(modelType);
+		ModelConfig entity = modelConfigMapper.selectActiveByTypeAndTier(modelType.getCode(), modelTier.getCode());
+		if (entity == null) {
+			log.warn("Activation model configuration of type [{}] and tier [{}] not found, downgrade to type-only active config...", modelType, modelTier);
+			return getActiveConfigByType(modelType);
+		}
+		return toDTO(entity);
 	}
 
 }
