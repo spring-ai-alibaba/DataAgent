@@ -77,7 +77,7 @@ public class OssFileStorageProviderImpl implements FileStorageProvider {
 			metadata.setContentType(fileStorage.getFileType());
 			metadata.setCacheControl("no-cache");
 
-			Path tempFile = Path.of("/tmp/uploads/" + fileStorage.getFilePath());
+			Path tempFile = Path.of("/tmp", fileStorage.getFilePath());
 
 			file.transferTo(tempFile).then(Mono.fromCallable(() -> {
 				// 在阻塞线程池中处理文件
@@ -164,25 +164,6 @@ public class OssFileStorageProviderImpl implements FileStorageProvider {
 				return result.getObjectMetadata().getContentLength();
 			}
 		};
-	}
-
-	/**
-	 * 构建OSS对象键
-	 */
-	private String buildObjectKey(String subPath, String filename) {
-		StringBuilder keyBuilder = new StringBuilder();
-
-		if (StringUtils.hasText(fileStorageProperties.getPathPrefix())) {
-			keyBuilder.append(fileStorageProperties.getPathPrefix()).append("/");
-		}
-
-		if (StringUtils.hasText(subPath)) {
-			keyBuilder.append(subPath).append("/");
-		}
-
-		keyBuilder.append(filename);
-
-		return keyBuilder.toString();
 	}
 
 }

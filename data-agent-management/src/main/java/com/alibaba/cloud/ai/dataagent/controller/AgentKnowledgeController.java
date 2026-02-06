@@ -85,7 +85,7 @@ public class AgentKnowledgeController {
 			@RequestPart(value = "content", required = false) String content,
 			@RequestPart(value = "file", required = false) FilePart filePart,
 			@RequestPart(value = "splitterType", required = false) String splitterType) {
-		
+
 		return Mono.fromCallable(() -> {
 			CreateKnowledgeDTO dto = buildCreateKnowledgeDTO(agentId, title, type, question, content, filePart,
 					splitterType);
