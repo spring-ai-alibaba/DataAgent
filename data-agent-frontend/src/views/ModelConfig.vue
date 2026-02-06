@@ -76,6 +76,13 @@
                   </el-tag>
                 </template>
               </el-table-column>
+              <el-table-column prop="modelTier" label="模型规模" width="120">
+                <template #default="scope">
+                  <el-tag type="info" size="small">
+                    {{ formatModelTier(scope.row.modelTier) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
               <el-table-column
                 prop="baseUrl"
                 label="API地址"
@@ -199,11 +206,13 @@
           </el-form-item>
 
           <el-form-item label="模型类型" prop="modelType">
-            <el-radio-group v-model="formData.modelType">
+            <el-radio-group v-model="formData.modelType" @change="onModelTypeChange">
               <el-radio label="CHAT">对话模型</el-radio>
               <el-radio label="EMBEDDING">嵌入模型</el-radio>
             </el-radio-group>
           </el-form-item>
+
+
 
           <el-form-item label="模型名称" prop="modelName">
             <el-input
@@ -226,6 +235,22 @@
               v-model="formData.baseUrl"
               placeholder="请填写兼容 OpenAI 协议的 Base URL，通常不包含 /v1 后缀"
             />
+          </el-form-item>
+
+          <el-form-item
+              v-if="formData.modelType === 'CHAT'"
+              label="模型规模"
+              prop="modelTier"
+          >
+            <el-select
+                v-model="modelTier"
+                placeholder="请选择模型规模"
+                style="width: 100%"
+            >
+              <el-option label="极速模型" value="FLASH" />
+              <el-option label="标准模型" value="STANDARD" />
+              <el-option label="推理模型" value="THINKING" />
+            </el-select>
           </el-form-item>
 
           <el-form-item
@@ -340,6 +365,19 @@
   import BaseLayout from '@/layouts/BaseLayout.vue';
   import modelConfigService, { type ModelConfig } from '@/services/modelConfig';
 
+  const formatModelTier = (tier: string) => {
+    switch (tier) {
+      case 'FLASH':
+        return '极速模型';
+      case 'STANDARD':
+        return '标准模型';
+      case 'THINKING':
+        return '推理模型';
+      default:
+        return '未知模型';
+    }
+  }
+
   export default defineComponent({
     name: 'ModelConfig',
     components: {
@@ -356,6 +394,7 @@
       const activeFilter = ref('');
       const configs = ref<ModelConfig[]>([]);
       const formRef = ref<FormInstance>();
+      const modelTier = ref<string>('STANDARD');
 
       // 表单数据
       const formData = ref<ModelConfig>({
@@ -364,6 +403,7 @@
         baseUrl: '',
         modelName: '',
         modelType: 'CHAT',
+        modelTier: undefined,
         temperature: 0.0,
         maxTokens: 2000,
         completionsPath: '',
@@ -389,6 +429,14 @@
       const updateBaseUrlByProvider = (provider: string) => {
         if (provider && provider !== 'custom') {
           formData.value.baseUrl = providerBaseUrlMap[provider] || '';
+        }
+      };
+
+      const onModelTypeChange = (modelType: string) => {
+        if (modelType === 'EMBEDDING') {
+          formData.value.modelTier = undefined; // 嵌入模型不区分规模
+        } else if (modelType === 'CHAT') {
+          formData.value.modelTier = modelTier.value;
         }
       };
 
@@ -651,6 +699,8 @@
         formRules,
         filteredConfigs,
         dialogTitle,
+        modelTier,
+        formatModelTier,
         loadConfigs,
         showAddDialog,
         handleEdit,
@@ -660,6 +710,7 @@
         handleTestConnection,
         getProviderTagType,
         updateBaseUrlByProvider,
+        onModelTypeChange,
         Plus,
         Refresh,
       };

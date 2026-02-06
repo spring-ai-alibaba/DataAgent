@@ -24,6 +24,7 @@ export interface ModelConfig {
   baseUrl: string;
   modelName: string;
   modelType: string; // "CHAT" or "EMBEDDING"
+  modelTier?: string; // "FLASH", "STANDARD", "THINKING" or undefined
   temperature?: number;
   maxTokens?: number;
   isActive?: boolean;
