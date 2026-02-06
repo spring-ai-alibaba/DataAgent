@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
+import com.alibaba.cloud.ai.dataagent.enums.ModelTier;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
@@ -36,5 +37,11 @@ public interface ModelConfigDataService {
 	void deleteConfig(Integer id);
 
 	ModelConfigDTO getActiveConfigByType(ModelType modelType);
+
+	/**
+	 * 根据模型类型和规格获取激活的模型配置
+	 * @implNote  如果找不到匹配的配置，则回退到 {@link #getActiveConfigByType}
+	 */
+	ModelConfigDTO getActiveConfigByTypeAndTier(ModelType modelType, ModelTier modelTier);
 
 }

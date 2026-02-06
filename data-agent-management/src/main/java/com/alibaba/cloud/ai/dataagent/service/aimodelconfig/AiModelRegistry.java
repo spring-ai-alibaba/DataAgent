@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
+import com.alibaba.cloud.ai.dataagent.enums.ModelTier;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import lombok.RequiredArgsConstructor;
@@ -46,13 +47,13 @@ public class AiModelRegistry {
 	// =========================================================
 	// 1. 获取 ChatClient (懒加载 + 缓存)
 	// =========================================================
-	public ChatClient getChatClient() {
+	public ChatClient getChatClient(ModelTier modelTier) {
 		if (currentChatClient == null) {
 			synchronized (this) {
 				if (currentChatClient == null) {
 					log.info("Initializing global ChatClient...");
 					try {
-						ModelConfigDTO config = modelConfigDataService.getActiveConfigByType(ModelType.CHAT);
+						ModelConfigDTO config = modelConfigDataService.getActiveConfigByTypeAndTier(ModelType.CHAT, modelTier);
 						if (config != null) {
 							ChatModel chatModel = modelFactory.createChatModel(config);
 							// 核心：基于新 Model 创建新 Client，彻底消除旧参数缓存
@@ -72,6 +73,11 @@ public class AiModelRegistry {
 			}
 		}
 		return currentChatClient;
+	}
+
+	public ChatClient getChatClient() {
+		// 默认使用 STANDARD 层的对话模型
+		return getChatClient(ModelTier.STANDARD);
 	}
 
 	// =========================================================

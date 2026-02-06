@@ -15,17 +15,50 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.llm;
 
+import com.alibaba.cloud.ai.dataagent.enums.ModelTier;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
+import jakarta.annotation.Nonnull;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 
 public interface LlmService {
 
-	Flux<ChatResponse> call(String system, String user);
+	default Flux<ChatResponse> call(String system, String user) {
+		return call(system, user, ModelTier.STANDARD);
+	}
 
-	Flux<ChatResponse> callSystem(String system);
+	default Flux<ChatResponse> callSystem(String system) {
+		return callSystem(system, ModelTier.STANDARD);
+	}
 
-	Flux<ChatResponse> callUser(String user);
+	default Flux<ChatResponse> callUser(String user) {
+		return callUser(user, ModelTier.STANDARD);
+	}
+
+	/**
+	 * 调用大模型服务
+	 *
+	 * @param system 系统提示词
+	 * @param user 用户提示词
+	 * @param tier 模型规格 {@link ModelTier}
+	 */
+	Flux<ChatResponse> call(String system, String user, @Nonnull ModelTier tier);
+
+	/**
+	 * 调用大模型服务
+	 *
+	 * @param system 系统提示词
+	 * @param tier 模型规格 {@link ModelTier}
+	 */
+	Flux<ChatResponse> callSystem(String system, @Nonnull ModelTier tier);
+
+	/**
+	 * 调用大模型服务
+	 *
+	 * @param user 用户提示词
+	 * @param tier 模型规格 {@link ModelTier}
+	 */
+	Flux<ChatResponse> callUser(String user, @Nonnull ModelTier tier);
 
 	@Deprecated
 	default String blockToString(Flux<ChatResponse> responseFlux) {

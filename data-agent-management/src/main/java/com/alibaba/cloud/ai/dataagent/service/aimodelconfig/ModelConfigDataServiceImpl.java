@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
+import com.alibaba.cloud.ai.dataagent.enums.ModelTier;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.converter.ModelConfigConverter;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
@@ -161,6 +162,11 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 			return null;
 		}
 		return toDTO(entity);
+	}
+
+	@Override
+	public ModelConfigDTO getActiveConfigByTypeAndTier(ModelType modelType, ModelTier modelTier) {
+		return getActiveConfigByType(modelType);
 	}
 
 }

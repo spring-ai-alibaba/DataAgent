@@ -15,8 +15,10 @@
  */
 package com.alibaba.cloud.ai.dataagent.entity;
 
+import com.alibaba.cloud.ai.dataagent.enums.ModelTier;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.annotation.Nullable;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -45,6 +47,17 @@ public class ModelConfig {
 	// 模型类型
 	// 可选值："CHAT", "EMBEDDING"
 	private ModelType modelType;
+
+	/**
+	 * 对话模型的规模，可选的值：
+	 * <ul>
+	 *     <li>{@link ModelTier#FLASH}</li>
+	 *     <li>{@link ModelTier#STANDARD}</li>
+	 *     <li>{@link ModelTier#THINKING}</li>
+	 * </ul>
+	 */
+	@Nullable
+	private ModelTier modelTier;
 
 	private String completionsPath;
 
