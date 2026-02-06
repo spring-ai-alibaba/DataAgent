@@ -64,7 +64,7 @@ public interface FileStorageService {
 	 * @return 访问URL
 	 */
 	String getFileUrl(FileStorage fileStorage);
-	
+
 	/**
 	 * 获取文件资源对象
 	 * @param fileStorage 文件路径
