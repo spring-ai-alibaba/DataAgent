@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 import com.alibaba.cloud.ai.dataagent.enums.ModelTier;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
+import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -29,6 +30,8 @@ import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
@@ -40,39 +43,33 @@ public class AiModelRegistry {
 	private final ModelConfigDataService modelConfigDataService;
 
 	// 缓存对象 (volatile 保证可见性)
-	private volatile ChatClient currentChatClient;
-
 	private volatile EmbeddingModel currentEmbeddingModel;
+
+	private final Map<ModelTier, ChatClient> chatClientCache = new ConcurrentHashMap<>();
 
 	// =========================================================
 	// 1. 获取 ChatClient (懒加载 + 缓存)
 	// =========================================================
 	public ChatClient getChatClient(ModelTier modelTier) {
-		if (currentChatClient == null) {
-			synchronized (this) {
-				if (currentChatClient == null) {
-					log.info("Initializing global ChatClient...");
-					try {
-						ModelConfigDTO config = modelConfigDataService.getActiveConfigByTypeAndTier(ModelType.CHAT, modelTier);
-						if (config != null) {
-							ChatModel chatModel = modelFactory.createChatModel(config);
-							// 核心：基于新 Model 创建新 Client，彻底消除旧参数缓存
-							currentChatClient = ChatClient.builder(chatModel).build();
-						}
-					}
-					catch (Exception e) {
-						log.error("Failed to initialize ChatClient: {}", e.getMessage(), e);
-					}
+		return chatClientCache.computeIfAbsent(modelTier, tier -> {
+			log.info("Initializing ChatClient for tier: {}", tier);
 
-					// 兜底：如果还没初始化成功，抛出运行时异常，提示用户配置
-					if (currentChatClient == null) {
-						throw new RuntimeException(
-								"No active CHAT model configured. Please configure it in the dashboard.");
-					}
+			try {
+				ModelConfigDTO config = modelConfigDataService.getActiveConfigByTypeAndTier(ModelType.CHAT, tier);
+
+				if (config != null) {
+					ChatModel chatModel = modelFactory.createChatModel(config);
+					return ChatClient.builder(chatModel).build();
 				}
+			} catch (Exception e) {
+				log.error("Failed to initialize ChatClient for tier {}: {}", tier, e.getMessage(), e);
+				throw new RuntimeException("Failed to initialize ChatClient", e);
 			}
-		}
-		return currentChatClient;
+
+			throw new RuntimeException(
+					String.format("No active CHAT model configured for tier %s. Please configure it in the dashboard.", tier)
+			);
+		});
 	}
 
 	public ChatClient getChatClient() {
@@ -114,8 +111,24 @@ public class AiModelRegistry {
 	// 3. 刷新/重置缓存 (用于热切换)
 	// =========================================================
 
+	public void refreshChat(@Nullable ModelTier modelTier) {
+		if (modelTier == null) {
+			// 如果没有指定层级，默认清除所有层级的缓存
+			chatClientCache.clear();
+			log.info("Chat cache CLEARED for ALL tiers.");
+			return;
+		}
+
+		ChatClient removedClient = this.chatClientCache.remove(modelTier);
+		if (removedClient != null) {
+			log.info("Chat cache CLEARED for tier: {}. Old client hash: {}", modelTier, removedClient.hashCode());
+		} else {
+			log.warn("Attempted to clear cache for tier: {}, but it was already empty.", modelTier);
+		}
+	}
+
 	public void refreshChat() {
-		this.currentChatClient = null;
+		this.chatClientCache.clear();
 		log.info("Chat cache cleared.");
 	}
 

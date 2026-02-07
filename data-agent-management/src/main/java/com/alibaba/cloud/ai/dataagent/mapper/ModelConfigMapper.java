@@ -55,8 +55,20 @@ public interface ModelConfigMapper {
 			""")
 	ModelConfig selectActiveByTypeAndTier(@Param("modelType") String modelType, @Param("modelTier") String modelTier);
 
-	@Update("UPDATE model_config SET is_active = 0 WHERE model_type = #{modelType} AND id != #{currentId} AND is_deleted = 0")
-	void deactivateOthers(@Param("modelType") String modelType, @Param("currentId") Integer currentId);
+	@Update("""
+			<script>
+				UPDATE model_config SET is_active = 0
+				<where>
+					<if test='modelTier != null and modelTier != ""'>
+						model_tier = #{modelTier}
+					</if>
+					AND id != #{currentId}
+					AND model_type = #{modelType}
+					AND is_deleted = 0
+				</where>
+          	</script>
+			""")
+	void deactivateOthers(@Param("modelType") String modelType, @Param("currentId") Integer currentId, @Param("modelTier") String modelTier);
 
 	@Select("""
 			<script>

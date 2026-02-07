@@ -21,6 +21,7 @@ import com.alibaba.cloud.ai.dataagent.converter.ModelConfigConverter;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
 import com.alibaba.cloud.ai.dataagent.mapper.ModelConfigMapper;
+import jakarta.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.alibaba.cloud.ai.dataagent.converter.ModelConfigConverter.toDTO;
@@ -47,9 +49,14 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 
 	@Transactional(rollbackFor = Exception.class)
 	@Override
-	public void switchActiveStatus(Integer id, ModelType type) {
+	public void switchActiveStatus(Integer id, ModelType type, @Nullable ModelTier tier) {
+		if (ModelType.CHAT.equals(type)) {
+			Objects.requireNonNull(tier, "tier must not be null when type is CHAT");
+			log.info("Switching active config for type [{}] and tier [{}], id: {}", type, tier, id);
+		}
+
 		// 1. 禁用同类型其他配置
-		modelConfigMapper.deactivateOthers(type.getCode(), id);
+		modelConfigMapper.deactivateOthers(type.getCode(), id, tier != null ? tier.getCode() : null);
 
 		// 2. 启用当前配置
 		ModelConfig entity = modelConfigMapper.findById(id);
