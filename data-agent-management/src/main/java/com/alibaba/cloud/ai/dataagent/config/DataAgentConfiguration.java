@@ -15,26 +15,120 @@
  */
 package com.alibaba.cloud.ai.dataagent.config;
 
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.AGENT_ID;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.DB_DIALECT_TYPE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.EVIDENCE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.EVIDENCE_RECALL_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.FEASIBILITY_ASSESSMENT_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.FEASIBILITY_ASSESSMENT_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.GENEGRATED_SEMANTIC_MODEL_PROMPT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_DATA;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_REVIEW_ENABLED;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.INPUT_KEY;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.INTENT_RECOGNITION_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.INTENT_RECOGNITION_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.IS_ONLY_NL2SQL;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.MULTI_TURN_CONTEXT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.NL2SQL_GRAPH_NAME;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLANNER_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLANNER_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_CURRENT_STEP;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_EXECUTOR_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_NEXT_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_REPAIR_COUNT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_VALIDATION_ERROR;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_VALIDATION_STATUS;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PYTHON_ANALYSIS_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PYTHON_ANALYZE_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PYTHON_EXECUTE_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PYTHON_EXECUTE_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PYTHON_FALLBACK_MODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PYTHON_GENERATE_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PYTHON_GENERATE_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PYTHON_IS_SUCCESS;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PYTHON_TRIES_COUNT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.QUERY_ENHANCE_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.QUERY_ENHANCE_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.REPORT_GENERATOR_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.RESULT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SCHEMA_RECALL_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SEMANTIC_CONSISTENCY_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SEMANTIC_CONSISTENCY_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_COUNT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_SCHEMA_MISSING_ADVICE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_REGENERATE_REASON;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_RESULT_LIST_MEMORY;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_EXCEPTION_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_RETRY_COUNT;
+import static com.alibaba.cloud.ai.graph.StateGraph.END;
+import static com.alibaba.cloud.ai.graph.StateGraph.START;
+import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
+
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
-import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
+import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.SimpleVectorStoreInitialization;
-import com.alibaba.cloud.ai.dataagent.splitter.SentenceSplitter;
-import com.alibaba.cloud.ai.transformer.splitter.RecursiveCharacterTextSplitter;
-import com.alibaba.cloud.ai.dataagent.splitter.SemanticTextSplitter;
 import com.alibaba.cloud.ai.dataagent.splitter.ParagraphTextSplitter;
+import com.alibaba.cloud.ai.dataagent.splitter.SemanticTextSplitter;
+import com.alibaba.cloud.ai.dataagent.splitter.SentenceSplitter;
+import com.alibaba.cloud.ai.dataagent.strategy.EnhancedTokenCountBatchingStrategy;
 import com.alibaba.cloud.ai.dataagent.util.McpServerToolUtil;
 import com.alibaba.cloud.ai.dataagent.util.NodeBeanUtil;
-import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
-import com.alibaba.cloud.ai.dataagent.strategy.EnhancedTokenCountBatchingStrategy;
-import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.*;
-import com.alibaba.cloud.ai.dataagent.workflow.node.*;
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.FeasibilityAssessmentDispatcher;
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.HumanFeedbackDispatcher;
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.IntentRecognitionDispatcher;
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.PlanExecutorDispatcher;
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.PythonExecutorDispatcher;
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.QueryEnhanceDispatcher;
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.SQLExecutorDispatcher;
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.SchemaRecallDispatcher;
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.SemanticConsistenceDispatcher;
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.SqlGenerateDispatcher;
+import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.TableRelationDispatcher;
+import com.alibaba.cloud.ai.dataagent.workflow.node.EvidenceRecallNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.FeasibilityAssessmentNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.HumanFeedbackNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.IntentRecognitionNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.PlanExecutorNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.PlannerNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.PythonAnalyzeNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.PythonExecuteNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.PythonGenerateNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.QueryEnhanceNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.ReportGeneratorNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.SchemaRecallNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.SemanticConsistencyNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.SqlExecuteNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.SqlGenerateNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.TableRelationNode;
 import com.alibaba.cloud.ai.graph.GraphRepresentation;
 import com.alibaba.cloud.ai.graph.KeyStrategy;
 import com.alibaba.cloud.ai.graph.KeyStrategyFactory;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
+import com.alibaba.cloud.ai.transformer.splitter.RecursiveCharacterTextSplitter;
 import com.knuddels.jtokkit.api.EncodingType;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -67,16 +161,6 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
-import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
-import static com.alibaba.cloud.ai.graph.StateGraph.END;
-import static com.alibaba.cloud.ai.graph.StateGraph.START;
-import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
-
 /**
  * DataAgent的自动配置类
  *
@@ -86,7 +170,7 @@ import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
 @Slf4j
 @Configuration
 @EnableAsync
-@EnableConfigurationProperties({ CodeExecutorProperties.class, DataAgentProperties.class, FileStorageProperties.class })
+@EnableConfigurationProperties({ CodeExecutorProperties.class, DataAgentProperties.class })
 public class DataAgentConfiguration implements DisposableBean {
 
 	/**

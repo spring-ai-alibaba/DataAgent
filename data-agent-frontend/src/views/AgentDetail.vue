@@ -73,49 +73,67 @@
           >
             <el-menu-item-group title="基本信息">
               <el-menu-item index="basic">
-                <el-icon><InfoFilled /></el-icon>
+                <el-icon>
+                  <InfoFilled />
+                </el-icon>
                 基本信息
               </el-menu-item>
             </el-menu-item-group>
             <el-menu-item-group title="数据源配置">
               <el-menu-item index="datasource">
-                <el-icon><Coin /></el-icon>
+                <el-icon>
+                  <Coin />
+                </el-icon>
                 数据源配置
               </el-menu-item>
             </el-menu-item-group>
             <el-menu-item-group title="PROMPT配置">
               <el-menu-item index="prompt">
-                <el-icon><ChatLineSquare /></el-icon>
+                <el-icon>
+                  <ChatLineSquare />
+                </el-icon>
                 自定义 PROMPT 配置
               </el-menu-item>
             </el-menu-item-group>
             <el-menu-item-group title="知识配置">
               <el-menu-item index="agent-knowledge">
-                <el-icon><Document /></el-icon>
+                <el-icon>
+                  <Document />
+                </el-icon>
                 智能体知识配置
               </el-menu-item>
               <el-menu-item index="business-knowledge">
-                <el-icon><User /></el-icon>
+                <el-icon>
+                  <User />
+                </el-icon>
                 业务知识配置
               </el-menu-item>
               <el-menu-item index="semantic-model">
-                <el-icon><Suitcase /></el-icon>
+                <el-icon>
+                  <Suitcase />
+                </el-icon>
                 语义模型配置
               </el-menu-item>
             </el-menu-item-group>
             <el-menu-item-group title="预设问题管理">
               <el-menu-item index="preset-questions">
-                <el-icon><Setting /></el-icon>
+                <el-icon>
+                  <Setting />
+                </el-icon>
                 预设问题管理
               </el-menu-item>
             </el-menu-item-group>
             <el-menu-item-group title="运行与发布">
               <el-menu-item index="go-run">
-                <el-icon><VideoPlay /></el-icon>
+                <el-icon>
+                  <VideoPlay />
+                </el-icon>
                 前往运行页面
               </el-menu-item>
               <el-menu-item index="access-api">
-                <el-icon><Connection /></el-icon>
+                <el-icon>
+                  <Connection />
+                </el-icon>
                 访问 API
               </el-menu-item>
             </el-menu-item-group>
@@ -161,21 +179,21 @@
 </template>
 
 <script lang="ts">
-  import { ref, defineComponent, Ref, onMounted } from 'vue';
+  import { defineComponent, onMounted, Ref, ref } from 'vue';
   import { useRouter } from 'vue-router';
   import { ElMessage } from 'element-plus';
-  import AgentService from '@/services/agent';
+  import AgentService, { Agent } from '@/services/agent';
   import {
     ArrowLeft,
-    InfoFilled,
-    Coin,
     ChatLineSquare,
-    User,
-    Suitcase,
-    Setting,
-    VideoPlay,
+    Coin,
     Connection,
     Document,
+    InfoFilled,
+    Setting,
+    Suitcase,
+    User,
+    VideoPlay,
   } from '@element-plus/icons-vue';
   import BaseLayout from '@/layouts/BaseLayout.vue';
   import AgentBaseSetting from '@/components/agent/BaseSetting.vue';
@@ -187,7 +205,6 @@
   import AgentDataSourceConfig from '@/components/agent/DataSourceConfig.vue';
   import AgentKnowledgeConfig from '@/components/agent/AgentKnowledgeConfig.vue';
   import NotFound from '@/views/NotFound.vue';
-  import { Agent } from '@/services/agent';
   import { fileUploadApi } from '@/services/fileUpload';
 
   export default defineComponent({
@@ -273,12 +290,8 @@
 
           const response = await fileUploadApi.uploadAvatar(file);
 
-          if (response.success) {
-            agent.value.avatar = response.url;
-            ElMessage.success('头像上传成功');
-          } else {
-            throw new Error(response.message || '上传失败');
-          }
+          agent.value.avatar = response.url;
+          ElMessage.success('头像上传成功');
         } catch (error) {
           ElMessage.error('头像上传失败: ' + (error instanceof Error ? error.message : '未知错误'));
           agent.value.avatar = originalHeaderAvatar.value;
