@@ -108,6 +108,13 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		if (!entity.getModelType().getCode().equals(dto.getModelType()))
 			throw new RuntimeException("模型类型不允许修改");
 
+		if (Boolean.TRUE.equals(entity.getIsActive())
+				&& ModelType.CHAT.equals(entity.getModelType())
+				&& !Objects.equals(dto.getModelTier(), entity.getModelTier() == null ? null : entity.getModelTier().getCode())
+		) {
+			throw new RuntimeException("对话模型的档位在启用时不允许修改");
+		}
+
 		// 2. 合并字段
 		mergeDtoToEntity(dto, entity);
 		entity.setUpdatedTime(LocalDateTime.now());
@@ -132,6 +139,11 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		oldEntity.setProxyPort(dto.getProxyPort());
 		oldEntity.setProxyUsername(dto.getProxyUsername());
 		oldEntity.setProxyPassword(dto.getProxyPassword());
+
+		if (ModelType.CHAT.equals(oldEntity.getModelType())) {
+			// 只有对话模型会更新档位
+			oldEntity.setModelTier(ModelTier.fromCode(dto.getModelTier()));
+		}
 
 		// 只有当前端传来的 Key 不包含 "****" 时，才说明用户真的改了 Key，否则保持原样
 		if (dto.getApiKey() != null && !dto.getApiKey().contains("****")) {

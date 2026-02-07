@@ -245,6 +245,7 @@
                 placeholder="请选择模型档位"
                 style="width: 100%"
                 @change="onModelTierChange"
+                :disabled="isEditMode && (formData.isActive ?? false)"
             >
               <el-option label="极速模型" value="FLASH" />
               <el-option label="标准模型" value="STANDARD" />
@@ -559,6 +560,7 @@
       const handleEdit = (config: ModelConfig) => {
         isEditMode.value = true;
         formData.value = { ...config };
+        modelTier.value = config.modelTier || 'STANDARD';
         dialogVisible.value = true;
       };
 
