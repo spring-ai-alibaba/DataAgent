@@ -15,12 +15,14 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
+import com.alibaba.cloud.ai.dataagent.enums.ModelTier;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
 import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
@@ -56,7 +58,7 @@ public class ModelConfigOpsService {
 			try {
 				// 3. 刷新内存模型
 				log.info("Detected update on active config [{}], refreshing memory...", entity.getModelType());
-				refreshMemoryModel(entity.getModelType());
+				refreshMemoryModel(entity.getModelType(), entity.getModelTier());
 			}
 			catch (Exception e) {
 				// 抛出异常回滚数据库事务
@@ -78,10 +80,10 @@ public class ModelConfigOpsService {
 
 		// 2. 刷新内存模型
 		log.info("Activating config ID={}, Type={}...", id, entity.getModelType());
-		refreshMemoryModel(entity.getModelType());
+		refreshMemoryModel(entity.getModelType(), entity.getModelTier());
 
 		// 3. 更新数据库状态 (调用数据层)
-		modelConfigDataService.switchActiveStatus(id, entity.getModelType());
+		modelConfigDataService.switchActiveStatus(id, entity.getModelType(), entity.getModelTier());
 
 		log.info("Config ID={} activated successfully.", id);
 	}
@@ -89,9 +91,9 @@ public class ModelConfigOpsService {
 	/**
 	 * 私有方法：根据实体创建并替换内存代理
 	 */
-	private void refreshMemoryModel(ModelType type) {
+	private void refreshMemoryModel(ModelType type, @Nullable ModelTier tier) {
 		if (ModelType.CHAT.equals(type)) {
-			aiModelRegistry.refreshChat();
+			aiModelRegistry.refreshChat(tier);
 		}
 		else if (ModelType.EMBEDDING.equals(type)) {
 			aiModelRegistry.refreshEmbedding();
