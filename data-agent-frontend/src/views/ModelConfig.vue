@@ -539,12 +539,14 @@
 
       const showAddDialog = () => {
         isEditMode.value = false;
+        modelTier.value = 'STANDARD';
         formData.value = {
           provider: '',
           apiKey: '',
           baseUrl: '',
           modelName: '',
           modelType: 'CHAT',
+          modelTier: modelTier.value,
           temperature: 0.0,
           maxTokens: 2000,
           completionsPath: '',
