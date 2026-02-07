@@ -235,17 +235,13 @@
             />
           </el-form-item>
 
-          <el-form-item
-              v-if="formData.modelType === 'CHAT'"
-              label="模型档位"
-              prop="modelTier"
-          >
+          <el-form-item v-if="formData.modelType === 'CHAT'" label="模型档位" prop="modelTier">
             <el-select
-                v-model="modelTier"
-                placeholder="请选择模型档位"
-                style="width: 100%"
-                @change="onModelTierChange"
-                :disabled="isEditMode && (formData.isActive ?? false)"
+              v-model="modelTier"
+              placeholder="请选择模型档位"
+              style="width: 100%"
+              @change="onModelTierChange"
+              :disabled="isEditMode && (formData.isActive ?? false)"
             >
               <el-option label="极速模型" value="FLASH" />
               <el-option label="标准模型" value="STANDARD" />
@@ -379,7 +375,7 @@
       default:
         return '未知模型';
     }
-  }
+  };
 
   export default defineComponent({
     name: 'ModelConfig',
@@ -568,7 +564,6 @@
         if (!formRef.value) return;
 
         try {
-          console.log("正在验证表单...", formData.value);
           await formRef.value.validate();
           submitting.value = true;
 
@@ -584,7 +579,6 @@
             }
           } else {
             // 新增配置
-            console.log("提交的表单数据:", formData.value);
             const result = await modelConfigService.add(formData.value);
             if (result.success) {
               ElMessage.success('配置添加成功');
