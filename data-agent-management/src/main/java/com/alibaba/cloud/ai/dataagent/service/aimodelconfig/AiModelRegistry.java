@@ -72,6 +72,7 @@ public class AiModelRegistry {
 		});
 	}
 
+	@Deprecated
 	public ChatClient getChatClient() {
 		// 默认使用 STANDARD 层的对话模型
 		return getChatClient(ModelTier.STANDARD);

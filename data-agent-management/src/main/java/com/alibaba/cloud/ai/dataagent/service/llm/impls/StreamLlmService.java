@@ -30,16 +30,16 @@ public class StreamLlmService implements LlmService {
 
 	@Override
 	public Flux<ChatResponse> call(String system, String user, @NotNull ModelTier tier) {
-		return registry.getChatClient().prompt().system(system).user(user).stream().chatResponse();
+		return registry.getChatClient(tier).prompt().system(system).user(user).stream().chatResponse();
 	}
 
 	@Override
 	public Flux<ChatResponse> callSystem(String system, @NotNull ModelTier tier) {
-		return registry.getChatClient().prompt().system(system).stream().chatResponse();
+		return registry.getChatClient(tier).prompt().system(system).stream().chatResponse();
 	}
 
 	@Override
 	public Flux<ChatResponse> callUser(String user, @NotNull ModelTier tier) {
-		return registry.getChatClient().prompt().user(user).stream().chatResponse();
+		return registry.getChatClient(tier).prompt().user(user).stream().chatResponse();
 	}
 }
