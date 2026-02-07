@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.service.chat;
 
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
+import com.alibaba.cloud.ai.dataagent.enums.ModelTier;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -104,7 +105,7 @@ public class SessionTitleService {
 					使用中文输出，避免使用标点或引号，仅保留核心主题。
 					""";
 			String userPrompt = "用户输入：" + userMessage;
-			Flux<String> responseFlux = llmService.toStringFlux(llmService.call(systemPrompt, userPrompt));
+			Flux<String> responseFlux = llmService.toStringFlux(llmService.call(systemPrompt, userPrompt, ModelTier.FLASH));
 			return responseFlux.collect(StringBuilder::new, StringBuilder::append)
 				.map(StringBuilder::toString)
 				.block(Duration.ofSeconds(15));
