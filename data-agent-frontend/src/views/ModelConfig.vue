@@ -76,10 +76,10 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="modelTier" label="模型规模" width="120">
+              <el-table-column prop="modelTier" label="模型规模" width="120" align="center">
                 <template #default="scope">
                   <el-tag type="info" size="small">
-                    {{ formatModelTier(scope.row.modelTier) }}
+                    {{ formatModelTier(scope.row.modelType, scope.row.modelTier) }}
                   </el-tag>
                 </template>
               </el-table-column>
@@ -364,7 +364,10 @@
   import BaseLayout from '@/layouts/BaseLayout.vue';
   import modelConfigService, { type ModelConfig } from '@/services/modelConfig';
 
-  const formatModelTier = (tier: string) => {
+  const formatModelTier = (type: string, tier: string) => {
+    if (type === 'EMBEDDING') {
+      return 'N/A';
+    }
     switch (tier) {
       case 'FLASH':
         return '极速模型';
