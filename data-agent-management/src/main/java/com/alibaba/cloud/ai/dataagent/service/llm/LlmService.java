@@ -37,7 +37,6 @@ public interface LlmService {
 
 	/**
 	 * 调用大模型服务
-	 *
 	 * @param system 系统提示词
 	 * @param user 用户提示词
 	 * @param tier 模型规格 {@link ModelTier}
@@ -46,7 +45,6 @@ public interface LlmService {
 
 	/**
 	 * 调用大模型服务
-	 *
 	 * @param system 系统提示词
 	 * @param tier 模型规格 {@link ModelTier}
 	 */
@@ -54,7 +52,6 @@ public interface LlmService {
 
 	/**
 	 * 调用大模型服务
-	 *
 	 * @param user 用户提示词
 	 * @param tier 模型规格 {@link ModelTier}
 	 */

@@ -42,4 +42,5 @@ public class StreamLlmService implements LlmService {
 	public Flux<ChatResponse> callUser(String user, @NotNull ModelTier tier) {
 		return registry.getChatClient(tier).prompt().user(user).stream().chatResponse();
 	}
+
 }

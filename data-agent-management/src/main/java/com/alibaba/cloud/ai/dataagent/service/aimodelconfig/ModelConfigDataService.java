@@ -46,7 +46,7 @@ public interface ModelConfigDataService {
 
 	/**
 	 * 根据模型类型和规格获取激活的模型配置
-	 * @implNote  如果找不到匹配的配置，则回退到 {@link #getActiveConfigByType}
+	 * @implNote 如果找不到匹配的配置，则回退到 {@link #getActiveConfigByType}
 	 */
 	ModelConfigDTO getActiveConfigByTypeAndTier(ModelType modelType, ModelTier modelTier);
 

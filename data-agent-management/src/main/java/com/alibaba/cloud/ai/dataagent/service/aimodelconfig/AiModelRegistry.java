@@ -61,14 +61,14 @@ public class AiModelRegistry {
 					ChatModel chatModel = modelFactory.createChatModel(config);
 					return ChatClient.builder(chatModel).build();
 				}
-			} catch (Exception e) {
+			}
+			catch (Exception e) {
 				log.error("Failed to initialize ChatClient for tier {}: {}", tier, e.getMessage(), e);
 				throw new RuntimeException("Failed to initialize ChatClient", e);
 			}
 
-			throw new RuntimeException(
-					String.format("No active CHAT model configured for tier %s. Please configure it in the dashboard.", tier)
-			);
+			throw new RuntimeException(String
+				.format("No active CHAT model configured for tier %s. Please configure it in the dashboard.", tier));
 		});
 	}
 
@@ -123,7 +123,8 @@ public class AiModelRegistry {
 		ChatClient removedClient = this.chatClientCache.remove(modelTier);
 		if (removedClient != null) {
 			log.info("Chat cache CLEARED for tier: {}. Old client hash: {}", modelTier, removedClient.hashCode());
-		} else {
+		}
+		else {
 			log.warn("Attempted to clear cache for tier: {}, but it was already empty.", modelTier);
 		}
 	}

@@ -66,9 +66,10 @@ public interface ModelConfigMapper {
 					AND model_type = #{modelType}
 					AND is_deleted = 0
 				</where>
-          	</script>
+			</script>
 			""")
-	void deactivateOthers(@Param("modelType") String modelType, @Param("currentId") Integer currentId, @Param("modelTier") String modelTier);
+	void deactivateOthers(@Param("modelType") String modelType, @Param("currentId") Integer currentId,
+			@Param("modelTier") String modelTier);
 
 	@Select("""
 			<script>

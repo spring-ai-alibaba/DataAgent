@@ -38,7 +38,8 @@ public class BlockLlmService implements LlmService {
 
 	@Override
 	public Flux<ChatResponse> callSystem(String system, @NotNull ModelTier tier) {
-		return Mono.fromCallable(() -> registry.getChatClient(tier).prompt().system(system).call().chatResponse()).flux();
+		return Mono.fromCallable(() -> registry.getChatClient(tier).prompt().system(system).call().chatResponse())
+			.flux();
 	}
 
 	@Override

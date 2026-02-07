@@ -51,9 +51,9 @@ public class ModelConfig {
 	/**
 	 * 对话模型的挡位，可选的值：
 	 * <ul>
-	 *     <li>{@link ModelTier#FLASH}</li>
-	 *     <li>{@link ModelTier#STANDARD}</li>
-	 *     <li>{@link ModelTier#THINKING}</li>
+	 * <li>{@link ModelTier#FLASH}</li>
+	 * <li>{@link ModelTier#STANDARD}</li>
+	 * <li>{@link ModelTier#THINKING}</li>
 	 * </ul>
 	 */
 	@Nullable

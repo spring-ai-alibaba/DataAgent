@@ -34,44 +34,42 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 @ImportAutoConfiguration(MySqlContainerConfiguration.class)
 public class ModelConfigMapperTest {
 
-    @Autowired
-    private ModelConfigMapper mapper;
+	@Autowired
+	private ModelConfigMapper mapper;
 
-    @Test
-    @DisplayName("如果存在多个满足条件的模型，应该返回最新的激活模型配置")
-    @Sql(statements = {
-            "INSERT INTO model_config (provider, base_url, api_key, model_name, is_active, model_type, model_tier) VALUES" +
-                    " ('provider', 'https://api', 'key1', 'standard-1', 1, 'CHAT', 'STANDARD')," +
-                    " ('provider', 'https://api', 'key2', 'flash', 1, 'CHAT', 'FLASH')," +
-                    " ('provider', 'https://api', 'key3', 'standard-2', 1, 'CHAT', 'STANDARD')," +
-                    " ('provider', 'https://api', 'key4', 'embedding', 1, 'EMBEDDING', 'STANDARD');"
-    })
-    void testSelectActiveByTypeAndTier() {
-        ModelConfig resultStandard = mapper.selectActiveByTypeAndTier("CHAT", "STANDARD");
+	@Test
+	@DisplayName("如果存在多个满足条件的模型，应该返回最新的激活模型配置")
+	@Sql(statements = {
+			"INSERT INTO model_config (provider, base_url, api_key, model_name, is_active, model_type, model_tier) VALUES"
+					+ " ('provider', 'https://api', 'key1', 'standard-1', 1, 'CHAT', 'STANDARD'),"
+					+ " ('provider', 'https://api', 'key2', 'flash', 1, 'CHAT', 'FLASH'),"
+					+ " ('provider', 'https://api', 'key3', 'standard-2', 1, 'CHAT', 'STANDARD'),"
+					+ " ('provider', 'https://api', 'key4', 'embedding', 1, 'EMBEDDING', 'STANDARD');" })
+	void testSelectActiveByTypeAndTier() {
+		ModelConfig resultStandard = mapper.selectActiveByTypeAndTier("CHAT", "STANDARD");
 
-        assertThat(resultStandard).isNotNull();
-        assertThat(resultStandard.getApiKey()).isEqualTo("key3");
-        assertThat(resultStandard.getModelName()).isEqualTo("standard-2");
+		assertThat(resultStandard).isNotNull();
+		assertThat(resultStandard.getApiKey()).isEqualTo("key3");
+		assertThat(resultStandard.getModelName()).isEqualTo("standard-2");
 
-        ModelConfig resultFlash = mapper.selectActiveByTypeAndTier("CHAT", "FLASH");
-        assertThat(resultFlash).isNotNull();
-        assertThat(resultFlash.getApiKey()).isEqualTo("key2");
-        assertThat(resultFlash.getModelName()).isEqualTo("flash");
-    }
+		ModelConfig resultFlash = mapper.selectActiveByTypeAndTier("CHAT", "FLASH");
+		assertThat(resultFlash).isNotNull();
+		assertThat(resultFlash.getApiKey()).isEqualTo("key2");
+		assertThat(resultFlash.getModelName()).isEqualTo("flash");
+	}
 
-    @Test
-    @DisplayName("如果根据模型档位查询不到激活模型，应该返回空")
-    @Sql(statements = {
-            "INSERT INTO model_config (provider, base_url, api_key, model_name, is_active, model_type, model_tier) VALUES" +
-                    " ('provider', 'https://api', 'key1', 'standard-1', 1, 'CHAT', 'STANDARD')," +
-                    " ('provider', 'https://api', 'key2', 'flash', 1, 'CHAT', 'FLASH')," +
-                    " ('provider', 'https://api', 'key3', 'standard-2', 1, 'CHAT', 'STANDARD')," +
-                    " ('provider', 'https://api', 'key4', 'embedding', 1, 'EMBEDDING', 'STANDARD');"
-    })
-    void testSelectActiveByTypeAndTier_FallbackToTypeOnly() {
-        ModelConfig resultFlash = mapper.selectActiveByTypeAndTier("CHAT", "THINKING");
+	@Test
+	@DisplayName("如果根据模型档位查询不到激活模型，应该返回空")
+	@Sql(statements = {
+			"INSERT INTO model_config (provider, base_url, api_key, model_name, is_active, model_type, model_tier) VALUES"
+					+ " ('provider', 'https://api', 'key1', 'standard-1', 1, 'CHAT', 'STANDARD'),"
+					+ " ('provider', 'https://api', 'key2', 'flash', 1, 'CHAT', 'FLASH'),"
+					+ " ('provider', 'https://api', 'key3', 'standard-2', 1, 'CHAT', 'STANDARD'),"
+					+ " ('provider', 'https://api', 'key4', 'embedding', 1, 'EMBEDDING', 'STANDARD');" })
+	void testSelectActiveByTypeAndTier_FallbackToTypeOnly() {
+		ModelConfig resultFlash = mapper.selectActiveByTypeAndTier("CHAT", "THINKING");
 
-        assertThat(resultFlash).isNull();
-    }
+		assertThat(resultFlash).isNull();
+	}
 
 }

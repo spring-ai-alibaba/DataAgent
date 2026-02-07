@@ -108,10 +108,8 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		if (!entity.getModelType().getCode().equals(dto.getModelType()))
 			throw new RuntimeException("模型类型不允许修改");
 
-		if (Boolean.TRUE.equals(entity.getIsActive())
-				&& ModelType.CHAT.equals(entity.getModelType())
-				&& !Objects.equals(dto.getModelTier(), entity.getModelTier() == null ? null : entity.getModelTier().getCode())
-		) {
+		if (Boolean.TRUE.equals(entity.getIsActive()) && ModelType.CHAT.equals(entity.getModelType()) && !Objects
+			.equals(dto.getModelTier(), entity.getModelTier() == null ? null : entity.getModelTier().getCode())) {
 			throw new RuntimeException("对话模型的档位在启用时不允许修改");
 		}
 
@@ -187,7 +185,9 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 	public ModelConfigDTO getActiveConfigByTypeAndTier(ModelType modelType, ModelTier modelTier) {
 		ModelConfig entity = modelConfigMapper.selectActiveByTypeAndTier(modelType.getCode(), modelTier.getCode());
 		if (entity == null) {
-			log.warn("Activation model configuration of type [{}] and tier [{}] not found, downgrade to type-only active config...", modelType, modelTier);
+			log.warn(
+					"Activation model configuration of type [{}] and tier [{}] not found, downgrade to type-only active config...",
+					modelType, modelTier);
 			return getActiveConfigByType(modelType);
 		}
 		return toDTO(entity);
