@@ -76,7 +76,7 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="modelTier" label="模型规模" width="120" align="center">
+              <el-table-column prop="modelTier" label="模型档位" width="120" align="center">
                 <template #default="scope">
                   <el-tag type="info" size="small">
                     {{ formatModelTier(scope.row.modelType, scope.row.modelTier) }}
@@ -237,12 +237,12 @@
 
           <el-form-item
               v-if="formData.modelType === 'CHAT'"
-              label="模型规模"
+              label="模型档位"
               prop="modelTier"
           >
             <el-select
                 v-model="modelTier"
-                placeholder="请选择模型规模"
+                placeholder="请选择模型档位"
                 style="width: 100%"
                 @change="onModelTierChange"
             >
@@ -405,7 +405,7 @@
         baseUrl: '',
         modelName: '',
         modelType: 'CHAT',
-        modelTier: 'STANDARD', // 因为默认是对话模型，所以默认模型规模设置为标准模型
+        modelTier: 'STANDARD', // 因为默认是对话模型，所以默认模型档位设置为标准模型
         temperature: 0.0,
         maxTokens: 2000,
         completionsPath: '',
@@ -436,7 +436,7 @@
 
       const onModelTypeChange = (modelType: string) => {
         if (modelType === 'EMBEDDING') {
-          formData.value.modelTier = undefined; // 嵌入模型不区分规模
+          formData.value.modelTier = undefined; // 嵌入模型不区分档位
         } else if (modelType === 'CHAT') {
           formData.value.modelTier = modelTier.value;
         }

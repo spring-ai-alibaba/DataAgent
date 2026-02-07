@@ -49,7 +49,7 @@ public class ModelConfig {
 	private ModelType modelType;
 
 	/**
-	 * 对话模型的规模，可选的值：
+	 * 对话模型的挡位，可选的值：
 	 * <ul>
 	 *     <li>{@link ModelTier#FLASH}</li>
 	 *     <li>{@link ModelTier#STANDARD}</li>

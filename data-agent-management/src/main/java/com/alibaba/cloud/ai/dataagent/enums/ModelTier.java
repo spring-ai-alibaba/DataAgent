@@ -4,7 +4,10 @@ import jakarta.annotation.Nonnull;
 import lombok.Getter;
 
 /**
- * 模型规格枚举
+ * 模型能力档位 (Model Capability Tier)
+ * <p>
+ * 该枚举定义了不同能力层级的模型档位，主要用于区分模型在速度、逻辑能力、工具调用能力等方面的差异。
+ * 通过使用不同的档位，系统可以根据具体的业务需求选择最合适的模型配置，以达到最佳的性能和效果。
  */
 @Getter
 public enum ModelTier {

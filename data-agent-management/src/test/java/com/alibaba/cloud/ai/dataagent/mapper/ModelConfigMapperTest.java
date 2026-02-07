@@ -45,7 +45,7 @@ public class ModelConfigMapperTest {
     }
 
     @Test
-    @DisplayName("如果根据模型规模查询不到激活模型，应该返回空")
+    @DisplayName("如果根据模型档位查询不到激活模型，应该返回空")
     @Sql(statements = {
             "INSERT INTO model_config (provider, base_url, api_key, model_name, is_active, model_type, model_tier) VALUES" +
                     " ('provider', 'https://api', 'key1', 'standard-1', 1, 'CHAT', 'STANDARD')," +
