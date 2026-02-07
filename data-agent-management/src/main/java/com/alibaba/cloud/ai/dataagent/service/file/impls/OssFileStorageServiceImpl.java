@@ -24,14 +24,20 @@ import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.ObjectMetadata;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * 阿里云OSS文件存储服务实现
@@ -66,11 +72,54 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 	}
 
 	@Override
+	public Mono<String> storeFile(FilePart file, String subPath) {
+		if (file == null || !StringUtils.hasText(file.filename())) {
+			log.warn("文件为空，无法上传到OSS");
+			return Mono.error(new IllegalArgumentException("文件为空，无法上传到OSS"));
+		}
+
+		String originalFilename = file.filename();
+		String extension = "";
+		if (originalFilename.contains(".")) {
+			extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+		}
+		String filename = UUID.randomUUID() + extension;
+		String objectKey = buildObjectKey(subPath, filename);
+
+		// 获取 Content-Type
+		MediaType contentType = file.headers().getContentType();
+		String contentTypeStr = contentType != null ? contentType.toString() : "application/octet-stream";
+
+		// 使用 DataBufferUtils 收集文件内容，然后在 boundedElastic 线程池上执行 OSS 上传
+		return DataBufferUtils.join(file.content()).flatMap(dataBuffer -> {
+			byte[] bytes = new byte[dataBuffer.readableByteCount()];
+			dataBuffer.read(bytes);
+			DataBufferUtils.release(dataBuffer);
+
+			return Mono.fromCallable(() -> {
+				ObjectMetadata metadata = new ObjectMetadata();
+				metadata.setContentLength(bytes.length);
+				metadata.setContentType(contentTypeStr);
+				metadata.setCacheControl("no-cache");
+
+				try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
+					ossClient.putObject(ossProperties.getBucketName(), objectKey, inputStream, metadata);
+					log.info("文件上传成功: {}", objectKey);
+					return objectKey;
+				}
+			}).subscribeOn(Schedulers.boundedElastic());
+		}).onErrorMap(e -> {
+			log.error("文件存储失败，上传OSS失败", e);
+			return new RuntimeException("文件存储失败: " + e.getMessage(), e);
+		});
+	}
+
+	@Override
 	public String storeFile(MultipartFile file, String subPath) {
 		try {
 			if (file == null || file.isEmpty()) {
 				log.warn("文件为空，无法上传到OSS");
-				return null;
+				throw new IllegalArgumentException("文件为空，无法上传到OSS");
 			}
 
 			String originalFilename = file.getOriginalFilename();
@@ -92,10 +141,10 @@ public class OssFileStorageServiceImpl implements FileStorageService {
 				log.info("文件上传成功: {}", objectKey);
 				return objectKey;
 			}
-			catch (IOException e) {
-				log.error("文件存储失败，获取输入流错误", e);
-				throw new RuntimeException("文件存储失败: " + e.getMessage(), e);
-			}
+		}
+		catch (IOException e) {
+			log.error("文件存储失败，获取输入流错误", e);
+			throw new RuntimeException("文件存储失败: " + e.getMessage(), e);
 		}
 		catch (Exception e) {
 			log.error("文件存储失败，上传OSS失败", e);
