@@ -305,6 +305,12 @@ public class PromptHelper {
 		return PromptConstant.getEvidenceQueryRewritePromptTemplate().render(params);
 	}
 
+	public static String buildDefaultDataAnalysisPrompt() {
+		Map<String, Object> params = new HashMap<>();
+		params.put("current_time", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+		return PromptConstant.getDefaultDataAnalysisPromptTemplate().render(params);
+	}
+
 	/**
 	 * 渲染优化提示词模板
 	 * @param optimizationPrompt 优化提示词模板

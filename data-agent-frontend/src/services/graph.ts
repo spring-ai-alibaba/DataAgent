@@ -22,6 +22,7 @@ export interface GraphRequest {
   humanFeedbackContent?: string;
   rejectedPlan: boolean;
   nl2sqlOnly: boolean;
+  reactAgent: boolean;
 }
 
 export interface GraphNodeResponse {
@@ -42,6 +43,7 @@ export enum TextType {
   MARK_DOWN = 'MARK_DOWN',
   RESULT_SET = 'RESULT_SET',
   TEXT = 'TEXT',
+  TOOL_CALL_NODE = 'TOOL_CALL_NODE',
 }
 
 const API_BASE_URL = '/api';
@@ -71,6 +73,7 @@ class GraphService {
     params.append('humanFeedback', request.humanFeedback.toString());
     params.append('rejectedPlan', request.rejectedPlan.toString());
     params.append('nl2sqlOnly', request.nl2sqlOnly.toString());
+    params.append('reactAgent', request.reactAgent.toString());
 
     if (request.humanFeedbackContent) {
       params.append('humanFeedbackContent', request.humanFeedbackContent);
