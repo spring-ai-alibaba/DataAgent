@@ -28,45 +28,48 @@ import org.springframework.stereotype.Component;
 @Component
 public class ToolsInterceptor extends ToolInterceptor {
 
-  public interface ToolCallCallback {
+	public interface ToolCallCallback {
 
-    void onToolCall(String threadId, String toolName, String input, String output);
-  }
+		void onToolCall(String threadId, String toolName, String input, String output);
 
-  private final List<ToolCallCallback> callbacks = new ArrayList<>();
+	}
 
-  @Override
-  public ToolCallResponse interceptToolCall(ToolCallRequest request, ToolCallHandler handler) {
-    log.debug("ToolInterceptor: Tool {} is called!", request.getToolName());
-    String threadId = request.getContext().get("thread_id").toString();
-    String inputs = request.getArguments();
-    // 调用所有回调
-    log.debug(" the tool callback start, size: {}", callbacks.size());
-    ToolCallResponse response = handler.call(request);
-    String output = response.getResult();
-    // 调用所有回调
-    for (ToolCallCallback callback : callbacks) {
-      try {
-        callback.onToolCall(threadId, request.getToolName(), inputs, output);
-      } catch (Exception e) {
-        log.error("Error in tool call callback: {}", e.getMessage(), e);
-      }
-    }
-    return response;
-  }
 
-  @Override
-  public String getName() {
-    return "LogToolInterceptor";
-  }
+	private final List<ToolCallCallback> callbacks = new ArrayList<>();
 
-  public void addToolCallCallback(ToolCallCallback callback) {
-    log.info("add tool call callback: {}", callback);
-    callbacks.add(callback);
-  }
+	@Override
+	public ToolCallResponse interceptToolCall(ToolCallRequest request, ToolCallHandler handler) {
+		log.debug("ToolInterceptor: Tool {} is called!", request.getToolName());
+		String threadId = request.getContext().get("thread_id").toString();
+		String inputs = request.getArguments();
+		// 调用所有回调
+		log.debug(" the tool callback start, size: {}", callbacks.size());
+		ToolCallResponse response = handler.call(request);
+		String output = response.getResult();
+		// 调用所有回调
+		for (ToolCallCallback callback : callbacks) {
+			try {
+				callback.onToolCall(threadId, request.getToolName(), inputs, output);
+			}
+			catch (Exception e) {
+				log.error("Error in tool call callback: {}", e.getMessage(), e);
+			}
+		}
+		return response;
+	}
 
-  public void removeToolCallCallback(ToolCallCallback callback) {
-    callbacks.remove(callback);
-  }
+	@Override
+	public String getName() {
+		return "LogToolInterceptor";
+	}
+
+	public void addToolCallCallback(ToolCallCallback callback) {
+		log.debug("add tool call callback: {}", callback);
+		callbacks.add(callback);
+	}
+
+	public void removeToolCallCallback(ToolCallCallback callback) {
+		callbacks.remove(callback);
+	}
 
 }

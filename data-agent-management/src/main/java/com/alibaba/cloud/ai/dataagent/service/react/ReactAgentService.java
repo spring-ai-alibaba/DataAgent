@@ -22,8 +22,8 @@ import reactor.core.publisher.Sinks;
 
 public interface ReactAgentService {
 
-  void reactStreamProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest request);
+	void reactStreamProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest request);
 
-  void stopStreamProcessing(String threadId);
+	void stopStreamProcessing(String threadId);
 
 }

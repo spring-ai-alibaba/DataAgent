@@ -103,6 +103,22 @@
       needs_more_thoughts: input?.needs_more_thoughts,
     };
   };
+
+  const processOutputContent = (content: any): string => {
+    if (typeof content === 'string') {
+      // 检查是否是双引号包裹的字符串
+      if (content.startsWith('"') && content.endsWith('"')) {
+        try {
+          // 尝试使用 JSON.parse 解析
+          return JSON.parse(content);
+        } catch {
+          // 如果解析失败，去掉首尾的双引号
+          return content.substring(1, content.length - 1);
+        }
+      }
+    }
+    return content || '';
+  };
 </script>
 
 <template>
@@ -117,7 +133,7 @@
         <template #title>
           <div class="tool-title">
             <el-icon class="tool-icon"><Tools /></el-icon>
-            <span class="tool-name">{{ toolCall.toolName }}</span>
+            <span class="tool-name">调用工具 {{ toolCall.toolName }}</span>
           </div>
         </template>
 
@@ -126,9 +142,22 @@
             <div class="section-title">输入参数 (Input)</div>
             <div v-if="isSequentialThinking(toolCall.toolName)" class="sequential-thinking-content">
               <div v-if="getThoughtMetadata(toolCall.input)" class="thought-metadata">
-                <span class="metadata-item">思考步骤: {{ getThoughtMetadata(toolCall.input)?.thought_number }} / {{ getThoughtMetadata(toolCall.input)?.total_thoughts }}</span>
-                <span class="metadata-item" :class="{ 'status-true': getThoughtMetadata(toolCall.input)?.next_thought_needed, 'status-false': !getThoughtMetadata(toolCall.input)?.next_thought_needed }">
-                  {{ getThoughtMetadata(toolCall.input)?.next_thought_needed ? '需要继续思考' : '思考完成' }}
+                <span class="metadata-item">
+                  思考步骤: {{ getThoughtMetadata(toolCall.input)?.thought_number }} /
+                  {{ getThoughtMetadata(toolCall.input)?.total_thoughts }}
+                </span>
+                <span
+                  class="metadata-item"
+                  :class="{
+                    'status-true': getThoughtMetadata(toolCall.input)?.next_thought_needed,
+                    'status-false': !getThoughtMetadata(toolCall.input)?.next_thought_needed,
+                  }"
+                >
+                  {{
+                    getThoughtMetadata(toolCall.input)?.next_thought_needed
+                      ? '需要继续思考'
+                      : '思考完成'
+                  }}
                 </span>
               </div>
               <div class="thought-content">
@@ -140,7 +169,9 @@
 
           <div class="content-section">
             <div class="section-title">输出参数 (Output)</div>
-            <pre class="json-display">{{ toolCall.output }}</pre>
+            <div class="markdown-content">
+              <MarkdownAgentContainer :content="processOutputContent(toolCall.output)" />
+            </div>
           </div>
         </div>
       </el-collapse-item>
@@ -151,21 +182,18 @@
 <style scoped>
   .tool-calling-container {
     width: 100%;
-    margin: 12px 0;
+    margin: 0px 0;
   }
 
   .tool-collapse {
-    border: 1px solid #ebeef5;
     border-radius: 4px;
     overflow: hidden;
   }
 
   .tool-collapse-item {
-    border-bottom: 1px solid #ebeef5;
   }
 
   .tool-collapse-item:last-child {
-    border-bottom: none;
   }
 
   .tool-title {
@@ -175,6 +203,7 @@
   }
 
   .tool-icon {
+    margin-left: 8px;
     margin-right: 8px;
     color: #409eff;
   }
@@ -187,7 +216,6 @@
 
   .tool-content {
     padding: 16px;
-    background-color: #fafafa;
   }
 
   .content-section {
@@ -204,7 +232,6 @@
     color: #606266;
     margin-bottom: 8px;
     padding-bottom: 4px;
-    border-bottom: 1px solid #e4e7ed;
   }
 
   .json-display {
@@ -217,8 +244,10 @@
     line-height: 1.5;
     color: #303133;
     overflow-x: auto;
+    overflow-y: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
+    max-height: 100px;
   }
 
   .sequential-thinking-content {
@@ -258,6 +287,14 @@
     padding: 8px;
     background-color: #ffffff;
     border-radius: 4px;
+    min-height: 40px;
+  }
+
+  .markdown-content {
+    background-color: #f5f7fa;
+    border: 1px solid #e4e7ed;
+    border-radius: 4px;
+    padding: 12px;
     min-height: 40px;
   }
 </style>

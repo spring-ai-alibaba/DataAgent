@@ -31,24 +31,25 @@ import org.springframework.stereotype.Component;
 @Component
 public class ToolFactory {
 
-  private final SequentialThinkingTool sequentialThinkingTool;
+	private final SequentialThinkingTool sequentialThinkingTool;
 
-  private final TodoWriteTool todoWriteTool;
+	private final TodoWriteTool todoWriteTool;
 
-  private final ListTableSchemaTool listTablesTool;
+	private final ListTableSchemaTool listTablesTool;
 
-  private final SqlExecuteTool sqlExecuteTool;
+	private final SqlExecuteTool sqlExecuteTool;
 
-  private List<ToolCallback> tools = new ArrayList<>();
+	private List<ToolCallback> tools = new ArrayList<>();
 
-  public List<ToolCallback> getTools() {
-    if (tools == null || tools.isEmpty()) {
-      // TODO 这里应该根据UI上的配置来觉得用哪些工具
-      tools.add(todoWriteTool.toolCallback());
-      tools.add(sequentialThinkingTool.toolCallback());
-      tools.add(listTablesTool.toolCallback());
-      tools.add(sqlExecuteTool.toolCallback());
-    }
-    return tools;
-  }
+	public List<ToolCallback> getTools() {
+		if (tools == null || tools.isEmpty()) {
+			// TODO 这里应该根据UI上的配置来觉得用哪些工具
+			tools.add(todoWriteTool.toolCallback());
+			tools.add(sequentialThinkingTool.toolCallback());
+			tools.add(listTablesTool.toolCallback());
+			tools.add(sqlExecuteTool.toolCallback());
+		}
+		return tools;
+	}
+
 }

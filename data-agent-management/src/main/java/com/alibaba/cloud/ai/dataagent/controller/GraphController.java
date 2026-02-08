@@ -53,8 +53,7 @@ public class GraphController {
 			@RequestParam(value = "humanFeedbackContent", required = false) String humanFeedbackContent,
 			@RequestParam(value = "rejectedPlan", required = false) boolean rejectedPlan,
 			@RequestParam(value = "nl2sqlOnly", required = false) boolean nl2sqlOnly,
-			@RequestParam(value = "reactAgent", required = false) boolean reactAgent,
-			HttpServletResponse response) {
+			@RequestParam(value = "reactAgent", required = false) boolean reactAgent, HttpServletResponse response) {
 		// Set SSE-related HTTP headers
 		response.setCharacterEncoding("UTF-8");
 		response.setContentType("text/event-stream");
@@ -74,10 +73,11 @@ public class GraphController {
 			.rejectedPlan(rejectedPlan)
 			.nl2sqlOnly(nl2sqlOnly)
 			.build();
-		if(reactAgent) {
+		if (reactAgent) {
 			//
 			reactAgentService.reactStreamProcess(sink, request);
-		}else {
+		}
+		else {
 			graphService.graphStreamProcess(sink, request);
 		}
 
