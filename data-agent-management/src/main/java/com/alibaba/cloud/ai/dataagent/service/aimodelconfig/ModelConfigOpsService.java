@@ -142,10 +142,7 @@ public class ModelConfigOpsService {
 		String promptText = "Hello";
 
 		// 3. 调用
-		Flux<String> responseFlux = tempModel.stream(promptText);
-		String response = responseFlux.collect(StringBuilder::new, StringBuilder::append)
-			.map(StringBuilder::toString)
-			.block();
+		String response = tempModel.call(promptText);
 
 		// 4. 校验结果
 		if (!StringUtils.hasText(response)) {
