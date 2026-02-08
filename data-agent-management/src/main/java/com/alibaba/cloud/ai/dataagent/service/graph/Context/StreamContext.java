@@ -39,6 +39,8 @@ public class StreamContext {
 
 	private TextType textType;
 
+	private String agentId;
+
 	/**
 	 * 标记是否已经清理，用于防止重复清理
 	 */

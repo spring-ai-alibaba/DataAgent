@@ -64,6 +64,14 @@
                   :pageSize="resultSetDisplayConfig.pageSize"
                 />
               </div>
+              <!-- ToolCallNode消息 -->
+              <div v-else-if="message.messageType === 'tool-call-node'" class="agent-response-block">
+                <ToolCallingView
+                    v-if="message.content"
+                    :resultData="JSON.parse(message.content)"
+                />
+              </div>
+              <!-- Markdown报告消息 -->
               <div
                 v-else-if="message.messageType === 'markdown-report'"
                 class="markdown-report-message"
@@ -176,6 +184,22 @@
                       />
                     </div>
                   </div>
+                  <!-- 如果是工具调用节点 -->
+                  <div
+                      v-else-if="nodeBlock.length > 0
+                      && nodeBlock[0].nodeName === 'ToolCallNode'"
+                      class="agent-response-block"
+                  >
+                    <div class="agent-response-title">
+                      {{ nodeBlock[0].nodeName }}
+                    </div>
+                    <div class="agent-response-content">
+                      <ToolCallingView
+                          v-if="nodeBlock[0].text"
+                          :resultData="JSON.parse(nodeBlock[0].text)"
+                      />
+                    </div>
+                  </div>
                   <!-- 其他节点使用原来的 HTML 渲染方式 -->
                   <div v-else v-html="generateNodeHtml(nodeBlock)"></div>
                 </template>
@@ -228,15 +252,24 @@
                   >
                     <el-switch
                       v-model="requestOptions.humanFeedback"
-                      :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback"
+                      :disabled="requestOptions.nl2sqlOnly || requestOptions.reactAgent || isStreaming || showHumanFeedback"
                     />
                   </el-tooltip>
                 </div>
                 <div class="switch-item">
+                  <span class="switch-label">智能推理</span>
+                  <el-switch
+                      v-model="requestOptions.reactAgent"
+                      :disabled="isStreaming || showHumanFeedback"
+                      @change="handleReactAgentChange"
+                  />
+                </div>
+
+                <div class="switch-item">
                   <span class="switch-label">仅NL2SQL</span>
                   <el-switch
                     v-model="requestOptions.nl2sqlOnly"
-                    :disabled="isStreaming || showHumanFeedback"
+                    :disabled="requestOptions.reactAgent || isStreaming || showHumanFeedback"
                     @change="handleNl2sqlOnlyChange"
                   />
                 </div>
@@ -354,55 +387,51 @@
 </template>
 
 <script lang="ts">
-  import { ref, defineComponent, onMounted, nextTick, computed } from 'vue';
-  import { useRoute } from 'vue-router';
-  import { ElMessage } from 'element-plus';
-  import {
-    Loading,
-    Promotion,
-    Document,
-    Download,
-    CircleClose,
-    FullScreen,
-    Close,
-    ArrowDown,
-  } from '@element-plus/icons-vue';
-  import hljs from 'highlight.js';
-  import { marked } from 'marked';
-  import DOMPurify from 'dompurify';
-  import 'highlight.js/styles/github.css';
-  // 导入并注册语言
-  import sql from 'highlight.js/lib/languages/sql';
-  import python from 'highlight.js/lib/languages/python';
-  import json from 'highlight.js/lib/languages/json';
+import {computed, defineComponent, nextTick, onMounted, ref} from 'vue';
+import {useRoute} from 'vue-router';
+import {ElMessage} from 'element-plus';
+import {
+  ArrowDown,
+  CircleClose,
+  Close,
+  Document,
+  Download,
+  FullScreen,
+  Loading,
+  Promotion,
+} from '@element-plus/icons-vue';
+import hljs from 'highlight.js';
+import {marked} from 'marked';
+import DOMPurify from 'dompurify';
+import 'highlight.js/styles/github.css';
+// 导入并注册语言
+import sql from 'highlight.js/lib/languages/sql';
+import python from 'highlight.js/lib/languages/python';
+import json from 'highlight.js/lib/languages/json';
+import BaseLayout from '@/layouts/BaseLayout.vue';
+import AgentService, {type Agent} from '@/services/agent';
+import ChatService, {type ChatMessage, type ChatSession} from '@/services/chat';
+import GraphService, {type GraphNodeResponse, type GraphRequest, TextType,} from '@/services/graph';
+import {
+  type ResultData,
+  type ResultSetData,
+  type ResultSetDisplayConfig,
+} from '@/services/resultSet';
+import {SessionRuntimeState, useSessionStateManager} from '@/services/sessionStateManager';
+import HumanFeedback from '@/components/run/HumanFeedback.vue';
+import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
+import PresetQuestions from '@/components/run/PresetQuestions.vue';
+import MarkdownAgentContainer from '@/components/run/markdown';
+import ReportHtmlView from '@/components/run/ReportHtmlView.vue';
+import ResultSetDisplay from '@/components/run/ResultSetDisplay.vue';
+import ToolCallingView from '@/components/run/ToolCallingView.vue';
 
-  // 注册语言
+// 注册语言
   hljs.registerLanguage('sql', sql);
   hljs.registerLanguage('python', python);
   hljs.registerLanguage('json', json);
-  import BaseLayout from '@/layouts/BaseLayout.vue';
-  import AgentService from '@/services/agent';
-  import ChatService, { type ChatSession, type ChatMessage } from '@/services/chat';
-  import GraphService, {
-    type GraphRequest,
-    type GraphNodeResponse,
-    TextType,
-  } from '@/services/graph';
-  import { type Agent } from '@/services/agent';
-  import {
-    type ResultData,
-    type ResultSetData,
-    type ResultSetDisplayConfig,
-  } from '@/services/resultSet';
-  import { SessionRuntimeState, useSessionStateManager } from '@/services/sessionStateManager';
-  import HumanFeedback from '@/components/run/HumanFeedback.vue';
-  import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
-  import PresetQuestions from '@/components/run/PresetQuestions.vue';
-  import MarkdownAgentContainer from '@/components/run/markdown';
-  import ReportHtmlView from '@/components/run/ReportHtmlView.vue';
-  import ResultSetDisplay from '@/components/run/ResultSetDisplay.vue';
 
-  // 扩展Window接口以包含自定义方法
+// 扩展Window接口以包含自定义方法
   declare global {
     interface Window {
       copyTextToClipboard: (btn: HTMLElement) => void;
@@ -428,6 +457,7 @@
       MarkdownAgentContainer,
       ReportHtmlView,
       ResultSetDisplay,
+      ToolCallingView,
     },
     created() {
       window.copyTextToClipboard = btn => {
@@ -514,11 +544,22 @@
       const requestOptions = ref({
         humanFeedback: false,
         nl2sqlOnly: false,
+        reactAgent: false,
         reportFormat: 'markdown' as 'markdown' | 'html', // 'markdown' | 'html'，控制报告展示方式
       });
       const showReportFullscreen = ref(false);
       const fullscreenReportContent = ref('');
       const inputControlsCollapsed = ref(false);
+
+      // 监听智能推理开关变化
+      const handleReactAgentChange = (value: boolean) => {
+        if (value) {
+          // 当智能推理开启时，禁用人工反馈，并设为false
+          requestOptions.value.humanFeedback = false;
+          // 禁用NL2SQL开关
+          requestOptions.value.nl2sqlOnly = false;
+        }
+      };
 
       // 监听NL2SQL开关变化
       const handleNl2sqlOnlyChange = (value: boolean) => {
@@ -609,10 +650,16 @@
             query: userInput.value,
             humanFeedback: requestOptions.value.humanFeedback,
             nl2sqlOnly: requestOptions.value.nl2sqlOnly,
+            reactAgent: requestOptions.value.reactAgent,
             rejectedPlan: false,
             humanFeedbackContent: null,
             threadId: sessionState.lastRequest?.threadId || null,
           };
+
+          if(request.reactAgent) {
+            // threadId 不能为空，如果为空则默认一个uuid
+            request.threadId = request.threadId || crypto.randomUUID();
+          }
 
           userInput.value = '';
 
@@ -663,6 +710,23 @@
                 console.error('解析结果集JSON失败:', error);
               }
             }
+            // 特殊处理ToolCallNode
+            if (node.length > 0 && node[0].textType === TextType.TOOL_CALL_NODE) {
+              try {
+                const aiMessage: ChatMessage = {
+                  sessionId,
+                  role: 'assistant',
+                  content: node[0].text, // 保存原始JSON数据
+                  messageType: 'tool-call-node', // 使用特殊的messageType
+                };
+                return ChatService.saveMessage(sessionId, aiMessage).catch(error => {
+                  console.error('保存AI消息失败:', error);
+                });
+              } catch (error) {
+                console.error('解析结果集JSON失败:', error);
+              }
+            }
+
 
             // 使用generateNodeHtml方法生成HTML代码，确保显示与保存一致
             const nodeHtml = generateNodeHtml(node);
@@ -769,7 +833,45 @@
                 };
                 sessionState.nodeBlocks.push([newBlock]);
                 currentBlockIndex = sessionState.nodeBlocks.length - 1;
-              } else {
+              }
+              else if (response.nodeName === 'ToolCallNode') {
+                const isNewNode: boolean =
+                    currentNodeName === null || response.nodeName !== currentNodeName;
+                if (isNewNode) {
+                  // 保存上一个节点的消息（如果有）
+                  if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
+                    const savePromise = saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]);
+                    pendingSavePromises.push(savePromise);
+                  }
+                  // 创建新的节点块
+                  const newBlock: GraphNodeResponse = {
+                    ...response,
+                    text: response.text,
+                    textType: TextType.TOOL_CALL_NODE
+                  };
+                  sessionState.nodeBlocks.push([newBlock]);
+                  currentBlockIndex = sessionState.nodeBlocks.length - 1;
+                  currentNodeName = response.nodeName;
+                }else {
+                  // 保存当前节点的消息（在添加新元素之前保存）
+                  if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
+                    const currentNodeCopy = [...sessionState.nodeBlocks[currentBlockIndex]];
+                    console.log('the save node is : ', currentNodeCopy);
+                    const savePromise = saveNodeMessage(currentNodeCopy);
+                    pendingSavePromises.push(savePromise);
+                  }
+                  // 创建新的节点块
+                  const newBlock: GraphNodeResponse = {
+                    ...response,
+                    text: response.text,
+                    textType: TextType.TOOL_CALL_NODE
+                  };
+                  sessionState.nodeBlocks.push([newBlock]);
+                  currentBlockIndex = sessionState.nodeBlocks.length - 1;
+                  currentNodeName = response.nodeName;
+                }
+              }
+              else {
                 // 处理其他节点（同步处理逻辑）
                 const isNewNode: boolean =
                   currentNodeName === null || response.nodeName !== currentNodeName;
@@ -1368,6 +1470,7 @@
         formatMessageContent,
         formatNodeContent,
         generateNodeHtml,
+        handleReactAgentChange,
         handleNl2sqlOnlyChange,
         openReportFullscreen,
         closeReportFullscreen,

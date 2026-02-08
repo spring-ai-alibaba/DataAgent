@@ -96,4 +96,9 @@ public class PromptConstant {
 		return new PromptTemplate(PromptLoader.loadPrompt("data-view-analyze"));
 	}
 
+	// default-data-analysis.txt
+	public static PromptTemplate getDefaultDataAnalysisPromptTemplate() {
+		return new PromptTemplate(PromptLoader.loadPrompt("default-data-analysis"));
+	}
+
 }
