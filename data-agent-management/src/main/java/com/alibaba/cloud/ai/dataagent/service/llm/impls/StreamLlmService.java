@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.llm.impls;
 
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
+import com.alibaba.cloud.ai.dataagent.service.tool.CacheAccessTool;
 import lombok.AllArgsConstructor;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
@@ -25,6 +26,7 @@ import reactor.core.publisher.Flux;
 public class StreamLlmService implements LlmService {
 
 	private final AiModelRegistry registry;
+	private final CacheAccessTool cacheAccessTool; // 注入 CacheAccessTool
 
 	@Override
 	public Flux<ChatResponse> call(String system, String user) {
@@ -33,7 +35,12 @@ public class StreamLlmService implements LlmService {
 
 	@Override
 	public Flux<ChatResponse> callSystem(String system) {
-		return registry.getChatClient().prompt().system(system).stream().chatResponse();
+		return registry.getChatClient()
+				.prompt()
+				.system(system)
+				.tools(cacheAccessTool) // 注册工具
+				.stream()
+				.chatResponse();
 	}
 
 	@Override
