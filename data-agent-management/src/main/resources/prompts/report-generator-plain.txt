@@ -27,11 +27,14 @@
 ## 用户需求与计划
 {user_requirements_and_plan}
 
-## 分析步骤与数据
+## 分析步骤与数据摘要
 {analysis_steps_and_data}
 
 ## 总结与推荐
 {summary_and_recommendations}
+
+## 缓存数据使用指南
+{cache_usage_guide}
 
 ---
 
