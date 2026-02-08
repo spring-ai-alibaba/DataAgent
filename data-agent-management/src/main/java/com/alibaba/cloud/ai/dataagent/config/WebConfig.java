@@ -18,17 +18,19 @@ package com.alibaba.cloud.ai.dataagent.config;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.http.CacheControl;
+import org.springframework.web.reactive.config.ResourceHandlerRegistry;
+import org.springframework.web.reactive.config.WebFluxConfigurer;
 
 import java.nio.file.Paths;
+import java.time.Duration;
 
 /**
- * Web配置类
+ * Web配置类 (WebFlux 版本)
  */
 @Configuration
 @AllArgsConstructor
-public class WebConfig implements WebMvcConfigurer {
+public class WebConfig implements WebFluxConfigurer {
 
 	private final FileStorageProperties fileStorageProperties;
 
@@ -38,7 +40,7 @@ public class WebConfig implements WebMvcConfigurer {
 
 		registry.addResourceHandler(fileStorageProperties.getUrlPrefix() + "/**")
 			.addResourceLocations("file:" + uploadDir + "/")
-			.setCachePeriod(3600);
+			.setCacheControl(CacheControl.maxAge(Duration.ofHours(1)));
 	}
 
 }

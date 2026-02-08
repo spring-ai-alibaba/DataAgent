@@ -23,12 +23,14 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.SignalType;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Manage SSE streams that push session updates to frontend.
+ * Manage SSE streams that push session updates to frontend. 一个 agent 对应一个共享的
+ * sink，多个连接共享同一个 sink。
  */
 @Slf4j
 @Service
@@ -38,8 +40,11 @@ public class SessionEventPublisher {
 
 	public Flux<ServerSentEvent<SessionUpdateEvent>> register(Integer agentId) {
 		AgentSessionSink sink = sinks.computeIfAbsent(agentId, id -> new AgentSessionSink());
+		Flux<ServerSentEvent<SessionUpdateEvent>> heartbeat = Flux.interval(Duration.ofSeconds(2))
+			.map(i -> ServerSentEvent.<SessionUpdateEvent>builder().comment("heartbeat").build());
 		sink.increment();
-		return sink.sink.asFlux().doFinally(signalType -> cleanup(agentId, sink, signalType));
+		log.debug("Registered subscriber for agent {}, current count: {}", agentId, sink.subscribers.get());
+		return Flux.merge(heartbeat, sink.sink.asFlux()).doFinally(signalType -> cleanup(agentId, sink, signalType));
 	}
 
 	public void publishTitleUpdated(Integer agentId, String sessionId, String title) {
@@ -61,10 +66,13 @@ public class SessionEventPublisher {
 
 	private void cleanup(Integer agentId, AgentSessionSink sink, SignalType signalType) {
 		int current = sink.decrement();
+		log.debug("Cleanup called for agent {}, signal: {}, remaining subscribers: {}", agentId, signalType, current);
 		if (current <= 0) {
-			sink.sink.tryEmitComplete();
-			sinks.remove(agentId);
-			log.debug("Cleaned session update sink for agent {} due to signal {}", agentId, signalType);
+			// 使用 remove(key, value) 确保只移除当前的 sink 实例，防止并发问题
+			if (sinks.remove(agentId, sink)) {
+				sink.sink.tryEmitComplete();
+				log.debug("Removed session update sink for agent {}", agentId);
+			}
 		}
 	}
 
