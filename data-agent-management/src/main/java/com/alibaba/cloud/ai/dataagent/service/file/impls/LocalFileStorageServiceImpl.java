@@ -17,7 +17,6 @@ package com.alibaba.cloud.ai.dataagent.service.file.impls;
 
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
-import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,17 +25,44 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.util.StringUtils;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Slf4j
 @AllArgsConstructor
 public class LocalFileStorageServiceImpl implements FileStorageService {
 
 	private final FileStorageProperties fileStorageProperties;
+
+	@Override
+	public Mono<String> storeFile(FilePart filePart, String subPath) {
+		String originalFilename = filePart.filename();
+		String extension = "";
+		if (originalFilename.contains(".")) {
+			extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+		}
+		String filename = UUID.randomUUID() + extension;
+
+		String storagePath = buildStoragePath(subPath, filename);
+
+		Path filePath = fileStorageProperties.getLocalBasePath().resolve(storagePath);
+
+		checkPathSecurity(filePath);
+
+		return Mono.fromCallable(() -> {
+			Path uploadDir = filePath.getParent();
+			if (!Files.exists(uploadDir)) {
+				Files.createDirectories(uploadDir);
+			}
+			return filePath;
+		}).subscribeOn(Schedulers.boundedElastic()).flatMap(filePart::transferTo).then(Mono.fromCallable(() -> {
+			log.info("文件存储成功: {}", storagePath);
+			return storagePath;
+		}));
+	}
 
 	@Override
 	public String storeFile(MultipartFile file, String subPath) {
@@ -94,20 +120,7 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 	@Override
 	public String getFileUrl(String filePath) {
 		checkPathSecurity(fileStorageProperties.getLocalBasePath().resolve(filePath));
-		try {
-			ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
-				.getRequestAttributes();
-			if (attributes != null) {
-				HttpServletRequest request = attributes.getRequest();
-				return ServletUriComponentsBuilder.fromRequestUri(request)
-					.replacePath(fileStorageProperties.getUrlPrefix() + "/" + filePath)
-					.build()
-					.toUriString();
-			}
-		}
-		catch (Exception e) {
-			log.warn("动态构建URL失败，使用相对路径", e);
-		}
+		// 返回相对路径，前端会自动基于当前域名访问
 		return fileStorageProperties.getUrlPrefix() + "/" + filePath;
 	}
 

@@ -23,11 +23,11 @@ import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.SemanticModelMapper;
 import com.alibaba.cloud.ai.dataagent.vo.BatchImportResult;
+import java.io.InputStream;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @AllArgsConstructor
@@ -215,12 +215,12 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 	}
 
 	@Override
-	public BatchImportResult importFromExcel(MultipartFile file, Long agentId) {
-		log.info("开始Excel导入: agentId={}, 文件名={}", agentId, file.getOriginalFilename());
+	public BatchImportResult importFromExcel(InputStream inputStream, String filename, Long agentId) {
+		log.info("开始Excel导入: agentId={}, 文件名={}", agentId, filename);
 
 		try {
 			// 解析Excel文件
-			List<SemanticModelImportItem> items = excelService.parseExcel(file);
+			List<SemanticModelImportItem> items = excelService.parseExcel(inputStream, filename);
 
 			// 组装DTO
 			SemanticModelBatchImportDTO dto = SemanticModelBatchImportDTO.builder()

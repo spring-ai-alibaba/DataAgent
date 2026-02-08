@@ -47,7 +47,7 @@ spring:
             bucket-name: ${OSS_BUCKET_NAME:}
             custom-domain: ${OSS_CUSTOM_DOMAIN:}
         max-sql-retry-count: 10
-  servlet:
+  webflux:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
