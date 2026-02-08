@@ -49,7 +49,6 @@ public class SequentialThinkingTool implements BiFunction<SequentialThinkingTool
 				return "Validation failed: Invalid input parameters";
 			}
 
-
 			// Adjust totalThoughts if thoughtNumber exceeds it
 			if (request.thoughtNumber() > request.totalThoughts()) {
 				request = new Request(request.thought(), request.nextThoughtNeeded(), request.thoughtNumber(),
@@ -84,8 +83,7 @@ public class SequentialThinkingTool implements BiFunction<SequentialThinkingTool
 			responseData.put("thought", request.thought());
 			responseData.put("incomplete_steps", incomplete);
 
-			log.info("thinking Execute completed - Thought {}/{}", request.thoughtNumber(),
-					request.totalThoughts());
+			log.info("thinking Execute completed - Thought {}/{}", request.thoughtNumber(), request.totalThoughts());
 
 			String outputMsg = "Thought process recorded";
 			if (incomplete) {
@@ -214,4 +212,5 @@ public class SequentialThinkingTool implements BiFunction<SequentialThinkingTool
 		}
 		return true;
 	}
+
 }

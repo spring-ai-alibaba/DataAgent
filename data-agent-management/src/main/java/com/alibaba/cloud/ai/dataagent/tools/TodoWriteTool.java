@@ -42,7 +42,6 @@ public class TodoWriteTool implements BiFunction<TodoWriteTool.Request, ToolCont
 				return "Task description is required";
 			}
 
-
 			if (request.steps() == null || request.steps().isEmpty()) {
 				return generateEmptyPlanOutput(request.task());
 			}
@@ -232,4 +231,5 @@ public class TodoWriteTool implements BiFunction<TodoWriteTool.Request, ToolCont
 		}
 		return String.format("  %d. %s [%s] %s\n", index, statusEmoji, step.status(), step.description());
 	}
+
 }

@@ -34,7 +34,6 @@ public class ToolsInterceptor extends ToolInterceptor {
 
 	}
 
-
 	private final List<ToolCallCallback> callbacks = new ArrayList<>();
 
 	@Override

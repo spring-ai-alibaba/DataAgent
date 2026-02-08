@@ -158,4 +158,5 @@ public class SqlExecuteTool implements BiFunction<SqlExecuteTool.Request, ToolCo
 				- 执行结果中的数据预览可能会被截断，仅用于参考
 				""").inputType(Request.class).build();
 	}
+
 }
