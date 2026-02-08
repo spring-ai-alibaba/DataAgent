@@ -65,6 +65,10 @@ public class FileUploadController {
 			return Mono.just(ResponseEntity.badRequest().body(UploadResponse.error("只支持图片文件")));
 		}
 
+		if (file.headers().getContentLength() > fileStorageProperties.getImageSize()) {
+			return Mono.just(ResponseEntity.badRequest().body(UploadResponse.error("图片大小超过最大限制")));
+		}
+
 		// 使用文件存储服务存储文件
 		return fileStorageService.storeFile(file, "avatars").map(filePath -> {
 			String fileUrl = fileStorageService.getFileUrl(filePath);

@@ -58,13 +58,10 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 				Files.createDirectories(uploadDir);
 			}
 			return filePath;
-		})
-			.subscribeOn(Schedulers.boundedElastic())
-			.flatMap(path -> filePart.transferTo(path))
-			.then(Mono.fromCallable(() -> {
-				log.info("文件存储成功: {}", storagePath);
-				return storagePath;
-			}));
+		}).subscribeOn(Schedulers.boundedElastic()).flatMap(filePart::transferTo).then(Mono.fromCallable(() -> {
+			log.info("文件存储成功: {}", storagePath);
+			return storagePath;
+		}));
 	}
 
 	@Override
