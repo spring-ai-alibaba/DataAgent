@@ -201,6 +201,10 @@ public class ReportGeneratorNode implements NodeAction {
 				String stepKey = entry.getKey();
 				String stepResult = entry.getValue();
 
+				if (stepKey.endsWith("_analysis")) {
+					continue;
+				}
+
 				sb.append("### ").append(stepKey).append("\n");
 
 				// Try to get corresponding step description
@@ -225,6 +229,11 @@ public class ReportGeneratorNode implements NodeAction {
 				}
 
 				sb.append("**执行结果**: \n```json\n").append(stepResult).append("\n```\n\n");
+				String analysisKey = stepKey + "_analysis";
+				String analysisResult = executionResults.get(analysisKey);
+				if (analysisResult != null && !analysisResult.trim().isEmpty()) {
+					sb.append("**Python 分析结果**: ").append(analysisResult).append(" ");
+				}
 			}
 		}
 
