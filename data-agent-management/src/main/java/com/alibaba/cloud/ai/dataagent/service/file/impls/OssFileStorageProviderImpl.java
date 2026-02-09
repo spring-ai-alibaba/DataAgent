@@ -16,7 +16,6 @@
 package com.alibaba.cloud.ai.dataagent.service.file.impls;
 
 import com.alibaba.cloud.ai.dataagent.entity.FileStorage;
-import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageProvider;
 import com.aliyun.oss.OSS;
@@ -43,14 +42,11 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 public class OssFileStorageProviderImpl implements FileStorageProvider {
 
-	private final FileStorageProperties fileStorageProperties;
-
 	private final OssStorageProperties ossProperties;
 
 	private OSS ossClient;
 
-	public OssFileStorageProviderImpl(FileStorageProperties fileStorageProperties, OssStorageProperties ossProperties) {
-		this.fileStorageProperties = fileStorageProperties;
+	public OssFileStorageProviderImpl(OssStorageProperties ossProperties) {
 		this.ossProperties = ossProperties;
 	}
 
