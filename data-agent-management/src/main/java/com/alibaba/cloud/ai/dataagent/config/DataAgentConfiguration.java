@@ -69,6 +69,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_EX
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_NODE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_RETRY_COUNT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TRACE_THREAD_ID;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
 import static com.alibaba.cloud.ai.graph.StateGraph.START;
 import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;

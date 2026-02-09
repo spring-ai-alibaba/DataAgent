@@ -46,7 +46,7 @@ public class FileStorageConfiguration {
 	@Bean("oss")
 	@ConditionalOnProperty(name = Constant.PROJECT_PROPERTIES_PREFIX + ".file.oss.enabled", havingValue = "true")
 	public FileStorageProvider ossFileStorageProvider() {
-		return new OssFileStorageProviderImpl(fileStorageProperties, ossStorageProperties);
+		return new OssFileStorageProviderImpl(ossStorageProperties);
 	}
 
 }
