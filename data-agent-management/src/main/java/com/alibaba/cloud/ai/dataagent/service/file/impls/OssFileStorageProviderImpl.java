@@ -92,7 +92,7 @@ public class OssFileStorageProviderImpl implements FileStorageProvider {
 					Files.deleteIfExists(tempFile);
 				}
 				catch (IOException e) {
-					// 记录日志
+					log.warn("无法删除临时文件: {}", tempFile, e);
 				}
 			}).block();
 
