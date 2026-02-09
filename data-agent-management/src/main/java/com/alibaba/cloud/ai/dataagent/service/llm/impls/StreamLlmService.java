@@ -26,6 +26,7 @@ import reactor.core.publisher.Flux;
 public class StreamLlmService implements LlmService {
 
 	private final AiModelRegistry registry;
+
 	private final CacheAccessTool cacheAccessTool; // 注入 CacheAccessTool
 
 	@Override
@@ -36,11 +37,11 @@ public class StreamLlmService implements LlmService {
 	@Override
 	public Flux<ChatResponse> callSystem(String system) {
 		return registry.getChatClient()
-				.prompt()
-				.system(system)
-				.tools(cacheAccessTool) // 注册工具
-				.stream()
-				.chatResponse();
+			.prompt()
+			.system(system)
+			.tools(cacheAccessTool) // 注册工具
+			.stream()
+			.chatResponse();
 	}
 
 	@Override

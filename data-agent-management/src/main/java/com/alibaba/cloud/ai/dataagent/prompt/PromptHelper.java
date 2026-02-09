@@ -166,12 +166,12 @@ public class PromptHelper {
 	 */
 	private static String buildCacheUsageGuide() {
 		return """
-        ## 缓存数据访问指南
-        当遇到标记为'[结果过大已缓存]'的数据时，你可以通过以下方式获取完整数据：
-        1. 识别缓存键（格式：cache_key_xxxx）
-        2. 调用缓存服务获取完整数据
-        3. 基于完整数据进行更详细的分析
-        """;
+				## 缓存数据访问指南
+				当遇到标记为'[结果过大已缓存]'的数据时，你可以通过以下方式获取完整数据：
+				1. 识别缓存键（格式：cache_key_xxxx）
+				2. 调用缓存服务获取完整数据
+				3. 基于完整数据进行更详细的分析
+				""";
 	}
 
 	public static String buildSqlErrorFixerPrompt(SqlGenerationDTO sqlGenerationDTO) {

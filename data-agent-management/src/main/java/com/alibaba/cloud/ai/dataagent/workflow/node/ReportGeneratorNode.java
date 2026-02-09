@@ -70,11 +70,11 @@ public class ReportGeneratorNode implements NodeAction {
 
 	// 定义最大结果大小常量
 	private static final int MAX_RESULT_SIZE = 5000; // 每个结果最大5KB
+
 	private static final int MAX_TOTAL_SIZE = 20000; // 总体结果最大20KB
 
-	public ReportGeneratorNode(LlmService llmService,
-							   UserPromptService promptConfigService,
-							   ResultCacheService resultCacheService) { // 注入缓存服务
+	public ReportGeneratorNode(LlmService llmService, UserPromptService promptConfigService,
+			ResultCacheService resultCacheService) { // 注入缓存服务
 		this.llmService = llmService;
 		this.converter = new BeanOutputConverter<>(new ParameterizedTypeReference<>() {
 		});
@@ -163,7 +163,8 @@ public class ReportGeneratorNode implements NodeAction {
 				processedResults.put(stepKey, referenceInfo);
 
 				totalSize += referenceInfo.length();
-			} else {
+			}
+			else {
 				processedResults.put(stepKey, stepResult);
 				totalSize += stepResult.length();
 			}
@@ -180,14 +181,8 @@ public class ReportGeneratorNode implements NodeAction {
 		String summary = getSummaryFromResult(originalResult);
 		log.info("originalResult.length()：{}，summary.length()：{}", originalResult.length(), summary.length());
 		return String.format(
-				"**[结果过大已缓存]**\n" +
-						"- 原始结果大小: %d 字符\n" +
-						"- 摘要: %s\n" +
-						"- 完整结果可调用getFullData工具根据缓存键 '%s' 获取\n",
-				originalResult.length(),
-				summary,
-				cacheKey
-		);
+				"**[结果过大已缓存]**\n" + "- 原始结果大小: %d 字符\n" + "- 摘要: %s\n" + "- 完整结果可调用getFullData工具根据缓存键 '%s' 获取\n",
+				originalResult.length(), summary, cacheKey);
 	}
 
 	/**
@@ -201,10 +196,10 @@ public class ReportGeneratorNode implements NodeAction {
 		// 如果是JSON格式，尝试提取关键字段
 		if (result.startsWith("{") || result.startsWith("[")) {
 			return extractJsonSummary(result);
-		} else {
+		}
+		else {
 			// 截取前200个字符作为摘要
-			return result.length() > 200 ?
-					result.substring(0, 200) + "..." : result;
+			return result.length() > 200 ? result.substring(0, 200) + "..." : result;
 		}
 	}
 
@@ -229,7 +224,8 @@ public class ReportGeneratorNode implements NodeAction {
 					// 获取列名
 					StringBuilder columnsBuilder = new StringBuilder();
 					for (int i = 0; i < Math.min(columnNode.size(), 10); i++) { // 增加列名显示数量
-						if (i > 0) columnsBuilder.append(", ");
+						if (i > 0)
+							columnsBuilder.append(", ");
 						columnsBuilder.append(columnNode.get(i).asText());
 					}
 					String columnsPreview = columnsBuilder.toString();
@@ -240,21 +236,24 @@ public class ReportGeneratorNode implements NodeAction {
 
 					for (int i = 0; i < recordsToShow; i++) {
 						JsonNode row = dataNode.get(i);
-						if (i > 0) rowsPreview.append("; ");
+						if (i > 0)
+							rowsPreview.append("; ");
 
 						if (row.isArray()) {
 							// 如果每行是数组格式
 							StringBuilder rowBuilder = new StringBuilder();
 							rowBuilder.append("[");
 							for (int j = 0; j < row.size(); j++) {
-								if (j > 0) rowBuilder.append(",");
+								if (j > 0)
+									rowBuilder.append(",");
 								String value = row.get(j) != null ? row.get(j).asText() : "null";
 								// 限制单个值长度，避免过长
 								rowBuilder.append(value.length() > 100 ? value.substring(0, 100) + "..." : value);
 							}
 							rowBuilder.append("]");
 							rowsPreview.append(rowBuilder.toString());
-						} else if (row.isObject()) {
+						}
+						else if (row.isObject()) {
 							// 如果每行是对象格式
 							Iterator<Map.Entry<String, JsonNode>> fields = row.fields();
 							StringBuilder rowBuilder = new StringBuilder();
@@ -262,14 +261,13 @@ public class ReportGeneratorNode implements NodeAction {
 							int fieldCount = 0;
 							while (fields.hasNext()) {
 								Map.Entry<String, JsonNode> field = fields.next();
-								if (fieldCount > 0) rowBuilder.append(",");
+								if (fieldCount > 0)
+									rowBuilder.append(",");
 
 								String value = field.getValue() != null ? field.getValue().asText() : "null";
 								// 限制单个值长度，避免过长
 								String truncatedValue = value.length() > 100 ? value.substring(0, 100) + "..." : value;
-								rowBuilder.append(field.getKey())
-										.append("=")
-										.append(truncatedValue);
+								rowBuilder.append(field.getKey()).append("=").append(truncatedValue);
 								fieldCount++;
 							}
 							rowBuilder.append("}");
@@ -277,13 +275,13 @@ public class ReportGeneratorNode implements NodeAction {
 						}
 					}
 
-					String additionalInfo = recordsToShow < totalRows ?
-							String.format(", 还有%d条记录未显示", totalRows - recordsToShow) : "";
+					String additionalInfo = recordsToShow < totalRows
+							? String.format(", 还有%d条记录未显示", totalRows - recordsToShow) : "";
 
-					return String.format("表格式数据: %d列×%d行, 列名: [%s], 前%d条记录: %s%s",
-							columnsCount, totalRows, columnsPreview, recordsToShow,
-							rowsPreview.toString(), additionalInfo);
-				} else {
+					return String.format("表格式数据: %d列×%d行, 列名: [%s], 前%d条记录: %s%s", columnsCount, totalRows,
+							columnsPreview, recordsToShow, rowsPreview.toString(), additionalInfo);
+				}
+				else {
 					// 普通对象处理逻辑
 					Iterator<Map.Entry<String, JsonNode>> fields = rootNode.fields();
 					StringBuilder summary = new StringBuilder();
@@ -296,20 +294,24 @@ public class ReportGeneratorNode implements NodeAction {
 						String valueSummary;
 						if (fieldValue.isArray()) {
 							valueSummary = String.format("[数组, %d项]", fieldValue.size());
-						} else if (fieldValue.isObject()) {
+						}
+						else if (fieldValue.isObject()) {
 							valueSummary = "{对象}";
-						} else {
+						}
+						else {
 							String textValue = fieldValue.asText();
 							valueSummary = textValue.length() > 100 ? textValue.substring(0, 100) + "..." : textValue;
 						}
 
-						if (count > 0) summary.append(", ");
+						if (count > 0)
+							summary.append(", ");
 						summary.append(fieldName).append("=").append(valueSummary);
 						count++;
 					}
 					return summary.toString();
 				}
-			} else if (rootNode.isArray()) {
+			}
+			else if (rootNode.isArray()) {
 				// 对于纯数组的情况也保留前100条记录
 				int totalItems = rootNode.size();
 				StringBuilder itemsPreview = new StringBuilder();
@@ -317,30 +319,28 @@ public class ReportGeneratorNode implements NodeAction {
 
 				for (int i = 0; i < itemsToShow; i++) {
 					JsonNode item = rootNode.get(i);
-					if (i > 0) itemsPreview.append(", ");
+					if (i > 0)
+						itemsPreview.append(", ");
 
 					String itemText = item != null ? item.asText() : "null";
 					itemsPreview.append(itemText.length() > 100 ? itemText.substring(0, 100) + "..." : itemText);
 				}
 
-				String additionalInfo = itemsToShow < totalItems ?
-						String.format(", 还有%d项未显示", totalItems - itemsToShow) : "";
+				String additionalInfo = itemsToShow < totalItems ? String.format(", 还有%d项未显示", totalItems - itemsToShow)
+						: "";
 
-				return String.format("数组，共%d个项目，前%d项: [%s]%s",
-						totalItems, itemsToShow, itemsPreview.toString(), additionalInfo);
+				return String.format("数组，共%d个项目，前%d项: [%s]%s", totalItems, itemsToShow, itemsPreview.toString(),
+						additionalInfo);
 			}
-		} catch (Exception e) {
+		}
+		catch (Exception e) {
 			log.warn("JSON parsing failed for summary extraction: {}", e.getMessage());
 			// JSON解析失败，返回前200个字符
-			return jsonResult.length() > 200 ?
-					jsonResult.substring(0, 200) + "..." : jsonResult;
+			return jsonResult.length() > 200 ? jsonResult.substring(0, 200) + "..." : jsonResult;
 		}
 
-		return jsonResult.length() > 200 ?
-				jsonResult.substring(0, 200) + "..." : jsonResult;
+		return jsonResult.length() > 200 ? jsonResult.substring(0, 200) + "..." : jsonResult;
 	}
-
-
 
 	/**
 	 * Gets the current execution step from the plan.
@@ -450,14 +450,13 @@ public class ReportGeneratorNode implements NodeAction {
 				// 添加获取完整数据的指引
 				if (stepResult.contains("[结果过大已缓存]")) {
 					sb.append("**注意**: 完整数据已缓存，如需查看请调用getFullData工具获取\n\n");
-				} else {
+				}
+				else {
 					sb.append("\n");
 				}
 
 			}
 		}
-
-
 
 		return sb.toString();
 	}
