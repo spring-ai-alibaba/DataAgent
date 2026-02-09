@@ -41,12 +41,18 @@
                 <div class="avatar-controls">
                   <div class="avatar-buttons">
                     <el-button @click="regenerateAvatar" size="large">
-                      <el-icon><Refresh /></el-icon>
+                      <el-icon>
+                        <Refresh />
+                      </el-icon>
                       重新生成
                     </el-button>
                     <el-button @click="triggerFileUpload" :disabled="uploading" size="large">
-                      <el-icon v-if="!uploading"><Upload /></el-icon>
-                      <el-icon v-if="uploading"><Loading /></el-icon>
+                      <el-icon v-if="!uploading">
+                        <Upload />
+                      </el-icon>
+                      <el-icon v-if="uploading">
+                        <Loading />
+                      </el-icon>
                       {{ uploading ? '上传中...' : '上传图片' }}
                     </el-button>
                     <input
@@ -165,10 +171,10 @@
 </template>
 
 <script lang="ts">
-  import { defineComponent, reactive, ref, onMounted } from 'vue';
+  import { defineComponent, onMounted, reactive, ref } from 'vue';
   import { useRouter } from 'vue-router';
   import { ElMessage } from 'element-plus';
-  import { Plus, Refresh, Upload, Loading } from '@element-plus/icons-vue';
+  import { Loading, Plus, Refresh, Upload } from '@element-plus/icons-vue';
   import BaseLayout from '../layouts/BaseLayout.vue';
   import agentService from '@/services/agent';
   import { fileUploadApi } from '@/services/fileUpload';
@@ -272,13 +278,9 @@
           // 上传文件
           const response = await fileUploadApi.uploadAvatar(file);
 
-          if (response.success) {
-            // 上传成功，使用服务器返回的URL
-            agentForm.avatar = response.url;
-            ElMessage.success('头像上传成功');
-          } else {
-            throw new Error(response.message || '上传失败');
-          }
+          // 上传成功，使用服务器返回的URL
+          agentForm.avatar = response.url;
+          ElMessage.success('头像上传成功');
         } catch (error) {
           console.error('头像上传失败:', error);
           ElMessage.error('头像上传失败: ' + (error instanceof Error ? error.message : '未知错误'));

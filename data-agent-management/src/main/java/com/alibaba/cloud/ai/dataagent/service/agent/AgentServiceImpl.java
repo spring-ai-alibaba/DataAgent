@@ -17,16 +17,15 @@ package com.alibaba.cloud.ai.dataagent.service.agent;
 
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentMapper;
-import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
+import com.alibaba.cloud.ai.dataagent.service.file.FileStorageProvider;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.util.ApiKeyUtil;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 /**
  * Agent Service Class
@@ -40,7 +39,7 @@ public class AgentServiceImpl implements AgentService {
 
 	private final AgentVectorStoreService agentVectorStoreService;
 
-	private final FileStorageService fileStorageService;
+	private final FileStorageProvider fileStorageService;
 
 	@Override
 	public List<Agent> findAll() {
