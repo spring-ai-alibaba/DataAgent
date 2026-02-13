@@ -47,18 +47,11 @@ public class DBConnectionPoolFactory {
 	 * @return DB connection pool
 	 */
 	public DBConnectionPool getPoolByType(String type) {
-		// if (type == null || type.trim().isEmpty()) {
-		// return null;
-		// }
-		// return switch (type.toLowerCase()) {
-		// case "mysql", "mysqljdbcconnectionpool" ->
-		// poolMap.get("mysqlJdbcConnectionPool");
-		// case "postgresql", "postgres", "postgresqljdbcconnectionpool" ->
-		// poolMap.get("postgreSqlJdbcConnectionPool");
-		// case "h2", "h2jdbcconnectionpool" -> poolMap.get("h2JdbcConnectionPool");
-		// default -> null;
-		// };
-		return poolMap.get(type);
+		DBConnectionPool direct = poolMap.get(type);
+		if (direct != null) {
+			return direct;
+		}
+		return poolMap.values().stream().filter(p -> p.supportedDataSourceType(type)).findFirst().orElse(null);
 	}
 
 	// todo: 写一层缓存
