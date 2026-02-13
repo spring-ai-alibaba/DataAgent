@@ -35,6 +35,10 @@ export default defineConfig({
         target: 'http://localhost:8065',
         changeOrigin: true,
       },
+      '/uploads': {
+        target: 'http://localhost:8065',
+        changeOrigin: true,
+      },
     },
     historyApiFallback: true,
   },
