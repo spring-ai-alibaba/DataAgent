@@ -127,13 +127,13 @@ public class HiveJdbcConnectionPool extends AbstractDBConnectionPool {
 			return DATASOURCE_CONNECTION_FAILURE_08001;
 		}
 		catch (SQLException e) {
-			log.error("Hive connection test failed, url:{}, state:{}, message:{}",
-					config.getUrl(), e.getSQLState(), e.getMessage());
+			log.error("Hive connection test failed, url:{}, state:{}, message:{}", config.getUrl(), e.getSQLState(),
+					e.getMessage());
 			return errorMapping(e.getSQLState());
 		}
 		catch (Exception e) {
-			log.error("Hive connection test failed with unexpected error, url:{}, message:{}",
-					config.getUrl(), e.getMessage());
+			log.error("Hive connection test failed with unexpected error, url:{}, message:{}", config.getUrl(),
+					e.getMessage());
 			return DATASOURCE_CONNECTION_FAILURE_08001;
 		}
 	}
