@@ -31,7 +31,7 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 // 请求拦截器：自动附加 token
-axios.interceptors.request.use((config) => {
+axios.interceptors.request.use(config => {
   const token = authService.getAccessToken();
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -41,8 +41,8 @@ axios.interceptors.request.use((config) => {
 
 // 响应拦截器：处理 401
 axios.interceptors.response.use(
-  (response) => response,
-  async (error) => {
+  response => response,
+  async error => {
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -57,7 +57,7 @@ axios.interceptors.response.use(
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
-        }).then((token) => {
+        }).then(token => {
           originalRequest.headers.Authorization = `Bearer ${token}`;
           return axios(originalRequest);
         });

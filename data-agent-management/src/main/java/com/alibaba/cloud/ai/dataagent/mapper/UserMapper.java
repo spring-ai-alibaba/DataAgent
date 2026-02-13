@@ -63,9 +63,8 @@ public interface UserMapper {
 				ORDER BY created_time DESC
 			</script>
 			""")
-	List<User> findByConditions(@Param("status") Integer status,
-								 @Param("userType") Integer userType,
-								 @Param("keyword") String keyword);
+	List<User> findByConditions(@Param("status") Integer status, @Param("userType") Integer userType,
+			@Param("keyword") String keyword);
 
 	@Insert("""
 			INSERT INTO sys_user (username, password, email, phone, real_name, avatar, status, user_type,
@@ -121,9 +120,8 @@ public interface UserMapper {
 				login_count = login_count + 1, failed_login_count = 0, updated_time = NOW()
 			WHERE id = #{id}
 			""")
-	int updateLoginInfo(@Param("id") Long id,
-						@Param("lastLoginTime") java.time.LocalDateTime lastLoginTime,
-						@Param("lastLoginIp") String lastLoginIp);
+	int updateLoginInfo(@Param("id") Long id, @Param("lastLoginTime") java.time.LocalDateTime lastLoginTime,
+			@Param("lastLoginIp") String lastLoginIp);
 
 	@Update("""
 			UPDATE sys_user

@@ -110,19 +110,21 @@ public class AuthServiceImpl implements AuthService {
 			.username(request.getUsername())
 			.password(BCrypt.hashpw(request.getPassword(), BCrypt.gensalt()))
 			.email(request.getEmail())
+			.phone(request.getPhone())
 			.realName(request.getRealName())
 			.status(1)
-			.userType(0)
+			.userType(request.getUserType() != null ? request.getUserType() : 0)
 			.failedLoginCount(0)
 			.loginCount(0)
 			.isDeleted(0)
 			.build();
 		userMapper.insert(user);
 
-		// 分配默认角色 ANALYST
-		Long analystRoleId = userRoleMapper.findRoleIdByCode("ANALYST");
-		if (analystRoleId != null) {
-			userRoleMapper.insert(user.getId(), analystRoleId);
+		// 分配角色
+		String roleCode = request.getRoleCode() != null ? request.getRoleCode() : "ANALYST";
+		Long roleId = userRoleMapper.findRoleIdByCode(roleCode);
+		if (roleId != null) {
+			userRoleMapper.insert(user.getId(), roleId);
 		}
 
 		// 自动登录并返回 token
@@ -291,7 +293,8 @@ public class AuthServiceImpl implements AuthService {
 			.build();
 	}
 
-	private void recordLoginLog(Long userId, String username, int status, String failureReason, String ipAddress, String userAgent) {
+	private void recordLoginLog(Long userId, String username, int status, String failureReason, String ipAddress,
+			String userAgent) {
 		try {
 			LoginLog loginLog = LoginLog.builder()
 				.userId(userId)

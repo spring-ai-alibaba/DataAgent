@@ -42,7 +42,8 @@ public class Role {
 
 	private String permissions; // Permission list (JSON format)
 
-	private Integer isSystem; // Is system role: 0-no, 1-yes (system roles cannot be deleted)
+	private Integer isSystem; // Is system role: 0-no, 1-yes (system roles cannot be
+								// deleted)
 
 	private Integer sortOrder; // Sort order
 

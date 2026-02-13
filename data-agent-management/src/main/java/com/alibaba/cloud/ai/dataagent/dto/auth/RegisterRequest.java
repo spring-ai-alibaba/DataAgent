@@ -24,7 +24,7 @@ import lombok.Data;
 public class RegisterRequest {
 
 	@NotBlank(message = "用户名不能为空")
-	@Size(min = 3, max = 50, message = "用户名长度需在3-50之间")
+	@Size(min = 2, max = 50, message = "用户名长度需在2-50之间")
 	private String username;
 
 	@NotBlank(message = "密码不能为空")
@@ -36,5 +36,11 @@ public class RegisterRequest {
 	private String email;
 
 	private String realName;
+
+	private String phone;
+
+	private Integer userType; // 0-普通用户，1-管理员
+
+	private String roleCode; // ADMIN, ANALYST, VIEWER
 
 }

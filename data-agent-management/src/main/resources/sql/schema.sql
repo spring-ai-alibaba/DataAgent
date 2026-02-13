@@ -340,33 +340,6 @@ CREATE TABLE IF NOT EXISTS sys_user_role (
     FOREIGN KEY (role_id) REFERENCES sys_role(id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户角色关联表';
 
--- API密钥表
-CREATE TABLE IF NOT EXISTS sys_api_key (
-    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '密钥ID',
-    user_id BIGINT NOT NULL COMMENT '所属用户ID',
-    api_key VARCHAR(100) NOT NULL COMMENT 'API密钥（sk-开头）',
-    api_secret VARCHAR(255) COMMENT '密钥Secret（用于签名验证）',
-    key_name VARCHAR(100) NOT NULL COMMENT '密钥名称',
-    status TINYINT DEFAULT 1 COMMENT '启用状态：0-禁用，1-启用',
-    permissions JSON COMMENT '权限范围（JSON格式）',
-    rate_limit INT DEFAULT 60 COMMENT '速率限制（每分钟请求数）',
-    expires_at TIMESTAMP NULL COMMENT '过期时间',
-    last_used_time TIMESTAMP NULL COMMENT '最后使用时间',
-    last_used_ip VARCHAR(50) COMMENT '最后使用IP',
-    usage_count BIGINT DEFAULT 0 COMMENT '使用次数',
-    created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    created_by BIGINT COMMENT '创建人ID',
-    is_deleted TINYINT DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_api_key (api_key),
-    INDEX idx_user_id (user_id),
-    INDEX idx_status (status),
-    INDEX idx_expires_at (expires_at),
-    INDEX idx_is_deleted (is_deleted),
-    FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = 'API密钥表';
-
 -- 用户会话表
 CREATE TABLE IF NOT EXISTS sys_user_session (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '会话ID',

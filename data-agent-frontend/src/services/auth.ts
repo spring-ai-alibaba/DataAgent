@@ -27,6 +27,9 @@ export interface RegisterRequest {
   password: string;
   email: string;
   realName?: string;
+  phone?: string;
+  userType?: number;
+  roleCode?: string;
 }
 
 export interface TokenResponse {
@@ -70,10 +73,19 @@ class AuthService {
     throw new Error(response.data.message || '注册失败');
   }
 
+  async createUser(data: RegisterRequest): Promise<void> {
+    const response = await axios.post<ApiResponse<TokenResponse>>('/api/auth/register', data);
+    if (!response.data.success) {
+      throw new Error(response.data.message || '创建用户失败');
+    }
+  }
+
   async refreshToken(): Promise<TokenResponse> {
     const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
     if (!refreshToken) throw new Error('No refresh token');
-    const response = await axios.post<ApiResponse<TokenResponse>>('/api/auth/refresh', { refreshToken });
+    const response = await axios.post<ApiResponse<TokenResponse>>('/api/auth/refresh', {
+      refreshToken,
+    });
     if (response.data.success && response.data.data) {
       this.setTokens(response.data.data);
       return response.data.data;
