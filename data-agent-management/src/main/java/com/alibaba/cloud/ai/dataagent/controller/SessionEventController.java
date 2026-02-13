@@ -17,17 +17,13 @@ package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.service.chat.SessionEventPublisher;
 import com.alibaba.cloud.ai.dataagent.vo.SessionUpdateEvent;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 
 @Slf4j
 @RestController
@@ -40,12 +36,10 @@ public class SessionEventController {
 
 	@GetMapping(value = "/agent/{agentId}/sessions/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<ServerSentEvent<SessionUpdateEvent>> streamSessionUpdates(@PathVariable Integer agentId,
-			HttpServletResponse response) {
-		response.setCharacterEncoding("UTF-8");
-		response.setContentType("text/event-stream");
-		response.setHeader("Cache-Control", "no-cache");
-		response.setHeader("Connection", "keep-alive");
-		response.setHeader("Access-Control-Allow-Origin", "*");
+			ServerHttpResponse response) {
+		response.getHeaders().add("Cache-Control", "no-cache");
+		response.getHeaders().add("Connection", "keep-alive");
+		response.getHeaders().add("Access-Control-Allow-Origin", "*");
 
 		log.debug("Client subscribed to session update stream for agent {}", agentId);
 		return sessionEventPublisher.register(agentId)
