@@ -34,6 +34,25 @@
             </div>
           </nav>
         </div>
+        <div class="user-section">
+          <el-dropdown @command="handleUserCommand">
+            <span class="user-info">
+              <el-avatar :size="28" :src="user?.avatar" style="background-color: #5f70e1;">
+                {{ user?.username?.charAt(0)?.toUpperCase() || 'U' }}
+              </el-avatar>
+              <span class="username">{{ user?.username || '用户' }}</span>
+              <el-icon><ArrowDown /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item disabled>
+                  <span style="color: #909399; font-size: 12px;">{{ user?.email || '' }}</span>
+                </el-dropdown-item>
+                <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </div>
     </header>
 
@@ -45,12 +64,17 @@
 </template>
 
 <script>
+  import { ref, onMounted } from 'vue';
   import { useRouter } from 'vue-router';
+  import { ArrowDown } from '@element-plus/icons-vue';
+  import authService from '@/services/auth';
 
   export default {
     name: 'BaseLayout',
+    components: { ArrowDown },
     setup() {
       const router = useRouter();
+      const user = ref(authService.getUser());
 
       // 导航方法
       const goToAgentList = () => {
@@ -74,11 +98,28 @@
         return router.currentRoute.value.name === 'ModelConfig';
       };
 
+      const handleUserCommand = async (command) => {
+        if (command === 'logout') {
+          await authService.logout();
+          router.push('/login');
+        }
+      };
+
+      onMounted(async () => {
+        try {
+          user.value = await authService.getCurrentUser();
+        } catch (e) {
+          // token 可能无效，忽略
+        }
+      });
+
       return {
+        user,
         goToAgentList,
         goToModelConfig,
         isAgentPage,
         isModelConfigPage,
+        handleUserCommand,
       };
     },
   };
@@ -158,6 +199,35 @@
 
   .nav-item i {
     font-size: 1rem;
+  }
+
+  .user-section {
+    display: flex;
+    align-items: center;
+  }
+
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+  }
+
+  .user-info:hover {
+    background: #f1f5f9;
+  }
+
+  .username {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #334155;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .page-content {

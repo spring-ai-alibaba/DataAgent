@@ -6,7 +6,7 @@ spring:
   datasource:
     url: ${DATA_AGENT_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/saa_data_agent?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai}
     username: ${DATA_AGENT_DATASOURCE_USERNAME:root}
-    password: ${DATA_AGENT_DATASOURCE_PASSWORD:root}
+    password: ${DATA_AGENT_DATASOURCE_PASSWORD:zihen81033}
     driver-class-name: com.mysql.cj.jdbc.Driver
     type: com.alibaba.druid.pool.DruidDataSource
   sql:
@@ -52,6 +52,16 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
       enabled: true
+
+# JWT Authentication Configuration
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:DataAgent2025SecretKeyForJwtTokenSigningMustBe256Bits!}
+    access-token-expiration: ${AUTH_JWT_ACCESS_EXPIRATION:3600000}
+    refresh-token-expiration: ${AUTH_JWT_REFRESH_EXPIRATION:604800000}
+  lockout:
+    max-attempts: ${AUTH_LOCKOUT_MAX_ATTEMPTS:5}
+    lock-duration: ${AUTH_LOCKOUT_DURATION:1800000}
 
 mybatis:
 
