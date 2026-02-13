@@ -29,9 +29,8 @@ public class OpenApiConfig {
 
 	@Bean
 	public OpenAPI dataAgentOpenApi() {
-		return new OpenAPI().info(new Info().title("DataAgent Backend API")
-			.description("DataAgent 后端接口文档")
-			.version("v1"));
+		return new OpenAPI()
+			.info(new Info().title("DataAgent Backend API").description("DataAgent 后端接口文档").version("v1"));
 	}
 
 	@Bean
