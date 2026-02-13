@@ -31,7 +31,9 @@ public enum DatabaseDialectEnum {
 
 	SQL_SERVER("SqlServer"),
 
-	ORACLE("Oracle");
+	ORACLE("Oracle"),
+
+	HIVE("Hive");
 
 	public final String code;
 

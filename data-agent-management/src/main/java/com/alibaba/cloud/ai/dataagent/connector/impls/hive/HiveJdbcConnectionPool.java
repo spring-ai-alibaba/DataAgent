@@ -1,0 +1,146 @@
+/*
+ * Copyright 2026 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.cloud.ai.dataagent.connector.impls.hive;
+
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
+import com.alibaba.cloud.ai.dataagent.connector.pool.AbstractDBConnectionPool;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
+import com.alibaba.druid.pool.DruidDataSourceFactory;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.DATASOURCE_CONNECTION_FAILURE_08001;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.PASSWORD_ERROR_28000;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.DATABASE_NOT_EXIST_42000;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.INSUFFICIENT_PRIVILEGE_42501;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.OTHERS;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.SUCCESS;
+
+/**
+ * Hive JDBC 连接池实现
+ */
+@Slf4j
+@Service("hiveJdbcConnectionPool")
+public class HiveJdbcConnectionPool extends AbstractDBConnectionPool {
+
+	private final static String DRIVER = "org.apache.hive.jdbc.HiveDriver";
+
+	@Override
+	public String getDriver() {
+		return DRIVER;
+	}
+
+	@Override
+	public ErrorCodeEnum errorMapping(String sqlState) {
+		// Hive JDBC 错误码映射
+		// 参考 HiveServer2 的 SQL State 规范
+		if (sqlState == null) {
+			return OTHERS;
+		}
+
+		// 首先尝试使用标准映射
+		ErrorCodeEnum ret = ErrorCodeEnum.fromCode(sqlState);
+		if (ret != OTHERS) {
+			return ret;
+		}
+
+		// Hive 特定的错误码映射
+		return switch (sqlState) {
+			case "08001", "08S01" -> DATASOURCE_CONNECTION_FAILURE_08001;
+			case "28000" -> PASSWORD_ERROR_28000;
+			case "42000" -> DATABASE_NOT_EXIST_42000;
+			case "42501" -> INSUFFICIENT_PRIVILEGE_42501;
+			default -> OTHERS;
+		};
+	}
+
+	@Override
+	public boolean supportedDataSourceType(String type) {
+		return BizDataSourceTypeEnum.HIVE.getTypeName().equals(type);
+	}
+
+	@Override
+	public String getConnectionPoolType() {
+		return "Hive_JDBC_Pool";
+	}
+
+	@Override
+	public DataSource createdDataSource(String url, String username, String password) throws Exception {
+		log.info("Creating Hive DataSource with custom configuration");
+		String driver = getDriver();
+
+		// Hive 不支持 Druid 的 wall filter，只使用 stat
+		String filters = "stat";
+
+		java.util.Map<String, String> props = new java.util.HashMap<>();
+		props.put(DruidDataSourceFactory.PROP_DRIVERCLASSNAME, driver);
+		props.put(DruidDataSourceFactory.PROP_URL, url);
+		props.put(DruidDataSourceFactory.PROP_USERNAME, username);
+		props.put(DruidDataSourceFactory.PROP_PASSWORD, password);
+		props.put(DruidDataSourceFactory.PROP_FILTERS, filters);
+		props.put(DruidDataSourceFactory.PROP_INITIALSIZE, "5");
+		props.put(DruidDataSourceFactory.PROP_MINIDLE, "5");
+		props.put(DruidDataSourceFactory.PROP_MAXACTIVE, "20");
+		props.put(DruidDataSourceFactory.PROP_MAXWAIT, "60000");
+		props.put(DruidDataSourceFactory.PROP_TIMEBETWEENEVICTIONRUNSMILLIS, "60000");
+		props.put(DruidDataSourceFactory.PROP_MINEVICTABLEIDLETIMEMILLIS, "300000");
+		props.put(DruidDataSourceFactory.PROP_VALIDATIONQUERY, "SELECT 1");
+		props.put(DruidDataSourceFactory.PROP_TESTWHILEIDLE, "true");
+		props.put(DruidDataSourceFactory.PROP_TESTONBORROW, "false");
+		props.put(DruidDataSourceFactory.PROP_TESTONRETURN, "false");
+
+		return DruidDataSourceFactory.createDataSource(props);
+	}
+
+	/**
+	 * 重写 ping 方法，使用连接池而不是 DriverManager
+	 * 因为 Hive 需要特殊的 Druid 配置（禁用 wall filter）
+	 */
+	@Override
+	public ErrorCodeEnum ping(DbConfigBO config) {
+		log.info("Hive ping method called, url: {}", config.getUrl());
+		try (Connection connection = getConnection(config);
+			 Statement stmt = connection.createStatement()) {
+			log.info("Hive connection obtained, executing SELECT 1");
+			// 使用简单的 SELECT 1 测试连接
+			ResultSet rs = stmt.executeQuery("SELECT 1");
+			if (rs.next()) {
+				rs.close();
+				return SUCCESS;
+			}
+			rs.close();
+			return DATASOURCE_CONNECTION_FAILURE_08001;
+		}
+		catch (SQLException e) {
+			log.error("Hive connection test failed, url:{}, state:{}, message:{}",
+				config.getUrl(), e.getSQLState(), e.getMessage());
+			return errorMapping(e.getSQLState());
+		}
+		catch (Exception e) {
+			log.error("Hive connection test failed with unexpected error, url:{}, message:{}",
+				config.getUrl(), e.getMessage());
+			return DATASOURCE_CONNECTION_FAILURE_08001;
+		}
+	}
+
+}
