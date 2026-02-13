@@ -60,15 +60,10 @@ public class DatasourceController {
 	 */
 	@GetMapping("/types")
 	public ApiResponse<List<DatasourceTypeDTO>> getDatasourceTypes() {
-		// 定义标准的 JDBC 数据源类型（用户可直接配置的类型）
-		List<BizDataSourceTypeEnum> standardTypes = Arrays.asList(
-			BizDataSourceTypeEnum.MYSQL,
-			BizDataSourceTypeEnum.POSTGRESQL,
-			BizDataSourceTypeEnum.DAMENG,
-			BizDataSourceTypeEnum.SQL_SERVER,
-			BizDataSourceTypeEnum.ORACLE,
-			BizDataSourceTypeEnum.HIVE
-		);
+		// 定义标准的 JDBC 数据源类型
+		List<BizDataSourceTypeEnum> standardTypes = Arrays.asList(BizDataSourceTypeEnum.MYSQL,
+				BizDataSourceTypeEnum.POSTGRESQL, BizDataSourceTypeEnum.DAMENG, BizDataSourceTypeEnum.SQL_SERVER,
+				BizDataSourceTypeEnum.ORACLE, BizDataSourceTypeEnum.HIVE);
 
 		List<DatasourceTypeDTO> types = standardTypes.stream()
 			.map(type -> DatasourceTypeDTO.builder()

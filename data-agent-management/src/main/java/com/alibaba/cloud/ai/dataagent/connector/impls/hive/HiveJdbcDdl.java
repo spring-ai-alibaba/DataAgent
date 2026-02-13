@@ -70,15 +70,11 @@ public class HiveJdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<SchemaInfoBO> showSchemas(Connection connection) {
-		// Hive 没有 schema 概念，database 就是顶层命名空间
 		return Collections.emptyList();
 	}
 
 	@Override
 	public List<TableInfoBO> showTables(Connection connection, String schema, String tablePattern) {
-		// 构建 SHOW TABLES 命令
-		// 如果指定了 schema（database），使用 SHOW TABLES IN database
-		// 如果指定了 tablePattern，使用 SHOW TABLES LIKE 'pattern'
 		StringBuilder sql = new StringBuilder("SHOW TABLES");
 
 		if (StringUtils.isNotBlank(schema)) {
@@ -101,8 +97,6 @@ public class HiveJdbcDdl extends AbstractJdbcDdl {
 					continue;
 				}
 				String tableName = resultArr[i][0];
-				// Hive 的 SHOW TABLES 不返回注释，需要单独查询
-				// 为了性能考虑，这里不查询注释
 				tableInfoList.add(TableInfoBO.builder().name(tableName).build());
 			}
 		}
@@ -117,15 +111,12 @@ public class HiveJdbcDdl extends AbstractJdbcDdl {
 	public List<TableInfoBO> fetchTables(Connection connection, String schema, List<String> tables) {
 		List<TableInfoBO> tableInfoList = Lists.newArrayList();
 
-		// Hive 需要逐个查询表的详细信息
 		for (String tableName : tables) {
 			try {
-				// 使用 DESCRIBE FORMATTED 获取表的详细信息
 				String sql = "DESCRIBE FORMATTED " + (StringUtils.isNotBlank(schema) ? schema + "." : "") + tableName;
 				String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, sql);
 
 				String tableComment = "";
-				// 解析 DESCRIBE FORMATTED 的输出，查找 comment 字段
 				for (int i = 1; i < resultArr.length; i++) {
 					if (resultArr[i].length >= 2 && "comment".equalsIgnoreCase(resultArr[i][0].trim())) {
 						tableComment = resultArr[i][1];
@@ -133,13 +124,9 @@ public class HiveJdbcDdl extends AbstractJdbcDdl {
 					}
 				}
 
-				tableInfoList.add(TableInfoBO.builder()
-					.name(tableName)
-					.description(tableComment)
-					.build());
+				tableInfoList.add(TableInfoBO.builder().name(tableName).description(tableComment).build());
 			}
 			catch (SQLException e) {
-				// 如果查询失败，添加不带注释的表信息
 				tableInfoList.add(TableInfoBO.builder().name(tableName).build());
 			}
 		}
@@ -149,7 +136,6 @@ public class HiveJdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<ColumnInfoBO> showColumns(Connection connection, String schema, String table) {
-		// 使用 DESCRIBE table_name 获取列信息
 		String fullTableName = StringUtils.isNotBlank(schema) ? schema + "." + table : table;
 		String sql = "DESCRIBE " + fullTableName;
 
@@ -160,7 +146,6 @@ public class HiveJdbcDdl extends AbstractJdbcDdl {
 				return Lists.newArrayList();
 			}
 
-			// DESCRIBE 返回格式：col_name, data_type, comment
 			for (int i = 1; i < resultArr.length; i++) {
 				if (resultArr[i].length < 2) {
 					continue;
@@ -170,7 +155,6 @@ public class HiveJdbcDdl extends AbstractJdbcDdl {
 				String dataType = resultArr[i][1];
 				String comment = resultArr[i].length >= 3 ? resultArr[i][2] : "";
 
-				// 跳过分区信息和空行
 				if (StringUtils.isBlank(colName) || colName.startsWith("#")) {
 					continue;
 				}
@@ -179,8 +163,8 @@ public class HiveJdbcDdl extends AbstractJdbcDdl {
 					.name(colName)
 					.description(comment)
 					.type(wrapType(dataType))
-					.primary(false)  // Hive 不支持主键
-					.notnull(false)  // Hive 不强制非空约束
+					.primary(false) // Hive 不支持主键
+					.notnull(false) // Hive 不强制非空约束
 					.build());
 			}
 		}
@@ -193,7 +177,6 @@ public class HiveJdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<ForeignKeyInfoBO> showForeignKeys(Connection connection, String schema, List<String> tables) {
-		// Hive 不支持外键约束
 		return Collections.emptyList();
 	}
 
@@ -217,7 +200,6 @@ public class HiveJdbcDdl extends AbstractJdbcDdl {
 			}
 		}
 		catch (SQLException e) {
-			// 采样失败不抛出异常，返回空列表
 		}
 
 		// 去重

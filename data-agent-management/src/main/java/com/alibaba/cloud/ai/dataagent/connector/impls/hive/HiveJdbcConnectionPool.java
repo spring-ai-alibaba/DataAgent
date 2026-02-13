@@ -29,21 +29,21 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.DATASOURCE_CONNECTION_FAILURE_08001;
-import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.PASSWORD_ERROR_28000;
 import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.DATABASE_NOT_EXIST_42000;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.DATASOURCE_CONNECTION_FAILURE_08001;
 import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.INSUFFICIENT_PRIVILEGE_42501;
 import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.OTHERS;
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.PASSWORD_ERROR_28000;
 import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.SUCCESS;
 
 /**
- * Hive JDBC 连接池实现
+ * Hive JDBC connection pool implementation.
  */
 @Slf4j
 @Service("hiveJdbcConnectionPool")
 public class HiveJdbcConnectionPool extends AbstractDBConnectionPool {
 
-	private final static String DRIVER = "org.apache.hive.jdbc.HiveDriver";
+	private static final String DRIVER = "org.apache.hive.jdbc.HiveDriver";
 
 	@Override
 	public String getDriver() {
@@ -52,26 +52,28 @@ public class HiveJdbcConnectionPool extends AbstractDBConnectionPool {
 
 	@Override
 	public ErrorCodeEnum errorMapping(String sqlState) {
-		// Hive JDBC 错误码映射
-		// 参考 HiveServer2 的 SQL State 规范
 		if (sqlState == null) {
 			return OTHERS;
 		}
 
-		// 首先尝试使用标准映射
 		ErrorCodeEnum ret = ErrorCodeEnum.fromCode(sqlState);
 		if (ret != OTHERS) {
 			return ret;
 		}
 
-		// Hive 特定的错误码映射
-		return switch (sqlState) {
-			case "08001", "08S01" -> DATASOURCE_CONNECTION_FAILURE_08001;
-			case "28000" -> PASSWORD_ERROR_28000;
-			case "42000" -> DATABASE_NOT_EXIST_42000;
-			case "42501" -> INSUFFICIENT_PRIVILEGE_42501;
-			default -> OTHERS;
-		};
+		switch (sqlState) {
+			case "08001":
+			case "08S01":
+				return DATASOURCE_CONNECTION_FAILURE_08001;
+			case "28000":
+				return PASSWORD_ERROR_28000;
+			case "42000":
+				return DATABASE_NOT_EXIST_42000;
+			case "42501":
+				return INSUFFICIENT_PRIVILEGE_42501;
+			default:
+				return OTHERS;
+		}
 	}
 
 	@Override
@@ -89,7 +91,6 @@ public class HiveJdbcConnectionPool extends AbstractDBConnectionPool {
 		log.info("Creating Hive DataSource with custom configuration");
 		String driver = getDriver();
 
-		// Hive 不支持 Druid 的 wall filter，只使用 stat
 		String filters = "stat";
 
 		java.util.Map<String, String> props = new java.util.HashMap<>();
@@ -112,17 +113,11 @@ public class HiveJdbcConnectionPool extends AbstractDBConnectionPool {
 		return DruidDataSourceFactory.createDataSource(props);
 	}
 
-	/**
-	 * 重写 ping 方法，使用连接池而不是 DriverManager
-	 * 因为 Hive 需要特殊的 Druid 配置（禁用 wall filter）
-	 */
 	@Override
 	public ErrorCodeEnum ping(DbConfigBO config) {
 		log.info("Hive ping method called, url: {}", config.getUrl());
-		try (Connection connection = getConnection(config);
-			 Statement stmt = connection.createStatement()) {
+		try (Connection connection = getConnection(config); Statement stmt = connection.createStatement()) {
 			log.info("Hive connection obtained, executing SELECT 1");
-			// 使用简单的 SELECT 1 测试连接
 			ResultSet rs = stmt.executeQuery("SELECT 1");
 			if (rs.next()) {
 				rs.close();
@@ -133,12 +128,12 @@ public class HiveJdbcConnectionPool extends AbstractDBConnectionPool {
 		}
 		catch (SQLException e) {
 			log.error("Hive connection test failed, url:{}, state:{}, message:{}",
-				config.getUrl(), e.getSQLState(), e.getMessage());
+					config.getUrl(), e.getSQLState(), e.getMessage());
 			return errorMapping(e.getSQLState());
 		}
 		catch (Exception e) {
 			log.error("Hive connection test failed with unexpected error, url:{}, message:{}",
-				config.getUrl(), e.getMessage());
+					config.getUrl(), e.getMessage());
 			return DATASOURCE_CONNECTION_FAILURE_08001;
 		}
 	}

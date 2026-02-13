@@ -126,7 +126,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 		if (datasource.getPassword() == null) {
 			datasource.setPassword("");
 		}
-        
+
 		if (datasource.getUsername() == null) {
 			datasource.setUsername("");
 		}
