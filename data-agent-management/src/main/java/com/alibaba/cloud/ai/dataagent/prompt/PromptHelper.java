@@ -150,12 +150,28 @@ public class PromptHelper {
 		params.put("summary_and_recommendations", summaryAndRecommendations);
 		params.put("json_example", cleanJsonExample);
 
+		// 添加缓存使用说明到参数中
+		params.put("cache_usage_guide", buildCacheUsageGuide());
+
 		// Build optional optimization section content from user configs
 		String optimizationSection = buildOptimizationSection(optimizationConfigs, params);
 		params.put("optimization_section", optimizationSection);
 
 		// only plain report
 		return PromptConstant.getReportGeneratorPlainPromptTemplate().render(params);
+	}
+
+	/**
+	 * 构建缓存使用指南
+	 */
+	private static String buildCacheUsageGuide() {
+		return """
+				## 缓存数据访问指南
+				当遇到标记为'[结果过大已缓存]'的数据时，你可以通过以下方式获取完整数据：
+				1. 识别缓存键（格式：cache_key_xxxx）
+				2. 调用缓存服务获取完整数据
+				3. 基于完整数据进行更详细的分析
+				""";
 	}
 
 	public static String buildSqlErrorFixerPrompt(SqlGenerationDTO sqlGenerationDTO) {

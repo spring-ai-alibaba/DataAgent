@@ -19,6 +19,7 @@ import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
 import com.alibaba.cloud.ai.dataagent.service.llm.impls.BlockLlmService;
 import com.alibaba.cloud.ai.dataagent.service.llm.impls.StreamLlmService;
+import com.alibaba.cloud.ai.dataagent.service.tool.CacheAccessTool;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.stereotype.Component;
@@ -31,13 +32,15 @@ public class LlmServiceFactory implements FactoryBean<LlmService> {
 
 	private final AiModelRegistry aiModelRegistry;
 
+	private final CacheAccessTool cacheAccessTool;
+
 	@Override
 	public LlmService getObject() {
 		if (LlmServiceEnum.BLOCK.equals(properties.getLlmServiceType())) {
 			return new BlockLlmService(aiModelRegistry);
 		}
 		else {
-			return new StreamLlmService(aiModelRegistry);
+			return new StreamLlmService(aiModelRegistry, cacheAccessTool);
 		}
 	}
 
