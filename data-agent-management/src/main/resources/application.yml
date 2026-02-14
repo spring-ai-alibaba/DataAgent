@@ -59,6 +59,16 @@ spring:
       max-request-size: 10MB
       enabled: true
 
+# JWT Authentication Configuration
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:DataAgent2025SecretKeyForJwtTokenSigningMustBe256Bits!}
+    access-token-expiration: ${AUTH_JWT_ACCESS_EXPIRATION:3600000}
+    refresh-token-expiration: ${AUTH_JWT_REFRESH_EXPIRATION:604800000}
+  lockout:
+    max-attempts: ${AUTH_LOCKOUT_MAX_ATTEMPTS:5}
+    lock-duration: ${AUTH_LOCKOUT_DURATION:1800000}
+
 mybatis:
 
   configuration:
