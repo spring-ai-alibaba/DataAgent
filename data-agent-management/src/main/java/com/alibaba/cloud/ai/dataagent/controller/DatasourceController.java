@@ -15,16 +15,20 @@
  */
 package com.alibaba.cloud.ai.dataagent.controller;
 
+import com.alibaba.cloud.ai.dataagent.dto.datasource.DatasourceTypeDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.CreateLogicalRelationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.UpdateLogicalRelationDTO;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
 import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import jakarta.validation.Valid;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -50,6 +54,29 @@ import org.springframework.web.server.ResponseStatusException;
 public class DatasourceController {
 
 	private final DatasourceService datasourceService;
+
+	/**
+	 * Get all data source list
+	 */
+	@GetMapping("/types")
+	public ApiResponse<List<DatasourceTypeDTO>> getDatasourceTypes() {
+		// 定义标准的 JDBC 数据源类型
+		List<BizDataSourceTypeEnum> standardTypes = Arrays.asList(BizDataSourceTypeEnum.MYSQL,
+				BizDataSourceTypeEnum.POSTGRESQL, BizDataSourceTypeEnum.DAMENG, BizDataSourceTypeEnum.SQL_SERVER,
+				BizDataSourceTypeEnum.ORACLE, BizDataSourceTypeEnum.HIVE);
+
+		List<DatasourceTypeDTO> types = standardTypes.stream()
+			.map(type -> DatasourceTypeDTO.builder()
+				.code(type.getCode())
+				.typeName(type.getTypeName())
+				.dialect(type.getDialect())
+				.protocol(type.getProtocol())
+				.displayName(type.getDialect()) // 使用 dialect 作为显示名称
+				.build())
+			.collect(Collectors.toList());
+
+		return ApiResponse.success("获取数据源类型成功", types);
+	}
 
 	/**
 	 * Get all data source list
