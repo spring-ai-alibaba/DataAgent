@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.datasource.handler.impl;
 
+import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeHandler;
 import org.springframework.stereotype.Component;
@@ -27,4 +28,8 @@ public class SqlServerDatasourceTypeHandler implements DatasourceTypeHandler {
 		return BizDataSourceTypeEnum.SQL_SERVER.getTypeName();
 	}
 
+	@Override
+	public String extractSchemaName(Datasource datasource) {
+		return "dbo";
+	}
 }
