@@ -66,3 +66,10 @@ logging:
     com.alibaba.cloud.ai.dataagent.workflow.node: debug
     com.alibaba.cloud.ai.mapper: debug
     org.springframework.jdbc: debug
+
+# Langfuse 可观测性配置
+langfuse:
+  enabled: ${LANGFUSE_ENABLED:true}
+  host: ${LANGFUSE_HOST:}
+  public-key: ${LANGFUSE_PUBLIC_KEY:}
+  secret-key: ${LANGFUSE_SECRET_KEY:}
