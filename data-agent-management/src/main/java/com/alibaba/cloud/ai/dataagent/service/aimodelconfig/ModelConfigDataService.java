@@ -15,9 +15,11 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
+import com.alibaba.cloud.ai.dataagent.enums.ModelTier;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 
@@ -25,7 +27,12 @@ public interface ModelConfigDataService {
 
 	ModelConfig findById(Integer id);
 
-	void switchActiveStatus(Integer id, ModelType type);
+	/**
+	 * 切换指定模型配置为激活状态，同时禁用同类型其他配置
+	 *
+	 * @apiNote 当模型类型为 {@link ModelType#CHAT} 时，规格不能为空
+	 */
+	void switchActiveStatus(Integer id, ModelType type, @Nullable ModelTier tier);
 
 	List<ModelConfigDTO> listConfigs();
 
@@ -36,5 +43,11 @@ public interface ModelConfigDataService {
 	void deleteConfig(Integer id);
 
 	ModelConfigDTO getActiveConfigByType(ModelType modelType);
+
+	/**
+	 * 根据模型类型和规格获取激活的模型配置
+	 * @implNote 如果找不到匹配的配置，则回退到 {@link #getActiveConfigByType}
+	 */
+	ModelConfigDTO getActiveConfigByTypeAndTier(ModelType modelType, ModelTier modelTier);
 
 }
