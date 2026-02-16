@@ -31,8 +31,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author zihenzzz
- * @date 2026/2/16 13:54
- * 基于 OpenTelemetry 的 Langfuse Reporter，用于追踪 LLM 调用
+ * @date 2026/2/16 13:54 基于 OpenTelemetry 的 Langfuse Reporter，用于追踪 LLM 调用
  */
 @Slf4j
 @Component
@@ -89,13 +88,13 @@ public class LangfuseOTelReporter {
 				.setParent(Context.current())
 				.startSpan();
 
-			String inputValue = String.format("{\"query\":\"%s\",\"agentId\":\"%s\",\"threadId\":\"%s\",\"nl2sqlOnly\":%s,\"humanFeedback\":%s}",
-			request.getQuery() != null ? request.getQuery() : "",
-			request.getAgentId() != null ? request.getAgentId() : "",
-			request.getThreadId() != null ? request.getThreadId() : "",
-			request.isNl2sqlOnly(),
-			request.isHumanFeedback());
-		span.setAttribute(INPUT_VALUE, inputValue);
+			String inputValue = String.format(
+					"{\"query\":\"%s\",\"agentId\":\"%s\",\"threadId\":\"%s\",\"nl2sqlOnly\":%s,\"humanFeedback\":%s}",
+					request.getQuery() != null ? request.getQuery() : "",
+					request.getAgentId() != null ? request.getAgentId() : "",
+					request.getThreadId() != null ? request.getThreadId() : "", request.isNl2sqlOnly(),
+					request.isHumanFeedback());
+			span.setAttribute(INPUT_VALUE, inputValue);
 			span.setAttribute(ATTR_AGENT_ID, request.getAgentId() != null ? request.getAgentId() : "");
 			span.setAttribute(ATTR_THREAD_ID, request.getThreadId() != null ? request.getThreadId() : "");
 			span.setAttribute(ATTR_NL2SQL_ONLY, request.isNl2sqlOnly());

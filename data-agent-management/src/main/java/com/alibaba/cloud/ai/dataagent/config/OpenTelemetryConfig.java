@@ -78,8 +78,10 @@ public class OpenTelemetryConfig {
 			.merge(Resource.create(Attributes.of(AttributeKey.stringKey("service.name"), SERVICE_NAME)));
 
 		tracerProvider = SdkTracerProvider.builder()
-			.addSpanProcessor(
-					BatchSpanProcessor.builder(spanExporter).setScheduleDelay(1, TimeUnit.SECONDS).setMaxExportBatchSize(100).build())
+			.addSpanProcessor(BatchSpanProcessor.builder(spanExporter)
+				.setScheduleDelay(1, TimeUnit.SECONDS)
+				.setMaxExportBatchSize(100)
+				.build())
 			.setResource(resource)
 			.build();
 
