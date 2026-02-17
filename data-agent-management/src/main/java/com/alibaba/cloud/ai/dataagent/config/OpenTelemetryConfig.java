@@ -45,16 +45,16 @@ public class OpenTelemetryConfig {
 
 	private static final String SERVICE_NAME = "data-agent";
 
-	@Value("${langfuse.enabled:true}")
+	@Value("${spring.ai.alibaba.data-agent.langfuse.enabled:true}")
 	private boolean enabled;
 
-	@Value("${langfuse.host:}")
+	@Value("${spring.ai.alibaba.data-agent.langfuse.host:}")
 	private String langfuseHost;
 
-	@Value("${langfuse.public-key:}")
+	@Value("${spring.ai.alibaba.data-agent.langfuse.public-key:}")
 	private String publicKey;
 
-	@Value("${langfuse.secret-key:}")
+	@Value("${spring.ai.alibaba.data-agent.langfuse.secret-key:}")
 	private String secretKey;
 
 	private SdkTracerProvider tracerProvider;
