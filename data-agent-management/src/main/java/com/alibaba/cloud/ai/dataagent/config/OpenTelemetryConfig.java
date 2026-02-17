@@ -52,7 +52,7 @@ public class OpenTelemetryConfig {
 
 	private boolean enabled = true;
 
-	private String langfuseHost;
+	private String host;
 
 	private String publicKey;
 
@@ -70,7 +70,7 @@ public class OpenTelemetryConfig {
 		String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
 
 		OtlpHttpSpanExporter spanExporter = OtlpHttpSpanExporter.builder()
-			.setEndpoint(langfuseHost + "/api/public/otel/v1/traces")
+			.setEndpoint(host + "/api/public/otel/v1/traces")
 			.addHeader("Authorization", "Basic " + encodedAuth)
 			.setTimeout(10, TimeUnit.SECONDS)
 			.build();
