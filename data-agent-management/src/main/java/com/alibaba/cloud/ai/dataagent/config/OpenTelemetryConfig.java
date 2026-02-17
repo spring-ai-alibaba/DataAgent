@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.config;
 
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -25,8 +26,10 @@ import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import jakarta.annotation.PreDestroy;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -40,21 +43,19 @@ import java.util.concurrent.TimeUnit;
  */
 
 @Slf4j
+@Data
 @Configuration
+@ConfigurationProperties(prefix = Constant.PROJECT_PROPERTIES_PREFIX + ".langfuse")
 public class OpenTelemetryConfig {
 
 	private static final String SERVICE_NAME = "data-agent";
 
-	@Value("${spring.ai.alibaba.data-agent.langfuse.enabled:true}")
-	private boolean enabled;
+	private boolean enabled = true;
 
-	@Value("${spring.ai.alibaba.data-agent.langfuse.host:}")
 	private String langfuseHost;
 
-	@Value("${spring.ai.alibaba.data-agent.langfuse.public-key:}")
 	private String publicKey;
 
-	@Value("${spring.ai.alibaba.data-agent.langfuse.secret-key:}")
 	private String secretKey;
 
 	private SdkTracerProvider tracerProvider;
