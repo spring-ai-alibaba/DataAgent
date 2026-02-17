@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.config;
+package com.alibaba.cloud.ai.dataagent.service.langfuse;
 
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import io.opentelemetry.api.common.AttributeKey;
@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Component
-public class LangfuseOTelReporter {
+public class LangfuseService {
 
 	private final Tracer tracer;
 
@@ -68,7 +68,7 @@ public class LangfuseOTelReporter {
 	// --- Token 累计器，按 threadId 隔离 ---
 	private static final ConcurrentHashMap<String, long[]> TOKEN_ACCUMULATOR = new ConcurrentHashMap<>();
 
-	public LangfuseOTelReporter(Tracer langfuseTracer, @Value("${langfuse.enabled:true}") boolean enabled) {
+	public LangfuseService(Tracer langfuseTracer, @Value("${langfuse.enabled:true}") boolean enabled) {
 		this.tracer = langfuseTracer;
 		this.enabled = enabled;
 	}

@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.graph;
 
-import com.alibaba.cloud.ai.dataagent.config.LangfuseOTelReporter;
+import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.workflow.node.PlannerNode;
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
@@ -56,10 +56,10 @@ public class GraphServiceImpl implements GraphService {
 
 	private final MultiTurnContextManager multiTurnContextManager;
 
-	private final LangfuseOTelReporter langfuseReporter;
+	private final LangfuseService langfuseReporter;
 
 	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService,
-			MultiTurnContextManager multiTurnContextManager, LangfuseOTelReporter langfuseReporter)
+			MultiTurnContextManager multiTurnContextManager, LangfuseService langfuseReporter)
 			throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
 		this.executor = executorService;

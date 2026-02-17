@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.util;
 
-import com.alibaba.cloud.ai.dataagent.config.LangfuseOTelReporter;
+import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -157,7 +157,7 @@ public final class FluxUtil {
 		}
 		Usage usage = response.getMetadata().getUsage();
 		if (usage != null && (usage.getPromptTokens() > 0 || usage.getCompletionTokens() > 0)) {
-			LangfuseOTelReporter.accumulateTokens(threadId, usage.getPromptTokens(), usage.getCompletionTokens());
+			LangfuseService.accumulateTokens(threadId, usage.getPromptTokens(), usage.getCompletionTokens());
 		}
 	}
 

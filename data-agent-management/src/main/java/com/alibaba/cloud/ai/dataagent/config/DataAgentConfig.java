@@ -87,7 +87,7 @@ import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
 @Configuration
 @EnableAsync
 @EnableConfigurationProperties({ CodeExecutorProperties.class, DataAgentProperties.class, FileStorageProperties.class })
-public class DataAgentConfiguration implements DisposableBean {
+public class DataAgentConfig implements DisposableBean {
 
 	/**
 	 * 专用线程池，用于数据库操作的并行处理
