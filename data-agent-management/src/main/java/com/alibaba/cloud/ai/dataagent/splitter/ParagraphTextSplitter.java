@@ -244,4 +244,3 @@ public class ParagraphTextSplitter extends TextSplitter {
 	}
 
 }
-
