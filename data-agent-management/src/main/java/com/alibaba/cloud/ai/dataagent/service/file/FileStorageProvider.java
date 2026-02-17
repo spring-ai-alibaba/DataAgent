@@ -16,61 +16,37 @@
 package com.alibaba.cloud.ai.dataagent.service.file;
 
 import com.alibaba.cloud.ai.dataagent.entity.FileStorage;
-import com.alibaba.cloud.ai.dataagent.vo.FileStorageVo;
 import org.springframework.core.io.Resource;
 import org.springframework.http.codec.multipart.FilePart;
-import reactor.core.publisher.Mono;
 
-public interface FileStorageService {
-
-	/**
-	 * 存储文件（响应式版本，用于 WebFlux Controller）
-	 * @param filePart 上传的文件
-	 * @param subPath 子路径（如 "avatars"）
-	 * @return 存储后的文件路径
-	 */
-	Mono<FileStorageVo> storeFile(FilePart filePart, String subPath);
+public interface FileStorageProvider {
 
 	/**
-	 * 通过文件Id获取文件存储信息
-	 * @param id 文件ID
-	 * @return 文件存储信息
+	 * 存储文件
+	 * @param file 上传的文件
+	 * @param fileStorage 文件存储信息
 	 */
-	FileStorage getFileById(Long id);
+	void storeFile(FilePart file, FileStorage fileStorage);
 
 	/**
 	 * 删除文件
 	 * @param filePath 文件路径
 	 * @return 是否删除成功
 	 */
-	boolean deleteFileResource(String filePath);
-
-	/**
-	 * 删除文件
-	 * @param fileStorage 文件信息
-	 * @return 是否删除成功
-	 */
-	boolean deleteFileResource(FileStorage fileStorage);
-
-	/**
-	 * 删除文件
-	 * @param id 文件Id
-	 * @return 是否删除成功
-	 */
-	boolean deleteFileById(Long id);
+	boolean deleteFile(String filePath);
 
 	/**
 	 * 获取文件访问URL
-	 * @param fileStorage 文件存储信息
+	 * @param filePath 文件路径
 	 * @return 访问URL
 	 */
-	String getFileUrl(FileStorage fileStorage);
+	String getFileUrl(String filePath);
 
 	/**
 	 * 获取文件资源对象
-	 * @param fileStorage 文件路径
+	 * @param filePath 文件路径
 	 * @return 文件资源对象
 	 */
-	Resource getFileResource(FileStorage fileStorage);
+	Resource getFileResource(String filePath);
 
 }
