@@ -65,6 +65,7 @@
     <dameng.version>8.1.3.140</dameng.version>
     <testcontainers.version>1.21.4</testcontainers.version>
     <elasticsearch-client.version>8.18.0</elasticsearch-client.version>
+    <opentelemetry.version>1.32.0</opentelemetry.version>
   </properties>
 
   <dependencyManagement>
@@ -214,6 +215,15 @@
         <artifactId>mysql</artifactId>
         <version>${testcontainers.version}</version>
         <scope>test</scope>
+      </dependency>
+
+      <!-- OpenTelemetry BOM -->
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-bom</artifactId>
+        <version>${opentelemetry.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
       </dependency>
 
       <!-- Elasticsearch Client Dependencies -->

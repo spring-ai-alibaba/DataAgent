@@ -53,6 +53,12 @@ spring:
             bucket-name: ${OSS_BUCKET_NAME:}
             custom-domain: ${OSS_CUSTOM_DOMAIN:}
         max-sql-retry-count: 10
+        # Langfuse 可观测性配置
+        langfuse:
+          enabled: ${LANGFUSE_ENABLED:true}
+          host: ${LANGFUSE_HOST:}
+          public-key: ${LANGFUSE_PUBLIC_KEY:}
+          secret-key: ${LANGFUSE_SECRET_KEY:}
   webflux:
     multipart:
       max-file-size: 10MB
@@ -72,3 +78,4 @@ logging:
     com.alibaba.cloud.ai.dataagent.workflow.node: debug
     com.alibaba.cloud.ai.mapper: debug
     org.springframework.jdbc: debug
+

@@ -156,4 +156,7 @@ public final class Constant {
 
 	public static final String STREAM_EVENT_ERROR = "error";
 
+	// Langfuse 追踪：threadId 透传到 graph state，用于 token 累计
+	public static final String TRACE_THREAD_ID = "TRACE_THREAD_ID";
+
 }
