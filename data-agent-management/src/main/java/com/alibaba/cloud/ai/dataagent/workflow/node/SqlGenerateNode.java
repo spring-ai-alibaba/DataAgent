@@ -15,10 +15,13 @@
  */
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
+import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
+import com.alibaba.cloud.ai.dataagent.dto.planner.Plan;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
@@ -35,6 +38,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
@@ -134,11 +138,13 @@ public class SqlGenerateNode implements NodeAction {
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 		String userQuery = StateUtil.getCanonicalQuery(state);
 		String dialect = StateUtil.getStringValue(state, DB_DIALECT_TYPE);
+		String previousStepResults = buildPreviousStepResults(state);
 
 		SqlGenerationDTO sqlGenerationDTO = SqlGenerationDTO.builder()
 			.evidence(evidence)
 			.query(userQuery)
 			.schemaDTO(schemaDTO)
+			.previousStepResults(previousStepResults)
 			.sql(originalSql)
 			.exceptionMessage(errorMsg)
 			.executionDescription(executionDescription)
@@ -150,6 +156,133 @@ public class SqlGenerateNode implements NodeAction {
 
 	private Flux<String> handleGenerateSql(OverAllState state, String executionDescription) {
 		return handleRetryGenerateSql(state, null, null, executionDescription);
+	}
+
+	/**
+	 * 组装“执行计划 + 历史步骤执行结果”提示词上下文，供后续 SQL 生成/修复在多步骤场景下建立依赖关系。
+	 * <p>
+	 * 约定：执行结果由 {@link com.alibaba.cloud.ai.dataagent.workflow.node.SqlExecuteNode} 写入
+	 * {@code SQL_EXECUTE_NODE_OUTPUT}，key 由 {@link PlanProcessUtil#buildStepKey(int)}
+	 * 生成（形如 {@code step_n}）。
+	 */
+	@SuppressWarnings("unchecked")
+	private String buildPreviousStepResults(OverAllState state) {
+		int currentStep = PlanProcessUtil.getCurrentStepNumber(state);
+
+		Plan plan = null;
+		try {
+			plan = PlanProcessUtil.getPlan(state);
+		}
+		catch (Exception ignore) {
+			// 仅用于补充提示词上下文，解析失败时不影响 SQL 生成主流程
+		}
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("执行计划(用于理解每一步要做什么/可能的依赖关系):\n");
+		if (plan == null || plan.getExecutionPlan() == null || plan.getExecutionPlan().isEmpty()) {
+			sb.append("无\n");
+		}
+		else {
+			for (int i = 0; i < plan.getExecutionPlan().size(); i++) {
+				int stepNumber = i + 1;
+				ExecutionStep step = plan.getExecutionPlan().get(i);
+				sb.append(stepNumber).append(". ").append(step.getToolToUse());
+
+				String instruction = step.getToolParameters() != null ? step.getToolParameters().getInstruction()
+						: null;
+				if (StringUtils.hasText(instruction)) {
+					sb.append(" - ").append(instruction);
+				}
+				if (stepNumber == currentStep) {
+					sb.append(" (当前步骤)");
+				}
+				sb.append("\n");
+			}
+		}
+
+		sb.append("\n历史执行结果(截至当前步骤之前，已截断):\n");
+		if (currentStep <= 1) {
+			sb.append("无");
+			return sb.toString();
+		}
+
+		Map<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
+				new HashMap<>());
+		if (executionResults.isEmpty()) {
+			sb.append("无");
+			return sb.toString();
+		}
+
+		boolean hasAny = false;
+		for (int stepNumber = 1; stepNumber <= currentStep - 1; stepNumber++) {
+			String stepKey = PlanProcessUtil.buildStepKey(stepNumber);
+			String stepResult = executionResults.get(stepKey);
+			if (!StringUtils.hasText(stepResult)) {
+				continue;
+			}
+
+			hasAny = true;
+			sb.append(stepKey).append("\n");
+
+			String stepInstruction = null;
+			if (plan != null) {
+				try {
+					ExecutionStep prevStep = PlanProcessUtil.getCurrentExecutionStep(plan, stepNumber);
+					if (prevStep != null && prevStep.getToolParameters() != null) {
+						stepInstruction = prevStep.getToolParameters().getInstruction();
+					}
+				}
+				catch (Exception ignore) {
+					// ignore
+				}
+			}
+			if (StringUtils.hasText(stepInstruction)) {
+				sb.append("任务: ").append(stepInstruction).append("\n");
+			}
+			sb.append("结果(JSON，可能已裁剪): ").append(compactPreviousStepResult(stepResult)).append("\n\n");
+		}
+
+		if (!hasAny) {
+			sb.append("无");
+		}
+
+		return sb.toString().trim();
+	}
+
+	private String compactPreviousStepResult(String previousStepResult) {
+		if (!StringUtils.hasText(previousStepResult)) {
+			return "无";
+		}
+
+		int sampleSize = properties.getSqlPreviousStepResultSampleSize();
+		int maxChars = properties.getSqlPreviousStepResultMaxChars();
+		if (sampleSize < 0) {
+			sampleSize = 20;
+		}
+		if (maxChars < 0) {
+			maxChars = 8000;
+		}
+
+		String trimmed = previousStepResult.trim();
+		try {
+			ResultSetBO resultSetBO = JsonUtil.getObjectMapper().readValue(trimmed, ResultSetBO.class);
+			if (resultSetBO != null && resultSetBO.getData() != null && resultSetBO.getData().size() > sampleSize) {
+				ResultSetBO compact = ResultSetBO.builder()
+					.column(resultSetBO.getColumn())
+					.data(resultSetBO.getData().subList(0, sampleSize))
+					.errorMsg(resultSetBO.getErrorMsg())
+					.build();
+				trimmed = JsonUtil.getObjectMapper().writeValueAsString(compact);
+			}
+		}
+		catch (Exception ignore) {
+			// 不是标准 ResultSetBO JSON 时，直接走字符串裁剪兜底
+		}
+
+		if (trimmed.length() > maxChars) {
+			trimmed = trimmed.substring(0, maxChars) + "...(已截断)";
+		}
+		return trimmed;
 	}
 
 }
