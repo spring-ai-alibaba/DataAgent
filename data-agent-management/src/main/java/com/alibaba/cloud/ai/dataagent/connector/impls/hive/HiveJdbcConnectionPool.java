@@ -28,6 +28,8 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.DATABASE_NOT_EXIST_42000;
 import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.DATASOURCE_CONNECTION_FAILURE_08001;
@@ -90,27 +92,50 @@ public class HiveJdbcConnectionPool extends AbstractDBConnectionPool {
 	public DataSource createdDataSource(String url, String username, String password) throws Exception {
 		log.info("Creating Hive DataSource with custom configuration");
 		String driver = getDriver();
-
-		String filters = "stat";
-
-		java.util.Map<String, String> props = new java.util.HashMap<>();
-		props.put(DruidDataSourceFactory.PROP_DRIVERCLASSNAME, driver);
-		props.put(DruidDataSourceFactory.PROP_URL, url);
-		props.put(DruidDataSourceFactory.PROP_USERNAME, username);
-		props.put(DruidDataSourceFactory.PROP_PASSWORD, password);
-		props.put(DruidDataSourceFactory.PROP_FILTERS, filters);
-		props.put(DruidDataSourceFactory.PROP_INITIALSIZE, "5");
-		props.put(DruidDataSourceFactory.PROP_MINIDLE, "5");
-		props.put(DruidDataSourceFactory.PROP_MAXACTIVE, "20");
-		props.put(DruidDataSourceFactory.PROP_MAXWAIT, "60000");
-		props.put(DruidDataSourceFactory.PROP_TIMEBETWEENEVICTIONRUNSMILLIS, "60000");
-		props.put(DruidDataSourceFactory.PROP_MINEVICTABLEIDLETIMEMILLIS, "300000");
-		props.put(DruidDataSourceFactory.PROP_VALIDATIONQUERY, "SELECT 1");
-		props.put(DruidDataSourceFactory.PROP_TESTWHILEIDLE, "true");
-		props.put(DruidDataSourceFactory.PROP_TESTONBORROW, "false");
-		props.put(DruidDataSourceFactory.PROP_TESTONRETURN, "false");
-
+		Map<String, String> props = new HiveDruidProperties(driver, url, username, password, "stat").toMap();
 		return DruidDataSourceFactory.createDataSource(props);
+	}
+
+	private static final class HiveDruidProperties {
+
+		private final String driver;
+
+		private final String url;
+
+		private final String username;
+
+		private final String password;
+
+		private final String filters;
+
+		private HiveDruidProperties(String driver, String url, String username, String password, String filters) {
+			this.driver = driver;
+			this.url = url;
+			this.username = username;
+			this.password = password;
+			this.filters = filters;
+		}
+
+		private Map<String, String> toMap() {
+			Map<String, String> props = new HashMap<>();
+			props.put(DruidDataSourceFactory.PROP_DRIVERCLASSNAME, this.driver);
+			props.put(DruidDataSourceFactory.PROP_URL, this.url);
+			props.put(DruidDataSourceFactory.PROP_USERNAME, this.username);
+			props.put(DruidDataSourceFactory.PROP_PASSWORD, this.password);
+			props.put(DruidDataSourceFactory.PROP_FILTERS, this.filters);
+			props.put(DruidDataSourceFactory.PROP_INITIALSIZE, "5");
+			props.put(DruidDataSourceFactory.PROP_MINIDLE, "5");
+			props.put(DruidDataSourceFactory.PROP_MAXACTIVE, "20");
+			props.put(DruidDataSourceFactory.PROP_MAXWAIT, "60000");
+			props.put(DruidDataSourceFactory.PROP_TIMEBETWEENEVICTIONRUNSMILLIS, "60000");
+			props.put(DruidDataSourceFactory.PROP_MINEVICTABLEIDLETIMEMILLIS, "300000");
+			props.put(DruidDataSourceFactory.PROP_VALIDATIONQUERY, "SELECT 1");
+			props.put(DruidDataSourceFactory.PROP_TESTWHILEIDLE, "true");
+			props.put(DruidDataSourceFactory.PROP_TESTONBORROW, "false");
+			props.put(DruidDataSourceFactory.PROP_TESTONRETURN, "false");
+			return props;
+		}
+
 	}
 
 	@Override
