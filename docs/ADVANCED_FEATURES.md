@@ -474,6 +474,59 @@ spring:
           timeout: 600000  # 10分钟超时
 ```
 
+## 📊 Langfuse 可观测性
+
+DataAgent 集成了 [Langfuse](https://langfuse.com/) 作为 LLM 可观测性平台，通过 OpenTelemetry 协议上报追踪数据，帮助您监控和分析智能体的运行状况。
+
+### 功能概述
+
+- **请求追踪**: 记录每次 Graph 流式处理的完整生命周期
+- **Token 用量统计**: 累计每次请求的 prompt tokens 和 completion tokens
+- **错误追踪**: 记录异常类型和错误信息，便于排查问题
+- 
+### 配置方式
+
+在 `application.yml` 中配置 Langfuse 连接信息：
+
+```yaml
+spring:
+  ai:
+    alibaba:
+      data-agent:
+        langfuse:
+          enabled: ${LANGFUSE_ENABLED:true}
+          host: ${LANGFUSE_HOST:}
+          public-key: ${LANGFUSE_PUBLIC_KEY:}
+          secret-key: ${LANGFUSE_SECRET_KEY:}
+```
+
+或通过环境变量配置：
+
+```bash
+export LANGFUSE_ENABLED=true
+export LANGFUSE_HOST=https://cloud.langfuse.com
+export LANGFUSE_PUBLIC_KEY=pk-lf-xxx
+export LANGFUSE_SECRET_KEY=sk-lf-xxx
+```
+
+> 配置参数详情请参考 [开发者指南 - Langfuse 配置](DEVELOPER_GUIDE.md#11-langfuse-可观测性配置-langfuse-observability)。
+
+
+
+
+### 禁用 Langfuse
+
+如不需要可观测性功能，设置 `enabled` 为 `false` 即可，系统将使用 noop OpenTelemetry 实例，不会产生任何性能开销：
+
+```yaml
+spring:
+  ai:
+    alibaba:
+      data-agent:
+        langfuse:
+          enabled: false
+```
+
 ## 📚 相关文档
 
 - [快速开始](QUICK_START.md) - 基础配置和安装

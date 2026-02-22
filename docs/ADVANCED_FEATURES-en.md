@@ -475,6 +475,83 @@ spring:
           timeout: 600000  # 10 minute timeout
 ```
 
+## Langfuse Observability
+
+DataAgent integrates [Langfuse](https://langfuse.com/) as an LLM observability platform, reporting trace data via the OpenTelemetry protocol to help you monitor and analyze agent performance.
+
+### Feature Overview
+
+- **Request Tracing**: Records the full lifecycle of each Graph stream processing (including new queries and human feedback)
+- **Token Usage Tracking**: Automatically accumulates prompt tokens and completion tokens per request
+- **Error Tracking**: Records exception types and error messages for troubleshooting
+- **Rich Metadata**: Records context attributes such as agentId, threadId, nl2sqlOnly, humanFeedback
+
+### Configuration
+
+Configure Langfuse connection in `application.yml`:
+
+```yaml
+spring:
+  ai:
+    alibaba:
+      data-agent:
+        langfuse:
+          enabled: ${LANGFUSE_ENABLED:true}
+          host: ${LANGFUSE_HOST:}
+          public-key: ${LANGFUSE_PUBLIC_KEY:}
+          secret-key: ${LANGFUSE_SECRET_KEY:}
+```
+
+Or configure via environment variables:
+
+```bash
+export LANGFUSE_ENABLED=true
+export LANGFUSE_HOST=https://cloud.langfuse.com
+export LANGFUSE_PUBLIC_KEY=pk-lf-xxx
+export LANGFUSE_SECRET_KEY=sk-lf-xxx
+```
+
+> For detailed configuration parameters, refer to [Developer Guide - Langfuse Configuration](DEVELOPER_GUIDE-en.md#11-langfuse-observability-configuration).
+
+### Technical Implementation
+
+The system sends trace data to Langfuse via OpenTelemetry OTLP HTTP protocol:
+
+```
+GraphServiceImpl
+    ├── startLLMSpan("graph-stream", request)    // New query starts
+    ├── startLLMSpan("graph-feedback", request)   // Human feedback starts
+    ├── FluxUtil.extractAndAccumulateTokens()      // Accumulate tokens during streaming
+    ├── endSpanSuccess(span, threadId, output)     // Success completion
+    └── endSpanError(span, threadId, exception)    // Error completion
+```
+
+### Span Attributes
+
+| Attribute | Description |
+|-----------|-------------|
+| `input.value` | Request input (JSON with query, agentId, threadId, etc.) |
+| `output.value` | Processing result |
+| `gen_ai.usage.prompt_tokens` | Accumulated prompt token count |
+| `gen_ai.usage.completion_tokens` | Accumulated completion token count |
+| `gen_ai.usage.total_tokens` | Total token count |
+| `data_agent.agent_id` | Agent ID |
+| `data_agent.thread_id` | Session thread ID |
+| `error.type` / `error.message` | Exception type and message (on failure only) |
+
+### Disabling Langfuse
+
+If observability is not needed, set `enabled` to `false`. The system will use a noop OpenTelemetry instance with zero performance overhead:
+
+```yaml
+spring:
+  ai:
+    alibaba:
+      data-agent:
+        langfuse:
+          enabled: false
+```
+
 ## Related Documents
 
 - [Quick Start](QUICK_START-en.md) - Basic configuration and installation
