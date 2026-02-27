@@ -34,6 +34,11 @@ flowchart LR
     Hybrid[HybridRetrievalStrategy]
     CodePool[CodePoolExecutorService]
     McpSvc[McpServerService]
+    LangfuseSvc[LangfuseService]
+  end
+
+  subgraph Observability[Observability]
+    Langfuse[Langfuse Platform]
   end
 
   subgraph Data[Data Storage]
@@ -78,6 +83,8 @@ flowchart LR
   CodePool --> Docker
   CodePool --> Local
   CodePool --> AISim
+  GraphSvc --> LangfuseSvc
+  LangfuseSvc --> Langfuse
   AgentCtl --> MetaDB
   PromptCtl --> MetaDB
   ModelCtl --> MetaDB
@@ -90,15 +97,17 @@ flowchart LR
   classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
   classDef llm fill:#E0F7FA,stroke:#06B6D4,stroke-width:1px,color:#1F2937;
   classDef exec fill:#FFE4E6,stroke:#EF4444,stroke-width:1px,color:#1F2937;
+  classDef observability fill:#F3E8FF,stroke:#9333EA,stroke-width:1px,color:#1F2937;
 
   class UserUI,AdminUI,MCPClient client
   class RestAPI,SSE access
   class GraphCtl,AgentCtl,PromptCtl,ModelCtl api
-  class GraphSvc,Context,LlmSvc,ModelRegistry,VectorSvc,Hybrid,CodePool,McpSvc service
+  class GraphSvc,Context,LlmSvc,ModelRegistry,VectorSvc,Hybrid,CodePool,McpSvc,LangfuseSvc service
   class Graph workflow
   class BizDB,MetaDB,VectorDB,Files data
   class ChatLLM,EmbeddingLLM llm
   class Docker,Local,AISim exec
+  class Langfuse observability
 
   style Clients fill:#FFF7ED,stroke:#D97706,stroke-width:1.5px
   style Access fill:#EFF6FF,stroke:#0284C7,stroke-width:1.5px
@@ -106,6 +115,7 @@ flowchart LR
   style Data fill:#FFFBEB,stroke:#F59E0B,stroke-width:1.5px
   style LLMs fill:#ECFEFF,stroke:#06B6D4,stroke-width:1.5px
   style Exec fill:#FFF1F2,stroke:#EF4444,stroke-width:1.5px
+  style Observability fill:#FAF5FF,stroke:#9333EA,stroke-width:1.5px
 ```
 
 ## 🔄 运行时主流程

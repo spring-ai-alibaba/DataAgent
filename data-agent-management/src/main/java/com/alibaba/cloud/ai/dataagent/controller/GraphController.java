@@ -18,11 +18,11 @@ package com.alibaba.cloud.ai.dataagent.controller;
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.service.graph.GraphService;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -49,14 +49,11 @@ public class GraphController {
 			@RequestParam(value = "humanFeedback", required = false) boolean humanFeedback,
 			@RequestParam(value = "humanFeedbackContent", required = false) String humanFeedbackContent,
 			@RequestParam(value = "rejectedPlan", required = false) boolean rejectedPlan,
-			@RequestParam(value = "nl2sqlOnly", required = false) boolean nl2sqlOnly, HttpServletResponse response) {
+			@RequestParam(value = "nl2sqlOnly", required = false) boolean nl2sqlOnly, ServerHttpResponse response) {
 		// Set SSE-related HTTP headers
-		response.setCharacterEncoding("UTF-8");
-		response.setContentType("text/event-stream");
-		response.setHeader("Cache-Control", "no-cache");
-		response.setHeader("Connection", "keep-alive");
-		response.setHeader("Access-Control-Allow-Origin", "*");
-		response.setHeader("Access-Control-Allow-Headers", "Cache-Control");
+		response.getHeaders().add("Cache-Control", "no-cache");
+		response.getHeaders().add("Connection", "keep-alive");
+		response.getHeaders().add("Access-Control-Allow-Origin", "*");
 
 		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
 

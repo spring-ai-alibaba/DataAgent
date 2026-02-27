@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.controller;
 
+import com.alibaba.cloud.ai.dataagent.service.file.ByteArrayMultipartFile;
 import com.alibaba.cloud.ai.dataagent.vo.PageResult;
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.AgentKnowledgeQueryDTO;
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.CreateKnowledgeDTO;
@@ -26,7 +27,13 @@ import com.alibaba.cloud.ai.dataagent.vo.PageResponse;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 
@@ -65,10 +72,55 @@ public class AgentKnowledgeController {
 	/**
 	 * Create knowledge,supporting file upload
 	 */
-	@PostMapping("/create")
-	public ApiResponse<AgentKnowledgeVO> createKnowledge(@Valid CreateKnowledgeDTO createKnowledgeDto) {
-		AgentKnowledgeVO knowledge = agentKnowledgeService.createKnowledge(createKnowledgeDto);
-		return ApiResponse.success("创建知识成功，后台向量存储开始更新，请耐心等待...", knowledge);
+	@PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public Mono<ApiResponse<AgentKnowledgeVO>> createKnowledge(@RequestPart("agentId") String agentId,
+			@RequestPart("title") String title, @RequestPart("type") String type,
+			@RequestPart(value = "question", required = false) String question,
+			@RequestPart(value = "content", required = false) String content,
+			@RequestPart(value = "file", required = false) FilePart filePart,
+			@RequestPart(value = "splitterType", required = false) String splitterType) {
+
+		// 如果没有文件，直接同步处理
+		if (filePart == null) {
+			return Mono.fromCallable(() -> {
+				CreateKnowledgeDTO dto = buildCreateKnowledgeDTO(agentId, title, type, question, content, null,
+						splitterType);
+				AgentKnowledgeVO knowledge = agentKnowledgeService.createKnowledge(dto);
+				return ApiResponse.success("创建知识成功，后台向量存储开始更新，请耐心等待...", knowledge);
+			}).subscribeOn(Schedulers.boundedElastic());
+		}
+
+		// 有文件时，先读取文件内容再处理
+		String filename = filePart.filename();
+		String fileContentType = filePart.headers().getContentType() != null
+				? filePart.headers().getContentType().toString() : "application/octet-stream";
+
+		return DataBufferUtils.join(filePart.content()).flatMap(dataBuffer -> {
+			byte[] bytes = new byte[dataBuffer.readableByteCount()];
+			dataBuffer.read(bytes);
+			DataBufferUtils.release(dataBuffer);
+
+			return Mono.fromCallable(() -> {
+				MultipartFile multipartFile = new ByteArrayMultipartFile(bytes, filename, fileContentType);
+				CreateKnowledgeDTO dto = buildCreateKnowledgeDTO(agentId, title, type, question, content, multipartFile,
+						splitterType);
+				AgentKnowledgeVO knowledge = agentKnowledgeService.createKnowledge(dto);
+				return ApiResponse.success("创建知识成功，后台向量存储开始更新，请耐心等待...", knowledge);
+			}).subscribeOn(Schedulers.boundedElastic());
+		});
+	}
+
+	private CreateKnowledgeDTO buildCreateKnowledgeDTO(String agentId, String title, String type, String question,
+			String content, MultipartFile file, String splitterType) {
+		CreateKnowledgeDTO dto = new CreateKnowledgeDTO();
+		dto.setAgentId(Integer.parseInt(agentId));
+		dto.setTitle(title);
+		dto.setType(type);
+		dto.setQuestion(question);
+		dto.setContent(content);
+		dto.setFile(file);
+		dto.setSplitterType(splitterType);
+		return dto;
 	}
 
 	/**

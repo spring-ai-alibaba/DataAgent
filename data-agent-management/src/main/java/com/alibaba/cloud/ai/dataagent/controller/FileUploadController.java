@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.dataagent.controller;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.vo.UploadResponse;
-import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,9 +31,10 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.codec.multipart.FilePart;
+import reactor.core.publisher.Mono;
 
 /**
  * 文件上传控制器
@@ -56,44 +57,39 @@ public class FileUploadController {
 	 * 上传头像图片
 	 */
 	@PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	public ResponseEntity<UploadResponse> uploadAvatar(@RequestParam("file") MultipartFile file) {
-		try {
-			// 验证文件类型
-			String contentType = file.getContentType();
-			if (contentType == null || !contentType.startsWith("image/")) {
-				return ResponseEntity.badRequest().body(UploadResponse.error("只支持图片文件"));
-			}
+	public Mono<ResponseEntity<UploadResponse>> uploadAvatar(@RequestPart("file") FilePart file) {
+		// 验证文件类型
+		String contentType = file.headers().getContentType() != null ? file.headers().getContentType().toString()
+				: null;
+		if (contentType == null || !contentType.startsWith("image/")) {
+			return Mono.just(ResponseEntity.badRequest().body(UploadResponse.error("只支持图片文件")));
+		}
 
-			// 校验文件大小
-			long maxImageSize = fileStorageProperties.getImageSize();
-			if (file.getSize() > maxImageSize) {
-				return ResponseEntity.badRequest().body(UploadResponse.error("图片大小超限，最大允许：" + maxImageSize + " 字节"));
-			}
+		if (file.headers().getContentLength() > fileStorageProperties.getImageSize()) {
+			return Mono.just(ResponseEntity.badRequest().body(UploadResponse.error("图片大小超过最大限制")));
+		}
 
-			// 使用文件存储服务存储文件
-			String filePath = fileStorageService.storeFile(file, "avatars");
+		// 使用文件存储服务存储文件
+		return fileStorageService.storeFile(file, "avatars").map(filePath -> {
 			String fileUrl = fileStorageService.getFileUrl(filePath);
-
 			// 提取文件名
 			String filename = filePath.substring(filePath.lastIndexOf("/") + 1);
-
 			return ResponseEntity.ok(UploadResponse.ok("上传成功", fileUrl, filename));
-
-		}
-		catch (Exception e) {
+		}).onErrorResume(e -> {
 			log.error("头像上传失败", e);
-			return ResponseEntity.internalServerError().body(UploadResponse.error("上传失败: " + e.getMessage()));
-		}
+			return Mono
+				.just(ResponseEntity.internalServerError().body(UploadResponse.error("上传失败: " + e.getMessage())));
+		});
 	}
 
 	/**
 	 * 获取文件
 	 */
 	@GetMapping("/**")
-	public ResponseEntity<byte[]> getFile(HttpServletRequest request) {
+	public ResponseEntity<byte[]> getFile(ServerHttpRequest request) {
 		try {
 			String requestMapPath = this.getClass().getAnnotation(RequestMapping.class).value()[0];
-			String requestPath = request.getRequestURI();
+			String requestPath = request.getPath().value();
 			String urlPrefix = fileStorageProperties.getUrlPrefix();
 			String filePath = requestPath.substring(requestMapPath.length() + urlPrefix.length());
 

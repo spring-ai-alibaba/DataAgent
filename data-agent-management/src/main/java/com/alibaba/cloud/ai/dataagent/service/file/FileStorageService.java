@@ -16,12 +16,22 @@
 package com.alibaba.cloud.ai.dataagent.service.file;
 
 import org.springframework.core.io.Resource;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
 
 public interface FileStorageService {
 
 	/**
-	 * 存储文件
+	 * 存储文件（响应式版本，用于 WebFlux Controller）
+	 * @param filePart 上传的文件
+	 * @param subPath 子路径（如 "avatars"）
+	 * @return 存储后的文件路径
+	 */
+	Mono<String> storeFile(FilePart filePart, String subPath);
+
+	/**
+	 * 存储文件（同步版本，用于传统同步代码）
 	 * @param file 上传的文件
 	 * @param subPath 子路径（如 "avatars"）
 	 * @return 存储后的文件路径

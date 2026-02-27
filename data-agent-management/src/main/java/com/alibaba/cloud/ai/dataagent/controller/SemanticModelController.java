@@ -26,14 +26,18 @@ import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.util.StreamUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -163,21 +167,30 @@ public class SemanticModelController {
 		}
 	}
 
-	@PostMapping("/import/excel")
-	public ApiResponse<BatchImportResult> importExcel(@RequestParam("file") MultipartFile file,
-			@RequestParam("agentId") Long agentId) {
-		try {
-			BatchImportResult result = semanticModelService.importFromExcel(file, agentId);
-			return ApiResponse.success("Excel导入完成", result);
-		}
-		catch (IllegalArgumentException e) {
+	@PostMapping(value = "/import/excel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public Mono<ApiResponse<BatchImportResult>> importExcel(@RequestPart("file") FilePart file,
+			@RequestPart("agentId") String agentId) {
+		Long agentIdLong = Long.parseLong(agentId);
+		String filename = file.filename();
+
+		return DataBufferUtils.join(file.content()).flatMap(dataBuffer -> {
+			byte[] bytes = new byte[dataBuffer.readableByteCount()];
+			dataBuffer.read(bytes);
+			DataBufferUtils.release(dataBuffer);
+
+			return Mono.fromCallable(() -> {
+				try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
+					BatchImportResult result = semanticModelService.importFromExcel(inputStream, filename, agentIdLong);
+					return ApiResponse.success("Excel导入完成", result);
+				}
+			}).subscribeOn(Schedulers.boundedElastic());
+		}).onErrorResume(IllegalArgumentException.class, e -> {
 			log.error("Excel导入失败: {}", e.getMessage());
-			return ApiResponse.error("Excel导入失败: " + e.getMessage());
-		}
-		catch (Exception e) {
+			return Mono.just(ApiResponse.error("Excel导入失败: " + e.getMessage()));
+		}).onErrorResume(Exception.class, e -> {
 			log.error("Excel导入失败", e);
-			return ApiResponse.error("Excel导入失败: " + e.getMessage());
-		}
+			return Mono.just(ApiResponse.error("Excel导入失败: " + e.getMessage()));
+		});
 	}
 
 }

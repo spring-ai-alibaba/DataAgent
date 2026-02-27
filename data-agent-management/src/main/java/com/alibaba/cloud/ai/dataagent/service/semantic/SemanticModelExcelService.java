@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      https://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,16 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.alibaba.cloud.ai.dataagent.service.semantic;
 
 import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelImportItem;
 import com.alibaba.excel.EasyExcel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
 /**
@@ -33,14 +32,14 @@ import java.util.List;
 public class SemanticModelExcelService {
 
 	/**
-	 * 解析Excel文件
+	 * 解析Excel文件（从 InputStream）
 	 */
-	public List<SemanticModelImportItem> parseExcel(MultipartFile file) throws IOException {
-		log.info("开始解析Excel文件: {}", file.getOriginalFilename());
+	public List<SemanticModelImportItem> parseExcel(InputStream inputStream, String filename) throws IOException {
+		log.info("开始解析Excel文件: {}", filename);
 
 		try {
 			// 使用 EasyExcel 同步读取，自动根据 @ExcelProperty 注解映射列
-			List<SemanticModelImportItem> items = EasyExcel.read(file.getInputStream())
+			List<SemanticModelImportItem> items = EasyExcel.read(inputStream)
 				.head(SemanticModelImportItem.class)
 				.sheet()
 				.doReadSync();
@@ -84,7 +83,7 @@ public class SemanticModelExcelService {
 			return items;
 		}
 		catch (Exception e) {
-			log.error("解析Excel文件失败: {}", file.getOriginalFilename(), e);
+			log.error("解析Excel文件失败: {}", filename, e);
 			throw new IOException("解析Excel文件失败: " + e.getMessage(), e);
 		}
 	}

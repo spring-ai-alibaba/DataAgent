@@ -1,6 +1,12 @@
 server:
   port: 8065
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
 # 存储 DataAgent 业务数据的数据库，并非Agent分析数据的来源
 spring:
   datasource:
@@ -47,7 +53,13 @@ spring:
             bucket-name: ${OSS_BUCKET_NAME:}
             custom-domain: ${OSS_CUSTOM_DOMAIN:}
         max-sql-retry-count: 10
-  servlet:
+        # Langfuse 可观测性配置
+        langfuse:
+          enabled: ${LANGFUSE_ENABLED:false}
+          host: ${LANGFUSE_HOST:}
+          public-key: ${LANGFUSE_PUBLIC_KEY:}
+          secret-key: ${LANGFUSE_SECRET_KEY:}
+  webflux:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
@@ -66,3 +78,4 @@ logging:
     com.alibaba.cloud.ai.dataagent.workflow.node: debug
     com.alibaba.cloud.ai.mapper: debug
     org.springframework.jdbc: debug
+
