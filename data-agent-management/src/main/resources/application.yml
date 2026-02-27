@@ -55,7 +55,7 @@ spring:
         max-sql-retry-count: 10
         # Langfuse 可观测性配置
         langfuse:
-          enabled: ${LANGFUSE_ENABLED:true}
+          enabled: ${LANGFUSE_ENABLED:false}
           host: ${LANGFUSE_HOST:}
           public-key: ${LANGFUSE_PUBLIC_KEY:}
           secret-key: ${LANGFUSE_SECRET_KEY:}
