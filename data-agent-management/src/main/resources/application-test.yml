@@ -1,31 +1,34 @@
 server:
   port: 8065
 
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-
 # 存储 DataAgent 业务数据的数据库，并非Agent分析数据的来源
 spring:
   datasource:
-    url: ${DATA_AGENT_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/saa_data_agent?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai}
+    url: ${DATA_AGENT_DATASOURCE_URL:jdbc:mysql://172.29.232.119:3306/saa_data_agent?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai}
     username: ${DATA_AGENT_DATASOURCE_USERNAME:root}
-    password: ${DATA_AGENT_DATASOURCE_PASSWORD:root}
+    password: ${DATA_AGENT_DATASOURCE_PASSWORD:ly@888yc}
     driver-class-name: com.mysql.cj.jdbc.Driver
     type: com.alibaba.druid.pool.DruidDataSource
   sql:
     init:
-      mode: ${DATA_AGENT_DATASOURCE_SQL_INIT:never}
+      mode: never
       schema-locations: classpath:sql/schema.sql
       data-locations: classpath:sql/data.sql
       continue-on-error: true
       separator: ;
       encoding: utf-8
+  elasticsearch:
+    uris: http://172.29.63.250:9200
+    username:
+    password:
   ai:
     vectorstore:
-      type: simple
+      type: elasticsearch
+      elasticsearch:
+        initialize-schema: true
+        index-name: dataagent
+        dimensions: 768
+        similarity: cosine
     alibaba:
       data-agent:
         vector-store:
@@ -53,13 +56,7 @@ spring:
             bucket-name: ${OSS_BUCKET_NAME:}
             custom-domain: ${OSS_CUSTOM_DOMAIN:}
         max-sql-retry-count: 10
-        # Langfuse 可观测性配置
-        langfuse:
-          enabled: ${LANGFUSE_ENABLED:true}
-          host: ${LANGFUSE_HOST:}
-          public-key: ${LANGFUSE_PUBLIC_KEY:}
-          secret-key: ${LANGFUSE_SECRET_KEY:}
-  webflux:
+  servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
@@ -78,4 +75,3 @@ logging:
     com.alibaba.cloud.ai.dataagent.workflow.node: debug
     com.alibaba.cloud.ai.mapper: debug
     org.springframework.jdbc: debug
-
