@@ -27,13 +27,15 @@ export default (md: MarkdownIt) => {
         /\{[\s\S]*\}/.test(code) && code.match(/\{/g)?.length === code.match(/\}/g)?.length;
       if (hasValidJson) {
         try {
-          const json = JSON.parse(code);
+          // 使用 new Function 验证配置（支持包含函数表达式的 ECharts 配置）
+          // 与 report-html-template.ts 保持一致的解析方式
+          new Function('return (' + code + ')')();
           const width = '100%';
           const height = 400;
-          return `<div style="width:${width};height:${height}px" class="md-echarts">${JSON.stringify(json)}</div>`;
+          // 使用 data-option + encodeURIComponent 存储原始配置，避免 HTML 转义问题
+          return `<div style="width:${width};height:${height}px" class="md-echarts" data-option="${encodeURIComponent(code)}"></div>`;
         } catch (e) {
-          // JSON.parse exception
-          // 如果解析失败，但结构看起来完整，可能是JSON格式问题，尝试提供更友好的错误信息
+          // JS 解析失败，提示配置格式错误
           return `<pre>echarts配置格式错误: ${(e as Error).message}</pre>`;
         }
       } else {
