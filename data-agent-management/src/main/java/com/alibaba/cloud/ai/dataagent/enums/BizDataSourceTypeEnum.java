@@ -40,6 +40,11 @@ public enum BizDataSourceTypeEnum {
 	 */
 	ORACLE(7, "oracle", DatabaseDialectEnum.ORACLE.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
+	/**
+	 * ClickHouse database
+	 */
+	CLICKHOUSE(8, "clickhouse", DatabaseDialectEnum.CLICKHOUSE.getCode(), DbAccessTypeEnum.JDBC.getCode()),
+
 	HOLOGRESS(10, "hologress", DatabaseDialectEnum.POSTGRESQL.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
 	MYSQL_VPC(11, "mysql-vpc", DatabaseDialectEnum.MYSQL.getCode(), DbAccessTypeEnum.JDBC.getCode()),
@@ -152,6 +157,10 @@ public enum BizDataSourceTypeEnum {
 
 	public static boolean isOracleDialect(String typeName) {
 		return isDialect(typeName, DatabaseDialectEnum.ORACLE.getCode());
+	}
+
+	public static boolean isClickHouseDialect(String typeName) {
+		return isDialect(typeName, DatabaseDialectEnum.CLICKHOUSE.getCode());
 	}
 
 	public static boolean isAdbPg(String typeName) {

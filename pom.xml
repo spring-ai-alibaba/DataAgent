@@ -66,6 +66,7 @@
     <testcontainers.version>1.21.4</testcontainers.version>
     <elasticsearch-client.version>8.18.0</elasticsearch-client.version>
     <opentelemetry.version>1.32.0</opentelemetry.version>
+    <clickhouse.version>0.8.5</clickhouse.version>
   </properties>
 
   <dependencyManagement>
@@ -127,6 +128,13 @@
         <groupId>com.dameng</groupId>
         <artifactId>DmJdbcDriver18</artifactId>
         <version>${dameng.version}</version>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.clickhouse</groupId>
+        <artifactId>clickhouse-jdbc</artifactId>
+        <version>${clickhouse.version}</version>
+        <classifier>all</classifier>
         <scope>runtime</scope>
       </dependency>
       <dependency>

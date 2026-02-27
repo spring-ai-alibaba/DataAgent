@@ -271,6 +271,7 @@
                 <el-option key="sqlserver" label="SQL Server" value="sqlserver" />
                 <el-option key="dameng" label="达梦(Dameng)" value="dameng" />
                 <el-option key="oracle" label="Oracle" value="oracle" />
+                <el-option key="clickhouse" label="ClickHouse" value="clickhouse" />
               </el-select>
             </div>
           </el-col>
@@ -307,7 +308,11 @@
               <el-input
                 v-model="newDatasource.databaseName"
                 :placeholder="
-                  newDatasource.type === 'postgresql' ? '例如：postgres' : '请输入数据库名称'
+                  newDatasource.type === 'postgresql'
+                    ? '例如：postgres'
+                    : newDatasource.type === 'clickhouse'
+                      ? '例如：default'
+                      : '请输入数据库名称'
                 "
                 size="large"
               />
@@ -404,7 +409,10 @@
           >
             <el-option key="mysql" label="MySQL" value="mysql" />
             <el-option key="postgresql" label="PostgreSQL" value="postgresql" />
+            <el-option key="sqlserver" label="SQL Server" value="sqlserver" />
             <el-option key="dameng" label="达梦(Dameng)" value="dameng" />
+            <el-option key="oracle" label="Oracle" value="oracle" />
+            <el-option key="clickhouse" label="ClickHouse" value="clickhouse" />
           </el-select>
         </div>
       </el-col>
@@ -867,6 +875,26 @@
           schemaName.value = '';
         }
       });
+
+      // 数据库类型对应的默认端口号
+      const defaultPorts: Record<string, number> = {
+        mysql: 3306,
+        postgresql: 5432,
+        sqlserver: 1433,
+        dameng: 5236,
+        oracle: 1521,
+        clickhouse: 8123,
+      };
+
+      // 切换数据源类型时自动更新默认端口号
+      watch(
+        () => newDatasource.value.type,
+        newType => {
+          if (newType && defaultPorts[newType]) {
+            newDatasource.value.port = defaultPorts[newType];
+          }
+        },
+      );
 
       // 初始化Agent数据源列表
       const loadAgentDatasource = async () => {
