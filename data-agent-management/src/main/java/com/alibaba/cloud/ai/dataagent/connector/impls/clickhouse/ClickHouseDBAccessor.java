@@ -24,21 +24,21 @@ import org.springframework.stereotype.Service;
 @Service("clickHouseAccessor")
 public class ClickHouseDBAccessor extends AbstractAccessor {
 
-	private static final String ACCESSOR_TYPE = "ClickHouse_Accessor";
+    private static final String ACCESSOR_TYPE = "ClickHouse_Accessor";
 
-	protected ClickHouseDBAccessor(DdlFactory ddlFactory, DBConnectionPoolFactory poolFactory) {
+    protected ClickHouseDBAccessor(DdlFactory ddlFactory, DBConnectionPoolFactory poolFactory) {
 
-		super(ddlFactory, poolFactory.getPoolByDbType(BizDataSourceTypeEnum.CLICKHOUSE.getTypeName()));
-	}
+        super(ddlFactory, poolFactory.getPoolByDbType(BizDataSourceTypeEnum.CLICKHOUSE.getTypeName()));
+    }
 
-	@Override
-	public String getAccessorType() {
-		return ACCESSOR_TYPE;
-	}
+    @Override
+    public String getAccessorType() {
+        return ACCESSOR_TYPE;
+    }
 
-	@Override
-	public boolean supportedDataSourceType(String type) {
-		return BizDataSourceTypeEnum.CLICKHOUSE.getTypeName().equalsIgnoreCase(type);
-	}
+    @Override
+    public boolean supportedDataSourceType(String type) {
+        return BizDataSourceTypeEnum.CLICKHOUSE.getTypeName().equalsIgnoreCase(type);
+    }
 
 }

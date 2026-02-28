@@ -41,186 +41,179 @@ import static com.alibaba.cloud.ai.dataagent.util.ColumnTypeUtil.wrapType;
 @Service
 public class ClickHouseJdbcDdl extends AbstractJdbcDdl {
 
-	@Override
-	public List<DatabaseInfoBO> showDatabases(Connection connection) {
-		String sql = "SELECT name FROM system.databases ORDER BY name";
-		List<DatabaseInfoBO> databaseInfoList = Lists.newArrayList();
-		try {
-			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, sql);
-			if (resultArr.length <= 1) {
-				return Lists.newArrayList();
-			}
+    @Override
+    public List<DatabaseInfoBO> showDatabases(Connection connection) {
+        String sql = "SELECT name FROM system.databases ORDER BY name";
+        List<DatabaseInfoBO> databaseInfoList = Lists.newArrayList();
+        try {
+            String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, sql);
+            if (resultArr.length <= 1) {
+                return Lists.newArrayList();
+            }
 
-			for (int i = 1; i < resultArr.length; i++) {
-				if (resultArr[i].length == 0) {
-					continue;
-				}
-				String database = resultArr[i][0];
-				databaseInfoList.add(DatabaseInfoBO.builder().name(database).build());
-			}
-		}
-		catch (SQLException e) {
-			throw new RuntimeException(e);
-		}
+            for (int i = 1; i < resultArr.length; i++) {
+                if (resultArr[i].length == 0) {
+                    continue;
+                }
+                String database = resultArr[i][0];
+                databaseInfoList.add(DatabaseInfoBO.builder().name(database).build());
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
 
-		return databaseInfoList;
-	}
+        return databaseInfoList;
+    }
 
-	@Override
-	public List<SchemaInfoBO> showSchemas(Connection connection) {
-		// ClickHouse does not have the concept of schemas, return empty list
-		return Collections.emptyList();
-	}
+    @Override
+    public List<SchemaInfoBO> showSchemas(Connection connection) {
+        // ClickHouse does not have the concept of schemas, return empty list
+        return Collections.emptyList();
+    }
 
-	@Override
-	public List<TableInfoBO> showTables(Connection connection, String schema, String tablePattern) {
-		String sql = "SELECT name, comment FROM system.tables WHERE database = '%s' \n";
-		if (StringUtils.isNotBlank(tablePattern)) {
-			sql += "AND name LIKE '%%%s%%' \n";
-		}
-		sql += "ORDER BY name LIMIT 2000";
-		List<TableInfoBO> tableInfoList = Lists.newArrayList();
-		try {
-			String formattedSql;
-			if (StringUtils.isNotBlank(tablePattern)) {
-				formattedSql = String.format(sql, connection.getCatalog(), tablePattern);
-			}
-			else {
-				formattedSql = String.format(sql, connection.getCatalog());
-			}
-			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, formattedSql);
-			if (resultArr.length <= 1) {
-				return Lists.newArrayList();
-			}
+    @Override
+    public List<TableInfoBO> showTables(Connection connection, String schema, String tablePattern) {
+        String sql = "SELECT name, comment FROM system.tables WHERE database = '%s' \n";
+        if (StringUtils.isNotBlank(tablePattern)) {
+            sql += "AND name LIKE '%%%s%%' \n";
+        }
+        sql += "ORDER BY name LIMIT 2000";
+        List<TableInfoBO> tableInfoList = Lists.newArrayList();
+        try {
+            String formattedSql;
+            if (StringUtils.isNotBlank(tablePattern)) {
+                formattedSql = String.format(sql, connection.getCatalog(), tablePattern);
+            } else {
+                formattedSql = String.format(sql, connection.getCatalog());
+            }
+            String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, formattedSql);
+            if (resultArr.length <= 1) {
+                return Lists.newArrayList();
+            }
 
-			for (int i = 1; i < resultArr.length; i++) {
-				if (resultArr[i].length == 0) {
-					continue;
-				}
-				String tableName = resultArr[i][0];
-				String tableDesc = resultArr[i].length > 1 ? resultArr[i][1] : "";
-				tableInfoList.add(TableInfoBO.builder().name(tableName).description(tableDesc).build());
-			}
-		}
-		catch (SQLException e) {
-			throw new RuntimeException(e);
-		}
+            for (int i = 1; i < resultArr.length; i++) {
+                if (resultArr[i].length == 0) {
+                    continue;
+                }
+                String tableName = resultArr[i][0];
+                String tableDesc = resultArr[i].length > 1 ? resultArr[i][1] : "";
+                tableInfoList.add(TableInfoBO.builder().name(tableName).description(tableDesc).build());
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
 
-		return tableInfoList;
-	}
+        return tableInfoList;
+    }
 
-	@Override
-	public List<TableInfoBO> fetchTables(Connection connection, String schema, List<String> tables) {
-		String sql = "SELECT name, comment FROM system.tables "
-				+ "WHERE database = '%s' AND name IN (%s) ORDER BY name LIMIT 200";
-		List<TableInfoBO> tableInfoList = Lists.newArrayList();
-		String tableListStr = String.join(", ", tables.stream().map(x -> "'" + x + "'").collect(Collectors.toList()));
-		try {
-			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection,
-					String.format(sql, connection.getCatalog(), tableListStr));
-			if (resultArr.length <= 1) {
-				return Lists.newArrayList();
-			}
+    @Override
+    public List<TableInfoBO> fetchTables(Connection connection, String schema, List<String> tables) {
+        String sql = "SELECT name, comment FROM system.tables "
+                + "WHERE database = '%s' AND name IN (%s) ORDER BY name LIMIT 200";
+        List<TableInfoBO> tableInfoList = Lists.newArrayList();
+        String tableListStr = String.join(", ", tables.stream().map(x -> "'" + x + "'").collect(Collectors.toList()));
+        try {
+            String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection,
+                    String.format(sql, connection.getCatalog(), tableListStr));
+            if (resultArr.length <= 1) {
+                return Lists.newArrayList();
+            }
 
-			for (int i = 1; i < resultArr.length; i++) {
-				if (resultArr[i].length == 0) {
-					continue;
-				}
-				String tableName = resultArr[i][0];
-				String tableDesc = resultArr[i].length > 1 ? resultArr[i][1] : "";
-				tableInfoList.add(TableInfoBO.builder().name(tableName).description(tableDesc).build());
-			}
-		}
-		catch (SQLException e) {
-			throw new RuntimeException(e);
-		}
+            for (int i = 1; i < resultArr.length; i++) {
+                if (resultArr[i].length == 0) {
+                    continue;
+                }
+                String tableName = resultArr[i][0];
+                String tableDesc = resultArr[i].length > 1 ? resultArr[i][1] : "";
+                tableInfoList.add(TableInfoBO.builder().name(tableName).description(tableDesc).build());
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
 
-		return tableInfoList;
-	}
+        return tableInfoList;
+    }
 
-	@Override
-	public List<ColumnInfoBO> showColumns(Connection connection, String schema, String table) {
-		String sql = "SELECT name, comment, type, "
-				+ "if(is_in_primary_key = 1, 'true', 'false') AS is_primary, "
-				+ "if(position(type, 'Nullable') = 0, 'true', 'false') AS notnull "
-				+ "FROM system.columns WHERE database = '%s' AND table = '%s'";
-		List<ColumnInfoBO> columnInfoList = Lists.newArrayList();
-		try {
-			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection,
-					String.format(sql, connection.getCatalog(), table));
-			if (resultArr.length <= 1) {
-				return Lists.newArrayList();
-			}
+    @Override
+    public List<ColumnInfoBO> showColumns(Connection connection, String schema, String table) {
+        String sql = "SELECT name, comment, type, "
+                + "if(is_in_primary_key = 1, 'true', 'false') AS is_primary, "
+                + "if(position(type, 'Nullable') = 0, 'true', 'false') AS notnull "
+                + "FROM system.columns WHERE database = '%s' AND table = '%s'";
+        List<ColumnInfoBO> columnInfoList = Lists.newArrayList();
+        try {
+            String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection,
+                    String.format(sql, connection.getCatalog(), table));
+            if (resultArr.length <= 1) {
+                return Lists.newArrayList();
+            }
 
-			for (int i = 1; i < resultArr.length; i++) {
-				if (resultArr[i].length == 0) {
-					continue;
-				}
-				columnInfoList.add(ColumnInfoBO.builder()
-					.name(resultArr[i][0])
-					.description(resultArr[i][1])
-					.type(wrapType(resultArr[i][2]))
-					.primary(BooleanUtils.toBoolean(resultArr[i][3]))
-					.notnull(BooleanUtils.toBoolean(resultArr[i][4]))
-					.build());
-			}
-		}
-		catch (SQLException e) {
-			throw new RuntimeException(e);
-		}
+            for (int i = 1; i < resultArr.length; i++) {
+                if (resultArr[i].length == 0) {
+                    continue;
+                }
+                columnInfoList.add(ColumnInfoBO.builder()
+                        .name(resultArr[i][0])
+                        .description(resultArr[i][1])
+                        .type(wrapType(resultArr[i][2]))
+                        .primary(BooleanUtils.toBoolean(resultArr[i][3]))
+                        .notnull(BooleanUtils.toBoolean(resultArr[i][4]))
+                        .build());
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
 
-		return columnInfoList;
-	}
+        return columnInfoList;
+    }
 
-	@Override
-	public List<ForeignKeyInfoBO> showForeignKeys(Connection connection, String schema, List<String> tables) {
-		// ClickHouse does not support foreign keys, return empty list
-		return Collections.emptyList();
-	}
+    @Override
+    public List<ForeignKeyInfoBO> showForeignKeys(Connection connection, String schema, List<String> tables) {
+        // ClickHouse does not support foreign keys, return empty list
+        return Collections.emptyList();
+    }
 
-	@Override
-	public List<String> sampleColumn(Connection connection, String schema, String table, String column) {
-		String sql = "SELECT `%s` FROM `%s` LIMIT 99";
-		List<String> sampleInfo = Lists.newArrayList();
-		try {
-			sql = String.format(sql, column, table);
-			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, null, sql);
-			if (resultArr.length <= 1) {
-				return Lists.newArrayList();
-			}
+    @Override
+    public List<String> sampleColumn(Connection connection, String schema, String table, String column) {
+        String sql = "SELECT `%s` FROM `%s` LIMIT 99";
+        List<String> sampleInfo = Lists.newArrayList();
+        try {
+            sql = String.format(sql, column, table);
+            String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, null, sql);
+            if (resultArr.length <= 1) {
+                return Lists.newArrayList();
+            }
 
-			for (int i = 1; i < resultArr.length; i++) {
-				if (resultArr[i].length == 0 || column.equalsIgnoreCase(resultArr[i][0])) {
-					continue;
-				}
-				sampleInfo.add(resultArr[i][0]);
-			}
-		}
-		catch (SQLException e) {
-			// Silently handle sampling errors
-		}
+            for (int i = 1; i < resultArr.length; i++) {
+                if (resultArr[i].length == 0 || column.equalsIgnoreCase(resultArr[i][0])) {
+                    continue;
+                }
+                sampleInfo.add(resultArr[i][0]);
+            }
+        } catch (SQLException e) {
+            // Silently handle sampling errors
+        }
 
-		Set<String> siSet = sampleInfo.stream().collect(Collectors.toSet());
-		sampleInfo = siSet.stream().collect(Collectors.toList());
-		return sampleInfo;
-	}
+        Set<String> siSet = sampleInfo.stream().collect(Collectors.toSet());
+        sampleInfo = siSet.stream().collect(Collectors.toList());
+        return sampleInfo;
+    }
 
-	@Override
-	public ResultSetBO scanTable(Connection connection, String schema, String table) {
-		String sql = "SELECT * FROM `%s` LIMIT 20";
-		ResultSetBO resultSet = ResultSetBO.builder().build();
-		try {
-			resultSet = SqlExecutor.executeSqlAndReturnObject(connection, schema, String.format(sql, table));
-		}
-		catch (SQLException e) {
-			throw new RuntimeException(e);
-		}
-		return resultSet;
-	}
+    @Override
+    public ResultSetBO scanTable(Connection connection, String schema, String table) {
+        String sql = "SELECT * FROM `%s` LIMIT 20";
+        ResultSetBO resultSet = ResultSetBO.builder().build();
+        try {
+            resultSet = SqlExecutor.executeSqlAndReturnObject(connection, schema, String.format(sql, table));
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return resultSet;
+    }
 
-	@Override
-	public BizDataSourceTypeEnum getDataSourceType() {
-		return BizDataSourceTypeEnum.CLICKHOUSE;
-	}
+    @Override
+    public BizDataSourceTypeEnum getDataSourceType() {
+        return BizDataSourceTypeEnum.CLICKHOUSE;
+    }
 
 }

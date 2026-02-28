@@ -140,10 +140,7 @@
               }
             } else {
               // 如果配置结构不完整，不做任何处理，保持原始状态
-              console.log(
-                'ECharts configuration is incomplete, skipping rendering',
-                content,
-              );
+              console.log('ECharts configuration is incomplete, skipping rendering', content);
             }
           } catch (e) {
             // 只在控制台记录错误，不影响用户界面
