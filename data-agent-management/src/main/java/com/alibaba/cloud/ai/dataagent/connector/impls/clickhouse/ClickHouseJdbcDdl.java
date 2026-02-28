@@ -82,9 +82,9 @@ public class ClickHouseJdbcDdl extends AbstractJdbcDdl {
         try {
             String formattedSql;
             if (StringUtils.isNotBlank(tablePattern)) {
-                formattedSql = String.format(sql, connection.getCatalog(), tablePattern);
+                formattedSql = String.format(sql, connection.getSchema(), tablePattern);
             } else {
-                formattedSql = String.format(sql, connection.getCatalog());
+                formattedSql = String.format(sql, connection.getSchema());
             }
             String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, formattedSql);
             if (resultArr.length <= 1) {
