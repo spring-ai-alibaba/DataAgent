@@ -259,19 +259,18 @@
           <el-col :span="12">
             <div class="form-item">
               <label>数据源类型 *</label>
-              <!-- todo: 改为后端动态获取-->
               <el-select
                 v-model="newDatasource.type"
                 placeholder="请选择数据源类型"
                 style="width: 100%"
                 size="large"
               >
-                <el-option key="mysql" label="MySQL" value="mysql" />
-                <el-option key="postgresql" label="PostgreSQL" value="postgresql" />
-                <el-option key="sqlserver" label="SQL Server" value="sqlserver" />
-                <el-option key="dameng" label="达梦(Dameng)" value="dameng" />
-                <el-option key="oracle" label="Oracle" value="oracle" />
-                <el-option key="clickhouse" label="ClickHouse" value="clickhouse" />
+                <el-option
+                  v-for="type in datasourceTypes"
+                  :key="type.typeName"
+                  :label="type.displayName"
+                  :value="type.typeName"
+                />
               </el-select>
             </div>
           </el-col>
@@ -407,12 +406,12 @@
             style="width: 100%"
             size="large"
           >
-            <el-option key="mysql" label="MySQL" value="mysql" />
-            <el-option key="postgresql" label="PostgreSQL" value="postgresql" />
-            <el-option key="sqlserver" label="SQL Server" value="sqlserver" />
-            <el-option key="dameng" label="达梦(Dameng)" value="dameng" />
-            <el-option key="oracle" label="Oracle" value="oracle" />
-            <el-option key="clickhouse" label="ClickHouse" value="clickhouse" />
+            <el-option
+              v-for="type in datasourceTypes"
+              :key="type.typeName"
+              :label="type.displayName"
+              :value="type.typeName"
+            />
           </el-select>
         </div>
       </el-col>
@@ -812,7 +811,7 @@
     Edit,
   } from '@element-plus/icons-vue';
   import datasourceService from '@/services/datasource';
-  import { Datasource, AgentDatasource } from '@/services/datasource';
+  import { Datasource, AgentDatasource, DatasourceType } from '@/services/datasource';
   import { ApiResponse } from '@/services/common';
   import { ElMessage, ElMessageBox } from 'element-plus';
   import agentDatasourceService from '@/services/agentDatasource';
@@ -868,33 +867,23 @@
       const targetColumnList: Ref<string[]> = ref([]);
       const savingForeignKeys: Ref<boolean> = ref(false);
 
+      // 数据源类型列表
+      const datasourceTypes: Ref<DatasourceType[]> = ref([]);
+
       watch(dialogVisible, newValue => {
         if (newValue) {
           loadAllDatasource();
+          loadDatasourceTypes();
           newDatasource.value = { port: 3306 } as Datasource;
           schemaName.value = '';
         }
       });
 
-      // 数据库类型对应的默认端口号
-      const defaultPorts: Record<string, number> = {
-        mysql: 3306,
-        postgresql: 5432,
-        sqlserver: 1433,
-        dameng: 5236,
-        oracle: 1521,
-        clickhouse: 8123,
-      };
-
-      // 切换数据源类型时自动更新默认端口号
-      watch(
-        () => newDatasource.value.type,
-        newType => {
-          if (newType && defaultPorts[newType]) {
-            newDatasource.value.port = defaultPorts[newType];
-          }
-        },
-      );
+      watch(editDialogVisible, newValue => {
+        if (newValue) {
+          loadDatasourceTypes();
+        }
+      });
 
       // 初始化Agent数据源列表
       const loadAgentDatasource = async () => {
@@ -935,6 +924,19 @@
         } catch (error) {
           ElMessage.error('加载所有数据源列表失败');
           console.error('Failed to load all datasource:', error);
+        }
+      };
+
+      // 加载数据源类型列表
+      const loadDatasourceTypes = async () => {
+        try {
+          const response = await datasourceService.getDatasourceTypes();
+          if (response.success && response.data) {
+            datasourceTypes.value = response.data;
+          }
+        } catch (error) {
+          ElMessage.error('加载数据源类型失败');
+          console.error('Failed to load datasource types:', error);
         }
       };
 
@@ -1614,6 +1616,9 @@
         // PostgreSQL/Oracle Schema字段
         schemaName,
         schemaNameEdit,
+        // 数据源类型
+        datasourceTypes,
+        loadDatasourceTypes,
         // 逻辑外键管理
         Connection,
         Link,

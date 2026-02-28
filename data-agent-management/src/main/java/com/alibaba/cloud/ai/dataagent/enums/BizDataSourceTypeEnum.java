@@ -41,9 +41,14 @@ public enum BizDataSourceTypeEnum {
 	ORACLE(7, "oracle", DatabaseDialectEnum.ORACLE.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
 	/**
+	 * Hive database
+	 */
+	HIVE(8, "hive", DatabaseDialectEnum.HIVE.getCode(), DbAccessTypeEnum.JDBC.getCode()),
+
+	/**
 	 * ClickHouse database
 	 */
-	CLICKHOUSE(8, "clickhouse", DatabaseDialectEnum.CLICKHOUSE.getCode(), DbAccessTypeEnum.JDBC.getCode()),
+	CLICKHOUSE(9, "clickhouse", DatabaseDialectEnum.CLICKHOUSE.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
 	HOLOGRESS(10, "hologress", DatabaseDialectEnum.POSTGRESQL.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
