@@ -23,18 +23,18 @@ import org.springframework.stereotype.Component;
 @Component
 public class ClickHouseDatasourceTypeHandler implements DatasourceTypeHandler {
 
-    @Override
-    public String typeName() {
-        return BizDataSourceTypeEnum.CLICKHOUSE.getTypeName();
-    }
+	@Override
+	public String typeName() {
+		return BizDataSourceTypeEnum.CLICKHOUSE.getTypeName();
+	}
 
-    @Override
-    public String buildConnectionUrl(Datasource datasource) {
-        if (!hasRequiredConnectionFields(datasource)) {
-            return datasource.getConnectionUrl();
-        }
-        return String.format("jdbc:clickhouse://%s:%d/%s", datasource.getHost(), datasource.getPort(),
-                datasource.getDatabaseName());
-    }
+	@Override
+	public String buildConnectionUrl(Datasource datasource) {
+		if (!hasRequiredConnectionFields(datasource)) {
+			return datasource.getConnectionUrl();
+		}
+		return String.format("jdbc:clickhouse://%s:%d/%s", datasource.getHost(), datasource.getPort(),
+				datasource.getDatabaseName());
+	}
 
 }
