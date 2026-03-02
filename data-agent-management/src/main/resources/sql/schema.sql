@@ -273,7 +273,7 @@ CREATE TABLE IF NOT EXISTS `model_config` (
 CREATE TABLE `file_storage` (
   `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
   `filename` VARCHAR(255) NOT NULL COMMENT '文件名',
-  `file_path` VARCHAR(1024) NOT NULL COMMENT '文件路径',
+  `file_path` VARCHAR(512) NOT NULL COMMENT '文件路径',
   `file_size` INT DEFAULT NULL COMMENT '文件大小（字节）',
   `file_type` VARCHAR(255) DEFAULT NULL COMMENT '文件类型',
   `file_extension` VARCHAR(20) DEFAULT NULL COMMENT '文件后缀，如：.jpg/.pdf/.docx',
@@ -284,6 +284,6 @@ CREATE TABLE `file_storage` (
   `updated_time` DATETIME DEFAULT NULL COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `idx_filename` (`filename`),
-  KEY `idx_file_path` (`file_path`),
+  KEY `idx_file_path` (`file_path`(50)),
   KEY `idx_updated_time` (`updated_time`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='文件存储表';
