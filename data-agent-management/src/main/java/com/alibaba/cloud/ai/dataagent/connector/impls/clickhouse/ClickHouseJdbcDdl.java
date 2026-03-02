@@ -117,7 +117,7 @@ public class ClickHouseJdbcDdl extends AbstractJdbcDdl {
 		String tableListStr = String.join(", ", tables.stream().map(x -> "'" + x + "'").collect(Collectors.toList()));
 		try {
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection,
-					String.format(sql, connection.getCatalog(), tableListStr));
+					String.format(sql, connection.getSchema(), tableListStr));
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
 			}
@@ -146,7 +146,7 @@ public class ClickHouseJdbcDdl extends AbstractJdbcDdl {
 		List<ColumnInfoBO> columnInfoList = Lists.newArrayList();
 		try {
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection,
-					String.format(sql, connection.getCatalog(), table));
+					String.format(sql, connection.getSchema(), table));
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
 			}
