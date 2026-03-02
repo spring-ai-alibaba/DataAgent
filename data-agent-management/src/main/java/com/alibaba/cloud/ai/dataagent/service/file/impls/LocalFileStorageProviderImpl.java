@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.service.file.impls;
 
 import com.alibaba.cloud.ai.dataagent.entity.FileStorage;
+import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageProvider;
 import java.io.IOException;
@@ -26,6 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.codec.multipart.FilePart;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Slf4j
 @AllArgsConstructor
@@ -34,9 +37,9 @@ public class LocalFileStorageProviderImpl implements FileStorageProvider {
 	private final FileStorageProperties fileStorageProperties;
 
 	@Override
-	public void storeFile(FilePart file, FileStorage fileStorage) {
-		try {
-
+	public Mono<FileStorage> storeFile(FilePart file, FileStorage fileStorage) {
+		return Mono.fromCallable(() -> {
+			// 1. 执行所有同步/阻塞的 IO 操作
 			Path storagePath = fileStorageProperties.getLocalBasePath().resolve(fileStorage.getFilePath());
 
 			checkPathSecurity(storagePath);
@@ -45,15 +48,17 @@ public class LocalFileStorageProviderImpl implements FileStorageProvider {
 			if (!Files.exists(uploadDir)) {
 				Files.createDirectories(uploadDir);
 			}
-			file.transferTo(storagePath).block();
-
-			log.info("文件存储成功: {}", fileStorage);
-
-		}
-		catch (IOException e) {
-			log.error("文件存储失败", e);
-			throw new RuntimeException("文件存储失败: " + e.getMessage(), e);
-		}
+			return storagePath; // 返回计算结果给下一步
+		})
+			// 2. 关键：切换到 boundedElastic 线程池，避免阻塞 I/O 线程
+			.subscribeOn(Schedulers.boundedElastic())
+			// 3. 执行响应式文件传输（file.transferTo 返回 Mono<Void>）
+			.flatMap(storagePath -> file.transferTo(storagePath).thenReturn(fileStorage))
+			// 4. 成功日志（可选）
+			.doOnSuccess(stored -> log.info("文件存储成功: {}", stored))
+			// 5. 响应式错误处理
+			.doOnError(e -> log.error("文件存储失败", e))
+			.onErrorMap(IOException.class, e -> new InternalServerException("文件存储失败: " + e.getMessage(), e));
 	}
 
 	@Override

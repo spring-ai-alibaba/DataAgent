@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.service.file.impls;
 
 import com.alibaba.cloud.ai.dataagent.entity.FileStorage;
+import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
 import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageProvider;
 import com.aliyun.oss.OSS;
@@ -28,6 +29,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -66,37 +68,59 @@ public class OssFileStorageProviderImpl implements FileStorageProvider {
 	}
 
 	@Override
-	public void storeFile(FilePart file, FileStorage fileStorage) {
-		try {
-			ObjectMetadata metadata = new ObjectMetadata();
-			metadata.setContentLength(fileStorage.getFileSize());
-			metadata.setContentType(fileStorage.getFileType());
-			metadata.setCacheControl("no-cache");
+	public Mono<FileStorage> storeFile(FilePart file, FileStorage fileStorage) {
 
-			Path tempFile = Path.of("/tmp", fileStorage.getFilePath());
+		// 1. 准备 OSS 元数据（纯内存操作，可立即执行）
+		ObjectMetadata metadata = new ObjectMetadata();
+		metadata.setContentLength(fileStorage.getFileSize());
+		metadata.setContentType(fileStorage.getFileType());
+		metadata.setCacheControl("no-cache");
 
-			file.transferTo(tempFile).then(Mono.fromCallable(() -> {
-				// 在阻塞线程池中处理文件
-				try (InputStream is = Files.newInputStream(tempFile)) {
-					ossClient.putObject(ossProperties.getBucketName(), fileStorage.getFilePath(), is, metadata);
-					log.info("文件上传成功: {}", fileStorage);
-					return "处理成功";
-				}
-			}).subscribeOn(Schedulers.boundedElastic())).publishOn(Schedulers.boundedElastic()).doFinally(signal -> {
-				// 清理临时文件
-				try {
-					Files.deleteIfExists(tempFile);
-				}
-				catch (IOException e) {
-					log.warn("无法删除临时文件: {}", tempFile, e);
-				}
-			}).block();
+		// 2. 定义临时文件路径
+		Path tempFile = Path.of("/tmp", fileStorage.getFilePath());
 
-		}
-		catch (Exception e) {
-			log.error("文件存储失败，上传OSS失败", e);
-			throw new RuntimeException("文件存储失败: " + e.getMessage(), e);
-		}
+		return Mono.defer(() -> {
+			// 确保每次订阅时重新执行（避免临时文件路径冲突）
+
+			// 3. 第一步：将上传文件保存到本地临时文件（响应式 API）
+			return file.transferTo(tempFile)
+
+				// 4. 第二步：上传到 OSS（阻塞操作，需切换线程）
+				.then(Mono.fromCallable(() -> {
+					// 确保父目录存在
+					Files.createDirectories(tempFile.getParent());
+
+					// 阻塞 IO：读取本地文件 + 上传 OSS
+					try (InputStream is = Files.newInputStream(tempFile)) {
+						ossClient.putObject(ossProperties.getBucketName(), fileStorage.getFilePath(), is, metadata);
+						log.info("文件上传 OSS 成功: {}", fileStorage);
+						return fileStorage; // 返回业务对象
+					}
+				}).subscribeOn(Schedulers.boundedElastic()))
+
+				.publishOn(Schedulers.boundedElastic())
+
+				// 5. 第三步：无论成功失败，清理临时文件
+				.doFinally(signal -> {
+					try {
+						Files.deleteIfExists(tempFile);
+						log.debug("临时文件已清理: {}", tempFile);
+					}
+					catch (IOException e) {
+						log.warn("清理临时文件失败: {}", tempFile, e);
+						// 注意：doFinally 中抛异常会影响主流程，建议只记录日志
+					}
+				})
+
+				// 6. 响应式错误处理：转换异常类型
+				.onErrorMap(IOException.class, e -> new InternalServerException("文件处理失败: " + e.getMessage(), e))
+				// 7. 可选：添加超时保护，防止大文件卡死
+				.timeout(Duration.ofSeconds(60));
+		})
+			// 8. 日志埋点（可观测性）
+			.doOnSubscribe(sub -> log.debug("开始处理文件上传: {}", fileStorage.getFilename()))
+			.doOnSuccess(stored -> log.info("文件上传流程完成: {}", stored))
+			.doOnError(e -> log.error("文件上传流程异常: {}", fileStorage.getFilename(), e));
 	}
 
 	@Override

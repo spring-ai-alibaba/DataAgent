@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.service.file;
 import com.alibaba.cloud.ai.dataagent.entity.FileStorage;
 import org.springframework.core.io.Resource;
 import org.springframework.http.codec.multipart.FilePart;
+import reactor.core.publisher.Mono;
 
 public interface FileStorageProvider {
 
@@ -26,7 +27,7 @@ public interface FileStorageProvider {
 	 * @param file 上传的文件
 	 * @param fileStorage 文件存储信息
 	 */
-	void storeFile(FilePart file, FileStorage fileStorage);
+	Mono<FileStorage> storeFile(FilePart file, FileStorage fileStorage);
 
 	/**
 	 * 删除文件
