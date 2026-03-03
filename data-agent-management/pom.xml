@@ -106,6 +106,62 @@
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
+      
+        <!-- Hive JDBC 驱动 -->
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-jdbc</artifactId>
+            <version>3.1.3</version>
+            <scope>runtime</scope>
+            <exclusions>
+                <!-- 排除 Jetty 相关依赖，避免与 Tomcat 冲突 -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty.aggregate</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <!-- 排除 Hadoop 相关依赖，减少依赖体积 -->
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <!-- 排除日志相关依赖，使用项目统一的日志框架 -->
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <!-- 排除 Tomcat 相关依赖，避免版本冲突 -->
+                <exclusion>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.tomcat.embed</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <!-- 排除 Servlet API，使用 Spring Boot 提供的版本 -->
+                <exclusion>
+                    <groupId>javax.servlet</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>jakarta.servlet</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+      
         <!-- Swagger/OpenAPI 3 with WebFlux (no MVC) -->
         <dependency>
             <groupId>org.springdoc</groupId>
