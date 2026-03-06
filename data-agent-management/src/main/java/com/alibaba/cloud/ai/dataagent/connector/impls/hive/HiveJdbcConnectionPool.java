@@ -89,10 +89,16 @@ public class HiveJdbcConnectionPool extends AbstractDBConnectionPool {
 	}
 
 	@Override
+	protected boolean useWallFilter() {
+		return false;
+	}
+
+	@Override
 	public DataSource createdDataSource(String url, String username, String password) throws Exception {
 		log.info("Creating Hive DataSource with custom configuration");
 		String driver = getDriver();
-		Map<String, String> props = new HiveDruidProperties(driver, url, username, password, "stat").toMap();
+		String filters = useWallFilter() ? "wall,stat" : "stat";
+		Map<String, String> props = new HiveDruidProperties(driver, url, username, password, filters).toMap();
 		return DruidDataSourceFactory.createDataSource(props);
 	}
 

@@ -45,11 +45,26 @@ public enum BizDataSourceTypeEnum {
 	 */
 	HIVE(8, "hive", DatabaseDialectEnum.HIVE.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
+	/**
+	 * ClickHouse database
+	 */
+	CLICKHOUSE(9, "clickhouse", DatabaseDialectEnum.CLICKHOUSE.getCode(), DbAccessTypeEnum.JDBC.getCode()),
+
 	HOLOGRESS(10, "hologress", DatabaseDialectEnum.POSTGRESQL.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
 	MYSQL_VPC(11, "mysql-vpc", DatabaseDialectEnum.MYSQL.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
 	POSTGRESQL_VPC(12, "postgresql-vpc", DatabaseDialectEnum.POSTGRESQL.getCode(), DbAccessTypeEnum.JDBC.getCode()),
+
+	/**
+	 * Doris database
+	 */
+	DORIS(13, "doris", DatabaseDialectEnum.DORIS.getCode(), DbAccessTypeEnum.JDBC.getCode()),
+
+	/**
+	 * StarRocks database
+	 */
+	STARROCKS(14, "starrocks", DatabaseDialectEnum.STARROCKS.getCode(), DbAccessTypeEnum.JDBC.getCode()),
 
 	ADB_PG(21, "adg_pg", DatabaseDialectEnum.POSTGRESQL.getCode(), DbAccessTypeEnum.DATA_API.getCode()),
 
@@ -144,7 +159,13 @@ public enum BizDataSourceTypeEnum {
 	}
 
 	public static boolean isMysqlDialect(String typeName) {
-		return isDialect(typeName, DatabaseDialectEnum.MYSQL.getCode());
+		BizDataSourceTypeEnum te = fromTypeName(typeName);
+		if (te == null) {
+			return false;
+		}
+		return DatabaseDialectEnum.MYSQL.getCode().equalsIgnoreCase(te.getDialect())
+				|| DatabaseDialectEnum.DORIS.getCode().equalsIgnoreCase(te.getDialect())
+				|| DatabaseDialectEnum.STARROCKS.getCode().equalsIgnoreCase(te.getDialect());
 	}
 
 	public static boolean isSqlServerDialect(String typeName) {
