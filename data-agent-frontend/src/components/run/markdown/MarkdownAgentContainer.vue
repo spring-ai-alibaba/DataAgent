@@ -113,33 +113,34 @@
         const echartsElements = document.querySelectorAll('.md-echarts');
         echartsElements.forEach(element => {
           try {
-            const content = element.textContent;
+            // 优先从 data-option 属性读取原始配置（支持函数表达式），回退到 textContent（兼容旧数据）
+            const optionData = (element as HTMLElement).getAttribute('data-option');
+            const content = optionData ? decodeURIComponent(optionData) : element.textContent;
             if (!content || content.trim() === '') {
               return;
             }
-            // 再次验证JSON结构是否完整
-            const hasValidJson =
+            // 验证配置结构是否完整（匹配大括号对）
+            const hasValidStructure =
               /\{[\s\S]*\}/.test(content) &&
               content.match(/\{/g)?.length === content.match(/\}/g)?.length;
-            if (hasValidJson) {
-              const options = JSON.parse(content);
+            if (hasValidStructure) {
+              // 使用 new Function 解析，支持包含函数表达式的 ECharts 配置
+              // 与 report-html-template.ts 保持一致的解析方式
+              const options = new Function('return (' + content + ')')();
               if (!options.color) {
                 options.color = EXTENDED_COLORS;
               }
               const existingChart = echarts.getInstanceByDom(element);
               if (existingChart) {
-                // 复用已存在的图表实例，避免重复初始化导致的内存泄漏
+                // 复用已存在的图表实例，避免重复初始化导致的内存泄潏
                 existingChart.setOption(options, true);
               } else {
                 const chart = echarts.init(element);
                 chart.setOption(options);
               }
             } else {
-              // 如果JSON不完整，不做任何处理，保持原始状态
-              console.log(
-                'ECharts configuration is incomplete, skipping rendering',
-                element.textContent,
-              );
+              // 如果配置结构不完整，不做任何处理，保持原始状态
+              console.log('ECharts configuration is incomplete, skipping rendering', content);
             }
           } catch (e) {
             // 只在控制台记录错误，不影响用户界面

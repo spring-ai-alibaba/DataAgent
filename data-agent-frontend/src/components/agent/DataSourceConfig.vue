@@ -307,7 +307,11 @@
               <el-input
                 v-model="newDatasource.databaseName"
                 :placeholder="
-                  newDatasource.type === 'postgresql' ? '例如：postgres' : '请输入数据库名称'
+                  newDatasource.type === 'postgresql'
+                    ? '例如：postgres'
+                    : newDatasource.type === 'clickhouse'
+                      ? '例如：default'
+                      : '请输入数据库名称'
                 "
                 size="large"
               />
