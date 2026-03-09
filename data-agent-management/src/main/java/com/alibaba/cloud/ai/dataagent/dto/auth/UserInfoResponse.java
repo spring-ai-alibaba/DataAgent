@@ -13,18 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { createApp } from 'vue';
-import '@/services/axiosSetup';
-import App from '@/App.vue';
-import router from '@/router';
+package com.alibaba.cloud.ai.dataagent.dto.auth;
 
-// 引入全局样式
-import '@/styles/global.css';
-import 'element-plus/dist/index.css';
-import ElementPlus from 'element-plus';
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-// 创建应用实例
-const app = createApp(App);
-app.use(router);
-app.use(ElementPlus);
-app.mount('#app');
+import java.util.List;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserInfoResponse {
+
+	private Long id;
+
+	private String username;
+
+	private String email;
+
+	private String realName;
+
+	private String avatar;
+
+	private Integer userType;
+
+	private List<String> roles;
+
+}
