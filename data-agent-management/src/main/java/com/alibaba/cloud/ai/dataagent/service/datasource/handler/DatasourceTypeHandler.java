@@ -20,6 +20,8 @@ import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import org.springframework.util.StringUtils;
 
+import java.util.Arrays;
+
 public interface DatasourceTypeHandler {
 
 	String typeName();
@@ -64,6 +66,15 @@ public interface DatasourceTypeHandler {
 		config.setConnectionType(connectionType());
 		config.setDialectType(dialectType());
 		config.setSchema(extractSchemaName(datasource));
+		if (StringUtils.hasText(datasource.getSchemas())) {
+			config.setSchemas(Arrays.stream(datasource.getSchemas().split(","))
+					.map(String::trim)
+					.filter(s -> !s.isEmpty())
+					.collect(java.util.stream.Collectors.toList()));
+		}
+		else {
+			config.setSchemas(java.util.List.of(datasource.getDatabaseName()));
+		}
 		return config;
 	}
 

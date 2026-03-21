@@ -81,8 +81,9 @@ public class MysqlJdbcDdl extends AbstractJdbcDdl {
 		sql += "limit 2000;";
 		List<TableInfoBO> tableInfoList = Lists.newArrayList();
 		try {
+			String actualSchema = StringUtils.isNotBlank(schema) ? schema : connection.getCatalog();
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection,
-					String.format(sql, connection.getCatalog(), tablePattern));
+					String.format(sql,actualSchema, tablePattern));
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
 			}
@@ -110,8 +111,9 @@ public class MysqlJdbcDdl extends AbstractJdbcDdl {
 		List<TableInfoBO> tableInfoList = Lists.newArrayList();
 		String tableListStr = String.join(", ", tables.stream().map(x -> "'" + x + "'").collect(Collectors.toList()));
 		try {
+			String actualSchema = StringUtils.isNotBlank(schema) ? schema : connection.getCatalog();
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection,
-					String.format(sql, connection.getCatalog(), tableListStr));
+					String.format(sql,actualSchema, tableListStr));
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
 			}
@@ -139,8 +141,9 @@ public class MysqlJdbcDdl extends AbstractJdbcDdl {
 				+ "FROM information_schema.COLUMNS " + "WHERE table_schema='%s' " + "and table_name='%s';";
 		List<ColumnInfoBO> columnInfoList = Lists.newArrayList();
 		try {
+			String actualSchema = StringUtils.isNotBlank(schema) ? schema : connection.getCatalog();
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, "INFORMATION_SCHEMA",
-					String.format(sql, connection.getCatalog(), table));
+					String.format(sql,actualSchema, table));
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
 			}
@@ -176,7 +179,8 @@ public class MysqlJdbcDdl extends AbstractJdbcDdl {
 		String tableListStr = String.join(", ", tables.stream().map(x -> "'" + x + "'").collect(Collectors.toList()));
 
 		try {
-			sql = String.format(sql, connection.getCatalog(), tableListStr, tableListStr);
+			String actualSchema = StringUtils.isNotBlank(schema) ? schema : connection.getCatalog();
+			sql = String.format(sql,actualSchema, tableListStr, tableListStr);
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, "INFORMATION_SCHEMA", sql);
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
@@ -203,10 +207,11 @@ public class MysqlJdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<String> sampleColumn(Connection connection, String schema, String table, String column) {
-		String sql = "SELECT \n" + "    `%s`\n" + "FROM \n" + "    `%s`\n" + "LIMIT 99;";
+		String qualifiedTable = StringUtils.isNotBlank(schema) ? String.format("`%s`.`%s`", schema, table) :
+				String.format("`%s`",table);
+		String sql = String.format("SELECT `%s` FROM %s LIMIT 99", column, qualifiedTable);
 		List<String> sampleInfo = Lists.newArrayList();
 		try {
-			sql = String.format(sql, column, table);
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, null, sql);
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
@@ -231,9 +236,11 @@ public class MysqlJdbcDdl extends AbstractJdbcDdl {
 	@Override
 	public ResultSetBO scanTable(Connection connection, String schema, String table) {
 		String sql = "SELECT *\n" + "FROM \n" + "    `%s`\n" + "LIMIT 20;";
+		String qualifiedTable = StringUtils.isNotBlank(schema) ? String.format("`%s`.`%s`", schema, table) :
+				String.format("`%s`",table);
 		ResultSetBO resultSet = ResultSetBO.builder().build();
 		try {
-			resultSet = SqlExecutor.executeSqlAndReturnObject(connection, schema, String.format(sql, table));
+			resultSet = SqlExecutor.executeSqlAndReturnObject(connection, schema, String.format(sql, qualifiedTable));
 		}
 		catch (SQLException e) {
 			throw new RuntimeException(e);

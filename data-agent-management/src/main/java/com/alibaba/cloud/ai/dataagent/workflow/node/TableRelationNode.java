@@ -164,7 +164,7 @@ public class TableRelationNode implements NodeAction {
 		SchemaDTO schemaDTO = new SchemaDTO();
 
 		schemaService.extractDatabaseName(schemaDTO, agentDbConfig);
-		schemaService.buildSchemaFromDocuments(agentId, columnDocuments, tableDocuments, schemaDTO);
+		schemaService.buildSchemaFromDocuments(agentId, columnDocuments, tableDocuments, schemaDTO, logicalForeignKeys);
 
 		// 将逻辑外键信息合并到 schemaDTO 的 foreignKeys 字段
 		if (logicalForeignKeys != null && !logicalForeignKeys.isEmpty()) {
