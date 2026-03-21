@@ -34,6 +34,7 @@ import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeHandler;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.registry.DatasourceTypeHandlerRegistry;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -228,27 +229,62 @@ public class DatasourceServiceImpl implements DatasourceService {
 		// Create database configuration
 		DbConfigBO dbConfig = getDbConfig(datasource);
 
-		// Create query parameters
-		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
-
-		// 提取schema名称
-		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
-		String schemaName = handler.extractSchemaName(datasource);
-		queryParam.setSchema(schemaName);
-
 		// Query table list
 		Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
-		List<TableInfoBO> tableInfoList = dbAccessor.showTables(dbConfig, queryParam);
+		List<String> allTableNames = new ArrayList<>();
 
-		// Extract table names
-		List<String> tableNames = tableInfoList.stream()
-			.map(TableInfoBO::getName)
-			.filter(name -> name != null && !name.trim().isEmpty())
-			.sorted()
-			.toList();
+		// 遍历所有 schema，使用 schema.table 格式与向量库保持一致
+		List<String> schemasToProcess = (dbConfig.getSchemas() != null && !dbConfig.getSchemas().isEmpty())
+				? dbConfig.getSchemas()
+				: java.util.List.of(dbConfig.getSchema());
 
-		log.info("Found {} tables for datasource: {}", tableNames.size(), datasourceId);
-		return tableNames;
+		for (String schema : schemasToProcess) {
+			DbQueryParameter queryParam = DbQueryParameter.from(dbConfig).setSchema(schema);
+			List<TableInfoBO> tableInfoList = dbAccessor.showTables(dbConfig, queryParam);
+			List<String> tableNames = tableInfoList.stream()
+				.map(TableInfoBO::getName)
+				.filter(name -> name != null && !name.trim().isEmpty())
+				.map(name -> schema + "." + name)
+				.sorted()
+				.toList();
+			allTableNames.addAll(tableNames);
+		}
+
+		log.info("Found {} tables for datasource: {}", allTableNames.size(), datasourceId);
+		return allTableNames;
+	}
+
+	@Override
+	public List<String> getAllSchemasTables(Integer datasourceId) throws Exception {
+		log.info("Getting aggregated tables from all active datasources to act as cross-schema targets.");
+		
+		List<String> allTableNames = new ArrayList<>();
+		
+		// 1. 查找所有开启了活跃状态的业务配置数据源
+		List<Datasource> activeDatasources = this.getDatasourceByStatus("active");
+		if (activeDatasources == null || activeDatasources.isEmpty()) {
+			return this.getDatasourceTables(datasourceId);
+		}
+		
+		Set<String> uniqueTables = new HashSet<>();
+		// 2. 借用原生针对单数据源的安全拉取功能，遍历拼装出平台级白名单可用的多库大集合
+		for (Datasource ds : activeDatasources) {
+			try {
+				List<String> dsTables = this.getDatasourceTables(ds.getId());
+				if (dsTables != null) {
+					uniqueTables.addAll(dsTables);
+				}
+			} catch (Exception e) {
+				log.warn("Failed to get tables for datasource: {} - {} when aggregating active tables", 
+						ds.getId(), ds.getName(), e);
+			}
+		}
+
+		allTableNames.addAll(uniqueTables);
+		Collections.sort(allTableNames);
+		
+		log.info("Aggregated {} distinct tables across {} active datasources.", allTableNames.size(), activeDatasources.size());
+		return allTableNames;
 	}
 
 	@Override
@@ -274,11 +310,15 @@ public class DatasourceServiceImpl implements DatasourceService {
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
 
 		// 提取schema名称
-		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
-		String schemaName = handler.extractSchemaName(datasource);
-		queryParam.setSchema(schemaName);
-		queryParam.setTable(tableName);
-
+		String actualTableName = tableName;
+		String actualSchema = datasource.getDatabaseName();
+		if (tableName.contains(".")){
+			String[] split = tableName.split("\\.", 2);
+			actualSchema = split[0];
+			actualTableName = split[1];
+		}
+		queryParam.setSchema(actualSchema);
+		queryParam.setTable(actualTableName);
 		// 查询字段列表
 		Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 		List<ColumnInfoBO> columnInfoList = dbAccessor.showColumns(dbConfig, queryParam); // 提取字段名称

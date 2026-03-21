@@ -31,7 +31,7 @@ public interface SchemaService {
 	void extractDatabaseName(SchemaDTO schemaDTO, DbConfigBO dbConfig);
 
 	void buildSchemaFromDocuments(String agentId, List<Document> columnDocumentList, List<Document> tableDocuments,
-			SchemaDTO schemaDTO);
+			SchemaDTO schemaDTO, List<String> extraForeignKeys);
 
 	List<Document> getTableDocuments(Integer datasourceId, List<String> tableNames);
 

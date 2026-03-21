@@ -699,7 +699,7 @@
               clearable
               filterable
             >
-              <el-option v-for="table in tableList" :key="table" :label="table" :value="table" />
+              <el-option v-for="table in targetTableList" :key="table" :label="table" :value="table" />
             </el-select>
           </el-col>
 
@@ -859,6 +859,7 @@
         description: '',
       } as LogicalRelation);
       const tableList: Ref<string[]> = ref([]);
+      const targetTableList: Ref<string[]> = ref([]);
       const sourceColumnList: Ref<string[]> = ref([]);
       const targetColumnList: Ref<string[]> = ref([]);
       const savingForeignKeys: Ref<boolean> = ref(false);
@@ -1348,7 +1349,11 @@
 
         // 加载表列表
         try {
+          // 左侧主表：仅显示当前点击进入配置环境的当前数据源及子 Schema 列表
           tableList.value = await datasourceService.getDatasourceTables(datasourceRow.id);
+          
+          // 右侧关联表：获取平台上所有 Active 状态数据源下的合法受管表（跨业务库）
+          targetTableList.value = await logicalRelationService.getAllDatasourceTables(datasourceRow.id);
         } catch (error) {
           ElMessage.error('加载表列表失败');
           console.error('Failed to load table list:', error);
@@ -1627,6 +1632,7 @@
         foreignKeyList,
         newForeignKey,
         tableList,
+        targetTableList,
         sourceColumnList,
         targetColumnList,
         savingForeignKeys,
