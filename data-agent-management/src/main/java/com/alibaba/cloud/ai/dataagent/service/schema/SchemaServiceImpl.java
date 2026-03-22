@@ -306,7 +306,7 @@ public class SchemaServiceImpl implements SchemaService {
 			.filterExpression(filterExpression)
 			.build();
 
-		return agentVectorStoreService.getDocumentsOnlyByFilter(filterExpression, tableTopK);
+		return agentVectorStoreService.similaritySearch(searchRequest);
 	}
 
 	private List<String> getMissingTableNamesWithForeignKeySet(List<Document> tableDocuments,

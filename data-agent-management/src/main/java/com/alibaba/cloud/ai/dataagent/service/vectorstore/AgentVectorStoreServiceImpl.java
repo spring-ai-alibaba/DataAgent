@@ -228,6 +228,12 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	}
 
 	@Override
+	public List<Document> similaritySearch(SearchRequest searchRequest) {
+		Assert.notNull(searchRequest, "searchRequest cannot be null.");
+		return vectorStore.similaritySearch(searchRequest);
+	}
+
+	@Override
 	public List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK) {
 		Assert.notNull(filterExpression, "filterExpression cannot be null.");
 		if (topK == null)
