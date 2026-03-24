@@ -34,97 +34,97 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class SchemaServiceImplTest {
 
-    private SchemaServiceImpl schemaService;
+	private SchemaServiceImpl schemaService;
 
-    private RecordingAgentVectorStoreService agentVectorStoreService;
+	private RecordingAgentVectorStoreService agentVectorStoreService;
 
-    @BeforeEach
-    void setUp() {
-        DataAgentProperties dataAgentProperties = new DataAgentProperties();
-        dataAgentProperties.getVectorStore().setTableTopkLimit(6);
-        dataAgentProperties.getVectorStore().setTableSimilarityThreshold(0.35);
-        agentVectorStoreService = new RecordingAgentVectorStoreService();
+	@BeforeEach
+	void setUp() {
+		DataAgentProperties dataAgentProperties = new DataAgentProperties();
+		dataAgentProperties.getVectorStore().setTableTopkLimit(6);
+		dataAgentProperties.getVectorStore().setTableSimilarityThreshold(0.35);
+		agentVectorStoreService = new RecordingAgentVectorStoreService();
 
-        schemaService = new SchemaServiceImpl(null, null, null, null, null, dataAgentProperties,
-                agentVectorStoreService);
-    }
+		schemaService = new SchemaServiceImpl(null, null, null, null, null, dataAgentProperties,
+				agentVectorStoreService);
+	}
 
-    @Test
-    void getTableDocumentsByDatasource_ShouldUseQueryInSimilaritySearch() {
-        Integer datasourceId = 42;
-        String query = "查询用户订单";
-        List<Document> expectedDocuments = List.of(new Document("orders table",
-                Map.of(DocumentMetadataConstant.NAME, "orders", Constant.DATASOURCE_ID, datasourceId.toString())));
-        agentVectorStoreService.documentsToReturn = expectedDocuments;
+	@Test
+	void getTableDocumentsByDatasource_ShouldUseQueryInSimilaritySearch() {
+		Integer datasourceId = 42;
+		String query = "查询用户订单";
+		List<Document> expectedDocuments = List.of(new Document("orders table",
+				Map.of(DocumentMetadataConstant.NAME, "orders", Constant.DATASOURCE_ID, datasourceId.toString())));
+		agentVectorStoreService.documentsToReturn = expectedDocuments;
 
-        List<Document> actualDocuments = schemaService.getTableDocumentsByDatasource(datasourceId, query);
+		List<Document> actualDocuments = schemaService.getTableDocumentsByDatasource(datasourceId, query);
 
-        assertEquals(expectedDocuments, actualDocuments);
-        assertNotNull(agentVectorStoreService.lastSearchRequest);
-        assertEquals(query, agentVectorStoreService.lastSearchRequest.getQuery());
-        assertEquals(6, agentVectorStoreService.lastSearchRequest.getTopK());
-        assertEquals(0.35, agentVectorStoreService.lastSearchRequest.getSimilarityThreshold());
-        assertNotNull(agentVectorStoreService.lastSearchRequest.getFilterExpression());
-    }
+		assertEquals(expectedDocuments, actualDocuments);
+		assertNotNull(agentVectorStoreService.lastSearchRequest);
+		assertEquals(query, agentVectorStoreService.lastSearchRequest.getQuery());
+		assertEquals(6, agentVectorStoreService.lastSearchRequest.getTopK());
+		assertEquals(0.35, agentVectorStoreService.lastSearchRequest.getSimilarityThreshold());
+		assertNotNull(agentVectorStoreService.lastSearchRequest.getFilterExpression());
+	}
 
-    private static final class RecordingAgentVectorStoreService implements AgentVectorStoreService {
+	private static final class RecordingAgentVectorStoreService implements AgentVectorStoreService {
 
-        private SearchRequest lastSearchRequest;
+		private SearchRequest lastSearchRequest;
 
-        private List<Document> documentsToReturn = List.of();
+		private List<Document> documentsToReturn = List.of();
 
-        @Override
-        public List<Document> search(AgentSearchRequest searchRequest) {
-            throw new UnsupportedOperationException();
-        }
+		@Override
+		public List<Document> search(AgentSearchRequest searchRequest) {
+			throw new UnsupportedOperationException();
+		}
 
-        @Override
-        public Boolean deleteDocumentsByVectorType(String agentId, String vectorType) {
-            throw new UnsupportedOperationException();
-        }
+		@Override
+		public Boolean deleteDocumentsByVectorType(String agentId, String vectorType) {
+			throw new UnsupportedOperationException();
+		}
 
-        @Override
-        public Boolean deleteDocumentsByMetedata(String agentId, Map<String, Object> metadata) {
-            throw new UnsupportedOperationException();
-        }
+		@Override
+		public Boolean deleteDocumentsByMetedata(String agentId, Map<String, Object> metadata) {
+			throw new UnsupportedOperationException();
+		}
 
-        @Override
-        public Boolean deleteDocumentsByMetadata(Map<String, Object> metadata) {
-            throw new UnsupportedOperationException();
-        }
+		@Override
+		public Boolean deleteDocumentsByMetadata(Map<String, Object> metadata) {
+			throw new UnsupportedOperationException();
+		}
 
-        @Override
-        public List<Document> getDocumentsForAgent(String agentId, String query, String vectorType) {
-            throw new UnsupportedOperationException();
-        }
+		@Override
+		public List<Document> getDocumentsForAgent(String agentId, String query, String vectorType) {
+			throw new UnsupportedOperationException();
+		}
 
-        @Override
-        public List<Document> getDocumentsForAgent(String agentId, String query, String vectorType, int topK,
-                double threshold) {
-            throw new UnsupportedOperationException();
-        }
+		@Override
+		public List<Document> getDocumentsForAgent(String agentId, String query, String vectorType, int topK,
+				double threshold) {
+			throw new UnsupportedOperationException();
+		}
 
-        @Override
-        public List<Document> similaritySearch(SearchRequest searchRequest) {
-            this.lastSearchRequest = searchRequest;
-            return documentsToReturn;
-        }
+		@Override
+		public List<Document> similaritySearch(SearchRequest searchRequest) {
+			this.lastSearchRequest = searchRequest;
+			return documentsToReturn;
+		}
 
-        @Override
-        public List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK) {
-            throw new UnsupportedOperationException();
-        }
+		@Override
+		public List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK) {
+			throw new UnsupportedOperationException();
+		}
 
-        @Override
-        public boolean hasDocuments(String agentId) {
-            throw new UnsupportedOperationException();
-        }
+		@Override
+		public boolean hasDocuments(String agentId) {
+			throw new UnsupportedOperationException();
+		}
 
-        @Override
-        public void addDocuments(String agentId, List<Document> documents) {
-            throw new UnsupportedOperationException();
-        }
+		@Override
+		public void addDocuments(String agentId, List<Document> documents) {
+			throw new UnsupportedOperationException();
+		}
 
-    }
+	}
 
 }
