@@ -403,7 +403,22 @@ interface KnowledgeForm extends AgentKnowledge {
 
 const DEFAULT_AGENT_ID = 0;
 const route = useRoute();
-const agentId = computed(() => Number(route.query.agentId) || DEFAULT_AGENT_ID);
+const agentId = ref<number>(DEFAULT_AGENT_ID);
+
+async function resolveAgentId() {
+	const routeAgentId = Number(route.query.agentId);
+	if (Number.isFinite(routeAgentId) && routeAgentId > 0) {
+		agentId.value = routeAgentId;
+		return;
+	}
+	try {
+		const agents = await agentService.list();
+		const fallbackId = agents.find(item => item.id && item.id > 0)?.id;
+		agentId.value = fallbackId ?? DEFAULT_AGENT_ID;
+	} catch {
+		agentId.value = DEFAULT_AGENT_ID;
+	}
+}
 
 const { $tip } = useNuxtApp();
 const { showConfirm } = useConfirm();
@@ -751,7 +766,12 @@ async function saveKnowledge() {
 	}
 }
 
-onMounted(() => loadKnowledgeList());
+onMounted(async () => {
+	await resolveAgentId();
+	queryParams.agentId = agentId.value;
+	knowledgeForm.value.agentId = agentId.value;
+	await loadKnowledgeList();
+});
 </script>
 
 <style scoped>

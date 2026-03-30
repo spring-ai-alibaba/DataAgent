@@ -1,14 +1,10 @@
 <template>
 	<section class="page-shell">
-		<!-- 顶部标题栏 -->
-		<header class="d-flex align-center justify-space-between mb-8">
-			<div>
-				<h1 class="text-h4 font-weight-bold mb-1" style="color: #1565c0">业务知识配置</h1>
-				<p class="text-body-2 text-medium-emphasis">
-					管理全局业务术语词汇表，支持同义词扩展与向量化召回。
-				</p>
-			</div>
-			<div class="d-flex ga-3">
+		<KnowledgePageHeader
+			title="业务知识配置"
+			subtitle="管理全局业务术语词汇表，支持同义词扩展与向量化召回。"
+		>
+			<template #actions>
 				<v-btn
 					class="text-none bg-white"
 					style="border-color: #e2e8f0"
@@ -38,8 +34,8 @@
 				>
 					添加知识
 				</v-btn>
-			</div>
-		</header>
+			</template>
+		</KnowledgePageHeader>
 
 		<!-- 搜索栏 -->
 		<v-card variant="flat" border class="rounded-lg mb-4 pa-4">

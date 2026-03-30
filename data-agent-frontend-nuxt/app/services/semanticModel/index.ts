@@ -3,7 +3,7 @@
  */
 
 import axios from 'axios';
-import type { ApiResponse } from './common';
+import type { ApiResponse } from '~/services/common/index';
 
 /**
  * @description 语义模型实体接口
@@ -275,10 +275,3 @@ class SemanticModelService {
 }
 
 export default new SemanticModelService();
-export type {
-  SemanticModel,
-  SemanticModelAddDto,
-  SemanticModelImportItem,
-  SemanticModelBatchImportDTO,
-  BatchImportResult,
-};
