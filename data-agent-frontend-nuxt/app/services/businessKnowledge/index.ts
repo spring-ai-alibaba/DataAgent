@@ -19,7 +19,7 @@
  */
 
 import axios from 'axios';
-import { ApiResponse } from './common';
+import type { ApiResponse } from '~/services/common/index';
 
 /**
  * @description 业务术语视图对象

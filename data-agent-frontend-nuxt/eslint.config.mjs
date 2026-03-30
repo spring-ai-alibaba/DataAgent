@@ -7,5 +7,8 @@ export default withNuxt({
 		'vue/html-self-closing': 'off',
 		//关闭强制多个单词
 		'vue/multi-word-component-names': 'off',
+		// 允许 v-slot:item.xxx 语法（Vuetify v-data-table 插槽）
+		'vue/no-v-html': 'off',
+		'vue/valid-v-slot': ['error', { allowModifiers: true }],
 	},
 });
