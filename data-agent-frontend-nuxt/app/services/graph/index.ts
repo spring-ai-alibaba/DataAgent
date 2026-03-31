@@ -133,11 +133,16 @@ class GraphService {
 
     let isCompleted = false;
 
-    eventSource.onerror = async (error) => {
+    eventSource.onerror = async (_error) => {
+      // If already completed or the connection was intentionally closed, ignore
       if (isCompleted) {
         return;
       }
-      console.error("EventSource error:", error);
+      // EventSource.CLOSED = 2: connection was closed (normal after complete)
+      if (eventSource.readyState === EventSource.CLOSED) {
+        return;
+      }
+      console.error("EventSource error:", _error);
       if (onError) {
         await onError(new Error("Stream connection failed"));
       }
@@ -146,10 +151,10 @@ class GraphService {
 
     eventSource.addEventListener("complete", async () => {
       isCompleted = true;
+      eventSource.close();
       if (onComplete) {
         await onComplete();
       }
-      eventSource.close();
     });
 
     return () => {

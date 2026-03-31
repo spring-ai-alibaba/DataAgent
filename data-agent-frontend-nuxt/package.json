@@ -14,7 +14,10 @@
     "@nuxt/eslint": "^1.13.0",
     "@pinia/nuxt": "0.11.3",
     "axios": "^1.13.4",
+    "dompurify": "^3.3.3",
     "eslint": "^9.39.2",
+    "highlight.js": "^11.11.1",
+    "marked": "^13.0.3",
     "nuxt": "^4.3.0",
     "pinia": "^3.0.4",
     "prettier": "^3.8.1",
@@ -25,6 +28,7 @@
     "vuetify-nuxt-module": "0.19.5"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.2.0",
     "crypto": "^1.0.1",
     "globby": "^16.1.0",
     "ts-morph": "^27.0.2",
