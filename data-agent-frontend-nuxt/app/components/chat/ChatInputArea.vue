@@ -3,18 +3,55 @@
 		<!-- Status / Info bar -->
 		<div class="status-bar">
 			<div class="status-chips">
-				<div class="status-chip">
-					<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="chip-icon">
-						<rect x="1" y="2" width="12" height="10" rx="2" stroke="#64748b" stroke-width="1.2" />
-						<path d="M4 6h6M4 8.5h4" stroke="#64748b" stroke-width="1" stroke-linecap="round" />
-					</svg>
-					JDBC: 核心库 (MySQL)
+
+				<!-- Datasource selector -->
+				<div class="status-chip status-chip--clickable" @click.stop="toggleDsMenu">
+					<v-icon size="13" color="#64748b">mdi-database-outline</v-icon>
+					<span>{{ activeDsLabel }}</span>
+					<v-icon size="12" color="#64748b">mdi-chevron-down</v-icon>
+					<!-- Dropdown -->
+					<div v-if="showDsMenu" class="chip-dropdown" @click.stop>
+						<div class="chip-dropdown-title">切换数据库</div>
+						<div v-if="store.allDatasources.length === 0" class="chip-dropdown-empty">暂无已启用的数据库</div>
+						<div
+							v-for="ds in store.allDatasources"
+							:key="ds.id"
+							class="chip-dropdown-item"
+							:class="{ 'is-active': store.activeDatasource?.id === ds.id }"
+							@click="selectDs(ds)"
+						>
+							<v-icon size="13" :color="store.activeDatasource?.id === ds.id ? '#2563eb' : '#94a3b8'">mdi-database-outline</v-icon>
+							<span>{{ ds.name }}</span>
+							<span class="ds-type">{{ ds.type?.toUpperCase() }}</span>
+							<v-icon v-if="store.activeDatasource?.id === ds.id" size="12" color="#2563eb" class="ml-auto">mdi-check</v-icon>
+						</div>
+					</div>
 				</div>
-				<div v-if="store.activeChatModel" class="status-chip status-chip--model">
-					<v-icon size="13" color="#3b82f6" class="mr-1">mdi-lightning-bolt</v-icon>
-					Chat: {{ store.activeChatModel }}
-					<v-icon size="12" color="#64748b" class="ml-1">mdi-chevron-down</v-icon>
+
+				<!-- Model selector -->
+				<div v-if="store.activeChatModel" class="status-chip status-chip--model status-chip--clickable" @click.stop="toggleModelMenu">
+					<v-icon size="13" color="#3b82f6">mdi-lightning-bolt</v-icon>
+					<span>{{ store.activeChatModel }}</span>
+					<v-icon size="12" color="#64748b">mdi-chevron-down</v-icon>
+					<!-- Dropdown -->
+					<div v-if="showModelMenu" class="chip-dropdown" @click.stop>
+						<div class="chip-dropdown-title">切换对话模型</div>
+						<div v-if="store.chatModels.length === 0" class="chip-dropdown-empty">暂无模型配置</div>
+						<div
+							v-for="m in store.chatModels"
+							:key="m.id"
+							class="chip-dropdown-item"
+							:class="{ 'is-active': m.isActive }"
+							@click="selectModel(m)"
+						>
+							<v-icon size="13" :color="m.isActive ? '#2563eb' : '#94a3b8'">mdi-lightning-bolt</v-icon>
+							<span>{{ m.modelName }}</span>
+							<span class="ds-type">{{ m.provider }}</span>
+							<v-icon v-if="m.isActive" size="12" color="#2563eb" class="ml-auto">mdi-check</v-icon>
+						</div>
+					</div>
 				</div>
+
 			</div>
 		</div>
 
@@ -125,17 +162,58 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useChatStore } from '~/stores/chat';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useChatStore, type Datasource } from '~/stores/chat';
+import type { ModelConfig } from '~/services/modelConfig/index';
 
 const store = useChatStore();
 const inputText = ref('');
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
 const showOptions = ref(false);
+const showDsMenu = ref(false);
+const showModelMenu = ref(false);
+
+// Active datasource label
+const activeDsLabel = computed(() => {
+	const ds = store.activeDatasource;
+	if (!ds) return '选择数据库';
+	const type = ds.type ? ` (${ds.type.toUpperCase()})` : '';
+	return (ds.name || `DB ${ds.id}`) + type;
+});
 
 function toggleOptions() {
 	showOptions.value = !showOptions.value;
 }
+
+function toggleDsMenu(event?: MouseEvent) {
+	event?.stopPropagation();
+	showDsMenu.value = !showDsMenu.value;
+	showModelMenu.value = false;
+}
+
+function toggleModelMenu(event?: MouseEvent) {
+	event?.stopPropagation();
+	showModelMenu.value = !showModelMenu.value;
+	showDsMenu.value = false;
+}
+
+async function selectDs(ds: Datasource) {
+	showDsMenu.value = false;
+	await store.switchDatasource(ds);
+}
+
+async function selectModel(m: ModelConfig) {
+	showModelMenu.value = false;
+	if (m.id) await store.switchModel(m.id);
+}
+
+function onOutsideClick() {
+	showDsMenu.value = false;
+	showModelMenu.value = false;
+}
+
+onMounted(() => document.addEventListener('click', onOutsideClick));
+onUnmounted(() => document.removeEventListener('click', onOutsideClick));
 
 function onNl2sqlChange() {
 	if (store.requestOptions.nl2sqlOnly) {
@@ -210,13 +288,66 @@ async function handleStop() {
 	background: #eff6ff;
 	border-color: #bfdbfe;
 	color: #1d4ed8;
-	cursor: pointer;
 }
-.status-chip--model:hover {
+.status-chip--clickable {
+	cursor: pointer;
+	position: relative;
+}
+.status-chip--clickable:hover {
+	background: #e8edf5;
+}
+.status-chip--model.status-chip--clickable:hover {
 	background: #dbeafe;
 }
-.chip-icon {
-	flex-shrink: 0;
+
+/* ── Chip dropdown ───────────────────────────────────────────────────────────── */
+.chip-dropdown {
+	position: absolute;
+	top: calc(100% + 6px);
+	left: 0;
+	min-width: 220px;
+	background: white;
+	border: 1px solid #e2e8f0;
+	border-radius: 10px;
+	box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+	z-index: 999;
+	padding: 6px 0;
+}
+.chip-dropdown-title {
+	font-size: 11px;
+	color: #94a3b8;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	padding: 4px 14px 6px;
+}
+.chip-dropdown-empty {
+	font-size: 13px;
+	color: #94a3b8;
+	padding: 8px 14px;
+}
+.chip-dropdown-item {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	padding: 8px 14px;
+	font-size: 13px;
+	color: #1e293b;
+	cursor: pointer;
+	transition: background 0.1s;
+}
+.chip-dropdown-item:hover {
+	background: #f1f5f9;
+}
+.chip-dropdown-item.is-active {
+	background: #eff6ff;
+	color: #2563eb;
+	font-weight: 600;
+}
+.ds-type {
+	font-size: 11px;
+	color: #94a3b8;
+	margin-left: 2px;
 }
 
 /* ── Textarea ────────────────────────────────────────────────────────────────── */

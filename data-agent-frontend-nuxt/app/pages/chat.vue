@@ -9,10 +9,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch } from 'vue';
+import { onMounted, onUnmounted, watch, computed } from 'vue';
 import { useChatStore } from '~/stores/chat';
 import agentService from '~/services/agent/index';
-import modelConfigService from '~/services/modelConfig/index';
 import ChatSidebar from '~/components/chat/ChatSidebar.vue';
 import ChatMessageList from '~/components/chat/ChatMessageList.vue';
 import ChatInputArea from '~/components/chat/ChatInputArea.vue';
@@ -38,12 +37,7 @@ async function init(agentId: number) {
 		}
 	} catch { /* ignore */ }
 
-	// Load active model
-	try {
-		const configs = await modelConfigService.list();
-		const active = configs.find(c => c.modelType === 'CHAT' && c.isActive);
-		store.activeChatModel = active?.modelName || '';
-	} catch { /* ignore */ }
+	// Load active model — handled by store.loadSessions
 
 	store.connectSessionStream(agentId);
 	await store.loadSessions(agentId);

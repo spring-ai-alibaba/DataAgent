@@ -1,7 +1,21 @@
 import { defineStore } from 'pinia';
 import chatService, { type ChatSession, type ChatMessage } from '~/services/chat/index';
 import graphService, { type GraphRequest, type GraphNodeResponse, TextType } from '~/services/graph/index';
+import agentDatasourceService from '~/services/agentDatasource/index';
 import { useSessionStateManager } from '~/services/sessionStateManager/index';
+import modelConfigService, { type ModelConfig } from '~/services/modelConfig/index';
+import axios from 'axios';
+
+export interface Datasource {
+	id?: number;
+	name?: string;
+	type?: string;
+	databaseName?: string;
+	status?: string;
+	testStatus?: string;
+	description?: string;
+	isActive?: boolean;
+}
 
 export interface ExtendedChatSession extends ChatSession {
 	editing?: boolean;
@@ -50,6 +64,14 @@ export const useChatStore = defineStore('chat', () => {
 	const currentAgentAvatar = ref('');
 	const currentAgentDescription = ref('');
 
+	// ── Datasource state ──────────────────────────────────────────────────────────
+	const allDatasources = ref<Datasource[]>([]);
+	const activeDatasource = ref<Datasource | null>(null);
+
+	// ── Model state ──────────────────────────────────────────────────────────────
+	const chatModels = ref<ModelConfig[]>([]);
+	const activeModelConfig = ref<ModelConfig | null>(null);
+
 	// ── SSE session stream refs (not reactive) ──────────────────────────────────
 	let sessionEventSource: EventSource | null = null;
 	let sessionReconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -93,6 +115,63 @@ export const useChatStore = defineStore('chat', () => {
 			await selectSession(sessions.value[0]);
 		} else {
 			await createNewSession(agentId);
+		}
+		// Load global datasources (active)
+		try {
+			const res = await axios.get<Datasource[]>('/api/datasource', { params: { status: 'active' } });
+			const list: Datasource[] = Array.isArray(res.data) ? res.data : [];
+			allDatasources.value = list;
+			activeDatasource.value = list[0] || null;
+		} catch { /* ignore */ }
+		// Load chat models
+		try {
+			const models = await modelConfigService.list();
+			chatModels.value = models.filter(m => m.modelType === 'CHAT');
+			const active = chatModels.value.find(m => m.isActive);
+			if (active) {
+				activeModelConfig.value = active;
+				activeChatModel.value = active.modelName;
+			}
+		} catch { /* ignore */ }
+	}
+
+	async function switchDatasource(ds: Datasource) {
+		const agentId = currentAgentId.value;
+		const nextDatasourceId = ds?.id;
+		if (!agentId || !nextDatasourceId) {
+			activeDatasource.value = ds;
+			return;
+		}
+		if (activeDatasource.value?.id === nextDatasourceId) {
+			activeDatasource.value = { ...ds, isActive: true };
+			return;
+		}
+		try {
+			// 全局数据源列表切换：确保先建立/启用 agent 关联
+			// 后端 add 接口会自动禁用该 agent 其他数据源并启用当前数据源
+			await agentDatasourceService.addDatasourceToAgent(String(agentId), nextDatasourceId);
+			allDatasources.value = allDatasources.value.map(item => ({
+				...item,
+				isActive: item.id === nextDatasourceId,
+			}));
+			activeDatasource.value = { ...ds, isActive: true };
+		} catch (e) {
+			console.error('切换数据源失败', e);
+		}
+	}
+
+	async function switchModel(modelId: number) {
+		try {
+			await modelConfigService.activate(modelId);
+			const models = await modelConfigService.list();
+			chatModels.value = models.filter(m => m.modelType === 'CHAT');
+			const active = chatModels.value.find(m => m.isActive);
+			if (active) {
+				activeModelConfig.value = active;
+				activeChatModel.value = active.modelName;
+			}
+		} catch (e) {
+			console.error('切换模型失败', e);
 		}
 	}
 
@@ -391,6 +470,10 @@ export const useChatStore = defineStore('chat', () => {
 		currentAgentName,
 		currentAgentAvatar,
 		currentAgentDescription,
+		allDatasources,
+		activeDatasource,
+		chatModels,
+		activeModelConfig,
 		// actions
 		connectSessionStream,
 		disconnectSessionStream,
@@ -406,5 +489,7 @@ export const useChatStore = defineStore('chat', () => {
 		submitFeedback,
 		openReportFullscreen,
 		downloadHtmlReport,
+		switchDatasource,
+		switchModel,
 	};
 });
