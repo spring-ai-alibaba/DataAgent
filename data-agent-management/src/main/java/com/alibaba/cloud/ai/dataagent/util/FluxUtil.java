@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.util;
 
+import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -23,9 +24,12 @@ import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TRACE_THREAD_ID;
 
 /**
  * @author vlsmb
@@ -131,7 +135,10 @@ public final class FluxUtil {
 
 	private static Flux<GraphResponse<StreamingOutput>> toStreamingResponseFlux(String nodeName, OverAllState state,
 			Flux<ChatResponse> sourceFlux, Supplier<Map<String, Object>> resultSupplier) {
+		Object threadId = state.value(TRACE_THREAD_ID).orElse(null);
+
 		Flux<GraphResponse<StreamingOutput>> streamingFlux = sourceFlux
+			.doOnNext(response -> extractAndAccumulateTokens(threadId, response))
 			.filter(response -> response != null && response.getResult() != null
 					&& response.getResult().getOutput() != null)
 			.map(response -> GraphResponse.of(new StreamingOutput<>(response.getResult().getOutput(), response,
@@ -139,6 +146,19 @@ public final class FluxUtil {
 
 		return streamingFlux.concatWith(Mono.fromSupplier(() -> GraphResponse.done(resultSupplier.get())))
 			.onErrorResume(error -> Flux.just(GraphResponse.error(error)));
+	}
+
+	/**
+	 * 从 ChatResponse 中提取 token 用量并累计到 Langfuse Reporter
+	 */
+	private static void extractAndAccumulateTokens(Object threadId, ChatResponse response) {
+		if (threadId == null || response.getMetadata() == null) {
+			return;
+		}
+		Usage usage = response.getMetadata().getUsage();
+		if (usage != null && (usage.getPromptTokens() > 0 || usage.getCompletionTokens() > 0)) {
+			LangfuseService.accumulateTokens(threadId, usage.getPromptTokens(), usage.getCompletionTokens());
+		}
 	}
 
 }

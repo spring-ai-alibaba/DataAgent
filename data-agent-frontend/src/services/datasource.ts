@@ -47,6 +47,15 @@ export interface AgentDatasource {
   selectTables?: string[];
 }
 
+// 定义数据源类型接口
+export interface DatasourceType {
+  code: number;
+  typeName: string;
+  dialect: string;
+  protocol: string;
+  displayName: string;
+}
+
 const API_BASE_URL = '/api/datasource';
 
 class DatasourceService {
@@ -109,6 +118,12 @@ class DatasourceService {
   // 7. 测试数据源连接
   async testConnection(id: number): Promise<ApiResponse<boolean>> {
     const response = await axios.post<ApiResponse<boolean>>(`${API_BASE_URL}/${id}/test`);
+    return response.data;
+  }
+
+  // 8. 获取所有可用的数据源类型
+  async getDatasourceTypes(): Promise<ApiResponse<DatasourceType[]>> {
+    const response = await axios.get<ApiResponse<DatasourceType[]>>(`${API_BASE_URL}/types`);
     return response.data;
   }
 }

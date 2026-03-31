@@ -174,6 +174,8 @@ public class DataAgentConfiguration implements DisposableBean {
 			// Human Review keys
 			keyStrategyHashMap.put(HUMAN_REVIEW_ENABLED, KeyStrategy.REPLACE);
 			keyStrategyHashMap.put(HUMAN_FEEDBACK_DATA, KeyStrategy.REPLACE);
+			// Langfuse 追踪：threadId 透传
+			keyStrategyHashMap.put(TRACE_THREAD_ID, KeyStrategy.REPLACE);
 			// Final result
 			keyStrategyHashMap.put(RESULT, KeyStrategy.REPLACE);
 			return keyStrategyHashMap;
