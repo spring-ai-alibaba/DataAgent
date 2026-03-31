@@ -28,7 +28,11 @@ async function loadCache() {
 		const data = await fs.readFile(CACHE_FILE, 'utf-8');
 		return JSON.parse(data);
 	} catch (e) {
-		console.log(e);
+		// 如果文件不存在，静默返回空对象，不打印错误堆栈
+		if (e.code === 'ENOENT') {
+			return {};
+		}
+		console.error('加载缓存失败:', e.message);
 		return {};
 	}
 }
