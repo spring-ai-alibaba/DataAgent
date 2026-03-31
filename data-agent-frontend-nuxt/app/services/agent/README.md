@@ -25,34 +25,34 @@
 **描述**: 智能体实体定义
 ```typescript
 export interface Agent {
-  /** 智能体 ID */
-  id?: number;
-  /** 智能体名称 */
-  name?: string;
-  /** 智能体描述 */
-  description?: string;
-  /** 智能体头像 URL */
-  avatar?: string;
-  /** 状态 (draft, published, offline) */
-  status?: string;
-  /** API Key */
-  apiKey?: string | null;
-  /** 是否启用 API Key */
-  apiKeyEnabled?: number | boolean;
-  /** 提示词 (Prompt) */
-  prompt?: string;
-  /** 分类 */
-  category?: string;
-  /** 管理员 ID */
-  adminId?: number;
-  /** 标签 */
-  tags?: string;
-  /** 创建时间 */
-  createTime?: Date;
-  /** 更新时间 */
-  updateTime?: Date;
-  /** 是否启用人工审核 (0 或 1) */
-  humanReviewEnabled?: number | boolean;
+	/** 智能体 ID */
+	id?: number;
+	/** 智能体名称 */
+	name?: string;
+	/** 智能体描述 */
+	description?: string;
+	/** 智能体头像 URL */
+	avatar?: string;
+	/** 状态 (draft, published, offline) */
+	status?: string;
+	/** API Key */
+	apiKey?: string | null;
+	/** 是否启用 API Key */
+	apiKeyEnabled?: number | boolean;
+	/** 提示词 (Prompt) */
+	prompt?: string;
+	/** 分类 */
+	category?: string;
+	/** 管理员 ID */
+	adminId?: number;
+	/** 标签 */
+	tags?: string;
+	/** 创建时间 */
+	createTime?: Date;
+	/** 更新时间 */
+	updateTime?: Date;
+	/** 是否启用人工审核 (0 或 1) */
+	humanReviewEnabled?: number | boolean;
 }
 ```
 
@@ -60,10 +60,10 @@ export interface Agent {
 **描述**: 智能体 API Key 响应结构
 ```typescript
 export interface AgentApiKeyResponse {
-  /** API Key 内容 */
-  apiKey: string | null;
-  /** 是否启用 */
-  apiKeyEnabled: number | boolean;
+	/** API Key 内容 */
+	apiKey: string | null;
+	/** 是否启用 */
+	apiKeyEnabled: number | boolean;
 }
 ```
 

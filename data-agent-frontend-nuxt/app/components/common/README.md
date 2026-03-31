@@ -5,5 +5,6 @@
 ## 子目录
 
 - [ConfirmDialog](./ConfirmDialog/README.md)
+- [KnowledgePageHeader](./KnowledgePageHeader/README.md)
 - [Tip](./Tip/README.md)
 
