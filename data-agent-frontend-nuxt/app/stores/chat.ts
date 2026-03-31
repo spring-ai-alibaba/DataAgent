@@ -1,0 +1,410 @@
+import { defineStore } from 'pinia';
+import chatService, { type ChatSession, type ChatMessage } from '~/services/chat/index';
+import graphService, { type GraphRequest, type GraphNodeResponse, TextType } from '~/services/graph/index';
+import { useSessionStateManager } from '~/services/sessionStateManager/index';
+
+export interface ExtendedChatSession extends ChatSession {
+	editing?: boolean;
+	editingTitle?: string;
+}
+
+export interface ChatRequestOptions {
+	humanFeedback: boolean;
+	nl2sqlOnly: boolean;
+	showSqlResults: boolean;
+	pageSize: number;
+}
+
+export const useChatStore = defineStore('chat', () => {
+	// ── Session list state ──────────────────────────────────────────────────────
+	const sessions = ref<ExtendedChatSession[]>([]);
+	const currentSession = ref<ChatSession | null>(null);
+	const currentMessages = ref<ChatMessage[]>([]);
+
+	// ── Streaming state ─────────────────────────────────────────────────────────
+	const isStreaming = ref(false);
+	const nodeBlocks = ref<GraphNodeResponse[][]>([]);
+
+	// ── Human feedback state ────────────────────────────────────────────────────
+	const showHumanFeedback = ref(false);
+	const lastRequest = ref<GraphRequest | null>(null);
+	const feedbackContent = ref('');
+
+	// ── Request options ─────────────────────────────────────────────────────────
+	const requestOptions = ref<ChatRequestOptions>({
+		humanFeedback: false,
+		nl2sqlOnly: false,
+		showSqlResults: false,
+		pageSize: 20,
+	});
+
+	// ── Report state ────────────────────────────────────────────────────────────
+	const reportFormat = ref<'markdown' | 'html'>('markdown');
+	const showReportFullscreen = ref(false);
+	const fullscreenReportContent = ref('');
+
+	// ── Agent info (set by layout) ──────────────────────────────────────────────
+	const currentAgentId = ref<number | undefined>(undefined);
+	const activeChatModel = ref('');
+	const currentAgentName = ref('');
+	const currentAgentAvatar = ref('');
+	const currentAgentDescription = ref('');
+
+	// ── SSE session stream refs (not reactive) ──────────────────────────────────
+	let sessionEventSource: EventSource | null = null;
+	let sessionReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+	let isStoreActive = true;
+
+	const { getSessionState, syncStateToView, saveViewToState, deleteSessionState } =
+		useSessionStateManager();
+
+	// ── Session stream ──────────────────────────────────────────────────────────
+	function connectSessionStream(agentId: number) {
+		if (sessionReconnectTimer) { clearTimeout(sessionReconnectTimer); sessionReconnectTimer = null; }
+		if (sessionEventSource) sessionEventSource.close();
+
+		const source = new EventSource(`/api/agent/${agentId}/sessions/stream`);
+		source.addEventListener('title-updated', (event) => {
+			try {
+				const data = JSON.parse((event as MessageEvent<string>).data) as { sessionId: string; title: string };
+				const target = sessions.value.find(s => s.id === data.sessionId);
+				if (target) { target.title = data.title; target.editingTitle = data.title; }
+				if (currentSession.value?.id === data.sessionId) currentSession.value.title = data.title;
+			} catch { /* ignore */ }
+		});
+		source.onerror = () => {
+			source.close();
+			sessionEventSource = null;
+			if (isStoreActive) sessionReconnectTimer = setTimeout(() => connectSessionStream(agentId), 3000);
+		};
+		sessionEventSource = source;
+	}
+
+	function disconnectSessionStream() {
+		isStoreActive = false;
+		if (sessionReconnectTimer) clearTimeout(sessionReconnectTimer);
+		if (sessionEventSource) { sessionEventSource.close(); sessionEventSource = null; }
+	}
+
+	// ── Session operations ──────────────────────────────────────────────────────
+	async function loadSessions(agentId: number) {
+		sessions.value = await chatService.getAgentSessions(agentId);
+		if (sessions.value.length > 0) {
+			await selectSession(sessions.value[0]);
+		} else {
+			await createNewSession(agentId);
+		}
+	}
+
+	async function createNewSession(agentId: number) {
+		const newSession = await chatService.createSession(agentId, '新会话');
+		sessions.value.unshift(newSession);
+		await selectSession(newSession);
+		return newSession;
+	}
+
+	async function selectSession(session: ChatSession) {
+		// Save current session state
+		if (currentSession.value) {
+			saveViewToState(currentSession.value.id, { isStreaming, nodeBlocks });
+		}
+		currentSession.value = session;
+		syncStateToView(session.id, { isStreaming, nodeBlocks });
+		currentMessages.value = await chatService.getSessionMessages(session.id);
+	}
+
+	async function renameSession(session: ExtendedChatSession, newTitle: string) {
+		await chatService.renameSession(session.id, newTitle);
+		session.title = newTitle;
+		session.editing = false;
+		if (currentSession.value?.id === session.id) currentSession.value.title = newTitle;
+	}
+
+	async function pinSession(session: ChatSession) {
+		await chatService.pinSession(session.id, !session.isPinned);
+		session.isPinned = !session.isPinned;
+	}
+
+	async function removeSession(session: ChatSession) {
+		await chatService.deleteSession(session.id);
+		deleteSessionState(session.id);
+		sessions.value = sessions.value.filter(s => s.id !== session.id);
+		if (currentSession.value?.id === session.id) {
+			currentSession.value = null;
+			currentMessages.value = [];
+			isStreaming.value = false;
+			nodeBlocks.value = [];
+		}
+	}
+
+	async function clearSessions(agentId: number) {
+		await chatService.clearAgentSessions(agentId);
+		sessions.value.forEach(s => deleteSessionState(s.id));
+		sessions.value = [];
+		currentSession.value = null;
+		currentMessages.value = [];
+		isStreaming.value = false;
+		nodeBlocks.value = [];
+	}
+
+	// ── Message send & stream ───────────────────────────────────────────────────
+	async function sendMessage(query: string) {
+		if (!currentSession.value) return;
+
+		const needsTitle = !currentSession.value.title || currentSession.value.title === '新会话';
+		const userMessage: ChatMessage = {
+			sessionId: currentSession.value.id,
+			role: 'user',
+			content: query,
+			messageType: 'text',
+			titleNeeded: needsTitle,
+		};
+
+		const saved = await chatService.saveMessage(currentSession.value.id, userMessage);
+		currentMessages.value.push(saved);
+
+		const sessionState = getSessionState(currentSession.value.id);
+		const request: GraphRequest = {
+			agentId: String(currentAgentId.value || ''),
+			query,
+			humanFeedback: requestOptions.value.humanFeedback,
+			nl2sqlOnly: requestOptions.value.nl2sqlOnly,
+			rejectedPlan: false,
+			humanFeedbackContent: undefined,
+			threadId: sessionState.lastRequest?.threadId,
+		};
+
+		await _sendGraphRequest(request, true);
+	}
+
+	async function _sendGraphRequest(request: GraphRequest, _rejectedPlan: boolean) {
+		const session = currentSession.value;
+		if (!session) return;
+
+		const sessionId = session.id;
+		const sessionTitle = session.title;
+		const sessionState = getSessionState(sessionId);
+
+		lastRequest.value = request;
+		isStreaming.value = true;
+		nodeBlocks.value = [];
+
+		sessionState.isStreaming = true;
+		sessionState.nodeBlocks = [];
+		sessionState.lastRequest = request;
+		sessionState.htmlReportContent = '';
+		sessionState.htmlReportSize = 0;
+		sessionState.markdownReportContent = '';
+
+		let currentNodeName: string | null = null;
+		let currentBlockIndex = -1;
+		const pendingSaves: Promise<void>[] = [];
+
+		const _saveNodeMessage = (node: GraphNodeResponse[]): Promise<void> => {
+			if (!node?.length) return Promise.resolve();
+			if (node[0].textType === TextType.RESULT_SET) {
+				try {
+					const rd = JSON.parse(node[0].text);
+					if (rd.displayStyle?.type && rd.displayStyle.type !== 'table') {
+						const msg: ChatMessage = { sessionId, role: 'assistant', content: node[0].text, messageType: 'result-set' };
+						return chatService.saveMessage(sessionId, msg).then(() => {}).catch(e => console.error(e));
+					}
+				} catch { /* fall through */ }
+			}
+			// Generate a placeholder HTML that will be replaced on reload
+			const html = _generateNodeHtml(node);
+			const msg: ChatMessage = { sessionId, role: 'assistant', content: html, messageType: 'html' };
+			return chatService.saveMessage(sessionId, msg).then(() => {}).catch(e => console.error(e));
+		};
+
+		const closeStream = await graphService.streamSearch(
+			request,
+			async (response: GraphNodeResponse) => {
+				if (response.error) return;
+				if (sessionState.lastRequest) sessionState.lastRequest.threadId = response.threadId;
+
+				if (response.nodeName === 'ReportGeneratorNode') {
+					const isNewNode = currentNodeName === null || response.nodeName !== currentNodeName;
+					if (isNewNode) {
+						if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
+							pendingSaves.push(_saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]));
+						}
+						sessionState.nodeBlocks.push([{ ...response }]);
+						currentBlockIndex = sessionState.nodeBlocks.length - 1;
+						currentNodeName = response.nodeName;
+					}
+					if (response.textType === 'HTML') {
+						sessionState.htmlReportContent += response.text;
+						sessionState.htmlReportSize = sessionState.htmlReportContent.length;
+						const rn = sessionState.nodeBlocks.find(b => b.length > 0 && b[0].nodeName === 'ReportGeneratorNode' && b[0].textType === 'HTML');
+						if (rn) rn[0].text = `正在收集HTML报告... 已收集 ${sessionState.htmlReportSize} 字节`;
+						else sessionState.nodeBlocks.push([{ ...response, text: `正在收集HTML报告...` }]);
+					} else if (response.textType === 'MARK_DOWN') {
+						sessionState.markdownReportContent += response.text;
+						const rn = sessionState.nodeBlocks.find(b => b.length > 0 && b[0].nodeName === 'ReportGeneratorNode' && b[0].textType === 'MARK_DOWN');
+						if (rn) rn[0].text = sessionState.markdownReportContent;
+						else sessionState.nodeBlocks.push([{ ...response, text: response.text }]);
+					}
+				} else if (response.textType === TextType.RESULT_SET) {
+					currentNodeName = 'result_set';
+					if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
+						pendingSaves.push(_saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]));
+					}
+					sessionState.nodeBlocks.push([{ ...response }]);
+					currentBlockIndex = sessionState.nodeBlocks.length - 1;
+				} else {
+					const isNewNode = currentNodeName === null || response.nodeName !== currentNodeName;
+					if (isNewNode) {
+						if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
+							pendingSaves.push(_saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]));
+						}
+						sessionState.nodeBlocks.push([{ ...response }]);
+						currentBlockIndex = sessionState.nodeBlocks.length - 1;
+						currentNodeName = response.nodeName;
+					} else {
+						if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
+							sessionState.nodeBlocks[currentBlockIndex].push({ ...response });
+						} else {
+							sessionState.nodeBlocks.push([{ ...response }]);
+							currentBlockIndex = sessionState.nodeBlocks.length - 1;
+							currentNodeName = response.nodeName;
+						}
+					}
+				}
+
+				if (currentSession.value?.id === sessionId) {
+					nodeBlocks.value = [...sessionState.nodeBlocks];
+				}
+			},
+			async (error: Error) => {
+				console.error('Stream error:', error);
+				if (pendingSaves.length) await Promise.all(pendingSaves);
+				sessionState.isStreaming = false;
+				sessionState.closeStream = null;
+				currentNodeName = null;
+				if (currentSession.value?.id === sessionId) {
+					isStreaming.value = false;
+					currentMessages.value = await chatService.getSessionMessages(sessionId);
+				}
+			},
+			async () => {
+				if (pendingSaves.length) await Promise.all(pendingSaves);
+				if (sessionState.htmlReportContent) {
+					const msg: ChatMessage = { sessionId, role: 'assistant', content: sessionState.htmlReportContent, messageType: 'html-report' };
+					const saved = await chatService.saveMessage(sessionId, msg).catch(e => { console.error(e); return null; });
+					if (saved && currentSession.value?.id === sessionId) currentMessages.value.push(saved);
+					sessionState.isStreaming = false;
+					if (currentSession.value?.id === sessionId) { isStreaming.value = false; nodeBlocks.value = []; }
+				} else if (sessionState.markdownReportContent) {
+					const msg: ChatMessage = { sessionId, role: 'assistant', content: sessionState.markdownReportContent, messageType: 'markdown-report' };
+					const saved = await chatService.saveMessage(sessionId, msg).catch(e => { console.error(e); return null; });
+					if (saved && currentSession.value?.id === sessionId) currentMessages.value.push(saved);
+					sessionState.isStreaming = false;
+					if (currentSession.value?.id === sessionId) { isStreaming.value = false; nodeBlocks.value = []; }
+				} else {
+					if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
+						await _saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]);
+					}
+					if (requestOptions.value.humanFeedback && _rejectedPlan) {
+						showHumanFeedback.value = true;
+					} else {
+						sessionState.isStreaming = false;
+						if (currentSession.value?.id === sessionId) isStreaming.value = false;
+					}
+				}
+				currentNodeName = null;
+				closeStream();
+				if (currentSession.value?.id === sessionId) {
+					currentMessages.value = await chatService.getSessionMessages(sessionId);
+					nodeBlocks.value = [];
+				}
+				console.log(`会话[${sessionTitle}]处理完成`);
+			},
+		);
+		sessionState.closeStream = closeStream;
+	}
+
+	async function stopStreaming() {
+		if (!currentSession.value) return;
+		const sessionId = currentSession.value.id;
+		const sessionState = getSessionState(sessionId);
+		if (!sessionState.closeStream) return;
+
+		sessionState.closeStream();
+		sessionState.closeStream = null;
+		sessionState.isStreaming = false;
+		sessionState.nodeBlocks = [];
+
+		if (currentSession.value?.id === sessionId) {
+			isStreaming.value = false;
+			nodeBlocks.value = [];
+			currentMessages.value = await chatService.getSessionMessages(sessionId);
+		}
+	}
+
+	async function submitFeedback(rejected: boolean, content: string) {
+		if (!lastRequest.value) return;
+		showHumanFeedback.value = false;
+		feedbackContent.value = '';
+		const newRequest: GraphRequest = {
+			...lastRequest.value,
+			rejectedPlan: rejected,
+			humanFeedbackContent: content || 'Accept',
+		};
+		await _sendGraphRequest(newRequest, rejected);
+	}
+
+	// ── Report utils ────────────────────────────────────────────────────────────
+	function openReportFullscreen(content: string) {
+		fullscreenReportContent.value = content;
+		showReportFullscreen.value = true;
+	}
+
+	async function downloadHtmlReport(content: string) {
+		if (!currentSession.value) return;
+		await chatService.downloadHtmlReport(currentSession.value.id, content);
+	}
+
+	// ── Helper: generate node HTML (for saving to DB) ───────────────────────────
+	function _generateNodeHtml(node: GraphNodeResponse[]): string {
+		const nodeName = node[0]?.nodeName || '节点';
+		const texts = node.map(n => n.text).join('');
+		return `<div class="chat-node-block"><div class="chat-node-header">${nodeName}</div><div class="chat-node-body">${texts}</div></div>`;
+	}
+
+	return {
+		// state
+		sessions,
+		currentSession,
+		currentMessages,
+		isStreaming,
+		nodeBlocks,
+		showHumanFeedback,
+		lastRequest,
+		feedbackContent,
+		requestOptions,
+		reportFormat,
+		showReportFullscreen,
+		fullscreenReportContent,
+		currentAgentId,
+		activeChatModel,
+		currentAgentName,
+		currentAgentAvatar,
+		currentAgentDescription,
+		// actions
+		connectSessionStream,
+		disconnectSessionStream,
+		loadSessions,
+		createNewSession,
+		selectSession,
+		renameSession,
+		pinSession,
+		removeSession,
+		clearSessions,
+		sendMessage,
+		stopStreaming,
+		submitFeedback,
+		openReportFullscreen,
+		downloadHtmlReport,
+	};
+});
