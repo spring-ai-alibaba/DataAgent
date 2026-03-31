@@ -117,6 +117,7 @@
 								<template #activator="{ props }">
 									<v-list-item v-bind="props" title="系统管理" class="text-overline text-slate-500 mt-2" />
 								</template>
+								<v-list-item prepend-icon="mdi-robot-outline" title="智能体管理" :active="isActive('/system/agents')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/system/agents')" />
 								<v-list-item prepend-icon="mdi-database-refresh-outline" title="数据连接" :active="isActive('/system/data-sources')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/system/data-sources')" />
 								<v-list-item prepend-icon="mdi-cpu-64-bit" title="模型配置" :active="isActive('/system/model-config')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/system/model-config')" />
 								<v-list-item prepend-icon="mdi-cog-outline" title="通用设置" :active="isActive('/system/settings')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/system/settings')" />

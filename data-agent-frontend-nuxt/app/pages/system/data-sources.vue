@@ -134,7 +134,7 @@
 					<v-chip
 						:color="
 							item.testStatus === 'success'
-								? 'success'
+								? 'blue'
 								: item.testStatus === 'fail'
 									? 'error'
 									: 'default'
@@ -667,7 +667,7 @@ const saving = ref(false);
 const testingId = ref<number | null>(null);
 const togglingStatusId = ref<number | null>(null);
 const datasourceList = ref<Datasource[]>([]);
-const expandedRows = ref<Datasource[]>([]);
+const expandedRows = ref<readonly string[]>([]);
 const tableLists = ref<Record<number, string[]>>({});
 const selectedTables = ref<Record<number, string[]>>({});
 const loadingTablesId = ref<number | null>(null);
@@ -1159,8 +1159,9 @@ const handleInitDatasource = async () => {
 		} else {
 			showTip(res.message || '初始化数据源失败', 'error');
 		}
-	} catch (error: any) {
-		showTip(error.message || '初始化数据源失败', 'error');
+	} catch (error: unknown) {
+		const errMsg = error instanceof Error ? error.message : '初始化数据源失败';
+		showTip(errMsg, 'error');
 	} finally {
 		initStatus.value = false;
 	}
