@@ -5,27 +5,19 @@
 			<div class="report-title">
 				<v-icon color="primary" size="18" class="mr-2">mdi-file-document-outline</v-icon>
 				<span>报告已生成</span>
-				<div class="format-toggle">
-					<button
-						:class="['fmt-btn', { active: format === 'markdown' }]"
-						@click="format = 'markdown'"
-					>Markdown</button>
-					<button
-						:class="['fmt-btn', { active: format === 'html' }]"
-						@click="format = 'html'"
-					>HTML</button>
-				</div>
+				<v-btn-toggle v-model="format" mandatory density="compact" class="format-toggle ml-3">
+					<v-btn value="markdown" size="x-small" variant="text" class="fmt-btn">Markdown</v-btn>
+					<v-btn value="html" size="x-small" variant="text" class="fmt-btn">HTML</v-btn>
+				</v-btn-toggle>
 			</div>
 			<div class="report-actions">
-				<button class="report-action-btn" title="下载 MD" @click="downloadMd">
-					<v-icon size="14" class="mr-1">mdi-download</v-icon>MD
-				</button>
-				<button class="report-action-btn report-action-btn--success" title="下载 HTML" @click="downloadHtml">
-					<v-icon size="14" class="mr-1">mdi-download</v-icon>HTML
-				</button>
-				<button class="report-action-btn report-action-btn--info" title="全屏查看" @click="store.openReportFullscreen(content)">
-					<v-icon size="14">mdi-fullscreen</v-icon>
-				</button>
+				<v-btn size="x-small" variant="outlined" prepend-icon="mdi-download" title="下载 MD" @click="downloadMd">
+					MD
+				</v-btn>
+				<v-btn size="x-small" variant="outlined" color="success" prepend-icon="mdi-download" title="下载 HTML" @click="downloadHtml">
+					HTML
+				</v-btn>
+				<v-btn size="x-small" variant="outlined" color="primary" icon="mdi-fullscreen" title="全屏查看" @click="store.openReportFullscreen(content)" />
 			</div>
 		</div>
 
@@ -34,9 +26,10 @@
 			<div v-if="format === 'markdown'" class="markdown-body" v-html="renderedContent" />
 			<iframe
 				v-else
-				:srcdoc="content"
+				ref="htmlIframeRef"
 				class="html-iframe"
-				sandbox="allow-scripts allow-same-origin"
+				sandbox="allow-scripts"
+				title="HTML报告预览"
 			/>
 		</div>
 
@@ -48,10 +41,10 @@
 						{{ store.reportFormat === 'markdown' ? 'Markdown 报告' : 'HTML 报告' }}
 					</v-toolbar-title>
 					<v-spacer />
-					<div class="format-toggle mr-2">
-						<button :class="['fmt-btn', { active: store.reportFormat === 'markdown' }]" @click="store.reportFormat = 'markdown'">Markdown</button>
-						<button :class="['fmt-btn', { active: store.reportFormat === 'html' }]" @click="store.reportFormat = 'html'">HTML</button>
-					</div>
+					<v-btn-toggle v-model="store.reportFormat" mandatory density="compact" class="mr-2">
+						<v-btn value="markdown" size="x-small" variant="text" class="fmt-btn">Markdown</v-btn>
+						<v-btn value="html" size="x-small" variant="text" class="fmt-btn">HTML</v-btn>
+					</v-btn-toggle>
 					<v-btn icon variant="text" @click="store.showReportFullscreen = false">
 						<v-icon>mdi-close</v-icon>
 					</v-btn>
@@ -60,9 +53,10 @@
 					<div v-if="store.reportFormat === 'markdown'" class="markdown-body" v-html="renderMarkdown(store.fullscreenReportContent)" />
 					<iframe
 						v-else
-						:srcdoc="store.fullscreenReportContent"
+						ref="fullscreenIframeRef"
 						style="width: 100%; height: 100%; min-height: 600px; border: none"
-						sandbox="allow-scripts allow-same-origin"
+						sandbox="allow-scripts"
+						title="HTML报告预览"
 					/>
 				</v-card-text>
 			</v-card>
@@ -74,6 +68,7 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import DOMPurify from 'dompurify';
 import { renderMarkdownContent } from '~/utils/markdown';
+import { buildReportHtml } from '~/utils/report-html-template';
 import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
 import { useChatStore } from '~/stores/chat';
 
@@ -81,6 +76,8 @@ const props = defineProps<{ content: string }>();
 const store = useChatStore();
 const format = ref<'markdown' | 'html'>('markdown');
 const reportBodyRef = ref<HTMLElement | null>(null);
+const htmlIframeRef = ref<HTMLIFrameElement | null>(null);
+const fullscreenIframeRef = ref<HTMLIFrameElement | null>(null);
 const { renderECharts } = useEchartsRenderer();
 
 function renderMarkdown(md: string): string {
@@ -88,11 +85,40 @@ function renderMarkdown(md: string): string {
 	return DOMPurify.sanitize(renderMarkdownContent(md), { ADD_TAGS: ['div'], ADD_ATTR: ['style', 'class'] });
 }
 
+function loadHtmlToIframe(iframe: HTMLIFrameElement | null, markdownContent: string) {
+	if (!iframe) return;
+	if (!markdownContent) {
+		iframe.srcdoc = '<html><body style="padding:20px;color:#666;">暂无报告内容</body></html>';
+		return;
+	}
+	const html = buildReportHtml(markdownContent);
+	const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+	const url = URL.createObjectURL(blob);
+	const onLoad = () => {
+		URL.revokeObjectURL(url);
+		iframe.removeEventListener('load', onLoad);
+	};
+	iframe.addEventListener('load', onLoad);
+	iframe.src = url;
+}
+
 const renderedContent = computed(() => renderMarkdown(props.content));
 
 watch(renderedContent, () => {
 	nextTick(() => renderECharts(reportBodyRef.value));
 }, { immediate: true });
+
+watch(format, (val) => {
+	if (val === 'html') {
+		nextTick(() => loadHtmlToIframe(htmlIframeRef.value, props.content));
+	}
+});
+
+watch(() => store.reportFormat, (val) => {
+	if (val === 'html') {
+		nextTick(() => loadHtmlToIframe(fullscreenIframeRef.value, store.fullscreenReportContent));
+	}
+});
 
 function downloadMd() {
 	if (!props.content) return;
@@ -143,46 +169,23 @@ async function downloadHtml() {
 	align-items: center;
 	gap: 6px;
 }
-.report-action-btn {
-	display: inline-flex;
-	align-items: center;
-	padding: 4px 10px;
-	background: white;
-	border: 1px solid #e2e8f0;
-	border-radius: 6px;
-	font-size: 12px;
-	color: #475569;
-	cursor: pointer;
-	transition: background 0.1s;
+
+.report-actions :deep(.v-btn) {
+	text-transform: none !important;
+	letter-spacing: 0 !important;
 }
-.report-action-btn:hover { background: #f1f5f9; }
-.report-action-btn--success { color: #16a34a; border-color: #bbf7d0; }
-.report-action-btn--success:hover { background: #f0fdf4; }
-.report-action-btn--info { color: #2563eb; border-color: #bfdbfe; }
-.report-action-btn--info:hover { background: #eff6ff; }
 
 /* ── Format toggle ───────────────────────────────────────────────────────────── */
 .format-toggle {
-	display: inline-flex;
-	background: #f1f5f9;
 	border: 1px solid #e2e8f0;
 	border-radius: 6px;
 	overflow: hidden;
-	margin-left: 12px;
 }
+
 .fmt-btn {
-	padding: 3px 10px;
-	font-size: 11.5px;
-	background: none;
-	border: none;
-	cursor: pointer;
-	color: #64748b;
-	transition: background 0.1s, color 0.1s;
-}
-.fmt-btn.active {
-	background: white;
-	color: #2563eb;
-	font-weight: 600;
+	text-transform: none !important;
+	letter-spacing: 0 !important;
+	font-size: 11.5px !important;
 }
 
 /* ── Body ────────────────────────────────────────────────────────────────────── */
@@ -190,8 +193,9 @@ async function downloadHtml() {
 	padding: 16px;
 }
 .html-iframe {
+	display: block;
 	width: 100%;
-	min-height: 400px;
+	min-height: 600px;
 	border: none;
 }
 

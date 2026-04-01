@@ -14,6 +14,7 @@ hljs.registerLanguage('javascript', JavaScript);
 declare global {
 	interface Window {
 		copyCodeBlock?: (btn: HTMLElement) => void;
+		__tipShow?: (msg: string, options?: Record<string, unknown>) => void;
 	}
 }
 
@@ -78,6 +79,7 @@ if (typeof window !== 'undefined' && !window.copyCodeBlock) {
 			.then(() => {
 				btn.textContent = '已复制!';
 				btn.classList.add('copied');
+				window.__tipShow?.('复制成功');
 				setTimeout(() => {
 					btn.textContent = originalText;
 					btn.classList.remove('copied');
@@ -85,6 +87,7 @@ if (typeof window !== 'undefined' && !window.copyCodeBlock) {
 			})
 			.catch(() => {
 				btn.textContent = '复制失败';
+				window.__tipShow?.('复制失败', { color: 'error', icon: 'mdi-alert-circle' });
 				setTimeout(() => {
 					btn.textContent = originalText;
 				}, 2000);

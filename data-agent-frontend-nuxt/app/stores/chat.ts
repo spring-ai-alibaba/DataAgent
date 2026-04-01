@@ -56,6 +56,8 @@ export const useChatStore = defineStore('chat', () => {
 	const reportFormat = ref<'markdown' | 'html'>('markdown');
 	const showReportFullscreen = ref(false);
 	const fullscreenReportContent = ref('');
+	const streamingReportContent = ref('');
+	const isReportStreaming = ref(false);
 
 	// ── Agent info (set by layout) ──────────────────────────────────────────────
 	const currentAgentId = ref<number | undefined>(undefined);
@@ -274,6 +276,8 @@ export const useChatStore = defineStore('chat', () => {
 		sessionState.htmlReportContent = '';
 		sessionState.htmlReportSize = 0;
 		sessionState.markdownReportContent = '';
+		streamingReportContent.value = '';
+		isReportStreaming.value = false;
 
 		let currentNodeName: string | null = null;
 		let currentBlockIndex = -1;
@@ -299,6 +303,10 @@ export const useChatStore = defineStore('chat', () => {
 						else sessionState.nodeBlocks.push([{ ...response, text: `正在收集HTML报告...` }]);
 					} else if (response.textType === 'MARK_DOWN') {
 						sessionState.markdownReportContent += response.text;
+						if (currentSession.value?.id === sessionId) {
+							isReportStreaming.value = true;
+							streamingReportContent.value = sessionState.markdownReportContent;
+						}
 						const rn = sessionState.nodeBlocks.find(b => b.length > 0 && b[0].nodeName === 'ReportGeneratorNode' && b[0].textType === 'MARK_DOWN');
 						if (rn) rn[0].text = sessionState.markdownReportContent;
 						else sessionState.nodeBlocks.push([{ ...response, text: response.text }]);
@@ -358,6 +366,11 @@ export const useChatStore = defineStore('chat', () => {
 				} else {
 					sessionState.isStreaming = false;
 					if (currentSession.value?.id === sessionId) isStreaming.value = false;
+				}
+
+				if (currentSession.value?.id === sessionId) {
+					isReportStreaming.value = false;
+					streamingReportContent.value = '';
 				}
 
 				currentNodeName = null;
@@ -427,6 +440,8 @@ export const useChatStore = defineStore('chat', () => {
 		reportFormat,
 		showReportFullscreen,
 		fullscreenReportContent,
+		streamingReportContent,
+		isReportStreaming,
 		currentAgentId,
 		activeChatModel,
 		currentAgentName,

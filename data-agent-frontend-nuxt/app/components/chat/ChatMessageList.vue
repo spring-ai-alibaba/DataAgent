@@ -6,50 +6,64 @@
 		<!-- Messages -->
 		<template v-else>
 			<div class="messages-inner">
-				<div v-for="message in store.currentMessages" :key="message.id" class="message-wrapper">
+				<template v-for="message in filteredMessages" :key="message.id">
+					<div class="message-wrapper">
+						<!-- ── User message ─────────────────────────────────── -->
+						<div v-if="message.role === 'user'" class="row user-row">
+							<v-card class="user-card" elevation="1">
+								<span v-html="escapeHtml(message.content).replace(/\n/g, '<br>')" />
+							</v-card>
+							<v-avatar color="grey-darken-2" size="34" rounded="lg" class="avatar">
+								<v-icon size="18" color="white">mdi-account</v-icon>
+							</v-avatar>
+						</div>
 
-					<!-- ── User message ─────────────────────────────────── -->
-					<div v-if="message.role === 'user'" class="row user-row">
-						<v-card class="user-card" elevation="1">
-							<span v-html="escapeHtml(message.content).replace(/\n/g, '<br>')" />
-						</v-card>
-						<v-avatar color="grey-darken-2" size="34" rounded="lg" class="avatar">
-							<v-icon size="18" color="white">mdi-account</v-icon>
-						</v-avatar>
+						<!-- ── AI messages ──────────────────────────────────── -->
+						<div v-else class="row ai-row">
+							<v-avatar color="blue-darken-3" size="34" rounded="lg" class="avatar">
+								<v-icon size="18" color="white">mdi-robot</v-icon>
+							</v-avatar>
+
+							<!-- HTML node message -->
+							<v-card v-if="message.messageType === 'html'" class="ai-card" elevation="1">
+								<div class="md-body" v-html="message.content" />
+							</v-card>
+
+							<!-- Result Set -->
+							<v-card v-else-if="message.messageType === 'result-set'" class="ai-card" elevation="1">
+								<ChatResultSet :data="safeParseJson(message.content)" :page-size="store.requestOptions.pageSize" />
+							</v-card>
+
+							<!-- Markdown Report -->
+							<v-card v-else-if="message.messageType === 'markdown-report'" class="ai-card report-card" elevation="1">
+								<ChatMarkdownReport :content="message.content" />
+							</v-card>
+
+							<!-- Timeline -->
+							<v-card v-else-if="message.messageType === 'timeline'" class="ai-card timeline-card" elevation="1">
+								<ChatWorkflowTimeline :node-blocks="safeParseBlocks(message.content)" :completed="true" />
+							</v-card>
+
+							<!-- Plain AI text (render as markdown) -->
+							<v-card v-else class="ai-card" elevation="1">
+								<div class="md-body" v-html="renderMarkdown(message.content)" />
+							</v-card>
+						</div>
 					</div>
 
-					<!-- ── AI messages ──────────────────────────────────── -->
-					<div v-else class="row ai-row">
-						<v-avatar color="blue-darken-3" size="34" rounded="lg" class="avatar">
-							<v-icon size="18" color="white">mdi-robot</v-icon>
-						</v-avatar>
-
-						<!-- HTML node message -->
-						<v-card v-if="message.messageType === 'html'" class="ai-card" elevation="1">
-							<div class="md-body" v-html="message.content" />
-						</v-card>
-
-						<!-- Result Set -->
-						<v-card v-else-if="message.messageType === 'result-set'" class="ai-card" elevation="1">
-							<ChatResultSet :data="safeParseJson(message.content)" :page-size="store.requestOptions.pageSize" />
-						</v-card>
-
-						<!-- Markdown Report -->
-						<v-card v-else-if="message.messageType === 'markdown-report'" class="ai-card" elevation="1">
-							<ChatMarkdownReport :content="message.content" />
-						</v-card>
-
-						<!-- Timeline -->
-						<v-card v-else-if="message.messageType === 'timeline'" class="ai-card timeline-card" elevation="1">
-							<ChatWorkflowTimeline :node-blocks="safeParseBlocks(message.content)" :completed="true" />
-						</v-card>
-
-						<!-- Plain AI text (render as markdown) -->
-						<v-card v-else class="ai-card" elevation="1">
-							<div class="md-body" v-html="renderMarkdown(message.content)" />
-						</v-card>
+					<!-- ── Report card below completed timeline ────────── -->
+					<div
+						v-if="message.messageType === 'timeline' && extractReportContent(message.content)"
+						class="message-wrapper"
+					>
+						<div class="row ai-row">
+							<v-avatar color="blue-darken-3" size="34" rounded="lg" class="avatar" style="visibility: hidden;" />
+							<v-card class="ai-card report-card" elevation="1">
+								<ChatMarkdownReport :content="extractReportContent(message.content)!" />
+							</v-card>
+						</div>
 					</div>
-				</div>
+				</template>
 
 				<!-- ── Streaming: Workflow Timeline ──────────────────── -->
 				<div v-if="store.isStreaming && store.nodeBlocks.length > 0" class="row ai-row">
@@ -61,8 +75,16 @@
 					</v-card>
 				</div>
 
+				<!-- ── Streaming: Report card below timeline ─────────── -->
+				<div v-if="store.isReportStreaming && store.streamingReportContent" class="row ai-row">
+					<v-avatar color="blue-darken-3" size="34" rounded="lg" class="avatar" style="visibility: hidden;" />
+					<v-card class="ai-card report-card" elevation="1">
+						<ChatStreamingReport :content="store.streamingReportContent" />
+					</v-card>
+				</div>
+
 				<!-- ── Streaming spinner (before first node arrives) ── -->
-				<div v-else-if="store.isStreaming" class="row ai-row">
+				<div v-else-if="store.isStreaming && store.nodeBlocks.length === 0" class="row ai-row">
 					<v-avatar color="blue-darken-3" size="34" rounded="lg" class="avatar">
 						<v-icon size="18" color="white">mdi-robot</v-icon>
 					</v-avatar>
@@ -80,20 +102,43 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import DOMPurify from 'dompurify';
 import { renderMarkdownContent } from '~/utils/markdown';
 import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
 import { useChatStore } from '~/stores/chat';
 import type { ResultData } from '~/services/resultSet/index';
+import type { ChatMessage } from '~/services/chat/index';
 import ChatWelcome from './ChatWelcome.vue';
 import ChatResultSet from './ChatResultSet.vue';
 import ChatMarkdownReport from './ChatMarkdownReport.vue';
 import ChatWorkflowTimeline from './ChatWorkflowTimeline.vue';
+import ChatStreamingReport from './ChatStreamingReport.vue';
+
+const TIMELINE_ABSORBED_TYPES = new Set(['result-set', 'markdown-report', 'html']);
 
 const store = useChatStore();
 const listRef = ref<HTMLElement | null>(null);
 const { renderECharts } = useEchartsRenderer();
+
+const filteredMessages = computed<ChatMessage[]>(() => {
+	const msgs = store.currentMessages;
+	if (!msgs.length) return msgs;
+
+	const result: ChatMessage[] = [];
+	for (let i = 0; i < msgs.length; i++) {
+		const msg = msgs[i];
+		if (msg.role === 'assistant' && TIMELINE_ABSORBED_TYPES.has(msg.messageType)) {
+			const surroundHasTimeline = msgs.some(
+				(m, j) => j !== i && m.role === 'assistant' && m.messageType === 'timeline'
+					&& m.sessionId === msg.sessionId
+			);
+			if (surroundHasTimeline) continue;
+		}
+		result.push(msg);
+	}
+	return result;
+});
 
 function renderMarkdown(content: string): string {
 	if (!content) return '';
@@ -108,15 +153,30 @@ function safeParseBlocks(content: string) {
 	try { return JSON.parse(content) as import('~/services/graph/index').GraphNodeResponse[][]; } catch { return []; }
 }
 
+function extractReportContent(timelineJson: string): string | null {
+	try {
+		const blocks = JSON.parse(timelineJson) as import('~/services/graph/index').GraphNodeResponse[][];
+		for (const block of blocks) {
+			if (block[0]?.nodeName === 'ReportGeneratorNode' && block[0]?.textType === 'MARK_DOWN' && block[0]?.text) {
+				return block[0].text;
+			}
+		}
+	} catch { /* ignore */ }
+	return null;
+}
+
 function escapeHtml(text: string): string {
 	const div = document.createElement('div');
 	div.textContent = text;
 	return div.innerHTML;
 }
 
+let scrollRafId: number | null = null;
 function scrollToBottom() {
-	nextTick(() => {
+	if (scrollRafId) cancelAnimationFrame(scrollRafId);
+	scrollRafId = requestAnimationFrame(() => {
 		if (listRef.value) listRef.value.scrollTop = listRef.value.scrollHeight;
+		scrollRafId = null;
 	});
 }
 
@@ -124,7 +184,8 @@ watch(() => store.currentMessages.length, () => {
 	scrollToBottom();
 	nextTick(() => renderECharts(listRef.value));
 });
-watch(() => store.nodeBlocks.length, () => scrollToBottom());
+watch(() => store.nodeBlocks, () => scrollToBottom(), { deep: true });
+watch(() => store.streamingReportContent, () => scrollToBottom());
 watch(() => store.isStreaming, (v) => { if (v) scrollToBottom(); });
 </script>
 
@@ -190,10 +251,20 @@ watch(() => store.isStreaming, (v) => { if (v) scrollToBottom(); });
 	background: #fff !important;
 }
 
-/* Timeline card: no extra padding, let timeline handle its own */
+/* Report card: full width like markdown content */
+.report-card {
+	max-width: 100% !important;
+	padding: 0 !important;
+	flex: 1;
+	min-width: 0;
+}
+
+/* Timeline card: full width, let timeline handle its own padding */
 .timeline-card {
 	padding: 12px 14px;
-	max-width: 80%;
+	max-width: 100% !important;
+	flex: 1;
+	min-width: 0;
 }
 
 /* ── Thinking dots ───────────────────────────────────────────────────────────── */

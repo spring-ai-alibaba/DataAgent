@@ -1,72 +1,77 @@
 <template>
 	<div ref="timelineRef" class="workflow-timeline">
-		<!-- Timeline steps (vertical) -->
-		<div class="timeline-steps">
-			<div
-				v-for="(step, idx) in timelineSteps"
-				:key="step.nodeName"
-				class="timeline-step"
-				:class="{
-					'is-active': step.status === 'active',
-					'is-done': step.status === 'done',
-				}"
+		<!-- Title + global toggle -->
+		<div class="timeline-title-bar">
+			<v-card-title class="timeline-title pa-0">
+				<v-icon size="18" color="blue" class="mr-1">mdi-rocket-launch-outline</v-icon>
+				任务开始
+			</v-card-title>
+			<v-btn
+				variant="outlined"
+				size="x-small"
+				color="grey"
+				class="toggle-all-btn"
+				:prepend-icon="allExpanded ? 'mdi-unfold-less-horizontal' : 'mdi-unfold-more-horizontal'"
+				@click="toggleAll"
 			>
-				<!-- Left: icon + connector -->
-				<div class="step-left">
-					<div class="step-icon">
-						<v-icon v-if="step.status === 'done'" size="13" color="white">mdi-check</v-icon>
-						<v-icon v-else-if="step.status === 'active'" size="13" color="white">mdi-dots-horizontal</v-icon>
-						<v-icon v-else size="13">{{ step.icon }}</v-icon>
-					</div>
-					<div v-if="idx < timelineSteps.length - 1" class="connector-line" :class="{ 'is-filled': step.status === 'done' }" />
-				</div>
+				{{ allExpanded ? '折叠全部' : '展开全部' }}
+			</v-btn>
+		</div>
 
-				<!-- Right: label + content -->
-				<div class="step-right">
-					<div class="step-label" @click="toggleStep(step.nodeName)" style="cursor: pointer; display: flex; align-items: center; width: 100%;">
-						<span class="step-name">{{ step.label }}</span>
+		<v-timeline density="compact" side="end" truncate-line="both">
+			<v-timeline-item
+				v-for="step in timelineSteps"
+				:key="step.nodeName"
+				:dot-color="dotColor(step.status)"
+				:icon="dotIcon(step.status)"
+				size="small"
+			>
+				<!-- Step header: clickable to toggle -->
+				<div class="step-header" @click="toggleStep(step.nodeName)">
+					<div class="step-header-left">
+						<span class="step-label">{{ step.label }}</span>
 						<span v-if="step.status === 'active'" class="step-badge active">
 							<span class="badge-dot" />进行中
 						</span>
 						<span v-else-if="step.status === 'done'" class="step-badge done">完成</span>
-						<v-icon size="16" color="#cbd5e1" class="ml-auto">
-							{{ step.expanded ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
-						</v-icon>
 					</div>
+					<v-icon size="16" color="#94a3b8">
+						{{ step.expanded ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
+					</v-icon>
+				</div>
 
-					<!-- Content: show if expanded -->
-					<div v-show="step.expanded" class="step-detail" :class="{ 'is-completed-step': step.status === 'done' || completed }">
+				<!-- Collapsible content -->
+				<v-expand-transition>
+					<div v-show="step.expanded" class="step-content" :class="{ 'is-muted': step.status === 'done' && !step.isReport }">
 						<!-- Result Set -->
 						<ChatResultSet
 							v-if="step.block[0]?.textType === 'RESULT_SET' && step.block[0]?.text"
 							:data="safeParseJson(step.block[0].text)"
 							:page-size="10"
 						/>
-						<!-- Markdown Report -->
+						<!-- Report node: show brief status, not full content -->
+						<div v-else-if="step.isReport" class="text-body report-brief">
+							<v-icon size="14" color="#16a34a" class="mr-1">mdi-file-chart-outline</v-icon>
+							<span v-if="step.status === 'active'">正在生成报告，内容在下方实时展示...</span>
+							<span v-else>报告已生成完毕，查看下方报告卡片</span>
+						</div>
+						<!-- Pure code block (all items share same code type) -->
 						<div
-							v-else-if="step.block[0]?.nodeName === 'ReportGeneratorNode' && step.block[0]?.textType === 'MARK_DOWN'"
-							class="md-body"
-							v-html="renderMarkdown(step.block[0].text || '')"
-						/>
-						<!-- Code -->
-						<div
-							v-else-if="['SQL', 'PYTHON', 'JSON'].includes(step.block[0]?.textType ?? '')"
+							v-else-if="isPureCodeBlock(step.block)"
 							v-html="renderCode(step.block)"
 						/>
-						<!-- Plain text -->
-						<div v-else class="text-body" v-html="renderText(step.block)" />
+						<!-- Mixed content: text with possible embedded JSON/code -->
+						<div v-else class="text-body" v-html="renderTextWithJsonDetection(step.block)" />
 					</div>
-				</div>
-			</div>
-		</div>
+				</v-expand-transition>
+			</v-timeline-item>
+		</v-timeline>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue';
-import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
-import { renderMarkdownContent } from '~/utils/markdown';
 import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
 import type { GraphNodeResponse } from '~/services/graph/index';
 import type { ResultData } from '~/services/resultSet/index';
@@ -81,8 +86,28 @@ const props = withDefaults(defineProps<{
 
 const expandedSteps = ref<Record<string, boolean>>({});
 
+const allExpanded = computed(() => {
+	const steps = timelineSteps.value;
+	if (steps.length === 0) return false;
+	return steps.some(s => s.expanded);
+});
+
+function toggleAll() {
+	const shouldExpand = !allExpanded.value;
+	for (const step of timelineSteps.value) {
+		expandedSteps.value[step.nodeName] = shouldExpand;
+	}
+}
+
 function toggleStep(nodeName: string) {
-	expandedSteps.value[nodeName] = !(expandedSteps.value[nodeName] ?? true);
+	const defaultExpanded = getDefaultExpanded(nodeName);
+	expandedSteps.value[nodeName] = !(expandedSteps.value[nodeName] ?? defaultExpanded);
+}
+
+function getDefaultExpanded(nodeName: string): boolean {
+	if (!props.completed) return true;
+	if (nodeName === 'ReportGeneratorNode') return true;
+	return false;
 }
 
 interface NodeDef {
@@ -91,46 +116,51 @@ interface NodeDef {
 	icon: string;
 }
 
-const NODE_DEFS: NodeDef[] = [
-	{ nodeName: 'IntentRecognitionNode', label: '意图识别', icon: 'mdi-magnify' },
-	{ nodeName: 'QueryEnhanceNode', label: '查询增强', icon: 'mdi-text-search' },
-	{ nodeName: 'SchemaRecallNode', label: 'Schema 召回', icon: 'mdi-database-search' },
-	{ nodeName: 'FeasibilityAssessmentNode', label: '可行性评估', icon: 'mdi-check-circle-outline' },
-	{ nodeName: 'EvidenceRecallNode', label: '证据召回', icon: 'mdi-file-search-outline' },
-	{ nodeName: 'TableRelationNode', label: '表关系分析', icon: 'mdi-table-network' },
-	{ nodeName: 'PlannerNode', label: '制定计划', icon: 'mdi-clipboard-list-outline' },
-	{ nodeName: 'HumanFeedbackNode', label: '人工反馈', icon: 'mdi-account-check-outline' },
-	{ nodeName: 'PlanExecutorNode', label: '执行计划', icon: 'mdi-play-circle-outline' },
-	{ nodeName: 'SqlGenerateNode', label: 'SQL 生成', icon: 'mdi-code-braces' },
-	{ nodeName: 'SqlExecuteNode', label: 'SQL 执行', icon: 'mdi-database-arrow-right' },
-	{ nodeName: 'PythonGenerateNode', label: 'Python 生成', icon: 'mdi-language-python' },
-	{ nodeName: 'PythonAnalyzeNode', label: 'Python 分析', icon: 'mdi-chart-line' },
-	{ nodeName: 'PythonExecuteNode', label: 'Python 执行', icon: 'mdi-play-outline' },
-	{ nodeName: 'ReportGeneratorNode', label: '报告生成', icon: 'mdi-file-chart-outline' },
-];
+const NODE_LABEL_MAP: Record<string, NodeDef> = {
+	IntentRecognitionNode: { nodeName: 'IntentRecognitionNode', label: '意图识别', icon: 'mdi-magnify' },
+	QueryEnhanceNode: { nodeName: 'QueryEnhanceNode', label: '查询增强', icon: 'mdi-text-search' },
+	SchemaRecallNode: { nodeName: 'SchemaRecallNode', label: 'Schema 召回', icon: 'mdi-database-search' },
+	FeasibilityAssessmentNode: { nodeName: 'FeasibilityAssessmentNode', label: '可行性评估', icon: 'mdi-check-circle-outline' },
+	EvidenceRecallNode: { nodeName: 'EvidenceRecallNode', label: '证据召回', icon: 'mdi-file-search-outline' },
+	TableRelationNode: { nodeName: 'TableRelationNode', label: '表关系分析', icon: 'mdi-table-network' },
+	PlannerNode: { nodeName: 'PlannerNode', label: '制定计划', icon: 'mdi-clipboard-list-outline' },
+	HumanFeedbackNode: { nodeName: 'HumanFeedbackNode', label: '人工反馈', icon: 'mdi-account-check-outline' },
+	PlanExecutorNode: { nodeName: 'PlanExecutorNode', label: '执行计划', icon: 'mdi-play-circle-outline' },
+	SqlGenerateNode: { nodeName: 'SqlGenerateNode', label: 'SQL 生成', icon: 'mdi-code-braces' },
+	SemanticConsistencyNode: { nodeName: 'SemanticConsistencyNode', label: '语义一致性校验', icon: 'mdi-check-decagram' },
+	SqlExecuteNode: { nodeName: 'SqlExecuteNode', label: 'SQL 执行', icon: 'mdi-database-arrow-right' },
+	PythonGenerateNode: { nodeName: 'PythonGenerateNode', label: 'Python 生成', icon: 'mdi-language-python' },
+	PythonAnalyzeNode: { nodeName: 'PythonAnalyzeNode', label: 'Python 分析', icon: 'mdi-chart-line' },
+	PythonExecuteNode: { nodeName: 'PythonExecuteNode', label: 'Python 执行', icon: 'mdi-play-outline' },
+	ReportGeneratorNode: { nodeName: 'ReportGeneratorNode', label: '报告生成', icon: 'mdi-file-chart-outline' },
+};
 
 interface TimelineStep extends NodeDef {
 	status: 'pending' | 'active' | 'done';
 	block: GraphNodeResponse[];
 	expanded: boolean;
+	isReport: boolean;
 }
 
 const timelineSteps = computed<TimelineStep[]>(() => {
-	const appearedNodes = props.nodeBlocks.map(b => b[0]?.nodeName).filter(Boolean) as string[];
-	const orderedDefs: NodeDef[] = [];
-	for (const def of NODE_DEFS) {
-		if (appearedNodes.includes(def.nodeName)) orderedDefs.push(def);
-	}
-	for (const nodeName of appearedNodes) {
-		if (!orderedDefs.find(d => d.nodeName === nodeName)) {
-			orderedDefs.push({ nodeName, label: nodeName, icon: 'mdi-lightning-bolt' });
+	const seen = new Set<string>();
+	const orderedNodeNames: string[] = [];
+	for (const block of props.nodeBlocks) {
+		const name = block[0]?.nodeName;
+		if (name && !seen.has(name)) {
+			seen.add(name);
+			orderedNodeNames.push(name);
 		}
 	}
-	if (orderedDefs.length === 0) return [];
-	const lastIdx = orderedDefs.length - 1;
-	return orderedDefs.map((def, idx) => {
-		const block = props.nodeBlocks.find(b => b[0]?.nodeName === def.nodeName) || [];
-		
+
+	if (orderedNodeNames.length === 0) return [];
+	const lastIdx = orderedNodeNames.length - 1;
+
+	return orderedNodeNames.map((nodeName, idx) => {
+		const def = NODE_LABEL_MAP[nodeName] || { nodeName, label: nodeName, icon: 'mdi-lightning-bolt' };
+		const block = props.nodeBlocks.find(b => b[0]?.nodeName === nodeName) || [];
+		const isReport = nodeName === 'ReportGeneratorNode';
+
 		let status: 'pending' | 'active' | 'done' = 'pending';
 		if (props.completed) {
 			status = 'done';
@@ -142,10 +172,23 @@ const timelineSteps = computed<TimelineStep[]>(() => {
 			...def,
 			status,
 			block,
-			expanded: expandedSteps.value[def.nodeName] ?? true,
+			expanded: expandedSteps.value[nodeName] ?? getDefaultExpanded(nodeName),
+			isReport,
 		};
 	});
 });
+
+function dotColor(status: string): string {
+	if (status === 'done') return 'green';
+	if (status === 'active') return 'blue-darken-2';
+	return 'grey-lighten-1';
+}
+
+function dotIcon(status: string): string {
+	if (status === 'done') return 'mdi-check';
+	if (status === 'active') return 'mdi-dots-horizontal';
+	return '';
+}
 
 function safeParseJson(content: string): ResultData | null {
 	try { return JSON.parse(content); } catch { return null; }
@@ -160,9 +203,10 @@ function escapeHtml(text: string): string {
 const timelineRef = ref<HTMLElement | null>(null);
 const { renderECharts } = useEchartsRenderer();
 
-function renderMarkdown(content: string): string {
-	if (!content) return '';
-	return DOMPurify.sanitize(renderMarkdownContent(content), { ADD_TAGS: ['div'], ADD_ATTR: ['style', 'class'] });
+const CODE_TEXT_TYPES = new Set(['SQL', 'PYTHON', 'JSON']);
+
+function isPureCodeBlock(block: GraphNodeResponse[]): boolean {
+	return block.length > 0 && block.every(n => CODE_TEXT_TYPES.has(n.textType));
 }
 
 function renderCode(block: GraphNodeResponse[]): string {
@@ -176,8 +220,46 @@ function renderCode(block: GraphNodeResponse[]): string {
 	}
 }
 
-function renderText(block: GraphNodeResponse[]): string {
-	return block.map(n => escapeHtml(n.text).replace(/\n/g, '<br>')).join('');
+function tryExtractJson(text: string): { before: string; json: string; after: string } | null {
+	const start = text.indexOf('{');
+	const end = text.lastIndexOf('}');
+	if (start === -1 || end === -1 || end <= start) return null;
+	const candidate = text.substring(start, end + 1);
+	try {
+		JSON.parse(candidate);
+		return {
+			before: text.substring(0, start).trim(),
+			json: candidate,
+			after: text.substring(end + 1).trim(),
+		};
+	} catch {
+		return null;
+	}
+}
+
+function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
+	const fullText = block.map(n => n.text).join('');
+
+	const extracted = tryExtractJson(fullText);
+	if (extracted) {
+		const parts: string[] = [];
+		if (extracted.before) {
+			parts.push(`<div class="text-body">${escapeHtml(extracted.before).replace(/\n/g, '<br>')}</div>`);
+		}
+		try {
+			const formatted = JSON.stringify(JSON.parse(extracted.json), null, 2);
+			const h = hljs.highlight(formatted, { language: 'json' });
+			parts.push(`<pre class="tl-code"><code class="hljs json">${h.value}</code></pre>`);
+		} catch {
+			parts.push(`<pre class="tl-code"><code>${escapeHtml(extracted.json)}</code></pre>`);
+		}
+		if (extracted.after) {
+			parts.push(`<div class="text-body">${escapeHtml(extracted.after).replace(/\n/g, '<br>')}</div>`);
+		}
+		return parts.join('');
+	}
+
+	return `<div class="text-body">${escapeHtml(fullText).replace(/\n/g, '<br>')}</div>`;
 }
 
 watch(() => props.nodeBlocks, () => {
@@ -190,113 +272,51 @@ watch(() => props.nodeBlocks, () => {
 	width: 100%;
 }
 
-/* ── Steps ───────────────────────────────────────────────────────────────────── */
-.timeline-steps {
-	display: flex;
-	flex-direction: column;
-	gap: 0;
-	padding: 4px 0;
-}
-
-.timeline-step {
-	display: flex;
-	flex-direction: row;
-	align-items: flex-start;
-	gap: 12px;
-}
-
-/* ── Left column: icon + vertical line ───────────────────────────────────────── */
-.step-left {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	flex-shrink: 0;
-	width: 28px;
-}
-
-.step-icon {
-	width: 28px;
-	height: 28px;
-	border-radius: 50%;
+/* ── Title bar ───────────────────────────────────────────────────────────────── */
+.timeline-title-bar {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	border: 2px solid #e2e8f0;
-	background: #f8fafc;
-	flex-shrink: 0;
-	transition: all 0.25s;
-	z-index: 1;
+	justify-content: space-between;
+	margin-bottom: 8px;
+	padding: 0 2px;
 }
 
-.is-done .step-icon {
-	background: #3b82f6;
-	border-color: #3b82f6;
+.timeline-title {
+	font-size: 15px !important;
+	font-weight: 700;
+	color: #2563eb;
+	display: flex;
+	align-items: center;
+	line-height: 1;
 }
 
-.is-active .step-icon {
-	background: #2563eb;
-	border-color: #2563eb;
-	animation: activePulse 1.5s infinite;
+.toggle-all-btn {
+	font-size: 11px !important;
+	text-transform: none !important;
+	letter-spacing: 0 !important;
 }
 
-@keyframes activePulse {
-	0%, 100% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
-	50% { box-shadow: 0 0 0 7px rgba(59, 130, 246, 0.08); }
+/* ── Step header ─────────────────────────────────────────────────────────────── */
+.step-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	cursor: pointer;
+	padding: 2px 0;
+	user-select: none;
 }
 
-.connector-line {
-	width: 2px;
-	flex: 1;
-	min-height: 16px;
-	background: #e2e8f0;
-	margin: 2px 0;
-	transition: background 0.3s;
-}
-
-.connector-line.is-filled {
-	background: #3b82f6;
-}
-
-/* ── Right column ────────────────────────────────────────────────────────────── */
-.step-right {
-	flex: 1;
-	padding-bottom: 12px;
-	min-width: 0;
+.step-header-left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 .step-label {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	height: 28px;
-}
-
-.step-name-en {
-	font-size: 13px;
-	font-weight: 500;
-	color: #475569;
-}
-
-.step-name-sep {
-	font-size: 13px;
-	color: #94a3b8;
-	margin: 0 1px;
-}
-
-.step-name-zh {
 	font-size: 13px;
 	font-weight: 600;
-	color: #2563eb;
-	background: #dbeafe;
-	padding: 1px 6px;
-	border-radius: 4px;
+	color: #1e293b;
 }
-
-.is-done .step-name-en { color: #64748b; }
-.is-done .step-name-zh { color: #2563eb; }
-
-.is-active .step-name-en { color: #1e293b; font-weight: 600; }
-.is-active .step-name-zh { color: #1d4ed8; background: #bfdbfe; }
 
 /* ── Badge ───────────────────────────────────────────────────────────────────── */
 .step-badge {
@@ -331,12 +351,14 @@ watch(() => props.nodeBlocks, () => {
 	50% { opacity: 0.3; }
 }
 
-/* ── Active detail ───────────────────────────────────────────────────────────── */
-.step-detail {
+/* ── Step content ────────────────────────────────────────────────────────────── */
+.step-content {
 	margin-top: 6px;
 	font-size: 13px;
 	line-height: 1.65;
 	color: #1e293b;
+	min-width: 0;
+	overflow: hidden;
 }
 
 .text-body {
@@ -344,18 +366,22 @@ watch(() => props.nodeBlocks, () => {
 	word-break: break-word;
 }
 
-.is-completed-step .text-body,
-.is-completed-step .md-body {
+.is-muted .text-body {
 	color: #94a3b8;
 	font-style: italic;
-}
-.is-completed-step .md-body :deep(code) {
-	font-style: normal;
 }
 
-.italic-gray {
-	color: #94a3b8;
-	font-style: italic;
+.report-body {
+	color: #1e293b !important;
+	font-style: normal !important;
+}
+
+.report-brief {
+	display: flex;
+	align-items: center;
+	color: #64748b !important;
+	font-style: normal !important;
+	font-size: 12.5px;
 }
 
 :deep(.tl-code) {
@@ -369,7 +395,7 @@ watch(() => props.nodeBlocks, () => {
 	margin: 4px 0 0;
 }
 
-/* ── Markdown inside active detail ──────────────────────────────────────────── */
+/* ── Markdown inside step content ────────────────────────────────────────────── */
 .md-body :deep(h1), .md-body :deep(h2), .md-body :deep(h3) { font-weight: 700; margin: 10px 0 4px; }
 .md-body :deep(p) { margin-bottom: 6px; }
 .md-body :deep(ul), .md-body :deep(ol) { padding-left: 18px; margin-bottom: 6px; }

@@ -2,15 +2,16 @@
 	<div class="chat-sidebar">
 		<!-- New Session Button -->
 		<div class="sidebar-top">
-			<button class="new-session-btn" @click="handleCreateNewSession">
-				<span class="new-session-icon">
-					<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-						<circle cx="8" cy="8" r="7.5" stroke="currentColor" />
-						<path d="M8 5v6M5 8h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-					</svg>
-				</span>
+			<v-btn
+				block
+				variant="outlined"
+				color="primary"
+				prepend-icon="mdi-plus-circle-outline"
+				class="new-session-btn"
+				@click="handleCreateNewSession"
+			>
 				新建分析会话
-			</button>
+			</v-btn>
 		</div>
 
 		<!-- Session List -->
@@ -35,21 +36,22 @@
 					/>
 				</template>
 				<template v-else>
-					<span class="session-item-title" @dblclick.stop="startEdit(session)">
-						{{ session.title || '新会话' }}
-					</span>
+					<div class="session-item-info" @dblclick.stop="startEdit(session)">
+						<span class="session-item-title">{{ session.title || '新会话' }}</span>
+						<span class="session-item-time">{{ formatTime(session.createTime || session.updateTime) || '—' }}</span>
+					</div>
 					<div class="session-item-actions">
-						<button class="action-btn" title="重命名" @click.stop="startEdit(session)">
-							<v-icon size="12">mdi-pencil-outline</v-icon>
-						</button>
-						<button class="action-btn" title="置顶" @click.stop="handlePin(session)">
-							<v-icon size="12" :color="session.isPinned ? '#f59e0b' : ''">
+						<v-btn icon variant="text" density="compact" size="x-small" class="action-btn--edit" title="重命名" @click.stop="startEdit(session)">
+							<v-icon size="14">mdi-pencil-outline</v-icon>
+						</v-btn>
+						<v-btn icon variant="text" density="compact" size="x-small" class="action-btn--star" title="收藏" @click.stop="handlePin(session)">
+							<v-icon size="14" :color="session.isPinned ? '#f59e0b' : ''">
 								{{ session.isPinned ? 'mdi-star' : 'mdi-star-outline' }}
 							</v-icon>
-						</button>
-						<button class="action-btn action-btn--danger" title="删除" @click.stop="handleDelete(session)">
-							<v-icon size="12">mdi-close</v-icon>
-						</button>
+						</v-btn>
+						<v-btn icon variant="text" density="compact" size="x-small" class="action-btn--danger" title="删除" @click.stop="handleDelete(session)">
+							<v-icon size="14">mdi-delete-outline</v-icon>
+						</v-btn>
 					</div>
 				</template>
 			</div>
@@ -61,9 +63,9 @@
 
 		<!-- Collapse button at bottom-left (UI ref has it) -->
 		<div class="sidebar-footer">
-			<button class="collapse-btn" title="收起">
+			<v-btn icon variant="outlined" density="compact" size="small" title="收起" color="grey">
 				<v-icon size="16">mdi-chevron-left</v-icon>
-			</button>
+			</v-btn>
 		</div>
 
 		<!-- Confirm Dialog -->
@@ -89,6 +91,19 @@ import type { ChatSession } from '~/services/chat/index';
 const store = useChatStore();
 const showDeleteConfirm = ref(false);
 let sessionToDelete: ChatSession | null = null;
+
+function formatTime(time: Date | string | undefined): string {
+	if (!time) return '';
+	const d = typeof time === 'string' ? new Date(time) : time;
+	if (isNaN(d.getTime())) return '';
+	const now = new Date();
+	const isToday = d.toDateString() === now.toDateString();
+	const pad = (n: number) => String(n).padStart(2, '0');
+	if (isToday) return `今天 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	const isThisYear = d.getFullYear() === now.getFullYear();
+	if (isThisYear) return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 async function handleCreateNewSession() {
 	if (!store.currentAgentId) return;
@@ -171,27 +186,11 @@ async function confirmDelete() {
 }
 
 .new-session-btn {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	width: 100%;
-	padding: 10px 16px;
-	background: white;
-	border: 1.5px dashed #b0bec5;
-	border-radius: 10px;
-	font-size: 14px;
-	color: #475569;
-	cursor: pointer;
-	transition: border-color 0.15s, color 0.15s;
-}
-.new-session-btn:hover {
-	border-color: #3b82f6;
-	color: #3b82f6;
-}
-.new-session-icon {
-	display: flex;
-	align-items: center;
-	color: inherit;
+	text-transform: none !important;
+	letter-spacing: 0 !important;
+	font-size: 14px !important;
+	border-style: dashed !important;
+	border-radius: 10px !important;
 }
 
 /* ── Session list ────────────────────────────────────────────────────────────── */
@@ -214,12 +213,12 @@ async function confirmDelete() {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 9px 10px;
+	padding: 8px 10px;
 	border-radius: 8px;
 	cursor: pointer;
 	transition: background 0.12s;
 	margin-bottom: 2px;
-	min-height: 36px;
+	min-height: 44px;
 }
 .session-item:hover {
 	background: #e8f0fe;
@@ -227,16 +226,31 @@ async function confirmDelete() {
 .session-item.active {
 	background: #e8f0fe;
 }
-.session-item-title {
-	font-size: 13.5px;
-	color: #1e293b;
-	line-height: 1.4;
+
+.session-item-info {
+	display: flex;
+	flex-direction: column;
 	flex: 1;
+	min-width: 0;
+	gap: 1px;
+}
+
+.session-item-title {
+	font-size: 13px;
+	color: #1e293b;
+	line-height: 1.35;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	min-width: 0;
 }
+
+.session-item-time {
+	font-size: 11px;
+	color: #94a3b8;
+	font-style: italic;
+	line-height: 1.2;
+}
+
 .session-item.active .session-item-title {
 	color: #1d4ed8;
 	font-weight: 500;
@@ -247,33 +261,24 @@ async function confirmDelete() {
 	display: none;
 	flex-shrink: 0;
 	align-items: center;
-	gap: 2px;
-	margin-left: 4px;
+	gap: 12px;
+	margin-left: 6px;
 }
 .session-item:hover .session-item-actions,
 .session-item.active .session-item-actions {
 	display: flex;
 }
-.action-btn {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 22px;
-	height: 22px;
-	background: none;
-	border: none;
-	cursor: pointer;
-	border-radius: 4px;
-	color: #64748b;
-	transition: background 0.1s, color 0.1s;
+
+.action-btn--edit:hover {
+	color: #3b82f6 !important;
 }
-.action-btn:hover {
-	background: rgba(59, 130, 246, 0.1);
-	color: #3b82f6;
+
+.action-btn--star:hover {
+	color: #f59e0b !important;
 }
+
 .action-btn--danger:hover {
-	background: rgba(239, 68, 68, 0.1);
-	color: #ef4444;
+	color: #ef4444 !important;
 }
 
 /* ── Rename input ────────────────────────────────────────────────────────────── */
@@ -301,22 +306,6 @@ async function confirmDelete() {
 	padding: 8px 12px 12px;
 	display: flex;
 	align-items: center;
-}
-.collapse-btn {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 28px;
-	height: 28px;
-	background: none;
-	border: 1px solid #e2e8f0;
-	border-radius: 6px;
-	cursor: pointer;
-	color: #64748b;
-	transition: background 0.1s;
-}
-.collapse-btn:hover {
-	background: #e2e8f0;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────────── */
