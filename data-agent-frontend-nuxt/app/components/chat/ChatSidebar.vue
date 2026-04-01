@@ -61,13 +61,6 @@
 			</div>
 		</div>
 
-		<!-- Collapse button at bottom-left (UI ref has it) -->
-		<div class="sidebar-footer">
-			<v-btn icon variant="outlined" density="compact" size="small" title="收起" color="grey">
-				<v-icon size="16">mdi-chevron-left</v-icon>
-			</v-btn>
-		</div>
-
 		<!-- Confirm Dialog -->
 		<v-dialog v-model="showDeleteConfirm" max-width="360">
 			<v-card rounded="xl">
@@ -299,13 +292,6 @@ async function confirmDelete() {
 	font-size: 12px;
 	color: #94a3b8;
 	padding: 20px 0;
-}
-
-/* ── Footer ──────────────────────────────────────────────────────────────────── */
-.sidebar-footer {
-	padding: 8px 12px 12px;
-	display: flex;
-	align-items: center;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────────── */

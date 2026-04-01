@@ -69,7 +69,7 @@ const cssVars = computed(() => ({
 .base-drawer__left {
 	width: var(--drawer-width);
 	height: 100%;
-	background-color: #0d1117;
+	background-color: #1e293b;
 	color: #e2e8f0;
 	transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	overflow: hidden;

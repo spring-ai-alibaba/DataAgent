@@ -30,7 +30,7 @@
 									menu-icon="mdi-chevron-down"
 									theme="dark"
 									:menu-props="{ contentClass: 'agent-switcher-menu', offset: [0, 8] }"
-									:list-props="{ bgColor: '#0f172a', theme: 'dark' }"
+									:list-props="{ bgColor: '#1e293b', theme: 'dark' }"
 									item-color="blue-lighten-2"
 									@update:model-value="handleAgentSwitch"
 								>
@@ -115,12 +115,11 @@
 
 							<v-list-group value="system">
 								<template #activator="{ props }">
-									<v-list-item v-bind="props" title="系统管理" class="text-overline text-slate-500 mt-2" />
+									<v-list-item v-bind="props" title="通用设置" class="text-overline text-slate-500 mt-2" />
 								</template>
 								<v-list-item prepend-icon="mdi-robot-outline" title="智能体管理" :active="isActive('/system/agents')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/system/agents')" />
 								<v-list-item prepend-icon="mdi-database-refresh-outline" title="数据连接" :active="isActive('/system/data-sources')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/system/data-sources')" />
 								<v-list-item prepend-icon="mdi-cpu-64-bit" title="模型配置" :active="isActive('/system/model-config')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/system/model-config')" />
-								<v-list-item prepend-icon="mdi-cog-outline" title="通用设置" :active="isActive('/system/settings')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/system/settings')" />
 							</v-list-group>
 
 							<div class="mt-6 pt-4 border-t border-white/5">
@@ -357,15 +356,8 @@ const logout = () => {
 	letter-spacing: 1px;
 }
 
-.agent-switcher-box {
-	padding: 10px;
-	border: 1px solid rgba(59, 130, 246, 0.2);
-	border-radius: 12px;
-	background: rgba(15, 23, 42, 0.35);
-}
-
 .agent-switcher :deep(.v-field) {
-	background: rgba(17, 24, 39, 0.8);
+	background: rgba(30, 41, 59, 0.8);
 	border-radius: 10px;
 }
 
@@ -376,7 +368,7 @@ const logout = () => {
 }
 
 :deep(.agent-switcher-menu) {
-	background: #0f172a !important;
+	background: #1e293b !important;
 	border: 1px solid rgba(59, 130, 246, 0.3) !important;
 	border-radius: 12px !important;
 	overflow: hidden;

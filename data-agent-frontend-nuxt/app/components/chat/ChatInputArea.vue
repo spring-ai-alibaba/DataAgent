@@ -74,45 +74,39 @@
 		<!-- Bottom action bar -->
 		<div class="action-bar">
 			<div class="action-bar-left">
-				<v-btn class="action-icon-btn" title="更多选项" variant="text" @click="toggleOptions">
-					<v-icon size="18" :color="showOptions ? '#2563eb' : '#64748b'">mdi-plus</v-icon>
-				</v-btn>
-				<!-- Extra options -->
-				<Transition name="fade">
-					<div v-show="showOptions" class="extra-options">
-						<label class="option-chip" :class="{ active: store.requestOptions.humanFeedback }">
-							<input
-								v-model="store.requestOptions.humanFeedback"
-								type="checkbox"
-								:disabled="store.requestOptions.nl2sqlOnly || store.isStreaming"
-								class="hidden-checkbox"
-							/>
-							<v-icon size="11">mdi-account-check-outline</v-icon>
-							人工反馈
-						</label>
-						<label class="option-chip" :class="{ active: store.requestOptions.nl2sqlOnly }">
-							<input
-								v-model="store.requestOptions.nl2sqlOnly"
-								type="checkbox"
-								:disabled="store.isStreaming"
-								class="hidden-checkbox"
-								@change="onNl2sqlChange"
-							/>
-							<v-icon size="11">mdi-database-search-outline</v-icon>
-							仅NL2SQL
-						</label>
-						<label class="option-chip" :class="{ active: store.requestOptions.showSqlResults }">
-							<input
-								v-model="store.requestOptions.showSqlResults"
-								type="checkbox"
-								:disabled="store.isStreaming"
-								class="hidden-checkbox"
-							/>
-							<v-icon size="11">mdi-table-eye</v-icon>
-							显示SQL结果
-						</label>
-					</div>
-				</Transition>
+				<div class="extra-options">
+					<label class="option-chip" :class="{ active: store.requestOptions.humanFeedback }">
+						<input
+							v-model="store.requestOptions.humanFeedback"
+							type="checkbox"
+							:disabled="store.requestOptions.nl2sqlOnly || store.isStreaming"
+							class="hidden-checkbox"
+						/>
+						<v-icon size="11">mdi-account-check-outline</v-icon>
+						人工反馈
+					</label>
+					<label class="option-chip" :class="{ active: store.requestOptions.nl2sqlOnly }">
+						<input
+							v-model="store.requestOptions.nl2sqlOnly"
+							type="checkbox"
+							:disabled="store.isStreaming"
+							class="hidden-checkbox"
+							@change="onNl2sqlChange"
+						/>
+						<v-icon size="11">mdi-database-search-outline</v-icon>
+						仅NL2SQL
+					</label>
+					<label class="option-chip" :class="{ active: store.requestOptions.showSqlResults }">
+						<input
+							v-model="store.requestOptions.showSqlResults"
+							type="checkbox"
+							:disabled="store.isStreaming"
+							class="hidden-checkbox"
+						/>
+						<v-icon size="11">mdi-table-eye</v-icon>
+						显示SQL结果
+					</label>
+				</div>
 			</div>
 
 			<div class="action-bar-right">
@@ -122,7 +116,7 @@
 					:disabled="!inputText.trim() || store.showHumanFeedback"
 					@click="handleSend"
 				>
-					发送需求
+					发送
 					<v-icon size="16" class="ml-1">mdi-arrow-right</v-icon>
 				</v-btn>
 				<v-btn v-else class="stop-btn" @click="handleStop">
@@ -165,13 +159,8 @@ import { useChatStore } from '~/stores/chat';
 const store = useChatStore();
 const inputText = ref('');
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
-const showOptions = ref(false);
 const showDsMenu = ref(false);
 const showModelMenu = ref(false);
-
-function toggleOptions() {
-	showOptions.value = !showOptions.value;
-}
 
 function toggleDsMenu() {
 	if (store.isStreaming) return;
@@ -366,12 +355,13 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	background: none;
 	border: none;
 	outline: none;
-	resize: none;
+	resize: vertical;
 	font-size: 14.5px;
 	line-height: 1.6;
 	color: #1e293b;
 	font-family: inherit;
 	min-height: 80px;
+	max-height: 300px;
 }
 .chat-textarea::placeholder {
 	color: #94a3b8;
@@ -394,22 +384,6 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	gap: 4px;
 	flex-wrap: wrap;
 }
-.action-icon-btn {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 32px;
-	height: 32px;
-	background: none;
-	border: none;
-	cursor: pointer;
-	border-radius: 6px;
-	transition: background 0.1s;
-}
-.action-icon-btn:hover {
-	background: #f1f5f9;
-}
-
 /* ── Extra options ───────────────────────────────────────────────────────────── */
 .extra-options {
 	display: flex;
