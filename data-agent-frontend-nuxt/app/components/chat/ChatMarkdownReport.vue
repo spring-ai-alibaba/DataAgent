@@ -30,7 +30,7 @@
 		</div>
 
 		<!-- Body -->
-		<div class="report-body">
+		<div ref="reportBodyRef" class="report-body">
 			<div v-if="format === 'markdown'" class="markdown-body" v-html="renderedContent" />
 			<iframe
 				v-else
@@ -71,22 +71,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { marked } from 'marked';
+import { ref, computed, watch, nextTick } from 'vue';
 import DOMPurify from 'dompurify';
+import { renderMarkdownContent } from '~/utils/markdown';
+import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
 import { useChatStore } from '~/stores/chat';
 
 const props = defineProps<{ content: string }>();
 const store = useChatStore();
 const format = ref<'markdown' | 'html'>('markdown');
+const reportBodyRef = ref<HTMLElement | null>(null);
+const { renderECharts } = useEchartsRenderer();
 
-marked.setOptions({ gfm: true, breaks: true });
 function renderMarkdown(md: string): string {
 	if (!md) return '';
-	return DOMPurify.sanitize(marked.parse(md) as string);
+	return DOMPurify.sanitize(renderMarkdownContent(md), { ADD_TAGS: ['div'], ADD_ATTR: ['style', 'class'] });
 }
 
 const renderedContent = computed(() => renderMarkdown(props.content));
+
+watch(renderedContent, () => {
+	nextTick(() => renderECharts(reportBodyRef.value));
+}, { immediate: true });
 
 function downloadMd() {
 	if (!props.content) return;
@@ -197,12 +203,26 @@ async function downloadHtml() {
 .markdown-body :deep(p) { margin-bottom: 10px; line-height: 1.75; color: #374151; font-size: 14px; }
 .markdown-body :deep(ul), .markdown-body :deep(ol) { padding-left: 22px; margin-bottom: 10px; }
 .markdown-body :deep(li) { line-height: 1.7; font-size: 14px; color: #374151; }
-.markdown-body :deep(code) { background: #f1f5f9; padding: 2px 5px; border-radius: 4px; font-size: 12.5px; }
-.markdown-body :deep(pre) { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; overflow-x: auto; margin: 10px 0; }
-.markdown-body :deep(pre code) { background: none; padding: 0; font-size: 13px; }
-.markdown-body :deep(table) { width: 100%; border-collapse: collapse; margin: 10px 0; }
-.markdown-body :deep(th) { background: #f1f5f9; padding: 8px 12px; border: 1px solid #e2e8f0; font-weight: 600; font-size: 13px; text-align: left; }
-.markdown-body :deep(td) { padding: 8px 12px; border: 1px solid #e8edf2; font-size: 13px; }
+.markdown-body :deep(code:not(pre code)) { background: #f6f8fa; border: 1px solid #e1e4e8; padding: 2px 5px; border-radius: 3px; font-size: 12.5px; color: #e83e8c; }
+.markdown-body :deep(table) { width: 100%; border-collapse: collapse; margin: 10px 0; display: block; overflow-x: auto; }
+.markdown-body :deep(thead) { display: table-header-group; }
+.markdown-body :deep(tbody) { display: table-row-group; }
+.markdown-body :deep(tr) { display: table-row; border-top: 1px solid #c6cbd1; }
+.markdown-body :deep(th) { display: table-cell; background: #f1f5f9; padding: 8px 12px; border: 1px solid #e2e8f0; font-weight: 600; font-size: 13px; text-align: left; }
+.markdown-body :deep(td) { display: table-cell; padding: 8px 12px; border: 1px solid #e8edf2; font-size: 13px; }
 .markdown-body :deep(tr:nth-child(even) td) { background: #f8fafc; }
 .markdown-body :deep(blockquote) { border-left: 3px solid #3b82f6; padding: 8px 14px; margin-left: 0; background: #eff6ff; border-radius: 0 6px 6px 0; color: #374151; }
+
+/* ── Code block with header ─────────────────────────────────────────────────── */
+.markdown-body :deep(.code-block-wrapper) { margin: 10px 0; border: 1px solid #e1e4e8; border-radius: 6px; overflow: hidden; background: #f6f8fa; }
+.markdown-body :deep(.code-block-header) { display: flex; justify-content: space-between; align-items: center; background: #f6f8fa; padding: 6px 10px; border-bottom: 1px solid #e1e4e8; font-size: 11px; }
+.markdown-body :deep(.code-language) { color: #6a737d; font-weight: 600; font-family: 'Monaco', 'Menlo', monospace; font-size: 10px; text-transform: uppercase; }
+.markdown-body :deep(.code-copy-button) { background: transparent; border: 1px solid #d1d5da; padding: 3px 10px; border-radius: 4px; font-size: 10px; cursor: pointer; transition: all 0.2s; color: #24292e; }
+.markdown-body :deep(.code-copy-button:hover) { background: #f3f4f6; border-color: #c6cbd1; }
+.markdown-body :deep(.code-copy-button.copied) { background: #28a745; border-color: #28a745; color: white; }
+.markdown-body :deep(pre.hljs) { margin: 0; padding: 10px; overflow: auto; background: #f6f8fa; font-size: 12px; line-height: 1.4; }
+.markdown-body :deep(pre.hljs code) { display: block; padding: 0; margin: 0; background: transparent; border: none; font-family: 'Monaco', 'Menlo', monospace; color: inherit; }
+
+/* ── ECharts containers ─────────────────────────────────────────────────────── */
+:deep(.md-echarts) { margin: 10px 0; border-radius: 6px; }
 </style>

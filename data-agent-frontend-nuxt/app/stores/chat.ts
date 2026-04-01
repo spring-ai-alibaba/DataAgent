@@ -277,24 +277,6 @@ export const useChatStore = defineStore('chat', () => {
 
 		let currentNodeName: string | null = null;
 		let currentBlockIndex = -1;
-		const pendingSaves: Promise<void>[] = [];
-
-		const _saveNodeMessage = (node: GraphNodeResponse[]): Promise<void> => {
-			if (!node?.length) return Promise.resolve();
-			if (node[0].textType === TextType.RESULT_SET) {
-				try {
-					const rd = JSON.parse(node[0].text);
-					if (rd.displayStyle?.type && rd.displayStyle.type !== 'table') {
-						const msg: ChatMessage = { sessionId, role: 'assistant', content: node[0].text, messageType: 'result-set' };
-						return chatService.saveMessage(sessionId, msg).then(() => {}).catch(e => console.error(e));
-					}
-				} catch { /* fall through */ }
-			}
-			// Generate a placeholder HTML that will be replaced on reload
-			const html = _generateNodeHtml(node);
-			const msg: ChatMessage = { sessionId, role: 'assistant', content: html, messageType: 'html' };
-			return chatService.saveMessage(sessionId, msg).then(() => {}).catch(e => console.error(e));
-		};
 
 		const closeStream = await graphService.streamSearch(
 			request,
@@ -305,9 +287,6 @@ export const useChatStore = defineStore('chat', () => {
 				if (response.nodeName === 'ReportGeneratorNode') {
 					const isNewNode = currentNodeName === null || response.nodeName !== currentNodeName;
 					if (isNewNode) {
-						if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
-							pendingSaves.push(_saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]));
-						}
 						sessionState.nodeBlocks.push([{ ...response }]);
 						currentBlockIndex = sessionState.nodeBlocks.length - 1;
 						currentNodeName = response.nodeName;
@@ -326,17 +305,11 @@ export const useChatStore = defineStore('chat', () => {
 					}
 				} else if (response.textType === TextType.RESULT_SET) {
 					currentNodeName = 'result_set';
-					if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
-						pendingSaves.push(_saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]));
-					}
 					sessionState.nodeBlocks.push([{ ...response }]);
 					currentBlockIndex = sessionState.nodeBlocks.length - 1;
 				} else {
 					const isNewNode = currentNodeName === null || response.nodeName !== currentNodeName;
 					if (isNewNode) {
-						if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
-							pendingSaves.push(_saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]));
-						}
 						sessionState.nodeBlocks.push([{ ...response }]);
 						currentBlockIndex = sessionState.nodeBlocks.length - 1;
 						currentNodeName = response.nodeName;
@@ -357,7 +330,13 @@ export const useChatStore = defineStore('chat', () => {
 			},
 			async (error: Error) => {
 				console.error('Stream error:', error);
-				if (pendingSaves.length) await Promise.all(pendingSaves);
+				
+				// Save partial timeline on error
+				if (sessionState.nodeBlocks.length > 0) {
+					const msg: ChatMessage = { sessionId, role: 'assistant', content: JSON.stringify(sessionState.nodeBlocks), messageType: 'timeline' };
+					await chatService.saveMessage(sessionId, msg).catch(e => console.error(e));
+				}
+
 				sessionState.isStreaming = false;
 				sessionState.closeStream = null;
 				currentNodeName = null;
@@ -367,30 +346,20 @@ export const useChatStore = defineStore('chat', () => {
 				}
 			},
 			async () => {
-				if (pendingSaves.length) await Promise.all(pendingSaves);
-				if (sessionState.htmlReportContent) {
-					const msg: ChatMessage = { sessionId, role: 'assistant', content: sessionState.htmlReportContent, messageType: 'html-report' };
-					const saved = await chatService.saveMessage(sessionId, msg).catch(e => { console.error(e); return null; });
-					if (saved && currentSession.value?.id === sessionId) currentMessages.value.push(saved);
-					sessionState.isStreaming = false;
-					if (currentSession.value?.id === sessionId) { isStreaming.value = false; nodeBlocks.value = []; }
-				} else if (sessionState.markdownReportContent) {
-					const msg: ChatMessage = { sessionId, role: 'assistant', content: sessionState.markdownReportContent, messageType: 'markdown-report' };
-					const saved = await chatService.saveMessage(sessionId, msg).catch(e => { console.error(e); return null; });
-					if (saved && currentSession.value?.id === sessionId) currentMessages.value.push(saved);
-					sessionState.isStreaming = false;
-					if (currentSession.value?.id === sessionId) { isStreaming.value = false; nodeBlocks.value = []; }
-				} else {
-					if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
-						await _saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]);
-					}
-					if (requestOptions.value.humanFeedback && _rejectedPlan) {
-						showHumanFeedback.value = true;
-					} else {
-						sessionState.isStreaming = false;
-						if (currentSession.value?.id === sessionId) isStreaming.value = false;
-					}
+				// Save the entire timeline at the end
+				if (sessionState.nodeBlocks.length > 0) {
+					const timelineMsg: ChatMessage = { sessionId, role: 'assistant', content: JSON.stringify(sessionState.nodeBlocks), messageType: 'timeline' };
+					const savedTimeline = await chatService.saveMessage(sessionId, timelineMsg).catch(e => { console.error(e); return null; });
+					if (savedTimeline && currentSession.value?.id === sessionId) currentMessages.value.push(savedTimeline);
 				}
+
+				if (requestOptions.value.humanFeedback && _rejectedPlan) {
+					showHumanFeedback.value = true;
+				} else {
+					sessionState.isStreaming = false;
+					if (currentSession.value?.id === sessionId) isStreaming.value = false;
+				}
+
 				currentNodeName = null;
 				closeStream();
 				if (currentSession.value?.id === sessionId) {
@@ -442,13 +411,6 @@ export const useChatStore = defineStore('chat', () => {
 	async function downloadHtmlReport(content: string) {
 		if (!currentSession.value) return;
 		await chatService.downloadHtmlReport(currentSession.value.id, content);
-	}
-
-	// ── Helper: generate node HTML (for saving to DB) ───────────────────────────
-	function _generateNodeHtml(node: GraphNodeResponse[]): string {
-		const nodeName = node[0]?.nodeName || '节点';
-		const texts = node.map(n => n.text).join('');
-		return `<div class="chat-node-block"><div class="chat-node-header">${nodeName}</div><div class="chat-node-body">${texts}</div></div>`;
 	}
 
 	return {

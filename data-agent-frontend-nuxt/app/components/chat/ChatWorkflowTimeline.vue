@@ -1,5 +1,5 @@
 <template>
-	<div class="workflow-timeline">
+	<div ref="timelineRef" class="workflow-timeline">
 		<!-- Timeline steps (vertical) -->
 		<div class="timeline-steps">
 			<div
@@ -23,43 +23,38 @@
 
 				<!-- Right: label + content -->
 				<div class="step-right">
-					<div class="step-label">
+					<div class="step-label" @click="toggleStep(step.nodeName)" style="cursor: pointer; display: flex; align-items: center; width: 100%;">
 						<span class="step-name">{{ step.label }}</span>
 						<span v-if="step.status === 'active'" class="step-badge active">
 							<span class="badge-dot" />进行中
 						</span>
 						<span v-else-if="step.status === 'done'" class="step-badge done">完成</span>
+						<v-icon size="16" color="#cbd5e1" class="ml-auto">
+							{{ step.expanded ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
+						</v-icon>
 					</div>
 
-					<!-- Active node: show full streaming content -->
-					<div v-if="step.status === 'active' && activeBlock" class="step-detail">
+					<!-- Content: show if expanded -->
+					<div v-show="step.expanded" class="step-detail" :class="{ 'is-completed-step': step.status === 'done' || completed }">
 						<!-- Result Set -->
 						<ChatResultSet
-							v-if="activeBlock[0]?.textType === 'RESULT_SET' && activeBlock[0]?.text"
-							:data="safeParseJson(activeBlock[0].text)"
+							v-if="step.block[0]?.textType === 'RESULT_SET' && step.block[0]?.text"
+							:data="safeParseJson(step.block[0].text)"
 							:page-size="10"
 						/>
 						<!-- Markdown Report -->
 						<div
-							v-else-if="activeBlock[0]?.nodeName === 'ReportGeneratorNode' && activeBlock[0]?.textType === 'MARK_DOWN'"
+							v-else-if="step.block[0]?.nodeName === 'ReportGeneratorNode' && step.block[0]?.textType === 'MARK_DOWN'"
 							class="md-body"
-							v-html="renderMarkdown(activeBlock[0].text || '')"
+							v-html="renderMarkdown(step.block[0].text || '')"
 						/>
 						<!-- Code -->
 						<div
-							v-else-if="['SQL', 'PYTHON', 'JSON'].includes(activeBlock[0]?.textType ?? '')"
-							v-html="renderCode(activeBlock)"
+							v-else-if="['SQL', 'PYTHON', 'JSON'].includes(step.block[0]?.textType ?? '')"
+							v-html="renderCode(step.block)"
 						/>
 						<!-- Plain text -->
-						<div v-else class="text-body" v-html="renderText(activeBlock)" />
-					</div>
-
-					<!-- Done node: show short preview -->
-					<div v-else-if="step.status === 'done' && step.previewText" class="step-preview">
-						<span v-if="step.textType === 'SQL'" class="preview-tag sql">SQL</span>
-						<span v-else-if="step.textType === 'PYTHON'" class="preview-tag python">Python</span>
-						<span v-else-if="step.textType === 'JSON'" class="preview-tag json">JSON</span>
-						<span class="preview-text">{{ step.previewText }}</span>
+						<div v-else class="text-body" v-html="renderText(step.block)" />
 					</div>
 				</div>
 			</div>
@@ -68,17 +63,27 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { marked } from 'marked';
+import { computed, ref, watch, nextTick } from 'vue';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
+import { renderMarkdownContent } from '~/utils/markdown';
+import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
 import type { GraphNodeResponse } from '~/services/graph/index';
 import type { ResultData } from '~/services/resultSet/index';
 import ChatResultSet from './ChatResultSet.vue';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
 	nodeBlocks: GraphNodeResponse[][];
-}>();
+	completed?: boolean;
+}>(), {
+	completed: false
+});
+
+const expandedSteps = ref<Record<string, boolean>>({});
+
+function toggleStep(nodeName: string) {
+	expandedSteps.value[nodeName] = !(expandedSteps.value[nodeName] ?? true);
+}
 
 interface NodeDef {
 	nodeName: string;
@@ -106,8 +111,8 @@ const NODE_DEFS: NodeDef[] = [
 
 interface TimelineStep extends NodeDef {
 	status: 'pending' | 'active' | 'done';
-	previewText: string;
-	textType: string;
+	block: GraphNodeResponse[];
+	expanded: boolean;
 }
 
 const timelineSteps = computed<TimelineStep[]>(() => {
@@ -124,26 +129,23 @@ const timelineSteps = computed<TimelineStep[]>(() => {
 	if (orderedDefs.length === 0) return [];
 	const lastIdx = orderedDefs.length - 1;
 	return orderedDefs.map((def, idx) => {
-		const block = props.nodeBlocks.find(b => b[0]?.nodeName === def.nodeName);
-		const status: 'pending' | 'active' | 'done' = idx < lastIdx ? 'done' : 'active';
+		const block = props.nodeBlocks.find(b => b[0]?.nodeName === def.nodeName) || [];
+		
+		let status: 'pending' | 'active' | 'done' = 'pending';
+		if (props.completed) {
+			status = 'done';
+		} else {
+			status = idx < lastIdx ? 'done' : 'active';
+		}
+
 		return {
 			...def,
 			status,
-			previewText: getPreviewText(block || []),
-			textType: block?.[0]?.textType || '',
+			block,
+			expanded: expandedSteps.value[def.nodeName] ?? true,
 		};
 	});
 });
-
-const activeBlock = computed<GraphNodeResponse[] | null>(() => {
-	if (!props.nodeBlocks.length) return null;
-	return props.nodeBlocks[props.nodeBlocks.length - 1] || null;
-});
-
-function getPreviewText(block: GraphNodeResponse[]): string {
-	const text = block.map(n => n.text).join('').trim();
-	return text.length > 80 ? text.slice(0, 80) + '...' : text;
-}
 
 function safeParseJson(content: string): ResultData | null {
 	try { return JSON.parse(content); } catch { return null; }
@@ -155,9 +157,12 @@ function escapeHtml(text: string): string {
 	return div.innerHTML;
 }
 
+const timelineRef = ref<HTMLElement | null>(null);
+const { renderECharts } = useEchartsRenderer();
+
 function renderMarkdown(content: string): string {
 	if (!content) return '';
-	return DOMPurify.sanitize(marked.parse(content) as string);
+	return DOMPurify.sanitize(renderMarkdownContent(content), { ADD_TAGS: ['div'], ADD_ATTR: ['style', 'class'] });
 }
 
 function renderCode(block: GraphNodeResponse[]): string {
@@ -174,6 +179,10 @@ function renderCode(block: GraphNodeResponse[]): string {
 function renderText(block: GraphNodeResponse[]): string {
 	return block.map(n => escapeHtml(n.text).replace(/\n/g, '<br>')).join('');
 }
+
+watch(() => props.nodeBlocks, () => {
+	nextTick(() => renderECharts(timelineRef.value));
+}, { deep: true });
 </script>
 
 <style scoped>
@@ -335,6 +344,15 @@ function renderText(block: GraphNodeResponse[]): string {
 	word-break: break-word;
 }
 
+.is-completed-step .text-body,
+.is-completed-step .md-body {
+	color: #94a3b8;
+	font-style: italic;
+}
+.is-completed-step .md-body :deep(code) {
+	font-style: normal;
+}
+
 .italic-gray {
 	color: #94a3b8;
 	font-style: italic;
@@ -355,38 +373,24 @@ function renderText(block: GraphNodeResponse[]): string {
 .md-body :deep(h1), .md-body :deep(h2), .md-body :deep(h3) { font-weight: 700; margin: 10px 0 4px; }
 .md-body :deep(p) { margin-bottom: 6px; }
 .md-body :deep(ul), .md-body :deep(ol) { padding-left: 18px; margin-bottom: 6px; }
-.md-body :deep(code) { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
-.md-body :deep(pre) { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; overflow-x: auto; margin: 6px 0; }
-.md-body :deep(pre code) { background: none; padding: 0; }
-.md-body :deep(table) { width: 100%; border-collapse: collapse; margin: 6px 0; }
-.md-body :deep(th) { background: #f1f5f9; padding: 6px 10px; border: 1px solid #e2e8f0; font-weight: 600; font-size: 12px; }
-.md-body :deep(td) { padding: 6px 10px; border: 1px solid #e2e8f0; font-size: 12px; }
+.md-body :deep(code:not(pre code)) { background: #f6f8fa; border: 1px solid #e1e4e8; padding: 1px 5px; border-radius: 3px; font-size: 12px; color: #e83e8c; }
+.md-body :deep(table) { width: 100%; border-collapse: collapse; margin: 6px 0; display: block; overflow-x: auto; }
+.md-body :deep(thead) { display: table-header-group; }
+.md-body :deep(tbody) { display: table-row-group; }
+.md-body :deep(tr) { display: table-row; border-top: 1px solid #c6cbd1; }
+.md-body :deep(th) { display: table-cell; background: #f1f5f9; padding: 6px 10px; border: 1px solid #e2e8f0; font-weight: 600; font-size: 12px; }
+.md-body :deep(td) { display: table-cell; padding: 6px 10px; border: 1px solid #e2e8f0; font-size: 12px; }
 
-/* ── Done preview ────────────────────────────────────────────────────────────── */
-.step-preview {
-	display: flex;
-	align-items: center;
-	gap: 5px;
-	margin-top: 2px;
-}
+/* ── Code block with header ─────────────────────────────────────────────────── */
+.md-body :deep(.code-block-wrapper) { margin: 8px 0; border: 1px solid #e1e4e8; border-radius: 6px; overflow: hidden; background: #f6f8fa; }
+.md-body :deep(.code-block-header) { display: flex; justify-content: space-between; align-items: center; background: #f6f8fa; padding: 4px 10px; border-bottom: 1px solid #e1e4e8; font-size: 11px; }
+.md-body :deep(.code-language) { color: #6a737d; font-weight: 600; font-family: 'Monaco', 'Menlo', monospace; font-size: 10px; text-transform: uppercase; }
+.md-body :deep(.code-copy-button) { background: transparent; border: 1px solid #d1d5da; padding: 2px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; transition: all 0.2s; color: #24292e; }
+.md-body :deep(.code-copy-button:hover) { background: #f3f4f6; border-color: #c6cbd1; }
+.md-body :deep(.code-copy-button.copied) { background: #28a745; border-color: #28a745; color: white; }
+.md-body :deep(pre.hljs) { margin: 0; padding: 8px 10px; overflow: auto; background: #f6f8fa; font-size: 11px; line-height: 1.35; }
+.md-body :deep(pre.hljs code) { display: block; padding: 0; margin: 0; background: transparent; border: none; font-family: 'Monaco', 'Menlo', monospace; color: inherit; }
 
-.preview-tag {
-	font-size: 10px;
-	padding: 1px 6px;
-	border-radius: 4px;
-	font-weight: 600;
-	flex-shrink: 0;
-}
-
-.preview-tag.sql { background: #fef3c7; color: #d97706; }
-.preview-tag.python { background: #e0f2fe; color: #0284c7; }
-.preview-tag.json { background: #f3e8ff; color: #9333ea; }
-
-.preview-text {
-	font-size: 12px;
-	color: #94a3b8;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
+/* ── ECharts containers ─────────────────────────────────────────────────────── */
+:deep(.md-echarts) { margin: 8px 0; border-radius: 6px; }
 </style>

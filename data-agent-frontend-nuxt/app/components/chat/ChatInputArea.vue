@@ -5,49 +5,51 @@
 			<div class="status-chips">
 
 				<!-- Datasource selector -->
-				<div class="status-chip status-chip--clickable" @click.stop="toggleDsMenu">
-					<v-icon size="13" color="#64748b">mdi-database-outline</v-icon>
-					<span>{{ activeDsLabel }}</span>
-					<v-icon size="12" color="#64748b">mdi-chevron-down</v-icon>
-					<!-- Dropdown -->
-					<div v-if="showDsMenu" class="chip-dropdown" @click.stop>
-						<div class="chip-dropdown-title">切换数据库</div>
-						<div v-if="store.allDatasources.length === 0" class="chip-dropdown-empty">暂无已启用的数据库</div>
+				<div class="ds-chip-wrap" @click.stop>
+					<div
+						class="status-chip status-chip--ds"
+						:class="{ disabled: store.isStreaming }"
+						@click="toggleDsMenu"
+					>
+						<v-icon size="13" color="#64748b">mdi-database-outline</v-icon>
+						<span>{{ store.activeDatasource?.name || '选择数据库' }}</span>
+						<v-icon size="13" color="#94a3b8">{{ showDsMenu ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+					</div>
+					<div v-if="showDsMenu" class="chip-dropdown">
 						<div
 							v-for="ds in store.allDatasources"
 							:key="ds.id"
 							class="chip-dropdown-item"
-							:class="{ 'is-active': store.activeDatasource?.id === ds.id }"
+							:class="{ active: store.activeDatasource?.id === ds.id }"
 							@click="selectDs(ds)"
 						>
-							<v-icon size="13" :color="store.activeDatasource?.id === ds.id ? '#2563eb' : '#94a3b8'">mdi-database-outline</v-icon>
-							<span>{{ ds.name }}</span>
-							<span class="ds-type">{{ ds.type?.toUpperCase() }}</span>
-							<v-icon v-if="store.activeDatasource?.id === ds.id" size="12" color="#2563eb" class="ml-auto">mdi-check</v-icon>
+							<span class="item-name">{{ ds.name }}</span>
+							<span class="item-tag">{{ ds.type?.toUpperCase() }}</span>
 						</div>
 					</div>
 				</div>
 
 				<!-- Model selector -->
-				<div v-if="store.activeChatModel" class="status-chip status-chip--model status-chip--clickable" @click.stop="toggleModelMenu">
-					<v-icon size="13" color="#3b82f6">mdi-lightning-bolt</v-icon>
-					<span>{{ store.activeChatModel }}</span>
-					<v-icon size="12" color="#64748b">mdi-chevron-down</v-icon>
-					<!-- Dropdown -->
-					<div v-if="showModelMenu" class="chip-dropdown" @click.stop>
-						<div class="chip-dropdown-title">切换对话模型</div>
-						<div v-if="store.chatModels.length === 0" class="chip-dropdown-empty">暂无模型配置</div>
+				<div class="ds-chip-wrap" @click.stop>
+					<div
+						class="status-chip status-chip--model"
+						:class="{ disabled: store.isStreaming || store.chatModels.length === 0 }"
+						@click="toggleModelMenu"
+					>
+						<v-icon size="13" color="#3b82f6">mdi-lightning-bolt</v-icon>
+						<span>{{ store.activeModelConfig?.modelName || '选择AI模型' }}</span>
+						<v-icon size="13" color="#94a3b8">{{ showModelMenu ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+					</div>
+					<div v-if="showModelMenu" class="chip-dropdown">
 						<div
 							v-for="m in store.chatModels"
 							:key="m.id"
 							class="chip-dropdown-item"
-							:class="{ 'is-active': m.isActive }"
+							:class="{ active: store.activeModelConfig?.id === m.id }"
 							@click="selectModel(m)"
 						>
-							<v-icon size="13" :color="m.isActive ? '#2563eb' : '#94a3b8'">mdi-lightning-bolt</v-icon>
-							<span>{{ m.modelName }}</span>
-							<span class="ds-type">{{ m.provider }}</span>
-							<v-icon v-if="m.isActive" size="12" color="#2563eb" class="ml-auto">mdi-check</v-icon>
+							<span class="item-name">{{ m.modelName }}</span>
+							<span class="item-tag">{{ m.provider }}</span>
 						</div>
 					</div>
 				</div>
@@ -72,14 +74,11 @@
 		<!-- Bottom action bar -->
 		<div class="action-bar">
 			<div class="action-bar-left">
-				<button class="action-icon-btn" title="更多选项" @click="toggleOptions">
-					<v-icon size="18" color="#64748b">mdi-plus</v-icon>
-				</button>
-				<button class="action-icon-btn" title="附件">
-					<v-icon size="18" color="#64748b">mdi-paperclip</v-icon>
-				</button>
+				<v-btn class="action-icon-btn" title="更多选项" variant="text" @click="toggleOptions">
+					<v-icon size="18" :color="showOptions ? '#2563eb' : '#64748b'">mdi-plus</v-icon>
+				</v-btn>
 				<!-- Extra options -->
-				<transition name="fade">
+				<Transition name="fade">
 					<div v-show="showOptions" class="extra-options">
 						<label class="option-chip" :class="{ active: store.requestOptions.humanFeedback }">
 							<input
@@ -113,30 +112,28 @@
 							显示SQL结果
 						</label>
 					</div>
-				</transition>
+				</Transition>
 			</div>
 
 			<div class="action-bar-right">
-				<button
+				<v-btn
 					v-if="!store.isStreaming"
 					class="send-btn"
 					:disabled="!inputText.trim() || store.showHumanFeedback"
 					@click="handleSend"
 				>
 					发送需求
-					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="send-icon">
-						<path d="M2 8h12M10 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-				</button>
-				<button v-else class="stop-btn" @click="handleStop">
+					<v-icon size="16" class="ml-1">mdi-arrow-right</v-icon>
+				</v-btn>
+				<v-btn v-else class="stop-btn" @click="handleStop">
 					<v-icon size="16" color="white">mdi-stop</v-icon>
 					停止
-				</button>
+				</v-btn>
 			</div>
 		</div>
 
 		<!-- Human Feedback Panel -->
-		<transition name="slide-up">
+		<Transition name="slide-up">
 			<div v-if="store.showHumanFeedback" class="human-feedback-panel">
 				<div class="feedback-header">
 					<v-icon color="warning" size="16" class="mr-1">mdi-account-question-outline</v-icon>
@@ -149,22 +146,21 @@
 					placeholder="输入您的反馈意见（留空表示接受计划）"
 				/>
 				<div class="feedback-actions">
-					<button class="feedback-btn feedback-btn--accept" @click="store.submitFeedback(false, store.feedbackContent)">
+					<v-btn class="feedback-btn feedback-btn--accept" @click="store.submitFeedback(false, store.feedbackContent)">
 						<v-icon size="14" class="mr-1">mdi-check</v-icon>接受计划
-					</button>
-					<button class="feedback-btn feedback-btn--reject" @click="store.submitFeedback(true, store.feedbackContent)">
+					</v-btn>
+					<v-btn class="feedback-btn feedback-btn--reject" @click="store.submitFeedback(true, store.feedbackContent)">
 						<v-icon size="14" class="mr-1">mdi-close</v-icon>拒绝重规划
-					</button>
+					</v-btn>
 				</div>
 			</div>
-		</transition>
+		</Transition>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useChatStore, type Datasource } from '~/stores/chat';
-import type { ModelConfig } from '~/services/modelConfig/index';
+import { ref, onMounted, onUnmounted } from 'vue';
+import { useChatStore } from '~/stores/chat';
 
 const store = useChatStore();
 const inputText = ref('');
@@ -173,47 +169,31 @@ const showOptions = ref(false);
 const showDsMenu = ref(false);
 const showModelMenu = ref(false);
 
-// Active datasource label
-const activeDsLabel = computed(() => {
-	const ds = store.activeDatasource;
-	if (!ds) return '选择数据库';
-	const type = ds.type ? ` (${ds.type.toUpperCase()})` : '';
-	return (ds.name || `DB ${ds.id}`) + type;
-});
-
 function toggleOptions() {
 	showOptions.value = !showOptions.value;
 }
 
-function toggleDsMenu(event?: MouseEvent) {
-	event?.stopPropagation();
+function toggleDsMenu() {
+	if (store.isStreaming) return;
 	showDsMenu.value = !showDsMenu.value;
-	showModelMenu.value = false;
+	if (showDsMenu.value) showModelMenu.value = false;
 }
 
-function toggleModelMenu(event?: MouseEvent) {
-	event?.stopPropagation();
+function toggleModelMenu() {
+	if (store.isStreaming || store.chatModels.length === 0) return;
 	showModelMenu.value = !showModelMenu.value;
-	showDsMenu.value = false;
+	if (showModelMenu.value) showDsMenu.value = false;
 }
 
-async function selectDs(ds: Datasource) {
+async function selectDs(ds: typeof store.allDatasources[0]) {
 	showDsMenu.value = false;
 	await store.switchDatasource(ds);
 }
 
-async function selectModel(m: ModelConfig) {
+async function selectModel(m: typeof store.chatModels[0]) {
 	showModelMenu.value = false;
-	if (m.id) await store.switchModel(m.id);
+	await store.switchModel(m.id);
 }
-
-function onOutsideClick() {
-	showDsMenu.value = false;
-	showModelMenu.value = false;
-}
-
-onMounted(() => document.addEventListener('click', onOutsideClick));
-onUnmounted(() => document.removeEventListener('click', onOutsideClick));
 
 function onNl2sqlChange() {
 	if (store.requestOptions.nl2sqlOnly) {
@@ -253,6 +233,14 @@ async function handleStop() {
 		console.error('停止失败', e);
 	}
 }
+
+function closeMenus() {
+	showDsMenu.value = false;
+	showModelMenu.value = false;
+}
+
+onMounted(() => document.addEventListener('click', closeMenus));
+onUnmounted(() => document.removeEventListener('click', closeMenus));
 </script>
 
 <style scoped>
@@ -273,6 +261,11 @@ async function handleStop() {
 	gap: 8px;
 	flex-wrap: wrap;
 }
+
+.ds-chip-wrap {
+	position: relative;
+}
+
 .status-chip {
 	display: inline-flex;
 	align-items: center;
@@ -283,71 +276,75 @@ async function handleStop() {
 	border-radius: 20px;
 	font-size: 12.5px;
 	color: #475569;
+	cursor: pointer;
+	user-select: none;
+	white-space: nowrap;
+	transition: border-color 0.1s, background 0.1s;
+}
+.status-chip:hover:not(.disabled) {
+	border-color: #94a3b8;
+}
+.status-chip.disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 .status-chip--model {
 	background: #eff6ff;
 	border-color: #bfdbfe;
 	color: #1d4ed8;
 }
-.status-chip--clickable {
-	cursor: pointer;
-	position: relative;
-}
-.status-chip--clickable:hover {
-	background: #e8edf5;
-}
-.status-chip--model.status-chip--clickable:hover {
-	background: #dbeafe;
+.status-chip--model:hover:not(.disabled) {
+	border-color: #93c5fd;
 }
 
-/* ── Chip dropdown ───────────────────────────────────────────────────────────── */
 .chip-dropdown {
 	position: absolute;
-	top: calc(100% + 6px);
+	top: calc(100% + 4px);
 	left: 0;
-	min-width: 220px;
+	z-index: 999;
 	background: white;
 	border: 1px solid #e2e8f0;
 	border-radius: 10px;
-	box-shadow: 0 8px 24px rgba(0,0,0,0.10);
-	z-index: 999;
-	padding: 6px 0;
+	box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+	min-width: 200px;
+	max-width: 300px;
+	max-height: 280px;
+	overflow-y: auto;
+	padding: 4px 0;
 }
-.chip-dropdown-title {
-	font-size: 11px;
-	color: #94a3b8;
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	padding: 4px 14px 6px;
-}
-.chip-dropdown-empty {
-	font-size: 13px;
-	color: #94a3b8;
-	padding: 8px 14px;
-}
+
 .chip-dropdown-item {
 	display: flex;
 	align-items: center;
-	gap: 7px;
-	padding: 8px 14px;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 7px 14px;
 	font-size: 13px;
-	color: #1e293b;
+	color: #334155;
 	cursor: pointer;
 	transition: background 0.1s;
 }
 .chip-dropdown-item:hover {
 	background: #f1f5f9;
 }
-.chip-dropdown-item.is-active {
+.chip-dropdown-item.active {
 	background: #eff6ff;
 	color: #2563eb;
-	font-weight: 600;
+	font-weight: 500;
 }
-.ds-type {
+.item-name {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.item-tag {
+	flex-shrink: 0;
 	font-size: 11px;
 	color: #94a3b8;
-	margin-left: 2px;
+	background: #f1f5f9;
+	border-radius: 4px;
+	padding: 1px 5px;
 }
 
 /* ── Textarea ────────────────────────────────────────────────────────────────── */

@@ -39,6 +39,11 @@
 							<ChatMarkdownReport :content="message.content" />
 						</v-card>
 
+						<!-- Timeline -->
+						<v-card v-else-if="message.messageType === 'timeline'" class="ai-card timeline-card" elevation="1">
+							<ChatWorkflowTimeline :node-blocks="safeParseBlocks(message.content)" :completed="true" />
+						</v-card>
+
 						<!-- Plain AI text (render as markdown) -->
 						<v-card v-else class="ai-card" elevation="1">
 							<div class="md-body" v-html="renderMarkdown(message.content)" />
@@ -76,13 +81,9 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue';
-import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import hljs from 'highlight.js';
-import 'highlight.js/styles/github.css';
-import sql from 'highlight.js/lib/languages/sql';
-import python from 'highlight.js/lib/languages/python';
-import json from 'highlight.js/lib/languages/json';
+import { renderMarkdownContent } from '~/utils/markdown';
+import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
 import { useChatStore } from '~/stores/chat';
 import type { ResultData } from '~/services/resultSet/index';
 import ChatWelcome from './ChatWelcome.vue';
@@ -90,22 +91,21 @@ import ChatResultSet from './ChatResultSet.vue';
 import ChatMarkdownReport from './ChatMarkdownReport.vue';
 import ChatWorkflowTimeline from './ChatWorkflowTimeline.vue';
 
-hljs.registerLanguage('sql', sql);
-hljs.registerLanguage('python', python);
-hljs.registerLanguage('json', json);
-
 const store = useChatStore();
 const listRef = ref<HTMLElement | null>(null);
-
-marked.setOptions({ gfm: true, breaks: true });
+const { renderECharts } = useEchartsRenderer();
 
 function renderMarkdown(content: string): string {
 	if (!content) return '';
-	return DOMPurify.sanitize(marked.parse(content) as string);
+	return DOMPurify.sanitize(renderMarkdownContent(content), { ADD_TAGS: ['div'], ADD_ATTR: ['style', 'class'] });
 }
 
 function safeParseJson(content: string): ResultData | null {
 	try { return JSON.parse(content); } catch { return null; }
+}
+
+function safeParseBlocks(content: string) {
+	try { return JSON.parse(content) as import('~/services/graph/index').GraphNodeResponse[][]; } catch { return []; }
 }
 
 function escapeHtml(text: string): string {
@@ -120,7 +120,10 @@ function scrollToBottom() {
 	});
 }
 
-watch(() => store.currentMessages.length, () => scrollToBottom());
+watch(() => store.currentMessages.length, () => {
+	scrollToBottom();
+	nextTick(() => renderECharts(listRef.value));
+});
 watch(() => store.nodeBlocks.length, () => scrollToBottom());
 watch(() => store.isStreaming, (v) => { if (v) scrollToBottom(); });
 </script>
@@ -221,17 +224,28 @@ watch(() => store.isStreaming, (v) => { if (v) scrollToBottom(); });
 .md-body :deep(p) { margin-bottom: 7px; }
 .md-body :deep(ul), .md-body :deep(ol) { padding-left: 20px; margin-bottom: 7px; }
 .md-body :deep(li) { margin-bottom: 3px; }
-.md-body :deep(code) { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 12.5px; font-family: 'Fira Code', monospace; }
-.md-body :deep(pre) { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; overflow-x: auto; margin: 8px 0; }
-.md-body :deep(pre code) { background: none; padding: 0; }
+.md-body :deep(code:not(pre code)) { background: #f6f8fa; border: 1px solid #e1e4e8; padding: 2px 6px; border-radius: 3px; font-size: 12.5px; font-family: 'Monaco', 'Menlo', 'Fira Code', monospace; color: #e83e8c; }
 .md-body :deep(blockquote) { border-left: 3px solid #3b82f6; padding-left: 12px; color: #64748b; margin: 6px 0; }
-.md-body :deep(table) { width: 100%; border-collapse: collapse; margin: 8px 0; }
-.md-body :deep(th) { background: #f1f5f9; padding: 7px 12px; border: 1px solid #e2e8f0; font-weight: 600; font-size: 13px; text-align: left; }
-.md-body :deep(td) { padding: 7px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
+.md-body :deep(table) { width: 100%; border-collapse: collapse; margin: 8px 0; display: block; overflow-x: auto; }
+.md-body :deep(thead) { display: table-header-group; }
+.md-body :deep(tbody) { display: table-row-group; }
+.md-body :deep(tr) { display: table-row; border-top: 1px solid #c6cbd1; }
+.md-body :deep(th) { display: table-cell; background: #f1f5f9; padding: 7px 12px; border: 1px solid #e2e8f0; font-weight: 600; font-size: 13px; text-align: left; }
+.md-body :deep(td) { display: table-cell; padding: 7px 12px; border: 1px solid #e2e8f0; font-size: 13px; }
 .md-body :deep(tr:nth-child(even)) { background: #f8fafc; }
 .md-body :deep(a) { color: #2563eb; text-decoration: underline; }
 .md-body :deep(hr) { border: none; border-top: 1px solid #e2e8f0; margin: 12px 0; }
 .md-body :deep(strong) { font-weight: 700; }
+
+/* ── Code block with header ─────────────────────────────────────────────────── */
+.md-body :deep(.code-block-wrapper) { margin: 10px 0; border: 1px solid #e1e4e8; border-radius: 6px; overflow: hidden; background: #f6f8fa; }
+.md-body :deep(.code-block-header) { display: flex; justify-content: space-between; align-items: center; background: #f6f8fa; padding: 6px 10px; border-bottom: 1px solid #e1e4e8; font-size: 11px; }
+.md-body :deep(.code-language) { color: #6a737d; font-weight: 600; font-family: 'Monaco', 'Menlo', monospace; font-size: 10px; text-transform: uppercase; }
+.md-body :deep(.code-copy-button) { background: transparent; border: 1px solid #d1d5da; padding: 3px 10px; border-radius: 4px; font-size: 10px; cursor: pointer; transition: all 0.2s; color: #24292e; }
+.md-body :deep(.code-copy-button:hover) { background: #f3f4f6; border-color: #c6cbd1; }
+.md-body :deep(.code-copy-button.copied) { background: #28a745; border-color: #28a745; color: white; }
+.md-body :deep(pre.hljs) { margin: 0; padding: 10px; overflow: auto; background: #f6f8fa; font-size: 12px; line-height: 1.4; }
+.md-body :deep(pre.hljs code) { display: block; padding: 0; margin: 0; background: transparent; border: none; font-family: 'Monaco', 'Menlo', monospace; color: inherit; }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────────── */
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
