@@ -59,14 +59,15 @@
 				}"
 			>
 				<!-- 自定义展开列：未启用或连接未成功时禁用 -->
-				<template
-					v-slot:item.data-table-expand="{
-						item,
-						internalItem,
-						toggleExpand,
-						isExpanded,
-					}"
-				>
+			<!-- eslint-disable-next-line vue/valid-v-slot -->
+			<template
+				#item.data-table-expand="{
+					item,
+					internalItem,
+					toggleExpand,
+					isExpanded,
+				}"
+			>
 					<v-btn
 						v-if="item.status === 'active' && item.testStatus === 'success'"
 						icon
@@ -91,7 +92,8 @@
 				</template>
 
 				<!-- 名称与图标 -->
-				<template v-slot:item.name="{ item }">
+				<!-- eslint-disable-next-line vue/valid-v-slot -->
+				<template #item.name="{ item }">
 					<div class="d-flex align-center py-2">
 						<v-avatar
 							color="blue-lighten-5"
@@ -113,12 +115,14 @@
 				</template>
 
 				<!-- 类型 -->
-				<template v-slot:item.type="{ item }">
+				<!-- eslint-disable-next-line vue/valid-v-slot -->
+				<template #item.type="{ item }">
 					<v-chip size="small" class="text-uppercase">{{ item.type }}</v-chip>
 				</template>
 
 				<!-- 启用/禁用状态 -->
-				<template v-slot:item.status="{ item }">
+				<!-- eslint-disable-next-line vue/valid-v-slot -->
+				<template #item.status="{ item }">
 					<v-chip
 						:color="item.status === 'active' ? 'success' : 'default'"
 						size="small"
@@ -130,7 +134,8 @@
 				</template>
 
 				<!-- 连接状态 -->
-				<template v-slot:item.testStatus="{ item }">
+				<!-- eslint-disable-next-line vue/valid-v-slot -->
+				<template #item.testStatus="{ item }">
 					<v-chip
 						:color="
 							item.testStatus === 'success'
@@ -154,7 +159,8 @@
 				</template>
 
 				<!-- 操作列 -->
-				<template v-slot:item.actions="{ item }">
+				<!-- eslint-disable-next-line vue/valid-v-slot -->
+				<template #item.actions="{ item }">
 					<div class="d-flex align-center justify-end ga-1">
 						<v-btn
 							variant="text"
@@ -650,14 +656,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue';
 import type { VForm } from 'vuetify/components';
 import datasourceService, {
 	type Datasource,
 	type LogicalRelation,
 } from '@/services/datasource';
 import { useTipStore } from '~/stores/tips';
-import { useRoute } from 'vue-router';
 import agentDatasourceService from '@/services/agentDatasource';
 
 const route = useRoute();
@@ -1173,57 +1177,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-shell {
-	padding: 32px;
-}
-
-.text-slate-900 {
-	color: #0f172a;
-}
-
-.custom-label {
-	font-size: 0.75rem;
-	font-weight: 600;
-	color: #64748b;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	margin-bottom: 6px;
-	display: block;
-}
-
-.breathing-dot-green {
-	width: 8px;
-	height: 8px;
-	background-color: #10b981;
-	border-radius: 50%;
-	margin-right: 8px;
-	display: inline-block;
-	box-shadow: 0 0 0 rgba(16, 185, 129, 0.4);
-	animation: breathe 2s infinite ease-in-out;
-}
-
-@keyframes breathe {
-	0% {
-		box-shadow: 0 0 0 0px rgba(16, 185, 129, 0.7);
-	}
-	70% {
-		box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
-	}
-	100% {
-		box-shadow: 0 0 0 0px rgba(16, 185, 129, 0);
-	}
-}
-
-.ga-1 {
-	gap: 4px;
-}
-.ga-2 {
-	gap: 8px;
-}
-.ga-3 {
-	gap: 12px;
-}
-
 .manage-tables-container {
 	background: white;
 	border-radius: 12px;

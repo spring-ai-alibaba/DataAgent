@@ -13,3 +13,62 @@
 	opacity: 0;
 	transform: translateY(-10px); /* 向上方一点点消失 */
 }
+
+/* ── 公共页面样式 ──────────────────────────────────────────────────────────── */
+
+.page-shell {
+	padding: 32px;
+}
+
+.search-field .v-field__outline {
+	--v-field-border-color: #e2e8f0;
+}
+
+.custom-label {
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: #64748b;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	margin-bottom: 6px;
+	display: block;
+}
+
+.breathing-dot {
+	width: 8px;
+	height: 8px;
+	background-color: #10b981;
+	border-radius: 50%;
+	margin-right: 6px;
+	display: inline-block;
+	animation: breathe 2s infinite ease-in-out;
+}
+
+.breathing-dot-green {
+	width: 8px;
+	height: 8px;
+	background-color: #10b981;
+	border-radius: 50%;
+	margin-right: 8px;
+	display: inline-block;
+	box-shadow: 0 0 0 rgba(16, 185, 129, 0.4);
+	animation: breathe 2s infinite ease-in-out;
+}
+
+@keyframes breathe {
+	0% {
+		transform: scale(0.9);
+		opacity: 0.7;
+		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+	}
+	50% {
+		transform: scale(1.1);
+		opacity: 1;
+		box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+	}
+	100% {
+		transform: scale(0.9);
+		opacity: 0.7;
+		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+	}
+}

@@ -645,45 +645,6 @@ onMounted(fetchConfigs);
 	background-color: #f0f7ff !important;
 }
 
-/* 呼吸灯特效 */
-.breathing-dot {
-	width: 8px;
-	height: 8px;
-	background-color: #10b981;
-	border-radius: 50%;
-	margin-right: 6px;
-	display: inline-block;
-	animation: breathe 2s infinite ease-in-out;
-}
-
-@keyframes breathe {
-	0% {
-		transform: scale(0.9);
-		opacity: 0.7;
-		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
-	}
-	50% {
-		transform: scale(1.1);
-		opacity: 1;
-		box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
-	}
-	100% {
-		transform: scale(0.9);
-		opacity: 0.7;
-		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-	}
-}
-
-.custom-label {
-	font-size: 0.75rem;
-	font-weight: 600;
-	color: #64748b;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	margin-bottom: 4px;
-	display: block;
-}
-
 .border-dashed {
 	border: 2px dashed #e2e8f0 !important;
 }
@@ -696,19 +657,6 @@ onMounted(fetchConfigs);
 	text-transform: none !important;
 	font-weight: 500 !important;
 	letter-spacing: 0 !important;
-}
-
-.ga-3 {
-	gap: 12px;
-}
-.ga-4 {
-	gap: 16px;
-}
-.ga-2 {
-	gap: 8px;
-}
-.ga-1 {
-	gap: 4px;
 }
 
 /* 列表容器需要相对定位，方便子元素离开时绝对定位 */

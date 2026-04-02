@@ -153,7 +153,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
 import { useChatStore } from '~/stores/chat';
 
 const store = useChatStore();

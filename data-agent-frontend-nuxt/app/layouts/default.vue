@@ -174,7 +174,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
 import BaseDrawer from '../components/BaseDrawer/index.vue';
 import agentService from '~/services/agent/index';
 import modelConfigService from '~/services/modelConfig/index';
@@ -387,43 +386,6 @@ const logout = () => {
 
 :deep(.agent-switcher-menu .v-list-item:hover) {
 	background: rgba(59, 130, 246, 0.12) !important;
-}
-
-.agent-option__text {
-	min-width: 0;
-	flex: 1;
-}
-
-.agent-option__title {
-	font-size: 12.5px;
-	line-height: 1.2;
-	font-weight: 600;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: 160px;
-}
-
-.agent-option__title--active {
-	color: #60a5fa;
-}
-
-.agent-option__subtitle {
-	font-size: 10.5px;
-	line-height: 1.2;
-	color: #94a3b8;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: 160px;
-}
-
-.agent-option--selection .agent-option__title {
-	max-width: 140px;
-}
-
-.agent-option--selection .agent-option__subtitle {
-	max-width: 140px;
 }
 
 .agent-option__text {

@@ -623,12 +623,4 @@ onMounted(() => {
 .search-field {
 	border-color: #e2e8f0;
 }
-
-.ga-3 {
-	gap: 12px;
-}
-
-.ga-1 {
-	gap: 4px;
-}
 </style>

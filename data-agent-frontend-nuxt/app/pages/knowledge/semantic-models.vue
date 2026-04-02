@@ -499,11 +499,4 @@ onMounted(() => loadSemanticModels());
 </script>
 
 <style scoped>
-.page-shell {
-	padding: 32px;
-}
-
-.search-field :deep(.v-field__outline) {
-	--v-field-border-color: #e2e8f0;
-}
 </style>
