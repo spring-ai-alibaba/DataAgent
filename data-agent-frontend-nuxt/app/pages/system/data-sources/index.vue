@@ -8,13 +8,34 @@
 				</p>
 			</div>
 			<div class="d-flex ga-3">
-				<v-btn variant="outlined" prepend-icon="mdi-refresh" :loading="loading" class="text-none bg-white" style="border-color: #e2e8f0" @click="fetchDatasources">
+				<v-btn
+					variant="outlined"
+					prepend-icon="mdi-refresh"
+					:loading="loading"
+					class="text-none bg-white"
+					style="border-color: #e2e8f0"
+					@click="fetchDatasources"
+				>
 					刷新
 				</v-btn>
-				<v-btn color="primary" prepend-icon="mdi-plus" class="text-none px-6" elevation="0" @click="openFormDialog('create')">
+				<v-btn
+					color="primary"
+					prepend-icon="mdi-plus"
+					class="text-none px-6"
+					elevation="0"
+					@click="openFormDialog('create')"
+				>
 					添加数据源
 				</v-btn>
-				<v-btn v-if="agentId" color="primary" prepend-icon="mdi-upload" class="text-none px-6" elevation="0" :loading="initStatus" @click="handleInitDatasource">
+				<v-btn
+					v-if="agentId"
+					color="primary"
+					prepend-icon="mdi-upload"
+					class="text-none px-6"
+					elevation="0"
+					:loading="initStatus"
+					@click="handleInitDatasource"
+				>
 					{{ initStatus ? '初始化中...' : '初始化数据源' }}
 				</v-btn>
 			</div>
@@ -30,14 +51,39 @@
 				hover
 				:loading="loading"
 				:items-per-page-options="[10, 25, 50, 100]"
-				:footer-props="{ 'items-per-page-text': '每页显示：', 'page-text': '{0}-{1} 共 {2} 条' }"
+				:footer-props="{
+					'items-per-page-text': '每页显示：',
+					'page-text': '{0}-{1} 共 {2} 条',
+				}"
 			>
 				<!-- eslint-disable-next-line vue/valid-v-slot -->
-				<template #item.data-table-expand="{ item, internalItem, toggleExpand, isExpanded }">
-					<v-btn v-if="item.status === 'active' && item.testStatus === 'success'" icon variant="text" size="small" @click="toggleExpand(internalItem)">
-						<v-icon>{{ isExpanded(internalItem) ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+				<template
+					#item.data-table-expand="{
+						item,
+						internalItem,
+						toggleExpand,
+						isExpanded,
+					}"
+				>
+					<v-btn
+						v-if="item.status === 'active' && item.testStatus === 'success'"
+						icon
+						variant="text"
+						size="small"
+						@click="toggleExpand(internalItem)"
+					>
+						<v-icon>{{
+							isExpanded(internalItem) ? 'mdi-chevron-up' : 'mdi-chevron-down'
+						}}</v-icon>
 					</v-btn>
-					<v-btn v-else icon variant="text" size="small" disabled class="expand-disabled">
+					<v-btn
+						v-else
+						icon
+						variant="text"
+						size="small"
+						disabled
+						class="expand-disabled"
+					>
 						<v-icon>mdi-chevron-down</v-icon>
 					</v-btn>
 				</template>
@@ -45,12 +91,21 @@
 				<!-- eslint-disable-next-line vue/valid-v-slot -->
 				<template #item.name="{ item }">
 					<div class="d-flex align-center py-2">
-						<v-avatar color="blue-lighten-5" rounded="lg" size="36" class="mr-3">
-							<v-icon color="primary" size="20">{{ getDbIcon(item.type) }}</v-icon>
+						<v-avatar
+							color="blue-lighten-5"
+							rounded="lg"
+							size="36"
+							class="mr-3"
+						>
+							<v-icon color="primary" size="20">{{
+								getDbIcon(item.type)
+							}}</v-icon>
 						</v-avatar>
 						<div>
 							<div class="font-weight-bold">{{ item.name }}</div>
-							<div class="text-caption text-medium-emphasis">{{ item.host }}:{{ item.port }}</div>
+							<div class="text-caption text-medium-emphasis">
+								{{ item.host }}:{{ item.port }}
+							</div>
 						</div>
 					</div>
 				</template>
@@ -62,16 +117,35 @@
 
 				<!-- eslint-disable-next-line vue/valid-v-slot -->
 				<template #item.status="{ item }">
-					<v-chip :color="item.status === 'active' ? 'success' : 'default'" size="small" variant="flat" class="px-3">
+					<v-chip
+						:color="item.status === 'active' ? 'success' : 'default'"
+						size="small"
+						variant="flat"
+						class="px-3"
+					>
 						{{ item.status === 'active' ? '启用' : '禁用' }}
 					</v-chip>
 				</template>
 
 				<!-- eslint-disable-next-line vue/valid-v-slot -->
 				<template #item.testStatus="{ item }">
-					<v-chip :color="item.testStatus === 'success' ? 'blue' : item.testStatus === 'fail' ? 'error' : 'default'" size="small" variant="flat" class="px-3">
+					<v-chip
+						:color="
+							item.testStatus === 'success'
+								? 'blue'
+								: item.testStatus === 'fail'
+									? 'error'
+									: 'default'
+						"
+						size="small"
+						variant="flat"
+						class="px-3"
+					>
 						<span class="d-flex align-center">
-							<span v-if="item.testStatus === 'success'" class="breathing-dot-green" />
+							<span
+								v-if="item.testStatus === 'success'"
+								class="breathing-dot-green"
+							/>
 							{{ getStatusText(item.testStatus) }}
 						</span>
 					</v-chip>
@@ -80,17 +154,49 @@
 				<!-- eslint-disable-next-line vue/valid-v-slot -->
 				<template #item.actions="{ item }">
 					<div class="d-flex align-center justify-end ga-1">
-						<v-btn variant="text" size="small" color="primary" class="text-none font-weight-bold" :loading="togglingStatusId === item.id" @click="handleToggleStatus(item)">
+						<v-btn
+							variant="text"
+							size="small"
+							color="primary"
+							class="text-none font-weight-bold"
+							:loading="togglingStatusId === item.id"
+							@click="handleToggleStatus(item)"
+						>
 							{{ item.status === 'active' ? '禁用' : '启用' }}
 						</v-btn>
-						<v-btn variant="text" size="small" color="primary" class="text-none font-weight-bold" :loading="testingId === item.id" @click="handleTestConnection(item)">
+						<v-btn
+							variant="text"
+							size="small"
+							color="primary"
+							class="text-none font-weight-bold"
+							:loading="testingId === item.id"
+							@click="handleTestConnection(item)"
+						>
 							测试连接
 						</v-btn>
-						<v-btn variant="text" size="small" color="primary" class="text-none font-weight-bold" @click="openFkDialog(item)">
+						<v-btn
+							variant="text"
+							size="small"
+							color="primary"
+							class="text-none font-weight-bold"
+							@click="openFkDialog(item)"
+						>
 							逻辑外键
 						</v-btn>
-						<v-btn icon="mdi-pencil-outline" variant="text" size="small" color="primary" @click="openFormDialog('edit', item)" />
-						<v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" @click="handleDelete(item)" />
+						<v-btn
+							icon="mdi-pencil-outline"
+							variant="text"
+							size="small"
+							color="primary"
+							@click="openFormDialog('edit', item)"
+						/>
+						<v-btn
+							icon="mdi-delete-outline"
+							variant="text"
+							size="small"
+							color="error"
+							@click="handleDelete(item)"
+						/>
 					</div>
 				</template>
 
@@ -131,14 +237,13 @@
 <script setup lang="ts">
 import datasourceService, { type Datasource } from '@/services/datasource';
 import agentDatasourceService from '@/services/agentDatasource';
-import { useTipStore } from '~/stores/tips';
 import DatasourceFormDialog from './DatasourceFormDialog.vue';
 import ForeignKeyDialog from './ForeignKeyDialog.vue';
 import ExpandedTableManager from './ExpandedTableManager.vue';
 
 const route = useRoute();
-const tipStore = useTipStore();
 const { showConfirm } = useConfirm();
+const { $tip } = useNuxtApp();
 
 const loading = ref(false);
 const saving = ref(false);
@@ -174,10 +279,6 @@ const headers = [
 	{ title: '操作', key: 'actions', align: 'end' as const, sortable: false },
 ];
 
-function showTip(text: string, color: 'success' | 'error' = 'success') {
-	tipStore.show(text, { color: color === 'error' ? 'error' : 'success' });
-}
-
 function getDbIcon(type: string | undefined) {
 	if (type === 'mysql') return 'mdi-database';
 	if (type === 'postgresql') return 'mdi-elephant';
@@ -196,7 +297,7 @@ async function fetchDatasources() {
 	try {
 		datasourceList.value = await datasourceService.getAllDatasource();
 	} catch {
-		showTip('获取数据源列表失败', 'error');
+		$tip('获取数据源列表失败', { color: 'error', icon: 'mdi-alert-circle' });
 	} finally {
 		loading.value = false;
 	}
@@ -213,15 +314,18 @@ async function handleFormSubmit(data: Datasource) {
 	try {
 		if (formDialogMode.value === 'create') {
 			await datasourceService.createDatasource(data);
-			showTip('创建成功');
+			$tip('创建成功');
 		} else if (data.id) {
 			await datasourceService.updateDatasource(data.id, data);
-			showTip('更新成功');
+			$tip('更新成功');
 		}
 		formDialogVisible.value = false;
 		fetchDatasources();
 	} catch {
-		showTip('操作失败，请检查网络或参数', 'error');
+		$tip('操作失败，请检查网络或参数', {
+			color: 'error',
+			icon: 'mdi-alert-circle',
+		});
 	} finally {
 		saving.value = false;
 	}
@@ -237,9 +341,17 @@ function handleDelete(item: Datasource) {
 		onConfirm: async () => {
 			try {
 				const res = await datasourceService.deleteDatasource(item.id!);
-				if (res.success) { showTip('删除成功'); fetchDatasources(); }
-				else showTip(res.message || '删除失败', 'error');
-			} catch { showTip('删除失败', 'error'); }
+				if (res.success) {
+					$tip('删除成功');
+					fetchDatasources();
+				} else
+					$tip(res.message || '删除失败', {
+						color: 'error',
+						icon: 'mdi-alert-circle',
+					});
+			} catch {
+				$tip('删除失败', { color: 'error', icon: 'mdi-alert-circle' });
+			}
 		},
 	});
 }
@@ -249,11 +361,17 @@ async function handleToggleStatus(item: Datasource) {
 	togglingStatusId.value = item.id;
 	const newStatus = item.status === 'active' ? 'inactive' : 'active';
 	try {
-		await datasourceService.updateDatasource(item.id, { ...item, status: newStatus });
+		await datasourceService.updateDatasource(item.id, {
+			...item,
+			status: newStatus,
+		});
 		item.status = newStatus;
-		showTip(newStatus === 'active' ? '已启用' : '已禁用');
-	} catch { showTip('操作失败', 'error'); }
-	finally { togglingStatusId.value = null; }
+		$tip(newStatus === 'active' ? '已启用' : '已禁用');
+	} catch {
+		$tip('操作失败', { color: 'error', icon: 'mdi-alert-circle' });
+	} finally {
+		togglingStatusId.value = null;
+	}
 }
 
 async function handleTestConnection(item: Datasource) {
@@ -261,10 +379,19 @@ async function handleTestConnection(item: Datasource) {
 	testingId.value = item.id;
 	try {
 		const res = await datasourceService.testConnection(item.id);
-		if (res.success) { showTip('连接测试成功'); item.testStatus = 'success'; }
-		else { showTip('连接测试失败', 'error'); item.testStatus = 'fail'; }
-	} catch { showTip('连接测试请求失败', 'error'); item.testStatus = 'fail'; }
-	finally { testingId.value = null; }
+		if (res.success) {
+			$tip('连接测试成功');
+			item.testStatus = 'success';
+		} else {
+			$tip('连接测试失败', { color: 'error', icon: 'mdi-alert-circle' });
+			item.testStatus = 'fail';
+		}
+	} catch {
+		$tip('连接测试请求失败', { color: 'error', icon: 'mdi-alert-circle' });
+		item.testStatus = 'fail';
+	} finally {
+		testingId.value = null;
+	}
 }
 
 function openFkDialog(item: Datasource) {
@@ -279,45 +406,84 @@ function openFkDialog(item: Datasource) {
 function getDatasourceFromRow(row: unknown): Datasource | null {
 	if (row && typeof row === 'object' && 'id' in row) {
 		const id = (row as Datasource).id;
-		return datasourceList.value.find(ds => ds.id === id) ?? (row as Datasource);
+		return (
+			datasourceList.value.find((ds) => ds.id === id) ?? (row as Datasource)
+		);
 	}
-	const id = typeof row === 'number' ? row : typeof row === 'string' ? Number(row) : null;
-	if (id != null && !Number.isNaN(id)) return datasourceList.value.find(ds => ds.id === id) ?? null;
+	const id =
+		typeof row === 'number'
+			? row
+			: typeof row === 'string'
+				? Number(row)
+				: null;
+	if (id != null && !Number.isNaN(id))
+		return datasourceList.value.find((ds) => ds.id === id) ?? null;
 	return null;
 }
 
-watch(expandedRows, (rows) => {
-	const list = Array.isArray(rows) ? rows : [];
-	const invalidRows: unknown[] = [];
-	for (const row of list) {
-		const ds = getDatasourceFromRow(row);
-		const canExpand = ds && ds.status === 'active' && (ds.testStatus ?? '') === 'success';
-		if (!canExpand && ds) invalidRows.push(row);
-	}
-	if (invalidRows.length > 0) {
-		expandedRows.value = list.filter(row => {
+watch(
+	expandedRows,
+	(rows) => {
+		const list = Array.isArray(rows) ? rows : [];
+		const invalidRows: unknown[] = [];
+		for (const row of list) {
 			const ds = getDatasourceFromRow(row);
-			return ds && ds.status === 'active' && (ds.testStatus ?? '') === 'success';
-		});
-		const hasInactive = invalidRows.some(row => { const ds = getDatasourceFromRow(row); return ds && ds.status !== 'active'; });
-		const hasConnFail = invalidRows.some(row => { const ds = getDatasourceFromRow(row); return ds && (ds.testStatus ?? '') !== 'success'; });
-		if (hasInactive && hasConnFail) showTip('请先启用数据源并测试连接成功后再展开', 'error');
-		else if (hasInactive) showTip('请先启用数据源后再展开数据表管理', 'error');
-		else showTip('请先测试连接成功后再展开数据表管理', 'error');
-	}
-}, { immediate: false });
-
-watch(expandedRows, async (rows) => {
-	const list = Array.isArray(rows) ? rows : [];
-	for (const row of list) {
-		const dsId = typeof row === 'object' && row !== null && 'id' in row && row.id != null
-			? row.id : Number(row);
-		if (dsId && !tableLists.value[dsId]) {
-			selectedTables.value[dsId] = selectedTables.value[dsId] ?? [];
-			await fetchTablesForDatasource(dsId);
+			const canExpand =
+				ds && ds.status === 'active' && (ds.testStatus ?? '') === 'success';
+			if (!canExpand && ds) invalidRows.push(row);
 		}
-	}
-}, { immediate: false });
+		if (invalidRows.length > 0) {
+			expandedRows.value = list.filter((row) => {
+				const ds = getDatasourceFromRow(row);
+				return (
+					ds && ds.status === 'active' && (ds.testStatus ?? '') === 'success'
+				);
+			});
+			const hasInactive = invalidRows.some((row) => {
+				const ds = getDatasourceFromRow(row);
+				return ds && ds.status !== 'active';
+			});
+			const hasConnFail = invalidRows.some((row) => {
+				const ds = getDatasourceFromRow(row);
+				return ds && (ds.testStatus ?? '') !== 'success';
+			});
+			if (hasInactive && hasConnFail)
+				$tip('请先启用数据源并测试连接成功后再展开', {
+					color: 'error',
+					icon: 'mdi-alert-circle',
+				});
+			else if (hasInactive)
+				$tip('请先启用数据源后再展开数据表管理', {
+					color: 'error',
+					icon: 'mdi-alert-circle',
+				});
+			else
+				$tip('请先测试连接成功后再展开数据表管理', {
+					color: 'error',
+					icon: 'mdi-alert-circle',
+				});
+		}
+	},
+	{ immediate: false },
+);
+
+watch(
+	expandedRows,
+	async (rows) => {
+		const list = Array.isArray(rows) ? rows : [];
+		for (const row of list) {
+			const dsId =
+				typeof row === 'object' && row !== null && 'id' in row && row.id != null
+					? row.id
+					: Number(row);
+			if (dsId && !tableLists.value[dsId]) {
+				selectedTables.value[dsId] = selectedTables.value[dsId] ?? [];
+				await fetchTablesForDatasource(dsId);
+			}
+		}
+	},
+	{ immediate: false },
+);
 
 async function fetchTablesForDatasource(datasourceId: number) {
 	loadingTablesId.value = datasourceId;
@@ -325,7 +491,8 @@ async function fetchTablesForDatasource(datasourceId: number) {
 	try {
 		const tables = await datasourceService.getDatasourceTables(datasourceId);
 		tableLists.value[datasourceId] = tables ?? [];
-		if (!selectedTables.value[datasourceId]) selectedTables.value[datasourceId] = [];
+		if (!selectedTables.value[datasourceId])
+			selectedTables.value[datasourceId] = [];
 	} catch {
 		tableLists.value[datasourceId] = [];
 		selectedTables.value[datasourceId] = [];
@@ -343,35 +510,63 @@ async function updateTables(item: Datasource) {
 	if (!item.id) return;
 	updatingTablesId.value = item.id;
 	try {
-		showTip(`已选择 ${selectedTables.value[item.id]?.length ?? 0} 个表（表选择在智能体关联数据源时可配置）`);
+		$tip(
+			`已选择 ${selectedTables.value[item.id]?.length ?? 0} 个表（表选择在智能体关联数据源时可配置）`,
+		);
 	} finally {
 		updatingTablesId.value = null;
 	}
 }
 
 async function handleInitDatasource() {
-	if (!agentId.value) { showTip('缺少智能体ID，无法初始化数据源', 'error'); return; }
+	if (!agentId.value) {
+		$tip('缺少智能体ID，无法初始化数据源', {
+			color: 'error',
+			icon: 'mdi-alert-circle',
+		});
+		return;
+	}
 	initStatus.value = true;
 	try {
-		const activeRes = await agentDatasourceService.getActiveAgentDatasource(agentId.value);
-		if (!activeRes.success || !activeRes.data) { showTip('当前智能体没有启用的数据源！请先添加并启用数据源', 'error'); return; }
+		const activeRes = await agentDatasourceService.getActiveAgentDatasource(
+			agentId.value,
+		);
+		if (!activeRes.success || !activeRes.data) {
+			$tip('当前智能体没有启用的数据源！请先添加并启用数据源', {
+				color: 'error',
+				icon: 'mdi-alert-circle',
+			});
+			return;
+		}
 		const activeDatasource = activeRes.data;
-		if (!activeDatasource.selectTables || activeDatasource.selectTables.length === 0) {
-			showTip('当前启用的数据源没有选择相应的数据表！请先选择数据表并更新', 'error');
+		if (
+			!activeDatasource.selectTables ||
+			activeDatasource.selectTables.length === 0
+		) {
+			$tip('当前启用的数据源没有选择相应的数据表！请先选择数据表并更新', {
+				color: 'error',
+				icon: 'mdi-alert-circle',
+			});
 			return;
 		}
 		const res = await agentDatasourceService.initSchema(agentId.value);
-		if (res.success) showTip('初始化数据源成功');
-		else showTip(res.message || '初始化数据源失败', 'error');
+		if (res.success) $tip('初始化数据源成功');
+		else
+			$tip(res.message || '初始化数据源失败', {
+				color: 'error',
+				icon: 'mdi-alert-circle',
+			});
 	} catch (error: unknown) {
 		const errMsg = error instanceof Error ? error.message : '初始化数据源失败';
-		showTip(errMsg, 'error');
+		$tip(errMsg, { color: 'error', icon: 'mdi-alert-circle' });
 	} finally {
 		initStatus.value = false;
 	}
 }
 
-onMounted(() => { fetchDatasources(); });
+onMounted(() => {
+	fetchDatasources();
+});
 </script>
 
 <style scoped>

@@ -85,7 +85,11 @@
 					style="max-width: 320px"
 				/>
 				<v-spacer />
-				<v-chip color="blue-lighten-5" variant="flat" class="font-weight-medium">
+				<v-chip
+					color="blue-lighten-5"
+					variant="flat"
+					class="font-weight-medium"
+				>
 					{{ filteredConfigs.length }} 条
 				</v-chip>
 			</div>
@@ -103,9 +107,17 @@
 			>
 				<!-- eslint-disable-next-line vue/valid-v-slot -->
 				<template #item.description="{ item }">
-					<v-tooltip v-if="item.description && item.description.length > 24" :text="item.description" location="top">
+					<v-tooltip
+						v-if="item.description && item.description.length > 24"
+						:text="item.description"
+						location="top"
+					>
 						<template #activator="{ props }">
-							<span v-bind="props" class="text-truncate d-inline-block" style="max-width: 180px; cursor: help">
+							<span
+								v-bind="props"
+								class="text-truncate d-inline-block"
+								style="max-width: 180px; cursor: help"
+							>
 								{{ item.description }}
 							</span>
 						</template>
@@ -116,12 +128,18 @@
 				<!-- eslint-disable-next-line vue/valid-v-slot -->
 				<template #item.optimizationPrompt="{ item }">
 					<v-tooltip
-						v-if="item.optimizationPrompt && item.optimizationPrompt.length > 40"
+						v-if="
+							item.optimizationPrompt && item.optimizationPrompt.length > 40
+						"
 						:text="item.optimizationPrompt"
 						location="top"
 					>
 						<template #activator="{ props }">
-							<span v-bind="props" class="text-truncate d-inline-block" style="max-width: 260px; cursor: help">
+							<span
+								v-bind="props"
+								class="text-truncate d-inline-block"
+								style="max-width: 260px; cursor: help"
+							>
 								{{ item.optimizationPrompt }}
 							</span>
 						</template>
@@ -131,7 +149,11 @@
 
 				<!-- eslint-disable-next-line vue/valid-v-slot -->
 				<template #item.enabled="{ item }">
-					<v-chip :color="item.enabled ? 'success' : 'grey'" size="small" variant="tonal">
+					<v-chip
+						:color="item.enabled ? 'success' : 'grey'"
+						size="small"
+						variant="tonal"
+					>
 						{{ item.enabled ? '启用' : '禁用' }}
 					</v-chip>
 				</template>
@@ -160,7 +182,9 @@
 							:icon="item.enabled ? 'mdi-pause-circle' : 'mdi-check-circle'"
 							@click="toggleEnabled(item)"
 						>
-							<v-tooltip activator="parent" location="top">{{ item.enabled ? '禁用' : '启用' }}</v-tooltip>
+							<v-tooltip activator="parent" location="top">{{
+								item.enabled ? '禁用' : '启用'
+							}}</v-tooltip>
 						</v-btn>
 						<v-btn
 							size="small"
@@ -174,10 +198,23 @@
 
 				<template #no-data>
 					<div class="d-flex flex-column align-center py-12">
-						<v-icon icon="mdi-text-box-edit-outline" size="64" color="blue-lighten-3" class="mb-4" />
+						<v-icon
+							icon="mdi-text-box-edit-outline"
+							size="64"
+							color="blue-lighten-3"
+							class="mb-4"
+						/>
 						<p class="text-body-1 text-medium-emphasis mb-2">暂无提示词配置</p>
-						<p class="text-body-2 text-disabled mb-6">点击「添加配置」开始创建增强提示词</p>
-						<v-btn color="blue-darken-3" prepend-icon="mdi-plus" class="text-none" elevation="0" @click="openCreateDialog">
+						<p class="text-body-2 text-disabled mb-6">
+							点击「添加配置」开始创建增强提示词
+						</p>
+						<v-btn
+							color="blue-darken-3"
+							prepend-icon="mdi-plus"
+							class="text-none"
+							elevation="0"
+							@click="openCreateDialog"
+						>
 							添加配置
 						</v-btn>
 					</div>
@@ -188,28 +225,44 @@
 		<v-dialog v-model="dialogVisible" max-width="760" persistent>
 			<v-card rounded="lg">
 				<v-card-title class="d-flex align-center pa-6 pb-4">
-					<v-icon :icon="isEdit ? 'mdi-pencil-circle' : 'mdi-plus-circle'" color="blue-darken-2" class="mr-3" size="28" />
-					<span class="text-h6 font-weight-bold">{{ isEdit ? '编辑提示词配置' : '添加提示词配置' }}</span>
+					<v-icon
+						:icon="isEdit ? 'mdi-pencil-circle' : 'mdi-plus-circle'"
+						color="blue-darken-2"
+						class="mr-3"
+						size="28"
+					/>
+					<span class="text-h6 font-weight-bold">{{
+						isEdit ? '编辑提示词配置' : '添加提示词配置'
+					}}</span>
 					<v-spacer />
-					<v-btn icon="mdi-close" variant="text" size="small" @click="closeDialog" />
+					<v-btn
+						icon="mdi-close"
+						variant="text"
+						size="small"
+						@click="closeDialog"
+					/>
 				</v-card-title>
 				<v-divider />
 
 				<v-card-text class="pa-6">
 					<v-form ref="formRef">
 						<div class="mb-4">
-							<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">配置名称 <span class="text-error">*</span></p>
+							<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+								配置名称 <span class="text-error">*</span>
+							</p>
 							<v-text-field
 								v-model="formData.name"
 								placeholder="请输入配置名称"
 								variant="outlined"
 								density="compact"
-								:rules="[v => !!v?.trim() || '配置名称不能为空']"
+								:rules="[(v) => !!v?.trim() || '配置名称不能为空']"
 								hide-details="auto"
 							/>
 						</div>
 						<div class="mb-4">
-							<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">配置描述</p>
+							<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+								配置描述
+							</p>
 							<v-text-field
 								v-model="formData.description"
 								placeholder="请输入配置描述"
@@ -219,20 +272,26 @@
 							/>
 						</div>
 						<div class="mb-4">
-							<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">优化提示词内容 <span class="text-error">*</span></p>
+							<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+								优化提示词内容 <span class="text-error">*</span>
+							</p>
 							<v-textarea
 								v-model="formData.optimizationPrompt"
 								placeholder="请输入优化提示词内容，支持模板变量"
 								variant="outlined"
 								density="compact"
 								rows="5"
-								:rules="[v => !!v?.trim() || '优化提示词不能为空']"
+								:rules="[(v) => !!v?.trim() || '优化提示词不能为空']"
 								hide-details="auto"
 							/>
 						</div>
 						<v-row>
 							<v-col cols="12" md="6">
-								<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">优先级</p>
+								<p
+									class="text-body-2 font-weight-medium text-grey-darken-2 mb-2"
+								>
+									优先级
+								</p>
 								<v-text-field
 									v-model.number="formData.priority"
 									type="number"
@@ -244,7 +303,11 @@
 								/>
 							</v-col>
 							<v-col cols="12" md="6">
-								<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">显示顺序</p>
+								<p
+									class="text-body-2 font-weight-medium text-grey-darken-2 mb-2"
+								>
+									显示顺序
+								</p>
 								<v-text-field
 									v-model.number="formData.displayOrder"
 									type="number"
@@ -260,8 +323,16 @@
 
 				<v-divider />
 				<v-card-actions class="pa-4 d-flex justify-end ga-2">
-					<v-btn variant="outlined" class="text-none px-6" @click="closeDialog">取消</v-btn>
-					<v-btn color="blue-darken-3" class="text-none px-6" elevation="0" :loading="saveLoading" @click="saveConfig">
+					<v-btn variant="outlined" class="text-none px-6" @click="closeDialog"
+						>取消</v-btn
+					>
+					<v-btn
+						color="blue-darken-3"
+						class="text-none px-6"
+						elevation="0"
+						:loading="saveLoading"
+						@click="saveConfig"
+					>
 						{{ isEdit ? '保存更新' : '立即创建' }}
 					</v-btn>
 				</v-card-actions>
@@ -271,10 +342,20 @@
 		<v-dialog v-model="priorityDialogVisible" max-width="480" persistent>
 			<v-card rounded="lg">
 				<v-card-title class="d-flex align-center pa-6 pb-4">
-					<v-icon icon="mdi-sort-numeric-descending" color="blue-darken-2" class="mr-3" size="26" />
+					<v-icon
+						icon="mdi-sort-numeric-descending"
+						color="blue-darken-2"
+						class="mr-3"
+						size="26"
+					/>
 					<span class="text-h6 font-weight-bold">设置优先级</span>
 					<v-spacer />
-					<v-btn icon="mdi-close" variant="text" size="small" @click="closePriorityDialog" />
+					<v-btn
+						icon="mdi-close"
+						variant="text"
+						size="small"
+						@click="closePriorityDialog"
+					/>
 				</v-card-title>
 				<v-divider />
 				<v-card-text class="pa-6">
@@ -290,8 +371,19 @@
 					/>
 				</v-card-text>
 				<v-card-actions class="pa-4 d-flex justify-end ga-2">
-					<v-btn variant="outlined" class="text-none" @click="closePriorityDialog">取消</v-btn>
-					<v-btn color="blue-darken-3" class="text-none" elevation="0" @click="updatePriority">保存</v-btn>
+					<v-btn
+						variant="outlined"
+						class="text-none"
+						@click="closePriorityDialog"
+						>取消</v-btn
+					>
+					<v-btn
+						color="blue-darken-3"
+						class="text-none"
+						elevation="0"
+						@click="updatePriority"
+						>保存</v-btn
+					>
 				</v-card-actions>
 			</v-card>
 		</v-dialog>
@@ -322,7 +414,12 @@ const agentOptions = ref<{ title: string; value: number }[]>([]);
 const headers = [
 	{ title: '名称', key: 'name', minWidth: '140px' },
 	{ title: '描述', key: 'description', minWidth: '160px', sortable: false },
-	{ title: '优化提示词', key: 'optimizationPrompt', minWidth: '240px', sortable: false },
+	{
+		title: '优化提示词',
+		key: 'optimizationPrompt',
+		minWidth: '240px',
+		sortable: false,
+	},
 	{ title: '优先级', key: 'priority', width: '90px' },
 	{ title: '顺序', key: 'displayOrder', width: '90px' },
 	{ title: '状态', key: 'enabled', width: '100px', sortable: false },
@@ -339,10 +436,10 @@ const promptTypeOptions = [
 const filteredConfigs = computed(() => {
 	const keyword = searchKeyword.value.trim().toLowerCase();
 	if (!keyword) return rawConfigs.value;
-	return rawConfigs.value.filter(item =>
+	return rawConfigs.value.filter((item) =>
 		[item.name, item.description, item.optimizationPrompt]
 			.filter(Boolean)
-			.some(text => String(text).toLowerCase().includes(keyword)),
+			.some((text) => String(text).toLowerCase().includes(keyword)),
 	);
 });
 
@@ -358,7 +455,10 @@ const {
 	closeDialog: _closeDialog,
 } = useCrudPage<PromptConfig>({
 	loadFn: async () => {
-		const list = await promptService.listByType(promptType.value, selectedAgentId.value);
+		const list = await promptService.listByType(
+			promptType.value,
+			selectedAgentId.value,
+		);
 		list.sort((a, b) => {
 			const orderDiff = (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
 			if (orderDiff !== 0) return orderDiff;
@@ -384,7 +484,10 @@ const {
 async function loadConfigs() {
 	loading.value = true;
 	try {
-		rawConfigs.value = await promptService.listByType(promptType.value, selectedAgentId.value);
+		rawConfigs.value = await promptService.listByType(
+			promptType.value,
+			selectedAgentId.value,
+		);
 		rawConfigs.value.sort((a, b) => {
 			const orderA = a.displayOrder ?? 0;
 			const orderB = b.displayOrder ?? 0;
@@ -393,7 +496,7 @@ async function loadConfigs() {
 		});
 		selectedIds.value = [];
 	} catch {
-		$tip('加载提示词配置失败', { color: 'error' });
+		$tip('加载提示词配置失败', { color: 'error', icon: 'mdi-alert-circle' });
 	} finally {
 		loading.value = false;
 	}
@@ -424,7 +527,11 @@ function openCreateDialog() {
 function editConfig(config: PromptConfig) {
 	isEdit.value = true;
 	editingId.value = config.id;
-	formData.value = { ...config, promptType: promptType.value, agentId: selectedAgentId.value ?? null };
+	formData.value = {
+		...config,
+		promptType: promptType.value,
+		agentId: selectedAgentId.value ?? null,
+	};
 	dialogVisible.value = true;
 }
 
@@ -433,7 +540,9 @@ function closeDialog() {
 	resetFormData();
 }
 
-function handleFilterChange() { loadConfigs(); }
+function handleFilterChange() {
+	loadConfigs();
+}
 
 async function saveConfig() {
 	const validateResult = await formRef.value?.validate();
@@ -452,7 +561,10 @@ async function saveConfig() {
 		};
 		const result = await promptService.save(payload);
 		if (!result.success) {
-			$tip(result.message || `${isEdit.value ? '更新' : '创建'}失败`, { color: 'error' });
+			$tip(result.message || `${isEdit.value ? '更新' : '创建'}失败`, {
+				color: 'error',
+				icon: 'mdi-alert-circle',
+			});
 			return;
 		}
 		$tip(result.message || `${isEdit.value ? '更新' : '创建'}成功`);
@@ -460,7 +572,10 @@ async function saveConfig() {
 		resetFormData();
 		await loadConfigs();
 	} catch {
-		$tip(`${isEdit.value ? '更新' : '创建'}失败`, { color: 'error' });
+		$tip(`${isEdit.value ? '更新' : '创建'}失败`, {
+			color: 'error',
+			icon: 'mdi-alert-circle',
+		});
 	} finally {
 		saveLoading.value = false;
 	}
@@ -481,7 +596,10 @@ function toggleEnabled(config: PromptConfig) {
 				$tip(result.message || `${toEnable ? '启用' : '禁用'}成功`);
 				await loadConfigs();
 			} else {
-				$tip(result.message || `${toEnable ? '启用' : '禁用'}失败`, { color: 'error' });
+				$tip(result.message || `${toEnable ? '启用' : '禁用'}失败`, {
+					color: 'error',
+					icon: 'mdi-alert-circle',
+				});
 			}
 		},
 	});
@@ -500,7 +618,10 @@ function deleteConfig(config: PromptConfig) {
 				$tip(result.message || '删除成功');
 				await loadConfigs();
 			} else {
-				$tip(result.message || '删除失败', { color: 'error' });
+				$tip(result.message || '删除失败', {
+					color: 'error',
+					icon: 'mdi-alert-circle',
+				});
 			}
 		},
 	});
@@ -514,8 +635,15 @@ function batchEnable() {
 		confirmText: '确认启用',
 		onConfirm: async () => {
 			const result = await promptService.batchEnable(selectedIds.value);
-			if (result.success) { $tip(result.message || '批量启用成功'); await loadConfigs(); }
-			else { $tip(result.message || '批量启用失败', { color: 'error' }); }
+			if (result.success) {
+				$tip(result.message || '批量启用成功');
+				await loadConfigs();
+			} else {
+				$tip(result.message || '批量启用失败', {
+					color: 'error',
+					icon: 'mdi-alert-circle',
+				});
+			}
 		},
 	});
 }
@@ -528,8 +656,15 @@ function batchDisable() {
 		confirmText: '确认禁用',
 		onConfirm: async () => {
 			const result = await promptService.batchDisable(selectedIds.value);
-			if (result.success) { $tip(result.message || '批量禁用成功'); await loadConfigs(); }
-			else { $tip(result.message || '批量禁用失败', { color: 'error' }); }
+			if (result.success) {
+				$tip(result.message || '批量禁用成功');
+				await loadConfigs();
+			} else {
+				$tip(result.message || '批量禁用失败', {
+					color: 'error',
+					icon: 'mdi-alert-circle',
+				});
+			}
 		},
 	});
 }
@@ -550,16 +685,22 @@ function closePriorityDialog() {
 async function updatePriority() {
 	if (!priorityEditId.value) return;
 	try {
-		const result = await promptService.updatePriority(priorityEditId.value, priorityValue.value);
+		const result = await promptService.updatePriority(
+			priorityEditId.value,
+			priorityValue.value,
+		);
 		if (result.success) {
 			$tip(result.message || '优先级更新成功');
 			closePriorityDialog();
 			await loadConfigs();
 		} else {
-			$tip(result.message || '优先级更新失败', { color: 'error' });
+			$tip(result.message || '优先级更新失败', {
+				color: 'error',
+				icon: 'mdi-alert-circle',
+			});
 		}
 	} catch {
-		$tip('优先级更新失败', { color: 'error' });
+		$tip('优先级更新失败', { color: 'error', icon: 'mdi-alert-circle' });
 	}
 }
 
@@ -567,8 +708,11 @@ async function resolveAgent() {
 	const routeAgentId = Number(route.query.agentId);
 	const agents = await agentService.list();
 	agentOptions.value = agents
-		.filter(item => item.id !== undefined && item.id > 0)
-		.map(item => ({ title: item.name || `Agent ${item.id}`, value: item.id as number }));
+		.filter((item) => item.id !== undefined && item.id > 0)
+		.map((item) => ({
+			title: item.name || `Agent ${item.id}`,
+			value: item.id as number,
+		}));
 	if (Number.isFinite(routeAgentId) && routeAgentId > 0) {
 		selectedAgentId.value = routeAgentId;
 		return;
@@ -577,10 +721,13 @@ async function resolveAgent() {
 }
 
 onMounted(async () => {
-	try { await resolveAgent(); } catch { $tip('加载智能体列表失败', { color: 'error' }); }
+	try {
+		await resolveAgent();
+	} catch {
+		$tip('加载智能体列表失败', { color: 'error', icon: 'mdi-alert-circle' });
+	}
 	await loadConfigs();
 });
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

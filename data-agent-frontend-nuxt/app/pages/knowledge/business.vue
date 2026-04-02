@@ -99,7 +99,13 @@
 						location="top"
 					>
 						<template #activator="{ props }">
-							<v-icon v-bind="props" icon="mdi-information-outline" size="16" color="error" class="ml-1 cursor-pointer" />
+							<v-icon
+								v-bind="props"
+								icon="mdi-information-outline"
+								size="16"
+								color="error"
+								class="ml-1 cursor-pointer"
+							/>
 						</template>
 					</v-tooltip>
 				</template>
@@ -113,7 +119,11 @@
 						variant="tonal"
 						class="font-weight-medium"
 					>
-						<v-icon :icon="item.isRecall ? 'mdi-check' : 'mdi-minus'" size="14" class="mr-1" />
+						<v-icon
+							:icon="item.isRecall ? 'mdi-check' : 'mdi-minus'"
+							size="14"
+							class="mr-1"
+						/>
 						{{ item.isRecall ? '召回中' : '未召回' }}
 					</v-chip>
 				</template>
@@ -121,9 +131,17 @@
 				<!-- 同义词：超长截断 -->
 				<!-- eslint-disable-next-line vue/valid-v-slot -->
 				<template #item.synonyms="{ item }">
-					<v-tooltip v-if="item.synonyms && item.synonyms.length > 30" :text="item.synonyms" location="top">
+					<v-tooltip
+						v-if="item.synonyms && item.synonyms.length > 30"
+						:text="item.synonyms"
+						location="top"
+					>
 						<template #activator="{ props }">
-							<span v-bind="props" class="text-truncate d-inline-block" style="max-width: 160px; cursor: help">
+							<span
+								v-bind="props"
+								class="text-truncate d-inline-block"
+								style="max-width: 160px; cursor: help"
+							>
 								{{ item.synonyms }}
 							</span>
 						</template>
@@ -134,9 +152,17 @@
 				<!-- 描述：超长截断 -->
 				<!-- eslint-disable-next-line vue/valid-v-slot -->
 				<template #item.description="{ item }">
-					<v-tooltip v-if="item.description && item.description.length > 40" :text="item.description" location="top">
+					<v-tooltip
+						v-if="item.description && item.description.length > 40"
+						:text="item.description"
+						location="top"
+					>
 						<template #activator="{ props }">
-							<span v-bind="props" class="text-truncate d-inline-block" style="max-width: 200px; cursor: help">
+							<span
+								v-bind="props"
+								class="text-truncate d-inline-block"
+								style="max-width: 200px; cursor: help"
+							>
 								{{ item.description }}
 							</span>
 						</template>
@@ -161,7 +187,9 @@
 							variant="text"
 							color="orange-darken-1"
 							icon="mdi-reload"
-							:loading="item.id !== undefined ? retryLoadingMap[item.id] : false"
+							:loading="
+								item.id !== undefined ? retryLoadingMap[item.id] : false
+							"
 							@click="retryEmbedding(item)"
 						/>
 						<v-btn
@@ -197,10 +225,23 @@
 				<!-- 空状态 -->
 				<template #no-data>
 					<div class="d-flex flex-column align-center py-12">
-						<v-icon icon="mdi-book-open-blank-variant" size="64" color="blue-lighten-3" class="mb-4" />
+						<v-icon
+							icon="mdi-book-open-blank-variant"
+							size="64"
+							color="blue-lighten-3"
+							class="mb-4"
+						/>
 						<p class="text-body-1 text-medium-emphasis mb-2">暂无业务知识</p>
-						<p class="text-body-2 text-disabled mb-6">点击「添加知识」开始配置业务术语词汇</p>
-						<v-btn color="blue-darken-3" prepend-icon="mdi-plus" class="text-none" elevation="0" @click="openCreateDialog">
+						<p class="text-body-2 text-disabled mb-6">
+							点击「添加知识」开始配置业务术语词汇
+						</p>
+						<v-btn
+							color="blue-darken-3"
+							prepend-icon="mdi-plus"
+							class="text-none"
+							elevation="0"
+							@click="openCreateDialog"
+						>
 							添加知识
 						</v-btn>
 					</div>
@@ -218,9 +259,16 @@
 						class="mr-3"
 						size="28"
 					/>
-					<span class="text-h6 font-weight-bold">{{ isEdit ? '编辑业务知识' : '添加业务知识' }}</span>
+					<span class="text-h6 font-weight-bold">{{
+						isEdit ? '编辑业务知识' : '添加业务知识'
+					}}</span>
 					<v-spacer />
-					<v-btn icon="mdi-close" variant="text" size="small" @click="closeDialog" />
+					<v-btn
+						icon="mdi-close"
+						variant="text"
+						size="small"
+						@click="closeDialog"
+					/>
 				</v-card-title>
 
 				<v-divider />
@@ -236,7 +284,7 @@
 								placeholder="请输入业务名词，例如：月活用户、GMV"
 								variant="outlined"
 								density="compact"
-								:rules="[v => !!v || '业务名词不能为空']"
+								:rules="[(v) => !!v || '业务名词不能为空']"
 								hide-details="auto"
 							/>
 						</div>
@@ -251,13 +299,15 @@
 								variant="outlined"
 								density="compact"
 								rows="3"
-								:rules="[v => !!v || '描述不能为空']"
+								:rules="[(v) => !!v || '描述不能为空']"
 								hide-details="auto"
 							/>
 						</div>
 
 						<div class="mb-2">
-							<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">同义词</p>
+							<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+								同义词
+							</p>
 							<v-textarea
 								v-model="knowledgeForm.synonyms"
 								placeholder="请输入同义词，多个同义词用逗号分隔，例如：MAU, 月活, 月活跃用户数"
@@ -273,7 +323,11 @@
 				<v-divider />
 
 				<v-card-actions class="pa-4 d-flex justify-end ga-2">
-					<v-btn variant="outlined" class="text-none px-6" @click="dialogVisible = false">
+					<v-btn
+						variant="outlined"
+						class="text-none px-6"
+						@click="dialogVisible = false"
+					>
 						取消
 					</v-btn>
 					<v-btn
@@ -331,10 +385,24 @@ const {
 	closeDialog,
 	saveItem,
 	deleteItem,
-} = useCrudPage<BusinessKnowledgeVO, CreateBusinessKnowledgeDTO, UpdateBusinessKnowledgeDTO>({
-	loadFn: () => businessKnowledgeService.list(agentId.value, searchKeyword.value || undefined),
-	createFn: async (data) => { await businessKnowledgeService.create(data); return true; },
-	updateFn: async (id, data) => { const r = await businessKnowledgeService.update(id, data); return r != null; },
+} = useCrudPage<
+	BusinessKnowledgeVO,
+	CreateBusinessKnowledgeDTO,
+	UpdateBusinessKnowledgeDTO
+>({
+	loadFn: () =>
+		businessKnowledgeService.list(
+			agentId.value,
+			searchKeyword.value || undefined,
+		),
+	createFn: async (data) => {
+		await businessKnowledgeService.create(data);
+		return true;
+	},
+	updateFn: async (id, data) => {
+		const r = await businessKnowledgeService.update(id, data);
+		return r != null;
+	},
 	deleteFn: (id) => businessKnowledgeService.delete(id),
 	defaultFormFactory: () => ({
 		businessTerm: '',
@@ -357,7 +425,12 @@ const headers = [
 	{ title: '业务名词', key: 'businessTerm', minWidth: '130px' },
 	{ title: '描述', key: 'description', minWidth: '180px', sortable: false },
 	{ title: '同义词', key: 'synonyms', minWidth: '160px', sortable: false },
-	{ title: '向量化状态', key: 'embeddingStatus', width: '140px', sortable: false },
+	{
+		title: '向量化状态',
+		key: 'embeddingStatus',
+		width: '140px',
+		sortable: false,
+	},
 	{ title: '召回状态', key: 'isRecall', width: '120px', sortable: false },
 	{ title: '创建时间', key: 'createdTime', width: '160px' },
 	{ title: '操作', key: 'actions', width: '160px', sortable: false },
@@ -366,21 +439,31 @@ const headers = [
 // ——— 工具函数 ———
 function getVectorStatusColor(status?: string): string {
 	switch (status) {
-		case 'COMPLETED': return 'success';
-		case 'FAILED': return 'error';
-		case 'PENDING': return 'warning';
-		case 'PROCESSING': return 'blue-darken-1';
-		default: return 'grey';
+		case 'COMPLETED':
+			return 'success';
+		case 'FAILED':
+			return 'error';
+		case 'PENDING':
+			return 'warning';
+		case 'PROCESSING':
+			return 'blue-darken-1';
+		default:
+			return 'grey';
 	}
 }
 
 function getVectorStatusLabel(status?: string): string {
 	switch (status) {
-		case 'COMPLETED': return '已完成';
-		case 'FAILED': return '失败';
-		case 'PENDING': return '等待中';
-		case 'PROCESSING': return '处理中';
-		default: return '未知';
+		case 'COMPLETED':
+			return '已完成';
+		case 'FAILED':
+			return '失败';
+		case 'PENDING':
+			return '等待中';
+		case 'PROCESSING':
+			return '处理中';
+		default:
+			return '未知';
 	}
 }
 
@@ -412,7 +495,10 @@ async function saveKnowledge() {
 	if (ok) {
 		$tip(isEdit.value ? '更新成功' : '创建成功');
 	} else {
-		$tip(`${isEdit.value ? '更新' : '创建'}失败，请重试`, { color: 'error' });
+		$tip(`${isEdit.value ? '更新' : '创建'}失败，请重试`, {
+			color: 'error',
+			icon: 'mdi-alert-circle',
+		});
 	}
 }
 
@@ -428,7 +514,7 @@ function deleteKnowledge(knowledge: BusinessKnowledgeVO) {
 			if (ok) {
 				$tip('删除成功');
 			} else {
-				$tip('删除失败', { color: 'error' });
+				$tip('删除失败', { color: 'error', icon: 'mdi-alert-circle' });
 			}
 		},
 	});
@@ -437,15 +523,18 @@ function deleteKnowledge(knowledge: BusinessKnowledgeVO) {
 async function toggleRecall(knowledge: BusinessKnowledgeVO, isRecall: boolean) {
 	if (!knowledge.id) return;
 	try {
-		const result = await businessKnowledgeService.recallKnowledge(knowledge.id, isRecall);
+		const result = await businessKnowledgeService.recallKnowledge(
+			knowledge.id,
+			isRecall,
+		);
 		if (result) {
 			$tip(`${isRecall ? '已设为召回' : '已取消召回'}`);
 			knowledge.isRecall = isRecall;
 		} else {
-			$tip('操作失败', { color: 'error' });
+			$tip('操作失败', { color: 'error', icon: 'mdi-alert-circle' });
 		}
 	} catch {
-		$tip('操作失败', { color: 'error' });
+		$tip('操作失败', { color: 'error', icon: 'mdi-alert-circle' });
 	}
 }
 
@@ -458,10 +547,10 @@ async function retryEmbedding(knowledge: BusinessKnowledgeVO) {
 			$tip('重试向量化成功');
 			await loadBusinessKnowledge();
 		} else {
-			$tip('重试向量化失败', { color: 'error' });
+			$tip('重试向量化失败', { color: 'error', icon: 'mdi-alert-circle' });
 		}
 	} catch {
-		$tip('重试向量化失败', { color: 'error' });
+		$tip('重试向量化失败', { color: 'error', icon: 'mdi-alert-circle' });
 	} finally {
 		retryLoadingMap.value[knowledge.id] = false;
 	}
@@ -470,22 +559,27 @@ async function retryEmbedding(knowledge: BusinessKnowledgeVO) {
 function handleRefreshVectorStore() {
 	showConfirm({
 		title: '确认同步',
-		message: '如果所有向量状态正常，即无需同步。确定要清除现有数据并开始重新同步吗？',
+		message:
+			'如果所有向量状态正常，即无需同步。确定要清除现有数据并开始重新同步吗？',
 		confirmText: '确定同步',
 		icon: 'mdi-sync',
 		onConfirm: async () => {
 			refreshLoading.value = true;
 			try {
-				const result = await businessKnowledgeService.refreshAllKnowledgeToVectorStore(
-					agentId.value.toString(),
-				);
+				const result =
+					await businessKnowledgeService.refreshAllKnowledgeToVectorStore(
+						agentId.value.toString(),
+					);
 				if (result) {
 					$tip('同步到向量库成功');
 				} else {
-					$tip('同步到向量库失败', { color: 'error' });
+					$tip('同步到向量库失败', {
+						color: 'error',
+						icon: 'mdi-alert-circle',
+					});
 				}
 			} catch {
-				$tip('同步到向量库失败', { color: 'error' });
+				$tip('同步到向量库失败', { color: 'error', icon: 'mdi-alert-circle' });
 			} finally {
 				refreshLoading.value = false;
 			}
@@ -497,5 +591,4 @@ function handleRefreshVectorStore() {
 onMounted(() => loadBusinessKnowledge());
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

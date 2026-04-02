@@ -2,7 +2,9 @@
 	<section class="page-shell">
 		<header class="d-flex align-center justify-space-between mb-8">
 			<div>
-				<h1 class="text-h4 font-weight-bold mb-1" style="color: #1565c0">智能体知识库</h1>
+				<h1 class="text-h4 font-weight-bold mb-1" style="color: #1565c0">
+					智能体知识库
+				</h1>
 				<p class="text-body-2 text-medium-emphasis">
 					维护智能体专属知识资源，支持文档上传、问答配置与向量召回。
 				</p>
@@ -55,13 +57,21 @@
 					@click:clear="handleSearch"
 				/>
 				<v-spacer />
-				<v-chip color="blue-lighten-5" variant="flat" class="font-weight-medium">
+				<v-chip
+					color="blue-lighten-5"
+					variant="flat"
+					class="font-weight-medium"
+				>
 					总数 {{ total }}
 				</v-chip>
 			</div>
 
 			<v-expand-transition>
-				<div v-show="filterVisible" class="mt-4 pt-4" style="border-top: 1px solid #e2e8f0">
+				<div
+					v-show="filterVisible"
+					class="mt-4 pt-4"
+					style="border-top: 1px solid #e2e8f0"
+				>
 					<div class="d-flex flex-wrap ga-3">
 						<v-select
 							v-model="queryParams.type"
@@ -120,7 +130,11 @@
 
 				<!-- eslint-disable-next-line vue/valid-v-slot -->
 				<template #item.embeddingStatus="{ item }">
-					<v-chip size="small" variant="tonal" :color="getEmbeddingStatusColor(item.embeddingStatus)">
+					<v-chip
+						size="small"
+						variant="tonal"
+						:color="getEmbeddingStatusColor(item.embeddingStatus)"
+					>
 						<v-icon
 							v-if="item.embeddingStatus === 'FAILED'"
 							icon="mdi-alert-circle"
@@ -141,7 +155,11 @@
 						/>
 						{{ item.embeddingStatus || '未知' }}
 					</v-chip>
-					<v-tooltip v-if="item.embeddingStatus === 'FAILED' && item.errorMsg" :text="item.errorMsg" location="top">
+					<v-tooltip
+						v-if="item.embeddingStatus === 'FAILED' && item.errorMsg"
+						:text="item.errorMsg"
+						location="top"
+					>
 						<template #activator="{ props }">
 							<v-icon
 								v-bind="props"
@@ -156,7 +174,11 @@
 
 				<!-- eslint-disable-next-line vue/valid-v-slot -->
 				<template #item.isRecall="{ item }">
-					<v-chip :color="item.isRecall ? 'blue-darken-1' : 'grey'" size="small" variant="tonal">
+					<v-chip
+						:color="item.isRecall ? 'blue-darken-1' : 'grey'"
+						size="small"
+						variant="tonal"
+					>
 						{{ item.isRecall ? '已召回' : '未召回' }}
 					</v-chip>
 				</template>
@@ -177,7 +199,9 @@
 							variant="text"
 							color="orange-darken-1"
 							icon="mdi-reload"
-							:loading="item.id !== undefined ? retryLoadingMap[item.id] : false"
+							:loading="
+								item.id !== undefined ? retryLoadingMap[item.id] : false
+							"
 							@click="handleRetry(item)"
 						/>
 						<v-btn
@@ -187,7 +211,9 @@
 							:icon="item.isRecall ? 'mdi-bookmark-off' : 'mdi-bookmark-plus'"
 							@click="toggleStatus(item)"
 						>
-							<v-tooltip activator="parent" location="top">{{ item.isRecall ? '取消召回' : '设为召回' }}</v-tooltip>
+							<v-tooltip activator="parent" location="top">{{
+								item.isRecall ? '取消召回' : '设为召回'
+							}}</v-tooltip>
 						</v-btn>
 						<v-btn
 							size="small"
@@ -201,17 +227,33 @@
 
 				<template #no-data>
 					<div class="d-flex flex-column align-center py-12">
-						<v-icon icon="mdi-brain" size="64" color="blue-lighten-3" class="mb-4" />
+						<v-icon
+							icon="mdi-brain"
+							size="64"
+							color="blue-lighten-3"
+							class="mb-4"
+						/>
 						<p class="text-body-1 text-medium-emphasis mb-2">暂无智能体知识</p>
-						<p class="text-body-2 text-disabled mb-6">点击「添加知识」为智能体补充知识资源</p>
-						<v-btn color="blue-darken-3" prepend-icon="mdi-plus" class="text-none" elevation="0" @click="openCreateDialog">
+						<p class="text-body-2 text-disabled mb-6">
+							点击「添加知识」为智能体补充知识资源
+						</p>
+						<v-btn
+							color="blue-darken-3"
+							prepend-icon="mdi-plus"
+							class="text-none"
+							elevation="0"
+							@click="openCreateDialog"
+						>
 							添加知识
 						</v-btn>
 					</div>
 				</template>
 			</v-data-table>
 
-			<div class="d-flex align-center justify-end ga-4 px-4 py-4" style="border-top: 1px solid #e2e8f0">
+			<div
+				class="d-flex align-center justify-end ga-4 px-4 py-4"
+				style="border-top: 1px solid #e2e8f0"
+			>
 				<v-select
 					:model-value="queryParams.pageSize"
 					:items="[10, 20, 50, 100]"
@@ -234,10 +276,22 @@
 		<v-dialog v-model="dialogVisible" max-width="820" persistent>
 			<v-card rounded="lg">
 				<v-card-title class="d-flex align-center pa-6 pb-4">
-					<v-icon :icon="isEdit ? 'mdi-pencil-circle' : 'mdi-plus-circle'" color="blue-darken-2" class="mr-3" size="28" />
-					<span class="text-h6 font-weight-bold">{{ isEdit ? '编辑知识' : '添加新知识' }}</span>
+					<v-icon
+						:icon="isEdit ? 'mdi-pencil-circle' : 'mdi-plus-circle'"
+						color="blue-darken-2"
+						class="mr-3"
+						size="28"
+					/>
+					<span class="text-h6 font-weight-bold">{{
+						isEdit ? '编辑知识' : '添加新知识'
+					}}</span>
 					<v-spacer />
-					<v-btn icon="mdi-close" variant="text" size="small" @click="closeDialog" />
+					<v-btn
+						icon="mdi-close"
+						variant="text"
+						size="small"
+						@click="closeDialog"
+					/>
 				</v-card-title>
 				<v-divider />
 
@@ -256,7 +310,7 @@
 								variant="outlined"
 								density="compact"
 								:disabled="isEdit"
-								:rules="[v => !!v || '知识类型不能为空']"
+								:rules="[(v) => !!v || '知识类型不能为空']"
 								hide-details="auto"
 								@update:model-value="handleTypeChange"
 							/>
@@ -278,7 +332,8 @@
 							density="compact"
 							class="mb-4"
 						>
-							请针对业务术语、指标口径或常见歧义进行问答定义，用于统一 AI 判断标准。
+							请针对业务术语、指标口径或常见歧义进行问答定义，用于统一 AI
+							判断标准。
 						</v-alert>
 						<v-alert
 							v-if="knowledgeForm.type === 'DOCUMENT'"
@@ -287,7 +342,8 @@
 							density="compact"
 							class="mb-4"
 						>
-							建议上传数据库表结构、码表映射字典或业务说明文档，便于 AI 检索字段含义。
+							建议上传数据库表结构、码表映射字典或业务说明文档，便于 AI
+							检索字段含义。
 						</v-alert>
 
 						<div class="mb-5">
@@ -299,13 +355,16 @@
 								placeholder="为这份知识起一个易于识别的名称"
 								variant="outlined"
 								density="compact"
-								:rules="[v => !!v?.trim() || '知识标题不能为空']"
+								:rules="[(v) => !!v?.trim() || '知识标题不能为空']"
 								hide-details="auto"
 							/>
 						</div>
 
 						<div v-if="knowledgeForm.type === 'DOCUMENT'" class="mb-5">
-							<p v-if="!isEdit" class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+							<p
+								v-if="!isEdit"
+								class="text-body-2 font-weight-medium text-grey-darken-2 mb-2"
+							>
 								分块策略
 							</p>
 							<v-select
@@ -338,9 +397,13 @@
 							</v-alert>
 						</div>
 
-						<template v-if="knowledgeForm.type === 'QA' || knowledgeForm.type === 'FAQ'">
+						<template
+							v-if="knowledgeForm.type === 'QA' || knowledgeForm.type === 'FAQ'"
+						>
 							<div class="mb-5">
-								<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+								<p
+									class="text-body-2 font-weight-medium text-grey-darken-2 mb-2"
+								>
 									问题 <span class="text-error">*</span>
 								</p>
 								<v-textarea
@@ -349,12 +412,20 @@
 									variant="outlined"
 									density="compact"
 									rows="2"
-									:rules="[v => (knowledgeForm.type === 'QA' || knowledgeForm.type === 'FAQ') ? !!v?.trim() || '问题不能为空' : true]"
+									:rules="[
+										(v) =>
+											knowledgeForm.type === 'QA' ||
+											knowledgeForm.type === 'FAQ'
+												? !!v?.trim() || '问题不能为空'
+												: true,
+									]"
 									hide-details="auto"
 								/>
 							</div>
 							<div class="mb-2">
-								<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+								<p
+									class="text-body-2 font-weight-medium text-grey-darken-2 mb-2"
+								>
 									答案 <span class="text-error">*</span>
 								</p>
 								<v-textarea
@@ -363,7 +434,13 @@
 									variant="outlined"
 									density="compact"
 									rows="5"
-									:rules="[v => (knowledgeForm.type === 'QA' || knowledgeForm.type === 'FAQ') ? !!v?.trim() || '答案不能为空' : true]"
+									:rules="[
+										(v) =>
+											knowledgeForm.type === 'QA' ||
+											knowledgeForm.type === 'FAQ'
+												? !!v?.trim() || '答案不能为空'
+												: true,
+									]"
 									hide-details="auto"
 								/>
 							</div>
@@ -373,7 +450,9 @@
 
 				<v-divider />
 				<v-card-actions class="pa-4 d-flex justify-end ga-2">
-					<v-btn variant="outlined" class="text-none px-6" @click="closeDialog">取消</v-btn>
+					<v-btn variant="outlined" class="text-none px-6" @click="closeDialog"
+						>取消</v-btn
+					>
 					<v-btn
 						color="blue-darken-3"
 						class="text-none px-6"
@@ -414,7 +493,7 @@ async function resolveAgentId() {
 	}
 	try {
 		const agents = await agentService.list();
-		const fallbackId = agents.find(item => item.id && item.id > 0)?.id;
+		const fallbackId = agents.find((item) => item.id && item.id > 0)?.id;
 		agentId.value = fallbackId ?? DEFAULT_AGENT_ID;
 	} catch {
 		agentId.value = DEFAULT_AGENT_ID;
@@ -469,7 +548,10 @@ const {
 			total.value = result.total || 0;
 			return result.data || [];
 		}
-		$tip(result.message || '加载知识列表失败', { color: 'error' });
+		$tip(result.message || '加载知识列表失败', {
+			color: 'error',
+			icon: 'mdi-alert-circle',
+		});
 		return [];
 	},
 	defaultFormFactory: () => ({
@@ -498,10 +580,13 @@ async function loadKnowledgeList() {
 			knowledgeList.value = result.data || [];
 			total.value = result.total || 0;
 		} else {
-			$tip(result.message || '加载知识列表失败', { color: 'error' });
+			$tip(result.message || '加载知识列表失败', {
+				color: 'error',
+				icon: 'mdi-alert-circle',
+			});
 		}
 	} catch {
-		$tip('加载知识列表失败', { color: 'error' });
+		$tip('加载知识列表失败', { color: 'error', icon: 'mdi-alert-circle' });
 	} finally {
 		loading.value = false;
 	}
@@ -516,7 +601,12 @@ function openCreateDialog() {
 const headers = [
 	{ title: '标题', key: 'title', minWidth: '170px' },
 	{ title: '类型', key: 'type', width: '110px', sortable: false },
-	{ title: '处理状态', key: 'embeddingStatus', width: '150px', sortable: false },
+	{
+		title: '处理状态',
+		key: 'embeddingStatus',
+		width: '150px',
+		sortable: false,
+	},
 	{ title: '召回状态', key: 'isRecall', width: '110px', sortable: false },
 	{ title: '创建时间', key: 'createdTime', width: '170px' },
 	{ title: '操作', key: 'actions', width: '170px', sortable: false },
@@ -545,33 +635,48 @@ const splitterTypeOptions = [
 
 function getTypeLabel(type?: string) {
 	switch (type) {
-		case 'DOCUMENT': return '文档';
-		case 'QA': return '问答对';
-		case 'FAQ': return 'FAQ';
-		default: return type || '未知';
+		case 'DOCUMENT':
+			return '文档';
+		case 'QA':
+			return '问答对';
+		case 'FAQ':
+			return 'FAQ';
+		default:
+			return type || '未知';
 	}
 }
 
 function getTypeColor(type?: string) {
 	switch (type) {
-		case 'DOCUMENT': return 'blue-darken-1';
-		case 'QA': return 'indigo';
-		case 'FAQ': return 'cyan-darken-1';
-		default: return 'grey';
+		case 'DOCUMENT':
+			return 'blue-darken-1';
+		case 'QA':
+			return 'indigo';
+		case 'FAQ':
+			return 'cyan-darken-1';
+		default:
+			return 'grey';
 	}
 }
 
 function getEmbeddingStatusColor(status?: string) {
 	switch (status) {
-		case 'COMPLETED': return 'success';
-		case 'PROCESSING': return 'blue-darken-1';
-		case 'FAILED': return 'error';
-		case 'PENDING': return 'warning';
-		default: return 'grey';
+		case 'COMPLETED':
+			return 'success';
+		case 'PROCESSING':
+			return 'blue-darken-1';
+		case 'FAILED':
+			return 'error';
+		case 'PENDING':
+			return 'warning';
+		default:
+			return 'grey';
 	}
 }
 
-function toggleFilter() { filterVisible.value = !filterVisible.value; }
+function toggleFilter() {
+	filterVisible.value = !filterVisible.value;
+}
 
 function clearFilters() {
 	queryParams.type = '';
@@ -603,7 +708,10 @@ function handleTypeChange() {
 }
 
 function handleFileChange(file: File | File[] | null) {
-	if (Array.isArray(file)) { selectedFile.value = file[0] || null; return; }
+	if (Array.isArray(file)) {
+		selectedFile.value = file[0] || null;
+		return;
+	}
 	selectedFile.value = file;
 }
 
@@ -611,7 +719,10 @@ function editKnowledge(knowledge: AgentKnowledge) {
 	currentEditId.value = knowledge.id ?? null;
 	openEditDialog({
 		...knowledge,
-		answer: knowledge.type === 'QA' || knowledge.type === 'FAQ' ? knowledge.content : '',
+		answer:
+			knowledge.type === 'QA' || knowledge.type === 'FAQ'
+				? knowledge.content
+				: '',
 		splitterType: 'recursive',
 	});
 }
@@ -624,12 +735,15 @@ function toggleStatus(knowledge: AgentKnowledge) {
 		message: `确定要${nextRecallStatus ? '设为召回' : '取消召回'}「${knowledge.title}」吗？`,
 		confirmText: '确认',
 		onConfirm: async () => {
-			const result = await agentKnowledgeService.updateRecallStatus(knowledge.id!, nextRecallStatus);
+			const result = await agentKnowledgeService.updateRecallStatus(
+				knowledge.id!,
+				nextRecallStatus,
+			);
 			if (result) {
 				knowledge.isRecall = nextRecallStatus;
 				$tip(`${nextRecallStatus ? '设为召回' : '取消召回'}成功`);
 			} else {
-				$tip('操作失败', { color: 'error' });
+				$tip('操作失败', { color: 'error', icon: 'mdi-alert-circle' });
 			}
 		},
 	});
@@ -640,10 +754,14 @@ async function handleRetry(knowledge: AgentKnowledge) {
 	retryLoadingMap.value[knowledge.id] = true;
 	try {
 		const success = await agentKnowledgeService.retryEmbedding(knowledge.id);
-		if (success) { $tip('重试请求已发送'); await loadKnowledgeList(); }
-		else { $tip('重试失败', { color: 'error' }); }
+		if (success) {
+			$tip('重试请求已发送');
+			await loadKnowledgeList();
+		} else {
+			$tip('重试失败', { color: 'error', icon: 'mdi-alert-circle' });
+		}
 	} catch {
-		$tip('重试失败', { color: 'error' });
+		$tip('重试失败', { color: 'error', icon: 'mdi-alert-circle' });
 	} finally {
 		retryLoadingMap.value[knowledge.id] = false;
 	}
@@ -658,8 +776,12 @@ function deleteKnowledge(knowledge: AgentKnowledge) {
 		icon: 'mdi-delete',
 		onConfirm: async () => {
 			const result = await agentKnowledgeService.delete(knowledge.id!);
-			if (result) { $tip('删除成功'); await loadKnowledgeList(); }
-			else { $tip('删除失败', { color: 'error' }); }
+			if (result) {
+				$tip('删除成功');
+				await loadKnowledgeList();
+			} else {
+				$tip('删除失败', { color: 'error', icon: 'mdi-alert-circle' });
+			}
 		},
 	});
 }
@@ -669,14 +791,27 @@ async function saveKnowledge() {
 	const valid = validateResult?.valid;
 	if (!valid) return;
 
-	if (knowledgeForm.value.type === 'DOCUMENT' && !isEdit.value && !selectedFile.value) {
-		$tip('请上传文件', { color: 'warning' }); return;
+	if (
+		knowledgeForm.value.type === 'DOCUMENT' &&
+		!isEdit.value &&
+		!selectedFile.value
+	) {
+		$tip('请上传文件', { color: 'warning' });
+		return;
 	}
-	if ((knowledgeForm.value.type === 'QA' || knowledgeForm.value.type === 'FAQ') && !knowledgeForm.value.question?.trim()) {
-		$tip('请输入问题', { color: 'warning' }); return;
+	if (
+		(knowledgeForm.value.type === 'QA' || knowledgeForm.value.type === 'FAQ') &&
+		!knowledgeForm.value.question?.trim()
+	) {
+		$tip('请输入问题', { color: 'warning' });
+		return;
 	}
-	if ((knowledgeForm.value.type === 'QA' || knowledgeForm.value.type === 'FAQ') && !knowledgeForm.value.answer?.trim()) {
-		$tip('请输入答案', { color: 'warning' }); return;
+	if (
+		(knowledgeForm.value.type === 'QA' || knowledgeForm.value.type === 'FAQ') &&
+		!knowledgeForm.value.answer?.trim()
+	) {
+		$tip('请输入答案', { color: 'warning' });
+		return;
 	}
 
 	saveLoading.value = true;
@@ -685,12 +820,22 @@ async function saveKnowledge() {
 			const updateData = {
 				...knowledgeForm.value,
 				type: knowledgeForm.value.type?.toUpperCase(),
-				content: knowledgeForm.value.type === 'QA' || knowledgeForm.value.type === 'FAQ'
-					? knowledgeForm.value.answer
-					: knowledgeForm.value.content,
+				content:
+					knowledgeForm.value.type === 'QA' ||
+					knowledgeForm.value.type === 'FAQ'
+						? knowledgeForm.value.answer
+						: knowledgeForm.value.content,
 			};
-			const result = await agentKnowledgeService.update(currentEditId.value, updateData);
-			if (result) { $tip('更新成功'); } else { $tip('更新失败', { color: 'error' }); return; }
+			const result = await agentKnowledgeService.update(
+				currentEditId.value,
+				updateData,
+			);
+			if (result) {
+				$tip('更新成功');
+			} else {
+				$tip('更新失败', { color: 'error', icon: 'mdi-alert-circle' });
+				return;
+			}
 		} else {
 			const fd = new FormData();
 			fd.append('agentId', String(agentId.value));
@@ -699,18 +844,31 @@ async function saveKnowledge() {
 			fd.append('isRecall', knowledgeForm.value.isRecall ? '1' : '0');
 			if (knowledgeForm.value.type === 'DOCUMENT' && selectedFile.value) {
 				fd.append('file', selectedFile.value);
-				if (knowledgeForm.value.splitterType) { fd.append('splitterType', knowledgeForm.value.splitterType); }
+				if (knowledgeForm.value.splitterType) {
+					fd.append('splitterType', knowledgeForm.value.splitterType);
+				}
 			} else {
 				fd.append('question', knowledgeForm.value.question || '');
 				fd.append('content', knowledgeForm.value.answer || '');
 			}
 			const result = await agentKnowledgeService.createWithFile(fd);
-			if (result.success) { $tip('创建成功'); } else { $tip(result.message || '创建失败', { color: 'error' }); return; }
+			if (result.success) {
+				$tip('创建成功');
+			} else {
+				$tip(result.message || '创建失败', {
+					color: 'error',
+					icon: 'mdi-alert-circle',
+				});
+				return;
+			}
 		}
 		closeDialog();
 		await loadKnowledgeList();
 	} catch {
-		$tip(`${isEdit.value ? '更新' : '创建'}失败`, { color: 'error' });
+		$tip(`${isEdit.value ? '更新' : '创建'}失败`, {
+			color: 'error',
+			icon: 'mdi-alert-circle',
+		});
 	} finally {
 		saveLoading.value = false;
 	}
@@ -724,5 +882,4 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

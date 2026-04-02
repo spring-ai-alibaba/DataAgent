@@ -30,13 +30,20 @@
 		<v-card variant="flat" border class="rounded-lg pa-6">
 			<v-form ref="formRef">
 				<div class="mb-6">
-					<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">头像设置</p>
+					<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+						头像设置
+					</p>
 					<div class="d-flex align-center ga-4 flex-wrap">
 						<v-avatar size="88" rounded="lg" class="avatar-preview">
 							<v-img :src="agentForm.avatar" cover @error="handleImageError" />
 						</v-avatar>
 						<div class="d-flex ga-2">
-							<v-btn variant="outlined" prepend-icon="mdi-refresh" class="text-none" @click="regenerateAvatar">
+							<v-btn
+								variant="outlined"
+								prepend-icon="mdi-refresh"
+								class="text-none"
+								@click="regenerateAvatar"
+							>
 								重新生成
 							</v-btn>
 							<v-btn
@@ -61,29 +68,35 @@
 
 				<v-row>
 					<v-col cols="12" md="6">
-						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">智能体名称 <span class="text-error">*</span></p>
+						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+							智能体名称 <span class="text-error">*</span>
+						</p>
 						<v-text-field
 							v-model="agentForm.name"
 							placeholder="请输入智能体名称"
 							variant="outlined"
 							density="compact"
-							:rules="[v => !!v?.trim() || '智能体名称不能为空']"
+							:rules="[(v) => !!v?.trim() || '智能体名称不能为空']"
 							hide-details="auto"
 						/>
 					</v-col>
 					<v-col cols="12" md="6">
-						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">分类 <span class="text-error">*</span></p>
+						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+							分类 <span class="text-error">*</span>
+						</p>
 						<v-text-field
 							v-model="agentForm.category"
 							placeholder="请输入智能体分类"
 							variant="outlined"
 							density="compact"
-							:rules="[v => !!v?.trim() || '分类不能为空']"
+							:rules="[(v) => !!v?.trim() || '分类不能为空']"
 							hide-details="auto"
 						/>
 					</v-col>
 					<v-col cols="12">
-						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">描述</p>
+						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+							描述
+						</p>
 						<v-textarea
 							v-model="agentForm.description"
 							placeholder="请输入智能体描述"
@@ -94,7 +107,9 @@
 						/>
 					</v-col>
 					<v-col cols="12">
-						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">智能体 Prompt</p>
+						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+							智能体 Prompt
+						</p>
 						<v-textarea
 							v-model="agentForm.prompt"
 							placeholder="请输入智能体 Prompt"
@@ -105,18 +120,22 @@
 						/>
 					</v-col>
 					<v-col cols="12" md="6">
-						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">标签 <span class="text-error">*</span></p>
+						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+							标签 <span class="text-error">*</span>
+						</p>
 						<v-text-field
 							v-model="agentForm.tags"
 							placeholder="多个标签使用逗号分隔"
 							variant="outlined"
 							density="compact"
-							:rules="[v => !!v?.trim() || '标签不能为空']"
+							:rules="[(v) => !!v?.trim() || '标签不能为空']"
 							hide-details="auto"
 						/>
 					</v-col>
 					<v-col cols="12" md="6">
-						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">状态</p>
+						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
+							状态
+						</p>
 						<v-select
 							v-model="agentForm.status"
 							:items="statusOptions"
@@ -188,18 +207,18 @@ async function handleFileUpload(event: Event) {
 	const file = target.files?.[0];
 	if (!file) return;
 	if (!file.type.startsWith('image/')) {
-		$tip('请选择图片文件', { color: 'error' });
+		$tip('请选择图片文件', { color: 'error', icon: 'mdi-alert-circle' });
 		return;
 	}
 	if (file.size > 5 * 1024 * 1024) {
-		$tip('图片大小不能超过5MB', { color: 'error' });
+		$tip('图片大小不能超过5MB', { color: 'error', icon: 'mdi-alert-circle' });
 		return;
 	}
 
 	try {
 		uploading.value = true;
 		const reader = new FileReader();
-		reader.onload = e => {
+		reader.onload = (e) => {
 			if (e.target?.result) agentForm.avatar = String(e.target.result);
 		};
 		reader.readAsDataURL(file);
@@ -212,9 +231,13 @@ async function handleFileUpload(event: Event) {
 			throw new Error(response.message || '上传失败');
 		}
 	} catch (error) {
-		$tip(`头像上传失败: ${error instanceof Error ? error.message : '未知错误'}`, {
-			color: 'error',
-		});
+		$tip(
+			`头像上传失败: ${error instanceof Error ? error.message : '未知错误'}`,
+			{
+				color: 'error',
+				icon: 'mdi-alert-circle',
+			},
+		);
 		agentForm.avatar = generateFallbackAvatar();
 	} finally {
 		uploading.value = false;
@@ -244,10 +267,12 @@ async function createAgent() {
 			humanReviewEnabled: agentForm.humanReviewEnabled ? 1 : 0,
 		};
 		const result = await agentService.create(payload);
-		$tip(`智能体创建成功！状态：${payload.status === 'published' ? '已发布' : '草稿'}`);
+		$tip(
+			`智能体创建成功！状态：${payload.status === 'published' ? '已发布' : '草稿'}`,
+		);
 		await router.push({ path: '/chat', query: { agentId: result.id } });
 	} catch {
-		$tip('创建失败，请重试', { color: 'error' });
+		$tip('创建失败，请重试', { color: 'error', icon: 'mdi-alert-circle' });
 	} finally {
 		loading.value = false;
 	}
