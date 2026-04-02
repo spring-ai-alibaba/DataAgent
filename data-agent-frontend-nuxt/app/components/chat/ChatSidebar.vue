@@ -1,79 +1,160 @@
 <template>
-	<div class="chat-sidebar">
-		<!-- New Session Button -->
-		<div class="sidebar-top">
-			<v-btn
-				block
-				variant="outlined"
-				color="primary"
-				prepend-icon="mdi-plus-circle-outline"
-				class="new-session-btn"
-				@click="handleCreateNewSession"
-			>
-				新建分析会话
-			</v-btn>
-		</div>
-
-		<!-- Session List -->
-		<div class="session-list custom-scrollbar">
-			<div class="session-group-label">最近任务</div>
-
-			<div
-				v-for="session in store.sessions"
-				:key="session.id"
-				class="session-item"
-				:class="{ active: store.currentSession?.id === session.id }"
-				@click="handleSelectSession(session)"
-			>
-				<template v-if="session.editing">
-					<input
-						v-model="session.editingTitle"
-						class="session-rename-input"
-						@click.stop
-						@blur="handleSaveTitle(session)"
-						@keyup.enter="handleSaveTitle(session)"
-						@keyup.esc="cancelEdit(session)"
-					/>
-				</template>
-				<template v-else>
-					<div class="session-item-info" @dblclick.stop="startEdit(session)">
-						<span class="session-item-title">{{ session.title || '新会话' }}</span>
-						<span class="session-item-time">{{ formatTime(session.createTime || session.updateTime) || '—' }}</span>
-					</div>
-					<div class="session-item-actions">
-						<v-btn icon variant="text" density="compact" size="x-small" class="action-btn--edit" title="重命名" @click.stop="startEdit(session)">
-							<v-icon size="14">mdi-pencil-outline</v-icon>
-						</v-btn>
-						<v-btn icon variant="text" density="compact" size="x-small" class="action-btn--star" title="收藏" @click.stop="handlePin(session)">
-							<v-icon size="14" :color="session.isPinned ? '#f59e0b' : ''">
-								{{ session.isPinned ? 'mdi-star' : 'mdi-star-outline' }}
-							</v-icon>
-						</v-btn>
-						<v-btn icon variant="text" density="compact" size="x-small" class="action-btn--danger" title="删除" @click.stop="handleDelete(session)">
-							<v-icon size="14">mdi-delete-outline</v-icon>
-						</v-btn>
-					</div>
-				</template>
+	<div
+		class="sidebar-wrapper"
+		:class="{ collapsed: store.chatSidebarCollapsed }"
+	>
+		<!-- Expanded panel -->
+		<div class="chat-sidebar">
+			<!-- Header -->
+			<div class="sidebar-header">
+				<span class="sidebar-title">历史会话</span>
+				<v-btn
+					icon
+					variant="text"
+					density="compact"
+					size="small"
+					class="toggle-btn"
+					title="折叠侧边栏"
+					@click="store.chatSidebarCollapsed = true"
+				>
+					<v-icon size="18">mdi-chevron-left</v-icon>
+				</v-btn>
 			</div>
 
-			<div v-if="store.sessions.length === 0" class="empty-sessions">
-				暂无历史会话
+			<!-- Session List -->
+			<div class="session-list custom-scrollbar">
+				<div class="session-group-label">最近任务</div>
+
+				<div
+					v-for="session in store.sessions"
+					:key="session.id"
+					class="session-item"
+					:class="{ active: store.currentSession?.id === session.id }"
+					@click="handleSelectSession(session)"
+				>
+					<template v-if="session.editing">
+						<input
+							v-model="session.editingTitle"
+							class="session-rename-input"
+							@click.stop
+							@blur="handleSaveTitle(session)"
+							@keyup.enter="handleSaveTitle(session)"
+							@keyup.esc="cancelEdit(session)"
+						/>
+					</template>
+					<template v-else>
+						<div class="session-item-info" @dblclick.stop="startEdit(session)">
+							<span class="session-item-title">{{
+								session.title || '新会话'
+							}}</span>
+							<span class="session-item-time">{{
+								formatTime(session.createTime || session.updateTime) || '—'
+							}}</span>
+						</div>
+						<div class="session-item-actions">
+							<v-btn
+								icon
+								variant="text"
+								density="compact"
+								size="x-small"
+								class="action-btn--edit"
+								title="重命名"
+								@click.stop="startEdit(session)"
+							>
+								<v-icon size="14">mdi-pencil-outline</v-icon>
+							</v-btn>
+							<v-btn
+								icon
+								variant="text"
+								density="compact"
+								size="x-small"
+								class="action-btn--star"
+								title="收藏"
+								@click.stop="handlePin(session)"
+							>
+								<v-icon size="14" :color="session.isPinned ? '#f59e0b' : ''">
+									{{ session.isPinned ? 'mdi-star' : 'mdi-star-outline' }}
+								</v-icon>
+							</v-btn>
+							<v-btn
+								icon
+								variant="text"
+								density="compact"
+								size="x-small"
+								class="action-btn--danger"
+								title="删除"
+								@click.stop="handleDelete(session)"
+							>
+								<v-icon size="14">mdi-delete-outline</v-icon>
+							</v-btn>
+						</div>
+					</template>
+				</div>
+
+				<div v-if="store.sessions.length === 0" class="empty-sessions">
+					暂无历史会话
+				</div>
+			</div>
+
+			<!-- Bottom: New Session Button -->
+			<div class="sidebar-bottom">
+				<v-btn
+					block
+					variant="outlined"
+					color="primary"
+					prepend-icon="mdi-plus-circle-outline"
+					class="new-session-btn"
+					@click="handleCreateNewSession"
+				>
+					新建分析会话
+				</v-btn>
 			</div>
 		</div>
 
-		<!-- Confirm Dialog -->
-		<v-dialog v-model="showDeleteConfirm" max-width="360">
-			<v-card rounded="xl">
-				<v-card-title class="text-subtitle-1 font-weight-bold pa-5 pb-2">删除会话</v-card-title>
-				<v-card-text class="px-5 text-body-2 text-medium-emphasis">确定要删除这个会话吗？</v-card-text>
-				<v-card-actions class="px-5 pb-4 gap-2">
-					<v-spacer />
-					<v-btn variant="text" size="small" class="text-none" @click="showDeleteConfirm = false">取消</v-btn>
-					<v-btn color="error" variant="flat" size="small" class="text-none" @click="confirmDelete">确定</v-btn>
-				</v-card-actions>
-			</v-card>
-		</v-dialog>
+		<!-- Collapsed FAB: floats at top-left of chat area -->
+		<v-btn
+			v-show="store.chatSidebarCollapsed"
+			icon
+			variant="tonal"
+			color="primary"
+			size="small"
+			class="expand-fab"
+			title="展开历史会话"
+			@click="store.chatSidebarCollapsed = false"
+		>
+			<v-icon size="18">mdi-chevron-right</v-icon>
+		</v-btn>
 	</div>
+
+	<!-- Confirm Dialog -->
+	<v-dialog v-model="showDeleteConfirm" max-width="360">
+		<v-card rounded="xl">
+			<v-card-title class="text-subtitle-1 font-weight-bold pa-5 pb-2"
+				>删除会话</v-card-title
+			>
+			<v-card-text class="px-5 text-body-2 text-medium-emphasis"
+				>确定要删除这个会话吗？</v-card-text
+			>
+			<v-card-actions class="px-5 pb-4 gap-2">
+				<v-spacer />
+				<v-btn
+					variant="text"
+					size="small"
+					class="text-none"
+					@click="showDeleteConfirm = false"
+					>取消</v-btn
+				>
+				<v-btn
+					color="error"
+					variant="flat"
+					size="small"
+					class="text-none"
+					@click="confirmDelete"
+					>确定</v-btn
+				>
+			</v-card-actions>
+		</v-card>
+	</v-dialog>
 </template>
 
 <script setup lang="ts">
@@ -94,7 +175,8 @@ function formatTime(time: Date | string | undefined): string {
 	const pad = (n: number) => String(n).padStart(2, '0');
 	if (isToday) return `今天 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 	const isThisYear = d.getFullYear() === now.getFullYear();
-	if (isThisYear) return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	if (isThisYear)
+		return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
@@ -127,8 +209,14 @@ function cancelEdit(session: ExtendedChatSession) {
 
 async function handleSaveTitle(session: ExtendedChatSession) {
 	const newTitle = (session.editingTitle || '').trim();
-	if (!newTitle) { session.editing = false; return; }
-	if (newTitle === session.title) { session.editing = false; return; }
+	if (!newTitle) {
+		session.editing = false;
+		return;
+	}
+	if (newTitle === session.title) {
+		session.editing = false;
+		return;
+	}
 	try {
 		await store.renameSession(session, newTitle);
 	} catch (e) {
@@ -163,27 +251,65 @@ async function confirmDelete() {
 </script>
 
 <style scoped>
-.chat-sidebar {
+/* ── Wrapper: drives the width transition ────────────────────────────────────── */
+.sidebar-wrapper {
+	position: relative;
 	width: 260px;
 	min-width: 260px;
+	transition:
+		width 0.25s ease,
+		min-width 0.25s ease;
+	overflow: visible;
+	height: 100%;
+	flex-shrink: 0;
+}
+
+.sidebar-wrapper.collapsed {
+	width: 0;
+	min-width: 0;
+}
+
+/* ── Expanded panel ──────────────────────────────────────────────────────────── */
+.chat-sidebar {
+	width: 260px;
 	background: #f8fafc;
 	border-right: 1px solid #e8edf2;
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+	overflow: hidden;
+	transition: opacity 0.2s ease;
 }
 
-/* ── Top section ─────────────────────────────────────────────────────────────── */
-.sidebar-top {
-	padding: 16px 16px 12px;
+.collapsed .chat-sidebar {
+	opacity: 0;
+	pointer-events: none;
 }
 
-.new-session-btn {
-	text-transform: none !important;
-	letter-spacing: 0 !important;
-	font-size: 14px !important;
-	border-style: dashed !important;
-	border-radius: 10px !important;
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+.sidebar-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 8px 10px 16px;
+	border-bottom: 1px solid #e8edf2;
+	min-height: 48px;
+	flex-shrink: 0;
+}
+
+.sidebar-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: #475569;
+	letter-spacing: 0.3px;
+	white-space: nowrap;
+}
+
+.toggle-btn {
+	color: #94a3b8 !important;
+}
+.toggle-btn:hover {
+	color: #3b82f6 !important;
 }
 
 /* ── Session list ────────────────────────────────────────────────────────────── */
@@ -249,7 +375,7 @@ async function confirmDelete() {
 	font-weight: 500;
 }
 
-/* ── Actions (show on hover) ─────────────────────────────────────────────────── */
+/* ── Actions ─────────────────────────────────────────────────────────────────── */
 .session-item-actions {
 	display: none;
 	flex-shrink: 0;
@@ -265,11 +391,9 @@ async function confirmDelete() {
 .action-btn--edit:hover {
 	color: #3b82f6 !important;
 }
-
 .action-btn--star:hover {
 	color: #f59e0b !important;
 }
-
 .action-btn--danger:hover {
 	color: #ef4444 !important;
 }
@@ -294,9 +418,42 @@ async function confirmDelete() {
 	padding: 20px 0;
 }
 
+/* ── Bottom new session ──────────────────────────────────────────────────────── */
+.sidebar-bottom {
+	padding: 12px 16px 16px;
+	border-top: 1px solid #e8edf2;
+	flex-shrink: 0;
+}
+
+.new-session-btn {
+	text-transform: none !important;
+	letter-spacing: 0 !important;
+	font-size: 14px !important;
+	border-style: dashed !important;
+	border-radius: 10px !important;
+}
+
+/* ── Collapsed expand FAB ────────────────────────────────────────────────────── */
+.expand-fab {
+	position: absolute;
+	top: 10px;
+	left: 8px;
+	z-index: 10;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+}
+
 /* ── Scrollbar ───────────────────────────────────────────────────────────────── */
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.custom-scrollbar::-webkit-scrollbar {
+	width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+	background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+	background: #cbd5e1;
+	border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: #94a3b8;
+}
 </style>

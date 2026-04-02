@@ -10,13 +10,23 @@
 									<v-icon icon="mdi-robot" color="white" size="22" />
 								</v-avatar>
 								<div>
-									<div class="text-subtitle-2 font-weight-bold text-white">Spring AI Alibaba</div>
-									<div class="text-caption text-blue-lighten-3 font-weight-bold brand-subtitle">DATA AGENT</div>
+									<div class="text-subtitle-2 font-weight-bold text-white">
+										Spring AI Alibaba
+									</div>
+									<div
+										class="text-caption text-blue-lighten-3 font-weight-bold brand-subtitle"
+									>
+										DATA AGENT
+									</div>
 								</div>
 							</div>
 
 							<div class="agent-switcher-box">
-								<p class="text-caption text-blue-lighten-3 mb-2 font-weight-bold">当前选择智能体</p>
+								<p
+									class="text-caption text-blue-lighten-3 mb-2 font-weight-bold"
+								>
+									当前选择智能体
+								</p>
 								<v-select
 									v-model="selectedAgentId"
 									:items="agentOptions"
@@ -29,20 +39,40 @@
 									class="agent-switcher"
 									menu-icon="mdi-chevron-down"
 									theme="dark"
-									:menu-props="{ contentClass: 'agent-switcher-menu', offset: [0, 8] }"
+									:menu-props="{
+										contentClass: 'agent-switcher-menu',
+										offset: [0, 8],
+									}"
 									:list-props="{ bgColor: '#1e293b', theme: 'dark' }"
 									item-color="blue-lighten-2"
 									@update:model-value="handleAgentSwitch"
 								>
 									<template #selection="{ item }">
-										<div class="agent-option agent-option--selection d-flex align-center w-100">
+										<div
+											class="agent-option agent-option--selection d-flex align-center w-100"
+										>
 											<v-avatar size="24" class="mr-2 border border-white-10">
-												<v-img v-if="item.raw.avatar" :src="item.raw.avatar" cover />
-												<v-icon v-else icon="mdi-robot" size="14" color="blue-lighten-3" />
+												<v-img
+													v-if="item.raw.avatar"
+													:src="item.raw.avatar"
+													cover
+												/>
+												<v-icon
+													v-else
+													icon="mdi-robot"
+													size="14"
+													color="blue-lighten-3"
+												/>
 											</v-avatar>
 											<div class="agent-option__text">
-												<div class="agent-option__title agent-option__title--active">{{ item.raw.title }}</div>
-												<div class="agent-option__subtitle">{{ item.raw.subtitle }}</div>
+												<div
+													class="agent-option__title agent-option__title--active"
+												>
+													{{ item.raw.title }}
+												</div>
+												<div class="agent-option__subtitle">
+													{{ item.raw.subtitle }}
+												</div>
 											</div>
 										</div>
 									</template>
@@ -52,17 +82,33 @@
 											:title="undefined"
 											:subtitle="undefined"
 											class="agent-option"
-											:class="{ 'agent-option--active': item.raw.value === selectedAgentId }"
+											:class="{
+												'agent-option--active':
+													item.raw.value === selectedAgentId,
+											}"
 										>
 											<template #prepend>
 												<v-avatar size="28" class="mr-2 border border-white-10">
-													<v-img v-if="item.raw.avatar" :src="item.raw.avatar" cover />
-													<v-icon v-else icon="mdi-robot" size="15" color="blue-lighten-3" />
+													<v-img
+														v-if="item.raw.avatar"
+														:src="item.raw.avatar"
+														cover
+													/>
+													<v-icon
+														v-else
+														icon="mdi-robot"
+														size="15"
+														color="blue-lighten-3"
+													/>
 												</v-avatar>
 											</template>
-											<v-list-item-title class="agent-option__title">{{ item.raw.title }}</v-list-item-title>
+											<v-list-item-title class="agent-option__title">{{
+												item.raw.title
+											}}</v-list-item-title>
 											<v-list-item-subtitle class="agent-option__subtitle">
-												<span class="agent-tags-text">{{ item.raw.subtitle }}</span>
+												<span class="agent-tags-text">{{
+													item.raw.subtitle
+												}}</span>
 											</v-list-item-subtitle>
 											<template #append>
 												<v-icon
@@ -78,7 +124,13 @@
 							</div>
 						</div>
 
-						<v-list density="compact" nav class="flex-grow-1 pa-2 px-4 custom-scrollbar bg-transparent" theme="dark">
+						<v-list
+							v-model:opened="openedGroups"
+							density="compact"
+							nav
+							class="flex-grow-1 pa-2 px-4 custom-scrollbar bg-transparent"
+							theme="dark"
+						>
 							<v-list-item
 								prepend-icon="mdi-chat-processing-outline"
 								title="数据问答"
@@ -87,14 +139,14 @@
 								color="primary"
 								@click="navigateToPath('/chat')"
 							/>
-							<v-list-item
+							<!-- <v-list-item
 								prepend-icon="mdi-chart-box-outline"
 								:active="isActive('/dashboard')"
 								class="rounded-lg mb-1 navigation-item"
 								color="primary"
 								title="数据看板"
 								@click="navigateToPath('/dashboard')"
-							/>
+							/> -->
 							<v-list-item
 								prepend-icon="mdi-auto-fix"
 								:active="isActive('/prompt-config')"
@@ -106,37 +158,98 @@
 
 							<v-list-group value="knowledge">
 								<template #activator="{ props }">
-									<v-list-item v-bind="props" title="知识库管理" class="text-overline text-slate-500 mt-4" />
+									<v-list-item
+										v-bind="props"
+										title="知识库管理"
+										class="text-overline text-slate-500 mt-4"
+									/>
 								</template>
-								<v-list-item prepend-icon="mdi-book-open-variant" title="业务知识配置" :active="isActive('/knowledge/business')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/knowledge/business')" />
-								<v-list-item prepend-icon="mdi-brain" title="智能体知识库" :active="isActive('/knowledge/agents')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/knowledge/agents')" />
-								<v-list-item prepend-icon="mdi-vector-intersection" title="语义模型配置" :active="isActive('/knowledge/semantic-models')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/knowledge/semantic-models')" />
+								<v-list-item
+									prepend-icon="mdi-book-open-variant"
+									title="业务知识配置"
+									:active="isActive('/knowledge/business')"
+									density="compact"
+									class="rounded-lg mb-1 navigation-sub-item"
+									color="primary"
+									@click="navigateToPath('/knowledge/business')"
+								/>
+								<v-list-item
+									prepend-icon="mdi-brain"
+									title="智能体知识库"
+									:active="isActive('/knowledge/agents')"
+									density="compact"
+									class="rounded-lg mb-1 navigation-sub-item"
+									color="primary"
+									@click="navigateToPath('/knowledge/agents')"
+								/>
+								<v-list-item
+									prepend-icon="mdi-vector-intersection"
+									title="语义模型配置"
+									:active="isActive('/knowledge/semantic-models')"
+									density="compact"
+									class="rounded-lg mb-1 navigation-sub-item"
+									color="primary"
+									@click="navigateToPath('/knowledge/semantic-models')"
+								/>
 							</v-list-group>
 
 							<v-list-group value="system">
 								<template #activator="{ props }">
-									<v-list-item v-bind="props" title="通用设置" class="text-overline text-slate-500 mt-2" />
+									<v-list-item
+										v-bind="props"
+										title="通用设置"
+										class="text-overline text-slate-500 mt-2"
+									/>
 								</template>
-								<v-list-item prepend-icon="mdi-robot-outline" title="智能体管理" :active="isActive('/system/agents')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/system/agents')" />
-								<v-list-item prepend-icon="mdi-database-refresh-outline" title="数据连接" :active="isActive('/system/data-sources')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/system/data-sources')" />
-								<v-list-item prepend-icon="mdi-cpu-64-bit" title="模型配置" :active="isActive('/system/model-config')" density="compact" class="rounded-lg mb-1 navigation-sub-item" color="primary" @click="navigateToPath('/system/model-config')" />
+								<v-list-item
+									prepend-icon="mdi-robot-outline"
+									title="智能体管理"
+									:active="isActive('/system/agents')"
+									density="compact"
+									class="rounded-lg mb-1 navigation-sub-item"
+									color="primary"
+									@click="navigateToPath('/system/agents')"
+								/>
+								<v-list-item
+									prepend-icon="mdi-database-refresh-outline"
+									title="数据连接"
+									:active="isActive('/system/data-sources')"
+									density="compact"
+									class="rounded-lg mb-1 navigation-sub-item"
+									color="primary"
+									@click="navigateToPath('/system/data-sources')"
+								/>
+								<v-list-item
+									prepend-icon="mdi-cpu-64-bit"
+									title="模型配置"
+									:active="isActive('/system/model-config')"
+									density="compact"
+									class="rounded-lg mb-1 navigation-sub-item"
+									color="primary"
+									@click="navigateToPath('/system/model-config')"
+								/>
 							</v-list-group>
 
 							<div class="mt-6 pt-4 border-t border-white/5">
 								<v-list-item
+									color="primary"
+									density="compact"
 									:active="isActive('/agent/new')"
 									variant="flat"
-									class="rounded-xl mx-2 shadow-lg bg-blue-grey-darken-4"
-									color="white"
+									class="rounded-xl mx-2 shadow-lg bg-blue-grey-darken-4 new-agent-item"
 									@click="navigateToPath('/agent/new')"
 								>
-									<template #prepend><v-icon icon="mdi-plus-box-outline" class="mr-3" /></template>
-									<v-list-item-title class="font-weight-bold text-caption">新建智能体</v-list-item-title>
+									<div class="d-flex align-center justify-center gap-2 w-100">
+										<v-icon icon="mdi-plus-box-outline" size="16" rounded />
+										<span class="font-weight-bold text-caption mx-1"
+											>新建智能体</span
+										>
+									</div>
 								</v-list-item>
 							</div>
 						</v-list>
 
-						<div class="pa-2 border-t border-white/5">
+						<!-- <div class="pa-2 border-t border-white/5">
 							<v-list-item class="rounded-lg navigation-item logout-item" color="red-lighten-2" @click="logout">
 								<template #prepend>
 									<v-avatar size="24" color="grey-darken-3"><v-icon icon="mdi-account" size="14" color="white" /></v-avatar>
@@ -144,7 +257,7 @@
 								<v-list-item-title class="text-caption font-weight-bold ms-2">root</v-list-item-title>
 								<template #append><v-icon icon="mdi-logout" size="24" color="red" /></template>
 							</v-list-item>
-						</div>
+						</div> -->
 					</div>
 				</template>
 
@@ -152,9 +265,17 @@
 					<v-btn icon variant="text" size="small" class="mr-2" @click="toggle">
 						<v-icon :icon="isOpen ? 'mdi-menu-open' : 'mdi-menu'" />
 					</v-btn>
-					<div class="text-subtitle-1 font-weight-medium text-grey-darken-3">{{ currentRouteTitle }}</div>
+					<div class="text-subtitle-1 font-weight-medium text-grey-darken-3">
+						{{ currentRouteTitle }}
+					</div>
 					<v-spacer />
-					<v-chip size="small" variant="outlined" color="primary" class="font-weight-bold">Alibaba Edition</v-chip>
+					<v-chip
+						size="small"
+						variant="outlined"
+						color="primary"
+						class="font-weight-bold"
+						>Alibaba Edition</v-chip
+					>
 				</template>
 
 				<slot />
@@ -182,6 +303,8 @@ const { dialogState, handleGlobalConfirm } = useConfirm();
 const drawer = ref(true);
 const router = useRouter();
 const route = useRoute();
+// 默认都展开
+const openedGroups = ref(['knowledge', 'system']);
 
 type DrawerAgentOption = {
 	id: number;
@@ -207,7 +330,7 @@ const routeTitleMap: Record<string, string> = {
 	'/system/data-sources': '数据连接',
 	'/system/model-config': '模型配置',
 	'/system/settings': '通用设置',
-	'/agent/new': '新建智能体任务',
+	'/agent/new': '新建智能体',
 };
 
 const agentOptions = computed(() => agents.value);
@@ -221,7 +344,12 @@ const currentRouteTitle = computed(() => {
 
 function parseRouteAgentId() {
 	const pathId = Number(route.params.id);
-	if (route.path.startsWith('/agent/') && route.path !== '/agent/new' && Number.isFinite(pathId) && pathId > 0) {
+	if (
+		route.path.startsWith('/agent/') &&
+		route.path !== '/agent/new' &&
+		Number.isFinite(pathId) &&
+		pathId > 0
+	) {
 		return pathId;
 	}
 	const queryId = Number(route.query.agentId);
@@ -233,7 +361,7 @@ function parseRouteAgentId() {
 
 function getQueryWithAgentId(agentId?: number) {
 	const query: Record<string, string> = {};
-	Object.keys(route.query).forEach(key => {
+	Object.keys(route.query).forEach((key) => {
 		const value = route.query[key];
 		if (key === 'agentId') return;
 		if (Array.isArray(value)) {
@@ -264,7 +392,11 @@ function navigateToPath(path: string) {
 		if (route.path !== path) router.push({ path });
 		return;
 	}
-	if (route.path === path && path.startsWith('/agent/') && selectedAgentId.value) {
+	if (
+		route.path === path &&
+		path.startsWith('/agent/') &&
+		selectedAgentId.value
+	) {
 		return;
 	}
 	if (selectedAgentId.value) {
@@ -290,7 +422,9 @@ const isActive = (path: string) => route.path === path;
 async function loadGlobalModelName() {
 	try {
 		const configs = await modelConfigService.list();
-		const activeChat = configs.find(item => item.modelType === 'CHAT' && item.isActive);
+		const activeChat = configs.find(
+			(item) => item.modelType === 'CHAT' && item.isActive,
+		);
 		globalChatModelName.value = activeChat?.modelName || '';
 	} catch (e) {
 		console.error('Failed to load global model name', e);
@@ -300,8 +434,8 @@ async function loadGlobalModelName() {
 async function loadAgents() {
 	const list = await agentService.list();
 	agents.value = list
-		.filter(item => item.id !== undefined && item.id > 0)
-		.map(item => {
+		.filter((item) => item.id !== undefined && item.id > 0)
+		.map((item) => {
 			const raw = item as unknown as Record<string, unknown>;
 			return {
 				id: item.id as number,
@@ -317,7 +451,7 @@ async function loadAgents() {
 
 function syncSelectedFromRoute() {
 	const routeAgentId = parseRouteAgentId();
-	if (routeAgentId && agents.value.some(item => item.id === routeAgentId)) {
+	if (routeAgentId && agents.value.some((item) => item.id === routeAgentId)) {
 		selectedAgentId.value = routeAgentId;
 	}
 }
@@ -339,10 +473,6 @@ watch(
 		syncSelectedFromRoute();
 	},
 );
-
-const logout = () => {
-	console.log('logout');
-};
 </script>
 
 <style scoped>
@@ -437,28 +567,37 @@ const logout = () => {
 
 .navigation-item {
 	--v-list-item-padding-start: 16px;
+	--v-list-item-min-height: 36px;
 }
 
 .navigation-sub-item {
 	--v-list-item-padding-start: 28px;
+	--v-list-item-min-height: 36px;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
 	width: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
 	background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
 	background: rgba(255, 255, 255, 0.1);
 	border-radius: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
 	background: rgba(255, 255, 255, 0.2);
 }
 
 :deep(.v-list-group__items .v-list-item) {
 	padding-inline-start: 16px !important;
+}
+
+:deep(.flex-grow-1.v-list .v-list-item) {
+	min-height: 36px !important;
 }
 
 :deep(.v-list-item__spacer) {

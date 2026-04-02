@@ -1,7 +1,7 @@
 <template>
 	<section class="page-shell">
 		<KnowledgePageHeader
-			title="新建智能体任务"
+			title="新建智能体"
 			subtitle="创建你的专属数据分析智能体，统一接入知识、提示词和语义能力。"
 		>
 			<template #actions>

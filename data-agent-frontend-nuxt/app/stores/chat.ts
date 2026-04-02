@@ -1,10 +1,21 @@
 import { defineStore } from 'pinia';
-import chatService, { type ChatSession, type ChatMessage } from '~/services/chat/index';
-import graphService, { type GraphRequest, type GraphNodeResponse, TextType } from '~/services/graph/index';
+import chatService, {
+	type ChatSession,
+	type ChatMessage,
+} from '~/services/chat/index';
+import graphService, {
+	type GraphRequest,
+	type GraphNodeResponse,
+	TextType,
+} from '~/services/graph/index';
 import agentDatasourceService from '~/services/agentDatasource/index';
 import { useSessionStateManager } from '~/services/sessionStateManager/index';
-import modelConfigService, { type ModelConfig } from '~/services/modelConfig/index';
-import datasourceService, { type Datasource as BaseDatasource } from '~/services/datasource/index';
+import modelConfigService, {
+	type ModelConfig,
+} from '~/services/modelConfig/index';
+import datasourceService, {
+	type Datasource as BaseDatasource,
+} from '~/services/datasource/index';
 
 export type Datasource = BaseDatasource & { isActive?: boolean };
 
@@ -50,6 +61,9 @@ export const useChatStore = defineStore('chat', () => {
 	const streamingReportContent = ref('');
 	const isReportStreaming = ref(false);
 
+	// ── Chat sidebar collapse state ─────────────────────────────────────────────
+	const chatSidebarCollapsed = ref(false);
+
 	// ── Agent info (set by layout) ──────────────────────────────────────────────
 	const currentAgentId = ref<number | undefined>(undefined);
 	const activeChatModel = ref('');
@@ -70,27 +84,47 @@ export const useChatStore = defineStore('chat', () => {
 	let sessionReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	let isStoreActive = true;
 
-	const { getSessionState, syncStateToView, saveViewToState, deleteSessionState } =
-		useSessionStateManager();
+	const {
+		getSessionState,
+		syncStateToView,
+		saveViewToState,
+		deleteSessionState,
+	} = useSessionStateManager();
 
 	// ── Session stream ──────────────────────────────────────────────────────────
 	function connectSessionStream(agentId: number) {
-		if (sessionReconnectTimer) { clearTimeout(sessionReconnectTimer); sessionReconnectTimer = null; }
+		if (sessionReconnectTimer) {
+			clearTimeout(sessionReconnectTimer);
+			sessionReconnectTimer = null;
+		}
 		if (sessionEventSource) sessionEventSource.close();
 
 		const source = new EventSource(`/api/agent/${agentId}/sessions/stream`);
 		source.addEventListener('title-updated', (event) => {
 			try {
-				const data = JSON.parse((event as MessageEvent<string>).data) as { sessionId: string; title: string };
-				const target = sessions.value.find(s => s.id === data.sessionId);
-				if (target) { target.title = data.title; target.editingTitle = data.title; }
-				if (currentSession.value?.id === data.sessionId) currentSession.value.title = data.title;
-			} catch { /* ignore */ }
+				const data = JSON.parse((event as MessageEvent<string>).data) as {
+					sessionId: string;
+					title: string;
+				};
+				const target = sessions.value.find((s) => s.id === data.sessionId);
+				if (target) {
+					target.title = data.title;
+					target.editingTitle = data.title;
+				}
+				if (currentSession.value?.id === data.sessionId)
+					currentSession.value.title = data.title;
+			} catch {
+				/* ignore */
+			}
 		});
 		source.onerror = () => {
 			source.close();
 			sessionEventSource = null;
-			if (isStoreActive) sessionReconnectTimer = setTimeout(() => connectSessionStream(agentId), 3000);
+			if (isStoreActive)
+				sessionReconnectTimer = setTimeout(
+					() => connectSessionStream(agentId),
+					3000,
+				);
 		};
 		sessionEventSource = source;
 	}
@@ -98,7 +132,10 @@ export const useChatStore = defineStore('chat', () => {
 	function disconnectSessionStream() {
 		isStoreActive = false;
 		if (sessionReconnectTimer) clearTimeout(sessionReconnectTimer);
-		if (sessionEventSource) { sessionEventSource.close(); sessionEventSource = null; }
+		if (sessionEventSource) {
+			sessionEventSource.close();
+			sessionEventSource = null;
+		}
 	}
 
 	// ── Session operations ──────────────────────────────────────────────────────
@@ -115,17 +152,21 @@ export const useChatStore = defineStore('chat', () => {
 			const list = await datasourceService.getAllDatasource('active');
 			allDatasources.value = list;
 			activeDatasource.value = list[0] || null;
-		} catch { /* ignore */ }
+		} catch {
+			/* ignore */
+		}
 		// Load chat models
 		try {
 			const models = await modelConfigService.list();
-			chatModels.value = models.filter(m => m.modelType === 'CHAT');
-			const active = chatModels.value.find(m => m.isActive);
+			chatModels.value = models.filter((m) => m.modelType === 'CHAT');
+			const active = chatModels.value.find((m) => m.isActive);
 			if (active) {
 				activeModelConfig.value = active;
 				activeChatModel.value = active.modelName;
 			}
-		} catch { /* ignore */ }
+		} catch {
+			/* ignore */
+		}
 	}
 
 	async function switchDatasource(ds: Datasource) {
@@ -142,8 +183,11 @@ export const useChatStore = defineStore('chat', () => {
 		try {
 			// 全局数据源列表切换：确保先建立/启用 agent 关联
 			// 后端 add 接口会自动禁用该 agent 其他数据源并启用当前数据源
-			await agentDatasourceService.addDatasourceToAgent(String(agentId), nextDatasourceId);
-			allDatasources.value = allDatasources.value.map(item => ({
+			await agentDatasourceService.addDatasourceToAgent(
+				String(agentId),
+				nextDatasourceId,
+			);
+			allDatasources.value = allDatasources.value.map((item) => ({
 				...item,
 				isActive: item.id === nextDatasourceId,
 			}));
@@ -157,8 +201,8 @@ export const useChatStore = defineStore('chat', () => {
 		try {
 			await modelConfigService.activate(modelId);
 			const models = await modelConfigService.list();
-			chatModels.value = models.filter(m => m.modelType === 'CHAT');
-			const active = chatModels.value.find(m => m.isActive);
+			chatModels.value = models.filter((m) => m.modelType === 'CHAT');
+			const active = chatModels.value.find((m) => m.isActive);
 			if (active) {
 				activeModelConfig.value = active;
 				activeChatModel.value = active.modelName;
@@ -189,7 +233,8 @@ export const useChatStore = defineStore('chat', () => {
 		await chatService.renameSession(session.id, newTitle);
 		session.title = newTitle;
 		session.editing = false;
-		if (currentSession.value?.id === session.id) currentSession.value.title = newTitle;
+		if (currentSession.value?.id === session.id)
+			currentSession.value.title = newTitle;
 	}
 
 	async function pinSession(session: ChatSession) {
@@ -200,7 +245,7 @@ export const useChatStore = defineStore('chat', () => {
 	async function removeSession(session: ChatSession) {
 		await chatService.deleteSession(session.id);
 		deleteSessionState(session.id);
-		sessions.value = sessions.value.filter(s => s.id !== session.id);
+		sessions.value = sessions.value.filter((s) => s.id !== session.id);
 		if (currentSession.value?.id === session.id) {
 			currentSession.value = null;
 			currentMessages.value = [];
@@ -211,7 +256,7 @@ export const useChatStore = defineStore('chat', () => {
 
 	async function clearSessions(agentId: number) {
 		await chatService.clearAgentSessions(agentId);
-		sessions.value.forEach(s => deleteSessionState(s.id));
+		sessions.value.forEach((s) => deleteSessionState(s.id));
 		sessions.value = [];
 		currentSession.value = null;
 		currentMessages.value = [];
@@ -223,7 +268,8 @@ export const useChatStore = defineStore('chat', () => {
 	async function sendMessage(query: string) {
 		if (!currentSession.value) return;
 
-		const needsTitle = !currentSession.value.title || currentSession.value.title === '新会话';
+		const needsTitle =
+			!currentSession.value.title || currentSession.value.title === '新会话';
 		const userMessage: ChatMessage = {
 			sessionId: currentSession.value.id,
 			role: 'user',
@@ -232,7 +278,10 @@ export const useChatStore = defineStore('chat', () => {
 			titleNeeded: needsTitle,
 		};
 
-		const saved = await chatService.saveMessage(currentSession.value.id, userMessage);
+		const saved = await chatService.saveMessage(
+			currentSession.value.id,
+			userMessage,
+		);
 		currentMessages.value.push(saved);
 
 		const sessionState = getSessionState(currentSession.value.id);
@@ -249,7 +298,10 @@ export const useChatStore = defineStore('chat', () => {
 		await _sendGraphRequest(request, true);
 	}
 
-	async function _sendGraphRequest(request: GraphRequest, _rejectedPlan: boolean) {
+	async function _sendGraphRequest(
+		request: GraphRequest,
+		_rejectedPlan: boolean,
+	) {
 		const session = currentSession.value;
 		if (!session) return;
 
@@ -297,8 +349,14 @@ export const useChatStore = defineStore('chat', () => {
 		}
 
 		function flushPendingSync() {
-			if (viewSyncRafId) { cancelAnimationFrame(viewSyncRafId); viewSyncRafId = null; }
-			if (reportSyncRafId) { cancelAnimationFrame(reportSyncRafId); reportSyncRafId = null; }
+			if (viewSyncRafId) {
+				cancelAnimationFrame(viewSyncRafId);
+				viewSyncRafId = null;
+			}
+			if (reportSyncRafId) {
+				cancelAnimationFrame(reportSyncRafId);
+				reportSyncRafId = null;
+			}
 			if (currentSession.value?.id === sessionId) {
 				nodeBlocks.value = [...sessionState.nodeBlocks];
 			}
@@ -308,10 +366,12 @@ export const useChatStore = defineStore('chat', () => {
 			request,
 			async (response: GraphNodeResponse) => {
 				if (response.error) return;
-				if (sessionState.lastRequest) sessionState.lastRequest.threadId = response.threadId;
+				if (sessionState.lastRequest)
+					sessionState.lastRequest.threadId = response.threadId;
 
 				if (response.nodeName === 'ReportGeneratorNode') {
-					const isNewNode = currentNodeName === null || response.nodeName !== currentNodeName;
+					const isNewNode =
+						currentNodeName === null || response.nodeName !== currentNodeName;
 					if (isNewNode) {
 						sessionState.nodeBlocks.push([{ ...response }]);
 						currentBlockIndex = sessionState.nodeBlocks.length - 1;
@@ -320,28 +380,49 @@ export const useChatStore = defineStore('chat', () => {
 					if (response.textType === 'HTML') {
 						sessionState.htmlReportContent += response.text;
 						sessionState.htmlReportSize = sessionState.htmlReportContent.length;
-						const rn = sessionState.nodeBlocks.find(b => b.length > 0 && b[0].nodeName === 'ReportGeneratorNode' && b[0].textType === 'HTML');
-						if (rn) rn[0].text = `正在收集HTML报告... 已收集 ${sessionState.htmlReportSize} 字节`;
-						else sessionState.nodeBlocks.push([{ ...response, text: `正在收集HTML报告...` }]);
+						const rn = sessionState.nodeBlocks.find(
+							(b) =>
+								b.length > 0 &&
+								b[0].nodeName === 'ReportGeneratorNode' &&
+								b[0].textType === 'HTML',
+						);
+						if (rn)
+							rn[0].text = `正在收集HTML报告... 已收集 ${sessionState.htmlReportSize} 字节`;
+						else
+							sessionState.nodeBlocks.push([
+								{ ...response, text: `正在收集HTML报告...` },
+							]);
 					} else if (response.textType === 'MARK_DOWN') {
 						sessionState.markdownReportContent += response.text;
 						scheduleReportSync();
-						const rn = sessionState.nodeBlocks.find(b => b.length > 0 && b[0].nodeName === 'ReportGeneratorNode' && b[0].textType === 'MARK_DOWN');
+						const rn = sessionState.nodeBlocks.find(
+							(b) =>
+								b.length > 0 &&
+								b[0].nodeName === 'ReportGeneratorNode' &&
+								b[0].textType === 'MARK_DOWN',
+						);
 						if (rn) rn[0].text = sessionState.markdownReportContent;
-						else sessionState.nodeBlocks.push([{ ...response, text: response.text }]);
+						else
+							sessionState.nodeBlocks.push([
+								{ ...response, text: response.text },
+							]);
 					}
 				} else if (response.textType === TextType.RESULT_SET) {
 					currentNodeName = 'result_set';
 					sessionState.nodeBlocks.push([{ ...response }]);
 					currentBlockIndex = sessionState.nodeBlocks.length - 1;
 				} else {
-					const isNewNode = currentNodeName === null || response.nodeName !== currentNodeName;
+					const isNewNode =
+						currentNodeName === null || response.nodeName !== currentNodeName;
 					if (isNewNode) {
 						sessionState.nodeBlocks.push([{ ...response }]);
 						currentBlockIndex = sessionState.nodeBlocks.length - 1;
 						currentNodeName = response.nodeName;
 					} else {
-						const currentBlock = currentBlockIndex >= 0 ? sessionState.nodeBlocks[currentBlockIndex] : undefined;
+						const currentBlock =
+							currentBlockIndex >= 0
+								? sessionState.nodeBlocks[currentBlockIndex]
+								: undefined;
 						if (currentBlock) {
 							currentBlock.push({ ...response });
 						} else {
@@ -359,8 +440,15 @@ export const useChatStore = defineStore('chat', () => {
 				flushPendingSync();
 
 				if (sessionState.nodeBlocks.length > 0) {
-					const msg: ChatMessage = { sessionId, role: 'assistant', content: JSON.stringify(sessionState.nodeBlocks), messageType: 'timeline' };
-					await chatService.saveMessage(sessionId, msg).catch(e => console.error(e));
+					const msg: ChatMessage = {
+						sessionId,
+						role: 'assistant',
+						content: JSON.stringify(sessionState.nodeBlocks),
+						messageType: 'timeline',
+					};
+					await chatService
+						.saveMessage(sessionId, msg)
+						.catch((e) => console.error(e));
 				}
 
 				sessionState.isStreaming = false;
@@ -368,16 +456,28 @@ export const useChatStore = defineStore('chat', () => {
 				currentNodeName = null;
 				if (currentSession.value?.id === sessionId) {
 					isStreaming.value = false;
-					currentMessages.value = await chatService.getSessionMessages(sessionId);
+					currentMessages.value =
+						await chatService.getSessionMessages(sessionId);
 				}
 			},
 			async () => {
 				flushPendingSync();
 
 				if (sessionState.nodeBlocks.length > 0) {
-					const timelineMsg: ChatMessage = { sessionId, role: 'assistant', content: JSON.stringify(sessionState.nodeBlocks), messageType: 'timeline' };
-					const savedTimeline = await chatService.saveMessage(sessionId, timelineMsg).catch(e => { console.error(e); return null; });
-					if (savedTimeline && currentSession.value?.id === sessionId) currentMessages.value.push(savedTimeline);
+					const timelineMsg: ChatMessage = {
+						sessionId,
+						role: 'assistant',
+						content: JSON.stringify(sessionState.nodeBlocks),
+						messageType: 'timeline',
+					};
+					const savedTimeline = await chatService
+						.saveMessage(sessionId, timelineMsg)
+						.catch((e) => {
+							console.error(e);
+							return null;
+						});
+					if (savedTimeline && currentSession.value?.id === sessionId)
+						currentMessages.value.push(savedTimeline);
 				}
 
 				if (requestOptions.value.humanFeedback && _rejectedPlan) {
@@ -395,7 +495,8 @@ export const useChatStore = defineStore('chat', () => {
 				currentNodeName = null;
 				closeStream();
 				if (currentSession.value?.id === sessionId) {
-					currentMessages.value = await chatService.getSessionMessages(sessionId);
+					currentMessages.value =
+						await chatService.getSessionMessages(sessionId);
 					nodeBlocks.value = [];
 				}
 				console.log(`会话[${sessionTitle}]处理完成`);
@@ -462,6 +563,7 @@ export const useChatStore = defineStore('chat', () => {
 		streamingReportContent,
 		isReportStreaming,
 		currentAgentId,
+		chatSidebarCollapsed,
 		activeChatModel,
 		currentAgentName,
 		currentAgentAvatar,
