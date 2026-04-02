@@ -66,6 +66,8 @@
     <testcontainers.version>1.21.4</testcontainers.version>
     <elasticsearch-client.version>8.18.0</elasticsearch-client.version>
     <opentelemetry.version>1.32.0</opentelemetry.version>
+    <awaitility.version>4.2.2</awaitility.version>
+    <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
   </properties>
 
   <dependencyManagement>
@@ -214,6 +216,31 @@
         <groupId>org.testcontainers</groupId>
         <artifactId>mysql</artifactId>
         <version>${testcontainers.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <!-- Reactor Test -->
+      <dependency>
+        <groupId>io.projectreactor</groupId>
+        <artifactId>reactor-test</artifactId>
+        <version>3.7.0</version>
+        <scope>test</scope>
+      </dependency>
+
+      <!-- Awaitility -->
+      <dependency>
+        <groupId>org.awaitility</groupId>
+        <artifactId>awaitility</artifactId>
+        <version>${awaitility.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <!-- JaCoCo Agent -->
+      <dependency>
+        <groupId>org.jacoco</groupId>
+        <artifactId>org.jacoco.agent</artifactId>
+        <version>${jacoco-maven-plugin.version}</version>
+        <classifier>runtime</classifier>
         <scope>test</scope>
       </dependency>
 
