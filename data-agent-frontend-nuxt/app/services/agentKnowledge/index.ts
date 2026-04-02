@@ -164,6 +164,20 @@ class AgentKnowledgeService {
   }
 
   /**
+   * @description 通过 FormData 创建知识（支持文件上传）
+   * @param {FormData} formData - 包含文件与知识元数据的 FormData
+   * @returns {Promise<{success: boolean; message?: string}>} 操作结果
+   */
+  async createWithFile(formData: FormData): Promise<{ success: boolean; message?: string }> {
+    const response = await axios.post<{ success: boolean; message?: string }>(
+      `${API_BASE_URL}/create`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return response.data;
+  }
+
+  /**
    * @description 更新知识信息
    * @param {number} id - 知识 ID
    * @param {Partial<AgentKnowledge>} knowledge - 更新字段

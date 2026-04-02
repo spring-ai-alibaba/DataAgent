@@ -2,7 +2,7 @@
  * @description 数据源管理服务，处理基础数据源的增删改查、连接测试及逻辑外键管理
  */
 
-import { $fetch } from 'ofetch';
+import axios from 'axios';
 
 /**
  * @description 通用 API 响应结构
@@ -107,13 +107,12 @@ class DatasourceService {
    * @returns {Promise<Datasource[]>} 数据源列表
    */
   async getAllDatasource(status?: string, type?: string): Promise<Datasource[]> {
-    const params = new URLSearchParams();
-    if (status) params.append('status', status);
-    if (type) params.append('type', type);
+    const params: Record<string, string> = {};
+    if (status) params.status = status;
+    if (type) params.type = type;
 
-    return await $fetch<Datasource[]>(
-      `${API_BASE_URL}${params.toString() ? `?${params.toString()}` : ''}`
-    );
+    const response = await axios.get<Datasource[]>(API_BASE_URL, { params });
+    return response.data;
   }
 
   /**
@@ -123,9 +122,10 @@ class DatasourceService {
    */
   async getDatasourceById(id: number): Promise<Datasource | null> {
     try {
-      return await $fetch<Datasource>(`${API_BASE_URL}/${id}`);
-    } catch (error: any) {
-      if (error.statusCode === 404) {
+      const response = await axios.get<Datasource>(`${API_BASE_URL}/${id}`);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
         return null;
       }
       throw error;
@@ -139,9 +139,10 @@ class DatasourceService {
    */
   async getDatasourceTables(id: number): Promise<string[]> {
     try {
-      return await $fetch<string[]>(`${API_BASE_URL}/${id}/tables`);
-    } catch (error: any) {
-      if (error.statusCode === 400) {
+      const response = await axios.get<string[]>(`${API_BASE_URL}/${id}/tables`);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 400) {
         return [];
       }
       throw error;
@@ -156,10 +157,10 @@ class DatasourceService {
    */
   async getTableColumns(datasourceId: number, tableName: string): Promise<string[]> {
     try {
-      const res = await $fetch<ApiResponse<string[]>>(
-        `${API_BASE_URL}/${datasourceId}/tables/${encodeURIComponent(tableName)}/columns`
+      const response = await axios.get<ApiResponse<string[]>>(
+        `${API_BASE_URL}/${datasourceId}/tables/${encodeURIComponent(tableName)}/columns`,
       );
-      return res.data ?? [];
+      return response.data.data ?? [];
     } catch {
       return [];
     }
@@ -171,10 +172,8 @@ class DatasourceService {
    * @returns {Promise<Datasource>} 创建成功的数据源详情
    */
   async createDatasource(datasource: Datasource): Promise<Datasource> {
-    return await $fetch<Datasource>(API_BASE_URL, {
-      method: 'POST',
-      body: datasource,
-    });
+    const response = await axios.post<Datasource>(API_BASE_URL, datasource);
+    return response.data;
   }
 
   /**
@@ -184,10 +183,8 @@ class DatasourceService {
    * @returns {Promise<Datasource>} 更新后的数据源详情
    */
   async updateDatasource(id: number, datasource: Datasource): Promise<Datasource> {
-    return await $fetch<Datasource>(`${API_BASE_URL}/${id}`, {
-      method: 'PUT',
-      body: datasource,
-    });
+    const response = await axios.put<Datasource>(`${API_BASE_URL}/${id}`, datasource);
+    return response.data;
   }
 
   /**
@@ -196,9 +193,8 @@ class DatasourceService {
    * @returns {Promise<ApiResponse<void>>} 操作结果
    */
   async deleteDatasource(id: number): Promise<ApiResponse<void>> {
-    return await $fetch<ApiResponse<void>>(`${API_BASE_URL}/${id}`, {
-      method: 'DELETE',
-    });
+    const response = await axios.delete<ApiResponse<void>>(`${API_BASE_URL}/${id}`);
+    return response.data;
   }
 
   /**
@@ -207,9 +203,8 @@ class DatasourceService {
    * @returns {Promise<ApiResponse<boolean>>} 测试结果
    */
   async testConnection(id: number): Promise<ApiResponse<boolean>> {
-    return await $fetch<ApiResponse<boolean>>(`${API_BASE_URL}/${id}/test`, {
-      method: 'POST',
-    });
+    const response = await axios.post<ApiResponse<boolean>>(`${API_BASE_URL}/${id}/test`);
+    return response.data;
   }
 
   /**
@@ -218,7 +213,8 @@ class DatasourceService {
    * @returns {Promise<ApiResponse<LogicalRelation[]>>} 逻辑外键列表
    */
   async getLogicalRelations(id: number): Promise<ApiResponse<LogicalRelation[]>> {
-    return await $fetch<ApiResponse<LogicalRelation[]>>(`${API_BASE_URL}/${id}/logical-relations`);
+    const response = await axios.get<ApiResponse<LogicalRelation[]>>(`${API_BASE_URL}/${id}/logical-relations`);
+    return response.data;
   }
 
   /**
@@ -228,10 +224,8 @@ class DatasourceService {
    * @returns {Promise<ApiResponse<LogicalRelation>>} 创建成功的关系详情
    */
   async addLogicalRelation(id: number, dto: CreateLogicalRelationDTO): Promise<ApiResponse<LogicalRelation>> {
-    return await $fetch<ApiResponse<LogicalRelation>>(`${API_BASE_URL}/${id}/logical-relations`, {
-      method: 'POST',
-      body: dto,
-    });
+    const response = await axios.post<ApiResponse<LogicalRelation>>(`${API_BASE_URL}/${id}/logical-relations`, dto);
+    return response.data;
   }
 
   /**
@@ -241,9 +235,8 @@ class DatasourceService {
    * @returns {Promise<ApiResponse<void>>} 操作结果
    */
   async deleteLogicalRelation(datasourceId: number, relationId: number): Promise<ApiResponse<void>> {
-    return await $fetch<ApiResponse<void>>(`${API_BASE_URL}/${datasourceId}/logical-relations/${relationId}`, {
-      method: 'DELETE',
-    });
+    const response = await axios.delete<ApiResponse<void>>(`${API_BASE_URL}/${datasourceId}/logical-relations/${relationId}`);
+    return response.data;
   }
 }
 

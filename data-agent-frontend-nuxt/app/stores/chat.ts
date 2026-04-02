@@ -4,18 +4,9 @@ import graphService, { type GraphRequest, type GraphNodeResponse, TextType } fro
 import agentDatasourceService from '~/services/agentDatasource/index';
 import { useSessionStateManager } from '~/services/sessionStateManager/index';
 import modelConfigService, { type ModelConfig } from '~/services/modelConfig/index';
-import axios from 'axios';
+import datasourceService, { type Datasource as BaseDatasource } from '~/services/datasource/index';
 
-export interface Datasource {
-	id?: number;
-	name?: string;
-	type?: string;
-	databaseName?: string;
-	status?: string;
-	testStatus?: string;
-	description?: string;
-	isActive?: boolean;
-}
+export type Datasource = BaseDatasource & { isActive?: boolean };
 
 export interface ExtendedChatSession extends ChatSession {
 	editing?: boolean;
@@ -121,8 +112,7 @@ export const useChatStore = defineStore('chat', () => {
 		}
 		// Load global datasources (active)
 		try {
-			const res = await axios.get<Datasource[]>('/api/datasource', { params: { status: 'active' } });
-			const list: Datasource[] = Array.isArray(res.data) ? res.data : [];
+			const list = await datasourceService.getAllDatasource('active');
 			allDatasources.value = list;
 			activeDatasource.value = list[0] || null;
 		} catch { /* ignore */ }

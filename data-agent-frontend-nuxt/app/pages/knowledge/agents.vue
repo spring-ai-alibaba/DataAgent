@@ -390,7 +390,6 @@
 </template>
 
 <script setup lang="ts">
-import axios from 'axios';
 import agentKnowledgeService, {
 	type AgentKnowledge,
 	type AgentKnowledgeQueryDTO,
@@ -745,14 +744,12 @@ async function saveKnowledge() {
 				formData.append('content', knowledgeForm.value.answer || '');
 			}
 
-			const response = await axios.post('/api/agent-knowledge/create', formData, {
-				headers: { 'Content-Type': 'multipart/form-data' },
-			});
+			const result = await agentKnowledgeService.createWithFile(formData);
 
-			if (response.data.success) {
+			if (result.success) {
 				$tip('创建成功');
 			} else {
-				$tip(response.data.message || '创建失败', { color: 'error' });
+				$tip(result.message || '创建失败', { color: 'error' });
 				return;
 			}
 		}
