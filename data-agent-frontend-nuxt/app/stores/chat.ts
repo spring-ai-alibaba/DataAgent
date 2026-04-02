@@ -283,6 +283,37 @@ export const useChatStore = defineStore('chat', () => {
 		let currentNodeName: string | null = null;
 		let currentBlockIndex = -1;
 
+		let viewSyncRafId: number | null = null;
+		function scheduleViewSync() {
+			if (viewSyncRafId) return;
+			viewSyncRafId = requestAnimationFrame(() => {
+				viewSyncRafId = null;
+				if (currentSession.value?.id === sessionId) {
+					nodeBlocks.value = [...sessionState.nodeBlocks];
+				}
+			});
+		}
+
+		let reportSyncRafId: number | null = null;
+		function scheduleReportSync() {
+			if (reportSyncRafId) return;
+			reportSyncRafId = requestAnimationFrame(() => {
+				reportSyncRafId = null;
+				if (currentSession.value?.id === sessionId) {
+					isReportStreaming.value = true;
+					streamingReportContent.value = sessionState.markdownReportContent;
+				}
+			});
+		}
+
+		function flushPendingSync() {
+			if (viewSyncRafId) { cancelAnimationFrame(viewSyncRafId); viewSyncRafId = null; }
+			if (reportSyncRafId) { cancelAnimationFrame(reportSyncRafId); reportSyncRafId = null; }
+			if (currentSession.value?.id === sessionId) {
+				nodeBlocks.value = [...sessionState.nodeBlocks];
+			}
+		}
+
 		const closeStream = await graphService.streamSearch(
 			request,
 			async (response: GraphNodeResponse) => {
@@ -304,10 +335,7 @@ export const useChatStore = defineStore('chat', () => {
 						else sessionState.nodeBlocks.push([{ ...response, text: `正在收集HTML报告...` }]);
 					} else if (response.textType === 'MARK_DOWN') {
 						sessionState.markdownReportContent += response.text;
-						if (currentSession.value?.id === sessionId) {
-							isReportStreaming.value = true;
-							streamingReportContent.value = sessionState.markdownReportContent;
-						}
+						scheduleReportSync();
 						const rn = sessionState.nodeBlocks.find(b => b.length > 0 && b[0].nodeName === 'ReportGeneratorNode' && b[0].textType === 'MARK_DOWN');
 						if (rn) rn[0].text = sessionState.markdownReportContent;
 						else sessionState.nodeBlocks.push([{ ...response, text: response.text }]);
@@ -334,14 +362,12 @@ export const useChatStore = defineStore('chat', () => {
 					}
 				}
 
-				if (currentSession.value?.id === sessionId) {
-					nodeBlocks.value = [...sessionState.nodeBlocks];
-				}
+				scheduleViewSync();
 			},
 			async (error: Error) => {
 				console.error('Stream error:', error);
-				
-				// Save partial timeline on error
+				flushPendingSync();
+
 				if (sessionState.nodeBlocks.length > 0) {
 					const msg: ChatMessage = { sessionId, role: 'assistant', content: JSON.stringify(sessionState.nodeBlocks), messageType: 'timeline' };
 					await chatService.saveMessage(sessionId, msg).catch(e => console.error(e));
@@ -356,7 +382,8 @@ export const useChatStore = defineStore('chat', () => {
 				}
 			},
 			async () => {
-				// Save the entire timeline at the end
+				flushPendingSync();
+
 				if (sessionState.nodeBlocks.length > 0) {
 					const timelineMsg: ChatMessage = { sessionId, role: 'assistant', content: JSON.stringify(sessionState.nodeBlocks), messageType: 'timeline' };
 					const savedTimeline = await chatService.saveMessage(sessionId, timelineMsg).catch(e => { console.error(e); return null; });

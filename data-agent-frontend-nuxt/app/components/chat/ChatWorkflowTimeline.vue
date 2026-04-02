@@ -70,8 +70,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue';
 import hljs from 'highlight.js';
+import DOMPurify from 'dompurify';
 import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
 import type { GraphNodeResponse } from '~/services/graph/index';
 import type { ResultData } from '~/services/resultSet/index';
@@ -209,14 +209,22 @@ function isPureCodeBlock(block: GraphNodeResponse[]): boolean {
 	return block.length > 0 && block.every(n => CODE_TEXT_TYPES.has(n.textType));
 }
 
+const SANITIZE_OPTIONS = { ADD_TAGS: ['pre', 'code'], ADD_ATTR: ['class'], RETURN_TRUSTED_TYPE: false as const };
+
 function renderCode(block: GraphNodeResponse[]): string {
 	const lang = (block[0]?.textType || 'text').toLowerCase();
 	const code = block.map(n => n.text).join('');
 	try {
 		const h = hljs.highlight(code, { language: lang });
-		return `<pre class="tl-code"><code class="hljs ${lang}">${h.value}</code></pre>`;
+		return DOMPurify.sanitize(
+			`<pre class="tl-code"><code class="hljs ${lang}">${h.value}</code></pre>`,
+			SANITIZE_OPTIONS,
+		) as string;
 	} catch {
-		return `<pre class="tl-code"><code>${escapeHtml(code)}</code></pre>`;
+		return DOMPurify.sanitize(
+			`<pre class="tl-code"><code>${escapeHtml(code)}</code></pre>`,
+			SANITIZE_OPTIONS,
+		) as string;
 	}
 }
 
@@ -256,10 +264,13 @@ function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
 		if (extracted.after) {
 			parts.push(`<div class="text-body">${escapeHtml(extracted.after).replace(/\n/g, '<br>')}</div>`);
 		}
-		return parts.join('');
+		return DOMPurify.sanitize(parts.join(''), SANITIZE_OPTIONS) as string;
 	}
 
-	return `<div class="text-body">${escapeHtml(fullText).replace(/\n/g, '<br>')}</div>`;
+	return DOMPurify.sanitize(
+		`<div class="text-body">${escapeHtml(fullText).replace(/\n/g, '<br>')}</div>`,
+		SANITIZE_OPTIONS,
+	) as string;
 }
 
 watch(() => props.nodeBlocks, () => {

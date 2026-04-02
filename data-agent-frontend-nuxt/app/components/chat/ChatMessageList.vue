@@ -24,9 +24,9 @@
 								<v-icon size="18" color="white">mdi-robot</v-icon>
 							</v-avatar>
 
-							<!-- HTML node message -->
-							<v-card v-if="message.messageType === 'html'" class="ai-card" elevation="1">
-								<div class="md-body" v-html="message.content" />
+						<!-- HTML node message -->
+						<v-card v-if="message.messageType === 'html'" class="ai-card" elevation="1">
+							<div class="md-body" v-html="sanitizeHtml(message.content)" />
 							</v-card>
 
 							<!-- Result Set -->
@@ -140,9 +140,16 @@ const filteredMessages = computed<ChatMessage[]>(() => {
 	return result;
 });
 
+const SANITIZE_OPTIONS = { ADD_TAGS: ['div'], ADD_ATTR: ['style', 'class'], RETURN_TRUSTED_TYPE: false as const };
+
 function renderMarkdown(content: string): string {
 	if (!content) return '';
-	return DOMPurify.sanitize(renderMarkdownContent(content), { ADD_TAGS: ['div'], ADD_ATTR: ['style', 'class'] });
+	return DOMPurify.sanitize(renderMarkdownContent(content), SANITIZE_OPTIONS) as string;
+}
+
+function sanitizeHtml(content: string): string {
+	if (!content) return '';
+	return DOMPurify.sanitize(content, SANITIZE_OPTIONS) as string;
 }
 
 function safeParseJson(content: string): ResultData | null {
