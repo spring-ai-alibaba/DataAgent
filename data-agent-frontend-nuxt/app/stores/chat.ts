@@ -113,8 +113,9 @@ export const useChatStore = defineStore('chat', () => {
 	// ── Session operations ──────────────────────────────────────────────────────
 	async function loadSessions(agentId: number) {
 		sessions.value = await chatService.getAgentSessions(agentId);
-		if (sessions.value.length > 0) {
-			await selectSession(sessions.value[0]);
+		const firstSession = sessions.value[0];
+		if (firstSession) {
+			await selectSession(firstSession);
 		} else {
 			await createNewSession(agentId);
 		}
@@ -322,8 +323,9 @@ export const useChatStore = defineStore('chat', () => {
 						currentBlockIndex = sessionState.nodeBlocks.length - 1;
 						currentNodeName = response.nodeName;
 					} else {
-						if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
-							sessionState.nodeBlocks[currentBlockIndex].push({ ...response });
+						const currentBlock = currentBlockIndex >= 0 ? sessionState.nodeBlocks[currentBlockIndex] : undefined;
+						if (currentBlock) {
+							currentBlock.push({ ...response });
 						} else {
 							sessionState.nodeBlocks.push([{ ...response }]);
 							currentBlockIndex = sessionState.nodeBlocks.length - 1;
