@@ -434,9 +434,6 @@ const filteredModels = computed(() =>
 	configs.value.filter((model) => model.modelType === activeTab.value),
 );
 
-const addButtonLabel = computed(() =>
-	activeTab.value === 'CHAT' ? '添加对话模型实例' : '添加嵌入模型实例',
-);
 
 const providerLabel = (value: string) => {
 	const item = providerOptions.find((option) => option.value === value);
@@ -462,7 +459,7 @@ const fetchConfigs = async () => {
 		const response = await modelConfigService.list();
 		console.log(response);
 		configs.value = response || [];
-	} catch (error) {
+	} catch {
 		$tip('获取模型配置失败，请稍后重试', {
 			icon: 'mdi-alert-circle',
 			color: 'error',
@@ -512,7 +509,7 @@ const submitConfig = async (isUpdate: boolean) => {
 				color: 'error',
 			});
 		}
-	} catch (error) {
+	} catch {
 		$tip('请求失败，请检查网络', { icon: 'mdi-alert-circle', color: 'error' });
 	} finally {
 		saving.value = false;
@@ -575,7 +572,7 @@ const handleActivate = async (model: ModelConfig) => {
 				color: 'error',
 			});
 		}
-	} catch (error) {
+	} catch {
 		$tip('操作失败，请检查网络', { icon: 'mdi-alert-circle', color: 'error' });
 	} finally {
 		activatingId.value = null;
@@ -594,7 +591,7 @@ const handleTestConnection = async (model: ModelConfig) => {
 				color: 'error',
 			});
 		}
-	} catch (error) {
+	} catch {
 		$tip('连接测试失败，请检查网络', {
 			icon: 'mdi-alert-circle',
 			color: 'error',

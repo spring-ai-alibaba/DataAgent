@@ -180,7 +180,7 @@ async function selectDs(ds: typeof store.allDatasources[0]) {
 
 async function selectModel(m: typeof store.chatModels[0]) {
 	showModelMenu.value = false;
-	await store.switchModel(m.id);
+	if (m.id !== undefined) await store.switchModel(m.id);
 }
 
 function onNl2sqlChange() {

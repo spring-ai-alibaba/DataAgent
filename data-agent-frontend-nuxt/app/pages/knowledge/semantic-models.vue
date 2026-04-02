@@ -238,6 +238,7 @@ import semanticModelService, {
 	type SemanticModel,
 	type SemanticModelAddDto,
 } from '~/services/semanticModel/index';
+import { useCrudPage } from '~/composables/useCrudPage/index';
 
 const DEFAULT_AGENT_ID = 0;
 const route = useRoute();
@@ -246,18 +247,52 @@ const agentId = computed(() => Number(route.query.agentId) || DEFAULT_AGENT_ID);
 const { $tip } = useNuxtApp();
 const { showConfirm } = useConfirm();
 
-const loading = ref(false);
-const saveLoading = ref(false);
+// ——— 额外状态 ———
 const importLoading = ref(false);
-const dialogVisible = ref(false);
 const batchImportDialogVisible = ref(false);
-const isEdit = ref(false);
-const searchKeyword = ref('');
-const currentEditId = ref<number | null>(null);
 const importFile = ref<File | null>(null);
-const semanticModelList = ref<SemanticModel[]>([]);
 const selectedModelIds = ref<number[]>([]);
-const formRef = ref();
+const currentEditId = ref<number | null>(null);
+
+// ——— useCrudPage ———
+const searchKeyword = ref('');
+
+const {
+	loading,
+	saveLoading,
+	items: semanticModelList,
+	dialogVisible,
+	isEdit,
+	formRef,
+	formData: modelForm,
+	loadItems: loadSemanticModels,
+	openCreateDialog: _openCreateDialog,
+	openEditDialog,
+	closeDialog,
+	saveItem,
+	deleteItem,
+} = useCrudPage<SemanticModel, SemanticModelAddDto, SemanticModel>({
+	loadFn: () => semanticModelService.list(agentId.value, searchKeyword.value || undefined),
+	createFn: (data) => semanticModelService.create(data),
+	updateFn: (id, data) => semanticModelService.update(id, data),
+	deleteFn: (id) => semanticModelService.delete(id),
+	defaultFormFactory: () => ({
+		agentId: agentId.value,
+		tableName: '',
+		columnName: '',
+		businessName: '',
+		synonyms: '',
+		businessDescription: '',
+		columnComment: '',
+		dataType: '',
+		status: 1,
+	}),
+});
+
+function openCreateDialog() {
+	_openCreateDialog();
+	modelForm.value.agentId = agentId.value;
+}
 
 const headers = [
 	{ title: '表名', key: 'tableName', minWidth: '120px' },
@@ -270,82 +305,19 @@ const headers = [
 	{ title: '操作', key: 'actions', width: '140px', sortable: false },
 ];
 
-const modelForm = ref<SemanticModel>({
-	agentId: agentId.value,
-	tableName: '',
-	columnName: '',
-	businessName: '',
-	synonyms: '',
-	businessDescription: '',
-	columnComment: '',
-	dataType: '',
-	status: 1,
-});
-
-function resetForm() {
-	modelForm.value = {
-		agentId: agentId.value,
-		tableName: '',
-		columnName: '',
-		businessName: '',
-		synonyms: '',
-		businessDescription: '',
-		columnComment: '',
-		dataType: '',
-		status: 1,
-	};
-	currentEditId.value = null;
-}
-
 function formatDateTime(dateTime?: string) {
 	if (!dateTime) return '-';
 	try {
-		const date = new Date(dateTime);
-		return date.toLocaleString('zh-CN', {
-			year: 'numeric',
-			month: '2-digit',
-			day: '2-digit',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			hour12: false,
+		return new Date(dateTime).toLocaleString('zh-CN', {
+			year: 'numeric', month: '2-digit', day: '2-digit',
+			hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
 		});
-	} catch {
-		return dateTime;
-	}
-}
-
-async function loadSemanticModels() {
-	loading.value = true;
-	try {
-		semanticModelList.value = await semanticModelService.list(
-			agentId.value,
-			searchKeyword.value || undefined,
-		);
-	} catch {
-		$tip('加载语义模型列表失败', { color: 'error' });
-	} finally {
-		loading.value = false;
-	}
-}
-
-
-function openCreateDialog() {
-	isEdit.value = false;
-	resetForm();
-	dialogVisible.value = true;
-}
-
-function closeDialog() {
-	dialogVisible.value = false;
-	resetForm();
+	} catch { return dateTime; }
 }
 
 function editModel(model: SemanticModel) {
-	isEdit.value = true;
 	currentEditId.value = model.id || null;
-	modelForm.value = { ...model };
-	dialogVisible.value = true;
+	openEditDialog(model);
 }
 
 function deleteModel(model: SemanticModel) {
@@ -356,13 +328,8 @@ function deleteModel(model: SemanticModel) {
 		confirmText: '确定删除',
 		icon: 'mdi-delete',
 		onConfirm: async () => {
-			const result = await semanticModelService.delete(model.id!);
-			if (result) {
-				$tip('删除成功');
-				await loadSemanticModels();
-			} else {
-				$tip('删除失败', { color: 'error' });
-			}
+			const ok = await deleteItem(model.id!);
+			if (ok) { $tip('删除成功'); } else { $tip('删除失败', { color: 'error' }); }
 		},
 	});
 }
@@ -376,11 +343,8 @@ function toggleStatus(model: SemanticModel, status: number) {
 		confirmText: '确认',
 		onConfirm: async () => {
 			let result = false;
-			if (status === 1) {
-				result = await semanticModelService.enable(ids);
-			} else {
-				result = await semanticModelService.disable(ids);
-			}
+			if (status === 1) { result = await semanticModelService.enable(ids); }
+			else { result = await semanticModelService.disable(ids); }
 			if (result) {
 				model.status = status;
 				$tip(`${status === 1 ? '启用' : '停用'}成功`);
@@ -394,7 +358,6 @@ function toggleStatus(model: SemanticModel, status: number) {
 function batchDeleteModels() {
 	if (selectedModelIds.value.length === 0) return;
 	const ids = [...selectedModelIds.value];
-
 	showConfirm({
 		title: '批量删除确认',
 		message: `确定要删除选中的 ${ids.length} 个语义模型吗？`,
@@ -414,48 +377,23 @@ function batchDeleteModels() {
 }
 
 async function saveModel() {
-	const validateResult = await formRef.value?.validate();
-	const valid = validateResult?.valid;
-	if (!valid) return;
-
-	saveLoading.value = true;
-	try {
-		if (isEdit.value && currentEditId.value) {
-			const updateData: SemanticModel = {
-				...modelForm.value,
-				id: currentEditId.value,
-			};
-			const result = await semanticModelService.update(currentEditId.value, updateData);
-			if (!result) {
-				$tip('更新失败', { color: 'error' });
-				return;
-			}
-			$tip('更新成功');
-		} else {
-			const createData: SemanticModelAddDto = {
-				agentId: agentId.value,
-				tableName: modelForm.value.tableName,
-				columnName: modelForm.value.columnName,
-				businessName: modelForm.value.businessName,
-				synonyms: modelForm.value.synonyms,
-				businessDescription: modelForm.value.businessDescription,
-				columnComment: modelForm.value.columnComment,
-				dataType: modelForm.value.dataType,
-			};
-			const result = await semanticModelService.create(createData);
-			if (!result) {
-				$tip('创建失败', { color: 'error' });
-				return;
-			}
-			$tip('创建成功');
-		}
-
-		dialogVisible.value = false;
-		await loadSemanticModels();
-	} catch {
+	const createData: SemanticModelAddDto = {
+		agentId: agentId.value,
+		tableName: modelForm.value.tableName,
+		columnName: modelForm.value.columnName,
+		businessName: modelForm.value.businessName,
+		synonyms: modelForm.value.synonyms,
+		businessDescription: modelForm.value.businessDescription,
+		columnComment: modelForm.value.columnComment,
+		dataType: modelForm.value.dataType,
+	};
+	const updateData: SemanticModel = { ...modelForm.value, id: currentEditId.value ?? undefined };
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const ok = await saveItem(createData as any, updateData, currentEditId.value);
+	if (ok) {
+		$tip(isEdit.value ? '更新成功' : '创建成功');
+	} else {
 		$tip(`${isEdit.value ? '更新' : '创建'}失败`, { color: 'error' });
-	} finally {
-		saveLoading.value = false;
 	}
 }
 
@@ -489,6 +427,8 @@ async function executeExcelImport() {
 		importLoading.value = false;
 	}
 }
+
+// Note: loadSemanticModels passes searchKeyword on each call
 
 function openBatchImportDialog() {
 	batchImportDialogVisible.value = true;

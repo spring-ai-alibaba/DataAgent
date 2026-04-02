@@ -220,7 +220,7 @@
 					/>
 					<span class="text-h6 font-weight-bold">{{ isEdit ? '编辑业务知识' : '添加业务知识' }}</span>
 					<v-spacer />
-					<v-btn icon="mdi-close" variant="text" size="small" @click="dialogVisible = false" />
+					<v-btn icon="mdi-close" variant="text" size="small" @click="closeDialog" />
 				</v-card-title>
 
 				<v-divider />
@@ -297,9 +297,10 @@ import businessKnowledgeService, {
 	type CreateBusinessKnowledgeDTO,
 	type UpdateBusinessKnowledgeDTO,
 } from '~/services/businessKnowledge/index';
+import { useCrudPage } from '~/composables/useCrudPage/index';
 
 // ——— 常量 ———
-const DEFAULT_AGENT_ID = 0; // 全局业务知识页面，agentId 由查询参数传入或使用 0
+const DEFAULT_AGENT_ID = 0;
 
 // ——— 路由 ———
 const route = useRoute();
@@ -309,25 +310,46 @@ const agentId = computed(() => Number(route.query.agentId) || DEFAULT_AGENT_ID);
 const { $tip } = useNuxtApp();
 const { showConfirm } = useConfirm();
 
-// ——— 状态 ———
-const loading = ref(false);
+// ——— 额外状态 ———
 const refreshLoading = ref(false);
-const saveLoading = ref(false);
-const dialogVisible = ref(false);
-const isEdit = ref(false);
 const searchKeyword = ref('');
 const currentEditId = ref<number | null>(null);
 const retryLoadingMap = ref<Record<number, boolean>>({});
-const businessKnowledgeList = ref<BusinessKnowledgeVO[]>([]);
-const formRef = ref();
 
-const knowledgeForm = ref<BusinessKnowledgeVO>({
-	businessTerm: '',
-	description: '',
-	synonyms: '',
-	isRecall: false,
-	agentId: agentId.value,
+// ——— useCrudPage ———
+const {
+	loading,
+	saveLoading,
+	items: businessKnowledgeList,
+	dialogVisible,
+	isEdit,
+	formRef,
+	formData: knowledgeForm,
+	loadItems: loadBusinessKnowledge,
+	openCreateDialog: _openCreateDialog,
+	openEditDialog,
+	closeDialog,
+	saveItem,
+	deleteItem,
+} = useCrudPage<BusinessKnowledgeVO, CreateBusinessKnowledgeDTO, UpdateBusinessKnowledgeDTO>({
+	loadFn: () => businessKnowledgeService.list(agentId.value, searchKeyword.value || undefined),
+	createFn: async (data) => { await businessKnowledgeService.create(data); return true; },
+	updateFn: async (id, data) => { const r = await businessKnowledgeService.update(id, data); return r != null; },
+	deleteFn: (id) => businessKnowledgeService.delete(id),
+	defaultFormFactory: () => ({
+		businessTerm: '',
+		description: '',
+		synonyms: '',
+		isRecall: false,
+		agentId: agentId.value,
+	}),
 });
+
+function openCreateDialog() {
+	// Ensure agentId is current before opening
+	_openCreateDialog();
+	knowledgeForm.value.agentId = agentId.value;
+}
 
 // ——— 表格列定义 ———
 const headers = [
@@ -344,46 +366,21 @@ const headers = [
 // ——— 工具函数 ———
 function getVectorStatusColor(status?: string): string {
 	switch (status) {
-		case 'COMPLETED':
-			return 'success';
-		case 'FAILED':
-			return 'error';
-		case 'PENDING':
-			return 'warning';
-		case 'PROCESSING':
-			return 'blue-darken-1';
-		default:
-			return 'grey';
+		case 'COMPLETED': return 'success';
+		case 'FAILED': return 'error';
+		case 'PENDING': return 'warning';
+		case 'PROCESSING': return 'blue-darken-1';
+		default: return 'grey';
 	}
 }
 
 function getVectorStatusLabel(status?: string): string {
 	switch (status) {
-		case 'COMPLETED':
-			return '已完成';
-		case 'FAILED':
-			return '失败';
-		case 'PENDING':
-			return '等待中';
-		case 'PROCESSING':
-			return '处理中';
-		default:
-			return '未知';
-	}
-}
-
-// ——— 数据加载 ———
-async function loadBusinessKnowledge() {
-	loading.value = true;
-	try {
-		businessKnowledgeList.value = await businessKnowledgeService.list(
-			agentId.value,
-			searchKeyword.value || undefined,
-		);
-	} catch {
-		$tip('加载业务知识列表失败', { color: 'error' });
-	} finally {
-		loading.value = false;
+		case 'COMPLETED': return '已完成';
+		case 'FAILED': return '失败';
+		case 'PENDING': return '等待中';
+		case 'PROCESSING': return '处理中';
+		default: return '未知';
 	}
 }
 
@@ -392,70 +389,33 @@ function handleClearSearch() {
 	loadBusinessKnowledge();
 }
 
-// ——— 对话框操作 ———
-function openCreateDialog() {
-	isEdit.value = false;
-	currentEditId.value = null;
-	knowledgeForm.value = {
-		businessTerm: '',
-		description: '',
-		synonyms: '',
-		isRecall: false,
+function editKnowledge(knowledge: BusinessKnowledgeVO) {
+	currentEditId.value = knowledge.id ?? null;
+	openEditDialog(knowledge);
+}
+
+async function saveKnowledge() {
+	const createData: CreateBusinessKnowledgeDTO = {
+		businessTerm: knowledgeForm.value.businessTerm,
+		description: knowledgeForm.value.description,
+		synonyms: knowledgeForm.value.synonyms,
+		isRecall: knowledgeForm.value.isRecall,
 		agentId: agentId.value,
 	};
-	dialogVisible.value = true;
-}
-
-function editKnowledge(knowledge: BusinessKnowledgeVO) {
-	isEdit.value = true;
-	currentEditId.value = knowledge.id ?? null;
-	knowledgeForm.value = { ...knowledge };
-	dialogVisible.value = true;
-}
-
-// ——— 保存 ———
-async function saveKnowledge() {
-	const validateResult = await formRef.value?.validate();
-	const valid = validateResult?.valid;
-	if (!valid) return;
-
-	saveLoading.value = true;
-	try {
-		if (isEdit.value && currentEditId.value) {
-			const updateData: UpdateBusinessKnowledgeDTO = {
-				businessTerm: knowledgeForm.value.businessTerm,
-				description: knowledgeForm.value.description,
-				synonyms: knowledgeForm.value.synonyms,
-				agentId: agentId.value,
-			};
-			const result = await businessKnowledgeService.update(currentEditId.value, updateData);
-			if (result) {
-				$tip('更新成功');
-			} else {
-				$tip('更新失败', { color: 'error' });
-				return;
-			}
-		} else {
-			const createData: CreateBusinessKnowledgeDTO = {
-				businessTerm: knowledgeForm.value.businessTerm,
-				description: knowledgeForm.value.description,
-				synonyms: knowledgeForm.value.synonyms,
-				isRecall: knowledgeForm.value.isRecall,
-				agentId: agentId.value,
-			};
-			await businessKnowledgeService.create(createData);
-			$tip('创建成功');
-		}
-		dialogVisible.value = false;
-		await loadBusinessKnowledge();
-	} catch {
+	const updateData: UpdateBusinessKnowledgeDTO = {
+		businessTerm: knowledgeForm.value.businessTerm,
+		description: knowledgeForm.value.description,
+		synonyms: knowledgeForm.value.synonyms,
+		agentId: agentId.value,
+	};
+	const ok = await saveItem(createData, updateData, currentEditId.value);
+	if (ok) {
+		$tip(isEdit.value ? '更新成功' : '创建成功');
+	} else {
 		$tip(`${isEdit.value ? '更新' : '创建'}失败，请重试`, { color: 'error' });
-	} finally {
-		saveLoading.value = false;
 	}
 }
 
-// ——— 删除 ———
 function deleteKnowledge(knowledge: BusinessKnowledgeVO) {
 	if (!knowledge.id) return;
 	showConfirm({
@@ -464,10 +424,9 @@ function deleteKnowledge(knowledge: BusinessKnowledgeVO) {
 		confirmText: '确定删除',
 		icon: 'mdi-delete',
 		onConfirm: async () => {
-			const result = await businessKnowledgeService.delete(knowledge.id!);
-			if (result) {
+			const ok = await deleteItem(knowledge.id!);
+			if (ok) {
 				$tip('删除成功');
-				await loadBusinessKnowledge();
 			} else {
 				$tip('删除失败', { color: 'error' });
 			}
@@ -475,7 +434,6 @@ function deleteKnowledge(knowledge: BusinessKnowledgeVO) {
 	});
 }
 
-// ——— 切换召回状态 ———
 async function toggleRecall(knowledge: BusinessKnowledgeVO, isRecall: boolean) {
 	if (!knowledge.id) return;
 	try {
@@ -491,7 +449,6 @@ async function toggleRecall(knowledge: BusinessKnowledgeVO, isRecall: boolean) {
 	}
 }
 
-// ——— 重试向量化 ———
 async function retryEmbedding(knowledge: BusinessKnowledgeVO) {
 	if (!knowledge.id) return;
 	retryLoadingMap.value[knowledge.id] = true;
@@ -510,7 +467,6 @@ async function retryEmbedding(knowledge: BusinessKnowledgeVO) {
 	}
 }
 
-// ——— 同步向量库 ———
 function handleRefreshVectorStore() {
 	showConfirm({
 		title: '确认同步',

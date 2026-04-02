@@ -347,48 +347,50 @@
 <script setup lang="ts">
 import type { Agent } from '~/services/agent/index';
 import agentService from '~/services/agent/index';
+import { useCrudPage } from '~/composables/useCrudPage/index';
 
 const { $tip } = useNuxtApp();
 const { showConfirm } = useConfirm();
 const router = useRouter();
 
-// State
-const loading = ref(false);
-const saveLoading = ref(false);
-const agents = ref<Agent[]>([]);
+// ——— 额外状态 ———
 const activeFilter = ref<'all' | 'published' | 'draft' | 'offline'>('all');
 const searchKeyword = ref('');
-const editDialog = ref(false);
 const tagsDialog = ref(false);
 const currentTags = ref<string[]>([]);
-const editFormRef = ref();
+const editingId = ref<number | undefined>(undefined);
 
-// Edit Form
-const editForm = reactive<Agent>({
-	id: undefined,
-	name: '',
-	description: '',
-	category: '',
-	tags: '',
-	status: 'draft',
+// ——— useCrudPage ———
+const {
+	loading,
+	saveLoading,
+	items: agents,
+	dialogVisible: editDialog,
+	formRef: editFormRef,
+	formData: editForm,
+	loadItems: loadAgents,
+	openEditDialog,
+	closeDialog: _closeDialog,
+} = useCrudPage<Agent>({
+	loadFn: () => agentService.list(),
+	updateFn: async (id, data) => { const r = await agentService.update(id, data); return r != null; },
+	deleteFn: (id) => agentService.delete(id),
+	defaultFormFactory: () => ({
+		id: undefined,
+		name: '',
+		description: '',
+		category: '',
+		tags: '',
+		status: 'draft',
+	}),
 });
 
-// Status Options
-const statusOptions = [
-	{ label: '草稿', value: 'draft' },
-	{ label: '已发布', value: 'published' },
-	{ label: '已下线', value: 'offline' },
-];
-
-// Debounced search
+// ——— Debounced search ———
 const debouncedSearch = ref('');
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
-
 watch(searchKeyword, (newVal) => {
 	if (searchTimer) clearTimeout(searchTimer);
-	searchTimer = setTimeout(() => {
-		debouncedSearch.value = newVal;
-	}, 300);
+	searchTimer = setTimeout(() => { debouncedSearch.value = newVal; }, 300);
 });
 
 // Table Headers
@@ -402,20 +404,21 @@ const headers = [
 	{ title: '操作', key: 'actions', width: '120px', sortable: false, align: 'center' as const },
 ];
 
-// Computed
+const statusOptions = [
+	{ label: '草稿', value: 'draft' },
+	{ label: '已发布', value: 'published' },
+	{ label: '已下线', value: 'offline' },
+];
+
 const publishedCount = computed(() => agents.value.filter(a => a.status === 'published').length);
 const draftCount = computed(() => agents.value.filter(a => a.status === 'draft').length);
 const offlineCount = computed(() => agents.value.filter(a => a.status === 'offline').length);
 
 const filteredAgents = computed(() => {
 	let filtered = agents.value;
-
-	// Filter by status
 	if (activeFilter.value !== 'all') {
 		filtered = filtered.filter(agent => agent.status === activeFilter.value);
 	}
-
-	// Filter by search keyword (debounced)
 	if (debouncedSearch.value.trim()) {
 		const keyword = debouncedSearch.value.toLowerCase().trim();
 		filtered = filtered.filter(agent => {
@@ -425,109 +428,63 @@ const filteredAgents = computed(() => {
 			return nameMatch || descMatch || idMatch;
 		});
 	}
-
 	return filtered;
 });
 
-// Methods
-const loadAgents = async () => {
-	loading.value = true;
-	try {
-		const response = await agentService.list();
-		agents.value = response || [];
-	} catch {
-		$tip('获取智能体列表失败,请检查网络', {
-			icon: 'mdi-alert-circle',
-			color: 'error',
-		});
-		agents.value = [];
-	} finally {
-		loading.value = false;
-	}
-};
+function goToCreateAgent() { router.push('/agent/new'); }
 
-const goToCreateAgent = () => {
-	router.push('/agent/new');
-};
+function handleEdit(agent: Agent) {
+	editingId.value = agent.id;
+	openEditDialog(agent);
+}
 
-const handleEdit = (agent: Agent) => {
-	// Populate edit form
-	editForm.id = agent.id;
-	editForm.name = agent.name || '';
-	editForm.description = agent.description || '';
-	editForm.category = agent.category || '';
-	editForm.tags = agent.tags || '';
-	editForm.status = agent.status || 'draft';
-	editDialog.value = true;
-};
+function closeEditDialog() {
+	_closeDialog();
+	editingId.value = undefined;
+}
 
-const closeEditDialog = () => {
-	editDialog.value = false;
-	// Reset form
-	editForm.id = undefined;
-	editForm.name = '';
-	editForm.description = '';
-	editForm.category = '';
-	editForm.tags = '';
-	editForm.status = 'draft';
-};
-
-const saveEdit = async () => {
-	// Validate form
+async function saveEdit() {
 	if (!editFormRef.value) return;
 	const { valid } = await editFormRef.value.validate();
 	if (!valid) return;
-
-	if (!editForm.id) {
+	if (!editingId.value) {
 		$tip('智能体ID不存在', { icon: 'mdi-alert-circle', color: 'error' });
 		return;
 	}
-
 	saveLoading.value = true;
 	try {
-		const result = await agentService.update(editForm.id, {
-			name: editForm.name?.trim(),
-			description: editForm.description?.trim(),
-			category: editForm.category?.trim(),
-			tags: editForm.tags?.trim(),
-			status: editForm.status,
+		const result = await agentService.update(editingId.value, {
+			name: editForm.value.name?.trim(),
+			description: editForm.value.description?.trim(),
+			category: editForm.value.category?.trim(),
+			tags: editForm.value.tags?.trim(),
+			status: editForm.value.status,
 		});
-
 		if (result) {
 			$tip('智能体更新成功');
 			closeEditDialog();
-			// Update local data
-			const index = agents.value.findIndex(a => a.id === editForm.id);
-			if (index !== -1) {
-				agents.value[index] = { ...agents.value[index], ...editForm };
-			}
+			const index = agents.value.findIndex(a => a.id === editingId.value);
+			if (index !== -1) { agents.value[index] = { ...agents.value[index], ...editForm.value }; }
 		} else {
-			$tip('智能体更新失败', {
-				icon: 'mdi-alert-circle',
-				color: 'error',
-			});
+			$tip('智能体更新失败', { icon: 'mdi-alert-circle', color: 'error' });
 		}
 	} catch {
-		$tip('更新请求失败,请检查网络', {
-			icon: 'mdi-alert-circle',
-			color: 'error',
-		});
+		$tip('更新请求失败,请检查网络', { icon: 'mdi-alert-circle', color: 'error' });
 	} finally {
 		saveLoading.value = false;
 	}
-};
+}
 
-const showAllTags = (agent: Agent) => {
+function showAllTags(agent: Agent) {
 	currentTags.value = parseTags(agent.tags);
 	tagsDialog.value = true;
-};
+}
 
-const handleDelete = async (agent: Agent) => {
+function handleDelete(agent: Agent) {
 	if (!agent.id) {
 		$tip('智能体ID不存在', { icon: 'mdi-alert-circle', color: 'error' });
 		return;
 	}
-
 	showConfirm({
 		title: '删除确认',
 		message: `确定要删除智能体 "${agent.name}" 吗?此操作不可恢复。`,
@@ -540,20 +497,14 @@ const handleDelete = async (agent: Agent) => {
 					$tip('智能体删除成功');
 					agents.value = agents.value.filter(a => a.id !== agent.id);
 				} else {
-					$tip('智能体删除失败', {
-						icon: 'mdi-alert-circle',
-						color: 'error',
-					});
+					$tip('智能体删除失败', { icon: 'mdi-alert-circle', color: 'error' });
 				}
 			} catch {
-				$tip('删除请求失败,请检查网络', {
-					icon: 'mdi-alert-circle',
-					color: 'error',
-				});
+				$tip('删除请求失败,请检查网络', { icon: 'mdi-alert-circle', color: 'error' });
 			}
 		},
 	});
-};
+}
 
 const getInitials = (name?: string) => {
 	if (!name) return 'AI';
@@ -566,39 +517,22 @@ const parseTags = (tags?: string) => {
 };
 
 const getStatusText = (status?: string) => {
-	const statusMap: Record<string, string> = {
-		published: '已发布',
-		draft: '草稿',
-		offline: '已下线',
-	};
+	const statusMap: Record<string, string> = { published: '已发布', draft: '草稿', offline: '已下线' };
 	return statusMap[status || ''] || status || '未知';
 };
 
 const getStatusColor = (status?: string) => {
-	const colorMap: Record<string, string> = {
-		published: 'success',
-		draft: 'warning',
-		offline: 'grey',
-	};
+	const colorMap: Record<string, string> = { published: 'success', draft: 'warning', offline: 'grey' };
 	return colorMap[status || ''] || 'grey';
 };
 
 const formatTime = (time?: Date | string) => {
 	if (!time) return '';
 	const date = typeof time === 'string' ? new Date(time) : time;
-	return date.toLocaleString('zh-CN', {
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-		hour: '2-digit',
-		minute: '2-digit',
-	});
+	return date.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 };
 
-// Lifecycle
-onMounted(() => {
-	loadAgents();
-});
+onMounted(() => { loadAgents(); });
 </script>
 
 <style scoped>

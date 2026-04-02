@@ -3,7 +3,7 @@ import type MarkdownIt from 'markdown-it';
 const echartsPlugin = (md: MarkdownIt) => {
 	const originalFence = md.renderer.rules.fence!.bind(md.renderer.rules);
 	md.renderer.rules.fence = (tokens, idx, options, env, slf) => {
-		const token = tokens[idx];
+		const token = tokens[idx]!;
 		if (token.info.trim() === 'echarts') {
 			const code = token.content.trim();
 			const hasValidJson =

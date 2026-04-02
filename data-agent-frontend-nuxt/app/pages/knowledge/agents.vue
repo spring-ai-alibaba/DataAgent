@@ -394,6 +394,8 @@ import agentKnowledgeService, {
 	type AgentKnowledge,
 	type AgentKnowledgeQueryDTO,
 } from '~/services/agentKnowledge/index';
+import agentService from '~/services/agent/index';
+import { useCrudPage } from '~/composables/useCrudPage/index';
 
 interface KnowledgeForm extends AgentKnowledge {
 	answer?: string;
@@ -422,17 +424,12 @@ async function resolveAgentId() {
 const { $tip } = useNuxtApp();
 const { showConfirm } = useConfirm();
 
-const loading = ref(false);
-const saveLoading = ref(false);
-const dialogVisible = ref(false);
-const isEdit = ref(false);
+// ——— 额外状态 ———
 const filterVisible = ref(false);
 const total = ref(0);
 const currentEditId = ref<number | null>(null);
 const selectedFile = ref<File | null>(null);
 const retryLoadingMap = ref<Record<number, boolean>>({});
-const knowledgeList = ref<AgentKnowledge[]>([]);
-const formRef = ref();
 
 const queryParams = reactive<AgentKnowledgeQueryDTO>({
 	agentId: agentId.value,
@@ -443,16 +440,78 @@ const queryParams = reactive<AgentKnowledgeQueryDTO>({
 	pageSize: 10,
 });
 
-const knowledgeForm = ref<KnowledgeForm>({
-	agentId: agentId.value,
-	title: '',
-	content: '',
-	type: 'DOCUMENT',
-	isRecall: true,
-	question: '',
-	answer: '',
-	splitterType: 'recursive',
+const totalPages = computed(() => {
+	const pageSize = queryParams.pageSize || 10;
+	return Math.max(1, Math.ceil(total.value / pageSize));
 });
+
+// ——— useCrudPage ———
+const {
+	loading,
+	saveLoading,
+	items: knowledgeList,
+	dialogVisible,
+	isEdit,
+	formRef,
+	formData: knowledgeForm,
+	openCreateDialog: _openCreateDialog,
+	openEditDialog,
+	closeDialog,
+} = useCrudPage<KnowledgeForm>({
+	loadFn: async () => {
+		queryParams.agentId = agentId.value;
+		const result = await agentKnowledgeService.queryByPage({
+			...queryParams,
+			type: queryParams.type || '',
+			embeddingStatus: queryParams.embeddingStatus || '',
+		});
+		if (result.success) {
+			total.value = result.total || 0;
+			return result.data || [];
+		}
+		$tip(result.message || '加载知识列表失败', { color: 'error' });
+		return [];
+	},
+	defaultFormFactory: () => ({
+		agentId: agentId.value,
+		title: '',
+		content: '',
+		type: 'DOCUMENT',
+		isRecall: true,
+		question: '',
+		answer: '',
+		splitterType: 'recursive',
+	}),
+});
+
+async function loadKnowledgeList() {
+	// Delegate to useCrudPage's loadItems — re-create wrapper since loadFn is dynamic
+	queryParams.agentId = agentId.value;
+	loading.value = true;
+	try {
+		const result = await agentKnowledgeService.queryByPage({
+			...queryParams,
+			type: queryParams.type || '',
+			embeddingStatus: queryParams.embeddingStatus || '',
+		});
+		if (result.success) {
+			knowledgeList.value = result.data || [];
+			total.value = result.total || 0;
+		} else {
+			$tip(result.message || '加载知识列表失败', { color: 'error' });
+		}
+	} catch {
+		$tip('加载知识列表失败', { color: 'error' });
+	} finally {
+		loading.value = false;
+	}
+}
+
+function openCreateDialog() {
+	_openCreateDialog();
+	knowledgeForm.value.agentId = agentId.value;
+	selectedFile.value = null;
+}
 
 const headers = [
 	{ title: '标题', key: 'title', minWidth: '170px' },
@@ -484,55 +543,35 @@ const splitterTypeOptions = [
 	{ label: '语义分块', value: 'semantic' },
 ];
 
-const totalPages = computed(() => {
-	const pageSize = queryParams.pageSize || 10;
-	return Math.max(1, Math.ceil(total.value / pageSize));
-});
-
 function getTypeLabel(type?: string) {
 	switch (type) {
-		case 'DOCUMENT':
-			return '文档';
-		case 'QA':
-			return '问答对';
-		case 'FAQ':
-			return 'FAQ';
-		default:
-			return type || '未知';
+		case 'DOCUMENT': return '文档';
+		case 'QA': return '问答对';
+		case 'FAQ': return 'FAQ';
+		default: return type || '未知';
 	}
 }
 
 function getTypeColor(type?: string) {
 	switch (type) {
-		case 'DOCUMENT':
-			return 'blue-darken-1';
-		case 'QA':
-			return 'indigo';
-		case 'FAQ':
-			return 'cyan-darken-1';
-		default:
-			return 'grey';
+		case 'DOCUMENT': return 'blue-darken-1';
+		case 'QA': return 'indigo';
+		case 'FAQ': return 'cyan-darken-1';
+		default: return 'grey';
 	}
 }
 
 function getEmbeddingStatusColor(status?: string) {
 	switch (status) {
-		case 'COMPLETED':
-			return 'success';
-		case 'PROCESSING':
-			return 'blue-darken-1';
-		case 'FAILED':
-			return 'error';
-		case 'PENDING':
-			return 'warning';
-		default:
-			return 'grey';
+		case 'COMPLETED': return 'success';
+		case 'PROCESSING': return 'blue-darken-1';
+		case 'FAILED': return 'error';
+		case 'PENDING': return 'warning';
+		default: return 'grey';
 	}
 }
 
-function toggleFilter() {
-	filterVisible.value = !filterVisible.value;
-}
+function toggleFilter() { filterVisible.value = !filterVisible.value; }
 
 function clearFilters() {
 	queryParams.type = '';
@@ -564,70 +603,17 @@ function handleTypeChange() {
 }
 
 function handleFileChange(file: File | File[] | null) {
-	if (Array.isArray(file)) {
-		selectedFile.value = file[0] || null;
-		return;
-	}
+	if (Array.isArray(file)) { selectedFile.value = file[0] || null; return; }
 	selectedFile.value = file;
 }
 
-function resetForm() {
-	knowledgeForm.value = {
-		agentId: agentId.value,
-		title: '',
-		content: '',
-		type: 'DOCUMENT',
-		isRecall: true,
-		question: '',
-		answer: '',
-		splitterType: 'recursive',
-	};
-	selectedFile.value = null;
-	currentEditId.value = null;
-}
-
-function openCreateDialog() {
-	isEdit.value = false;
-	resetForm();
-	dialogVisible.value = true;
-}
-
-function closeDialog() {
-	dialogVisible.value = false;
-	resetForm();
-}
-
 function editKnowledge(knowledge: AgentKnowledge) {
-	isEdit.value = true;
 	currentEditId.value = knowledge.id ?? null;
-	knowledgeForm.value = {
+	openEditDialog({
 		...knowledge,
 		answer: knowledge.type === 'QA' || knowledge.type === 'FAQ' ? knowledge.content : '',
 		splitterType: 'recursive',
-	};
-	dialogVisible.value = true;
-}
-
-async function loadKnowledgeList() {
-	loading.value = true;
-	queryParams.agentId = agentId.value;
-	try {
-		const result = await agentKnowledgeService.queryByPage({
-			...queryParams,
-			type: queryParams.type || '',
-			embeddingStatus: queryParams.embeddingStatus || '',
-		});
-		if (result.success) {
-			knowledgeList.value = result.data || [];
-			total.value = result.total || 0;
-		} else {
-			$tip(result.message || '加载知识列表失败', { color: 'error' });
-		}
-	} catch {
-		$tip('加载知识列表失败', { color: 'error' });
-	} finally {
-		loading.value = false;
-	}
+	});
 }
 
 function toggleStatus(knowledge: AgentKnowledge) {
@@ -638,10 +624,7 @@ function toggleStatus(knowledge: AgentKnowledge) {
 		message: `确定要${nextRecallStatus ? '设为召回' : '取消召回'}「${knowledge.title}」吗？`,
 		confirmText: '确认',
 		onConfirm: async () => {
-			const result = await agentKnowledgeService.updateRecallStatus(
-				knowledge.id!,
-				nextRecallStatus,
-			);
+			const result = await agentKnowledgeService.updateRecallStatus(knowledge.id!, nextRecallStatus);
 			if (result) {
 				knowledge.isRecall = nextRecallStatus;
 				$tip(`${nextRecallStatus ? '设为召回' : '取消召回'}成功`);
@@ -657,12 +640,8 @@ async function handleRetry(knowledge: AgentKnowledge) {
 	retryLoadingMap.value[knowledge.id] = true;
 	try {
 		const success = await agentKnowledgeService.retryEmbedding(knowledge.id);
-		if (success) {
-			$tip('重试请求已发送');
-			await loadKnowledgeList();
-		} else {
-			$tip('重试失败', { color: 'error' });
-		}
+		if (success) { $tip('重试请求已发送'); await loadKnowledgeList(); }
+		else { $tip('重试失败', { color: 'error' }); }
 	} catch {
 		$tip('重试失败', { color: 'error' });
 	} finally {
@@ -679,12 +658,8 @@ function deleteKnowledge(knowledge: AgentKnowledge) {
 		icon: 'mdi-delete',
 		onConfirm: async () => {
 			const result = await agentKnowledgeService.delete(knowledge.id!);
-			if (result) {
-				$tip('删除成功');
-				await loadKnowledgeList();
-			} else {
-				$tip('删除失败', { color: 'error' });
-			}
+			if (result) { $tip('删除成功'); await loadKnowledgeList(); }
+			else { $tip('删除失败', { color: 'error' }); }
 		},
 	});
 }
@@ -695,18 +670,13 @@ async function saveKnowledge() {
 	if (!valid) return;
 
 	if (knowledgeForm.value.type === 'DOCUMENT' && !isEdit.value && !selectedFile.value) {
-		$tip('请上传文件', { color: 'warning' });
-		return;
+		$tip('请上传文件', { color: 'warning' }); return;
 	}
-
 	if ((knowledgeForm.value.type === 'QA' || knowledgeForm.value.type === 'FAQ') && !knowledgeForm.value.question?.trim()) {
-		$tip('请输入问题', { color: 'warning' });
-		return;
+		$tip('请输入问题', { color: 'warning' }); return;
 	}
-
 	if ((knowledgeForm.value.type === 'QA' || knowledgeForm.value.type === 'FAQ') && !knowledgeForm.value.answer?.trim()) {
-		$tip('请输入答案', { color: 'warning' });
-		return;
+		$tip('请输入答案', { color: 'warning' }); return;
 	}
 
 	saveLoading.value = true;
@@ -715,46 +685,29 @@ async function saveKnowledge() {
 			const updateData = {
 				...knowledgeForm.value,
 				type: knowledgeForm.value.type?.toUpperCase(),
-				content:
-					knowledgeForm.value.type === 'QA' || knowledgeForm.value.type === 'FAQ'
-						? knowledgeForm.value.answer
-						: knowledgeForm.value.content,
+				content: knowledgeForm.value.type === 'QA' || knowledgeForm.value.type === 'FAQ'
+					? knowledgeForm.value.answer
+					: knowledgeForm.value.content,
 			};
 			const result = await agentKnowledgeService.update(currentEditId.value, updateData);
-			if (result) {
-				$tip('更新成功');
-			} else {
-				$tip('更新失败', { color: 'error' });
-				return;
-			}
+			if (result) { $tip('更新成功'); } else { $tip('更新失败', { color: 'error' }); return; }
 		} else {
-			const formData = new FormData();
-			formData.append('agentId', String(agentId.value));
-			formData.append('title', knowledgeForm.value.title || '');
-			formData.append('type', knowledgeForm.value.type || 'DOCUMENT');
-			formData.append('isRecall', knowledgeForm.value.isRecall ? '1' : '0');
-
+			const fd = new FormData();
+			fd.append('agentId', String(agentId.value));
+			fd.append('title', knowledgeForm.value.title || '');
+			fd.append('type', knowledgeForm.value.type || 'DOCUMENT');
+			fd.append('isRecall', knowledgeForm.value.isRecall ? '1' : '0');
 			if (knowledgeForm.value.type === 'DOCUMENT' && selectedFile.value) {
-				formData.append('file', selectedFile.value);
-				if (knowledgeForm.value.splitterType) {
-					formData.append('splitterType', knowledgeForm.value.splitterType);
-				}
+				fd.append('file', selectedFile.value);
+				if (knowledgeForm.value.splitterType) { fd.append('splitterType', knowledgeForm.value.splitterType); }
 			} else {
-				formData.append('question', knowledgeForm.value.question || '');
-				formData.append('content', knowledgeForm.value.answer || '');
+				fd.append('question', knowledgeForm.value.question || '');
+				fd.append('content', knowledgeForm.value.answer || '');
 			}
-
-			const result = await agentKnowledgeService.createWithFile(formData);
-
-			if (result.success) {
-				$tip('创建成功');
-			} else {
-				$tip(result.message || '创建失败', { color: 'error' });
-				return;
-			}
+			const result = await agentKnowledgeService.createWithFile(fd);
+			if (result.success) { $tip('创建成功'); } else { $tip(result.message || '创建失败', { color: 'error' }); return; }
 		}
-
-		dialogVisible.value = false;
+		closeDialog();
 		await loadKnowledgeList();
 	} catch {
 		$tip(`${isEdit.value ? '更新' : '创建'}失败`, { color: 'error' });

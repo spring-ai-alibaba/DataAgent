@@ -128,6 +128,7 @@ const filteredMessages = computed<ChatMessage[]>(() => {
 	const result: ChatMessage[] = [];
 	for (let i = 0; i < msgs.length; i++) {
 		const msg = msgs[i];
+		if (!msg) continue;
 		if (msg.role === 'assistant' && TIMELINE_ABSORBED_TYPES.has(msg.messageType)) {
 			const surroundHasTimeline = msgs.some(
 				(m, j) => j !== i && m.role === 'assistant' && m.messageType === 'timeline'

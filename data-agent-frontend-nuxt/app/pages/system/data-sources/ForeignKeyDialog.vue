@@ -80,7 +80,7 @@ const props = defineProps<{
 	datasourceName: string;
 }>();
 
-const emit = defineEmits<{
+defineEmits<{
 	'update:modelValue': [value: boolean];
 }>();
 

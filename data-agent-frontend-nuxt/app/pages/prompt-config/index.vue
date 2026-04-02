@@ -301,16 +301,14 @@
 <script setup lang="ts">
 import agentService from '~/services/agent/index';
 import { promptService, type PromptConfig } from '~/services/prompt/index';
+import { useCrudPage } from '~/composables/useCrudPage/index';
 
 const route = useRoute();
 const { $tip } = useNuxtApp();
 const { showConfirm } = useConfirm();
 
-const loading = ref(false);
-const saveLoading = ref(false);
-const dialogVisible = ref(false);
+// ——— 额外状态 ———
 const priorityDialogVisible = ref(false);
-const isEdit = ref(false);
 const selectedAgentId = ref<number | undefined>(undefined);
 const promptType = ref('report-generator');
 const searchKeyword = ref('');
@@ -319,7 +317,7 @@ const editingId = ref<number | undefined>(undefined);
 const priorityEditId = ref<number | undefined>(undefined);
 const priorityValue = ref(0);
 const rawConfigs = ref<PromptConfig[]>([]);
-const formRef = ref();
+const agentOptions = ref<{ title: string; value: number }[]>([]);
 
 const headers = [
 	{ title: '名称', key: 'name', minWidth: '140px' },
@@ -338,20 +336,6 @@ const promptTypeOptions = [
 	{ title: '通用问答', value: 'general-chat' },
 ];
 
-const agentOptions = ref<{ title: string; value: number }[]>([]);
-
-const formData = ref<PromptConfig>({
-	name: '',
-	description: '',
-	optimizationPrompt: '',
-	priority: 0,
-	displayOrder: 0,
-	enabled: true,
-	promptType: promptType.value,
-	agentId: null,
-	creator: 'user',
-});
-
 const filteredConfigs = computed(() => {
 	const keyword = searchKeyword.value.trim().toLowerCase();
 	if (!keyword) return rawConfigs.value;
@@ -362,7 +346,60 @@ const filteredConfigs = computed(() => {
 	);
 });
 
-function resetForm() {
+// ——— useCrudPage ———
+const {
+	loading,
+	saveLoading,
+	dialogVisible,
+	isEdit,
+	formRef,
+	formData,
+	openCreateDialog: _openCreateDialog,
+	closeDialog: _closeDialog,
+} = useCrudPage<PromptConfig>({
+	loadFn: async () => {
+		const list = await promptService.listByType(promptType.value, selectedAgentId.value);
+		list.sort((a, b) => {
+			const orderDiff = (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+			if (orderDiff !== 0) return orderDiff;
+			return (b.priority ?? 0) - (a.priority ?? 0);
+		});
+		rawConfigs.value = list;
+		selectedIds.value = [];
+		return list;
+	},
+	defaultFormFactory: () => ({
+		name: '',
+		description: '',
+		optimizationPrompt: '',
+		priority: 0,
+		displayOrder: 0,
+		enabled: true,
+		promptType: promptType.value,
+		agentId: selectedAgentId.value ?? null,
+		creator: 'user',
+	}),
+});
+
+async function loadConfigs() {
+	loading.value = true;
+	try {
+		rawConfigs.value = await promptService.listByType(promptType.value, selectedAgentId.value);
+		rawConfigs.value.sort((a, b) => {
+			const orderA = a.displayOrder ?? 0;
+			const orderB = b.displayOrder ?? 0;
+			if (orderA !== orderB) return orderA - orderB;
+			return (b.priority ?? 0) - (a.priority ?? 0);
+		});
+		selectedIds.value = [];
+	} catch {
+		$tip('加载提示词配置失败', { color: 'error' });
+	} finally {
+		loading.value = false;
+	}
+}
+
+function resetFormData() {
 	formData.value = {
 		name: '',
 		description: '',
@@ -377,71 +414,26 @@ function resetForm() {
 	editingId.value = undefined;
 }
 
-async function resolveAgent() {
-	const routeAgentId = Number(route.query.agentId);
-	const agents = await agentService.list();
-	agentOptions.value = agents
-		.filter(item => item.id !== undefined && item.id > 0)
-		.map(item => ({
-			title: item.name || `Agent ${item.id}`,
-			value: item.id as number,
-		}));
-
-	if (Number.isFinite(routeAgentId) && routeAgentId > 0) {
-		selectedAgentId.value = routeAgentId;
-		return;
-	}
-	selectedAgentId.value = agentOptions.value[0]?.value;
-}
-
-async function loadConfigs() {
-	loading.value = true;
-	try {
-		rawConfigs.value = await promptService.listByType(
-			promptType.value,
-			selectedAgentId.value,
-		);
-		rawConfigs.value.sort((a, b) => {
-			const orderA = a.displayOrder ?? 0;
-			const orderB = b.displayOrder ?? 0;
-			if (orderA !== orderB) return orderA - orderB;
-			const priorityA = a.priority ?? 0;
-			const priorityB = b.priority ?? 0;
-			return priorityB - priorityA;
-		});
-		selectedIds.value = [];
-	} catch {
-		$tip('加载提示词配置失败', { color: 'error' });
-	} finally {
-		loading.value = false;
-	}
-}
-
-function handleFilterChange() {
-	loadConfigs();
-}
-
 function openCreateDialog() {
-	isEdit.value = false;
-	resetForm();
-	dialogVisible.value = true;
+	_openCreateDialog();
+	formData.value.promptType = promptType.value;
+	formData.value.agentId = selectedAgentId.value ?? null;
+	editingId.value = undefined;
 }
 
 function editConfig(config: PromptConfig) {
 	isEdit.value = true;
 	editingId.value = config.id;
-	formData.value = {
-		...config,
-		promptType: promptType.value,
-		agentId: selectedAgentId.value ?? null,
-	};
+	formData.value = { ...config, promptType: promptType.value, agentId: selectedAgentId.value ?? null };
 	dialogVisible.value = true;
 }
 
 function closeDialog() {
-	dialogVisible.value = false;
-	resetForm();
+	_closeDialog();
+	resetFormData();
 }
+
+function handleFilterChange() { loadConfigs(); }
 
 async function saveConfig() {
 	const validateResult = await formRef.value?.validate();
@@ -458,7 +450,6 @@ async function saveConfig() {
 			enabled: formData.value.enabled ?? true,
 			creator: formData.value.creator || 'user',
 		};
-
 		const result = await promptService.save(payload);
 		if (!result.success) {
 			$tip(result.message || `${isEdit.value ? '更新' : '创建'}失败`, { color: 'error' });
@@ -466,6 +457,7 @@ async function saveConfig() {
 		}
 		$tip(result.message || `${isEdit.value ? '更新' : '创建'}成功`);
 		dialogVisible.value = false;
+		resetFormData();
 		await loadConfigs();
 	} catch {
 		$tip(`${isEdit.value ? '更新' : '创建'}失败`, { color: 'error' });
@@ -522,12 +514,8 @@ function batchEnable() {
 		confirmText: '确认启用',
 		onConfirm: async () => {
 			const result = await promptService.batchEnable(selectedIds.value);
-			if (result.success) {
-				$tip(result.message || '批量启用成功');
-				await loadConfigs();
-			} else {
-				$tip(result.message || '批量启用失败', { color: 'error' });
-			}
+			if (result.success) { $tip(result.message || '批量启用成功'); await loadConfigs(); }
+			else { $tip(result.message || '批量启用失败', { color: 'error' }); }
 		},
 	});
 }
@@ -540,12 +528,8 @@ function batchDisable() {
 		confirmText: '确认禁用',
 		onConfirm: async () => {
 			const result = await promptService.batchDisable(selectedIds.value);
-			if (result.success) {
-				$tip(result.message || '批量禁用成功');
-				await loadConfigs();
-			} else {
-				$tip(result.message || '批量禁用失败', { color: 'error' });
-			}
+			if (result.success) { $tip(result.message || '批量禁用成功'); await loadConfigs(); }
+			else { $tip(result.message || '批量禁用失败', { color: 'error' }); }
 		},
 	});
 }
@@ -579,12 +563,21 @@ async function updatePriority() {
 	}
 }
 
-onMounted(async () => {
-	try {
-		await resolveAgent();
-	} catch {
-		$tip('加载智能体列表失败', { color: 'error' });
+async function resolveAgent() {
+	const routeAgentId = Number(route.query.agentId);
+	const agents = await agentService.list();
+	agentOptions.value = agents
+		.filter(item => item.id !== undefined && item.id > 0)
+		.map(item => ({ title: item.name || `Agent ${item.id}`, value: item.id as number }));
+	if (Number.isFinite(routeAgentId) && routeAgentId > 0) {
+		selectedAgentId.value = routeAgentId;
+		return;
 	}
+	selectedAgentId.value = agentOptions.value[0]?.value;
+}
+
+onMounted(async () => {
+	try { await resolveAgent(); } catch { $tip('加载智能体列表失败', { color: 'error' }); }
 	await loadConfigs();
 });
 </script>
