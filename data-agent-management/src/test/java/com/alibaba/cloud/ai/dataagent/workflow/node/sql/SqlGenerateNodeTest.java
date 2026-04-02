@@ -40,141 +40,132 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class SqlGenerateNodeTest {
 
-    private static final String TEST_PLAN_JSON = """
-            {
-                "thought_process": "根据问题生成SQL",
-                "execution_plan": [
-                    {
-                        "step": 1,
-                        "tool_to_use": "sql_generate_node",
-                        "tool_parameters": {
-                            "instruction": "SQL生成"
-                        }
-                    }
-                ]
-            }
-            """;
+	private static final String TEST_PLAN_JSON = """
+			{
+			    "thought_process": "根据问题生成SQL",
+			    "execution_plan": [
+			        {
+			            "step": 1,
+			            "tool_to_use": "sql_generate_node",
+			            "tool_parameters": {
+			                "instruction": "SQL生成"
+			            }
+			        }
+			    ]
+			}
+			""";
 
-    private static final Map<String, Object> TEST_QUERY_ENHANCE;
-    private static final Map<String, Object> TEST_SCHEMA;
+	private static final Map<String, Object> TEST_QUERY_ENHANCE;
 
-    static {
-        Map<String, Object> table = new HashMap<>();
-        table.put("name", "users");
-        table.put("description", "用户表");
-        table.put("column", new ArrayList<>());
-        table.put("primaryKeys", new ArrayList<>());
+	private static final Map<String, Object> TEST_SCHEMA;
 
-        Map<String, Object> schema = new HashMap<>();
-        schema.put("name", "test_schema");
-        schema.put("description", "测试schema");
-        schema.put("tableCount", 1);
-        schema.put("table", new ArrayList<>(List.of(table)));
-        schema.put("foreignKeys", new ArrayList<>());
+	static {
+		Map<String, Object> table = new HashMap<>();
+		table.put("name", "users");
+		table.put("description", "用户表");
+		table.put("column", new ArrayList<>());
+		table.put("primaryKeys", new ArrayList<>());
 
-        Map<String, Object> queryEnhance = new HashMap<>();
-        queryEnhance.put("canonical_query", "查询所有用户信息");
-        queryEnhance.put("expanded_queries", new ArrayList<>(List.of("查询用户", "获取用户列表")));
+		Map<String, Object> schema = new HashMap<>();
+		schema.put("name", "test_schema");
+		schema.put("description", "测试schema");
+		schema.put("tableCount", 1);
+		schema.put("table", new ArrayList<>(List.of(table)));
+		schema.put("foreignKeys", new ArrayList<>());
 
-        TEST_SCHEMA = schema;
-        TEST_QUERY_ENHANCE = queryEnhance;
-    }
+		Map<String, Object> queryEnhance = new HashMap<>();
+		queryEnhance.put("canonical_query", "查询所有用户信息");
+		queryEnhance.put("expanded_queries", new ArrayList<>(List.of("查询用户", "获取用户列表")));
 
-    @Mock
-    private Nl2SqlService nl2SqlService;
+		TEST_SCHEMA = schema;
+		TEST_QUERY_ENHANCE = queryEnhance;
+	}
 
-    @Mock
-    private DataAgentProperties properties;
+	@Mock
+	private Nl2SqlService nl2SqlService;
 
-    private SqlGenerateNode sqlGenerateNode;
+	@Mock
+	private DataAgentProperties properties;
 
-    @BeforeEach
-    void setUp() {
-        sqlGenerateNode = new SqlGenerateNode(nl2SqlService, properties);
-    }
+	private SqlGenerateNode sqlGenerateNode;
 
-    private OverAllState createTestState() {
-        OverAllState state = new OverAllState();
-        state.registerKeyAndStrategy(SQL_GENERATE_OUTPUT, new ReplaceStrategy());
-        state.registerKeyAndStrategy(SQL_GENERATE_COUNT, new ReplaceStrategy());
-        state.registerKeyAndStrategy(SQL_REGENERATE_REASON, new ReplaceStrategy());
-        state.registerKeyAndStrategy(PLANNER_NODE_OUTPUT, new ReplaceStrategy());
-        state.registerKeyAndStrategy(PLAN_CURRENT_STEP, new ReplaceStrategy());
-        state.registerKeyAndStrategy(EVIDENCE, new ReplaceStrategy());
-        state.registerKeyAndStrategy(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
-        state.registerKeyAndStrategy(DB_DIALECT_TYPE, new ReplaceStrategy());
-        state.registerKeyAndStrategy(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
-        return state;
-    }
+	@BeforeEach
+	void setUp() {
+		sqlGenerateNode = new SqlGenerateNode(nl2SqlService, properties);
+	}
 
-    private void setupBasicState(OverAllState state) {
-        state.updateState(Map.of(
-            SQL_GENERATE_COUNT, 0,
-            PLANNER_NODE_OUTPUT, TEST_PLAN_JSON,
-            PLAN_CURRENT_STEP, 1,
-            EVIDENCE, "test evidence",
-            DB_DIALECT_TYPE, "mysql",
-            QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE,
-            TABLE_RELATION_OUTPUT, TEST_SCHEMA
-        ));
-    }
+	private OverAllState createTestState() {
+		OverAllState state = new OverAllState();
+		state.registerKeyAndStrategy(SQL_GENERATE_OUTPUT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(SQL_GENERATE_COUNT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(SQL_REGENERATE_REASON, new ReplaceStrategy());
+		state.registerKeyAndStrategy(PLANNER_NODE_OUTPUT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(PLAN_CURRENT_STEP, new ReplaceStrategy());
+		state.registerKeyAndStrategy(EVIDENCE, new ReplaceStrategy());
+		state.registerKeyAndStrategy(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(DB_DIALECT_TYPE, new ReplaceStrategy());
+		state.registerKeyAndStrategy(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
+		return state;
+	}
 
-    @Test
-    void simpleSelectQuery_validInput_generatesValidSql() throws Exception {
-        OverAllState state = createTestState();
-        setupBasicState(state);
+	private void setupBasicState(OverAllState state) {
+		state.updateState(Map.of(SQL_GENERATE_COUNT, 0, PLANNER_NODE_OUTPUT, TEST_PLAN_JSON, PLAN_CURRENT_STEP, 1,
+				EVIDENCE, "test evidence", DB_DIALECT_TYPE, "mysql", QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE,
+				TABLE_RELATION_OUTPUT, TEST_SCHEMA));
+	}
 
-        when(properties.getMaxSqlRetryCount()).thenReturn(10);
-        when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM users"));
+	@Test
+	void simpleSelectQuery_validInput_generatesValidSql() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
 
-        Map<String, Object> result = sqlGenerateNode.apply(state);
-        assertNotNull(result);
-        assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
-    }
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM users"));
 
-    @Test
-    void queryWithWhereClause_validInput_generatesWhereCondition() throws Exception {
-        OverAllState state = createTestState();
-        setupBasicState(state);
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
 
-        when(properties.getMaxSqlRetryCount()).thenReturn(10);
-        when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM users WHERE age > 18"));
+	@Test
+	void queryWithWhereClause_validInput_generatesWhereCondition() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
 
-        Map<String, Object> result = sqlGenerateNode.apply(state);
-        assertNotNull(result);
-        assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
-    }
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM users WHERE age > 18"));
 
-    @Test
-    void queryWithJoin_validInput_generatesJoinClause() throws Exception {
-        OverAllState state = createTestState();
-        setupBasicState(state);
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
 
-        when(properties.getMaxSqlRetryCount()).thenReturn(10);
-        when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT u.*, o.* FROM users u JOIN orders o ON u.id = o.user_id"));
+	@Test
+	void queryWithJoin_validInput_generatesJoinClause() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
 
-        Map<String, Object> result = sqlGenerateNode.apply(state);
-        assertNotNull(result);
-        assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
-    }
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any()))
+			.thenReturn(Flux.just("SELECT u.*, o.* FROM users u JOIN orders o ON u.id = o.user_id"));
 
-    @Test
-    void maxRetryCountReached_returnsErrorResponse() throws Exception {
-        OverAllState state = createTestState();
-        state.updateState(Map.of(
-            SQL_GENERATE_COUNT, 10,
-            PLANNER_NODE_OUTPUT, TEST_PLAN_JSON,
-            PLAN_CURRENT_STEP, 1,
-            EVIDENCE, "test evidence",
-            DB_DIALECT_TYPE, "mysql",
-            QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE,
-            TABLE_RELATION_OUTPUT, TEST_SCHEMA
-        ));
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
 
-        when(properties.getMaxSqlRetryCount()).thenReturn(10);
+	@Test
+	void maxRetryCountReached_returnsErrorResponse() throws Exception {
+		OverAllState state = createTestState();
+		state.updateState(Map.of(SQL_GENERATE_COUNT, 10, PLANNER_NODE_OUTPUT, TEST_PLAN_JSON, PLAN_CURRENT_STEP, 1,
+				EVIDENCE, "test evidence", DB_DIALECT_TYPE, "mysql", QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE,
+				TABLE_RELATION_OUTPUT, TEST_SCHEMA));
 
-        Map<String, Object> result = sqlGenerateNode.apply(state);
-        assertNotNull(result);
-        assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
-    }
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
 }

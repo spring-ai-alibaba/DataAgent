@@ -171,10 +171,8 @@ public final class TestFixtures {
 	}
 
 	public static String createMultiStepPlanJson() {
-		return planToJson(createPlan("Multi-step analysis",
-				createSqlStep(1, "Query user data"),
-				createPythonStep(2, "Analyze results"),
-				createReportStep(3, "Generate report")));
+		return planToJson(createPlan("Multi-step analysis", createSqlStep(1, "Query user data"),
+				createPythonStep(2, "Analyze results"), createReportStep(3, "Generate report")));
 	}
 
 }

@@ -25,63 +25,64 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class StateUtilSimpleTest {
 
-    @Test
-    void getStringValue_keyExists_returnsValue() {
-        OverAllState state = new OverAllState();
-        state.updateState(Map.of("test-key", "test-value"));
+	@Test
+	void getStringValue_keyExists_returnsValue() {
+		OverAllState state = new OverAllState();
+		state.updateState(Map.of("test-key", "test-value"));
 
-        String result = StateUtil.getStringValue(state, "test-key");
-        assertEquals("test-value", result);
-    }
+		String result = StateUtil.getStringValue(state, "test-key");
+		assertEquals("test-value", result);
+	}
 
-    @Test
-    void getStringValue_keyNotExists_throwsException() {
-        OverAllState state = new OverAllState();
+	@Test
+	void getStringValue_keyNotExists_throwsException() {
+		OverAllState state = new OverAllState();
 
-        assertThrows(IllegalStateException.class, () -> {
-            StateUtil.getStringValue(state, "non-existent-key");
-        });
-    }
+		assertThrows(IllegalStateException.class, () -> {
+			StateUtil.getStringValue(state, "non-existent-key");
+		});
+	}
 
-    @Test
-    void getStringValue_keyNotExists_returnsDefault() {
-        OverAllState state = new OverAllState();
+	@Test
+	void getStringValue_keyNotExists_returnsDefault() {
+		OverAllState state = new OverAllState();
 
-        String result = StateUtil.getStringValue(state, "non-existent-key", "default");
-        assertEquals("default", result);
-    }
+		String result = StateUtil.getStringValue(state, "non-existent-key", "default");
+		assertEquals("default", result);
+	}
 
-    @Test
-    void hasValue_keyExists_returnsTrue() {
-        OverAllState state = new OverAllState();
-        state.updateState(Map.of("test-key", "test-value"));
+	@Test
+	void hasValue_keyExists_returnsTrue() {
+		OverAllState state = new OverAllState();
+		state.updateState(Map.of("test-key", "test-value"));
 
-        assertTrue(StateUtil.hasValue(state, "test-key"));
-    }
+		assertTrue(StateUtil.hasValue(state, "test-key"));
+	}
 
-    @Test
-    void hasValue_keyNotExists_returnsFalse() {
-        OverAllState state = new OverAllState();
+	@Test
+	void hasValue_keyNotExists_returnsFalse() {
+		OverAllState state = new OverAllState();
 
-        assertFalse(StateUtil.hasValue(state, "non-existent-key"));
-    }
+		assertFalse(StateUtil.hasValue(state, "non-existent-key"));
+	}
 
-    @Test
-    void getObjectValue_keyExists_returnsValue() {
-        OverAllState state = new OverAllState();
-        Map<String, Object> testMap = new HashMap<>();
-        testMap.put("name", "test");
-        state.updateState(Map.of("test-object", testMap));
+	@Test
+	void getObjectValue_keyExists_returnsValue() {
+		OverAllState state = new OverAllState();
+		Map<String, Object> testMap = new HashMap<>();
+		testMap.put("name", "test");
+		state.updateState(Map.of("test-object", testMap));
 
-        Object result = StateUtil.getObjectValue(state, "test-object", Object.class);
-        assertNotNull(result);
-    }
+		Object result = StateUtil.getObjectValue(state, "test-object", Object.class);
+		assertNotNull(result);
+	}
 
-    @Test
-    void getObjectValue_keyNotExists_returnsDefault() {
-        OverAllState state = new OverAllState();
+	@Test
+	void getObjectValue_keyNotExists_returnsDefault() {
+		OverAllState state = new OverAllState();
 
-        String result = StateUtil.getObjectValue(state, "non-existent", String.class, "default");
-        assertEquals("default", result);
-    }
+		String result = StateUtil.getObjectValue(state, "non-existent", String.class, "default");
+		assertEquals("default", result);
+	}
+
 }
