@@ -97,11 +97,8 @@ class PlanExecutorNodeTest {
 	@Test
 	void validPlan_currentStep1_routesToSqlGenerateNode() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(createValidPlan()),
-			PLAN_CURRENT_STEP, 1,
-			IS_ONLY_NL2SQL, false
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(createValidPlan()), PLAN_CURRENT_STEP, 1,
+				IS_ONLY_NL2SQL, false));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
@@ -112,11 +109,8 @@ class PlanExecutorNodeTest {
 	@Test
 	void validPlan_currentStep2_routesToPythonGenerateNode() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(createValidPlan()),
-			PLAN_CURRENT_STEP, 2,
-			IS_ONLY_NL2SQL, false
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(createValidPlan()), PLAN_CURRENT_STEP, 2,
+				IS_ONLY_NL2SQL, false));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
@@ -127,11 +121,8 @@ class PlanExecutorNodeTest {
 	@Test
 	void validPlan_stepExceedsSteps_routesToReportGeneratorNode() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(createValidPlan()),
-			PLAN_CURRENT_STEP, 3,
-			IS_ONLY_NL2SQL, false
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(createValidPlan()), PLAN_CURRENT_STEP, 3,
+				IS_ONLY_NL2SQL, false));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
@@ -140,11 +131,9 @@ class PlanExecutorNodeTest {
 	}
 
 	@Test
-	void nl2sqlMode_routesToReportGeneratorNode() throws Exception {
+	void nl2sqlMode_routesToSqlGenerateNodeForCurrentStep() throws Exception {
 		OverAllState state = createTestState();
 
-		// Build NL2SQL plan directly instead of using Plan.nl2SqlPlan()
-		// This avoids BeanOutputConverter deserialization issues
 		ExecutionStep step = new ExecutionStep();
 		step.setStep(1);
 		step.setToolToUse(SQL_GENERATE_NODE);
@@ -155,16 +144,12 @@ class PlanExecutorNodeTest {
 		plan.setThoughtProcess("根据问题生成SQL");
 		plan.setExecutionPlan(List.of(step));
 
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(plan),
-			PLAN_CURRENT_STEP, 1,
-			IS_ONLY_NL2SQL, true
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(plan), PLAN_CURRENT_STEP, 1, IS_ONLY_NL2SQL, true));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
 		assertTrue((Boolean) result.get(PLAN_VALIDATION_STATUS));
-		assertEquals(REPORT_GENERATOR_NODE, result.get(PLAN_NEXT_NODE));
+		assertEquals(SQL_GENERATE_NODE, result.get(PLAN_NEXT_NODE));
 	}
 
 	// ==================== Phase 2: Error Paths ====================
@@ -175,17 +160,13 @@ class PlanExecutorNodeTest {
 		Plan emptyPlan = new Plan();
 		emptyPlan.setThoughtProcess("测试");
 		emptyPlan.setExecutionPlan(new ArrayList<>());
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(emptyPlan),
-			PLAN_CURRENT_STEP, 1
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(emptyPlan), PLAN_CURRENT_STEP, 1));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
 		assertFalse((Boolean) result.get(PLAN_VALIDATION_STATUS));
 		assertTrue(result.containsKey(PLAN_VALIDATION_ERROR));
-		assertTrue(((String) result.get(PLAN_VALIDATION_ERROR))
-			.contains("no execution steps"));
+		assertTrue(((String) result.get(PLAN_VALIDATION_ERROR)).contains("no execution steps"));
 	}
 
 	@Test
@@ -198,10 +179,7 @@ class PlanExecutorNodeTest {
 		Plan plan = new Plan();
 		plan.setThoughtProcess("测试");
 		plan.setExecutionPlan(List.of(step));
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(plan),
-			PLAN_CURRENT_STEP, 1
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(plan), PLAN_CURRENT_STEP, 1));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
@@ -220,10 +198,7 @@ class PlanExecutorNodeTest {
 		Plan plan = new Plan();
 		plan.setThoughtProcess("测试");
 		plan.setExecutionPlan(List.of(step));
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(plan),
-			PLAN_CURRENT_STEP, 1
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(plan), PLAN_CURRENT_STEP, 1));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
@@ -242,16 +217,14 @@ class PlanExecutorNodeTest {
 		Plan plan = new Plan();
 		plan.setThoughtProcess("测试");
 		plan.setExecutionPlan(List.of(step));
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(plan),
-			PLAN_CURRENT_STEP, 1
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(plan), PLAN_CURRENT_STEP, 1));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
 		assertFalse((Boolean) result.get(PLAN_VALIDATION_STATUS));
 		assertTrue(result.containsKey(PLAN_VALIDATION_ERROR));
-		assertTrue(((String) result.get(PLAN_VALIDATION_ERROR)).contains("Python generation node is missing instruction"));
+		assertTrue(
+				((String) result.get(PLAN_VALIDATION_ERROR)).contains("Python generation node is missing instruction"));
 	}
 
 	@Test
@@ -262,7 +235,7 @@ class PlanExecutorNodeTest {
 		// This avoids BeanOutputConverter deserialization issues
 		ExecutionStep step = new ExecutionStep();
 		step.setStep(1);
-		step.setToolToUse("unknown_node");  // Direct uppercase string
+		step.setToolToUse("unknown_node"); // Direct uppercase string
 		ExecutionStep.ToolParameters params = new ExecutionStep.ToolParameters();
 		params.setInstruction("测试");
 		step.setToolParameters(params);
@@ -270,10 +243,7 @@ class PlanExecutorNodeTest {
 		plan.setThoughtProcess("测试");
 		plan.setExecutionPlan(List.of(step));
 
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(plan),
-			PLAN_CURRENT_STEP, 1
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(plan), PLAN_CURRENT_STEP, 1));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
@@ -292,17 +262,13 @@ class PlanExecutorNodeTest {
 		Plan plan = new Plan();
 		plan.setThoughtProcess("测试");
 		plan.setExecutionPlan(List.of(step));
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(plan),
-			PLAN_CURRENT_STEP, 1
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(plan), PLAN_CURRENT_STEP, 1));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
 		assertFalse((Boolean) result.get(PLAN_VALIDATION_STATUS));
 		assertTrue(result.containsKey(PLAN_VALIDATION_ERROR));
-		assertTrue(((String) result.get(PLAN_VALIDATION_ERROR))
-			.contains("missing summary_and_recommendations"));
+		assertTrue(((String) result.get(PLAN_VALIDATION_ERROR)).contains("missing summary_and_recommendations"));
 	}
 
 	@Test
@@ -311,11 +277,8 @@ class PlanExecutorNodeTest {
 		Plan emptyPlan = new Plan();
 		emptyPlan.setThoughtProcess("测试");
 		emptyPlan.setExecutionPlan(new ArrayList<>());
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(emptyPlan),
-			PLAN_CURRENT_STEP, 1,
-			PLAN_REPAIR_COUNT, 2
-		));
+		state.updateState(
+				Map.of(PLANNER_NODE_OUTPUT, planToJson(emptyPlan), PLAN_CURRENT_STEP, 1, PLAN_REPAIR_COUNT, 2));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
@@ -328,11 +291,8 @@ class PlanExecutorNodeTest {
 	@Test
 	void humanReviewEnabled_routesToHumanFeedbackNode() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(createValidPlan()),
-			PLAN_CURRENT_STEP, 1,
-			HUMAN_REVIEW_ENABLED, true
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(createValidPlan()), PLAN_CURRENT_STEP, 1,
+				HUMAN_REVIEW_ENABLED, true));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
@@ -343,10 +303,7 @@ class PlanExecutorNodeTest {
 	@Test
 	void planAlreadyCompleted_resetsStepTo1AndRoutesToReportGeneratorNode() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(createValidPlan()),
-			PLAN_CURRENT_STEP, 3
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(createValidPlan()), PLAN_CURRENT_STEP, 3));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
@@ -363,7 +320,7 @@ class PlanExecutorNodeTest {
 		// This avoids BeanOutputConverter deserialization issues
 		ExecutionStep step = new ExecutionStep();
 		step.setStep(1);
-		step.setToolToUse(SQL_GENERATE_NODE);  // Use uppercase constant
+		step.setToolToUse(SQL_GENERATE_NODE); // Use uppercase constant
 		ExecutionStep.ToolParameters params = new ExecutionStep.ToolParameters();
 		params.setInstruction("SQL生成");
 		step.setToolParameters(params);
@@ -371,11 +328,7 @@ class PlanExecutorNodeTest {
 		plan.setThoughtProcess("根据问题生成SQL");
 		plan.setExecutionPlan(List.of(step));
 
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(plan),
-			PLAN_CURRENT_STEP, 3,
-			IS_ONLY_NL2SQL, true
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(plan), PLAN_CURRENT_STEP, 3, IS_ONLY_NL2SQL, true));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
@@ -390,10 +343,7 @@ class PlanExecutorNodeTest {
 		Plan emptyPlan = new Plan();
 		emptyPlan.setThoughtProcess("测试");
 		emptyPlan.setExecutionPlan(new ArrayList<>());
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(emptyPlan),
-			PLAN_CURRENT_STEP, 1
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(emptyPlan), PLAN_CURRENT_STEP, 1));
 
 		// First validation error
 		Map<String, Object> result1 = planExecutorNode.apply(state);
@@ -413,10 +363,7 @@ class PlanExecutorNodeTest {
 	@Test
 	void currentStepBoundary_handling_firstStep() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(createValidPlan()),
-			PLAN_CURRENT_STEP, 1
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(createValidPlan()), PLAN_CURRENT_STEP, 1));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
@@ -427,10 +374,7 @@ class PlanExecutorNodeTest {
 	@Test
 	void currentStepBoundary_handling_lastValidStep() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(createValidPlan()),
-			PLAN_CURRENT_STEP, 2
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(createValidPlan()), PLAN_CURRENT_STEP, 2));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
@@ -441,10 +385,7 @@ class PlanExecutorNodeTest {
 	@Test
 	void currentStepBoundary_handlingBeyondSteps() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(
-			PLANNER_NODE_OUTPUT, planToJson(createValidPlan()),
-			PLAN_CURRENT_STEP, 3
-		));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(createValidPlan()), PLAN_CURRENT_STEP, 3));
 
 		Map<String, Object> result = planExecutorNode.apply(state);
 
