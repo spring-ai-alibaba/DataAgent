@@ -6,3 +6,7 @@
 
 - [tips](./tips/README.md)
 
+## 文件
+
+- chat.ts
+

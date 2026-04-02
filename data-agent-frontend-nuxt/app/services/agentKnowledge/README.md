@@ -11,6 +11,7 @@
 - `listByAgentId`: 根据智能体 ID 获取所有知识列表
 - `getById`: 根据 ID 获取知识详情
 - `create`: 创建新知识
+- `createWithFile`: 通过 FormData 创建知识（支持文件上传）
 - `update`: 更新知识信息
 - `updateRecallStatus`: 更新知识的召回状态
 - `delete`: 删除指定知识

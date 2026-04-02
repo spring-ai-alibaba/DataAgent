@@ -5,5 +5,6 @@
 ## 子目录
 
 - [BaseDrawer](./BaseDrawer/README.md)
+- [chat](./chat/README.md)
 - [common](./common/README.md)
 
