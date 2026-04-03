@@ -170,13 +170,13 @@ class MultiTurnContextManagerTest {
 		contextManager.appendPlannerChunk("thread-B", "Plan for B");
 		contextManager.finishTurn("thread-B");
 
-		String contextA = contextManager.buildContext("thread-A");
-		String contextB = contextManager.buildContext("thread-B");
+		String threadAContext = contextManager.buildContext("thread-A");
+		String threadBContext = contextManager.buildContext("thread-B");
 
-		assertTrue(contextA.contains("Question A"));
-		assertFalse(contextA.contains("Question B"));
-		assertTrue(contextB.contains("Question B"));
-		assertFalse(contextB.contains("Question A"));
+		assertTrue(threadAContext.contains("Question A"));
+		assertFalse(threadAContext.contains("Question B"));
+		assertTrue(threadBContext.contains("Question B"));
+		assertFalse(threadBContext.contains("Question A"));
 	}
 
 	@Test

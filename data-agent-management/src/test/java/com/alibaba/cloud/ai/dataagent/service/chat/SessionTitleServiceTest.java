@@ -125,7 +125,7 @@ class SessionTitleServiceTest {
 		executorService.shutdown();
 		executorService.awaitTermination(5, TimeUnit.SECONDS);
 
-		verify(chatSessionService, atMost(1)).renameSession(anyString(), anyString());
+		verify(chatSessionService, atMostOnce()).renameSession(anyString(), anyString());
 	}
 
 }
