@@ -336,16 +336,20 @@ export const useChatStore = defineStore('chat', () => {
 			});
 		}
 
-		let reportSyncRafId: number | null = null;
+		// Throttle report content pushes: batch SSE chunks and push at most
+		// once every ~80ms. This prevents excessive re-renders while keeping
+		// the typewriter animation looking smooth on the frontend.
+		let reportSyncTimer: ReturnType<typeof setTimeout> | null = null;
+		const REPORT_SYNC_INTERVAL = 80; // ms
 		function scheduleReportSync() {
-			if (reportSyncRafId) return;
-			reportSyncRafId = requestAnimationFrame(() => {
-				reportSyncRafId = null;
+			if (reportSyncTimer) return;
+			reportSyncTimer = setTimeout(() => {
+				reportSyncTimer = null;
 				if (currentSession.value?.id === sessionId) {
 					isReportStreaming.value = true;
 					streamingReportContent.value = sessionState.markdownReportContent;
 				}
-			});
+			}, REPORT_SYNC_INTERVAL);
 		}
 
 		function flushPendingSync() {
@@ -353,12 +357,16 @@ export const useChatStore = defineStore('chat', () => {
 				cancelAnimationFrame(viewSyncRafId);
 				viewSyncRafId = null;
 			}
-			if (reportSyncRafId) {
-				cancelAnimationFrame(reportSyncRafId);
-				reportSyncRafId = null;
+			if (reportSyncTimer) {
+				clearTimeout(reportSyncTimer);
+				reportSyncTimer = null;
 			}
 			if (currentSession.value?.id === sessionId) {
 				nodeBlocks.value = [...sessionState.nodeBlocks];
+				if (sessionState.markdownReportContent) {
+					isReportStreaming.value = true;
+					streamingReportContent.value = sessionState.markdownReportContent;
+				}
 			}
 		}
 
