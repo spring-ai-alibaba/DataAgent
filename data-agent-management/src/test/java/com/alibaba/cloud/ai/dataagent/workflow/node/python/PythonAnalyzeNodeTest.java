@@ -165,4 +165,30 @@ class PythonAnalyzeNodeTest {
 		assertNotNull(result.get(PYTHON_ANALYSIS_NODE_OUTPUT));
 	}
 
+	@Test
+	void apply_invalidOutput_throwsOrHandlesGracefully() throws Exception {
+		OverAllState state = createTestState();
+		state.updateState(Map.of(PYTHON_EXECUTE_NODE_OUTPUT, "{{{{invalid json garbage}}}}", PLAN_CURRENT_STEP, 1,
+				QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE, PLANNER_NODE_OUTPUT, TEST_PLAN_JSON));
+
+		when(llmService.callSystem(anyString()))
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("无法解析Python输出")));
+
+		Map<String, Object> result = pythonAnalyzeNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(PYTHON_ANALYSIS_NODE_OUTPUT));
+	}
+
+	@Test
+	void apply_timeoutInLlmAnalysis_returnsResultWithGenerator() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		when(llmService.callSystem(anyString())).thenReturn(Flux.error(new RuntimeException("LLM analysis timeout")));
+
+		Map<String, Object> result = pythonAnalyzeNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(PYTHON_ANALYSIS_NODE_OUTPUT));
+	}
+
 }

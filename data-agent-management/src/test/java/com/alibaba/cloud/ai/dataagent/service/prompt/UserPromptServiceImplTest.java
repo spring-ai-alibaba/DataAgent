@@ -46,8 +46,8 @@ class UserPromptServiceImplTest {
 
 	@Test
 	void saveOrUpdateConfig_newConfig_createsWithGeneratedId() {
-		PromptConfigDTO dto = new PromptConfigDTO(null, "test", "optimization", 1L, "prompt", true, "desc",
-				"creator", 1, 0);
+		PromptConfigDTO dto = new PromptConfigDTO(null, "test", "optimization", 1L, "prompt", true, "desc", "creator",
+				1, 0);
 
 		UserPromptConfig result = userPromptService.saveOrUpdateConfig(dto);
 
@@ -64,8 +64,8 @@ class UserPromptServiceImplTest {
 		existing.setName("old");
 		when(userPromptConfigMapper.selectById("existing-id")).thenReturn(existing);
 
-		PromptConfigDTO dto = new PromptConfigDTO("existing-id", "updated", "optimization", 1L, "prompt", false,
-				"desc", "creator", 1, 0);
+		PromptConfigDTO dto = new PromptConfigDTO("existing-id", "updated", "optimization", 1L, "prompt", false, "desc",
+				"creator", 1, 0);
 
 		UserPromptConfig result = userPromptService.saveOrUpdateConfig(dto);
 

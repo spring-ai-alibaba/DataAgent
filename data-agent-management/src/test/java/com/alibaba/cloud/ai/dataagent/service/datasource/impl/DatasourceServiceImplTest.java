@@ -127,8 +127,13 @@ class DatasourceServiceImplTest {
 
 	@Test
 	void createDatasource_preservesExistingValues() {
-		Datasource ds = Datasource.builder().type("mysql").status("inactive").testStatus("failed")
-			.username("user").password("pass").build();
+		Datasource ds = Datasource.builder()
+			.type("mysql")
+			.status("inactive")
+			.testStatus("failed")
+			.username("user")
+			.password("pass")
+			.build();
 		when(handlerRegistry.getRequired("mysql")).thenReturn(typeHandler);
 		when(typeHandler.resolveConnectionUrl(ds)).thenReturn(null);
 
@@ -175,8 +180,7 @@ class DatasourceServiceImplTest {
 
 	@Test
 	void testConnection_success_returnsTrue() {
-		Datasource ds = Datasource.builder().id(1).name("test").type("mysql")
-			.username("user").password("pass").build();
+		Datasource ds = Datasource.builder().id(1).name("test").type("mysql").username("user").password("pass").build();
 		when(datasourceMapper.selectById(1)).thenReturn(ds);
 		when(handlerRegistry.getRequired("mysql")).thenReturn(typeHandler);
 		when(typeHandler.resolveConnectionUrl(ds)).thenReturn("jdbc:mysql://localhost/test");
@@ -190,8 +194,7 @@ class DatasourceServiceImplTest {
 
 	@Test
 	void testConnection_poolNull_returnsFalse() {
-		Datasource ds = Datasource.builder().id(1).name("test").type("mysql")
-			.username("user").password("pass").build();
+		Datasource ds = Datasource.builder().id(1).name("test").type("mysql").username("user").password("pass").build();
 		when(datasourceMapper.selectById(1)).thenReturn(ds);
 		when(handlerRegistry.getRequired("mysql")).thenReturn(typeHandler);
 		when(typeHandler.resolveConnectionUrl(ds)).thenReturn("jdbc:mysql://localhost/test");
@@ -303,6 +306,135 @@ class DatasourceServiceImplTest {
 
 		verify(logicalRelationMapper).deleteById(1);
 		verify(logicalRelationMapper).insert(newRelation);
+	}
+
+	@Test
+	void saveLogicalRelations_updatesExistingRelation() {
+		LogicalRelation existing = new LogicalRelation();
+		existing.setId(10);
+		existing.setSourceTableName("a");
+		existing.setSourceColumnName("b");
+		existing.setTargetTableName("c");
+		existing.setTargetColumnName("d");
+
+		when(logicalRelationMapper.selectByDatasourceId(1)).thenReturn(List.of(existing), List.of(existing));
+
+		LogicalRelation updated = new LogicalRelation();
+		updated.setId(10);
+		updated.setSourceTableName("a");
+		updated.setSourceColumnName("b");
+		updated.setTargetTableName("c");
+		updated.setTargetColumnName("d");
+		updated.setDescription("updated desc");
+
+		datasourceService.saveLogicalRelations(1, List.of(updated));
+
+		verify(logicalRelationMapper).updateById(updated);
+		verify(logicalRelationMapper, never()).deleteById(10);
+	}
+
+	@Test
+	void saveLogicalRelations_deduplicates() {
+		when(logicalRelationMapper.selectByDatasourceId(1)).thenReturn(Collections.emptyList(),
+				Collections.emptyList());
+
+		LogicalRelation lr1 = new LogicalRelation();
+		lr1.setSourceTableName("a");
+		lr1.setSourceColumnName("b");
+		lr1.setTargetTableName("c");
+		lr1.setTargetColumnName("d");
+
+		LogicalRelation lr2 = new LogicalRelation();
+		lr2.setSourceTableName("a");
+		lr2.setSourceColumnName("b");
+		lr2.setTargetTableName("c");
+		lr2.setTargetColumnName("d");
+
+		datasourceService.saveLogicalRelations(1, List.of(lr1, lr2));
+
+		verify(logicalRelationMapper, times(1)).insert(any());
+	}
+
+	@Test
+	void updateLogicalRelation_success_returnsUpdated() {
+		LogicalRelation existing = new LogicalRelation();
+		existing.setId(5);
+		existing.setDatasourceId(1);
+		when(logicalRelationMapper.selectById(5)).thenReturn(existing);
+		when(logicalRelationMapper.updateById(any())).thenReturn(1);
+
+		LogicalRelation updated = new LogicalRelation();
+		updated.setSourceTableName("new_table");
+
+		LogicalRelation returned = new LogicalRelation();
+		returned.setId(5);
+		returned.setSourceTableName("new_table");
+		when(logicalRelationMapper.selectById(5)).thenReturn(existing, returned);
+
+		LogicalRelation result = datasourceService.updateLogicalRelation(1, 5, updated);
+		assertNotNull(result);
+	}
+
+	@Test
+	void updateLogicalRelation_updateFails_throwsException() {
+		LogicalRelation existing = new LogicalRelation();
+		existing.setId(5);
+		existing.setDatasourceId(1);
+		when(logicalRelationMapper.selectById(5)).thenReturn(existing);
+		when(logicalRelationMapper.updateById(any())).thenReturn(0);
+
+		assertThrows(RuntimeException.class,
+				() -> datasourceService.updateLogicalRelation(1, 5, new LogicalRelation()));
+	}
+
+	@Test
+	void deleteLogicalRelation_success_deletes() {
+		LogicalRelation existing = new LogicalRelation();
+		existing.setId(5);
+		existing.setDatasourceId(1);
+		when(logicalRelationMapper.selectById(5)).thenReturn(existing);
+		when(logicalRelationMapper.deleteById(5)).thenReturn(1);
+
+		datasourceService.deleteLogicalRelation(1, 5);
+
+		verify(logicalRelationMapper).deleteById(5);
+	}
+
+	@Test
+	void deleteLogicalRelation_deleteFails_throwsException() {
+		LogicalRelation existing = new LogicalRelation();
+		existing.setId(5);
+		existing.setDatasourceId(1);
+		when(logicalRelationMapper.selectById(5)).thenReturn(existing);
+		when(logicalRelationMapper.deleteById(5)).thenReturn(0);
+
+		assertThrows(RuntimeException.class, () -> datasourceService.deleteLogicalRelation(1, 5));
+	}
+
+	@Test
+	void updateDatasource_nullUsernameAndPassword_setsEmpty() {
+		Datasource ds = Datasource.builder().type("mysql").username(null).password(null).build();
+		when(handlerRegistry.getRequired("mysql")).thenReturn(typeHandler);
+		when(typeHandler.resolveConnectionUrl(ds)).thenReturn(null);
+
+		Datasource result = datasourceService.updateDatasource(5, ds);
+
+		assertEquals("", result.getUsername());
+		assertEquals("", result.getPassword());
+	}
+
+	@Test
+	void testConnection_pingFails_returnsFalse() {
+		Datasource ds = Datasource.builder().id(1).name("test").type("mysql").username("user").password("pass").build();
+		when(datasourceMapper.selectById(1)).thenReturn(ds);
+		when(handlerRegistry.getRequired("mysql")).thenReturn(typeHandler);
+		when(typeHandler.resolveConnectionUrl(ds)).thenReturn("jdbc:mysql://localhost/test");
+		when(typeHandler.normalizeTestUrl(any(), anyString())).thenReturn("jdbc:mysql://localhost/test");
+		when(poolFactory.getPoolByType("mysql")).thenReturn(dbConnectionPool);
+		when(dbConnectionPool.ping(any())).thenReturn(ErrorCodeEnum.OTHERS);
+
+		assertFalse(datasourceService.testConnection(1));
+		verify(datasourceMapper).updateTestStatusById(1, "failed");
 	}
 
 }

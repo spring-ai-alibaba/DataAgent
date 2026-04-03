@@ -174,4 +174,90 @@ class Nl2SqlServiceImplTest {
 		verify(llmService).callUser(anyString());
 	}
 
+	@Test
+	void generateSql_withWhitespaceSql_generatesNewSql() {
+		SqlGenerationDTO dto = SqlGenerationDTO.builder()
+			.executionDescription("Get all users")
+			.dialect("mysql")
+			.schemaDTO(createTestSchema())
+			.sql("   ")
+			.build();
+
+		Flux<String> result = nl2SqlService.generateSql(dto);
+
+		StepVerifier.create(result).expectNext("SELECT * FROM users").verifyComplete();
+	}
+
+	@Test
+	void sqlTrim_null_throwsNPE() {
+		assertThrows(NullPointerException.class, () -> nl2SqlService.sqlTrim(null));
+	}
+
+	@Test
+	void sqlTrim_markdownCodeBlockWithLineBreaks_returnsCleanSql() {
+		String markdownSql = "```sql\n  SELECT *\n  FROM users\n  WHERE id = 1\n```";
+		String result = nl2SqlService.sqlTrim(markdownSql);
+		assertNotNull(result);
+		assertTrue(result.contains("SELECT"));
+	}
+
+	@Test
+	void sqlTrim_multipleBacktickBlocks_extractsFirst() {
+		String sql = "```sql\nSELECT 1\n```\nSome text\n```sql\nSELECT 2\n```";
+		String result = nl2SqlService.sqlTrim(sql);
+		assertNotNull(result);
+	}
+
+	@Test
+	void performSemanticConsistency_nullEvidence_buildsPrompt() {
+		SemanticConsistencyDTO dto = SemanticConsistencyDTO.builder()
+			.dialect("mysql")
+			.sql("SELECT 1")
+			.executionDescription("test")
+			.schemaInfo("t(c)")
+			.userQuery("test")
+			.evidence(null)
+			.build();
+
+		Flux<ChatResponse> result = nl2SqlService.performSemanticConsistency(dto);
+		StepVerifier.create(result).expectNextCount(1).verifyComplete();
+	}
+
+	@Test
+	void generateSql_withNonNullNonEmptySql_usesErrorFixerPath() {
+		SqlGenerationDTO dto = SqlGenerationDTO.builder()
+			.executionDescription("Get users")
+			.dialect("postgresql")
+			.schemaDTO(createTestSchema())
+			.sql("SELCT * FROM users")
+			.exceptionMessage("syntax error at position 5")
+			.query("get all users")
+			.evidence("no evidence")
+			.build();
+
+		Flux<String> result = nl2SqlService.generateSql(dto);
+
+		StepVerifier.create(result).expectNext("SELECT * FROM users").verifyComplete();
+		verify(llmService).callUser(anyString());
+		verify(llmService, never()).callSystem(anyString());
+	}
+
+	@Test
+	void generateSql_withNullSql_usesNewGenerationPath() {
+		SqlGenerationDTO dto = SqlGenerationDTO.builder()
+			.executionDescription("Get users")
+			.dialect("mysql")
+			.schemaDTO(createTestSchema())
+			.sql(null)
+			.query("get all users")
+			.evidence("no evidence")
+			.build();
+
+		Flux<String> result = nl2SqlService.generateSql(dto);
+
+		StepVerifier.create(result).expectNext("SELECT * FROM users").verifyComplete();
+		verify(llmService).callSystem(anyString());
+		verify(llmService, never()).callUser(anyString());
+	}
+
 }

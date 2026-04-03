@@ -63,8 +63,7 @@ class H2JdbcDdlTest {
 		String[][] resultArr = { { "CATALOG_NAME" }, { "TESTDB" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<DatabaseInfoBO> databases = h2JdbcDdl.showDatabases(connection);
 			assertEquals(1, databases.size());
@@ -77,8 +76,7 @@ class H2JdbcDdlTest {
 		String[][] resultArr = { { "CATALOG_NAME" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			assertTrue(h2JdbcDdl.showDatabases(connection).isEmpty());
 		}
@@ -89,8 +87,7 @@ class H2JdbcDdlTest {
 		String[][] resultArr = { { "schema_name" }, { "PUBLIC" }, { "INFORMATION_SCHEMA" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<SchemaInfoBO> schemas = h2JdbcDdl.showSchemas(connection);
 			assertEquals(2, schemas.size());
@@ -103,8 +100,7 @@ class H2JdbcDdlTest {
 		String[][] resultArr = { { "schema_name" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			assertTrue(h2JdbcDdl.showSchemas(connection).isEmpty());
 		}
@@ -115,8 +111,7 @@ class H2JdbcDdlTest {
 		String[][] resultArr = { { "TABLE_NAME", "REMARKS" }, { "USERS", "User table" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<TableInfoBO> tables = h2JdbcDdl.showTables(connection, "PUBLIC", "USER");
 			assertEquals(1, tables.size());
@@ -130,8 +125,7 @@ class H2JdbcDdlTest {
 		String[][] resultArr = { { "TABLE_NAME", "REMARKS" }, { "ORDERS", "" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<TableInfoBO> tables = h2JdbcDdl.showTables(connection, "PUBLIC", null);
 			assertEquals(1, tables.size());
@@ -143,8 +137,7 @@ class H2JdbcDdlTest {
 		String[][] resultArr = { { "TABLE_NAME", "REMARKS" }, { "USERS", "User table" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<TableInfoBO> tables = h2JdbcDdl.fetchTables(connection, "PUBLIC", Arrays.asList("USERS"));
 			assertEquals(1, tables.size());
@@ -230,6 +223,248 @@ class H2JdbcDdlTest {
 				.thenThrow(new SQLException("error"));
 
 			assertThrows(RuntimeException.class, () -> h2JdbcDdl.scanTable(connection, "PUBLIC", "USERS"));
+		}
+	}
+
+	@Test
+	void showDatabases_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class, () -> h2JdbcDdl.showDatabases(connection));
+		}
+	}
+
+	@Test
+	void showDatabases_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "CATALOG_NAME" }, {}, { "TESTDB" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<DatabaseInfoBO> databases = h2JdbcDdl.showDatabases(connection);
+			assertEquals(1, databases.size());
+		}
+	}
+
+	@Test
+	void showSchemas_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class, () -> h2JdbcDdl.showSchemas(connection));
+		}
+	}
+
+	@Test
+	void showSchemas_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "schema_name" }, {}, { "PUBLIC" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<SchemaInfoBO> schemas = h2JdbcDdl.showSchemas(connection);
+			assertEquals(1, schemas.size());
+		}
+	}
+
+	@Test
+	void showTables_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "TABLE_NAME", "REMARKS" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<TableInfoBO> tables = h2JdbcDdl.showTables(connection, "PUBLIC", null);
+			assertTrue(tables.isEmpty());
+		}
+	}
+
+	@Test
+	void showTables_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "TABLE_NAME", "REMARKS" }, {}, { "USERS", "User table" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<TableInfoBO> tables = h2JdbcDdl.showTables(connection, "PUBLIC", null);
+			assertEquals(1, tables.size());
+		}
+	}
+
+	@Test
+	void showTables_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class, () -> h2JdbcDdl.showTables(connection, "PUBLIC", null));
+		}
+	}
+
+	@Test
+	void fetchTables_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "TABLE_NAME", "REMARKS" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<TableInfoBO> tables = h2JdbcDdl.fetchTables(connection, "PUBLIC", Arrays.asList("USERS"));
+			assertTrue(tables.isEmpty());
+		}
+	}
+
+	@Test
+	void fetchTables_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "TABLE_NAME", "REMARKS" }, {}, { "USERS", "User table" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<TableInfoBO> tables = h2JdbcDdl.fetchTables(connection, "PUBLIC", Arrays.asList("USERS"));
+			assertEquals(1, tables.size());
+		}
+	}
+
+	@Test
+	void fetchTables_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class,
+					() -> h2JdbcDdl.fetchTables(connection, "PUBLIC", Arrays.asList("USERS")));
+		}
+	}
+
+	@Test
+	void showColumns_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "column_name", "remarks", "data_type", "primary", "notnull" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString(), anyString()))
+				.thenReturn(resultArr);
+
+			List<ColumnInfoBO> columns = h2JdbcDdl.showColumns(connection, "PUBLIC", "USERS");
+			assertTrue(columns.isEmpty());
+		}
+	}
+
+	@Test
+	void showColumns_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "column_name", "remarks", "data_type", "primary", "notnull" }, {},
+				{ "ID", "Primary key", "BIGINT", "true", "true" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString(), anyString()))
+				.thenReturn(resultArr);
+
+			List<ColumnInfoBO> columns = h2JdbcDdl.showColumns(connection, "PUBLIC", "USERS");
+			assertEquals(1, columns.size());
+		}
+	}
+
+	@Test
+	void showColumns_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString(), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class, () -> h2JdbcDdl.showColumns(connection, "PUBLIC", "USERS"));
+		}
+	}
+
+	@Test
+	void showForeignKeys_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "table", "column", "ref_table", "ref_column" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString(), anyString()))
+				.thenReturn(resultArr);
+
+			List<ForeignKeyInfoBO> fks = h2JdbcDdl.showForeignKeys(connection, "PUBLIC",
+					Arrays.asList("ORDERS", "USERS"));
+			assertTrue(fks.isEmpty());
+		}
+	}
+
+	@Test
+	void showForeignKeys_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "table", "column", "ref_table", "ref_column" }, {},
+				{ "ORDERS", "USER_ID", "USERS", "ID" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString(), anyString()))
+				.thenReturn(resultArr);
+
+			List<ForeignKeyInfoBO> fks = h2JdbcDdl.showForeignKeys(connection, "PUBLIC",
+					Arrays.asList("ORDERS", "USERS"));
+			assertEquals(1, fks.size());
+		}
+	}
+
+	@Test
+	void showForeignKeys_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString(), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class,
+					() -> h2JdbcDdl.showForeignKeys(connection, "PUBLIC", Arrays.asList("ORDERS")));
+		}
+	}
+
+	@Test
+	void sampleColumn_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "NAME" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			List<String> samples = h2JdbcDdl.sampleColumn(connection, "PUBLIC", "USERS", "NAME");
+			assertTrue(samples.isEmpty());
+		}
+	}
+
+	@Test
+	void sampleColumn_valueMatchesColumnName_skipsRow() throws SQLException {
+		String[][] resultArr = { { "NAME" }, { "NAME" }, { "Alice" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			List<String> samples = h2JdbcDdl.sampleColumn(connection, "PUBLIC", "USERS", "NAME");
+			assertEquals(1, samples.size());
+			assertTrue(samples.contains("Alice"));
+		}
+	}
+
+	@Test
+	void sampleColumn_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "NAME" }, {}, { "Alice" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			List<String> samples = h2JdbcDdl.sampleColumn(connection, "PUBLIC", "USERS", "NAME");
+			assertEquals(1, samples.size());
+		}
+	}
+
+	@Test
+	void showTables_withBlankPattern_usesBaseSqlOnly() throws SQLException {
+		String[][] resultArr = { { "TABLE_NAME", "REMARKS" }, { "USERS", "User table" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<TableInfoBO> tables = h2JdbcDdl.showTables(connection, "PUBLIC", "");
+			assertEquals(1, tables.size());
 		}
 	}
 

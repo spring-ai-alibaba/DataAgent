@@ -264,4 +264,124 @@ class SchemaServiceImplTest {
 		assertNull(schemaDTO.getName());
 	}
 
+	@Test
+	void buildTableListFromDocuments_emptyList() {
+		List<TableDTO> tables = schemaService.buildTableListFromDocuments(Collections.emptyList());
+		assertTrue(tables.isEmpty());
+	}
+
+	@Test
+	void buildTableListFromDocuments_noPrimaryKey() {
+		Map<String, Object> meta = new HashMap<>();
+		meta.put("name", "simple_table");
+		meta.put("description", "A table");
+		Document doc = new Document("table: simple_table", meta);
+
+		List<TableDTO> tables = schemaService.buildTableListFromDocuments(List.of(doc));
+		assertEquals(1, tables.size());
+		assertNull(tables.get(0).getPrimaryKeys());
+	}
+
+	@Test
+	void extractRelatedNamesFromForeignKeys_emptyList() {
+		Set<String> names = schemaService.extractRelatedNamesFromForeignKeys(Collections.emptyList());
+		assertTrue(names.isEmpty());
+	}
+
+	@Test
+	void extractRelatedNamesFromForeignKeys_invalidFKFormat_ignored() {
+		Map<String, Object> meta = new HashMap<>();
+		meta.put("name", "bad");
+		meta.put("description", "");
+		meta.put("foreignKey", "invalid_no_equals_sign");
+		Document doc = new Document("table: bad", meta);
+
+		Set<String> names = schemaService.extractRelatedNamesFromForeignKeys(List.of(doc));
+		assertTrue(names.isEmpty());
+	}
+
+	@Test
+	void buildForeignKeyMap_sameTableBothSides_mergesEntries() {
+		ForeignKeyInfoBO fk = new ForeignKeyInfoBO();
+		fk.setTable("self_ref");
+		fk.setColumn("parent_id");
+		fk.setReferencedTable("self_ref");
+		fk.setReferencedColumn("id");
+
+		Map<String, List<String>> map = schemaService.buildForeignKeyMap(List.of(fk));
+		assertEquals(1, map.size());
+		assertTrue(map.containsKey("self_ref"));
+		assertEquals(2, map.get("self_ref").size());
+	}
+
+	@Test
+	void buildSchemaFromDocuments_withForeignKeys_collectsForeignKeys() {
+		Map<String, Object> meta = new HashMap<>();
+		meta.put("name", "orders");
+		meta.put("description", "Orders table");
+		meta.put("foreignKey", "orders.user_id=users.id");
+		meta.put("datasourceId", "1");
+		meta.put("vectorType", "TABLE");
+		Document tableDoc = new Document("table: orders", meta);
+
+		List<Document> tableDocs = new ArrayList<>(List.of(tableDoc));
+		List<Document> columnDocs = new ArrayList<>();
+		SchemaDTO schemaDTO = new SchemaDTO();
+
+		schemaService.buildSchemaFromDocuments("1", columnDocs, tableDocs, schemaDTO);
+
+		assertNotNull(schemaDTO.getForeignKeys());
+		assertFalse(schemaDTO.getForeignKeys().isEmpty());
+	}
+
+	@Test
+	void buildSchemaFromDocuments_emptyColumnDocs_tablesHaveNoColumns() {
+		List<Document> tableDocs = new ArrayList<>(List.of(createTableDoc("t1")));
+		List<Document> columnDocs = new ArrayList<>();
+		SchemaDTO schemaDTO = new SchemaDTO();
+
+		schemaService.buildSchemaFromDocuments("1", columnDocs, tableDocs, schemaDTO);
+
+		assertEquals(1, schemaDTO.getTable().size());
+		assertTrue(schemaDTO.getTable().get(0).getColumn().isEmpty());
+	}
+
+	@Test
+	void getTableDocuments_nullDatasourceId_throwsException() {
+		assertThrows(IllegalArgumentException.class, () -> schemaService.getTableDocuments(null, List.of("t1")));
+	}
+
+	@Test
+	void getColumnDocumentsByTableName_nullDatasourceId_throwsException() {
+		assertThrows(IllegalArgumentException.class,
+				() -> schemaService.getColumnDocumentsByTableName(null, List.of("t1")));
+	}
+
+	@Test
+	void getTableDocumentsByDatasource_nullDatasourceId_throwsException() {
+		assertThrows(IllegalArgumentException.class, () -> schemaService.getTableDocumentsByDatasource(null, "query"));
+	}
+
+	@Test
+	void storeSchemaDocuments_batchesAndStores() {
+		Document colDoc = createColumnDoc("users", "name");
+		Document tableDoc = createTableDoc("users");
+		when(batchingStrategy.batch(anyList())).thenReturn(List.of(List.of(colDoc)), List.of(List.of(tableDoc)));
+
+		schemaService.storeSchemaDocuments(1, List.of(colDoc), List.of(tableDoc));
+
+		verify(agentVectorStoreService, times(2)).addDocuments(eq("1"), anyList());
+	}
+
+	@Test
+	void extractDatabaseName_mysql_noMatch_doesNotSet() {
+		SchemaDTO schemaDTO = new SchemaDTO();
+		DbConfigBO dbConfig = new DbConfigBO();
+		dbConfig.setUrl("jdbc:mysql://localhost/noport");
+		dbConfig.setDialectType("mysql");
+
+		schemaService.extractDatabaseName(schemaDTO, dbConfig);
+		assertNull(schemaDTO.getName());
+	}
+
 }

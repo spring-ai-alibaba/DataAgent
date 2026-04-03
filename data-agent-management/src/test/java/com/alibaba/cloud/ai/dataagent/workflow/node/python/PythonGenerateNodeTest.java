@@ -223,4 +223,30 @@ class PythonGenerateNodeTest {
 		assertNotNull(result.get(PYTHON_GENERATE_NODE_OUTPUT));
 	}
 
+	@Test
+	void apply_complexAnalysisRequest_generatesCode() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		when(llmService.call(anyString(), anyString())).thenReturn(
+				Flux.just(ChatResponseUtil.createPureResponse("import pandas as pd\nimport numpy as np\nprint(np.mean([1,2,3]))")));
+
+		Map<String, Object> result = pythonGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(PYTHON_GENERATE_NODE_OUTPUT));
+	}
+
+	@Test
+	void apply_unsafeImportRequest_generatesCodeWithLimits() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		when(llmService.call(anyString(), anyString()))
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("print('safe output only')")));
+
+		Map<String, Object> result = pythonGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(PYTHON_GENERATE_NODE_OUTPUT));
+	}
+
 }

@@ -295,4 +295,26 @@ class EvidenceRecallNodeTest {
 		assertNotNull(result.get(EVIDENCE));
 	}
 
+	@Test
+	void apply_vectorStorePartialFailure_fallbackReturnsPartialEvidence() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		when(llmService.callUser(anyString()))
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(LLM_REWRITE_RESPONSE)));
+
+		List<Document> businessDocs = List.of(createBusinessTermDocument("GMV=总成交额"));
+		when(vectorStoreService.getDocumentsForAgent(anyString(), anyString(),
+				org.mockito.ArgumentMatchers.eq(DocumentMetadataConstant.BUSINESS_TERM)))
+			.thenReturn(businessDocs);
+		when(vectorStoreService.getDocumentsForAgent(anyString(), anyString(),
+				org.mockito.ArgumentMatchers.eq(DocumentMetadataConstant.AGENT_KNOWLEDGE)))
+			.thenThrow(new RuntimeException("Partial vector store failure"));
+
+		Map<String, Object> result = evidenceRecallNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(EVIDENCE));
+		assertNotNull(result.get(EVIDENCE));
+	}
+
 }

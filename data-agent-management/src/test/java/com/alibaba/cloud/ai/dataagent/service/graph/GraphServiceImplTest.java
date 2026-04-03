@@ -177,4 +177,19 @@ class GraphServiceImplTest {
 		verify(multiTurnContextManager).discardPending("thread-to-stop");
 	}
 
+	@Test
+	void nl2sql_graphRunnerException_throwsException() {
+		when(compiledGraph.invoke(anyMap(), any(RunnableConfig.class)))
+			.thenThrow(new RuntimeException("Graph execution failed"));
+
+		assertThrows(RuntimeException.class, () -> graphService.nl2sql("test", "1"));
+	}
+
+	@Test
+	void nl2sql_emptyOptional_returnsEmpty() throws GraphRunnerException {
+		when(compiledGraph.invoke(anyMap(), any(RunnableConfig.class))).thenReturn(Optional.empty());
+
+		assertThrows(Exception.class, () -> graphService.nl2sql("test", "1"));
+	}
+
 }

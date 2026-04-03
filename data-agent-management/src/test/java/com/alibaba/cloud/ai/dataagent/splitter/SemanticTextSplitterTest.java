@@ -25,7 +25,6 @@ import org.springframework.ai.embedding.EmbeddingResponse;
 
 import java.util.List;
 
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
@@ -135,8 +134,7 @@ class SemanticTextSplitterTest {
 		when(embeddingModel.dimensions()).thenReturn(3);
 
 		List<Embedding> embeddings = List.of(new Embedding(new float[] { 1.0f, 0.0f, 0.0f }, 0),
-				new Embedding(new float[] { 0.0f, 1.0f, 0.0f }, 1),
-				new Embedding(new float[] { 0.0f, 0.0f, 1.0f }, 2));
+				new Embedding(new float[] { 0.0f, 1.0f, 0.0f }, 1), new Embedding(new float[] { 0.0f, 0.0f, 1.0f }, 2));
 		when(embeddingModel.embedForResponse(anyList())).thenReturn(new EmbeddingResponse(embeddings));
 
 		String text = "First topic sentence. Completely different topic. Another unrelated topic.";
@@ -173,8 +171,7 @@ class SemanticTextSplitterTest {
 		when(embeddingModel.dimensions()).thenReturn(3);
 
 		List<Embedding> embeddings = List.of(new Embedding(new float[] { 1.0f, 0.0f, 0.0f }, 0),
-				new Embedding(new float[] { 0.0f, 1.0f, 0.0f }, 1),
-				new Embedding(new float[] { 0.0f, 0.0f, 1.0f }, 2));
+				new Embedding(new float[] { 0.0f, 1.0f, 0.0f }, 1), new Embedding(new float[] { 0.0f, 0.0f, 1.0f }, 2));
 		when(embeddingModel.embedForResponse(anyList())).thenReturn(new EmbeddingResponse(embeddings));
 
 		String text = "这是第一个话题的句子。这是完全不同的话题。这是第三个不相关的话题。";

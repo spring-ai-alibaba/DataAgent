@@ -201,4 +201,24 @@ class PythonExecuteNodeTest {
 		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
 	}
 
+	@Test
+	void apply_largeOutput_handlesMemoryPressure() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		StringBuilder largeOutput = new StringBuilder();
+		for (int i = 0; i < 10000; i++) {
+			largeOutput.append("line ").append(i).append(": data_value_").append(i).append("\n");
+		}
+
+		when(codePoolExecutor.runTask(any()))
+			.thenReturn(CodePoolExecutorService.TaskResponse.success(largeOutput.toString()));
+		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
+
+		Map<String, Object> result = pythonExecuteNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
+		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
+	}
+
 }

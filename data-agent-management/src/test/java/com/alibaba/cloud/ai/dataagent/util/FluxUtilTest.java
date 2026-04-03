@@ -30,8 +30,8 @@ class FluxUtilTest {
 	void cascadeFlux_simple_concatenatesFluxes() {
 		Flux<String> origin = Flux.just("a", "b");
 		Function<String, Flux<String>> nextFunc = combined -> Flux.just(combined.toUpperCase());
-		Function<Flux<String>, Mono<String>> aggregator = flux -> flux.collect(StringBuilder::new,
-				StringBuilder::append)
+		Function<Flux<String>, Mono<String>> aggregator = flux -> flux
+			.collect(StringBuilder::new, StringBuilder::append)
 			.map(StringBuilder::toString);
 
 		Flux<String> result = FluxUtil.cascadeFlux(origin, nextFunc, aggregator);
@@ -47,8 +47,8 @@ class FluxUtilTest {
 		Flux<String> end = Flux.just("end");
 
 		Function<String, Flux<String>> nextFunc = combined -> Flux.just("next:" + combined);
-		Function<Flux<String>, Mono<String>> aggregator = flux -> flux.collect(StringBuilder::new,
-				StringBuilder::append)
+		Function<Flux<String>, Mono<String>> aggregator = flux -> flux
+			.collect(StringBuilder::new, StringBuilder::append)
 			.map(StringBuilder::toString);
 
 		Flux<String> result = FluxUtil.cascadeFlux(origin, nextFunc, aggregator, pre, middle, end);
@@ -70,13 +70,17 @@ class FluxUtilTest {
 		Flux<String> end = Flux.just("end");
 
 		Function<String, Flux<String>> nextFunc = combined -> Flux.just("next:" + combined);
-		Function<Flux<String>, Mono<String>> aggregator = flux -> flux.collect(StringBuilder::new,
-				StringBuilder::append)
+		Function<Flux<String>, Mono<String>> aggregator = flux -> flux
+			.collect(StringBuilder::new, StringBuilder::append)
 			.map(StringBuilder::toString);
 
 		Flux<String> result = FluxUtil.cascadeFlux(origin, nextFunc, aggregator, pre, middle, end);
 
-		StepVerifier.create(result).expectNext("pre").expectNext("mid").expectNext("next:").expectNext("end")
+		StepVerifier.create(result)
+			.expectNext("pre")
+			.expectNext("mid")
+			.expectNext("next:")
+			.expectNext("end")
 			.verifyComplete();
 	}
 
@@ -95,8 +99,8 @@ class FluxUtilTest {
 	void cascadeFlux_originError_propagatesError() {
 		Flux<String> origin = Flux.error(new RuntimeException("origin error"));
 		Function<String, Flux<String>> nextFunc = s -> Flux.just("next");
-		Function<Flux<String>, Mono<String>> aggregator = flux -> flux.collect(StringBuilder::new,
-				StringBuilder::append)
+		Function<Flux<String>, Mono<String>> aggregator = flux -> flux
+			.collect(StringBuilder::new, StringBuilder::append)
 			.map(StringBuilder::toString);
 
 		Flux<String> result = FluxUtil.cascadeFlux(origin, nextFunc, aggregator);
@@ -108,8 +112,8 @@ class FluxUtilTest {
 	void cascadeFlux_nextFluxFuncError_propagatesError() {
 		Flux<String> origin = Flux.just("a");
 		Function<String, Flux<String>> nextFunc = s -> Flux.error(new RuntimeException("next error"));
-		Function<Flux<String>, Mono<String>> aggregator = flux -> flux.collect(StringBuilder::new,
-				StringBuilder::append)
+		Function<Flux<String>, Mono<String>> aggregator = flux -> flux
+			.collect(StringBuilder::new, StringBuilder::append)
 			.map(StringBuilder::toString);
 
 		Flux<String> result = FluxUtil.cascadeFlux(origin, nextFunc, aggregator);

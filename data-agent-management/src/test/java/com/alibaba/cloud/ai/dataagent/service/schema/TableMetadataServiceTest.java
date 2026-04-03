@@ -75,10 +75,7 @@ class TableMetadataServiceTest {
 		Map<String, String> row2 = new HashMap<>();
 		row2.put("id", "2");
 		row2.put("name", "Bob");
-		ResultSetBO resultSet = ResultSetBO.builder()
-			.column(List.of("id", "name"))
-			.data(List.of(row1, row2))
-			.build();
+		ResultSetBO resultSet = ResultSetBO.builder().column(List.of("id", "name")).data(List.of(row1, row2)).build();
 		when(accessor.executeSqlAndReturnObject(eq(dbConfig), any())).thenReturn(resultSet);
 
 		Map<String, List<String>> foreignKeyMap = new HashMap<>();

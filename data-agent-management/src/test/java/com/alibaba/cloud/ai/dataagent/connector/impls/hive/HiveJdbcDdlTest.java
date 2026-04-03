@@ -63,8 +63,7 @@ class HiveJdbcDdlTest {
 		String[][] resultArr = { { "database_name" }, { "default" }, { "analytics" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<DatabaseInfoBO> databases = hiveJdbcDdl.showDatabases(connection);
 			assertEquals(2, databases.size());
@@ -77,8 +76,7 @@ class HiveJdbcDdlTest {
 		String[][] resultArr = { { "database_name" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			assertTrue(hiveJdbcDdl.showDatabases(connection).isEmpty());
 		}
@@ -105,8 +103,7 @@ class HiveJdbcDdlTest {
 		String[][] resultArr = { { "tab_name" }, { "user_events" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<TableInfoBO> tables = hiveJdbcDdl.showTables(connection, "analytics", "user*");
 			assertEquals(1, tables.size());
@@ -119,8 +116,7 @@ class HiveJdbcDdlTest {
 		String[][] resultArr = { { "tab_name" }, { "events" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<TableInfoBO> tables = hiveJdbcDdl.showTables(connection, null, null);
 			assertEquals(1, tables.size());
@@ -132,8 +128,7 @@ class HiveJdbcDdlTest {
 		String[][] resultArr = { { "tab_name" }, { "events" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<TableInfoBO> tables = hiveJdbcDdl.showTables(connection, "analytics", null);
 			assertEquals(1, tables.size());
@@ -145,8 +140,7 @@ class HiveJdbcDdlTest {
 		String[][] resultArr = { { "col_name", "data_type" }, { "comment", "Test table comment" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<TableInfoBO> tables = hiveJdbcDdl.fetchTables(connection, "db", Arrays.asList("events"));
 			assertEquals(1, tables.size());
@@ -172,8 +166,7 @@ class HiveJdbcDdlTest {
 		String[][] resultArr = { { "col_name", "data_type" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<TableInfoBO> tables = hiveJdbcDdl.fetchTables(connection, "mydb", Arrays.asList("t1"));
 			assertEquals(1, tables.size());
@@ -186,8 +179,7 @@ class HiveJdbcDdlTest {
 				{ "name", "string", "User name" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<ColumnInfoBO> columns = hiveJdbcDdl.showColumns(connection, "db", "users");
 			assertEquals(2, columns.size());
@@ -200,12 +192,11 @@ class HiveJdbcDdlTest {
 
 	@Test
 	void showColumns_skipsBlankColumnNames() throws SQLException {
-		String[][] resultArr = { { "col_name", "data_type", "comment" }, { "id", "bigint", "" },
-				{ "", "string", "" }, { "# Partition Information", "", "" } };
+		String[][] resultArr = { { "col_name", "data_type", "comment" }, { "id", "bigint", "" }, { "", "string", "" },
+				{ "# Partition Information", "", "" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<ColumnInfoBO> columns = hiveJdbcDdl.showColumns(connection, null, "users");
 			assertEquals(1, columns.size());
@@ -218,8 +209,7 @@ class HiveJdbcDdlTest {
 		String[][] resultArr = { { "col_name", "data_type" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<ColumnInfoBO> columns = hiveJdbcDdl.showColumns(connection, "mydb", "users");
 			assertTrue(columns.isEmpty());
@@ -304,6 +294,198 @@ class HiveJdbcDdlTest {
 				.thenThrow(new SQLException("error"));
 
 			assertThrows(RuntimeException.class, () -> hiveJdbcDdl.scanTable(connection, "db", "users"));
+		}
+	}
+
+	@Test
+	void scanTable_withoutSchema_usesTableNameOnly() throws SQLException {
+		ResultSetBO expected = ResultSetBO.builder().build();
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnObject(any(Connection.class), any(), anyString()))
+				.thenReturn(expected);
+
+			ResultSetBO result = hiveJdbcDdl.scanTable(connection, null, "users");
+			assertNotNull(result);
+		}
+	}
+
+	@Test
+	void showDatabases_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "database_name" }, {}, { "default" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<DatabaseInfoBO> databases = hiveJdbcDdl.showDatabases(connection);
+			assertEquals(1, databases.size());
+		}
+	}
+
+	@Test
+	void showTables_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "tab_name" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			assertTrue(hiveJdbcDdl.showTables(connection, null, null).isEmpty());
+		}
+	}
+
+	@Test
+	void showTables_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "tab_name" }, {}, { "events" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<TableInfoBO> tables = hiveJdbcDdl.showTables(connection, null, null);
+			assertEquals(1, tables.size());
+		}
+	}
+
+	@Test
+	void showTables_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class, () -> hiveJdbcDdl.showTables(connection, "db", null));
+		}
+	}
+
+	@Test
+	void showTables_withPatternOnly_returnsTableList() throws SQLException {
+		String[][] resultArr = { { "tab_name" }, { "user_events" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<TableInfoBO> tables = hiveJdbcDdl.showTables(connection, null, "user*");
+			assertEquals(1, tables.size());
+		}
+	}
+
+	@Test
+	void fetchTables_withoutSchema_noPrefix() throws SQLException {
+		String[][] resultArr = { { "col_name", "data_type" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<TableInfoBO> tables = hiveJdbcDdl.fetchTables(connection, null, Arrays.asList("t1"));
+			assertEquals(1, tables.size());
+		}
+	}
+
+	@Test
+	void fetchTables_noCommentFound_usesEmptyDescription() throws SQLException {
+		String[][] resultArr = { { "col_name", "data_type" }, { "other_key", "other_value" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<TableInfoBO> tables = hiveJdbcDdl.fetchTables(connection, "db", Arrays.asList("events"));
+			assertEquals(1, tables.size());
+			assertEquals("", tables.get(0).getDescription());
+		}
+	}
+
+	@Test
+	void showColumns_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "col_name", "data_type" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			assertTrue(hiveJdbcDdl.showColumns(connection, null, "users").isEmpty());
+		}
+	}
+
+	@Test
+	void showColumns_twoColumnRow_usesEmptyComment() throws SQLException {
+		String[][] resultArr = { { "col_name", "data_type" }, { "id", "bigint" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<ColumnInfoBO> columns = hiveJdbcDdl.showColumns(connection, null, "users");
+			assertEquals(1, columns.size());
+			assertEquals("", columns.get(0).getDescription());
+		}
+	}
+
+	@Test
+	void showColumns_rowWithOneColumn_skipsRow() throws SQLException {
+		String[][] resultArr = { { "col_name", "data_type", "comment" }, { "id" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			assertTrue(hiveJdbcDdl.showColumns(connection, null, "users").isEmpty());
+		}
+	}
+
+	@Test
+	void showColumns_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class, () -> hiveJdbcDdl.showColumns(connection, "db", "users"));
+		}
+	}
+
+	@Test
+	void sampleColumn_withoutSchema_usesTableNameOnly() throws SQLException {
+		String[][] resultArr = { { "name" }, { "Alice" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			List<String> samples = hiveJdbcDdl.sampleColumn(connection, null, "users", "name");
+			assertEquals(1, samples.size());
+		}
+	}
+
+	@Test
+	void sampleColumn_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "name" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			assertTrue(hiveJdbcDdl.sampleColumn(connection, "db", "users", "name").isEmpty());
+		}
+	}
+
+	@Test
+	void sampleColumn_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "name" }, {}, { "Alice" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			List<String> samples = hiveJdbcDdl.sampleColumn(connection, "db", "users", "name");
+			assertEquals(1, samples.size());
+		}
+	}
+
+	@Test
+	void sampleColumn_valueMatchesColumnName_skipsRow() throws SQLException {
+		String[][] resultArr = { { "name" }, { "name" }, { "Alice" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			List<String> samples = hiveJdbcDdl.sampleColumn(connection, "db", "users", "name");
+			assertEquals(1, samples.size());
+			assertTrue(samples.contains("Alice"));
 		}
 	}
 

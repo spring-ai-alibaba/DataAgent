@@ -63,8 +63,7 @@ class SqlServerJdbcDdlTest {
 		String[][] resultArr = { { "name" }, { "master" }, { "mydb" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<DatabaseInfoBO> databases = sqlServerJdbcDdl.showDatabases(connection);
 			assertEquals(2, databases.size());
@@ -87,8 +86,7 @@ class SqlServerJdbcDdlTest {
 		String[][] resultArr = { { "schema_name" }, { "dbo" }, { "sales" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<SchemaInfoBO> schemas = sqlServerJdbcDdl.showSchemas(connection);
 			assertEquals(2, schemas.size());
@@ -101,8 +99,7 @@ class SqlServerJdbcDdlTest {
 		String[][] resultArr = { { "TABLE_NAME", "TABLE_COMMENT" }, { "Users", "User table" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<TableInfoBO> tables = sqlServerJdbcDdl.showTables(connection, "dbo", "User");
 			assertEquals(1, tables.size());
@@ -115,8 +112,7 @@ class SqlServerJdbcDdlTest {
 		String[][] resultArr = { { "TABLE_NAME", "TABLE_COMMENT" }, { "Orders", null } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<TableInfoBO> tables = sqlServerJdbcDdl.showTables(connection, "dbo", null);
 			assertEquals(1, tables.size());
@@ -128,8 +124,7 @@ class SqlServerJdbcDdlTest {
 		String[][] resultArr = { { "TABLE_NAME", "TABLE_COMMENT" }, { "Users", "User table" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
-			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
-				.thenReturn(resultArr);
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
 
 			List<TableInfoBO> tables = sqlServerJdbcDdl.fetchTables(connection, "dbo", Arrays.asList("Users"));
 			assertEquals(1, tables.size());
@@ -138,10 +133,8 @@ class SqlServerJdbcDdlTest {
 
 	@Test
 	void showColumns_returnsColumnList() throws SQLException {
-		String[][] resultArr = {
-				{ "COLUMN_NAME", "COLUMN_COMMENT", "DATA_TYPE", "IS_PRIMARY_KEY", "IS_NOT_NULL" },
-				{ "Id", "Primary key", "int", "true", "true" },
-				{ "Name", "Name", "nvarchar", "false", "false" } };
+		String[][] resultArr = { { "COLUMN_NAME", "COLUMN_COMMENT", "DATA_TYPE", "IS_PRIMARY_KEY", "IS_NOT_NULL" },
+				{ "Id", "Primary key", "int", "true", "true" }, { "Name", "Name", "nvarchar", "false", "false" } };
 
 		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
@@ -215,6 +208,267 @@ class SqlServerJdbcDdlTest {
 				.thenThrow(new SQLException("error"));
 
 			assertThrows(RuntimeException.class, () -> sqlServerJdbcDdl.scanTable(connection, "dbo", "Users"));
+		}
+	}
+
+	@Test
+	void showDatabases_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "name" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			assertTrue(sqlServerJdbcDdl.showDatabases(connection).isEmpty());
+		}
+	}
+
+	@Test
+	void showDatabases_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "name" }, {}, { "mydb" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<DatabaseInfoBO> databases = sqlServerJdbcDdl.showDatabases(connection);
+			assertEquals(1, databases.size());
+		}
+	}
+
+	@Test
+	void showSchemas_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "schema_name" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			assertTrue(sqlServerJdbcDdl.showSchemas(connection).isEmpty());
+		}
+	}
+
+	@Test
+	void showSchemas_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class, () -> sqlServerJdbcDdl.showSchemas(connection));
+		}
+	}
+
+	@Test
+	void showSchemas_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "schema_name" }, {}, { "dbo" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<SchemaInfoBO> schemas = sqlServerJdbcDdl.showSchemas(connection);
+			assertEquals(1, schemas.size());
+		}
+	}
+
+	@Test
+	void showTables_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "TABLE_NAME", "TABLE_COMMENT" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			assertTrue(sqlServerJdbcDdl.showTables(connection, "dbo", null).isEmpty());
+		}
+	}
+
+	@Test
+	void showTables_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "TABLE_NAME", "TABLE_COMMENT" }, {}, { "Users", "User table" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<TableInfoBO> tables = sqlServerJdbcDdl.showTables(connection, "dbo", null);
+			assertEquals(1, tables.size());
+		}
+	}
+
+	@Test
+	void showTables_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class, () -> sqlServerJdbcDdl.showTables(connection, "dbo", null));
+		}
+	}
+
+	@Test
+	void showTables_withBlankPattern_usesBaseSqlOnly() throws SQLException {
+		String[][] resultArr = { { "TABLE_NAME", "TABLE_COMMENT" }, { "Users", "User table" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<TableInfoBO> tables = sqlServerJdbcDdl.showTables(connection, "dbo", "");
+			assertEquals(1, tables.size());
+		}
+	}
+
+	@Test
+	void fetchTables_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "TABLE_NAME", "TABLE_COMMENT" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			assertTrue(sqlServerJdbcDdl.fetchTables(connection, "dbo", Arrays.asList("Users")).isEmpty());
+		}
+	}
+
+	@Test
+	void fetchTables_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "TABLE_NAME", "TABLE_COMMENT" }, {}, { "Users", "User table" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString())).thenReturn(resultArr);
+
+			List<TableInfoBO> tables = sqlServerJdbcDdl.fetchTables(connection, "dbo", Arrays.asList("Users"));
+			assertEquals(1, tables.size());
+		}
+	}
+
+	@Test
+	void fetchTables_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class,
+					() -> sqlServerJdbcDdl.fetchTables(connection, "dbo", Arrays.asList("Users")));
+		}
+	}
+
+	@Test
+	void showColumns_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "COLUMN_NAME", "COLUMN_COMMENT", "DATA_TYPE", "IS_PRIMARY_KEY", "IS_NOT_NULL" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			assertTrue(sqlServerJdbcDdl.showColumns(connection, "dbo", "Users").isEmpty());
+		}
+	}
+
+	@Test
+	void showColumns_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "COLUMN_NAME", "COLUMN_COMMENT", "DATA_TYPE", "IS_PRIMARY_KEY", "IS_NOT_NULL" }, {},
+				{ "Id", "Primary key", "int", "true", "true" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			List<ColumnInfoBO> columns = sqlServerJdbcDdl.showColumns(connection, "dbo", "Users");
+			assertEquals(1, columns.size());
+		}
+	}
+
+	@Test
+	void showColumns_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class, () -> sqlServerJdbcDdl.showColumns(connection, "dbo", "Users"));
+		}
+	}
+
+	@Test
+	void showForeignKeys_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "Table", "Column", "Referenced_Table", "Referenced_Column" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			assertTrue(sqlServerJdbcDdl.showForeignKeys(connection, "dbo", Arrays.asList("Orders", "Users")).isEmpty());
+		}
+	}
+
+	@Test
+	void showForeignKeys_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "Table", "Column", "Referenced_Table", "Referenced_Column" }, {},
+				{ "Orders", "UserId", "Users", "Id" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			List<ForeignKeyInfoBO> fks = sqlServerJdbcDdl.showForeignKeys(connection, "dbo",
+					Arrays.asList("Orders", "Users"));
+			assertEquals(1, fks.size());
+		}
+	}
+
+	@Test
+	void showForeignKeys_sqlException_throwsRuntimeException() throws SQLException {
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenThrow(new SQLException("error"));
+
+			assertThrows(RuntimeException.class,
+					() -> sqlServerJdbcDdl.showForeignKeys(connection, "dbo", Arrays.asList("Orders")));
+		}
+	}
+
+	@Test
+	void sampleColumn_emptyResult_returnsEmptyList() throws SQLException {
+		String[][] resultArr = { { "Name" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			assertTrue(sqlServerJdbcDdl.sampleColumn(connection, "dbo", "Users", "Name").isEmpty());
+		}
+	}
+
+	@Test
+	void sampleColumn_emptyRowInResults_skipsRow() throws SQLException {
+		String[][] resultArr = { { "Name" }, {}, { "Alice" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			List<String> samples = sqlServerJdbcDdl.sampleColumn(connection, "dbo", "Users", "Name");
+			assertEquals(1, samples.size());
+		}
+	}
+
+	@Test
+	void sampleColumn_deduplicatesResults() throws SQLException {
+		String[][] resultArr = { { "Name" }, { "Alice" }, { "Bob" }, { "Alice" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			List<String> samples = sqlServerJdbcDdl.sampleColumn(connection, "dbo", "Users", "Name");
+			assertEquals(2, samples.size());
+		}
+	}
+
+	@Test
+	void sampleColumn_valueMatchesColumnName_skipsRow() throws SQLException {
+		String[][] resultArr = { { "Name" }, { "Name" }, { "Alice" } };
+
+		try (MockedStatic<SqlExecutor> ms = mockStatic(SqlExecutor.class)) {
+			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
+				.thenReturn(resultArr);
+
+			List<String> samples = sqlServerJdbcDdl.sampleColumn(connection, "dbo", "Users", "Name");
+			assertEquals(1, samples.size());
+			assertTrue(samples.contains("Alice"));
 		}
 	}
 

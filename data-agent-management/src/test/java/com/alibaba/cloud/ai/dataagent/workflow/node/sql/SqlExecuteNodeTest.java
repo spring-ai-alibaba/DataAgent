@@ -279,6 +279,30 @@ class SqlExecuteNodeTest {
 	}
 
 	@Test
+	void apply_nullValuesInColumns_handlesCorrectly() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		setupBasicMocks();
+
+		List<Map<String, String>> dataWithNulls = new ArrayList<>();
+		Map<String, String> row = new HashMap<>();
+		row.put("id", "1");
+		row.put("name", null);
+		row.put("email", "test@example.com");
+		dataWithNulls.add(row);
+
+		ResultSetBO resultSetBO = new ResultSetBO();
+		resultSetBO.setData(dataWithNulls);
+
+		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
+
+		Map<String, Object> result = sqlExecuteNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_EXECUTE_NODE_OUTPUT));
+		assertNotNull(result.get(SQL_EXECUTE_NODE_OUTPUT));
+	}
+
+	@Test
 	void apply_largeResultSet_truncatesAppropriately() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);

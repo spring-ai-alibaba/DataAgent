@@ -32,6 +32,8 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -119,6 +121,117 @@ class AbstractAccessorTest {
 
 		assertSame(connection, result);
 		verify(dbConnectionPool).getConnection(dbConfig);
+	}
+
+	@Test
+	void showDatabases_delegatesToDdlExecutor() throws Exception {
+		when(dbConnectionPool.getConnection(dbConfig)).thenReturn(connection);
+		when(ddlFactory.getDdlExecutorByDbConfig(dbConfig)).thenReturn(ddlExecutor);
+		when(ddlExecutor.showDatabases(connection)).thenReturn(List.of());
+
+		List<?> result = accessor.showDatabases(dbConfig);
+		assertNotNull(result);
+		verify(ddlExecutor).showDatabases(connection);
+	}
+
+	@Test
+	void showSchemas_delegatesToDdlExecutor() throws Exception {
+		when(dbConnectionPool.getConnection(dbConfig)).thenReturn(connection);
+		when(ddlFactory.getDdlExecutorByDbConfig(dbConfig)).thenReturn(ddlExecutor);
+		when(ddlExecutor.showSchemas(connection)).thenReturn(List.of());
+
+		List<?> result = accessor.showSchemas(dbConfig);
+		assertNotNull(result);
+		verify(ddlExecutor).showSchemas(connection);
+	}
+
+	@Test
+	void showTables_delegatesToDdlExecutor() throws Exception {
+		when(dbConnectionPool.getConnection(dbConfig)).thenReturn(connection);
+		when(ddlFactory.getDdlExecutorByDbConfig(dbConfig)).thenReturn(ddlExecutor);
+		DbQueryParameter param = new DbQueryParameter();
+		param.setSchema("testdb");
+		param.setTablePattern("user");
+		when(ddlExecutor.showTables(connection, "testdb", "user")).thenReturn(List.of());
+
+		List<?> result = accessor.showTables(dbConfig, param);
+		assertNotNull(result);
+	}
+
+	@Test
+	void fetchTables_delegatesToDdlExecutor() throws Exception {
+		when(dbConnectionPool.getConnection(dbConfig)).thenReturn(connection);
+		when(ddlFactory.getDdlExecutorByDbConfig(dbConfig)).thenReturn(ddlExecutor);
+		DbQueryParameter param = new DbQueryParameter();
+		param.setSchema("testdb");
+		param.setTables(Arrays.asList("users"));
+		when(ddlExecutor.fetchTables(connection, "testdb", Arrays.asList("users"))).thenReturn(List.of());
+
+		List<?> result = accessor.fetchTables(dbConfig, param);
+		assertNotNull(result);
+	}
+
+	@Test
+	void showColumns_delegatesToDdlExecutor() throws Exception {
+		when(dbConnectionPool.getConnection(dbConfig)).thenReturn(connection);
+		when(ddlFactory.getDdlExecutorByDbConfig(dbConfig)).thenReturn(ddlExecutor);
+		DbQueryParameter param = new DbQueryParameter();
+		param.setSchema("testdb");
+		param.setTable("users");
+		when(ddlExecutor.showColumns(connection, "testdb", "users")).thenReturn(List.of());
+
+		List<?> result = accessor.showColumns(dbConfig, param);
+		assertNotNull(result);
+	}
+
+	@Test
+	void showForeignKeys_delegatesToDdlExecutor() throws Exception {
+		when(dbConnectionPool.getConnection(dbConfig)).thenReturn(connection);
+		when(ddlFactory.getDdlExecutorByDbConfig(dbConfig)).thenReturn(ddlExecutor);
+		DbQueryParameter param = new DbQueryParameter();
+		param.setSchema("testdb");
+		param.setTables(Arrays.asList("users"));
+		when(ddlExecutor.showForeignKeys(connection, "testdb", Arrays.asList("users"))).thenReturn(List.of());
+
+		List<?> result = accessor.showForeignKeys(dbConfig, param);
+		assertNotNull(result);
+	}
+
+	@Test
+	void sampleColumn_delegatesToDdlExecutor() throws Exception {
+		when(dbConnectionPool.getConnection(dbConfig)).thenReturn(connection);
+		when(ddlFactory.getDdlExecutorByDbConfig(dbConfig)).thenReturn(ddlExecutor);
+		DbQueryParameter param = new DbQueryParameter();
+		param.setSchema("testdb");
+		param.setTable("users");
+		param.setColumn("name");
+		when(ddlExecutor.sampleColumn(connection, "testdb", "users", "name")).thenReturn(List.of());
+
+		List<?> result = accessor.sampleColumn(dbConfig, param);
+		assertNotNull(result);
+	}
+
+	@Test
+	void scanTable_delegatesToDdlExecutor() throws Exception {
+		when(dbConnectionPool.getConnection(dbConfig)).thenReturn(connection);
+		when(ddlFactory.getDdlExecutorByDbConfig(dbConfig)).thenReturn(ddlExecutor);
+		DbQueryParameter param = new DbQueryParameter();
+		param.setSchema("testdb");
+		param.setTable("users");
+		ResultSetBO expected = ResultSetBO.builder().build();
+		when(ddlExecutor.scanTable(connection, "testdb", "users")).thenReturn(expected);
+
+		ResultSetBO result = accessor.scanTable(dbConfig, param);
+		assertNotNull(result);
+	}
+
+	@Test
+	void accessDb_ddlExecutorThrowsException_propagatesWithLogging() {
+		when(dbConnectionPool.getConnection(dbConfig)).thenReturn(connection);
+		when(ddlFactory.getDdlExecutorByDbConfig(dbConfig)).thenReturn(ddlExecutor);
+		when(ddlExecutor.showDatabases(connection)).thenThrow(new RuntimeException("db error"));
+
+		assertThrows(RuntimeException.class, () -> accessor.accessDb(dbConfig, "showDatabases", null));
 	}
 
 	private static class TestableAccessor extends AbstractAccessor {

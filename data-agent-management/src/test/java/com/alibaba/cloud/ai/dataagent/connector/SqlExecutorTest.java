@@ -121,4 +121,168 @@ class SqlExecutorTest {
 		assertEquals("42", result[1][0]);
 	}
 
+	@Test
+	void executeSqlAndReturnObject_withPostgresqlSchema_setsSearchPath() throws SQLException {
+		when(connection.createStatement()).thenReturn(statement);
+		when(connection.getMetaData()).thenReturn(databaseMetaData);
+		when(databaseMetaData.getDatabaseProductName()).thenReturn("PostgreSQL");
+		when(statement.executeQuery("SELECT 1")).thenReturn(resultSet);
+		when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+		when(resultSetMetaData.getColumnCount()).thenReturn(1);
+		when(resultSetMetaData.getColumnLabel(1)).thenReturn("1");
+		when(resultSet.next()).thenReturn(false);
+
+		ResultSetBO result = SqlExecutor.executeSqlAndReturnObject(connection, "public", "SELECT 1");
+
+		assertNotNull(result);
+		verify(statement).execute("set search_path = 'public';");
+	}
+
+	@Test
+	void executeSqlAndReturnObject_withH2Schema_usesSchema() throws SQLException {
+		when(connection.createStatement()).thenReturn(statement);
+		when(connection.getMetaData()).thenReturn(databaseMetaData);
+		when(databaseMetaData.getDatabaseProductName()).thenReturn("H2");
+		when(statement.executeQuery("SELECT 1")).thenReturn(resultSet);
+		when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+		when(resultSetMetaData.getColumnCount()).thenReturn(1);
+		when(resultSetMetaData.getColumnLabel(1)).thenReturn("1");
+		when(resultSet.next()).thenReturn(false);
+
+		ResultSetBO result = SqlExecutor.executeSqlAndReturnObject(connection, "PUBLIC", "SELECT 1");
+
+		assertNotNull(result);
+		verify(statement).execute("use PUBLIC;");
+	}
+
+	@Test
+	void executeSqlAndReturnObject_withOracleSchema_altersSession() throws SQLException {
+		when(connection.createStatement()).thenReturn(statement);
+		when(connection.getMetaData()).thenReturn(databaseMetaData);
+		when(databaseMetaData.getDatabaseProductName()).thenReturn("Oracle");
+		when(statement.executeQuery("SELECT 1 FROM DUAL")).thenReturn(resultSet);
+		when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+		when(resultSetMetaData.getColumnCount()).thenReturn(1);
+		when(resultSetMetaData.getColumnLabel(1)).thenReturn("1");
+		when(resultSet.next()).thenReturn(false);
+
+		ResultSetBO result = SqlExecutor.executeSqlAndReturnObject(connection, "HR", "SELECT 1 FROM DUAL");
+
+		assertNotNull(result);
+		verify(statement).execute("ALTER SESSION SET CURRENT_SCHEMA = HR");
+	}
+
+	@Test
+	void executeSqlAndReturnObject_withNullSchema_skipsSchemaSwitch() throws SQLException {
+		when(connection.createStatement()).thenReturn(statement);
+		when(connection.getMetaData()).thenReturn(databaseMetaData);
+		when(databaseMetaData.getDatabaseProductName()).thenReturn("PostgreSQL");
+		when(statement.executeQuery("SELECT 1")).thenReturn(resultSet);
+		when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+		when(resultSetMetaData.getColumnCount()).thenReturn(1);
+		when(resultSetMetaData.getColumnLabel(1)).thenReturn("1");
+		when(resultSet.next()).thenReturn(false);
+
+		ResultSetBO result = SqlExecutor.executeSqlAndReturnObject(connection, null, "SELECT 1");
+
+		assertNotNull(result);
+		verify(statement, never()).execute(anyString());
+	}
+
+	@Test
+	void executeSqlAndReturnObject_withEmptySchema_skipsSchemaSwitch() throws SQLException {
+		when(connection.createStatement()).thenReturn(statement);
+		when(connection.getMetaData()).thenReturn(databaseMetaData);
+		when(databaseMetaData.getDatabaseProductName()).thenReturn("H2");
+		when(statement.executeQuery("SELECT 1")).thenReturn(resultSet);
+		when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+		when(resultSetMetaData.getColumnCount()).thenReturn(1);
+		when(resultSetMetaData.getColumnLabel(1)).thenReturn("1");
+		when(resultSet.next()).thenReturn(false);
+
+		ResultSetBO result = SqlExecutor.executeSqlAndReturnObject(connection, "", "SELECT 1");
+
+		assertNotNull(result);
+		verify(statement, never()).execute(anyString());
+	}
+
+	@Test
+	void executeSqlAndReturnArr_withMysqlSchema_switchesDatabase() throws SQLException {
+		when(connection.createStatement()).thenReturn(statement);
+		when(connection.getCatalog()).thenReturn("original_db");
+		when(connection.getMetaData()).thenReturn(databaseMetaData);
+		when(databaseMetaData.getDatabaseProductName()).thenReturn("MySQL");
+		when(statement.executeQuery("SELECT 1")).thenReturn(resultSet);
+		when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+		when(resultSetMetaData.getColumnCount()).thenReturn(1);
+		when(resultSetMetaData.getColumnLabel(1)).thenReturn("1");
+		when(resultSet.next()).thenReturn(false);
+
+		String[][] result = SqlExecutor.executeSqlAndReturnArr(connection, "test_db", "SELECT 1");
+
+		assertNotNull(result);
+		verify(statement).execute("use `test_db`;");
+		verify(statement).execute("use `original_db`;");
+	}
+
+	@Test
+	void executeSqlAndReturnArr_withPostgresqlSchema_setsSearchPath() throws SQLException {
+		when(connection.createStatement()).thenReturn(statement);
+		when(connection.getCatalog()).thenReturn("mydb");
+		when(connection.getMetaData()).thenReturn(databaseMetaData);
+		when(databaseMetaData.getDatabaseProductName()).thenReturn("PostgreSQL");
+		when(statement.executeQuery("SELECT 1")).thenReturn(resultSet);
+		when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+		when(resultSetMetaData.getColumnCount()).thenReturn(1);
+		when(resultSetMetaData.getColumnLabel(1)).thenReturn("1");
+		when(resultSet.next()).thenReturn(false);
+
+		String[][] result = SqlExecutor.executeSqlAndReturnArr(connection, "public", "SELECT 1");
+
+		assertNotNull(result);
+		verify(statement).execute("set search_path = 'public';");
+	}
+
+	@Test
+	void executeSqlAndReturnArr_withOracleSchema_altersSession() throws SQLException {
+		when(connection.createStatement()).thenReturn(statement);
+		when(connection.getCatalog()).thenReturn("orcl");
+		when(connection.getMetaData()).thenReturn(databaseMetaData);
+		when(databaseMetaData.getDatabaseProductName()).thenReturn("Oracle");
+		when(statement.executeQuery("SELECT 1 FROM DUAL")).thenReturn(resultSet);
+		when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+		when(resultSetMetaData.getColumnCount()).thenReturn(1);
+		when(resultSetMetaData.getColumnLabel(1)).thenReturn("1");
+		when(resultSet.next()).thenReturn(false);
+
+		String[][] result = SqlExecutor.executeSqlAndReturnArr(connection, "HR", "SELECT 1 FROM DUAL");
+
+		assertNotNull(result);
+		verify(statement).execute("ALTER SESSION SET CURRENT_SCHEMA = HR");
+	}
+
+	@Test
+	void executeSqlAndReturnArr_withNullSchema_skipsSchemaSwitch() throws SQLException {
+		when(connection.createStatement()).thenReturn(statement);
+		when(connection.getCatalog()).thenReturn("mydb");
+		when(connection.getMetaData()).thenReturn(databaseMetaData);
+		when(databaseMetaData.getDatabaseProductName()).thenReturn("MySQL");
+		when(statement.executeQuery("SELECT 1")).thenReturn(resultSet);
+		when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+		when(resultSetMetaData.getColumnCount()).thenReturn(1);
+		when(resultSetMetaData.getColumnLabel(1)).thenReturn("1");
+		when(resultSet.next()).thenReturn(false);
+
+		String[][] result = SqlExecutor.executeSqlAndReturnArr(connection, null, "SELECT 1");
+
+		assertNotNull(result);
+		verify(statement, never()).execute(anyString());
+	}
+
+	@Test
+	void constants_areCorrect() {
+		assertEquals(1000, SqlExecutor.RESULT_SET_LIMIT);
+		assertEquals(30, SqlExecutor.STATEMENT_TIMEOUT);
+	}
+
 }

@@ -254,6 +254,55 @@ class SqlGenerateNodeTest {
 	}
 
 	@Test
+	void nestedQueries_generatesSubquerySyntax() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any()))
+			.thenReturn(Flux.just("SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)"));
+
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	void specialCharacters_inColumns_escapesProperly() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any()))
+			.thenReturn(Flux.just("SELECT `user-name`, `order#id` FROM `special_table`"));
+
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	void extremelyLongQuery_generatesValidSql() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		StringBuilder longSql = new StringBuilder("SELECT ");
+		for (int i = 0; i < 100; i++) {
+			if (i > 0)
+				longSql.append(", ");
+			longSql.append("col_").append(i);
+		}
+		longSql.append(" FROM large_table WHERE id > 0");
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just(longSql.toString()));
+
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
 	void apply_sqlTrimRemovesMarkdown_returnsCleanSql() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);

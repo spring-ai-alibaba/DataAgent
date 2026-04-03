@@ -32,6 +32,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 
@@ -286,6 +288,132 @@ class SemanticModelServiceImplTest {
 
 		BatchImportResult result = service.batchImport(dto);
 		assertEquals(1, result.getFailCount());
+	}
+
+	@Test
+	void batchImport_insertFailsForItem_incrementsFailCount() {
+		when(agentDatasourceMapper.selectByAgentId(1L)).thenReturn(List.of(activeDs));
+		when(semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(anyInt(), anyString(), anyString()))
+			.thenReturn(null);
+		doThrow(new RuntimeException("insert error")).when(semanticModelMapper).insert(any(SemanticModel.class));
+
+		SemanticModelImportItem item = new SemanticModelImportItem();
+		item.setTableName("users");
+		item.setColumnName("name");
+		item.setBusinessName("Name");
+
+		SemanticModelBatchImportDTO dto = SemanticModelBatchImportDTO.builder()
+			.agentId(1L)
+			.items(List.of(item))
+			.build();
+
+		BatchImportResult result = service.batchImport(dto);
+		assertEquals(1, result.getTotal());
+		assertEquals(0, result.getSuccessCount());
+		assertEquals(1, result.getFailCount());
+	}
+
+	@Test
+	void batchImport_multipleItems_mixedResults() {
+		when(agentDatasourceMapper.selectByAgentId(1L)).thenReturn(List.of(activeDs));
+		when(semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(anyInt(), eq("users"), eq("name")))
+			.thenReturn(null);
+		when(semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(anyInt(), eq("orders"), eq("total")))
+			.thenReturn(null);
+		when(semanticModelMapper.insert(any(SemanticModel.class))).thenReturn(1)
+			.thenThrow(new RuntimeException("db error"));
+
+		SemanticModelImportItem item1 = new SemanticModelImportItem();
+		item1.setTableName("users");
+		item1.setColumnName("name");
+		item1.setBusinessName("Name");
+
+		SemanticModelImportItem item2 = new SemanticModelImportItem();
+		item2.setTableName("orders");
+		item2.setColumnName("total");
+		item2.setBusinessName("Total");
+
+		SemanticModelBatchImportDTO dto = SemanticModelBatchImportDTO.builder()
+			.agentId(1L)
+			.items(List.of(item1, item2))
+			.build();
+
+		BatchImportResult result = service.batchImport(dto);
+		assertEquals(2, result.getTotal());
+		assertEquals(1, result.getSuccessCount());
+		assertEquals(1, result.getFailCount());
+	}
+
+	@Test
+	void batchImport_withCreateTime_preservesTimestamp() {
+		when(agentDatasourceMapper.selectByAgentId(1L)).thenReturn(List.of(activeDs));
+		when(semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(anyInt(), anyString(), anyString()))
+			.thenReturn(null);
+
+		java.time.LocalDateTime customTime = java.time.LocalDateTime.of(2025, 1, 1, 0, 0);
+
+		SemanticModelImportItem item = new SemanticModelImportItem();
+		item.setTableName("users");
+		item.setColumnName("name");
+		item.setBusinessName("Name");
+		item.setCreateTime(customTime);
+
+		SemanticModelBatchImportDTO dto = SemanticModelBatchImportDTO.builder()
+			.agentId(1L)
+			.items(List.of(item))
+			.build();
+
+		service.batchImport(dto);
+		verify(semanticModelMapper).insert(argThat(m -> customTime.equals(m.getCreatedTime())));
+	}
+
+	@Test
+	void importFromExcel_validFile_delegatesToBatchImport() throws Exception {
+		when(agentDatasourceMapper.selectByAgentId(1L)).thenReturn(List.of(activeDs));
+
+		SemanticModelImportItem item = new SemanticModelImportItem();
+		item.setTableName("users");
+		item.setColumnName("name");
+		item.setBusinessName("Name");
+
+		when(excelService.parseExcel(any(InputStream.class), anyString())).thenReturn(List.of(item));
+		when(semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(anyInt(), anyString(), anyString()))
+			.thenReturn(null);
+
+		InputStream fakeStream = new ByteArrayInputStream(new byte[0]);
+		BatchImportResult result = service.importFromExcel(fakeStream, "test.xlsx", 1L);
+
+		assertNotNull(result);
+		assertEquals(1, result.getTotal());
+	}
+
+	@Test
+	void importFromExcel_parseFailure_returnsErrorResult() throws Exception {
+		when(excelService.parseExcel(any(InputStream.class), anyString()))
+			.thenThrow(new RuntimeException("parse error"));
+
+		InputStream fakeStream = new ByteArrayInputStream(new byte[0]);
+		BatchImportResult result = service.importFromExcel(fakeStream, "bad.xlsx", 1L);
+
+		assertNotNull(result);
+		assertEquals(0, result.getTotal());
+	}
+
+	@Test
+	void findDatasourceId_nullIsActive_fallsBackToFirst() {
+		AgentDatasource dsNullActive = new AgentDatasource();
+		dsNullActive.setDatasourceId(30);
+		dsNullActive.setIsActive(null);
+
+		when(agentDatasourceMapper.selectByAgentId(1L)).thenReturn(List.of(dsNullActive));
+
+		SemanticModelAddDTO dto = new SemanticModelAddDTO();
+		dto.setAgentId(1L);
+		dto.setTableName("t");
+		dto.setColumnName("c");
+
+		service.addSemanticModel(dto);
+		verify(semanticModelMapper).insert(argThat(m -> m.getDatasourceId().equals(30)));
 	}
 
 }
