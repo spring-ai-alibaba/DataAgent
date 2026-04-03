@@ -228,8 +228,8 @@ class PythonGenerateNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.call(anyString(), anyString())).thenReturn(
-				Flux.just(ChatResponseUtil.createPureResponse("import pandas as pd\nimport numpy as np\nprint(np.mean([1,2,3]))")));
+		when(llmService.call(anyString(), anyString())).thenReturn(Flux.just(ChatResponseUtil
+			.createPureResponse("import pandas as pd\nimport numpy as np\nprint(np.mean([1,2,3]))")));
 
 		Map<String, Object> result = pythonGenerateNode.apply(state);
 		assertNotNull(result);

@@ -68,8 +68,7 @@ class DdlFactoryTest {
 
 	@Test
 	void testGetDdlExecutorByDbType_notFound() {
-		assertThrows(IllegalStateException.class,
-				() -> factory.getDdlExecutorByDbType(BizDataSourceTypeEnum.MYSQL));
+		assertThrows(IllegalStateException.class, () -> factory.getDdlExecutorByDbType(BizDataSourceTypeEnum.MYSQL));
 	}
 
 }

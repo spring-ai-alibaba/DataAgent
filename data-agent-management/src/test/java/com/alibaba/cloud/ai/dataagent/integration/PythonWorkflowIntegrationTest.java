@@ -125,8 +125,7 @@ class PythonWorkflowIntegrationTest {
 		state.updateState(Map.of(PYTHON_GENERATE_NODE_OUTPUT, generatedCode, PYTHON_TRIES_COUNT, 1));
 
 		String executionOutput = "{\"count\": 3, \"mean\": 200.0}";
-		when(codePoolExecutor.runTask(any()))
-			.thenReturn(CodePoolExecutorService.TaskResponse.success(executionOutput));
+		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success(executionOutput));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
 
 		Map<String, Object> executeResult = pythonExecuteNode.apply(state);

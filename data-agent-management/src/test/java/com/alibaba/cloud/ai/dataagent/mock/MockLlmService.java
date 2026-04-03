@@ -24,8 +24,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Reusable mock LlmService for integration tests. Allows registering predefined
- * responses keyed by a substring of the system or user prompt.
+ * Reusable mock LlmService for integration tests. Allows registering predefined responses
+ * keyed by a substring of the system or user prompt.
  */
 public class MockLlmService implements LlmService {
 
