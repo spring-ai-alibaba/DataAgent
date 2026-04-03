@@ -371,7 +371,7 @@ async function downloadHtml() {
 	margin: 10px 0;
 	border: 1px solid #e1e4e8;
 	border-radius: 6px;
-	overflow: hidden;
+	overflow: auto;
 	background: #f6f8fa;
 }
 .markdown-body :deep(.code-block-header) {
@@ -412,10 +412,12 @@ async function downloadHtml() {
 .markdown-body :deep(pre.hljs) {
 	margin: 0;
 	padding: 10px;
-	overflow: auto;
+	overflow-x: auto;
+	overflow-y: hidden;
 	background: #f6f8fa;
 	font-size: 12px;
 	line-height: 1.4;
+	white-space: pre;
 }
 .markdown-body :deep(pre.hljs code) {
 	display: block;
@@ -425,6 +427,8 @@ async function downloadHtml() {
 	border: none;
 	font-family: 'Monaco', 'Menlo', monospace;
 	color: inherit;
+	white-space: pre;
+	min-width: max-content;
 }
 
 /* ── ECharts containers ─────────────────────────────────────────────────────── */

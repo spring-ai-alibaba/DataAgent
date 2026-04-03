@@ -3,7 +3,9 @@
 		<!-- Title + global toggle -->
 		<div class="timeline-title-bar">
 			<v-card-title class="timeline-title pa-0">
-				<v-icon size="18" color="blue" class="mr-1">mdi-rocket-launch-outline</v-icon>
+				<v-icon size="18" color="blue" class="mr-1"
+					>mdi-rocket-launch-outline</v-icon
+				>
 				任务开始
 			</v-card-title>
 			<v-btn
@@ -11,7 +13,11 @@
 				size="x-small"
 				color="grey"
 				class="toggle-all-btn"
-				:prepend-icon="allExpanded ? 'mdi-unfold-less-horizontal' : 'mdi-unfold-more-horizontal'"
+				:prepend-icon="
+					allExpanded
+						? 'mdi-unfold-less-horizontal'
+						: 'mdi-unfold-more-horizontal'
+				"
 				@click="toggleAll"
 			>
 				{{ allExpanded ? '折叠全部' : '展开全部' }}
@@ -33,7 +39,9 @@
 						<span v-if="step.status === 'active'" class="step-badge active">
 							<span class="badge-dot" />进行中
 						</span>
-						<span v-else-if="step.status === 'done'" class="step-badge done">完成</span>
+						<span v-else-if="step.status === 'done'" class="step-badge done"
+							>完成</span
+						>
 					</div>
 					<v-icon size="16" color="#94a3b8">
 						{{ step.expanded ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
@@ -42,17 +50,27 @@
 
 				<!-- Collapsible content -->
 				<v-expand-transition>
-					<div v-show="step.expanded" class="step-content" :class="{ 'is-muted': step.status === 'done' && !step.isReport }">
+					<div
+						v-show="step.expanded"
+						class="step-content"
+						:class="{ 'is-muted': step.status === 'done' && !step.isReport }"
+					>
 						<!-- Result Set -->
 						<ChatResultSet
-							v-if="step.block[0]?.textType === 'RESULT_SET' && step.block[0]?.text"
+							v-if="
+								step.block[0]?.textType === 'RESULT_SET' && step.block[0]?.text
+							"
 							:data="safeParseJson(step.block[0].text)"
 							:page-size="10"
 						/>
 						<!-- Report node: show brief status, not full content -->
 						<div v-else-if="step.isReport" class="text-body report-brief">
-							<v-icon size="14" color="#16a34a" class="mr-1">mdi-file-chart-outline</v-icon>
-							<span v-if="step.status === 'active'">正在生成报告，内容在下方实时展示...</span>
+							<v-icon size="14" color="#16a34a" class="mr-1"
+								>mdi-file-chart-outline</v-icon
+							>
+							<span v-if="step.status === 'active'"
+								>正在生成报告，内容在下方实时展示...</span
+							>
 							<span v-else>报告已生成完毕，查看下方报告卡片</span>
 						</div>
 						<!-- Pure code block (all items share same code type) -->
@@ -61,7 +79,11 @@
 							v-html="renderCode(step.block)"
 						/>
 						<!-- Mixed content: text with possible embedded JSON/code -->
-						<div v-else class="text-body" v-html="renderTextWithJsonDetection(step.block)" />
+						<div
+							v-else
+							class="text-body"
+							v-html="renderTextWithJsonDetection(step.block)"
+						/>
 					</div>
 				</v-expand-transition>
 			</v-timeline-item>
@@ -77,19 +99,22 @@ import type { GraphNodeResponse } from '~/services/graph/index';
 import type { ResultData } from '~/services/resultSet/index';
 import ChatResultSet from './ChatResultSet.vue';
 
-const props = withDefaults(defineProps<{
-	nodeBlocks: GraphNodeResponse[][];
-	completed?: boolean;
-}>(), {
-	completed: false
-});
+const props = withDefaults(
+	defineProps<{
+		nodeBlocks: GraphNodeResponse[][];
+		completed?: boolean;
+	}>(),
+	{
+		completed: false,
+	},
+);
 
 const expandedSteps = ref<Record<string, boolean>>({});
 
 const allExpanded = computed(() => {
 	const steps = timelineSteps.value;
 	if (steps.length === 0) return false;
-	return steps.some(s => s.expanded);
+	return steps.some((s) => s.expanded);
 });
 
 function toggleAll() {
@@ -101,7 +126,9 @@ function toggleAll() {
 
 function toggleStep(nodeName: string) {
 	const defaultExpanded = getDefaultExpanded(nodeName);
-	expandedSteps.value[nodeName] = !(expandedSteps.value[nodeName] ?? defaultExpanded);
+	expandedSteps.value[nodeName] = !(
+		expandedSteps.value[nodeName] ?? defaultExpanded
+	);
 }
 
 function getDefaultExpanded(nodeName: string): boolean {
@@ -117,22 +144,86 @@ interface NodeDef {
 }
 
 const NODE_LABEL_MAP: Record<string, NodeDef> = {
-	IntentRecognitionNode: { nodeName: 'IntentRecognitionNode', label: '意图识别', icon: 'mdi-magnify' },
-	QueryEnhanceNode: { nodeName: 'QueryEnhanceNode', label: '查询增强', icon: 'mdi-text-search' },
-	SchemaRecallNode: { nodeName: 'SchemaRecallNode', label: 'Schema 召回', icon: 'mdi-database-search' },
-	FeasibilityAssessmentNode: { nodeName: 'FeasibilityAssessmentNode', label: '可行性评估', icon: 'mdi-check-circle-outline' },
-	EvidenceRecallNode: { nodeName: 'EvidenceRecallNode', label: '证据召回', icon: 'mdi-file-search-outline' },
-	TableRelationNode: { nodeName: 'TableRelationNode', label: '表关系分析', icon: 'mdi-table-network' },
-	PlannerNode: { nodeName: 'PlannerNode', label: '制定计划', icon: 'mdi-clipboard-list-outline' },
-	HumanFeedbackNode: { nodeName: 'HumanFeedbackNode', label: '人工反馈', icon: 'mdi-account-check-outline' },
-	PlanExecutorNode: { nodeName: 'PlanExecutorNode', label: '执行计划', icon: 'mdi-play-circle-outline' },
-	SqlGenerateNode: { nodeName: 'SqlGenerateNode', label: 'SQL 生成', icon: 'mdi-code-braces' },
-	SemanticConsistencyNode: { nodeName: 'SemanticConsistencyNode', label: '语义一致性校验', icon: 'mdi-check-decagram' },
-	SqlExecuteNode: { nodeName: 'SqlExecuteNode', label: 'SQL 执行', icon: 'mdi-database-arrow-right' },
-	PythonGenerateNode: { nodeName: 'PythonGenerateNode', label: 'Python 生成', icon: 'mdi-language-python' },
-	PythonAnalyzeNode: { nodeName: 'PythonAnalyzeNode', label: 'Python 分析', icon: 'mdi-chart-line' },
-	PythonExecuteNode: { nodeName: 'PythonExecuteNode', label: 'Python 执行', icon: 'mdi-play-outline' },
-	ReportGeneratorNode: { nodeName: 'ReportGeneratorNode', label: '报告生成', icon: 'mdi-file-chart-outline' },
+	IntentRecognitionNode: {
+		nodeName: 'IntentRecognitionNode',
+		label: '意图识别',
+		icon: 'mdi-magnify',
+	},
+	QueryEnhanceNode: {
+		nodeName: 'QueryEnhanceNode',
+		label: '查询增强',
+		icon: 'mdi-text-search',
+	},
+	SchemaRecallNode: {
+		nodeName: 'SchemaRecallNode',
+		label: 'Schema 召回',
+		icon: 'mdi-database-search',
+	},
+	FeasibilityAssessmentNode: {
+		nodeName: 'FeasibilityAssessmentNode',
+		label: '可行性评估',
+		icon: 'mdi-check-circle-outline',
+	},
+	EvidenceRecallNode: {
+		nodeName: 'EvidenceRecallNode',
+		label: '证据召回',
+		icon: 'mdi-file-search-outline',
+	},
+	TableRelationNode: {
+		nodeName: 'TableRelationNode',
+		label: '表关系分析',
+		icon: 'mdi-table-network',
+	},
+	PlannerNode: {
+		nodeName: 'PlannerNode',
+		label: '制定计划',
+		icon: 'mdi-clipboard-list-outline',
+	},
+	HumanFeedbackNode: {
+		nodeName: 'HumanFeedbackNode',
+		label: '人工反馈',
+		icon: 'mdi-account-check-outline',
+	},
+	PlanExecutorNode: {
+		nodeName: 'PlanExecutorNode',
+		label: '执行计划',
+		icon: 'mdi-play-circle-outline',
+	},
+	SqlGenerateNode: {
+		nodeName: 'SqlGenerateNode',
+		label: 'SQL 生成',
+		icon: 'mdi-code-braces',
+	},
+	SemanticConsistencyNode: {
+		nodeName: 'SemanticConsistencyNode',
+		label: '语义一致性校验',
+		icon: 'mdi-check-decagram',
+	},
+	SqlExecuteNode: {
+		nodeName: 'SqlExecuteNode',
+		label: 'SQL 执行',
+		icon: 'mdi-database-arrow-right',
+	},
+	PythonGenerateNode: {
+		nodeName: 'PythonGenerateNode',
+		label: 'Python 生成',
+		icon: 'mdi-language-python',
+	},
+	PythonAnalyzeNode: {
+		nodeName: 'PythonAnalyzeNode',
+		label: 'Python 分析',
+		icon: 'mdi-chart-line',
+	},
+	PythonExecuteNode: {
+		nodeName: 'PythonExecuteNode',
+		label: 'Python 执行',
+		icon: 'mdi-play-outline',
+	},
+	ReportGeneratorNode: {
+		nodeName: 'ReportGeneratorNode',
+		label: '报告生成',
+		icon: 'mdi-file-chart-outline',
+	},
 };
 
 interface TimelineStep extends NodeDef {
@@ -157,8 +248,13 @@ const timelineSteps = computed<TimelineStep[]>(() => {
 	const lastIdx = orderedNodeNames.length - 1;
 
 	return orderedNodeNames.map((nodeName, idx) => {
-		const def = NODE_LABEL_MAP[nodeName] || { nodeName, label: nodeName, icon: 'mdi-lightning-bolt' };
-		const block = props.nodeBlocks.find(b => b[0]?.nodeName === nodeName) || [];
+		const def = NODE_LABEL_MAP[nodeName] || {
+			nodeName,
+			label: nodeName,
+			icon: 'mdi-lightning-bolt',
+		};
+		const block =
+			props.nodeBlocks.find((b) => b[0]?.nodeName === nodeName) || [];
 		const isReport = nodeName === 'ReportGeneratorNode';
 
 		let status: 'pending' | 'active' | 'done' = 'pending';
@@ -191,7 +287,11 @@ function dotIcon(status: string): string {
 }
 
 function safeParseJson(content: string): ResultData | null {
-	try { return JSON.parse(content); } catch { return null; }
+	try {
+		return JSON.parse(content);
+	} catch {
+		return null;
+	}
 }
 
 function escapeHtml(text: string): string {
@@ -206,14 +306,20 @@ const { renderECharts } = useEchartsRenderer();
 const CODE_TEXT_TYPES = new Set(['SQL', 'PYTHON', 'JSON']);
 
 function isPureCodeBlock(block: GraphNodeResponse[]): boolean {
-	return block.length > 0 && block.every(n => CODE_TEXT_TYPES.has(n.textType));
+	return (
+		block.length > 0 && block.every((n) => CODE_TEXT_TYPES.has(n.textType))
+	);
 }
 
-const SANITIZE_OPTIONS = { ADD_TAGS: ['pre', 'code'], ADD_ATTR: ['class'], RETURN_TRUSTED_TYPE: false as const };
+const SANITIZE_OPTIONS = {
+	ADD_TAGS: ['pre', 'code'],
+	ADD_ATTR: ['class'],
+	RETURN_TRUSTED_TYPE: false as const,
+};
 
 function renderCode(block: GraphNodeResponse[]): string {
 	const lang = (block[0]?.textType || 'text').toLowerCase();
-	const code = block.map(n => n.text).join('');
+	const code = block.map((n) => n.text).join('');
 	try {
 		const h = hljs.highlight(code, { language: lang });
 		return DOMPurify.sanitize(
@@ -228,7 +334,9 @@ function renderCode(block: GraphNodeResponse[]): string {
 	}
 }
 
-function tryExtractJson(text: string): { before: string; json: string; after: string } | null {
+function tryExtractJson(
+	text: string,
+): { before: string; json: string; after: string } | null {
 	const start = text.indexOf('{');
 	const end = text.lastIndexOf('}');
 	if (start === -1 || end === -1 || end <= start) return null;
@@ -246,23 +354,31 @@ function tryExtractJson(text: string): { before: string; json: string; after: st
 }
 
 function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
-	const fullText = block.map(n => n.text).join('');
+	const fullText = block.map((n) => n.text).join('');
 
 	const extracted = tryExtractJson(fullText);
 	if (extracted) {
 		const parts: string[] = [];
 		if (extracted.before) {
-			parts.push(`<div class="text-body">${escapeHtml(extracted.before).replace(/\n/g, '<br>')}</div>`);
+			parts.push(
+				`<div class="text-body">${escapeHtml(extracted.before).replace(/\n/g, '<br>')}</div>`,
+			);
 		}
 		try {
 			const formatted = JSON.stringify(JSON.parse(extracted.json), null, 2);
 			const h = hljs.highlight(formatted, { language: 'json' });
-			parts.push(`<pre class="tl-code"><code class="hljs json">${h.value}</code></pre>`);
+			parts.push(
+				`<pre class="tl-code"><code class="hljs json">${h.value}</code></pre>`,
+			);
 		} catch {
-			parts.push(`<pre class="tl-code"><code>${escapeHtml(extracted.json)}</code></pre>`);
+			parts.push(
+				`<pre class="tl-code"><code>${escapeHtml(extracted.json)}</code></pre>`,
+			);
 		}
 		if (extracted.after) {
-			parts.push(`<div class="text-body">${escapeHtml(extracted.after).replace(/\n/g, '<br>')}</div>`);
+			parts.push(
+				`<div class="text-body">${escapeHtml(extracted.after).replace(/\n/g, '<br>')}</div>`,
+			);
 		}
 		return DOMPurify.sanitize(parts.join(''), SANITIZE_OPTIONS) as string;
 	}
@@ -273,9 +389,13 @@ function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
 	) as string;
 }
 
-watch(() => props.nodeBlocks, () => {
-	nextTick(() => renderECharts(timelineRef.value));
-}, { deep: true });
+watch(
+	() => props.nodeBlocks,
+	() => {
+		nextTick(() => renderECharts(timelineRef.value));
+	},
+	{ deep: true },
+);
 </script>
 
 <style scoped>
@@ -358,8 +478,13 @@ watch(() => props.nodeBlocks, () => {
 }
 
 @keyframes dotBlink {
-	0%, 100% { opacity: 1; }
-	50% { opacity: 0.3; }
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.3;
+	}
 }
 
 /* ── Step content ────────────────────────────────────────────────────────────── */
@@ -407,27 +532,128 @@ watch(() => props.nodeBlocks, () => {
 }
 
 /* ── Markdown inside step content ────────────────────────────────────────────── */
-.md-body :deep(h1), .md-body :deep(h2), .md-body :deep(h3) { font-weight: 700; margin: 10px 0 4px; }
-.md-body :deep(p) { margin-bottom: 6px; }
-.md-body :deep(ul), .md-body :deep(ol) { padding-left: 18px; margin-bottom: 6px; }
-.md-body :deep(code:not(pre code)) { background: #f6f8fa; border: 1px solid #e1e4e8; padding: 1px 5px; border-radius: 3px; font-size: 12px; color: #e83e8c; }
-.md-body :deep(table) { width: 100%; border-collapse: collapse; margin: 6px 0; display: block; overflow-x: auto; }
-.md-body :deep(thead) { display: table-header-group; }
-.md-body :deep(tbody) { display: table-row-group; }
-.md-body :deep(tr) { display: table-row; border-top: 1px solid #c6cbd1; }
-.md-body :deep(th) { display: table-cell; background: #f1f5f9; padding: 6px 10px; border: 1px solid #e2e8f0; font-weight: 600; font-size: 12px; }
-.md-body :deep(td) { display: table-cell; padding: 6px 10px; border: 1px solid #e2e8f0; font-size: 12px; }
+.md-body :deep(h1),
+.md-body :deep(h2),
+.md-body :deep(h3) {
+	font-weight: 700;
+	margin: 10px 0 4px;
+}
+.md-body :deep(p) {
+	margin-bottom: 6px;
+}
+.md-body :deep(ul),
+.md-body :deep(ol) {
+	padding-left: 18px;
+	margin-bottom: 6px;
+}
+.md-body :deep(code:not(pre code)) {
+	background: #f6f8fa;
+	border: 1px solid #e1e4e8;
+	padding: 1px 5px;
+	border-radius: 3px;
+	font-size: 12px;
+	color: #e83e8c;
+}
+.md-body :deep(table) {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 6px 0;
+	display: block;
+	overflow-x: auto;
+}
+.md-body :deep(thead) {
+	display: table-header-group;
+}
+.md-body :deep(tbody) {
+	display: table-row-group;
+}
+.md-body :deep(tr) {
+	display: table-row;
+	border-top: 1px solid #c6cbd1;
+}
+.md-body :deep(th) {
+	display: table-cell;
+	background: #f1f5f9;
+	padding: 6px 10px;
+	border: 1px solid #e2e8f0;
+	font-weight: 600;
+	font-size: 12px;
+}
+.md-body :deep(td) {
+	display: table-cell;
+	padding: 6px 10px;
+	border: 1px solid #e2e8f0;
+	font-size: 12px;
+}
 
 /* ── Code block with header ─────────────────────────────────────────────────── */
-.md-body :deep(.code-block-wrapper) { margin: 8px 0; border: 1px solid #e1e4e8; border-radius: 6px; overflow: hidden; background: #f6f8fa; }
-.md-body :deep(.code-block-header) { display: flex; justify-content: space-between; align-items: center; background: #f6f8fa; padding: 4px 10px; border-bottom: 1px solid #e1e4e8; font-size: 11px; }
-.md-body :deep(.code-language) { color: #6a737d; font-weight: 600; font-family: 'Monaco', 'Menlo', monospace; font-size: 10px; text-transform: uppercase; }
-.md-body :deep(.code-copy-button) { background: transparent; border: 1px solid #d1d5da; padding: 2px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; transition: all 0.2s; color: #24292e; }
-.md-body :deep(.code-copy-button:hover) { background: #f3f4f6; border-color: #c6cbd1; }
-.md-body :deep(.code-copy-button.copied) { background: #28a745; border-color: #28a745; color: white; }
-.md-body :deep(pre.hljs) { margin: 0; padding: 8px 10px; overflow: auto; background: #f6f8fa; font-size: 11px; line-height: 1.35; }
-.md-body :deep(pre.hljs code) { display: block; padding: 0; margin: 0; background: transparent; border: none; font-family: 'Monaco', 'Menlo', monospace; color: inherit; }
+.md-body :deep(.code-block-wrapper) {
+	margin: 8px 0;
+	border: 1px solid #e1e4e8;
+	border-radius: 6px;
+	overflow: auto;
+	background: #f6f8fa;
+}
+.md-body :deep(.code-block-header) {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: #f6f8fa;
+	padding: 4px 10px;
+	border-bottom: 1px solid #e1e4e8;
+	font-size: 11px;
+}
+.md-body :deep(.code-language) {
+	color: #6a737d;
+	font-weight: 600;
+	font-family: 'Monaco', 'Menlo', monospace;
+	font-size: 10px;
+	text-transform: uppercase;
+}
+.md-body :deep(.code-copy-button) {
+	background: transparent;
+	border: 1px solid #d1d5da;
+	padding: 2px 8px;
+	border-radius: 4px;
+	font-size: 10px;
+	cursor: pointer;
+	transition: all 0.2s;
+	color: #24292e;
+}
+.md-body :deep(.code-copy-button:hover) {
+	background: #f3f4f6;
+	border-color: #c6cbd1;
+}
+.md-body :deep(.code-copy-button.copied) {
+	background: #28a745;
+	border-color: #28a745;
+	color: white;
+}
+.md-body :deep(pre.hljs) {
+	margin: 0;
+	padding: 8px 10px;
+	overflow-x: auto;
+	overflow-y: hidden;
+	background: #f6f8fa;
+	font-size: 11px;
+	line-height: 1.35;
+	white-space: pre;
+}
+.md-body :deep(pre.hljs code) {
+	display: block;
+	padding: 0;
+	margin: 0;
+	background: transparent;
+	border: none;
+	font-family: 'Monaco', 'Menlo', monospace;
+	color: inherit;
+	white-space: pre;
+	min-width: max-content;
+}
 
 /* ── ECharts containers ─────────────────────────────────────────────────────── */
-:deep(.md-echarts) { margin: 8px 0; border-radius: 6px; }
+:deep(.md-echarts) {
+	margin: 8px 0;
+	border-radius: 6px;
+}
 </style>

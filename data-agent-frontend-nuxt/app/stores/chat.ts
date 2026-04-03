@@ -459,11 +459,24 @@ export const useChatStore = defineStore('chat', () => {
 						.catch((e) => console.error(e));
 				}
 
+				// Save error message
+				const errorMsg: ChatMessage = {
+					sessionId,
+					role: 'assistant',
+					content: error.message || '请求失败，请检查网络连接并重试。',
+					messageType: 'error',
+				};
+				await chatService
+					.saveMessage(sessionId, errorMsg)
+					.catch((e) => console.error(e));
+
 				sessionState.isStreaming = false;
 				sessionState.closeStream = null;
 				currentNodeName = null;
 				if (currentSession.value?.id === sessionId) {
 					isStreaming.value = false;
+					isReportStreaming.value = false;
+					streamingReportContent.value = '';
 					currentMessages.value =
 						await chatService.getSessionMessages(sessionId);
 				}
@@ -524,9 +537,22 @@ export const useChatStore = defineStore('chat', () => {
 		sessionState.isStreaming = false;
 		sessionState.nodeBlocks = [];
 
+		// Save user-terminated warning message
+		const warningMsg: ChatMessage = {
+			sessionId,
+			role: 'assistant',
+			content: '用户已终止本次对话。',
+			messageType: 'warning',
+		};
+		await chatService
+			.saveMessage(sessionId, warningMsg)
+			.catch((e) => console.error(e));
+
 		if (currentSession.value?.id === sessionId) {
 			isStreaming.value = false;
 			nodeBlocks.value = [];
+			isReportStreaming.value = false;
+			streamingReportContent.value = '';
 			currentMessages.value = await chatService.getSessionMessages(sessionId);
 		}
 	}
