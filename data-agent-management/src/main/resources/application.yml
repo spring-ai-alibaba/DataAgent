@@ -74,8 +74,8 @@ mybatis:
 # 日志配置
 logging:
   level:
-    com.alibaba.cloud.ai.dataagent.service: debug
-    com.alibaba.cloud.ai.dataagent.workflow.node: debug
+    com.alibaba.cloud.ai.dataagent.management.service: debug
+    com.alibaba.cloud.ai.dataagent.aiagent: debug
     com.alibaba.cloud.ai.mapper: debug
     org.springframework.jdbc: debug
 
