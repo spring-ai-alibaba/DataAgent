@@ -229,7 +229,7 @@ class Nl2SqlServiceImplTest {
 			.executionDescription("Get users")
 			.dialect("postgresql")
 			.schemaDTO(createTestSchema())
-			.sql("SELCT * FROM users")
+			.sql("SELECT * FROM users")
 			.exceptionMessage("syntax error at position 5")
 			.query("get all users")
 			.evidence("no evidence")
