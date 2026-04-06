@@ -80,3 +80,6 @@ logging:
     com.alibaba.cloud.ai.dataagent.workflow.node: debug
     com.alibaba.cloud.ai.mapper: debug
     org.springframework.jdbc: debug
+
+app:
+  api-key: ${APP_API_KEY:sk-dataagent-default-key}

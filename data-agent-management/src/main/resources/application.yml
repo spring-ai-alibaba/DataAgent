@@ -80,5 +80,5 @@ logging:
     org.springframework.jdbc: debug
 
 app:
-  api-key: "sk-dataagent-default-key"
+  api-key: ${APP_API_KEY:sk-dataagent-default-key}
 
