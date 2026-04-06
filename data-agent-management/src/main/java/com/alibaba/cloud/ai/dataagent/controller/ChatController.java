@@ -32,8 +32,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -109,10 +107,46 @@ public class ChatController {
 		return ResponseEntity.ok(messages);
 	}
 
+
+	/**
+	 * Save message to session
+	 */
+	@PostMapping("/sessions/{sessionId}/messages")
+	public ResponseEntity<ChatMessage> saveMessage(@PathVariable(value = "sessionId") String sessionId,
+	                                               @RequestBody ChatMessageDTO request) {
+		try {
+			if (request == null) {
+				return ResponseEntity.badRequest().build();
+			}
+			ChatMessage message = ChatMessage.builder()
+					.sessionId(sessionId)
+					.role(request.getRole())
+					.content(request.getContent())
+					.messageType(request.getMessageType())
+					.metadata(request.getMetadata())
+					.build();
+
+			ChatMessage savedMessage = chatMessageService.saveMessage(message);
+
+			// Update session activity time
+			chatSessionService.updateSessionTime(sessionId);
+
+			if (request.isTitleNeeded()) {
+				sessionTitleService.scheduleTitleGeneration(sessionId, message.getContent());
+			}
+
+			return ResponseEntity.ok(savedMessage);
+		}
+		catch (Exception e) {
+			log.error("Save message error for session {}: {}", sessionId, e.getMessage(), e);
+			return ResponseEntity.internalServerError().build();
+		}
+	}
+
 	/**
 	 * Send message to session (SSE streaming)
 	 */
-	@PostMapping(value = "/sessions/{sessionId}/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+	@PostMapping(value = "/sessions/{sessionId}/msg", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<ServerSentEvent<GraphNodeResponse>> sendMessage(
 			@PathVariable("sessionId") String sessionId,
 			@RequestBody ChatMessageDTO request,
@@ -123,14 +157,6 @@ public class ChatController {
 			throw new SessionNotFoundException(sessionId);
 		}
 
-		ChatMessage userMessage = ChatMessage.builder()
-			.sessionId(sessionId)
-			.role(request.getRole())
-			.content(request.getContent())
-			.messageType(request.getMessageType())
-			.metadata(request.getMetadata())
-			.build();
-		chatMessageService.saveMessage(userMessage);
 		chatSessionService.updateSessionTime(sessionId);
 
 		if (request.isTitleNeeded()) {
@@ -151,9 +177,6 @@ public class ChatController {
 
 		graphService.graphStreamProcess(sink, graphRequest);
 
-		AtomicReference<StringBuilder> accumulator = new AtomicReference<>(new StringBuilder());
-		AtomicBoolean saved = new AtomicBoolean(false);
-
 		return sink.asFlux()
 			.filter(sse -> {
 				if (STREAM_EVENT_COMPLETE.equals(sse.event()) || STREAM_EVENT_ERROR.equals(sse.event())) {
@@ -161,25 +184,7 @@ public class ChatController {
 				}
 				return sse.data() != null && sse.data().getText() != null && !sse.data().getText().isEmpty();
 			})
-			.doOnNext(sse -> {
-				if (sse.data() != null && sse.data().getText() != null
-						&& !sse.data().isComplete() && !sse.data().isError()) {
-					accumulator.get().append(sse.data().getText());
-				}
-			})
-			.doOnComplete(() -> {
-				String content = accumulator.get().toString();
-				if (!content.isBlank() && saved.compareAndSet(false, true)) {
-					chatMessageService.saveAssistantMessage(sessionId, content);
-				}
-			})
-			.doOnError(e -> log.error("Stream error for session: {}", sessionId, e))
-			.doOnCancel(() -> {
-				String content = accumulator.get().toString();
-				if (!content.isBlank() && saved.compareAndSet(false, true)) {
-					chatMessageService.saveAssistantMessage(sessionId, content);
-				}
-			});
+			.doOnError(e -> log.error("Stream error for session: {}", sessionId, e));
 	}
 
 	/**
