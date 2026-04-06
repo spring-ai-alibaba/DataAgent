@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-import { ref, provide, onMounted, onUnmounted } from 'vue';
+import { ref, readonly, provide, onMounted, onUnmounted } from 'vue';
 
 const isDark = ref(false);
 
@@ -32,7 +32,6 @@ function applyTheme(dark) {
 }
 
 function handleSystemChange(e) {
-  // 只有用户未手动设置时才跟随系统
   if (!localStorage.getItem('theme')) {
     applyTheme(e.matches);
   }
@@ -44,13 +43,18 @@ function toggleTheme() {
   applyTheme(next);
 }
 
+// 同步初始化主题，避免子组件先收到错误的初始值
+const saved = localStorage.getItem('theme');
+if (saved) {
+  applyTheme(saved === 'dark');
+} else {
+  mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  applyTheme(mediaQuery.matches);
+}
+
 onMounted(() => {
-  const saved = localStorage.getItem('theme');
-  if (saved) {
-    applyTheme(saved === 'dark');
-  } else {
-    mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    applyTheme(mediaQuery.matches);
+  // 仅在未手动设置时监听系统主题变化
+  if (!localStorage.getItem('theme') && mediaQuery) {
     mediaQuery.addEventListener('change', handleSystemChange);
   }
 });
@@ -60,7 +64,7 @@ onUnmounted(() => {
 });
 
 provide('toggleTheme', toggleTheme);
-provide('isDark', isDark);
+provide('isDark', readonly(isDark));
 </script>
 
 <style>
