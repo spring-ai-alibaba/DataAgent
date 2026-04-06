@@ -47,14 +47,15 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 	}
 
 	@Override
-	public void saveAssistantMessage(String sessionId, String content) {
-		ChatMessage message = new ChatMessage();
-		message.setSessionId(sessionId);
-		message.setRole("assistant");
-		message.setContent(content);
-		message.setMessageType("text");
-		message.setCreateTime(LocalDateTime.now());
-		chatMessageMapper.insert(message);
+	public ChatMessage saveAssistantMessage(String sessionId, String content) {
+		ChatMessage message = ChatMessage.builder()
+				.sessionId(sessionId)
+				.role("assistant")
+				.content(content)
+				.messageType("text")
+				.build();
+		log.info("Saving assistant message for session: {}", sessionId);
+		return saveMessage(message);
 	}
 
 }

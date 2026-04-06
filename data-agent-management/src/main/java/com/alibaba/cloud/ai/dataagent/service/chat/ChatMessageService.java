@@ -34,6 +34,6 @@ public interface ChatMessageService {
 	/**
 	 * 保存 AI 助手回复消息
 	 */
-	void saveAssistantMessage(String sessionId, String content);
+	ChatMessage saveAssistantMessage(String sessionId, String content);
 
 }
