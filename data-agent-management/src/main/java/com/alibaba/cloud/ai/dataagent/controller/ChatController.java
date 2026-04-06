@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -151,6 +152,7 @@ public class ChatController {
 		graphService.graphStreamProcess(sink, graphRequest);
 
 		AtomicReference<StringBuilder> accumulator = new AtomicReference<>(new StringBuilder());
+		AtomicBoolean saved = new AtomicBoolean(false);
 
 		return sink.asFlux()
 			.filter(sse -> {
@@ -166,16 +168,16 @@ public class ChatController {
 				}
 			})
 			.doOnComplete(() -> {
-				String fullContent = accumulator.get().toString();
-				if (!fullContent.isBlank()) {
-					chatMessageService.saveAssistantMessage(sessionId, fullContent);
+				String content = accumulator.get().toString();
+				if (!content.isBlank() && saved.compareAndSet(false, true)) {
+					chatMessageService.saveAssistantMessage(sessionId, content);
 				}
 			})
 			.doOnError(e -> log.error("Stream error for session: {}", sessionId, e))
 			.doOnCancel(() -> {
-				String partial = accumulator.get().toString();
-				if (!partial.isBlank()) {
-					chatMessageService.saveAssistantMessage(sessionId, partial);
+				String content = accumulator.get().toString();
+				if (!content.isBlank() && saved.compareAndSet(false, true)) {
+					chatMessageService.saveAssistantMessage(sessionId, content);
 				}
 			});
 	}

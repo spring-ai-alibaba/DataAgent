@@ -69,7 +69,7 @@ class ChatControllerSseTest {
     }
 
     @Test
-    void validSession_callsGraphService_andSavesAssistantMessage() {
+    void validSession_callsGraphService_withNoTokens_doesNotSaveAssistantMessage() {
         ChatSession session = new ChatSession();
         session.setId("sess-1");
         session.setAgentId(1);
