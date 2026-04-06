@@ -2,7 +2,7 @@
 
 **日期**: 2026-04-06  
 **状态**: 已审批  
-**范围**: 补全 DataAgent 项目的对外 API 能力，包含鉴权、消息异步处理、轮询查询、统一错误响应四个模块
+**范围**: 补全 DataAgent 项目的对外 API 能力，包含鉴权、消息 SSE 流式推理、统一错误响应三个模块
 
 ---
 
@@ -23,7 +23,7 @@
 
 ## 总体方案
 
-**最小侵入方案**：在现有 `ChatController` + `GraphController` 基础上补齐缺口，不引入新依赖（无消息队列、无 Redis），使用 Spring `@Async` 处理异步推理。
+**最小侵入方案**：在现有 `ChatController` + `GraphController` 基础上补齐缺口，不引入新依赖。消息接口直接返回 `text/event-stream`，复用 `GraphService` 已有的 `Flux<ServerSentEvent>` 流式能力。
 
 ---
 
@@ -63,111 +63,59 @@ app:
 
 ---
 
-## 第二节：消息异步处理流与状态模型
+## 第二节：消息 SSE 流式处理
+
+### 接口语义变更
+
+`POST /api/sessions/{sessionId}/messages` 改为返回 `text/event-stream`，客户端通过 EventSource 或 fetch + ReadableStream 接收 AI 逐 token 输出。
+
+### 请求
+
+```json
+{
+  "role": "user",
+  "content": "给我一个示例",
+  "messageType": "text"
+}
+```
+
+### `POST /api/sessions/{sessionId}/messages` 处理流程
+
+```
+1. 校验 sessionId 存在 → 不存在立即发送 SSE error 事件后关闭流
+2. 保存用户消息到 chat_message
+3. 从 chat_session 读取 agentId
+4. 设置响应头 Content-Type: text/event-stream
+5. 调用 GraphService.graphStreamProcess(agentId, sessionId, content)
+   （sessionId 直接作为 threadId 传入，统一命名）
+6. 将 Flux<ServerSentEvent> 直接透传给客户端：
+     - 每个 token → data: {"type":"token","content":"..."}
+     - 完成      → data: {"type":"done"}
+     - 异常      → data: {"type":"error","message":"..."}
+7. 流结束后，将完整 AI 回复拼接保存到 chat_message 表
+```
+
+### SSE 事件格式
+
+```
+data: {"type":"token","content":"AI"}
+data: {"type":"token","content":" 生成"}
+data: {"type":"token","content":"内容..."}
+data: {"type":"done"}
+```
+
+异常时：
+```
+data: {"type":"error","message":"AI 服务调用超时"}
+```
 
 ### 数据库变更
 
-`chat_message` 表新增字段：
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `status` | `VARCHAR(16)` | `PENDING` / `PROCESSING` / `DONE` / `FAILED` |
-| `ai_content` | `TEXT` | AI 回复内容（DONE 后写入） |
-| `error_message` | `VARCHAR(512)` | 失败原因（FAILED 时写入） |
-
-### `POST /api/sessions/{sessionId}/messages` 新流程
-
-```
-1. 校验 sessionId 存在 → 不存在返回 404
-2. 保存用户消息到 chat_message，status = PENDING
-3. 立即返回 { messageId, status: "PENDING" }
-4. @Async 异步触发：
-     a. 更新 status = PROCESSING
-     b. 从 chat_session 读取 agentId
-     c. 调用 GraphService.graphStreamProcess(agentId, sessionId, content)
-        （sessionId 直接作为 threadId 传入，统一命名）
-     d. 收集完整流式输出
-     e. 成功 → 保存 AI 回复消息，更新用户消息 status = DONE，写入 ai_content
-     f. 异常 → 更新 status = FAILED，写入 error_message
-```
-
-### 立即返回响应
-
-```json
-{
-  "code": 200,
-  "data": {
-    "messageId": "123",
-    "status": "PENDING"
-  }
-}
-```
+无需新增状态字段。流结束后将完整内容存入现有 `content` 字段，新增一个 `role = assistant` 的消息记录。
 
 ---
 
-## 第三节：轮询接口
-
-### 接口
-
-`GET /api/sessions/{sessionId}/messages/{messageId}`
-
-复用现有 `ChatController`，新增查询方法。
-
-### 响应格式
-
-**进行中（PENDING / PROCESSING）**：
-```json
-{
-  "code": 200,
-  "data": {
-    "messageId": "123",
-    "status": "PENDING",
-    "content": null,
-    "errorMessage": null
-  }
-}
-```
-
-**成功（DONE）**：
-```json
-{
-  "code": 200,
-  "data": {
-    "messageId": "123",
-    "status": "DONE",
-    "content": "AI 生成的回复内容...",
-    "errorMessage": null
-  }
-}
-```
-
-**失败（FAILED）**：
-```json
-{
-  "code": 200,
-  "data": {
-    "messageId": "123",
-    "status": "FAILED",
-    "content": null,
-    "errorMessage": "AI 服务调用超时"
-  }
-}
-```
-
-### 错误情况
-
-| 场景 | 状态码 | 说明 |
-|------|--------|------|
-| sessionId 不存在 | 404 | Session not found |
-| messageId 不属于该 sessionId | 404 | Message not found |
-
-### 客户端轮询建议
-
-每 2 秒轮询一次，收到 `DONE` 或 `FAILED` 后停止。
-
----
-
-## 第四节：统一错误响应
+## 第三节：统一错误响应
 
 ### 实现方式
 
@@ -188,12 +136,11 @@ app:
 | 异常类型 | HTTP Status | code |
 |----------|-------------|------|
 | `SessionNotFoundException` | 404 | 404 |
-| `MessageNotFoundException` | 404 | 404 |
 | `IllegalArgumentException` | 400 | 400 |
 | API Key 无效（拦截器直接写响应） | 401 | 401 |
 | 未捕获异常 | 500 | 500 |
 
-> AI 推理失败不走 HTTP 异常体系，由异步内部捕获后写入 `chat_message.status = FAILED`。
+> AI 推理失败通过 SSE `{"type":"error","message":"..."}` 事件通知客户端，不走 HTTP 异常体系。
 
 ---
 
@@ -206,10 +153,5 @@ app:
 | `WebMvcConfig.java` | 新建/修改：注册拦截器 |
 | `GlobalExceptionHandler.java` | 新建：全局异常处理 |
 | `SessionNotFoundException.java` | 新建：自定义异常 |
-| `MessageNotFoundException.java` | 新建：自定义异常 |
-| `ChatMessage.java` | 修改：新增 status / ai_content / error_message 字段 |
-| `ChatMessageMapper.xml` | 修改：新增字段映射与更新 SQL |
-| `ChatController.java` | 修改：POST 消息触发异步推理，新增 GET 轮询接口 |
-| `ChatMessageService.java` | 修改：新增状态更新方法 |
-| `AsyncAiService.java` | 新建：封装 @Async 异步调用 GraphService 的逻辑 |
-| DB Migration SQL | 新建：chat_message 表 ALTER 语句 |
+| `ChatController.java` | 修改：POST 消息返回 SSE 流，透传 GraphService Flux |
+| `ChatMessageService.java` | 修改：新增流结束后保存 AI 回复方法 |
