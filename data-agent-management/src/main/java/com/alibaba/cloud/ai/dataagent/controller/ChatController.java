@@ -16,26 +16,37 @@
 package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.dto.ChatMessageDTO;
+import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.entity.ChatMessage;
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
+import com.alibaba.cloud.ai.dataagent.exception.SessionNotFoundException;
 import com.alibaba.cloud.ai.dataagent.service.chat.ChatMessageService;
 import com.alibaba.cloud.ai.dataagent.service.chat.ChatSessionService;
 import com.alibaba.cloud.ai.dataagent.service.chat.SessionTitleService;
+import com.alibaba.cloud.ai.dataagent.service.graph.GraphService;
 import com.alibaba.cloud.ai.dataagent.util.ReportTemplateUtil;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
+import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
-import java.util.List;
-import java.util.Map;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.STREAM_EVENT_COMPLETE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.STREAM_EVENT_ERROR;
 
 /**
  * Chat Controller
@@ -54,6 +65,8 @@ public class ChatController {
 	private final SessionTitleService sessionTitleService;
 
 	private final ReportTemplateUtil reportTemplateUtil;
+
+	private final GraphService graphService;
 
 	/**
 	 * Get session list for an agent
@@ -96,38 +109,71 @@ public class ChatController {
 	}
 
 	/**
-	 * Save message to session
+	 * Send message to session (SSE streaming)
 	 */
-	@PostMapping("/sessions/{sessionId}/messages")
-	public ResponseEntity<ChatMessage> saveMessage(@PathVariable(value = "sessionId") String sessionId,
-			@RequestBody ChatMessageDTO request) {
-		try {
-			if (request == null) {
-				return ResponseEntity.badRequest().build();
-			}
-			ChatMessage message = ChatMessage.builder()
-				.sessionId(sessionId)
-				.role(request.getRole())
-				.content(request.getContent())
-				.messageType(request.getMessageType())
-				.metadata(request.getMetadata())
-				.build();
+	@PostMapping(value = "/sessions/{sessionId}/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+	public Flux<ServerSentEvent<GraphNodeResponse>> sendMessage(
+			@PathVariable("sessionId") String sessionId,
+			@RequestBody ChatMessageDTO request,
+			ServerHttpResponse response) {
 
-			ChatMessage savedMessage = chatMessageService.saveMessage(message);
-
-			// Update session activity time
-			chatSessionService.updateSessionTime(sessionId);
-
-			if (request.isTitleNeeded()) {
-				sessionTitleService.scheduleTitleGeneration(sessionId, message.getContent());
-			}
-
-			return ResponseEntity.ok(savedMessage);
+		ChatSession session = chatSessionService.findBySessionId(sessionId);
+		if (session == null) {
+			throw new SessionNotFoundException(sessionId);
 		}
-		catch (Exception e) {
-			log.error("Save message error for session {}: {}", sessionId, e.getMessage(), e);
-			return ResponseEntity.internalServerError().build();
+
+		ChatMessage userMessage = ChatMessage.builder()
+			.sessionId(sessionId)
+			.role(request.getRole())
+			.content(request.getContent())
+			.messageType(request.getMessageType())
+			.metadata(request.getMetadata())
+			.build();
+		chatMessageService.saveMessage(userMessage);
+		chatSessionService.updateSessionTime(sessionId);
+
+		if (request.isTitleNeeded()) {
+			sessionTitleService.scheduleTitleGeneration(sessionId, request.getContent());
 		}
+
+		if (response != null) {
+			response.getHeaders().add("Cache-Control", "no-cache");
+			response.getHeaders().add("Connection", "keep-alive");
+			response.getHeaders().add("Access-Control-Allow-Origin", "*");
+		}
+
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink =
+			Sinks.many().unicast().onBackpressureBuffer();
+
+		GraphRequest graphRequest = GraphRequest.builder()
+			.agentId(String.valueOf(session.getAgentId()))
+			.threadId(sessionId)
+			.query(request.getContent())
+			.build();
+
+		graphService.graphStreamProcess(sink, graphRequest);
+
+		AtomicReference<StringBuilder> accumulator = new AtomicReference<>(new StringBuilder());
+
+		return sink.asFlux()
+			.filter(sse -> {
+				if (STREAM_EVENT_COMPLETE.equals(sse.event()) || STREAM_EVENT_ERROR.equals(sse.event())) {
+					return true;
+				}
+				return sse.data() != null && sse.data().getText() != null && !sse.data().getText().isEmpty();
+			})
+			.doOnNext(sse -> {
+				if (sse.data() != null && sse.data().getText() != null
+						&& !sse.data().isComplete() && !sse.data().isError()) {
+					accumulator.get().append(sse.data().getText());
+				}
+			})
+			.doOnComplete(() -> {
+				String fullContent = accumulator.get().toString();
+				if (!fullContent.isBlank()) {
+					chatMessageService.saveAssistantMessage(sessionId, fullContent);
+				}
+			});
 	}
 
 	/**
