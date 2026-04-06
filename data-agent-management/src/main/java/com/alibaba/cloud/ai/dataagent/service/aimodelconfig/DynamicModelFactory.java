@@ -42,6 +42,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.transport.ProxyProvider;
+import io.netty.resolver.DefaultAddressResolverGroup;
 
 @Slf4j
 @Service
@@ -141,23 +142,26 @@ public class DynamicModelFactory {
 	}
 
 	private WebClient.Builder getProxiedWebClientBuilder(ModelConfigDTO config) {
-		if (config.getProxyEnabled() == null || !config.getProxyEnabled()) {
-			return WebClient.builder();
+		// Use JVM's built-in DNS resolver instead of Netty's async DNS resolver
+		HttpClient nettyClient = HttpClient.create()
+			.responseTimeout(java.time.Duration.ofMinutes(3))
+			.resolver(DefaultAddressResolverGroup.INSTANCE);
+
+		if (config.getProxyEnabled() != null && config.getProxyEnabled()) {
+			log.info("【Proxy-Init】Model [{}] is using ASYNC (Netty) proxy -> {}:{}", config.getModelName(),
+					config.getProxyHost(), config.getProxyPort());
+
+			nettyClient = nettyClient.proxy(p -> {
+				ProxyProvider.Builder proxyBuilder = p.type(ProxyProvider.Proxy.HTTP)
+					.host(config.getProxyHost())
+					.port(config.getProxyPort());
+
+				if (StringUtils.hasText(config.getProxyUsername())) {
+					log.info("【Proxy-Auth】Enabling Basic Auth for ASYNC proxy, user: {}", config.getProxyUsername());
+					proxyBuilder.username(config.getProxyUsername()).password(s -> config.getProxyPassword());
+				}
+			});
 		}
-
-		log.info("【Proxy-Init】Model [{}] is using ASYNC (Netty) proxy -> {}:{}", config.getModelName(),
-				config.getProxyHost(), config.getProxyPort());
-
-		HttpClient nettyClient = HttpClient.create().responseTimeout(java.time.Duration.ofMinutes(3)).proxy(p -> {
-			ProxyProvider.Builder proxyBuilder = p.type(ProxyProvider.Proxy.HTTP)
-				.host(config.getProxyHost())
-				.port(config.getProxyPort());
-
-			if (StringUtils.hasText(config.getProxyUsername())) {
-				log.info("【Proxy-Auth】Enabling Basic Auth for ASYNC proxy, user: {}", config.getProxyUsername());
-				proxyBuilder.username(config.getProxyUsername()).password(s -> config.getProxyPassword());
-			}
-		});
 
 		return WebClient.builder().clientConnector(new ReactorClientHttpConnector(nettyClient));
 	}
