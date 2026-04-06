@@ -1663,6 +1663,11 @@ body {
     background: #242424;
     color: #e8e8e8;
   }
+
+  :root:not([data-theme="light"]) .agent-response-content .language-sql,
+  :root:not([data-theme="light"]) .agent-response-content .language-json {
+    color: #79b8ff;
+  }
 }
 
 /* html-rendered-content 报告区块始终保持白底，不参与暗色模式反色 */
