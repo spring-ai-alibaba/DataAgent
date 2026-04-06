@@ -1328,21 +1328,58 @@ body {
   }
 }
 
-/* 暗色模式支持 */
+/* 系统暗色偏好 - 未手动设置时生效 */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --text-primary: #ffffff;
+  :root:not([data-theme="light"]) {
+    --text-primary: #e8e8e8;
     --text-secondary: #b3b3b3;
     --text-tertiary: #808080;
     --text-quaternary: #4d4d4d;
+    --text-disabled: #383838;
+
     --bg-primary: #1a1a1a;
-    --bg-secondary: #2d2d2d;
-    --bg-tertiary: #404040;
-    --bg-layout: #0d0d0d;
-    --border-primary: #404040;
+    --bg-secondary: #242424;
+    --bg-tertiary: #2d2d2d;
+    --bg-layout: #141414;
+
+    --border-primary: #383838;
     --border-secondary: #2d2d2d;
-    --border-tertiary: #1a1a1a;
+    --border-tertiary: #242424;
+    --border-color: #383838;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+    --shadow-base: 0 4px 8px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+    --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.7);
   }
+}
+
+/* 手动暗色主题 - 由 data-theme="dark" 触发 */
+[data-theme="dark"] {
+  --text-primary: #e8e8e8;
+  --text-secondary: #b3b3b3;
+  --text-tertiary: #808080;
+  --text-quaternary: #4d4d4d;
+  --text-disabled: #383838;
+
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #242424;
+  --bg-tertiary: #2d2d2d;
+  --bg-layout: #141414;
+
+  --border-primary: #383838;
+  --border-secondary: #2d2d2d;
+  --border-tertiary: #242424;
+  --border-color: #383838;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-base: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.7);
 }
 
 /* 对话节点样式 - 从 AgentRun.vue 移出以支持 v-html 渲染 */
@@ -1553,4 +1590,83 @@ body {
   border-radius: 3px !important;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
   font-size: 12px !important;
+}
+
+/* ========================================
+   暗色主题 - 硬编码颜色类覆盖
+   ======================================== */
+
+[data-theme="dark"] .agent-response-block {
+  border-color: #383838;
+  background: #1e1e1e;
+}
+
+[data-theme="dark"] .agent-response-title {
+  background: #2a2a2a;
+  color: #b3b3b3;
+  border-bottom-color: #383838;
+}
+
+[data-theme="dark"] .agent-response-title i {
+  color: #808080;
+}
+
+[data-theme="dark"] .agent-response-content {
+  background: #1a1a1a;
+  color: #e8e8e8;
+}
+
+[data-theme="dark"] .agent-response-content pre {
+  background: #242424;
+  border-color: #383838;
+  color: #e8e8e8;
+}
+
+[data-theme="dark"] .agent-response-content code {
+  background: #242424;
+  color: #e8e8e8;
+}
+
+[data-theme="dark"] .agent-response-content .language-sql,
+[data-theme="dark"] .agent-response-content .language-json {
+  color: #79b8ff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .agent-response-block {
+    border-color: #383838;
+    background: #1e1e1e;
+  }
+
+  :root:not([data-theme="light"]) .agent-response-title {
+    background: #2a2a2a;
+    color: #b3b3b3;
+    border-bottom-color: #383838;
+  }
+
+  :root:not([data-theme="light"]) .agent-response-title i {
+    color: #808080;
+  }
+
+  :root:not([data-theme="light"]) .agent-response-content {
+    background: #1a1a1a;
+    color: #e8e8e8;
+  }
+
+  :root:not([data-theme="light"]) .agent-response-content pre {
+    background: #242424;
+    border-color: #383838;
+    color: #e8e8e8;
+  }
+
+  :root:not([data-theme="light"]) .agent-response-content code {
+    background: #242424;
+    color: #e8e8e8;
+  }
+}
+
+/* html-rendered-content 报告区块始终保持白底，不参与暗色模式反色 */
+[data-theme="dark"] .html-rendered-content {
+  background: white !important;
+  color: #333 !important;
 }
