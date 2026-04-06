@@ -1675,3 +1675,10 @@ body {
   background: white !important;
   color: #333 !important;
 }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .html-rendered-content {
+    background: white !important;
+    color: #333 !important;
+  }
+}
