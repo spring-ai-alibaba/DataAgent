@@ -15,8 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.filter;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
@@ -25,130 +25,167 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.*;
 
 class ApiKeyFilterTest {
 
-    private ApiKeyFilter filter;
-    private WebFilterChain chain;
+    private static final String VALID_KEY = "sk-test-key";
 
-    @BeforeEach
-    void setUp() {
-        filter = new ApiKeyFilter("sk-test-key");
-        chain = mock(WebFilterChain.class);
-        when(chain.filter(any())).thenReturn(Mono.empty());
+    private ApiKeyFilter filterFor(String... activeProfiles) {
+        Environment env = mock(Environment.class);
+        when(env.getActiveProfiles()).thenReturn(activeProfiles);
+        return new ApiKeyFilter(VALID_KEY, env);
     }
 
+    private WebFilterChain passingChain() {
+        WebFilterChain chain = mock(WebFilterChain.class);
+        when(chain.filter(any())).thenReturn(Mono.empty());
+        return chain;
+    }
+
+    // --- prod profile: strictMode=true ---
+
     @Test
-    void shouldReject_whenNoApiKey() {
+    void prod_shouldReject_whenNoApiKey() {
+        ApiKeyFilter filter = filterFor("prod");
+        WebFilterChain chain = passingChain();
         MockServerWebExchange exchange = MockServerWebExchange.from(
             MockServerHttpRequest.get("/api/sessions").build()
         );
 
-        Mono<Void> result = filter.filter(exchange, chain);
-
-        StepVerifier.create(result)
-            .verifyComplete();
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
         assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
         verify(chain, never()).filter(any());
     }
 
     @Test
-    void shouldReject_whenInvalidApiKey() {
+    void prod_shouldReject_whenInvalidApiKey() {
+        ApiKeyFilter filter = filterFor("prod");
+        WebFilterChain chain = passingChain();
         MockServerWebExchange exchange = MockServerWebExchange.from(
-            MockServerHttpRequest.get("/api/sessions")
-                .header("X-API-Key", "wrong-key")
-                .build()
+            MockServerHttpRequest.get("/api/sessions").header("X-API-Key", "wrong-key").build()
         );
 
-        Mono<Void> result = filter.filter(exchange, chain);
-
-        StepVerifier.create(result)
-            .verifyComplete();
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
         assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
         verify(chain, never()).filter(any());
     }
 
     @Test
-    void shouldAllow_whenValidApiKey() {
+    void prod_shouldAllow_whenValidApiKey() {
+        ApiKeyFilter filter = filterFor("prod");
+        WebFilterChain chain = passingChain();
         MockServerWebExchange exchange = MockServerWebExchange.from(
-            MockServerHttpRequest.get("/api/sessions")
-                .header("X-API-Key", "sk-test-key")
-                .build()
+            MockServerHttpRequest.get("/api/sessions").header("X-API-Key", VALID_KEY).build()
         );
 
-        Mono<Void> result = filter.filter(exchange, chain);
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+        verify(chain).filter(exchange);
+    }
 
-        StepVerifier.create(result)
-            .verifyComplete();
+    // --- non-prod profile: strictMode=false ---
+
+    @Test
+    void nonProd_shouldAllow_whenNoApiKey() {
+        ApiKeyFilter filter = filterFor("h2");
+        WebFilterChain chain = passingChain();
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+            MockServerHttpRequest.get("/api/sessions").build()
+        );
+
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+        assertNull(exchange.getResponse().getStatusCode());
         verify(chain).filter(exchange);
     }
 
     @Test
+    void nonProd_shouldAllow_whenBlankApiKey() {
+        ApiKeyFilter filter = filterFor("test");
+        WebFilterChain chain = passingChain();
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+            MockServerHttpRequest.get("/api/sessions").header("X-API-Key", "   ").build()
+        );
+
+        // Blank key treated as "not provided" — allowed in non-prod
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+        assertNull(exchange.getResponse().getStatusCode());
+        verify(chain).filter(exchange);
+    }
+
+    @Test
+    void nonProd_shouldReject_whenWrongApiKey() {
+        ApiKeyFilter filter = filterFor("h2");
+        WebFilterChain chain = passingChain();
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+            MockServerHttpRequest.get("/api/sessions").header("X-API-Key", "bad-key").build()
+        );
+
+        // Wrong key is always rejected, even in non-prod
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verify(chain, never()).filter(any());
+    }
+
+    @Test
+    void nonProd_shouldAllow_whenValidApiKey() {
+        ApiKeyFilter filter = filterFor("h2");
+        WebFilterChain chain = passingChain();
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+            MockServerHttpRequest.get("/api/sessions").header("X-API-Key", VALID_KEY).build()
+        );
+
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+        verify(chain).filter(exchange);
+    }
+
+    // --- path-based skip (profile-independent) ---
+
+    @Test
     void shouldSkip_whenNotApiPath() {
+        ApiKeyFilter filter = filterFor("prod");
+        WebFilterChain chain = passingChain();
         MockServerWebExchange exchange = MockServerWebExchange.from(
             MockServerHttpRequest.get("/swagger-ui/index.html").build()
         );
 
-        Mono<Void> result = filter.filter(exchange, chain);
-
-        StepVerifier.create(result)
-            .verifyComplete();
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
         verify(chain).filter(exchange);
     }
 
     @Test
     void shouldSkip_whenV3ApiDocs() {
+        ApiKeyFilter filter = filterFor("prod");
+        WebFilterChain chain = passingChain();
         MockServerWebExchange exchange = MockServerWebExchange.from(
             MockServerHttpRequest.get("/v3/api-docs").build()
         );
 
-        Mono<Void> result = filter.filter(exchange, chain);
-
-        StepVerifier.create(result)
-            .verifyComplete();
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
         verify(chain).filter(exchange);
     }
 
     @Test
     void shouldSkip_whenActuator() {
+        ApiKeyFilter filter = filterFor("prod");
+        WebFilterChain chain = passingChain();
         MockServerWebExchange exchange = MockServerWebExchange.from(
             MockServerHttpRequest.get("/actuator/health").build()
         );
 
-        Mono<Void> result = filter.filter(exchange, chain);
-
-        StepVerifier.create(result)
-            .verifyComplete();
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
         verify(chain).filter(exchange);
     }
 
     @Test
     void shouldRequireAuth_whenApiSwaggerUi() {
+        ApiKeyFilter filter = filterFor("prod");
+        WebFilterChain chain = passingChain();
         MockServerWebExchange exchange = MockServerWebExchange.from(
             MockServerHttpRequest.get("/api/swagger-ui").build()
         );
 
-        Mono<Void> result = filter.filter(exchange, chain);
-
-        StepVerifier.create(result)
-            .verifyComplete();
-        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
-        verify(chain, never()).filter(any());
-    }
-
-    @Test
-    void shouldReject_whenBlankApiKey() {
-        MockServerWebExchange exchange = MockServerWebExchange.from(
-            MockServerHttpRequest.get("/api/sessions")
-                .header("X-API-Key", "   ")
-                .build()
-        );
-
-        Mono<Void> result = filter.filter(exchange, chain);
-
-        StepVerifier.create(result)
-            .verifyComplete();
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
         assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
         verify(chain, never()).filter(any());
     }
