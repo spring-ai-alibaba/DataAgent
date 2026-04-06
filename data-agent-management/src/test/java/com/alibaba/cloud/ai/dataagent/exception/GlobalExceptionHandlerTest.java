@@ -38,7 +38,21 @@ class GlobalExceptionHandlerTest {
         assertNotNull(body);
         assertEquals(404, body.get("code"));
         assertEquals("Session not found: session-123", body.get("message"));
-        assertEquals("", body.get("data"));
+        assertNull(body.get("data"));
+    }
+
+    @Test
+    void shouldHandle_illegalArgumentException() {
+        IllegalArgumentException ex = new IllegalArgumentException("Invalid parameter");
+
+        ResponseEntity<Map<String, Object>> response = handler.handleIllegalArgument(ex);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        Map<String, Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals(400, body.get("code"));
+        assertEquals("Invalid parameter", body.get("message"));
+        assertNull(body.get("data"));
     }
 
     @Test
@@ -51,7 +65,7 @@ class GlobalExceptionHandlerTest {
         Map<String, Object> body = response.getBody();
         assertNotNull(body);
         assertEquals(500, body.get("code"));
-        assertTrue(body.get("message").toString().contains("Something went wrong"));
-        assertEquals("", body.get("data"));
+        assertEquals("Internal server error", body.get("message"));
+        assertNull(body.get("data"));
     }
 }
