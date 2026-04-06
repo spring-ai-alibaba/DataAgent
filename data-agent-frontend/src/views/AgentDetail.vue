@@ -16,56 +16,52 @@
 
 <template>
   <BaseLayout>
-    <el-container style="margin-top: 20px; gap: 10px">
-      <!-- 设置 header-->
-      <el-header style="background-color: white; margin-bottom: 20px">
-        <el-row :gutter="20" align="middle">
-          <el-col :span="1">
-            <el-button
-              type="primary"
-              :icon="ArrowLeft"
-              @click="goBack"
-              circle
-              style="transform: scale(1.2)"
-            />
-          </el-col>
-          <el-col :span="1" style="text-align: left">
-            <div
-              class="avatar-wrapper"
-              @mouseenter="showHeaderAvatarButton = true"
-              @mouseleave="showHeaderAvatarButton = false"
-            >
-              <el-avatar :src="agent.avatar" size="large" class="header-avatar">
-                {{ agent.name }}
-              </el-avatar>
-              <div v-if="showHeaderAvatarButton" class="avatar-overlay-header">
-                <el-button
-                  type="primary"
-                  size="small"
-                  @click="triggerHeaderFileUpload"
-                  :loading="headerUploading"
-                >
-                  {{ headerUploading ? '上传中...' : '替换头像' }}
-                </el-button>
-              </div>
+    <el-container class="detail-page">
+      <!-- 顶部 Header -->
+      <el-header class="detail-header">
+        <button class="back-btn" @click="goBack">
+          <el-icon><ArrowLeft /></el-icon>
+          返回列表
+        </button>
+        <div class="agent-title-section">
+          <div
+            class="avatar-wrapper"
+            @mouseenter="showHeaderAvatarButton = true"
+            @mouseleave="showHeaderAvatarButton = false"
+          >
+            <el-avatar :src="agent.avatar" size="large" class="header-avatar">
+              {{ agent.name }}
+            </el-avatar>
+            <div v-if="showHeaderAvatarButton" class="avatar-overlay-header">
+              <el-button
+                type="primary"
+                size="small"
+                @click="triggerHeaderFileUpload"
+                :loading="headerUploading"
+              >
+                {{ headerUploading ? '上传中...' : '替换头像' }}
+              </el-button>
             </div>
-            <input
-              ref="headerFileInput"
-              type="file"
-              accept="image/*"
-              style="display: none"
-              @change="handleHeaderFileUpload"
-            />
-          </el-col>
-          <el-col :span="30" style="text-align: left">
-            <h2>{{ agent.name }}</h2>
-          </el-col>
-        </el-row>
-        <el-divider />
+          </div>
+          <input
+            ref="headerFileInput"
+            type="file"
+            accept="image/*"
+            style="display: none"
+            @change="handleHeaderFileUpload"
+          />
+          <div class="agent-title-info">
+            <h2 class="agent-name-text">{{ agent.name }}</h2>
+            <p class="agent-desc-text">{{ agent.description || '暂无描述' }}</p>
+          </div>
+        </div>
+        <el-divider style="margin: 1rem 0 0 0" />
       </el-header>
-      <el-container style="gap: 10px">
-        <!-- 左侧菜单-->
-        <el-aside width="200px" style="background-color: white">
+
+      <!-- 主体内容 -->
+      <el-container class="detail-body">
+        <!-- 左侧菜单 -->
+        <el-aside width="200px" class="detail-aside">
           <el-menu
             :default-active="activeMenuIndex"
             class="el-menu-vertical-demo"
@@ -121,39 +117,37 @@
             </el-menu-item-group>
           </el-menu>
         </el-aside>
-        <el-main style="background-color: white">
-          <!-- 右侧内容-->
-          <AgentBaseSetting v-if="activeMenuIndex === 'basic'" :agent="agent"></AgentBaseSetting>
+
+        <!-- 右侧内容 -->
+        <el-main class="detail-main">
+          <AgentBaseSetting v-if="activeMenuIndex === 'basic'" :agent="agent" />
           <AgentDataSourceConfig
             v-else-if="activeMenuIndex === 'datasource'"
             :agent-id="agent.id"
-          ></AgentDataSourceConfig>
+          />
           <AgentPromptConfig
             v-else-if="activeMenuIndex === 'prompt'"
             :agent-id="agent.id"
             :agent-prompt="agent.prompt"
-          ></AgentPromptConfig>
+          />
           <BusinessKnowledgeConfig
             v-else-if="activeMenuIndex === 'business-knowledge'"
             :agent-id="agent.id"
-          ></BusinessKnowledgeConfig>
+          />
           <AgentSemanticsConfig
             v-else-if="activeMenuIndex === 'semantic-model'"
             :agent-id="agent.id"
-          ></AgentSemanticsConfig>
+          />
           <AgentPresetsConfig
             v-else-if="activeMenuIndex === 'preset-questions'"
             :agent-id="agent.id"
-          ></AgentPresetsConfig>
-          <AgentAccessApi
-            v-else-if="activeMenuIndex === 'access-api'"
-            :agent-id="agent.id"
-          ></AgentAccessApi>
+          />
+          <AgentAccessApi v-else-if="activeMenuIndex === 'access-api'" :agent-id="agent.id" />
           <AgentKnowledgeConfig
             v-else-if="activeMenuIndex === 'agent-knowledge'"
             :agent-id="agent.id"
-          ></AgentKnowledgeConfig>
-          <NotFound v-else></NotFound>
+          />
+          <NotFound v-else />
         </el-main>
       </el-container>
     </el-container>
@@ -338,6 +332,98 @@
 </script>
 
 <style scoped>
+  /* 页面容器 */
+  .detail-page {
+    min-height: 100vh;
+    background: var(--bg-layout);
+    padding: 1.5rem;
+    flex-direction: column;
+    gap: 0;
+    font-family:
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  /* 顶部 Header */
+  .detail-header {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-secondary);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem 0;
+    height: auto !important;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* 返回按钮 */
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    cursor: pointer;
+    padding: 0.4rem 0;
+    background: none;
+    border: none;
+    outline: none;
+    transition: color var(--transition-base);
+    margin-bottom: 0.75rem;
+  }
+
+  .back-btn:hover {
+    color: var(--primary-color);
+  }
+
+  /* 智能体标题区 */
+  .agent-title-section {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .agent-title-info {
+    flex: 1;
+  }
+
+  .agent-name-text {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.25rem 0;
+    line-height: 1.3;
+  }
+
+  .agent-desc-text {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* 主体布局 */
+  .detail-body {
+    flex: 1;
+    gap: 0;
+    border: 1px solid var(--border-secondary);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* 左侧菜单 */
+  .detail-aside {
+    background: var(--bg-primary);
+    border-right: 1px solid var(--border-primary);
+    padding-top: 0.5rem;
+  }
+
+  /* 右侧内容区 */
+  .detail-main {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+  }
+
+  /* 头像 hover 区域 */
   .avatar-wrapper {
     position: relative;
     width: 60px;
@@ -345,6 +431,7 @@
     cursor: pointer;
     border-radius: 50%;
     overflow: hidden;
+    flex-shrink: 0;
     transition: all 0.3s ease;
   }
 
@@ -380,6 +467,17 @@
     }
     to {
       opacity: 1;
+    }
+  }
+
+  /* 响应式 */
+  @media (max-width: 768px) {
+    .detail-page {
+      padding: 1rem;
+    }
+
+    .agent-name-text {
+      font-size: 1.25rem;
     }
   }
 </style>
