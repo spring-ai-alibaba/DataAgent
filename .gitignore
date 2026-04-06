@@ -1,5 +1,9 @@
 target/
 
+# AI tools
+.shiftengine
+.claude
+
 ### IntelliJ IDEA ###
 .idea/*
 **/.idea/*
