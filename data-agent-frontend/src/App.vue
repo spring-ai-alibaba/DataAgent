@@ -19,10 +19,48 @@
   </div>
 </template>
 
-<script>
-  export default {
-    name: 'App',
-  };
+<script setup>
+import { ref, provide, onMounted, onUnmounted } from 'vue';
+
+const isDark = ref(false);
+
+let mediaQuery = null;
+
+function applyTheme(dark) {
+  isDark.value = dark;
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+}
+
+function handleSystemChange(e) {
+  // 只有用户未手动设置时才跟随系统
+  if (!localStorage.getItem('theme')) {
+    applyTheme(e.matches);
+  }
+}
+
+function toggleTheme() {
+  const next = !isDark.value;
+  localStorage.setItem('theme', next ? 'dark' : 'light');
+  applyTheme(next);
+}
+
+onMounted(() => {
+  const saved = localStorage.getItem('theme');
+  if (saved) {
+    applyTheme(saved === 'dark');
+  } else {
+    mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    applyTheme(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleSystemChange);
+  }
+});
+
+onUnmounted(() => {
+  mediaQuery?.removeEventListener('change', handleSystemChange);
+});
+
+provide('toggleTheme', toggleTheme);
+provide('isDark', isDark);
 </script>
 
 <style>
