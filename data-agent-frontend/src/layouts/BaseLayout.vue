@@ -34,7 +34,14 @@
             </div>
           </nav>
         </div>
-        <button class="theme-toggle" @click="toggleTheme" :title="isDark ? '切换到亮色模式' : '切换到暗色模式'">
+        <button
+          type="button"
+          class="theme-toggle"
+          @click="toggleTheme"
+          :title="isDark ? '切换到亮色模式' : '切换到暗色模式'"
+          :aria-label="isDark ? '切换到亮色模式' : '切换到暗色模式'"
+          :aria-pressed="isDark"
+        >
           <i :class="isDark ? 'bi bi-sun' : 'bi bi-moon'"></i>
         </button>
       </div>
@@ -48,15 +55,15 @@
 </template>
 
 <script>
-import { inject } from 'vue';
+import { inject, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 export default {
   name: 'BaseLayout',
   setup() {
     const router = useRouter();
-    const toggleTheme = inject('toggleTheme');
-    const isDark = inject('isDark');
+    const toggleTheme = inject('toggleTheme', () => {});
+    const isDark = inject('isDark', ref(false));
 
     const goToAgentList = () => {
       router.push('/agents');
