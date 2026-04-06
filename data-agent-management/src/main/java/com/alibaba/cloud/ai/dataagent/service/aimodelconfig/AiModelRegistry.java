@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
+import com.alibaba.cloud.ai.graph.advisors.SkillPromptAugmentAdvisor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -51,12 +52,20 @@ public class AiModelRegistry {
 			synchronized (this) {
 				if (currentChatClient == null) {
 					log.info("Initializing global ChatClient...");
+
+					// 方式一：指定技能目录（字符串路径），Advisor 内部创建 FileSystemSkillRegistry
+					SkillPromptAugmentAdvisor skillAdvisor = SkillPromptAugmentAdvisor.builder()
+							//.projectSkillsDirectory("./skills")       // 或绝对路径 /path/to/skills
+							// .userSkillsDirectory("~/saa/skills")  // 可选，默认 ~/saa/skills
+							.lazyLoad(false)                          // 可选，true 则首次请求时再加载技能
+							.build();
+
 					try {
 						ModelConfigDTO config = modelConfigDataService.getActiveConfigByType(ModelType.CHAT);
 						if (config != null) {
 							ChatModel chatModel = modelFactory.createChatModel(config);
 							// 核心：基于新 Model 创建新 Client，彻底消除旧参数缓存
-							currentChatClient = ChatClient.builder(chatModel).build();
+							currentChatClient = ChatClient.builder(chatModel).defaultAdvisors(skillAdvisor).build();
 						}
 					}
 					catch (Exception e) {
