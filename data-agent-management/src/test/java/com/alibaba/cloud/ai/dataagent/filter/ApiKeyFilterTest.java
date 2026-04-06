@@ -96,4 +96,60 @@ class ApiKeyFilterTest {
             .verifyComplete();
         verify(chain).filter(exchange);
     }
+
+    @Test
+    void shouldSkip_whenV3ApiDocs() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+            MockServerHttpRequest.get("/v3/api-docs").build()
+        );
+
+        Mono<Void> result = filter.filter(exchange, chain);
+
+        StepVerifier.create(result)
+            .verifyComplete();
+        verify(chain).filter(exchange);
+    }
+
+    @Test
+    void shouldSkip_whenActuator() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+            MockServerHttpRequest.get("/actuator/health").build()
+        );
+
+        Mono<Void> result = filter.filter(exchange, chain);
+
+        StepVerifier.create(result)
+            .verifyComplete();
+        verify(chain).filter(exchange);
+    }
+
+    @Test
+    void shouldRequireAuth_whenApiSwaggerUi() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+            MockServerHttpRequest.get("/api/swagger-ui").build()
+        );
+
+        Mono<Void> result = filter.filter(exchange, chain);
+
+        StepVerifier.create(result)
+            .verifyComplete();
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verify(chain, never()).filter(any());
+    }
+
+    @Test
+    void shouldReject_whenBlankApiKey() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+            MockServerHttpRequest.get("/api/sessions")
+                .header("X-API-Key", "   ")
+                .build()
+        );
+
+        Mono<Void> result = filter.filter(exchange, chain);
+
+        StepVerifier.create(result)
+            .verifyComplete();
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        verify(chain, never()).filter(any());
+    }
 }

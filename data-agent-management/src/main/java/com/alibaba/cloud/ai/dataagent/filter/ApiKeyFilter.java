@@ -48,7 +48,7 @@ public class ApiKeyFilter implements WebFilter {
 
 		String requestApiKey = exchange.getRequest().getHeaders().getFirst(API_KEY_HEADER);
 
-		if (requestApiKey == null || !requestApiKey.equals(apiKey)) {
+		if (requestApiKey == null || requestApiKey.isBlank() || !requestApiKey.equals(apiKey)) {
 			exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
 			return exchange.getResponse().setComplete();
 		}
@@ -57,8 +57,7 @@ public class ApiKeyFilter implements WebFilter {
 	}
 
 	private boolean shouldSkipAuth(String path) {
-		return !path.startsWith(API_PATH_PREFIX) || path.startsWith("/swagger-ui")
-				|| path.startsWith("/v3/api-docs") || path.startsWith("/actuator");
+		return !path.startsWith(API_PATH_PREFIX);
 	}
 
 }
