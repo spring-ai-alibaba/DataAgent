@@ -28,10 +28,13 @@ import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.mock.http.server.reactive.MockServerHttpResponse;
 import reactor.core.publisher.Sinks;
+import reactor.test.StepVerifier;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class ChatControllerSseTest {
@@ -62,11 +65,11 @@ class ChatControllerSseTest {
         dto.setMessageType("text");
 
         assertThrows(SessionNotFoundException.class,
-            () -> controller.sendMessage("no-such", dto, null));
+            () -> controller.sendMessage("no-such", dto, new MockServerHttpResponse()));
     }
 
     @Test
-    void validSession_callsGraphService() {
+    void validSession_callsGraphService_andSavesAssistantMessage() {
         ChatSession session = new ChatSession();
         session.setId("sess-1");
         session.setAgentId(1);
@@ -88,8 +91,63 @@ class ChatControllerSseTest {
         dto.setContent("hello");
         dto.setMessageType("text");
 
-        var flux = controller.sendMessage("sess-1", dto, null);
+        var flux = controller.sendMessage("sess-1", dto, new MockServerHttpResponse());
         assertNotNull(flux);
         verify(graphService).graphStreamProcess(any(), any());
+
+        StepVerifier.create(flux)
+            .expectNextCount(1)
+            .verifyComplete();
+
+        verify(chatMessageService, never()).saveAssistantMessage(any(), any());
     }
+
+    @Test
+    void tokenAccumulation_savesAssistantMessageWithConcatenatedText() {
+        ChatSession session = new ChatSession();
+        session.setId("sess-2");
+        session.setAgentId(1);
+
+        when(chatSessionService.findBySessionId("sess-2")).thenReturn(session);
+        when(chatMessageService.saveMessage(any())).thenReturn(new ChatMessage());
+        doAnswer(inv -> {
+            Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = inv.getArgument(0);
+            sink.tryEmitNext(ServerSentEvent.<GraphNodeResponse>builder()
+                .event("token")
+                .data(GraphNodeResponse.builder()
+                    .agentId("1")
+                    .threadId("sess-2")
+                    .text("Hello")
+                    .build())
+                .build());
+            sink.tryEmitNext(ServerSentEvent.<GraphNodeResponse>builder()
+                .event("token")
+                .data(GraphNodeResponse.builder()
+                    .agentId("1")
+                    .threadId("sess-2")
+                    .text(" World")
+                    .build())
+                .build());
+            sink.tryEmitNext(ServerSentEvent.<GraphNodeResponse>builder()
+                .event("complete")
+                .data(GraphNodeResponse.complete("1", "sess-2"))
+                .build());
+            sink.tryEmitComplete();
+            return null;
+        }).when(graphService).graphStreamProcess(any(), any());
+
+        ChatMessageDTO dto = new ChatMessageDTO();
+        dto.setRole("user");
+        dto.setContent("hi");
+        dto.setMessageType("text");
+
+        var flux = controller.sendMessage("sess-2", dto, new MockServerHttpResponse());
+
+        StepVerifier.create(flux)
+            .expectNextCount(3)
+            .verifyComplete();
+
+        verify(chatMessageService).saveAssistantMessage(eq("sess-2"), eq("Hello World"));
+    }
+
 }

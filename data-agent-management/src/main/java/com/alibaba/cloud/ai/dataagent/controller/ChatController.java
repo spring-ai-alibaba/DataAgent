@@ -136,11 +136,8 @@ public class ChatController {
 			sessionTitleService.scheduleTitleGeneration(sessionId, request.getContent());
 		}
 
-		if (response != null) {
-			response.getHeaders().add("Cache-Control", "no-cache");
-			response.getHeaders().add("Connection", "keep-alive");
-			response.getHeaders().add("Access-Control-Allow-Origin", "*");
-		}
+		response.getHeaders().add("Cache-Control", "no-cache");
+		response.getHeaders().add("Connection", "keep-alive");
 
 		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink =
 			Sinks.many().unicast().onBackpressureBuffer();
@@ -172,6 +169,13 @@ public class ChatController {
 				String fullContent = accumulator.get().toString();
 				if (!fullContent.isBlank()) {
 					chatMessageService.saveAssistantMessage(sessionId, fullContent);
+				}
+			})
+			.doOnError(e -> log.error("Stream error for session: {}", sessionId, e))
+			.doOnCancel(() -> {
+				String partial = accumulator.get().toString();
+				if (!partial.isBlank()) {
+					chatMessageService.saveAssistantMessage(sessionId, partial);
 				}
 			});
 	}
