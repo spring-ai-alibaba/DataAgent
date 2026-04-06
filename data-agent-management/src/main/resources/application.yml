@@ -79,3 +79,6 @@ logging:
     com.alibaba.cloud.ai.mapper: debug
     org.springframework.jdbc: debug
 
+app:
+  api-key: "sk-dataagent-default-key"
+
