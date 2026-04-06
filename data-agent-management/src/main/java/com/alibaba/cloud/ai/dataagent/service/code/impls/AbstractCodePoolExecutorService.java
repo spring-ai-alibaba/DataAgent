@@ -21,7 +21,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -303,6 +302,11 @@ public abstract class AbstractCodePoolExecutorService implements CodePoolExecuto
 			return this.runTask(request);
 		});
 		this.taskQueue.put(ft);
+
+		if (!this.readyCoreContainer.isEmpty() || !this.readyTempContainer.isEmpty()) {
+			this.popTaskQueue();
+		}
+
 		return ft.get();
 	}
 
@@ -403,28 +407,6 @@ public abstract class AbstractCodePoolExecutorService implements CodePoolExecuto
 		}
 		catch (Exception e) {
 			log.warn("Exception in clean temp directory: {}", e.getMessage());
-		}
-	}
-
-	/**
-	 * Create writable temporary file
-	 * @param tempDir temporary directory
-	 * @param fileName file name
-	 * @throws IOException IO exception
-	 */
-	protected void createWritableFile(Path tempDir, String fileName) throws IOException {
-		File file = new File(tempDir.resolve(fileName).toUri());
-		if (file.exists()) {
-			if (!file.setWritable(true, false)) {
-				throw new IOException("Cannot write to existing file: " + file.getAbsolutePath());
-			}
-			return;
-		}
-		if (!file.createNewFile()) {
-			throw new IOException("Failed to create file: " + file.getAbsolutePath());
-		}
-		if (!file.setWritable(true, false)) {
-			throw new IOException("Cannot write to existing file: " + file.getAbsolutePath());
 		}
 	}
 
