@@ -1,7 +1,7 @@
 # API 能力补全设计文档
 
 **日期**: 2026-04-06  
-**状态**: 已审批  
+**状态**: 已实施  
 **范围**: 补全 DataAgent 项目的对外 API 能力，包含鉴权、消息 SSE 流式推理、统一错误响应三个模块
 
 ---
@@ -31,29 +31,34 @@
 
 ### 机制
 
-Spring `HandlerInterceptor` 拦截所有 `/api/**` 请求，从 `X-API-Key` Header 提取 key，与配置文件中预置值比对。
+Spring `WebFilter`（非 `HandlerInterceptor`，项目使用 WebFlux）拦截所有 `/api/**` 请求，从 `X-API-Key` Header 提取 key，与配置文件中预置值比对。实现类：`ApiKeyFilter`（`@Component @Order(-100)`）。
 
 ### 配置
 
 ```yaml
-# application.yml
+# application.yml / application-h2.yml / application-test.yml（三个 profile 均配置）
 app:
-  api-key: "your-secret-key-here"
+  api-key: ${APP_API_KEY:sk-dataagent-default-key}
 ```
 
-### 拦截器逻辑
+支持通过环境变量 `APP_API_KEY` 覆盖默认值。
+
+### 过滤器逻辑
 
 ```
 请求进入
-  → 读取 Header: X-API-Key
-  → 为空或不匹配 → 返回 401 { code: 401, message: "Invalid API Key" }
-  → 匹配 → 放行
+  → path 不以 /api/ 开头 → 放行（含 /swagger-ui, /v3/api-docs, /actuator）
+  → path 以 /api/ 开头
+      → Header X-API-Key 为空、空白或不匹配
+          → 响应 401 {"code":401,"message":"Invalid API Key","data":null}
+      → 匹配 → 放行
 ```
 
 ### 注册范围
 
-- 拦截路径：`/api/**`
-- 排除路径：`/actuator/**`、`/swagger-ui/**`、`/v3/api-docs/**`
+- 拦截路径：以 `/api/` 开头的所有请求
+- 放行路径：所有不以 `/api/` 开头的请求（含 `/swagger-ui`、`/v3/api-docs`、`/actuator`）
+- **注意**：`/api/swagger-ui` 等路径仍会被拦截（正确行为）
 
 ### 不引入
 
@@ -82,32 +87,28 @@ app:
 ### `POST /api/sessions/{sessionId}/messages` 处理流程
 
 ```
-1. 校验 sessionId 存在 → 不存在立即发送 SSE error 事件后关闭流
+1. 校验 sessionId 存在 → 不存在抛出 SessionNotFoundException（走 GlobalExceptionHandler 返回 404）
 2. 保存用户消息到 chat_message
-3. 从 chat_session 读取 agentId
-4. 设置响应头 Content-Type: text/event-stream
-5. 调用 GraphService.graphStreamProcess(agentId, sessionId, content)
-   （sessionId 直接作为 threadId 传入，统一命名）
-6. 将 Flux<ServerSentEvent> 直接透传给客户端：
-     - 每个 token → data: {"type":"token","content":"..."}
-     - 完成      → data: {"type":"done"}
-     - 异常      → data: {"type":"error","message":"..."}
-7. 流结束后，将完整 AI 回复拼接保存到 chat_message 表
+3. 调用 chatSessionService.updateSessionTime
+4. 可选：scheduleTitleGeneration（若 isTitleNeeded）
+5. 从 chat_session 读取 agentId，构建 GraphRequest（threadId = sessionId）
+6. 创建 Sinks.Many unicast sink，调用 GraphService.graphStreamProcess(sink, graphRequest)
+7. 返回 sink.asFlux()，由 Spring WebFlux 设置 Content-Type: text/event-stream
+8. 流中：过滤空 text 事件，用 AtomicReference<StringBuilder> 累积 token 文本
+9. doOnComplete / doOnCancel（AtomicBoolean 防重复）：将累积内容存为 role=assistant 的消息
+10. doOnError：记录日志
 ```
+
+> 注意：`sessionId` 直接作为 `threadId` 传入 `GraphRequest`，实现命名统一。
 
 ### SSE 事件格式
 
-```
-data: {"type":"token","content":"AI"}
-data: {"type":"token","content":" 生成"}
-data: {"type":"token","content":"内容..."}
-data: {"type":"done"}
-```
+实际事件由 `GraphNodeResponse` 对象序列化，通过 Spring WebFlux 的 `ServerSentEvent<GraphNodeResponse>` 传递，格式由框架控制。事件类型（event field）：
+- 正常 token 事件：无 event 字段（data 中 `text` 含内容）
+- 完成事件：`event: complete`，data 中 `complete=true`
+- 错误事件：`event: error`，data 中 `error=true`
 
-异常时：
-```
-data: {"type":"error","message":"AI 服务调用超时"}
-```
+> SSE 事件格式由 GraphService 内部定义，ChatController 仅过滤并透传。
 
 ### 数据库变更
 
@@ -119,7 +120,9 @@ data: {"type":"error","message":"AI 服务调用超时"}
 
 ### 实现方式
 
-`@RestControllerAdvice` 全局异常处理器 `GlobalExceptionHandler`。
+`@RestControllerAdvice` 全局异常处理器 `GlobalExceptionHandler`（`exception` 包）。
+
+**已合并旧有的两个冲突 advisor**（`aop/ExceptionAdvice`、`controller/GlobalExceptionHandler`）均已删除，统一由新 handler 接管。
 
 ### 统一响应结构
 
@@ -137,21 +140,25 @@ data: {"type":"error","message":"AI 服务调用超时"}
 |----------|-------------|------|
 | `SessionNotFoundException` | 404 | 404 |
 | `IllegalArgumentException` | 400 | 400 |
-| API Key 无效（拦截器直接写响应） | 401 | 401 |
+| `InvalidInputException` | 400 | 400 |
+| `InternalServerException` | 500 | 500 |
+| API Key 无效（WebFilter 直接写响应） | 401 | 401 |
 | 未捕获异常 | 500 | 500 |
 
-> AI 推理失败通过 SSE `{"type":"error","message":"..."}` 事件通知客户端，不走 HTTP 异常体系。
+> AI 推理失败通过 SSE `event: error` 事件通知客户端，不走 HTTP 异常体系（mid-stream 时 HTTP 响应头已发出，无法修改状态码）。
 
 ---
 
-## 涉及文件清单
+## 涉及文件清单（实际实施）
 
-| 文件 | 变更类型 |
-|------|----------|
-| `application.yml` | 新增 `app.api-key` 配置 |
-| `ApiKeyInterceptor.java` | 新建：鉴权拦截器 |
-| `WebMvcConfig.java` | 新建/修改：注册拦截器 |
-| `GlobalExceptionHandler.java` | 新建：全局异常处理 |
-| `SessionNotFoundException.java` | 新建：自定义异常 |
-| `ChatController.java` | 修改：POST 消息返回 SSE 流，透传 GraphService Flux |
-| `ChatMessageService.java` | 修改：新增流结束后保存 AI 回复方法 |
+| 文件 | 变更类型 | 说明 |
+|------|----------|------|
+| `application.yml` / `application-h2.yml` / `application-test.yml` | 新增 | `app.api-key: ${APP_API_KEY:sk-dataagent-default-key}` |
+| `filter/ApiKeyFilter.java` | 新建 | `@Component @Order(-100) WebFilter`，非 Interceptor |
+| `exception/SessionNotFoundException.java` | 新建 | 自定义 404 异常 |
+| `exception/GlobalExceptionHandler.java` | 新建 | `@RestControllerAdvice`，统一错误格式 |
+| `aop/ExceptionAdvice.java` | **删除** | 与新 handler 冲突，已合并 |
+| `controller/GlobalExceptionHandler.java` | **删除** | 与新 handler 冲突，已合并 |
+| `service/chat/ChatMessageService.java` | 修改 | 新增 `ChatMessage saveAssistantMessage(String, String)` |
+| `service/chat/ChatMessageServiceImpl.java` | 修改 | 实现 `saveAssistantMessage`，复用 `saveMessage` |
+| `controller/ChatController.java` | 修改 | `saveMessage` 替换为 SSE 流式 `sendMessage`，新增 `GraphService` 依赖 |
