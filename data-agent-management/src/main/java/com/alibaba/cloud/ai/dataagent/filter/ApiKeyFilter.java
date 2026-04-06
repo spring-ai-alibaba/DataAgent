@@ -15,8 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.filter;
 
+import com.alibaba.cloud.ai.dataagent.mapper.AgentMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
@@ -25,6 +25,7 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.Arrays;
 
@@ -37,12 +38,12 @@ public class ApiKeyFilter implements WebFilter {
 
 	private static final String API_PATH_PREFIX = "/api/";
 
-	private final String apiKey;
+	private final AgentMapper agentMapper;
 
 	private final boolean strictMode;
 
-	public ApiKeyFilter(@Value("${app.api-key}") String apiKey, Environment environment) {
-		this.apiKey = apiKey;
+	public ApiKeyFilter(AgentMapper agentMapper, Environment environment) {
+		this.agentMapper = agentMapper;
 		this.strictMode = Arrays.asList(environment.getActiveProfiles()).contains("prod");
 		log.info("ApiKeyFilter initialized: strictMode={}", this.strictMode);
 	}
@@ -51,34 +52,31 @@ public class ApiKeyFilter implements WebFilter {
 	public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
 		String path = exchange.getRequest().getURI().getPath();
 
-		if (shouldSkipAuth(path)) {
+		if (!path.startsWith(API_PATH_PREFIX)) {
 			return chain.filter(exchange);
 		}
 
 		String requestApiKey = exchange.getRequest().getHeaders().getFirst(API_KEY_HEADER);
 
-		if (requestApiKey != null && !requestApiKey.isBlank()) {
-			// Key provided — always validate it regardless of profile
-			if (!requestApiKey.equals(apiKey)) {
-				log.warn("Rejected request to {}: invalid API key", path);
+		if (requestApiKey == null || requestApiKey.isBlank()) {
+			if (strictMode) {
+				log.warn("Rejected request to {}: missing API key (prod mode)", path);
 				exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
 				return exchange.getResponse().setComplete();
 			}
 			return chain.filter(exchange);
 		}
 
-		// No key provided — only enforce in prod
-		if (strictMode) {
-			log.warn("Rejected request to {}: missing API key (prod mode)", path);
-			exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-			return exchange.getResponse().setComplete();
-		}
-
-		return chain.filter(exchange);
-	}
-
-	private boolean shouldSkipAuth(String path) {
-		return !path.startsWith(API_PATH_PREFIX);
+		// Key provided — validate against Agent table (blocking DB call moved to boundedElastic)
+		return Mono.fromCallable(() -> agentMapper.findByApiKey(requestApiKey))
+			.subscribeOn(Schedulers.boundedElastic())
+			.flatMap(agent -> chain.filter(exchange))
+			.switchIfEmpty(Mono.defer(() -> {
+				log.warn("Rejected request to {}: invalid API key", path);
+				exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+				return exchange.getResponse().setComplete();
+			}));
 	}
 
 }
+

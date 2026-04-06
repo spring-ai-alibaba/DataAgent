@@ -113,4 +113,11 @@ public interface AgentMapper {
 			""")
 	int deleteById(Long id);
 
+	@Select("""
+			SELECT * FROM agent
+			WHERE api_key = #{apiKey} AND api_key_enabled = 1
+			LIMIT 1
+			""")
+	Agent findByApiKey(@Param("apiKey") String apiKey);
+
 }
