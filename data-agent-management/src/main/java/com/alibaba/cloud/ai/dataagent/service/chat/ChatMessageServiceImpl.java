@@ -54,7 +54,6 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 				.content(content)
 				.messageType("text")
 				.build();
-		log.info("Saving assistant message for session: {}", sessionId);
 		return saveMessage(message);
 	}
 

@@ -32,7 +32,7 @@ public interface ChatMessageService {
 	ChatMessage saveMessage(ChatMessage message);
 
 	/**
-	 * 保存 AI 助手回复消息
+	 * Save AI assistant reply message
 	 */
 	ChatMessage saveAssistantMessage(String sessionId, String content);
 
