@@ -21,7 +21,7 @@
         <div class="brand-section">
           <div class="brand-logo">
             <i class="bi bi-robot"></i>
-            <span class="brand-text">Spring AI Alibaba Data Agent</span>
+            <span class="brand-text">辅助交易AI数据分析</span>
           </div>
           <nav class="header-nav">
             <div class="nav-item" :class="{ active: isAgentPage() }" @click="goToAgentList">
