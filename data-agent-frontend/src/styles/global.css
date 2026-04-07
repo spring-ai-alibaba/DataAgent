@@ -125,6 +125,15 @@
   --z-modal: 1050;
   --z-popover: 1060;
   --z-tooltip: 1070;
+
+  /* Element Plus 主题色覆盖 */
+  --el-color-primary: #13AE68;
+  --el-color-primary-light-3: #59c695;
+  --el-color-primary-light-5: #86d4b1;
+  --el-color-primary-light-7: #b3e2cd;
+  --el-color-primary-light-8: #d9f1e6;
+  --el-color-primary-light-9: #ecf8f3;
+  --el-color-primary-dark-2: #0f8b53;
 }
 
 /* 全局重置 */
@@ -149,6 +158,112 @@ body {
   color: var(--text-primary);
   background-color: var(--bg-layout);
   line-height: 1.6;
+}
+
+/* Element Plus 按钮主题色覆盖 */
+.el-button--primary {
+  --el-button-bg-color: #13AE68 !important;
+  --el-button-border-color: #13AE68 !important;
+  --el-button-hover-bg-color: #59c695 !important;
+  --el-button-hover-border-color: #59c695 !important;
+  --el-button-active-bg-color: #0f8b53 !important;
+  --el-button-active-border-color: #0f8b53 !important;
+  --el-button-text-color: #ecf8f3 !important;
+  background-color: #13AE68 !important;
+  border-color: #13AE68 !important;
+}
+
+.el-button--primary:hover {
+  background-color: #59c695 !important;
+  border-color: #59c695 !important;
+}
+
+.el-button--primary:active {
+  background-color: #0f8b53 !important;
+  border-color: #0f8b53 !important;
+}
+
+.el-button--primary.is-disabled {
+  background-color: #86d4b1 !important;
+  border-color: #86d4b1 !important;
+}
+
+/* Element Plus Switch 开关主题色覆盖 */
+.el-switch.is-checked .el-switch__core {
+  background-color: #13AE68 !important;
+  border-color: #13AE68 !important;
+}
+
+.el-switch.is-checked:hover .el-switch__core {
+  background-color: #59c695 !important;
+}
+
+/* Element Plus Select 下拉选中项主题色覆盖 */
+.el-select-dropdown__item.is-selected {
+  color: #13AE68 !important;
+  font-weight: 600;
+}
+
+.el-select-dropdown__item.is-hovering {
+  background-color: #ecf8f3 !important;
+}
+
+/* Element Plus Radio 单选框主题色覆盖 */
+.el-radio__input.is-checked .el-radio__inner {
+  background-color: #13AE68 !important;
+  border-color: #13AE68 !important;
+}
+
+.el-radio__input.is-checked + .el-radio__label {
+  color: #13AE68 !important;
+}
+
+/* Element Plus Checkbox 复选框主题色覆盖 */
+.el-checkbox__input.is-checked .el-checkbox__inner {
+  background-color: #13AE68 !important;
+  border-color: #13AE68 !important;
+}
+
+.el-checkbox__input.is-checked + .el-checkbox__label {
+  color: #13AE68 !important;
+}
+
+/* Element Plus Slider 滑块主题色覆盖 */
+.el-slider__button {
+  border-color: #13AE68 !important;
+}
+
+.el-slider__bar {
+  background-color: #13AE68 !important;
+}
+
+/* Element Plus Input 聚焦边框主题色覆盖 */
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px #13AE68 inset !important;
+}
+
+.el-textarea__inner:focus {
+  border-color: #13AE68 !important;
+}
+
+/* Element Plus Menu 菜单主题色覆盖 */
+.el-menu-item.is-active {
+  color: #13AE68 !important;
+  border-right-color: #13AE68 !important;
+}
+
+.el-menu-item:hover {
+  background-color: #ecf8f3 !important;
+  color: #13AE68 !important;
+}
+
+.el-sub-menu__title:hover {
+  background-color: #ecf8f3 !important;
+  color: #13AE68 !important;
+}
+
+.el-sub-menu.is-active > .el-sub-menu__title {
+  color: #13AE68 !important;
 }
 
 /* 滚动条样式 */
@@ -1353,6 +1468,15 @@ body {
     --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
     --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.7);
+
+    /* Element Plus 主题色覆盖 - 系统暗色模式 */
+    --el-color-primary: #13AE68;
+    --el-color-primary-light-3: #59c695;
+    --el-color-primary-light-5: #86d4b1;
+    --el-color-primary-light-7: #b3e2cd;
+    --el-color-primary-light-8: #d9f1e6;
+    --el-color-primary-light-9: #ecf8f3;
+    --el-color-primary-dark-2: #0f8b53;
   }
 }
 
@@ -1380,6 +1504,15 @@ body {
   --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
   --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.7);
+
+  /* Element Plus 主题色覆盖 - 暗色模式 */
+  --el-color-primary: #13AE68;
+  --el-color-primary-light-3: #59c695;
+  --el-color-primary-light-5: #86d4b1;
+  --el-color-primary-light-7: #b3e2cd;
+  --el-color-primary-light-8: #d9f1e6;
+  --el-color-primary-light-9: #ecf8f3;
+  --el-color-primary-dark-2: #0f8b53;
 }
 
 /* 对话节点样式 - 从 AgentRun.vue 移出以支持 v-html 渲染 */
