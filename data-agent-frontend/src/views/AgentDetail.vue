@@ -19,11 +19,14 @@
     <el-container class="detail-page">
       <!-- 顶部 Header -->
       <el-header class="detail-header">
-        <button class="back-btn" @click="goBack">
-          <el-icon><ArrowLeft /></el-icon>
-          返回列表
-        </button>
-        <div class="agent-title-section">
+        <div class="header-row">
+          <el-button
+            type="primary"
+            :icon="ArrowLeft"
+            @click="goBack"
+            circle
+            style="transform: scale(1.2)"
+          />
           <div
             class="avatar-wrapper"
             @mouseenter="showHeaderAvatarButton = true"
@@ -55,7 +58,6 @@
             <p class="agent-desc-text">{{ agent.description || '暂无描述' }}</p>
           </div>
         </div>
-        <el-divider style="margin: 1rem 0 0 0" />
       </el-header>
 
       <!-- 主体内容 -->
@@ -348,37 +350,39 @@
     background: var(--bg-primary);
     border: 1px solid var(--border-secondary);
     border-radius: var(--radius-lg);
-    padding: 1.25rem 1.5rem 0;
+    padding: 1rem 1.5rem;
     height: auto !important;
     margin-bottom: 1rem;
     box-shadow: var(--shadow-sm);
   }
 
-  /* 返回按钮 */
-  .back-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    cursor: pointer;
-    padding: 0.4rem 0;
-    background: none;
-    border: none;
-    outline: none;
-    transition: color var(--transition-base);
-    margin-bottom: 0.75rem;
-  }
-
-  .back-btn:hover {
-    color: var(--primary-color);
-  }
-
-  /* 智能体标题区 */
-  .agent-title-section {
+  /* Header 行布局 */
+  .header-row {
     display: flex;
     align-items: center;
     gap: 1rem;
+  }
+
+  /* 返回按钮 - 圆形 */
+  .back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    outline: none;
+  }
+
+  .back-btn:hover {
+    opacity: 0.85;
+    transform: scale(1.05);
   }
 
   .agent-title-info {
@@ -417,9 +421,13 @@
     padding-top: 0.5rem;
   }
 
+  .detail-aside :deep(.el-menu) {
+    border-right: none;
+  }
+
   /* 右侧内容区 */
   .detail-main {
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     padding: 1.5rem;
   }
 
