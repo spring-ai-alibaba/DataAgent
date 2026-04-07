@@ -20,7 +20,7 @@
       <div class="header-content">
         <div class="brand-section">
           <div class="brand-logo">
-            <i class="bi bi-robot"></i>
+            <img src="@/assets/logo.png" alt="logo" class="brand-logo-img" />
             <span class="brand-text">辅助交易AI数据分析</span>
           </div>
           <nav class="header-nav">
@@ -34,16 +34,16 @@
             </div>
           </nav>
         </div>
-        <button
-          type="button"
-          class="theme-toggle"
-          @click="toggleTheme"
-          :title="isDark ? '切换到亮色模式' : '切换到暗色模式'"
-          :aria-label="isDark ? '切换到亮色模式' : '切换到暗色模式'"
-          :aria-pressed="isDark"
-        >
-          <i :class="isDark ? 'bi bi-sun' : 'bi bi-moon'"></i>
-        </button>
+        <el-tooltip :content="themeTooltip" placement="bottom">
+          <button
+            type="button"
+            class="theme-toggle"
+            @click="cycleTheme"
+            :aria-label="themeTooltip"
+          >
+            <i :class="themeIcon"></i>
+          </button>
+        </el-tooltip>
       </div>
     </header>
 
@@ -55,7 +55,7 @@
 </template>
 
 <script>
-  import { inject, ref } from 'vue';
+  import { inject, ref, computed } from 'vue';
   import { useRouter } from 'vue-router';
 
   export default {
@@ -63,7 +63,25 @@
     setup() {
       const router = useRouter();
       const toggleTheme = inject('toggleTheme', () => {});
+      const setThemeMode = inject('setThemeMode', () => {});
+      const themeMode = inject('themeMode', ref('system'));
       const isDark = inject('isDark', ref(false));
+
+      const cycleTheme = () => {
+        toggleTheme();
+      };
+
+      const themeIcon = computed(() => {
+        if (themeMode.value === 'light') return 'bi bi-sun';
+        if (themeMode.value === 'dark') return 'bi bi-moon-stars-fill';
+        return 'bi bi-circle-half'; // system
+      });
+
+      const themeTooltip = computed(() => {
+        if (themeMode.value === 'light') return '当前：亮色模式，点击切换到暗色';
+        if (themeMode.value === 'dark') return '当前：暗色模式，点击跟随系统';
+        return '当前：跟随系统，点击切换到亮色';
+      });
 
       const goToAgentList = () => {
         router.push('/agents');
@@ -91,8 +109,11 @@
         goToModelConfig,
         isAgentPage,
         isModelConfigPage,
-        toggleTheme,
+        cycleTheme,
+        themeIcon,
+        themeTooltip,
         isDark,
+        themeMode,
       };
     },
   };
@@ -138,6 +159,12 @@
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--text-primary);
+  }
+
+  .brand-logo-img {
+    width: 1.5rem;
+    height: 1.5rem;
+    object-fit: contain;
   }
 
   .brand-logo i {

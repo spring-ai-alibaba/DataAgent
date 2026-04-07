@@ -670,7 +670,7 @@
 <style scoped>
   .model-config-page {
     min-height: 100vh;
-    background: #f8fafc;
+    background: var(--bg-layout);
     font-family:
       -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   }
@@ -693,12 +693,12 @@
   .header-info h1 {
     font-size: 2rem;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--text-primary);
     margin: 0 0 0.5rem 0;
   }
 
   .header-info p {
-    color: #6b7280;
+    color: var(--text-secondary);
     margin: 0;
     font-size: 1.1rem;
   }
@@ -748,13 +748,13 @@
   /* 表单提示 */
   .form-tip {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--text-secondary);
     margin-top: 0.25rem;
   }
 
   /* 文本样式 */
   .text-muted {
-    color: #9ca3af;
+    color: var(--text-tertiary);
     font-style: italic;
   }
 

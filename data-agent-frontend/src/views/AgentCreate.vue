@@ -363,7 +363,7 @@
 <style scoped>
   .agent-create-page {
     padding: 20px;
-    background: #f8fafc;
+    background: var(--bg-layout);
     min-height: 100vh;
   }
 
@@ -400,11 +400,11 @@
   }
 
   .section-card {
-    background: white;
+    background: var(--bg-primary);
     border-radius: 12px;
     padding: 24px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e5e7eb;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-secondary);
   }
 
   .section-header {
@@ -414,12 +414,12 @@
   .section-header h3 {
     font-size: 18px;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--text-primary);
     margin: 0 0 8px 0;
   }
 
   .section-header p {
-    color: #6b7280;
+    color: var(--text-secondary);
     margin: 0;
     font-size: 14px;
   }
@@ -430,11 +430,11 @@
   }
 
   .bottom-actions .action-card {
-    background: white;
+    background: var(--bg-primary);
     border-radius: 12px;
     padding: 24px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e5e7eb;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-secondary);
   }
 
   .bottom-actions .form-actions {
@@ -453,7 +453,7 @@
     margin-bottom: 10px;
     font-weight: 500;
     font-size: 15px;
-    color: #374151;
+    color: var(--text-primary);
   }
 
   .form-item {
@@ -465,7 +465,7 @@
     margin-bottom: 10px;
     font-weight: 500;
     font-size: 15px;
-    color: #374151;
+    color: var(--text-primary);
   }
 
   .form-switch {
@@ -494,8 +494,8 @@
     height: 80px;
     border-radius: 8px;
     overflow: hidden;
-    border: 2px solid #e5e7eb;
-    background: white;
+    border: 2px solid var(--border-primary);
+    background: var(--bg-secondary);
   }
 
   .avatar-preview img {

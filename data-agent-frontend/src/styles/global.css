@@ -17,9 +17,9 @@
 /* CSS 变量定义 */
 :root {
   /* 主色系 - 淡蓝科技感 */
-  --primary-color: #5f70e1;
-  --primary-hover: #3a7afe;
-  --primary-active: #4c63d2;
+  --primary-color: #13AE68;
+  --primary-hover: #59c695;
+  --primary-active: #0f8b53;
   --primary-light: #e8ebff;
   --primary-lighter: #f5f6ff;
 
@@ -217,22 +217,22 @@ body {
 
 /* 主要按钮 */
 .btn-primary {
-  background: linear-gradient(135deg, #3b82f6, #1e40af);
+  background: linear-gradient(135deg, #13AE68, #59c695);
   color: white;
-  border-color: #3b82f6;
+  border-color: #13AE68;
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  border-color: #2563eb;
+  background: linear-gradient(135deg, #0f8b53, #59c695);
+  border-color: #0f8b53;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   transform: translateY(-1px);
 }
 
 .btn-primary:active:not(:disabled) {
-  background: linear-gradient(135deg, #1e40af, #1d4ed8);
-  border-color: #1e40af;
+  background: linear-gradient(135deg, #59c695, #59c695);
+  border-color: #59c695;
   transform: translateY(0);
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
@@ -577,22 +577,22 @@ body {
 
 /* 主要按钮 - 蓝灰色主题 */
 .btn-primary {
-  background: linear-gradient(135deg, #3b82f6, #1e40af);
+  background: linear-gradient(135deg, #13AE68, #59c695);
   color: white;
-  border-color: #3b82f6;
+  border-color: #13AE68;
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  border-color: #2563eb;
+  background: linear-gradient(135deg, #0f8b53, #59c695);
+  border-color: #0f8b53;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   transform: translateY(-1px);
 }
 
 .btn-primary:active:not(:disabled) {
-  background: linear-gradient(135deg, #1e40af, #1d4ed8);
-  border-color: #1e40af;
+  background: linear-gradient(135deg, #59c695, #59c695);
+  border-color: #59c695;
   transform: translateY(0);
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
@@ -1927,5 +1927,139 @@ body {
 
   :root:not([data-theme="light"]) .el-table__inner-wrapper::before {
     background-color: var(--border-primary) !important;
+  }
+}
+
+/* ========================================
+   暗色主题 - el-dialog, el-radio-button, el-select 下拉
+   ======================================== */
+
+[data-theme="dark"] .el-dialog {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .el-dialog__header {
+  background-color: var(--bg-primary) !important;
+  border-bottom-color: var(--border-primary) !important;
+}
+
+[data-theme="dark"] .el-dialog__title {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .el-dialog__body {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .el-dialog__footer {
+  background-color: var(--bg-primary) !important;
+  border-top-color: var(--border-primary) !important;
+}
+
+[data-theme="dark"] .el-radio-button__inner {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] .el-radio-button__original-radio:checked + .el-radio-button__inner {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .el-select-dropdown {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-primary) !important;
+}
+
+[data-theme="dark"] .el-select-dropdown__item {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .el-select-dropdown__item:hover,
+[data-theme="dark"] .el-select-dropdown__item.is-hovering {
+  background-color: var(--bg-tertiary) !important;
+}
+
+[data-theme="dark"] .el-select-dropdown__item.is-selected {
+  color: var(--primary-color) !important;
+}
+
+[data-theme="dark"] .el-form-item__error {
+  color: var(--error-color) !important;
+}
+
+[data-theme="dark"] .el-slider__runway {
+  background-color: var(--border-primary) !important;
+}
+
+[data-theme="dark"] .el-input-number__decrease,
+[data-theme="dark"] .el-input-number__increase {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] .el-switch__label {
+  color: var(--text-secondary) !important;
+}
+
+/* prefers-color-scheme 同步 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .el-dialog {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+  }
+
+  :root:not([data-theme="light"]) .el-dialog__header {
+    background-color: var(--bg-primary) !important;
+    border-bottom-color: var(--border-primary) !important;
+  }
+
+  :root:not([data-theme="light"]) .el-dialog__title {
+    color: var(--text-primary) !important;
+  }
+
+  :root:not([data-theme="light"]) .el-dialog__body {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+  }
+
+  :root:not([data-theme="light"]) .el-dialog__footer {
+    background-color: var(--bg-primary) !important;
+    border-top-color: var(--border-primary) !important;
+  }
+
+  :root:not([data-theme="light"]) .el-radio-button__inner {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--border-primary) !important;
+    color: var(--text-secondary) !important;
+  }
+
+  :root:not([data-theme="light"]) .el-radio-button__original-radio:checked + .el-radio-button__inner {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    color: #ffffff !important;
+  }
+
+  :root:not([data-theme="light"]) .el-select-dropdown {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--border-primary) !important;
+  }
+
+  :root:not([data-theme="light"]) .el-select-dropdown__item {
+    color: var(--text-primary) !important;
+  }
+
+  :root:not([data-theme="light"]) .el-select-dropdown__item:hover,
+  :root:not([data-theme="light"]) .el-select-dropdown__item.is-hovering {
+    background-color: var(--bg-tertiary) !important;
+  }
+
+  :root:not([data-theme="light"]) .el-select-dropdown__item.is-selected {
+    color: var(--primary-color) !important;
   }
 }

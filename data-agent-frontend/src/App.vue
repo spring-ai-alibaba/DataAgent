@@ -20,8 +20,10 @@
 </template>
 
 <script setup>
-  import { ref, readonly, provide, onMounted, onUnmounted } from 'vue';
+  import { ref, readonly, provide, onMounted, onUnmounted, computed } from 'vue';
 
+  // 'light' | 'dark' | 'system'
+  const themeMode = ref('system');
   const isDark = ref(false);
 
   let mediaQuery = null;
@@ -31,32 +33,50 @@
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   }
 
+  function resolveAndApply() {
+    if (themeMode.value === 'system') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      applyTheme(mq.matches);
+    } else {
+      applyTheme(themeMode.value === 'dark');
+    }
+  }
+
   function handleSystemChange(e) {
-    if (!localStorage.getItem('theme')) {
+    if (themeMode.value === 'system') {
       applyTheme(e.matches);
     }
   }
 
-  function toggleTheme() {
-    const next = !isDark.value;
-    localStorage.setItem('theme', next ? 'dark' : 'light');
-    applyTheme(next);
+  function setThemeMode(mode) {
+    themeMode.value = mode;
+    localStorage.setItem('themeMode', mode);
+    resolveAndApply();
   }
 
-  // 同步初始化主题，避免子组件先收到错误的初始值
-  const saved = localStorage.getItem('theme');
-  if (saved) {
-    applyTheme(saved === 'dark');
-  } else {
-    mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    applyTheme(mediaQuery.matches);
+  // Cycle: light → dark → system → light
+  function toggleTheme() {
+    const next = themeMode.value === 'light' ? 'dark' : themeMode.value === 'dark' ? 'system' : 'light';
+    setThemeMode(next);
   }
+
+  // Initialize from storage
+  const saved = localStorage.getItem('themeMode');
+  if (saved && ['light', 'dark', 'system'].includes(saved)) {
+    themeMode.value = saved;
+  } else {
+    // Legacy migration: old key was 'theme'
+    const legacy = localStorage.getItem('theme');
+    if (legacy === 'dark') themeMode.value = 'dark';
+    else if (legacy === 'light') themeMode.value = 'light';
+    else themeMode.value = 'system';
+  }
+  resolveAndApply();
+
+  mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
   onMounted(() => {
-    // 仅在未手动设置时监听系统主题变化
-    if (!localStorage.getItem('theme') && mediaQuery) {
-      mediaQuery.addEventListener('change', handleSystemChange);
-    }
+    mediaQuery.addEventListener('change', handleSystemChange);
   });
 
   onUnmounted(() => {
@@ -64,6 +84,8 @@
   });
 
   provide('toggleTheme', toggleTheme);
+  provide('setThemeMode', setThemeMode);
+  provide('themeMode', readonly(themeMode));
   provide('isDark', readonly(isDark));
 </script>
 

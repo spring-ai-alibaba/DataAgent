@@ -36,7 +36,7 @@
       />
 
       <!-- 右侧对话栏 -->
-      <el-main style="background-color: white; display: flex; flex-direction: column">
+      <el-main style="background-color: var(--bg-primary); display: flex; flex-direction: column">
         <!-- 消息显示区域 -->
         <div class="chat-container" ref="chatContainer">
           <div v-if="!currentSession" class="empty-state">
@@ -1390,7 +1390,7 @@
     flex: 1;
     overflow-y: auto;
     padding: 20px;
-    background: #f8f9fa;
+    background: var(--bg-secondary);
     border-radius: 8px;
     margin-bottom: 20px;
   }
@@ -1447,11 +1447,11 @@
 
   .markdown-report {
     line-height: 1.6;
-    color: #1f2933;
+    color: var(--text-primary);
   }
 
   .markdown-report pre {
-    background: #f6f8fa;
+    background: var(--bg-secondary);
     padding: 10px 12px;
     border-radius: 6px;
     overflow: auto;
@@ -1470,20 +1470,20 @@
   }
 
   .message.user .message-text {
-    background: #409eff;
+    background: var(--primary-color);
     color: white;
   }
 
   .message.assistant .message-text {
-    background: white;
-    color: #303133;
-    border: 1px solid #e8e8e8;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-primary);
   }
 
   /* 流式响应样式 */
   .streaming-response {
-    background: white;
-    border: 1px solid #e8e8e8;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
     border-radius: 8px;
     padding: 16px;
   }
@@ -1494,17 +1494,17 @@
     gap: 8px;
     margin-bottom: 12px;
     padding-bottom: 8px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--border-secondary);
   }
 
   .loading-icon {
     animation: spin 1s linear infinite;
-    color: #409eff;
+    color: var(--primary-color);
   }
 
   .streaming-header span {
     font-weight: 500;
-    color: #409eff;
+    color: var(--primary-color);
   }
 
   .stop-button-inline {
@@ -1520,24 +1520,24 @@
   }
 
   .agent-response-block {
-    background: #f8f9fa;
-    border: 1px solid #e8e8e8;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
     border-radius: 8px;
     overflow: hidden;
     transition: all 0.3s ease;
   }
 
   .agent-response-block:hover {
-    border-color: #409eff;
-    box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 8px rgba(95, 112, 225, 0.1);
   }
 
   .agent-response-title {
-    background: #ecf5ff;
+    background: var(--primary-lighter);
     padding: 12px 16px;
     font-weight: 600;
-    color: #409eff;
-    border-bottom: 1px solid #e8e8e8;
+    color: var(--primary-color);
+    border-bottom: 1px solid var(--border-primary);
     font-size: 14px;
   }
 
@@ -1579,8 +1579,8 @@
 
   /* 代码高亮样式 */
   .agent-response-content pre.hljs {
-    background: #f6f8fa !important;
-    border: 1px solid #e1e4e8;
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-primary);
     border-radius: 6px;
     padding: 16px;
     margin: 8px 0;
@@ -1598,11 +1598,11 @@
   .agent-response-content .hljs {
     display: block;
     overflow-x: auto;
-    color: #24292e;
-    background: #f6f8fa;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
     padding: 16px;
     border-radius: 6px;
-    border: 1px solid #e1e4e8;
+    border: 1px solid var(--border-primary);
   }
 
   /* HTML报告消息样式 */
@@ -1612,15 +1612,15 @@
     align-items: center;
     gap: 16px;
     padding: 16px;
-    background: #f8fbff;
+    background: var(--primary-lighter);
     border-radius: 12px;
-    border: 1px solid #e1f0ff;
+    border: 1px solid var(--primary-light);
   }
 
   /* Markdown报告消息样式 */
   .markdown-report-message {
-    background: white;
-    border: 1px solid #e8e8e8;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
     border-radius: 12px;
     padding: 16px;
     margin-bottom: 16px;
@@ -1632,7 +1632,7 @@
     align-items: center;
     margin-bottom: 16px;
     padding-bottom: 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--border-secondary);
   }
 
   .markdown-report-content {
@@ -1643,7 +1643,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    color: #409eff;
+    color: var(--primary-color);
     font-size: 16px;
     font-weight: 500;
   }
@@ -1668,7 +1668,7 @@
     width: 100%;
     max-width: 1200px;
     height: 90vh;
-    background: white;
+    background: var(--bg-primary);
     border-radius: 12px;
     display: flex;
     flex-direction: column;
@@ -1681,15 +1681,15 @@
     justify-content: space-between;
     align-items: center;
     padding: 16px 24px;
-    border-bottom: 1px solid #e8e8e8;
-    background: #f8f9fa;
+    border-bottom: 1px solid var(--border-primary);
+    background: var(--bg-secondary);
     flex-shrink: 0;
   }
 
   .report-fullscreen-title {
     font-size: 18px;
     font-weight: 600;
-    color: #303133;
+    color: var(--text-primary);
   }
 
   .report-fullscreen-close {
@@ -1708,15 +1708,15 @@
 
   /* 输入区域样式 */
   .input-area {
-    background: white;
+    background: var(--bg-primary);
     border-radius: 8px;
     padding: 16px;
-    border: 1px solid #e8e8e8;
+    border: 1px solid var(--border-primary);
   }
 
   .input-controls {
     margin-bottom: 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--border-secondary);
   }
 
   .input-controls-header {
@@ -1726,12 +1726,12 @@
     padding: 8px 0;
     cursor: pointer;
     user-select: none;
-    color: #606266;
+    color: var(--text-secondary);
     font-size: 14px;
   }
 
   .input-controls-header:hover {
-    color: #409eff;
+    color: var(--primary-color);
   }
 
   .input-controls-title {
@@ -1770,7 +1770,7 @@
 
   .switch-label {
     font-size: 14px;
-    color: #606266;
+    color: var(--text-secondary);
   }
 
   .send-button {
@@ -1812,17 +1812,17 @@
 <style>
   /* 结果集表格样式 */
   .result-set-container {
-    background: white;
-    border: 1px solid #e8e8e8;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
     border-radius: 8px;
     overflow: hidden;
     margin: 8px 0;
   }
 
   .result-set-header {
-    background: #f8f9fa;
+    background: var(--bg-secondary);
     padding: 12px 16px;
-    border-bottom: 1px solid #e8e8e8;
+    border-bottom: 1px solid var(--border-primary);
   }
 
   .result-set-info {
@@ -1830,7 +1830,7 @@
     justify-content: space-between;
     align-items: center;
     font-size: 14px;
-    color: #606266;
+    color: var(--text-secondary);
   }
 
   .result-set-pagination-controls {
@@ -1841,7 +1841,7 @@
 
   .result-set-pagination-info {
     font-size: 14px;
-    color: #606266;
+    color: var(--text-secondary);
   }
 
   .result-set-pagination-buttons {
@@ -1851,8 +1851,9 @@
 
   .result-set-pagination-btn {
     padding: 6px 12px;
-    border: 1px solid #dcdfe6;
-    background: white;
+    border: 1px solid var(--border-primary);
+    background: var(--bg-primary);
+    color: var(--text-primary);
     border-radius: 4px;
     font-size: 12px;
     cursor: pointer;
@@ -1860,14 +1861,14 @@
   }
 
   .result-set-pagination-btn:hover:not(:disabled) {
-    background: #f5f7fa;
-    border-color: #c6e2ff;
+    background: var(--bg-secondary);
+    border-color: var(--primary-light);
   }
 
   .result-set-pagination-btn:disabled {
-    color: #c0c4cc;
+    color: var(--text-quaternary);
     cursor: not-allowed;
-    background: #f5f7fa;
+    background: var(--bg-secondary);
   }
 
   .result-set-table-container {
@@ -1890,18 +1891,19 @@
   }
 
   .result-set-table th {
-    background: #f5f7fa;
+    background: var(--bg-secondary);
     padding: 8px 12px;
     text-align: left;
     font-weight: 600;
-    color: #606266;
-    border-bottom: 1px solid #e8e8e8;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-primary);
     white-space: nowrap;
   }
 
   .result-set-table td {
     padding: 8px 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--border-secondary);
+    color: var(--text-primary);
     word-break: break-word;
     max-width: 200px;
     overflow: hidden;
@@ -1909,27 +1911,27 @@
   }
 
   .result-set-table tr:hover {
-    background: #f5f7fa;
+    background: var(--bg-tertiary);
   }
 
   .result-set-empty-cell {
     text-align: center;
-    color: #909399;
+    color: var(--text-tertiary);
     padding: 20px;
   }
 
   .result-set-error {
-    background: #fef0f0;
-    color: #f56c6c;
+    background: var(--error-light);
+    color: var(--error-color);
     padding: 8px 12px;
     border-radius: 4px;
     margin: 8px 0;
-    border: 1px solid #fbc4c4;
+    border: 1px solid rgba(255, 77, 79, 0.3);
   }
 
   .result-set-empty {
-    background: #f4f4f5;
-    color: #909399;
+    background: var(--bg-secondary);
+    color: var(--text-tertiary);
     padding: 8px 12px;
     border-radius: 4px;
     margin: 8px 0;

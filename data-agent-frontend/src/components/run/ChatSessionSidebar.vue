@@ -417,8 +417,8 @@
 
 <style scoped>
   .chat-session-sidebar {
-    background-color: white;
-    border-right: 1px solid #e8e8e8;
+    background-color: var(--bg-primary);
+    border-right: 1px solid var(--border-primary);
     transition: width 0.3s ease;
     overflow: hidden;
   }
@@ -471,26 +471,26 @@
 
   .session-item {
     padding: 16px;
-    border: 1px solid #e8e8e8;
+    border: 1px solid var(--border-primary);
     border-radius: 8px;
     margin-bottom: 12px;
     cursor: pointer;
     transition: all 0.3s ease;
-    background: white;
+    background: var(--bg-primary);
   }
 
   .session-item:hover {
-    border-color: #409eff;
-    background-color: #f8fbff;
+    border-color: var(--primary-color);
+    background-color: var(--primary-lighter);
   }
 
   .session-item.active {
-    border-color: #409eff;
-    background-color: #ecf5ff;
+    border-color: var(--primary-color);
+    background-color: var(--primary-light);
   }
 
   .session-item.pinned {
-    border-left: 4px solid #e6a23c;
+    border-left: 4px solid var(--warning-color);
   }
 
   .session-header {
@@ -503,7 +503,7 @@
   .session-title {
     font-weight: 600;
     font-size: 14px;
-    color: #303133;
+    color: var(--text-primary);
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -519,7 +519,7 @@
 
   .session-time {
     font-size: 12px;
-    color: #909399;
+    color: var(--text-tertiary);
   }
 
   /* 响应式设计 */

@@ -342,7 +342,7 @@
 <style scoped>
   .agent-list-page {
     min-height: 100vh;
-    background: #f8fafc;
+    background: var(--bg-layout);
     font-family:
       -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   }
@@ -365,12 +365,12 @@
   .header-info h1 {
     font-size: 2rem;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--text-primary);
     margin: 0 0 0.5rem 0;
   }
 
   .header-info p {
-    color: #6b7280;
+    color: var(--text-secondary);
     margin: 0;
     font-size: 1.1rem;
   }
@@ -387,13 +387,13 @@
   .stat-number {
     font-size: 2rem;
     font-weight: 700;
-    color: #3b82f6;
+    color: var(--primary-color);
     line-height: 1;
   }
 
   .stat-label {
     font-size: 0.875rem;
-    color: #6b7280;
+    color: var(--text-secondary);
     margin-top: 0.25rem;
   }
 
@@ -428,8 +428,8 @@
   }
 
   .tab-count {
-    background: #f3f4f6;
-    color: #6b7280;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
     font-size: 0.75rem;
@@ -471,12 +471,12 @@
   .agent-name {
     font-size: 1.125rem;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--text-primary);
     margin: 0 0 0.5rem 0;
   }
 
   .agent-description {
-    color: #6b7280;
+    color: var(--text-secondary);
     font-size: 0.875rem;
     line-height: 1.5;
     margin: 0 0 0.75rem 0;
@@ -491,7 +491,7 @@
     justify-content: space-between;
     align-items: center;
     font-size: 0.75rem;
-    color: #9ca3af;
+    color: var(--text-tertiary);
   }
 
   .agent-status {
