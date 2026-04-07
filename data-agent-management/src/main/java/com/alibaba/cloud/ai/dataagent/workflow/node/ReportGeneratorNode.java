@@ -197,42 +197,35 @@ public class ReportGeneratorNode implements NodeAction {
 		}
 		else {
 			List<ExecutionStep> executionPlan = plan.getExecutionPlan();
-			for (Map.Entry<String, String> entry : executionResults.entrySet()) {
-				String stepKey = entry.getKey();
-				String stepResult = entry.getValue();
+			for (int i = 0; i < executionPlan.size(); i++) {
+				ExecutionStep step = executionPlan.get(i);
+				String stepId = String.valueOf(i + 1);
+				String stepKey = "step_" + stepId;
+				String stepResult = executionResults.get(stepKey);
+				String analysisResult = executionResults.get(stepKey + "_analysis");
 
-				if (stepKey.endsWith("_analysis")) {
+				if ((stepResult == null || stepResult.trim().isEmpty())
+						&& (analysisResult == null || analysisResult.trim().isEmpty())) {
 					continue;
 				}
 
 				sb.append("### ").append(stepKey).append("\n");
-
-				// Try to get corresponding step description
-				try {
-					int stepIndex = Integer.parseInt(stepKey.replace("step_", "")) - 1;
-					if (stepIndex >= 0 && stepIndex < executionPlan.size()) {
-						ExecutionStep step = executionPlan.get(stepIndex);
-						sb.append("**步骤编号**: ").append(step.getStep()).append("\n");
-						sb.append("**使用工具**: ").append(step.getToolToUse()).append("\n");
-						if (step.getToolParameters() != null) {
-							sb.append("**参数描述**: ").append(step.getToolParameters().getInstruction()).append("\n");
-							if (step.getToolParameters().getSqlQuery() != null) {
-								sb.append("**执行SQL**: \n```sql\n")
-									.append(step.getToolParameters().getSqlQuery())
-									.append("\n```\n");
-							}
-						}
+				sb.append("**步骤编号**: ").append(step.getStep()).append("\n");
+				sb.append("**使用工具**: ").append(step.getToolToUse()).append("\n");
+				if (step.getToolParameters() != null) {
+					sb.append("**参数描述**: ").append(step.getToolParameters().getInstruction()).append("\n");
+					if (step.getToolParameters().getSqlQuery() != null) {
+						sb.append("**执行SQL**: \n```sql\n")
+							.append(step.getToolParameters().getSqlQuery())
+							.append("\n```\n");
 					}
 				}
-				catch (NumberFormatException e) {
-					// Ignore parsing errors
-				}
 
-				sb.append("**执行结果**: \n```json\n").append(stepResult).append("\n```\n\n");
-				String analysisKey = stepKey + "_analysis";
-				String analysisResult = executionResults.get(analysisKey);
+				if (stepResult != null && !stepResult.trim().isEmpty()) {
+					sb.append("**执行结果**: \n```json\n").append(stepResult).append("\n```\n\n");
+				}
 				if (analysisResult != null && !analysisResult.trim().isEmpty()) {
-					sb.append("**Python 分析结果**: ").append(analysisResult).append(" ");
+					sb.append("**Python 分析结果**: ").append(analysisResult).append("\n\n");
 				}
 			}
 		}
