@@ -45,7 +45,9 @@ public class GraphController {
 
 	@GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<ServerSentEvent<GraphNodeResponse>> streamSearch(@RequestParam("agentId") String agentId,
+			@RequestParam(value = "agentType", required = false) String agentType,
 			@RequestParam(value = "threadId", required = false) String threadId, @RequestParam("query") String query,
+			@RequestParam(value = "scene", required = false) String scene,
 			@RequestParam(value = "humanFeedback", required = false) boolean humanFeedback,
 			@RequestParam(value = "humanFeedbackContent", required = false) String humanFeedbackContent,
 			@RequestParam(value = "rejectedPlan", required = false) boolean rejectedPlan,
@@ -57,8 +59,10 @@ public class GraphController {
 		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
 		GraphRequest request = GraphRequest.builder()
 			.agentId(agentId)
+			.agentType(agentType)
 			.threadId(threadId)
 			.query(query)
+			.scene(scene)
 			.humanFeedback(humanFeedback)
 			.humanFeedbackContent(humanFeedbackContent)
 			.rejectedPlan(rejectedPlan)
@@ -76,14 +80,14 @@ public class GraphController {
 			.doOnSubscribe(subscription -> log.info("Client subscribed to aiagent stream, threadId: {}", request.getThreadId()))
 			.doOnCancel(() -> {
 				log.info("Client disconnected from aiagent stream, threadId: {}", request.getThreadId());
-				if (request.getThreadId() != null) {
-					graphService.stopStreamProcessing(request.getThreadId());
+				if (request.getThreadId() != null && request.getRuntimeRequestId() != null) {
+					graphService.stopStreamProcessing(request.getThreadId(), request.getRuntimeRequestId());
 				}
 			})
 			.doOnError(error -> {
 				log.error("Error occurred during aiagent streaming, threadId: {}", request.getThreadId(), error);
-				if (request.getThreadId() != null) {
-					graphService.stopStreamProcessing(request.getThreadId());
+				if (request.getThreadId() != null && request.getRuntimeRequestId() != null) {
+					graphService.stopStreamProcessing(request.getThreadId(), request.getRuntimeRequestId());
 				}
 			})
 			.doOnComplete(() -> log.info("Aiagent stream completed successfully, threadId: {}", request.getThreadId()));

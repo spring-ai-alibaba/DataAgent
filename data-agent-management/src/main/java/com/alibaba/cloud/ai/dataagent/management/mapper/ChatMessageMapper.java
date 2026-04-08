@@ -33,6 +33,36 @@ public interface ChatMessageMapper {
 			""")
 	List<ChatMessage> selectBySessionId(@Param("sessionId") String sessionId);
 
+	@Select("""
+			SELECT * FROM chat_message
+			WHERE session_id = #{sessionId}
+			  AND LOWER(TRIM(COALESCE(message_type, ''))) <> 'memory-text'
+			ORDER BY create_time ASC
+			""")
+	List<ChatMessage> selectVisibleBySessionId(@Param("sessionId") String sessionId);
+
+	@Select("""
+			SELECT * FROM (
+			    SELECT * FROM chat_message
+			    WHERE session_id = #{sessionId}
+			      AND content IS NOT NULL
+			      AND TRIM(content) <> ''
+			      AND (
+			          LOWER(TRIM(COALESCE(message_type, ''))) = 'memory-text'
+			          OR (
+			              LOWER(TRIM(COALESCE(role, ''))) IN ('assistant', 'system', 'tool', 'user')
+			              AND LOWER(TRIM(COALESCE(message_type, ''))) NOT IN ('html', 'html-report', 'markdown-report', 'result-set')
+			              AND LOWER(TRIM(COALESCE(message_type, ''))) IN ('', 'text')
+			          )
+			      )
+			    ORDER BY create_time DESC
+			    LIMIT #{limit}
+			) recent_memory
+			ORDER BY create_time ASC
+			""")
+	List<ChatMessage> selectRecentMemoryEligibleBySessionId(@Param("sessionId") String sessionId,
+			@Param("limit") int limit);
+
 	/**
 	 * Query by id
 	 */

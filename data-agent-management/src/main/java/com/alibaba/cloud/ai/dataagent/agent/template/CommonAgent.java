@@ -1,0 +1,83 @@
+/*
+ * Copyright 2024-2026 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.cloud.ai.dataagent.agent.template;
+
+import io.agentscope.core.ReActAgent;
+import io.agentscope.core.hook.Hook;
+import io.agentscope.core.message.Msg;
+import io.agentscope.core.message.MsgRole;
+import java.time.Duration;
+import java.util.List;
+import java.util.Objects;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+
+@Component
+public class CommonAgent implements ManagedAgent {
+
+	public static final String AGENT_TYPE = "commonagent";
+
+	private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(120);
+
+	@Override
+	public String getAgentType() {
+		return AGENT_TYPE;
+	}
+
+	@Override
+	public Msg run(AgentRunContext context) {
+		Objects.requireNonNull(context, "AgentRunContext must not be null");
+		Objects.requireNonNull(context.model(), "AgentScope model must not be null");
+		AgentRuntimeExtensions extensions = context.extensions();
+		ReActAgent.Builder builder = ReActAgent.builder()
+			.name(context.agentType())
+			.sysPrompt(defaultSystemPrompt(context.systemPrompt()))
+			.model(context.model());
+		if (extensions.toolkit() != null) {
+			builder.toolkit(extensions.toolkit());
+		}
+		if (extensions.memory() != null) {
+			builder.memory(extensions.memory());
+		}
+		if (extensions.toolExecutionContext() != null) {
+			builder.toolExecutionContext(extensions.toolExecutionContext());
+		}
+		List<Hook> hooks = extensions.hooks();
+		if (!hooks.isEmpty()) {
+			builder.hooks(hooks);
+		}
+		ReActAgent agent = builder.build();
+		return agent.call(Msg.builder()
+			.name("user")
+			.role(MsgRole.USER)
+			.textContent(defaultUserPrompt(context.userPrompt()))
+			.build())
+			.block(resolveTimeout(context.timeout()));
+	}
+
+	private String defaultSystemPrompt(String systemPrompt) {
+		return StringUtils.hasText(systemPrompt) ? systemPrompt : "";
+	}
+
+	private String defaultUserPrompt(String userPrompt) {
+		return userPrompt == null ? "" : userPrompt;
+	}
+
+	private Duration resolveTimeout(Duration timeout) {
+		return timeout == null ? DEFAULT_TIMEOUT : timeout;
+	}
+
+}

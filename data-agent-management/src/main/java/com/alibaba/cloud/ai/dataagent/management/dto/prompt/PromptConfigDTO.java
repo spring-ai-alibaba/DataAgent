@@ -23,7 +23,9 @@ package com.alibaba.cloud.ai.dataagent.management.dto.prompt;
 
 public record PromptConfigDTO(String id, // Configuration ID (required for update)
 		String name, // Configuration name
-		String promptType, // Prompt type
+		String agentType, // Agent type
+		String scene, // Prompt scene
+		String promptType, // Compatible alias for scene
 		Long agentId, // Associated agent ID, null means global
 		String optimizationPrompt, // User-defined system prompt content
 		Boolean enabled, // Whether to enable this configuration
@@ -32,5 +34,31 @@ public record PromptConfigDTO(String id, // Configuration ID (required for updat
 		Integer priority, // Configuration priority
 		Integer displayOrder // Configuration display order
 ) {
+
+	public static final String DEFAULT_AGENT_TYPE = "commonagent";
+
+	public static final String DEFAULT_PROMPT_TYPE = "system";
+
+	public String resolvedScene() {
+		return resolvedPromptType();
+	}
+
+	public String resolvedPromptType() {
+		return DEFAULT_PROMPT_TYPE;
+	}
+
+	public String resolvedAgentType() {
+		return DEFAULT_AGENT_TYPE;
+	}
+
+	public boolean resolvedEnabled(Boolean fallbackEnabled) {
+		if (this.enabled != null) {
+			return this.enabled;
+		}
+		if (fallbackEnabled != null) {
+			return fallbackEnabled;
+		}
+		return true;
+	}
 
 }

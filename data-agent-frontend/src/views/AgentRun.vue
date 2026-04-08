@@ -611,7 +611,7 @@
             nl2sqlOnly: requestOptions.value.nl2sqlOnly,
             rejectedPlan: false,
             humanFeedbackContent: null,
-            threadId: sessionState.lastRequest?.threadId || null,
+            threadId: currentSession.value.id,
           };
 
           userInput.value = '';

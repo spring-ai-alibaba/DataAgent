@@ -15,25 +15,88 @@
  */
 package com.alibaba.cloud.ai.dataagent.agent.session;
 
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.stereotype.Component;
 
 @Component
 public class AgentSessionRegistry {
 
-	private final Set<String> activeThreadIds = ConcurrentHashMap.newKeySet();
+	private final ConcurrentHashMap<String, ConcurrentHashMap<String, RequestExecutionState>> requestStatesByThreadId = new ConcurrentHashMap<>();
 
-	public void register(String threadId) {
-		if (threadId != null && !threadId.isBlank()) {
-			activeThreadIds.add(threadId);
+	public void register(String threadId, String runtimeRequestId) {
+		RequestExecutionState state = getOrCreateState(threadId, runtimeRequestId);
+		state.cancelled.set(false);
+		state.runningThread.set(null);
+	}
+
+	public void markCancelled(String threadId, String runtimeRequestId) {
+		RequestExecutionState state = getState(threadId, runtimeRequestId);
+		if (state == null) {
+			return;
+		}
+		state.cancelled.set(true);
+		Thread runningThread = state.runningThread.get();
+		if (runningThread != null) {
+			runningThread.interrupt();
 		}
 	}
 
-	public void remove(String threadId) {
-		if (threadId != null && !threadId.isBlank()) {
-			activeThreadIds.remove(threadId);
+	public void markRunning(String threadId, String runtimeRequestId, Thread thread) {
+		getOrCreateState(threadId, runtimeRequestId).runningThread.set(thread);
+	}
+
+	public void clearRunning(String threadId, String runtimeRequestId) {
+		RequestExecutionState state = getState(threadId, runtimeRequestId);
+		if (state != null) {
+			state.runningThread.set(null);
 		}
+	}
+
+	public boolean isActive(String threadId, String runtimeRequestId) {
+		RequestExecutionState state = getState(threadId, runtimeRequestId);
+		return state != null && !state.cancelled.get();
+	}
+
+	public boolean isCancelled(String threadId, String runtimeRequestId) {
+		RequestExecutionState state = getState(threadId, runtimeRequestId);
+		return state != null && state.cancelled.get();
+	}
+
+	public void finish(String threadId, String runtimeRequestId) {
+		if (threadId == null || threadId.isBlank() || runtimeRequestId == null || runtimeRequestId.isBlank()) {
+			return;
+		}
+		requestStatesByThreadId.computeIfPresent(threadId, (key, states) -> {
+			states.remove(runtimeRequestId);
+			return states.isEmpty() ? null : states;
+		});
+	}
+
+	private RequestExecutionState getOrCreateState(String threadId, String runtimeRequestId) {
+		if (threadId == null || threadId.isBlank() || runtimeRequestId == null || runtimeRequestId.isBlank()) {
+			throw new IllegalArgumentException("threadId and runtimeRequestId must not be blank");
+		}
+		ConcurrentHashMap<String, RequestExecutionState> states = requestStatesByThreadId.computeIfAbsent(threadId,
+				key -> new ConcurrentHashMap<>());
+		return states.computeIfAbsent(runtimeRequestId, key -> new RequestExecutionState());
+	}
+
+	private RequestExecutionState getState(String threadId, String runtimeRequestId) {
+		if (threadId == null || threadId.isBlank() || runtimeRequestId == null || runtimeRequestId.isBlank()) {
+			return null;
+		}
+		ConcurrentHashMap<String, RequestExecutionState> states = requestStatesByThreadId.get(threadId);
+		return states == null ? null : states.get(runtimeRequestId);
+	}
+
+	private static final class RequestExecutionState {
+
+		private final AtomicBoolean cancelled = new AtomicBoolean(false);
+
+		private final AtomicReference<Thread> runningThread = new AtomicReference<>();
+
 	}
 
 }

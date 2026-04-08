@@ -58,7 +58,10 @@ modified_mcp_config.json
 
 uploads/*
 vectorstore/*
+data-agent-management/vectorstore/*
+.playwright-mcp/
 .java-version
 
 # spring-ai-alibaba source
 spring-ai-alibaba-1.1.0.0/
+.spec-workflow

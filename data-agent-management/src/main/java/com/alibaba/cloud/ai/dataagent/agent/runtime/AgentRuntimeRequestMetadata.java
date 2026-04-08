@@ -13,37 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.agent.dto;
+package com.alibaba.cloud.ai.dataagent.agent.runtime;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class GraphRequest {
-
-	private String agentId;
-
-	private String agentType;
-
-	private String threadId;
-
-	private String runtimeRequestId;
-
-	private String query;
-
-	private String scene;
-
-	private boolean humanFeedback;
-
-	private String humanFeedbackContent;
-
-	private boolean rejectedPlan;
-
-	private boolean nl2sqlOnly;
+public record AgentRuntimeRequestMetadata(String agentId, String agentType, String threadId, String scene,
+		boolean nl2sqlOnly) {
 
 }

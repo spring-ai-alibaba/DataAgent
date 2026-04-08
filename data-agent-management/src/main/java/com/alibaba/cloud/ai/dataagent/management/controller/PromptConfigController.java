@@ -110,13 +110,30 @@ public class PromptConfigController {
 	 */
 	@GetMapping("/list-by-type/{promptType}")
 	public ResponseEntity<Map<String, Object>> getConfigsByType(@PathVariable(value = "promptType") String promptType,
-			@RequestParam(value = "agentId", required = false) Long agentId) {
-		List<UserPromptConfig> configs = promptConfigService.getConfigsByType(promptType, agentId);
+			@RequestParam(value = "agentId", required = false) Long agentId,
+			@RequestParam(value = "agentType", required = false) String agentType) {
+		List<UserPromptConfig> configs = promptConfigService.getConfigs(agentType, agentId);
+		return buildListResponse(configs);
+	}
+
+	@GetMapping("/list-by-agent")
+	public ResponseEntity<Map<String, Object>> getConfigsByAgent(
+			@RequestParam(value = "agentId", required = false) Long agentId,
+			@RequestParam(value = "agentType", required = false) String agentType) {
+		List<UserPromptConfig> configs = promptConfigService.getConfigs(agentType, agentId);
+		return buildListResponse(configs);
+	}
+
+	@GetMapping("/active")
+	public ResponseEntity<Map<String, Object>> getActiveConfig(
+			@RequestParam(value = "agentId", required = false) Long agentId,
+			@RequestParam(value = "agentType", required = false) String agentType) {
+		UserPromptConfig config = promptConfigService.getActiveConfig(agentType, agentId);
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("success", true);
-		response.put("data", configs);
-		response.put("total", configs.size());
+		response.put("data", config);
+		response.put("hasCustomConfig", config != null);
 
 		return ResponseEntity.ok(response);
 	}
@@ -129,15 +146,9 @@ public class PromptConfigController {
 	 */
 	@GetMapping("/active/{promptType}")
 	public ResponseEntity<Map<String, Object>> getActiveConfig(@PathVariable(value = "promptType") String promptType,
-			@RequestParam(value = "agentId", required = false) Long agentId) {
-		UserPromptConfig config = promptConfigService.getActiveConfigByType(promptType, agentId);
-
-		Map<String, Object> response = new HashMap<>();
-		response.put("success", true);
-		response.put("data", config);
-		response.put("hasCustomConfig", config != null);
-
-		return ResponseEntity.ok(response);
+			@RequestParam(value = "agentId", required = false) Long agentId,
+			@RequestParam(value = "agentType", required = false) String agentType) {
+		return getActiveConfig(agentId, agentType);
 	}
 
 	/**
@@ -146,18 +157,19 @@ public class PromptConfigController {
 	 * @param agentId 智能体ID，可选
 	 * @return 启用的优化配置列表
 	 */
+	@GetMapping("/active-all")
+	public ResponseEntity<Map<String, Object>> getActiveConfigs(
+			@RequestParam(value = "agentId", required = false) Long agentId,
+			@RequestParam(value = "agentType", required = false) String agentType) {
+		List<UserPromptConfig> configs = promptConfigService.getActiveConfigs(agentType, agentId);
+		return buildActiveListResponse(configs);
+	}
+
 	@GetMapping("/active-all/{promptType}")
 	public ResponseEntity<Map<String, Object>> getActiveConfigs(@PathVariable(value = "promptType") String promptType,
-			@RequestParam(value = "agentId", required = false) Long agentId) {
-		List<UserPromptConfig> configs = promptConfigService.getActiveConfigsByType(promptType, agentId);
-
-		Map<String, Object> response = new HashMap<>();
-		response.put("success", true);
-		response.put("data", configs);
-		response.put("total", configs.size());
-		response.put("hasOptimizationConfigs", !configs.isEmpty());
-
-		return ResponseEntity.ok(response);
+			@RequestParam(value = "agentId", required = false) Long agentId,
+			@RequestParam(value = "agentType", required = false) String agentType) {
+		return getActiveConfigs(agentId, agentType);
 	}
 
 	/**
@@ -232,8 +244,7 @@ public class PromptConfigController {
 	 */
 	@GetMapping("/types")
 	public ResponseEntity<Map<String, Object>> getSupportedPromptTypes() {
-		// Supported prompt types
-		String[] types = { "report-generator", "planner", "sql-generator", "python-generator", "rewrite" };
+		String[] types = { PromptConfigDTO.DEFAULT_PROMPT_TYPE };
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("success", true);
@@ -333,6 +344,23 @@ public class PromptConfigController {
 			response.put("message", "更新显示顺序失败");
 		}
 
+		return ResponseEntity.ok(response);
+	}
+
+	private ResponseEntity<Map<String, Object>> buildListResponse(List<UserPromptConfig> configs) {
+		Map<String, Object> response = new HashMap<>();
+		response.put("success", true);
+		response.put("data", configs);
+		response.put("total", configs.size());
+		return ResponseEntity.ok(response);
+	}
+
+	private ResponseEntity<Map<String, Object>> buildActiveListResponse(List<UserPromptConfig> configs) {
+		Map<String, Object> response = new HashMap<>();
+		response.put("success", true);
+		response.put("data", configs);
+		response.put("total", configs.size());
+		response.put("hasOptimizationConfigs", !configs.isEmpty());
 		return ResponseEntity.ok(response);
 	}
 

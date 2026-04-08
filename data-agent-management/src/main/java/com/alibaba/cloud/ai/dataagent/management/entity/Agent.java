@@ -40,6 +40,9 @@ public class Agent {
 
 	private String avatar; // Avatar URL
 
+	@Builder.Default
+	private String agentType = "commonagent"; // Agent template type
+
 	// todo: 改为枚举
 	private String status; // Status: draft-pending publication, published-published,
 							// offline-offline

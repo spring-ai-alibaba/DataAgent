@@ -38,9 +38,16 @@ public class UserPromptConfig {
 	private String name;
 
 	/**
-	 * Prompt type (e.g., report-generator, planner, etc.)
+	 * Managed agent template type, e.g. commonagent
 	 */
-	private String promptType;
+	@Builder.Default
+	private String agentType = "commonagent";
+
+	/**
+	 * Prompt type, business side now only keeps the default system prompt.
+	 */
+	@Builder.Default
+	private String promptType = "system";
 
 	/**
 	 * Associated agent ID, null means global configuration
@@ -96,6 +103,14 @@ public class UserPromptConfig {
 
 	public void setOptimizationPrompt(String optimizationPrompt) {
 		this.systemPrompt = optimizationPrompt;
+	}
+
+	public String getScene() {
+		return this.promptType;
+	}
+
+	public void setScene(String scene) {
+		this.promptType = scene;
 	}
 
 }

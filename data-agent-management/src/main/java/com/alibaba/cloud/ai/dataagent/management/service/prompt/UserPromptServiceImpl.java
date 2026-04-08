@@ -15,8 +15,10 @@
  */
 package com.alibaba.cloud.ai.dataagent.management.service.prompt;
 
+import com.alibaba.cloud.ai.dataagent.agent.template.CommonAgent;
 import com.alibaba.cloud.ai.dataagent.management.dto.prompt.PromptConfigDTO;
 import com.alibaba.cloud.ai.dataagent.management.entity.UserPromptConfig;
+import com.alibaba.cloud.ai.dataagent.management.exception.InvalidInputException;
 import com.alibaba.cloud.ai.dataagent.management.mapper.UserPromptConfigMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +37,8 @@ import java.util.*;
 @AllArgsConstructor
 public class UserPromptServiceImpl implements UserPromptService {
 
+	private static final String DEFAULT_PROMPT_TYPE = PromptConfigDTO.DEFAULT_PROMPT_TYPE;
+
 	private final UserPromptConfigMapper userPromptConfigMapper;
 
 	@Override
@@ -46,44 +50,19 @@ public class UserPromptServiceImpl implements UserPromptService {
 			// Update existing configuration
 			config = userPromptConfigMapper.selectById(configDTO.id());
 			if (config != null) {
-				config.setName(configDTO.name());
-				config.setAgentId(configDTO.agentId());
-				config.setSystemPrompt(configDTO.optimizationPrompt());
-				config.setEnabled(configDTO.enabled());
-				config.setDescription(configDTO.description());
-				config.setPriority(configDTO.priority() != null ? configDTO.priority() : 0);
-				config.setDisplayOrder(configDTO.displayOrder() != null ? configDTO.displayOrder() : 0);
+				applyMutableFields(config, configDTO, config.getEnabled());
 				userPromptConfigMapper.updateById(config);
 			}
 			else {
-				// ID不存在，创建新配置
-				config = new UserPromptConfig();
-				config.setId(configDTO.id());
-				config.setName(configDTO.name());
-				config.setPromptType(configDTO.promptType());
-				config.setAgentId(configDTO.agentId());
-				config.setSystemPrompt(configDTO.optimizationPrompt());
-				config.setEnabled(configDTO.enabled());
-				config.setDescription(configDTO.description());
-				config.setCreator(configDTO.creator());
-				config.setPriority(configDTO.priority() != null ? configDTO.priority() : 0);
-				config.setDisplayOrder(configDTO.displayOrder() != null ? configDTO.displayOrder() : 0);
-				userPromptConfigMapper.insert(config);
+				throw new InvalidInputException("提示词配置不存在，无法更新: " + configDTO.id(), configDTO.id());
 			}
 		}
 		else {
 			// Create new configuration
 			config = new UserPromptConfig();
 			config.setId(UUID.randomUUID().toString());
-			config.setName(configDTO.name());
-			config.setPromptType(configDTO.promptType());
-			config.setAgentId(configDTO.agentId());
-			config.setSystemPrompt(configDTO.optimizationPrompt());
-			config.setEnabled(configDTO.enabled());
-			config.setDescription(configDTO.description());
+			applyMutableFields(config, configDTO, Boolean.TRUE);
 			config.setCreator(configDTO.creator());
-			config.setPriority(configDTO.priority() != null ? configDTO.priority() : 0);
-			config.setDisplayOrder(configDTO.displayOrder() != null ? configDTO.displayOrder() : 0);
 			userPromptConfigMapper.insert(config);
 		}
 
@@ -102,13 +81,13 @@ public class UserPromptServiceImpl implements UserPromptService {
 	}
 
 	@Override
-	public List<UserPromptConfig> getActiveConfigsByType(String promptType, Long agentId) {
-		return userPromptConfigMapper.getActiveConfigsByType(promptType, agentId);
+	public List<UserPromptConfig> getActiveConfigs(String agentType, Long agentId) {
+		return userPromptConfigMapper.getActiveConfigs(resolveAgentType(agentType), DEFAULT_PROMPT_TYPE, agentId);
 	}
 
 	@Override
-	public UserPromptConfig getActiveConfigByType(String promptType, Long agentId) {
-		return userPromptConfigMapper.selectActiveByPromptType(promptType, agentId);
+	public UserPromptConfig getActiveConfig(String agentType, Long agentId) {
+		return userPromptConfigMapper.selectActiveByPromptType(resolveAgentType(agentType), DEFAULT_PROMPT_TYPE, agentId);
 	}
 
 	@Override
@@ -117,8 +96,8 @@ public class UserPromptServiceImpl implements UserPromptService {
 	}
 
 	@Override
-	public List<UserPromptConfig> getConfigsByType(String promptType, Long agentId) {
-		return userPromptConfigMapper.getConfigsByType(promptType, agentId);
+	public List<UserPromptConfig> getConfigs(String agentType, Long agentId) {
+		return userPromptConfigMapper.getConfigs(resolveAgentType(agentType), DEFAULT_PROMPT_TYPE, agentId);
 	}
 
 	@Override
@@ -160,8 +139,8 @@ public class UserPromptServiceImpl implements UserPromptService {
 	}
 
 	@Override
-	public List<UserPromptConfig> getOptimizationConfigs(String promptType, Long agentId) {
-		return getActiveConfigsByType(promptType, agentId);
+	public List<UserPromptConfig> getOptimizationConfigs(String agentType, Long agentId) {
+		return getActiveConfigs(agentType, agentId);
 	}
 
 	@Override
@@ -204,6 +183,22 @@ public class UserPromptServiceImpl implements UserPromptService {
 			return true;
 		}
 		return false;
+	}
+
+	private String resolveAgentType(String agentType) {
+		return (agentType == null || agentType.isBlank()) ? CommonAgent.AGENT_TYPE : agentType;
+	}
+
+	private void applyMutableFields(UserPromptConfig config, PromptConfigDTO configDTO, Boolean fallbackEnabled) {
+		config.setName(configDTO.name());
+		config.setAgentType(configDTO.resolvedAgentType());
+		config.setPromptType(configDTO.resolvedPromptType());
+		config.setAgentId(configDTO.agentId());
+		config.setSystemPrompt(configDTO.optimizationPrompt());
+		config.setEnabled(configDTO.resolvedEnabled(fallbackEnabled));
+		config.setDescription(configDTO.description());
+		config.setPriority(configDTO.priority() != null ? configDTO.priority() : 0);
+		config.setDisplayOrder(configDTO.displayOrder() != null ? configDTO.displayOrder() : 0);
 	}
 
 }

@@ -266,10 +266,6 @@
         type: [String, Number],
         required: true,
       },
-      promptType: {
-        type: String,
-        default: 'report-generator',
-      },
       agentPrompt: {
         type: String,
         default: '',
@@ -327,9 +323,7 @@
         try {
           this.loading = true;
           const query = this.agentId ? `?agentId=${this.agentId}` : '';
-          const response = await fetch(
-            `/api/prompt-config/list-by-type/${this.promptType}${query}`,
-          );
+          const response = await fetch(`/api/prompt-config/list-by-agent${query}`);
           const result = await response.json();
           if (result.success) {
             this.optimizationConfigs = result.data || [];
@@ -351,9 +345,8 @@
         try {
           const configData = {
             ...this.formData,
-            promptType: this.promptType,
             agentId: this.agentId ? Number(this.agentId) : null,
-            enabled: true,
+            enabled: this.editingConfig ? this.editingConfig.enabled : true,
             creator: 'user',
             priority: this.formData.priority || 0,
             displayOrder: this.formData.displayOrder || 0,

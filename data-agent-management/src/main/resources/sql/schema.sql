@@ -3,6 +3,7 @@
 -- 智能体表
 CREATE TABLE IF NOT EXISTS agent (
     id INT NOT NULL AUTO_INCREMENT,
+    agent_type VARCHAR(100) NOT NULL DEFAULT 'commonagent' COMMENT 'Agent模板类型',
     name VARCHAR(255) NOT NULL COMMENT '智能体名称',
     description TEXT COMMENT '智能体描述',
     avatar TEXT COMMENT '头像URL',
@@ -16,6 +17,7 @@ CREATE TABLE IF NOT EXISTS agent (
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
+    INDEX idx_agent_type (agent_type),
     INDEX idx_name (name),
     INDEX idx_status (status),
     INDEX idx_category (category),
@@ -186,7 +188,7 @@ CREATE TABLE IF NOT EXISTS chat_session (
   INDEX idx_is_pinned (is_pinned),
   INDEX idx_create_time (create_time),
   FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
-) ENGINE = InnoDB COMMENT = '聊天会话表';
+ ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '聊天会话表';
 
 -- 消息表
 CREATE TABLE IF NOT EXISTS chat_message (
@@ -203,13 +205,14 @@ CREATE TABLE IF NOT EXISTS chat_message (
   INDEX idx_message_type (message_type),
   INDEX idx_create_time (create_time),
   FOREIGN KEY (session_id) REFERENCES chat_session(id) ON DELETE CASCADE
-) ENGINE = InnoDB COMMENT = '聊天消息表';
+ ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '聊天消息表';
 
 -- 用户Prompt配置表
 CREATE TABLE IF NOT EXISTS user_prompt_config (
+  agent_type VARCHAR(100) NOT NULL DEFAULT 'commonagent' COMMENT 'Agent模板类型',
   id VARCHAR(36) NOT NULL COMMENT '配置ID（UUID）',
   name VARCHAR(255) NOT NULL COMMENT '配置名称',
-  prompt_type VARCHAR(100) NOT NULL COMMENT 'Prompt类型（如report-generator, planner等）',
+  prompt_type VARCHAR(100) NOT NULL DEFAULT 'system' COMMENT '系统提示词类型，固定为 system',
   agent_id INT COMMENT '关联的智能体ID，为空表示全局配置',
   system_prompt TEXT NOT NULL COMMENT '用户自定义系统Prompt内容',
   enabled TINYINT DEFAULT 1 COMMENT '是否启用该配置：0-禁用，1-启用',
@@ -220,11 +223,12 @@ CREATE TABLE IF NOT EXISTS user_prompt_config (
   update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   creator VARCHAR(255) COMMENT '创建者',
   PRIMARY KEY (id),
+  INDEX idx_agent_type (agent_type),
   INDEX idx_prompt_type (prompt_type),
   INDEX idx_agent_id (agent_id),
   INDEX idx_enabled (enabled),
   INDEX idx_create_time (create_time),
-  INDEX idx_prompt_type_enabled_priority (prompt_type, agent_id, enabled, priority DESC),
+  INDEX idx_prompt_type_enabled_priority (agent_type, prompt_type, agent_id, enabled, priority DESC),
   INDEX idx_display_order (display_order ASC)
 ) ENGINE = InnoDB COMMENT = '用户Prompt配置表';
 

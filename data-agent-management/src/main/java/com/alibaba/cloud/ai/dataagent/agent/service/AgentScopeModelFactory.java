@@ -15,17 +15,22 @@
  */
 package com.alibaba.cloud.ai.dataagent.agent.service;
 
-import com.alibaba.cloud.ai.dataagent.agent.dto.GraphRequest;
-import com.alibaba.cloud.ai.dataagent.agent.vo.GraphNodeResponse;
-import org.springframework.http.codec.ServerSentEvent;
-import reactor.core.publisher.Sinks;
+import com.alibaba.cloud.ai.dataagent.agent.runtime.AgentScopeToolkitFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.agentscope.core.model.Model;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
-public interface GraphService {
+@Component
+@RequiredArgsConstructor
+public class AgentScopeModelFactory {
 
-	String nl2sql(String naturalQuery, String agentId);
+	private final AgentScopeToolkitFactory toolkitFactory;
 
-	void graphStreamProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest);
+	private final ObjectMapper objectMapper;
 
-	void stopStreamProcessing(String threadId, String runtimeRequestId);
+	public Model create(org.springframework.ai.chat.model.ChatModel chatModel, String modelName) {
+		return new SpringAiAgentScopeModel(chatModel, modelName, toolkitFactory.getToolCallbacks(), objectMapper);
+	}
 
 }

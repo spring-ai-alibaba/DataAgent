@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.management.service.agent;
 
+import com.alibaba.cloud.ai.dataagent.agent.template.CommonAgent;
 import com.alibaba.cloud.ai.dataagent.management.entity.Agent;
 import com.alibaba.cloud.ai.dataagent.management.mapper.AgentMapper;
 import com.alibaba.cloud.ai.dataagent.management.service.file.FileStorageService;
@@ -65,6 +66,9 @@ public class AgentServiceImpl implements AgentService {
 	@Override
 	public Agent save(Agent agent) {
 		LocalDateTime now = LocalDateTime.now();
+		if (agent.getAgentType() == null || agent.getAgentType().isBlank()) {
+			agent.setAgentType(CommonAgent.AGENT_TYPE);
+		}
 
 		if (agent.getId() == null) {
 			// Add

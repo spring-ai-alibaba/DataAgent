@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.management.config;
 
+import com.alibaba.cloud.ai.dataagent.management.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.management.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.management.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.management.service.vectorstore.SimpleVectorStoreInitialization;
@@ -74,7 +75,8 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 @Slf4j
 @Configuration
 @EnableAsync
-@EnableConfigurationProperties({ DataAgentProperties.class, FileStorageProperties.class })
+@EnableConfigurationProperties({ DataAgentProperties.class, FileStorageProperties.class,
+		CodeExecutorProperties.class })
 public class DataAgentConfiguration implements DisposableBean {
 
 	/**

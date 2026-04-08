@@ -54,6 +54,10 @@ public class LangfuseService {
 	private static final AttributeKey<Boolean> ATTR_HUMAN_FEEDBACK = AttributeKey
 		.booleanKey("data_agent.human_feedback");
 
+	private static final AttributeKey<String> ATTR_AGENT_TYPE = AttributeKey.stringKey("data_agent.agent_type");
+
+	private static final AttributeKey<String> ATTR_SCENE = AttributeKey.stringKey("data_agent.scene");
+
 	private static final AttributeKey<Long> GEN_AI_PROMPT_TOKENS = AttributeKey.longKey("gen_ai.usage.prompt_tokens");
 
 	private static final AttributeKey<Long> GEN_AI_COMPLETION_TOKENS = AttributeKey
@@ -88,14 +92,19 @@ public class LangfuseService {
 				.startSpan();
 
 			String inputValue = String.format(
-					"{\"query\":\"%s\",\"agentId\":\"%s\",\"threadId\":\"%s\",\"nl2sqlOnly\":%s,\"humanFeedback\":%s}",
+					"{\"query\":\"%s\",\"agentId\":\"%s\",\"agentType\":\"%s\",\"threadId\":\"%s\",\"scene\":\"%s\",\"nl2sqlOnly\":%s,\"humanFeedback\":%s}",
 					request.getQuery() != null ? request.getQuery() : "",
 					request.getAgentId() != null ? request.getAgentId() : "",
-					request.getThreadId() != null ? request.getThreadId() : "", request.isNl2sqlOnly(),
+					request.getAgentType() != null ? request.getAgentType() : "",
+					request.getThreadId() != null ? request.getThreadId() : "",
+					request.getScene() != null ? request.getScene() : "",
+					request.isNl2sqlOnly(),
 					request.isHumanFeedback());
 			span.setAttribute(INPUT_VALUE, inputValue);
 			span.setAttribute(ATTR_AGENT_ID, request.getAgentId() != null ? request.getAgentId() : "");
+			span.setAttribute(ATTR_AGENT_TYPE, request.getAgentType() != null ? request.getAgentType() : "");
 			span.setAttribute(ATTR_THREAD_ID, request.getThreadId() != null ? request.getThreadId() : "");
+			span.setAttribute(ATTR_SCENE, request.getScene() != null ? request.getScene() : "");
 			span.setAttribute(ATTR_NL2SQL_ONLY, request.isNl2sqlOnly());
 			span.setAttribute(ATTR_HUMAN_FEEDBACK, request.isHumanFeedback());
 
