@@ -67,6 +67,8 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 
 	private static final String SCENE_SQL_GENERATOR = "sql-generator";
 
+	private static final String AGENT_STATUS_PUBLISHED = "published";
+
 	private final AgentSessionRegistry sessionRegistry;
 
 	private final ModelConfigDataService modelConfigDataService;
@@ -258,17 +260,32 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 	}
 
 	private String resolveAgentType(String agentId, String requestAgentType) {
+		Long numericAgentId = parseAgentId(agentId);
+		Agent agent = null;
+		if (numericAgentId != null) {
+			agent = agentService.findById(numericAgentId);
+			validateAgentStatus(agent, agentId);
+		}
 		if (StringUtils.hasText(requestAgentType)) {
 			return requestAgentType;
 		}
-		Long numericAgentId = parseAgentId(agentId);
-		if (numericAgentId != null) {
-			Agent agent = agentService.findById(numericAgentId);
-			if (agent != null && StringUtils.hasText(agent.getAgentType())) {
-				return agent.getAgentType();
-			}
+		if (agent != null && StringUtils.hasText(agent.getAgentType())) {
+			return agent.getAgentType();
 		}
 		return CommonAgent.AGENT_TYPE;
+	}
+
+	private void validateAgentStatus(Agent agent, String requestAgentId) {
+		if (agent == null) {
+			return;
+		}
+		String status = agent.getStatus();
+		if (AGENT_STATUS_PUBLISHED.equalsIgnoreCase(status)) {
+			return;
+		}
+		String resolvedStatus = StringUtils.hasText(status) ? status : "unknown";
+		throw new IllegalStateException(
+				"Agent %s is not published and cannot be run. Current status: %s".formatted(requestAgentId, resolvedStatus));
 	}
 
 	private Long parseAgentId(String agentId) {
