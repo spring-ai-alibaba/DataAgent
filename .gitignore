@@ -68,6 +68,7 @@ spring-ai-alibaba-1.1.0.0/
 __pycache__/
 *.py[cod]
 .env.*
+!.env.example
 node_modules/
 dist/
 build/
