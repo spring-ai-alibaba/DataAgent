@@ -31,16 +31,13 @@ import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.management.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.management.entity.Agent;
-import com.alibaba.cloud.ai.dataagent.management.entity.UserPromptConfig;
 import com.alibaba.cloud.ai.dataagent.management.service.agent.AgentService;
 import com.alibaba.cloud.ai.dataagent.management.service.aimodelconfig.DynamicModelFactory;
 import com.alibaba.cloud.ai.dataagent.management.service.aimodelconfig.ModelConfigDataService;
-import com.alibaba.cloud.ai.dataagent.management.service.prompt.UserPromptService;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.model.Model;
 import java.time.Duration;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
@@ -85,9 +82,6 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 	private final AgentRuntimeExtensionFactory agentRuntimeExtensionFactory;
 
 	private final AgentService agentService;
-
-	private final UserPromptService userPromptService;
-
 	@Override
 	public String nl2sql(String naturalQuery, String agentId) {
 		log.info("NL2SQL runtime invoked for agentId={}", agentId);
@@ -113,14 +107,14 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		initializeRuntimeRequest(graphRequest);
 		String threadId = graphRequest.getThreadId();
 		String runtimeRequestId = graphRequest.getRuntimeRequestId();
-		AtomicBoolean streamNodePublished = new AtomicBoolean(false);
+		StreamTextTracker streamTextTracker = new StreamTextTracker();
 		sessionRegistry.register(threadId, runtimeRequestId);
 		AgentRuntimeEventPublisher eventPublisher = response -> {
 			if (!sessionRegistry.isActive(threadId, runtimeRequestId)) {
 				return;
 			}
-			if (response != null && StringUtils.hasText(response.getText())) {
-				streamNodePublished.set(true);
+			if (response != null && response.getTextType() == TextType.TEXT && StringUtils.hasText(response.getText())) {
+				streamTextTracker.record(response.getNodeName(), response.getText());
 			}
 			sink.tryEmitNext(ServerSentEvent.builder(response).event(STREAM_EVENT_MESSAGE).build());
 		};
@@ -128,7 +122,7 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		Mono.fromCallable(() -> executeAgent(graphRequest, eventPublisher))
 			.doFinally(signalType -> sessionRegistry.finish(threadId, runtimeRequestId))
 			.subscribeOn(Schedulers.boundedElastic())
-			.subscribe(result -> emitSuccess(sink, graphRequest, result, streamNodePublished.get()),
+			.subscribe(result -> emitSuccess(sink, graphRequest, result, streamTextTracker),
 					error -> emitError(sink, graphRequest, error));
 	}
 
@@ -138,13 +132,14 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 	}
 
 	private void emitSuccess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest request, String result,
-			boolean streamNodePublished) {
+			StreamTextTracker streamTextTracker) {
 		String threadId = request.getThreadId();
 		String runtimeRequestId = request.getRuntimeRequestId();
 		if (!sessionRegistry.isActive(threadId, runtimeRequestId)) {
 			return;
 		}
-		if (!streamNodePublished) {
+		String latestStreamText = streamTextTracker.getLatestText();
+		if (shouldEmitFinalResponse(result, latestStreamText)) {
 			GraphNodeResponse response = GraphNodeResponse.builder()
 				.agentId(request.getAgentId())
 				.threadId(threadId)
@@ -159,6 +154,10 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 			.event(STREAM_EVENT_COMPLETE)
 			.build());
 		sink.tryEmitComplete();
+	}
+
+	private boolean shouldEmitFinalResponse(String result, String latestStreamText) {
+		return StringUtils.hasText(result) && !result.equals(latestStreamText);
 	}
 
 	private void emitError(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest request, Throwable error) {
@@ -210,7 +209,7 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 			AgentRuntimeExtensions runtimeExtensions = agentRuntimeExtensionFactory.create(request, agentType, scene,
 					eventPublisher);
 			Msg response = managedAgent.run(new AgentRunContext(request.getAgentId(), agentType, request.getThreadId(), model,
-					resolveManagedSystemPrompt(agentType, scene, request.getAgentId()), buildUserPrompt(request),
+					resolveManagedSystemPrompt(request.getAgentId()), buildUserPrompt(request),
 					AGENT_CALL_TIMEOUT, runtimeExtensions));
 			if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())) {
 				return "";
@@ -234,39 +233,22 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		}
 	}
 
-	private String resolveManagedSystemPrompt(String agentType, String scene, String requestAgentId) {
+	private String resolveManagedSystemPrompt(String requestAgentId) {
 		Long agentId = parseAgentId(requestAgentId);
-		UserPromptConfig activeConfig = resolveActivePromptConfig(agentType, agentId);
-		if (activeConfig != null && StringUtils.hasText(activeConfig.getSystemPrompt())) {
-			log.info("Using managed prompt config, agentType={}, runtimeScene={}, agentId={}, configId={}", agentType,
-					scene, agentId, activeConfig.getId());
-			return activeConfig.getSystemPrompt();
+		if (agentId == null) {
+			return "";
 		}
-		Agent agent = agentId == null ? null : agentService.findById(agentId);
-		if (agent != null && StringUtils.hasText(agent.getPrompt())) {
-			log.info("Using agent prompt as runtime system prompt fallback, agentType={}, runtimeScene={}, agentId={}",
-					agentType, scene, agentId);
-			return agent.getPrompt();
+		Agent agent = agentService.findById(agentId);
+		if (agent == null || !StringUtils.hasText(agent.getPrompt())) {
+			log.info("No agent prompt found, keep CommonAgent system prompt empty. agentId={}", agentId);
+			return "";
 		}
-		log.info(
-				"No managed prompt config or agent prompt found, keep CommonAgent system prompt empty. agentType={}, runtimeScene={}, agentId={}",
-				agentType, scene, agentId);
-		return "";
+		log.info("Using agent prompt from base setting. agentId={}", agentId);
+		return agent.getPrompt();
 	}
 
 	private String buildUserPrompt(GraphRequest request) {
 		return request.getQuery() == null ? "" : request.getQuery();
-	}
-
-	private UserPromptConfig resolveActivePromptConfig(String agentType, Long agentId) {
-		UserPromptConfig scopedConfig = userPromptService.getActiveConfig(agentType, agentId);
-		if (scopedConfig != null) {
-			return scopedConfig;
-		}
-		if (agentId != null) {
-			return userPromptService.getActiveConfig(agentType, null);
-		}
-		return null;
 	}
 
 	private String resolveScene(GraphRequest request) {
@@ -328,6 +310,30 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 			return "AgentScope returned an empty response.";
 		}
 		return response.getTextContent();
+	}
+
+	private static final class StreamTextTracker {
+
+		private String currentNodeName;
+
+		private String latestText;
+
+		synchronized void record(String nodeName, String text) {
+			if (!StringUtils.hasText(text)) {
+				return;
+			}
+			if (currentNodeName != null && currentNodeName.equals(nodeName)) {
+				latestText = latestText == null ? text : latestText + text;
+				return;
+			}
+			currentNodeName = nodeName;
+			latestText = text;
+		}
+
+		synchronized String getLatestText() {
+			return latestText;
+		}
+
 	}
 
 }

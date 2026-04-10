@@ -25,11 +25,9 @@ import com.alibaba.cloud.ai.dataagent.management.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dataagent.management.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.management.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.dataagent.management.entity.SemanticModel;
-import com.alibaba.cloud.ai.dataagent.management.entity.UserPromptConfig;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.ai.chat.prompt.PromptTemplate;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -135,26 +133,20 @@ public class PromptHelper {
 	}
 
 	/**
-	 * Build report generation prompt with custom prompt
+	 * Build report generation prompt
 	 * @param userRequirementsAndPlan user requirements and plan
 	 * @param analysisStepsAndData analysis steps and data
 	 * @param summaryAndRecommendations summary and recommendations
 	 * @return built prompt
 	 */
 	public static String buildReportGeneratorPromptWithOptimization(String userRequirementsAndPlan,
-			String analysisStepsAndData, String summaryAndRecommendations, List<UserPromptConfig> optimizationConfigs) {
+			String analysisStepsAndData, String summaryAndRecommendations, List<?> optimizationConfigs) {
 
 		Map<String, Object> params = new HashMap<>();
 		params.put("user_requirements_and_plan", userRequirementsAndPlan);
 		params.put("analysis_steps_and_data", analysisStepsAndData);
 		params.put("summary_and_recommendations", summaryAndRecommendations);
 		params.put("json_example", cleanJsonExample);
-
-		// Build optional optimization section content from user configs
-		String optimizationSection = buildOptimizationSection(optimizationConfigs, params);
-		params.put("optimization_section", optimizationSection);
-
-		// only plain report
 		return PromptConstant.getReportGeneratorPlainPromptTemplate().render(params);
 	}
 
@@ -198,32 +190,6 @@ public class PromptHelper {
 				: semanticModels.stream().map(SemanticModel::getPromptInfo).collect(Collectors.joining(";\n"));
 		params.put("semanticModel", semanticModel);
 		return PromptConstant.getSemanticModelPromptTemplate().render(params);
-	}
-
-	/**
-	 * 构建优化提示词部分内容
-	 * @param optimizationConfigs 优化配置列表
-	 * @param params 模板参数
-	 * @return 优化部分的内容
-	 */
-	private static String buildOptimizationSection(List<UserPromptConfig> optimizationConfigs,
-			Map<String, Object> params) {
-
-		if (optimizationConfigs == null || optimizationConfigs.isEmpty()) {
-			return "";
-		}
-
-		StringBuilder result = new StringBuilder();
-		result.append("## 优化要求\n");
-
-		for (UserPromptConfig config : optimizationConfigs) {
-			String optimizationContent = renderOptimizationPrompt(config.getOptimizationPrompt(), params);
-			if (!optimizationContent.trim().isEmpty()) {
-				result.append("- ").append(optimizationContent).append("\n");
-			}
-		}
-
-		return result.toString().trim();
 	}
 
 	/**
@@ -303,25 +269,6 @@ public class PromptHelper {
 				EvidenceQueryRewriteDTO.class);
 		params.put("format", beanOutputConverter.getFormat());
 		return PromptConstant.getEvidenceQueryRewritePromptTemplate().render(params);
-	}
-
-	/**
-	 * 渲染优化提示词模板
-	 * @param optimizationPrompt 优化提示词模板
-	 * @param params 参数
-	 * @return 渲染后的内容
-	 */
-	private static String renderOptimizationPrompt(String optimizationPrompt, Map<String, Object> params) {
-		if (optimizationPrompt == null || optimizationPrompt.trim().isEmpty()) {
-			return "";
-		}
-		try {
-			return new PromptTemplate(optimizationPrompt).render(params);
-		}
-		catch (Exception e) {
-			// 如果模板渲染失败，直接返回原始内容
-			return optimizationPrompt;
-		}
 	}
 
 }
