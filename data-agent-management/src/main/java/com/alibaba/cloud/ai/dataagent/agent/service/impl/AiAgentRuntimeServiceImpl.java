@@ -40,6 +40,7 @@ import io.agentscope.core.message.Msg;
 import io.agentscope.core.model.Model;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
@@ -68,6 +69,8 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 	private static final String SCENE_SQL_GENERATOR = "sql-generator";
 
 	private static final String AGENT_STATUS_PUBLISHED = "published";
+
+	private static final String AGENT_STATUS_OFFLINE = "offline";
 
 	private final AgentSessionRegistry sessionRegistry;
 
@@ -110,10 +113,14 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		initializeRuntimeRequest(graphRequest);
 		String threadId = graphRequest.getThreadId();
 		String runtimeRequestId = graphRequest.getRuntimeRequestId();
+		AtomicBoolean streamNodePublished = new AtomicBoolean(false);
 		sessionRegistry.register(threadId, runtimeRequestId);
 		AgentRuntimeEventPublisher eventPublisher = response -> {
 			if (!sessionRegistry.isActive(threadId, runtimeRequestId)) {
 				return;
+			}
+			if (response != null && StringUtils.hasText(response.getText())) {
+				streamNodePublished.set(true);
 			}
 			sink.tryEmitNext(ServerSentEvent.builder(response).event(STREAM_EVENT_MESSAGE).build());
 		};
@@ -121,7 +128,8 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		Mono.fromCallable(() -> executeAgent(graphRequest, eventPublisher))
 			.doFinally(signalType -> sessionRegistry.finish(threadId, runtimeRequestId))
 			.subscribeOn(Schedulers.boundedElastic())
-			.subscribe(result -> emitSuccess(sink, graphRequest, result), error -> emitError(sink, graphRequest, error));
+			.subscribe(result -> emitSuccess(sink, graphRequest, result, streamNodePublished.get()),
+					error -> emitError(sink, graphRequest, error));
 	}
 
 	@Override
@@ -129,20 +137,23 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		sessionRegistry.markCancelled(threadId, runtimeRequestId);
 	}
 
-	private void emitSuccess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest request, String result) {
+	private void emitSuccess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest request, String result,
+			boolean streamNodePublished) {
 		String threadId = request.getThreadId();
 		String runtimeRequestId = request.getRuntimeRequestId();
 		if (!sessionRegistry.isActive(threadId, runtimeRequestId)) {
 			return;
 		}
-		GraphNodeResponse response = GraphNodeResponse.builder()
-			.agentId(request.getAgentId())
-			.threadId(threadId)
-			.nodeName(RUNTIME_NODE_NAME)
-			.textType(TextType.TEXT)
-			.text(result)
-			.build();
-		sink.tryEmitNext(ServerSentEvent.builder(response).event(STREAM_EVENT_MESSAGE).build());
+		if (!streamNodePublished) {
+			GraphNodeResponse response = GraphNodeResponse.builder()
+				.agentId(request.getAgentId())
+				.threadId(threadId)
+				.nodeName(RUNTIME_NODE_NAME)
+				.textType(TextType.TEXT)
+				.text(result)
+				.build();
+			sink.tryEmitNext(ServerSentEvent.builder(response).event(STREAM_EVENT_MESSAGE).build());
+		}
 		sink.tryEmitNext(ServerSentEvent
 			.builder(GraphNodeResponse.complete(request.getAgentId(), threadId))
 			.event(STREAM_EVENT_COMPLETE)
@@ -231,8 +242,14 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 					scene, agentId, activeConfig.getId());
 			return activeConfig.getSystemPrompt();
 		}
+		Agent agent = agentId == null ? null : agentService.findById(agentId);
+		if (agent != null && StringUtils.hasText(agent.getPrompt())) {
+			log.info("Using agent prompt as runtime system prompt fallback, agentType={}, runtimeScene={}, agentId={}",
+					agentType, scene, agentId);
+			return agent.getPrompt();
+		}
 		log.info(
-				"No managed prompt config found, keep CommonAgent system prompt empty. agentType={}, runtimeScene={}, agentId={}",
+				"No managed prompt config or agent prompt found, keep CommonAgent system prompt empty. agentType={}, runtimeScene={}, agentId={}",
 				agentType, scene, agentId);
 		return "";
 	}
@@ -280,12 +297,17 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 			return;
 		}
 		String status = agent.getStatus();
-		if (AGENT_STATUS_PUBLISHED.equalsIgnoreCase(status)) {
+		if (!StringUtils.hasText(status) || AGENT_STATUS_PUBLISHED.equalsIgnoreCase(status)
+				|| "draft".equalsIgnoreCase(status)) {
 			return;
+		}
+		if (AGENT_STATUS_OFFLINE.equalsIgnoreCase(status)) {
+			throw new IllegalStateException(
+					"Agent %s is offline and cannot be run. Current status: %s".formatted(requestAgentId, status));
 		}
 		String resolvedStatus = StringUtils.hasText(status) ? status : "unknown";
 		throw new IllegalStateException(
-				"Agent %s is not published and cannot be run. Current status: %s".formatted(requestAgentId, resolvedStatus));
+				"Agent %s cannot be run. Current status: %s".formatted(requestAgentId, resolvedStatus));
 	}
 
 	private Long parseAgentId(String agentId) {

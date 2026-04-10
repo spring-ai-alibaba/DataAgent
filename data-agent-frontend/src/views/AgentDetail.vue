@@ -83,10 +83,10 @@
                 数据源配置
               </el-menu-item>
             </el-menu-item-group>
-            <el-menu-item-group title="PROMPT配置">
+            <el-menu-item-group title="系统提示词配置">
               <el-menu-item index="prompt">
                 <el-icon><ChatLineSquare /></el-icon>
-                自定义 PROMPT 配置
+                自定义系统提示词配置
               </el-menu-item>
             </el-menu-item-group>
             <el-menu-item-group title="知识配置">

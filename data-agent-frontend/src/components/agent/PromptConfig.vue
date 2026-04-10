@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 -->
-<!-- 提示词优化配置组件 -->
+<!-- 系统提示词配置组件 -->
 <template>
   <div class="prompt-optimization-config">
     <!-- 消息提示 -->
@@ -22,9 +22,9 @@
       <button class="message-close" @click="hideMessage">×</button>
     </div>
     <div class="config-header">
-      <h3>增强式Prompt优化配置</h3>
+      <h3>系统提示词配置</h3>
       <p class="config-description">
-        配置的Prompt仅用作效果优化，支持多个提示词配置，在原始模板基础上进行增强。示例配置：
+        管理当前智能体的系统提示词配置。启用的配置会优先在运行时生效；未配置时会回退到基础设置中的系统提示词。示例：
       </p>
       <ul class="optimization-tips">
         <li>1. 查询的年销售额精确到小数点后两位。</li>
@@ -32,9 +32,9 @@
       </ul>
     </div>
 
-    <!-- 智能体Prompt -->
+    <!-- 当前基础系统提示词 -->
     <div class="agent-prompt-section">
-      <h4>智能体Prompt</h4>
+      <h4>当前基础系统提示词</h4>
       <div class="prompt-display">
         {{
           agentPrompt || '你是一个销售数据分析专家，能够帮助用户分析销售趋势，客户行为和业务指标。'
@@ -42,10 +42,10 @@
       </div>
     </div>
 
-    <!-- 优化配置列表 -->
+    <!-- 系统提示词配置列表 -->
     <div class="optimization-configs">
       <div class="config-list-header">
-        <h4>优化配置列表</h4>
+        <h4>系统提示词配置列表</h4>
         <div class="header-actions">
           <button
             v-if="optimizationConfigs.length > 0"
@@ -57,7 +57,7 @@
           </button>
           <button class="add-config-btn" @click="showAddConfigDialog = true">
             <i class="icon-plus"></i>
-            添加优化配置
+            添加系统提示词配置
           </button>
         </div>
       </div>
@@ -98,7 +98,7 @@
       </div>
 
       <div v-if="optimizationConfigs.length === 0" class="empty-state">
-        <p>暂无优化配置，点击"添加优化配置"开始配置</p>
+        <p>暂无系统提示词配置，点击“添加系统提示词配置”开始配置</p>
       </div>
 
       <div v-else class="config-list">
@@ -144,11 +144,11 @@
       </div>
     </div>
 
-    <!-- 添加/编辑配置对话框 -->
+    <!-- 添加/编辑系统提示词配置对话框 -->
     <div v-if="showAddConfigDialog || editingConfig" class="dialog-overlay" @click="closeDialog">
       <div class="dialog-content" @click.stop>
         <div class="dialog-header">
-          <h3>{{ editingConfig ? '编辑优化配置' : '添加优化配置' }}</h3>
+          <h3>{{ editingConfig ? '编辑系统提示词配置' : '添加系统提示词配置' }}</h3>
           <button class="close-btn" @click="closeDialog">×</button>
         </div>
         <form @submit.prevent="saveConfig" class="config-form">
@@ -174,12 +174,12 @@
           </div>
 
           <div class="form-group">
-            <label for="optimizationPrompt">优化提示词内容</label>
+            <label for="optimizationPrompt">系统提示词内容</label>
             <textarea
               id="optimizationPrompt"
               v-model="formData.optimizationPrompt"
               rows="6"
-              placeholder="请输入优化提示词内容，支持模板变量如 {user_requirements_and_plan}"
+              placeholder="请输入系统提示词内容，支持模板变量"
               required
             ></textarea>
           </div>
@@ -210,17 +210,17 @@
 
           <div class="form-actions">
             <button type="button" class="cancel-btn" @click="closeDialog">取消</button>
-            <button type="submit" class="save-btn">保存配置</button>
+            <button type="submit" class="save-btn">保存系统提示词配置</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- 优先级设置对话框 -->
+    <!-- 优先级与顺序设置对话框 -->
     <div v-if="showPriorityDialog" class="dialog-overlay" @click="closePriorityDialog">
       <div class="dialog-content" @click.stop>
         <div class="dialog-header">
-          <h3>设置优先级</h3>
+          <h3>设置优先级与顺序</h3>
           <button class="close-btn" @click="closePriorityDialog">×</button>
         </div>
         <form @submit.prevent="updatePriority" class="priority-form">
@@ -246,7 +246,7 @@
               min="0"
               placeholder="数字越小越靠前"
             />
-            <p class="form-hint">控制配置在列表中的显示顺序</p>
+            <p class="form-hint">控制该系统提示词配置在列表中的显示顺序</p>
           </div>
           <div class="form-actions">
             <button type="button" class="cancel-btn" @click="closePriorityDialog">取消</button>
@@ -528,7 +528,7 @@
 
       async updatePriority() {
         try {
-          const response = await fetch(
+          const priorityResponse = await fetch(
             `/api/prompt-config/${this.editingPriorityConfig.id}/priority`,
             {
               method: 'POST',
@@ -538,18 +538,33 @@
               body: JSON.stringify({ priority: this.priorityForm.priority }),
             },
           );
+          const priorityResult = await priorityResponse.json();
+          if (!priorityResult.success) {
+            this.showMessage(priorityResult.message || '更新优先级失败', 'error');
+            return;
+          }
 
-          const result = await response.json();
-          if (result.success) {
-            this.showMessage('优先级更新成功', 'success');
+          const displayOrderResponse = await fetch(
+            `/api/prompt-config/${this.editingPriorityConfig.id}/display-order`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ displayOrder: this.priorityForm.displayOrder }),
+            },
+          );
+          const displayOrderResult = await displayOrderResponse.json();
+          if (displayOrderResult.success) {
+            this.showMessage('优先级和显示顺序更新成功', 'success');
             this.loadOptimizationConfigs();
             this.closePriorityDialog();
           } else {
-            this.showMessage(result.message, 'error');
+            this.showMessage(displayOrderResult.message || '更新显示顺序失败', 'error');
           }
         } catch (error) {
-          console.error('更新优先级失败:', error);
-          this.showMessage('更新优先级失败', 'error');
+          console.error('更新优先级和显示顺序失败:', error);
+          this.showMessage('更新优先级和显示顺序失败', 'error');
         }
       },
 
