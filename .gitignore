@@ -62,3 +62,12 @@ vectorstore/*
 
 # spring-ai-alibaba source
 spring-ai-alibaba-1.1.0.0/
+
+# --- Baseline Ignore Rules ---
+.idea/
+__pycache__/
+*.py[cod]
+.env.*
+node_modules/
+dist/
+build/
