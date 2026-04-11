@@ -119,3 +119,13 @@ npm install && npm run dev
 <div align="center">
     Made with ❤️ by Spring AI Alibaba DataAgent Team
 </div>
+
+## Contributor Quick Verification
+<!-- codex-batch30-readme -->
+
+Before opening a PR, run these quick checks locally:
+
+- Build: `./mvnw -q -DskipTests package`
+- Tests: `./mvnw -q test`
+- Keep changes focused: one topic per PR with a clear title
+
