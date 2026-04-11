@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.vectorstore;
 
 import com.alibaba.cloud.ai.dataagent.dto.search.AgentSearchRequest;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.filter.Filter;
 
 import java.util.List;
@@ -41,6 +42,8 @@ public interface AgentVectorStoreService {
 	List<Document> getDocumentsForAgent(String agentId, String query, String vectorType);
 
 	List<Document> getDocumentsForAgent(String agentId, String query, String vectorType, int topK, double threshold);
+
+	List<Document> similaritySearch(SearchRequest searchRequest);
 
 	// 通过元数据过滤精确查找
 	List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK);
