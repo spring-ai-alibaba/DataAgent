@@ -38,19 +38,17 @@ public class AgentRuntimeExtensionFactory {
 
 	private final AgentScopeHookFactory hookFactory;
 
-	public AgentRuntimeExtensions create(GraphRequest request, String agentType, String scene,
-			@Nullable AgentRuntimeEventPublisher eventPublisher) {
+	public AgentRuntimeExtensions create(GraphRequest request, @Nullable AgentRuntimeEventPublisher eventPublisher) {
 		Toolkit toolkit = toolkitFactory.create();
 		Memory memory = memoryFactory.create(request.getThreadId());
-		AgentRuntimeRequestMetadata requestMetadata = new AgentRuntimeRequestMetadata(request.getAgentId(), agentType,
-				request.getThreadId(), scene, request.isNl2sqlOnly());
+		AgentRuntimeRequestMetadata requestMetadata = new AgentRuntimeRequestMetadata(request.getAgentId(),
+				request.getThreadId(), request.isNl2sqlOnly());
 		ToolExecutionContext toolExecutionContext = ToolExecutionContext.builder()
 			.register(requestMetadata)
 			.register("graphRequest", request)
 			.build();
-		List<Hook> hooks = hookFactory.create(request, scene, eventPublisher);
+		List<Hook> hooks = hookFactory.create(request, eventPublisher);
 		Map<String, Object> attributes = new HashMap<>();
-		attributes.put("scene", scene);
 		attributes.put("threadId", request.getThreadId());
 		return new AgentRuntimeExtensions(toolkit, memory, toolExecutionContext, hooks, attributes);
 	}

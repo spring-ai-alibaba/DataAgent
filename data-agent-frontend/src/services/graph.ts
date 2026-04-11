@@ -79,8 +79,21 @@ class GraphService {
     const url = `${API_BASE_URL}/stream/search?${params.toString()}`;
 
     const eventSource = new EventSource(url);
+    let isCompleted = false;
+    let isClosed = false;
+
+    const closeConnection = () => {
+      if (isClosed) {
+        return;
+      }
+      isClosed = true;
+      eventSource.close();
+    };
 
     eventSource.onmessage = async event => {
+      if (isCompleted) {
+        return;
+      }
       try {
         const nodeResponse: GraphNodeResponse = JSON.parse(event.data);
         console.log(
@@ -95,31 +108,33 @@ class GraphService {
       }
     };
 
-    let isCompleted = false;
-
     eventSource.onerror = async error => {
       // 如果已经完成，忽略错误（可能是正常关闭）
       if (isCompleted) {
+        closeConnection();
         return;
       }
       console.error('EventSource error:', error);
+      closeConnection();
       if (onError) {
         await onError(new Error('Stream connection failed'));
       }
-      eventSource.close();
     };
 
     eventSource.addEventListener('complete', async () => {
+      if (isCompleted) {
+        return;
+      }
       isCompleted = true;
+      closeConnection();
       if (onComplete) {
         await onComplete();
       }
-      eventSource.close();
     });
 
     // 返回关闭函数，允许外部控制
     return () => {
-      eventSource.close();
+      closeConnection();
     };
   }
 }

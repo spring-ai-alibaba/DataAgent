@@ -36,14 +36,15 @@ public class AgentScopeHookFactory {
 
 	private final AgentSessionRegistry sessionRegistry;
 
-	public List<Hook> create(GraphRequest request, String scene, @Nullable AgentRuntimeEventPublisher eventPublisher) {
+	public List<Hook> create(GraphRequest request, @Nullable AgentRuntimeEventPublisher eventPublisher) {
 		List<Hook> hooks = new ArrayList<>();
 		if (eventPublisher != null) {
-			hooks.add(new AgentScopeStreamingHook(request.getAgentId(), request.getThreadId(), scene, eventPublisher));
+			hooks.add(new AgentScopeStreamingHook(request.getAgentId(), request.getThreadId(), request.isNl2sqlOnly(),
+					eventPublisher));
 		}
 		hooks.add(new AgentScopeMemoryPersistenceHook(request.getThreadId(), request.getRuntimeRequestId(), sessionRegistry,
 				chatSessionService, chatMessageService));
-		HumanFeedbackHook humanFeedbackHook = HumanFeedbackHook.from(request, scene);
+		HumanFeedbackHook humanFeedbackHook = HumanFeedbackHook.from(request);
 		if (humanFeedbackHook != null) {
 			hooks.add(humanFeedbackHook);
 		}

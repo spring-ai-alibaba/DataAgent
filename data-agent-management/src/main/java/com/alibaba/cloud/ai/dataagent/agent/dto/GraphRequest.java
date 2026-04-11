@@ -28,15 +28,11 @@ public class GraphRequest {
 
 	private String agentId;
 
-	private String agentType;
-
 	private String threadId;
 
 	private String runtimeRequestId;
 
 	private String query;
-
-	private String scene;
 
 	private boolean humanFeedback;
 

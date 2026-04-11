@@ -616,7 +616,7 @@
 
           userInput.value = '';
 
-          await sendGraphRequest(request, true);
+          await sendGraphRequest(request, false);
         } catch (error) {
           ElMessage.error('未知错误');
           console.error(error);
@@ -680,6 +680,14 @@
           };
 
           // 发送流式请求
+          const persistBlockAt = async (blockIndex: number): Promise<void> => {
+            if (blockIndex < 0 || !sessionState.nodeBlocks[blockIndex]) {
+              return;
+            }
+            await saveNodeMessage(sessionState.nodeBlocks[blockIndex]);
+            sessionState.persistedBlockCount = Math.max(sessionState.persistedBlockCount, blockIndex + 1);
+          };
+
           const closeStream = await GraphService.streamSearch(
             request,
             (response: GraphNodeResponse) => {
@@ -836,6 +844,7 @@
               }
             },
             async () => {
+              try {
               // 等待所有待处理的保存操作完成
               if (pendingSavePromises.length > 0) {
                 await Promise.all(pendingSavePromises);
@@ -899,8 +908,14 @@
                 }
 
                 // 如果是人工反馈模式，显示反馈组件
-                if (requestOptions.value.humanFeedback && rejectedPlan) {
+                if (request.humanFeedback && rejectedPlan) {
                   showHumanFeedback.value = true;
+                  sessionState.isStreaming = false;
+                  sessionState.persistedBlockCount = 0;
+                  sessionState.closeStream = null;
+                  if (currentSession.value?.id === sessionId) {
+                    isStreaming.value = false;
+                  }
                 } else {
                   // 所有节点处理完成
                   sessionState.isStreaming = false;
@@ -912,12 +927,21 @@
                 }
               }
 
-              ElMessage.success(`会话[${sessionTitle}]处理完成`);
               currentNodeName = null;
               closeStream();
               // 只有当前会话才重新加载消息
               if (currentSession.value?.id === sessionId) {
                 await selectSession(currentSession.value);
+              }
+              } catch (error) {
+                console.error('出现错误:', error);
+              } finally {
+                sessionState.isStreaming = false;
+                sessionState.persistedBlockCount = 0;
+                sessionState.closeStream = null;
+                if (currentSession.value?.id === sessionId) {
+                  isStreaming.value = false;
+                }
               }
             },
           );

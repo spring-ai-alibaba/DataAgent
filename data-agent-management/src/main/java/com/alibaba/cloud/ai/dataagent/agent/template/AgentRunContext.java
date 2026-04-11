@@ -18,8 +18,8 @@ package com.alibaba.cloud.ai.dataagent.agent.template;
 import io.agentscope.core.model.Model;
 import java.time.Duration;
 
-public record AgentRunContext(String agentId, String agentType, String threadId, Model model, String systemPrompt,
-		String userPrompt, Duration timeout, AgentRuntimeExtensions extensions) {
+public record AgentRunContext(String agentId, String threadId, Model model, String systemPrompt, String userPrompt,
+		Duration timeout, AgentRuntimeExtensions extensions) {
 
 	public AgentRunContext {
 		extensions = extensions == null ? AgentRuntimeExtensions.empty() : extensions;

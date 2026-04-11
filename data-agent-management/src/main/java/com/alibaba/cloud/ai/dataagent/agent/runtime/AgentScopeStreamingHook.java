@@ -31,21 +31,23 @@ import reactor.core.publisher.Mono;
 
 public class AgentScopeStreamingHook implements Hook {
 
-	private static final String DEFAULT_REASONING_NODE = "AgentScopeReasoning";
+	private static final String PLANNER_REASONING_NODE = "planner-reasoning";
+
+	private static final String SQL_GENERATOR_REASONING_NODE = "sql-generator-reasoning";
 
 	private final String agentId;
 
 	private final String threadId;
 
-	private final String scene;
+	private final boolean nl2sqlOnly;
 
 	private final AgentRuntimeEventPublisher eventPublisher;
 
-	public AgentScopeStreamingHook(String agentId, String threadId, String scene,
+	public AgentScopeStreamingHook(String agentId, String threadId, boolean nl2sqlOnly,
 			AgentRuntimeEventPublisher eventPublisher) {
 		this.agentId = agentId;
 		this.threadId = threadId;
-		this.scene = scene;
+		this.nl2sqlOnly = nl2sqlOnly;
 		this.eventPublisher = eventPublisher;
 	}
 
@@ -83,7 +85,7 @@ public class AgentScopeStreamingHook implements Hook {
 	}
 
 	private String resolveReasoningNodeName() {
-		return scene == null || scene.isBlank() ? DEFAULT_REASONING_NODE : scene + "-reasoning";
+		return nl2sqlOnly ? SQL_GENERATOR_REASONING_NODE : PLANNER_REASONING_NODE;
 	}
 
 	private String resolveToolNodeName(String toolName) {

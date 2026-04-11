@@ -207,36 +207,10 @@ CREATE TABLE IF NOT EXISTS chat_message (
   FOREIGN KEY (session_id) REFERENCES chat_session(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '聊天消息表';
 
--- 用户Prompt配置表
-CREATE TABLE IF NOT EXISTS user_prompt_config (
-  agent_type VARCHAR(100) NOT NULL DEFAULT 'commonagent' COMMENT 'Agent模板类型',
-  id VARCHAR(36) NOT NULL COMMENT '配置ID（UUID）',
-  name VARCHAR(255) NOT NULL COMMENT '配置名称',
-  prompt_type VARCHAR(100) NOT NULL DEFAULT 'system' COMMENT '系统提示词类型，固定为 system',
-  agent_id INT COMMENT '关联的智能体ID，为空表示全局配置',
-  system_prompt TEXT NOT NULL COMMENT '用户自定义系统Prompt内容',
-  enabled TINYINT DEFAULT 1 COMMENT '是否启用该配置：0-禁用，1-启用',
-  description TEXT COMMENT '配置描述',
-  priority INT DEFAULT 0 COMMENT '配置优先级，数字越大优先级越高',
-  display_order INT DEFAULT 0 COMMENT '配置显示顺序，数字越小越靠前',
-  create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  creator VARCHAR(255) COMMENT '创建者',
-  PRIMARY KEY (id),
-  INDEX idx_user_prompt_config_agent_type (agent_type),
-  INDEX idx_user_prompt_config_prompt_type (prompt_type),
-  INDEX idx_user_prompt_config_agent_id (agent_id),
-  INDEX idx_user_prompt_config_enabled (enabled),
-  INDEX idx_user_prompt_config_create_time (create_time),
-  INDEX idx_user_prompt_config_type_enabled_priority (agent_type, prompt_type, agent_id, enabled, priority DESC),
-  INDEX idx_user_prompt_config_display_order (display_order ASC)
-) ENGINE = InnoDB COMMENT = '用户Prompt配置表';
 
 ALTER TABLE agent
     ADD COLUMN IF NOT EXISTS agent_type VARCHAR(100) NOT NULL DEFAULT 'commonagent';
 
-ALTER TABLE user_prompt_config
-    ADD COLUMN IF NOT EXISTS agent_type VARCHAR(100) NOT NULL DEFAULT 'commonagent';
 
 CREATE TABLE IF NOT EXISTS agent_datasource_tables
 (

@@ -28,8 +28,6 @@ import reactor.core.publisher.Mono;
 
 public class HumanFeedbackHook implements Hook {
 
-	private static final String SCENE_PLANNER = "planner";
-
 	private final boolean pauseAfterPlanning;
 
 	private final AtomicBoolean replayRequested;
@@ -42,8 +40,8 @@ public class HumanFeedbackHook implements Hook {
 		this.feedbackDirective = feedbackDirective;
 	}
 
-	public static HumanFeedbackHook from(GraphRequest request, String scene) {
-		if (!SCENE_PLANNER.equals(scene)) {
+	public static HumanFeedbackHook from(GraphRequest request) {
+		if (request.isNl2sqlOnly()) {
 			return null;
 		}
 		boolean hasFeedbackContent = StringUtils.hasText(request.getHumanFeedbackContent());

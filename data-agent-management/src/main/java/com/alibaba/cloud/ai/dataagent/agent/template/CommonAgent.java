@@ -43,7 +43,7 @@ public class CommonAgent implements ManagedAgent {
 		Objects.requireNonNull(context.model(), "AgentScope model must not be null");
 		AgentRuntimeExtensions extensions = context.extensions();
 		ReActAgent.Builder builder = ReActAgent.builder()
-			.name(context.agentType())
+			.name(AGENT_TYPE)
 			.sysPrompt(defaultSystemPrompt(context.systemPrompt()))
 			.model(context.model());
 		if (extensions.toolkit() != null) {

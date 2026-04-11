@@ -23,7 +23,6 @@ import com.alibaba.cloud.ai.dataagent.agent.service.GraphService;
 import com.alibaba.cloud.ai.dataagent.agent.session.AgentSessionRegistry;
 import com.alibaba.cloud.ai.dataagent.agent.template.AgentRunContext;
 import com.alibaba.cloud.ai.dataagent.agent.template.AgentRuntimeExtensions;
-import com.alibaba.cloud.ai.dataagent.agent.template.CommonAgent;
 import com.alibaba.cloud.ai.dataagent.agent.template.ManagedAgent;
 import com.alibaba.cloud.ai.dataagent.agent.template.ManagedAgentRegistry;
 import com.alibaba.cloud.ai.dataagent.agent.vo.GraphNodeResponse;
@@ -61,10 +60,6 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 
 	private static final Duration AGENT_CALL_TIMEOUT = Duration.ofSeconds(120);
 
-	private static final String SCENE_PLANNER = "planner";
-
-	private static final String SCENE_SQL_GENERATOR = "sql-generator";
-
 	private static final String AGENT_STATUS_PUBLISHED = "published";
 
 	private static final String AGENT_STATUS_OFFLINE = "offline";
@@ -87,9 +82,7 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		log.info("NL2SQL runtime invoked for agentId={}", agentId);
 		GraphRequest request = GraphRequest.builder()
 			.agentId(agentId)
-			.agentType(resolveAgentType(agentId, null))
 			.query(naturalQuery)
-			.scene(SCENE_SQL_GENERATOR)
 			.nl2sqlOnly(true)
 			.build();
 		initializeRuntimeRequest(request);
@@ -196,20 +189,15 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 			if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())) {
 				return "";
 			}
+			Agent managedAgentConfig = resolveManagedAgent(request.getAgentId());
 			ModelConfigDTO modelConfig = modelConfigDataService.getActiveConfigByType(ModelType.CHAT);
 			validateModelConfig(modelConfig);
-			String agentType = resolveAgentType(request.getAgentId(), request.getAgentType());
-			String scene = resolveScene(request);
-			request.setAgentType(agentType);
-			request.setScene(scene);
-
 			Model model = agentScopeModelFactory.create(dynamicModelFactory.createChatModel(modelConfig),
 					modelConfig.getModelName());
-			ManagedAgent managedAgent = managedAgentRegistry.getRequired(agentType);
-			AgentRuntimeExtensions runtimeExtensions = agentRuntimeExtensionFactory.create(request, agentType, scene,
-					eventPublisher);
-			Msg response = managedAgent.run(new AgentRunContext(request.getAgentId(), agentType, request.getThreadId(), model,
-					resolveManagedSystemPrompt(request.getAgentId()), buildUserPrompt(request),
+			ManagedAgent managedAgent = managedAgentRegistry.getRequired();
+			AgentRuntimeExtensions runtimeExtensions = agentRuntimeExtensionFactory.create(request, eventPublisher);
+			Msg response = managedAgent.run(new AgentRunContext(request.getAgentId(), request.getThreadId(), model,
+					resolveManagedSystemPrompt(managedAgentConfig, request.getAgentId()), buildUserPrompt(request),
 					AGENT_CALL_TIMEOUT, runtimeExtensions));
 			if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())) {
 				return "";
@@ -233,45 +221,30 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		}
 	}
 
-	private String resolveManagedSystemPrompt(String requestAgentId) {
+	private Agent resolveManagedAgent(String requestAgentId) {
 		Long agentId = parseAgentId(requestAgentId);
 		if (agentId == null) {
-			return "";
+			return null;
 		}
 		Agent agent = agentService.findById(agentId);
-		if (agent == null || !StringUtils.hasText(agent.getPrompt())) {
-			log.info("No agent prompt found, keep CommonAgent system prompt empty. agentId={}", agentId);
+		validateAgentStatus(agent, requestAgentId);
+		return agent;
+	}
+
+	private String resolveManagedSystemPrompt(Agent agent, String requestAgentId) {
+		if (agent == null) {
 			return "";
 		}
-		log.info("Using agent prompt from base setting. agentId={}", agentId);
+		if (agent == null || !StringUtils.hasText(agent.getPrompt())) {
+			log.info("No agent prompt found, keep CommonAgent system prompt empty. agentId={}", requestAgentId);
+			return "";
+		}
+		log.info("Using agent prompt from base setting. agentId={}", requestAgentId);
 		return agent.getPrompt();
 	}
 
 	private String buildUserPrompt(GraphRequest request) {
 		return request.getQuery() == null ? "" : request.getQuery();
-	}
-
-	private String resolveScene(GraphRequest request) {
-		if (StringUtils.hasText(request.getScene())) {
-			return request.getScene();
-		}
-		return request.isNl2sqlOnly() ? SCENE_SQL_GENERATOR : SCENE_PLANNER;
-	}
-
-	private String resolveAgentType(String agentId, String requestAgentType) {
-		Long numericAgentId = parseAgentId(agentId);
-		Agent agent = null;
-		if (numericAgentId != null) {
-			agent = agentService.findById(numericAgentId);
-			validateAgentStatus(agent, agentId);
-		}
-		if (StringUtils.hasText(requestAgentType)) {
-			return requestAgentType;
-		}
-		if (agent != null && StringUtils.hasText(agent.getAgentType())) {
-			return agent.getAgentType();
-		}
-		return CommonAgent.AGENT_TYPE;
 	}
 
 	private void validateAgentStatus(Agent agent, String requestAgentId) {
@@ -300,7 +273,7 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 			return Long.valueOf(agentId);
 		}
 		catch (NumberFormatException ex) {
-			log.warn("Agent id is not numeric, fallback to global prompt config. agentId={}", agentId);
+			log.warn("Agent id is not numeric, skip agent-specific prompt lookup. agentId={}", agentId);
 			return null;
 		}
 	}

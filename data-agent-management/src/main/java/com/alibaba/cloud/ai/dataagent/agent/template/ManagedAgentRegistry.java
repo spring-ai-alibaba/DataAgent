@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 @Component
 public class ManagedAgentRegistry {
@@ -33,11 +32,10 @@ public class ManagedAgentRegistry {
 			.collect(Collectors.toUnmodifiableMap(agent -> normalize(agent.getAgentType()), Function.identity()));
 	}
 
-	public ManagedAgent getRequired(String agentType) {
-		String resolvedType = StringUtils.hasText(agentType) ? agentType : CommonAgent.AGENT_TYPE;
-		ManagedAgent managedAgent = this.agentsByType.get(normalize(resolvedType));
+	public ManagedAgent getRequired() {
+		ManagedAgent managedAgent = this.agentsByType.get(normalize(CommonAgent.AGENT_TYPE));
 		if (managedAgent == null) {
-			throw new IllegalArgumentException("Unsupported agentType: " + resolvedType);
+			throw new IllegalStateException("ManagedAgent registry missing type: " + CommonAgent.AGENT_TYPE);
 		}
 		return managedAgent;
 	}
