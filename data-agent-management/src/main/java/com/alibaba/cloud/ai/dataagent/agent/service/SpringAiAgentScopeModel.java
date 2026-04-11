@@ -21,9 +21,11 @@ import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.ContentBlock;
 import io.agentscope.core.message.TextBlock;
+import io.agentscope.core.message.ThinkingBlock;
 import io.agentscope.core.message.ToolUseBlock;
 import io.agentscope.core.model.ChatModelBase;
 import io.agentscope.core.model.ChatResponse;
+import io.agentscope.core.model.ChatUsage;
 import io.agentscope.core.model.GenerateOptions;
 import io.agentscope.core.model.ToolSchema;
 import java.util.ArrayList;
@@ -37,6 +39,7 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
@@ -77,7 +80,7 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 			}
 		}
 		Prompt prompt = new Prompt(promptMessages, buildChatOptions(toolSchemas, generateOptions));
-		return Flux.defer(() -> Flux.just(toAgentScopeResponse(this.delegate.call(prompt))));
+		return Flux.defer(() -> this.delegate.stream(prompt).map(this::toAgentScopeResponse));
 	}
 
 	@Override
@@ -158,23 +161,27 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 		AssistantMessage output = generation == null ? null : generation.getOutput();
 		String text = output == null ? "" : defaultText(output.getText());
 		List<ContentBlock> contentBlocks = new ArrayList<>();
+		String reasoningContent = extractReasoningContent(output);
+		Map<String, Object> thinkingMetadata = extractThinkingMetadata(output);
+		if (StringUtils.hasText(reasoningContent) || thinkingMetadata != null) {
+			contentBlocks.add(ThinkingBlock.builder().thinking(defaultText(reasoningContent)).metadata(thinkingMetadata).build());
+		}
 		if (StringUtils.hasText(text)) {
 			contentBlocks.add(TextBlock.builder().text(text).build());
 		}
 		if (output != null && output.hasToolCalls()) {
 			output.getToolCalls().stream().map(this::toToolUseBlock).forEach(contentBlocks::add);
 		}
-		if (contentBlocks.isEmpty()) {
-			contentBlocks.add(TextBlock.builder().text(text).build());
-		}
 		Map<String, Object> metadata = new LinkedHashMap<>();
 		String responseId = null;
 		String finishReason = null;
+		ChatUsage usage = null;
 		if (response != null && response.getMetadata() != null) {
 			responseId = response.getMetadata().getId();
 			if (StringUtils.hasText(response.getMetadata().getModel())) {
 				metadata.put("springAiModel", response.getMetadata().getModel());
 			}
+			usage = toChatUsage(response.getMetadata().getUsage());
 		}
 		if (generation != null && generation.getMetadata() != null) {
 			finishReason = generation.getMetadata().getFinishReason();
@@ -182,6 +189,7 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 		return ChatResponse.builder()
 			.id(responseId)
 			.content(contentBlocks)
+			.usage(usage)
 			.metadata(metadata)
 			.finishReason(finishReason)
 			.build();
@@ -197,11 +205,45 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 			metadata.put("arguments", toolCall.arguments());
 		}
 		return ToolUseBlock.builder()
-			.id(defaultId(toolCall.id()))
-			.name(defaultToolName(toolCall.name()))
+			.id(toolCall.id())
+			.name(toolCall.name())
 			.input(input)
 			.content(defaultText(toolCall.arguments()))
-			.metadata(metadata)
+			.metadata(metadata.isEmpty() ? null : metadata)
+			.build();
+	}
+
+	private String extractReasoningContent(AssistantMessage output) {
+		if (output == null || output.getMetadata() == null) {
+			return null;
+		}
+		Object reasoningContent = output.getMetadata().get("reasoningContent");
+		if (reasoningContent == null) {
+			return null;
+		}
+		return reasoningContent instanceof String text ? text : reasoningContent.toString();
+	}
+
+	private Map<String, Object> extractThinkingMetadata(AssistantMessage output) {
+		if (output == null || output.getMetadata() == null || output.getMetadata().isEmpty()) {
+			return null;
+		}
+		Object reasoningDetails = output.getMetadata().get(ThinkingBlock.METADATA_REASONING_DETAILS);
+		if (reasoningDetails == null) {
+			return null;
+		}
+		Map<String, Object> metadata = new LinkedHashMap<>();
+		metadata.put(ThinkingBlock.METADATA_REASONING_DETAILS, reasoningDetails);
+		return metadata;
+	}
+
+	private ChatUsage toChatUsage(Usage usage) {
+		if (usage == null) {
+			return null;
+		}
+		return ChatUsage.builder()
+			.inputTokens(usage.getPromptTokens())
+			.outputTokens(usage.getCompletionTokens())
 			.build();
 	}
 
