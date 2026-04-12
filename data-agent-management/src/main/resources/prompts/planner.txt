@@ -76,7 +76,7 @@
     3.1、需要按渠道看转化率？ -> Step 1: SQL_GENERATE_NODE (描述：按渠道分组查询各阶段人数)。
     3.2、需要按地区看转化率？ -> Step 2: SQL_GENERATE_NODE (描述：按地区分组查询各阶段人数)。
     3.3、需要计算复杂的比率或排名？ -> Step 3: PYTHON_GENERATE_NODE (指令：读取前两步数据，计算转化率并排名)。
-    3.4 需要总结？ -> Step 4: REPORT_GENERATE_NODE。
+    3.4 需要总结？ -> Step 4: REPORT_GENERATOR_NODE。
 4、撰写指令：确保 SQL_GENERATE_NODE 的 instruction 足够详细，让写 SQL 的同事（下游节点）一看就懂，不需要再问用户。
 5、构建 JSON：组装最终结果。
 
