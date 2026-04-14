@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.runtime;
 
+import com.alibaba.cloud.ai.dataagent.util.McpServerToolUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.agentscope.core.tool.Toolkit;
 import java.util.Collections;
@@ -52,11 +53,11 @@ public class AgentScopeToolkitFactory {
 
 	private Map<String, ToolCallback> collectToolCallbacks() {
 		Map<String, ToolCallback> callbacks = new LinkedHashMap<>();
-		for (String beanName : applicationContext.getBeanNamesForType(ToolCallback.class)) {
-			register(callbacks, applicationContext.getBean(beanName, ToolCallback.class));
+		for (ToolCallback toolCallback : McpServerToolUtil.excludeMcpServerTool(applicationContext, ToolCallback.class)) {
+			register(callbacks, toolCallback);
 		}
-		for (String beanName : applicationContext.getBeanNamesForType(ToolCallbackProvider.class)) {
-			ToolCallbackProvider provider = applicationContext.getBean(beanName, ToolCallbackProvider.class);
+		for (ToolCallbackProvider provider : McpServerToolUtil.excludeMcpServerTool(applicationContext,
+				ToolCallbackProvider.class)) {
 			for (ToolCallback toolCallback : provider.getToolCallbacks()) {
 				register(callbacks, toolCallback);
 			}
