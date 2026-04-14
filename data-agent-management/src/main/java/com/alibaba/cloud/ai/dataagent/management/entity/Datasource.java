@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.management.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Builder;
 import org.springframework.format.annotation.DateTimeFormat;
 
@@ -44,8 +45,10 @@ public class Datasource {
 
 	private String username;
 
+	@JsonIgnore
 	private String password;
 
+	@JsonIgnore
 	private String connectionUrl;
 
 	private String status;
