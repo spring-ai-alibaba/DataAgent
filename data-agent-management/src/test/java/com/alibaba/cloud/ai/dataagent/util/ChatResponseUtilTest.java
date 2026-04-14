@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.management.util;
 
+import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatResponse;
 
