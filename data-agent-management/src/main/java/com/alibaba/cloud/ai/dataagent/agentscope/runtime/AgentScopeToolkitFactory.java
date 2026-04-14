@@ -53,7 +53,8 @@ public class AgentScopeToolkitFactory {
 
 	private Map<String, ToolCallback> collectToolCallbacks() {
 		Map<String, ToolCallback> callbacks = new LinkedHashMap<>();
-		for (ToolCallback toolCallback : McpServerToolUtil.excludeMcpServerTool(applicationContext, ToolCallback.class)) {
+		for (ToolCallback toolCallback : McpServerToolUtil.excludeMcpServerTool(applicationContext,
+				ToolCallback.class)) {
 			register(callbacks, toolCallback);
 		}
 		for (ToolCallbackProvider provider : McpServerToolUtil.excludeMcpServerTool(applicationContext,
