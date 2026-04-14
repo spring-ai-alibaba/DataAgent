@@ -73,8 +73,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Slf4j
 @Configuration
 @EnableAsync
-@EnableConfigurationProperties({ DataAgentProperties.class, FileStorageProperties.class,
-		CodeExecutorProperties.class })
+@EnableConfigurationProperties({ DataAgentProperties.class, FileStorageProperties.class, CodeExecutorProperties.class })
 public class DataAgentConfiguration implements DisposableBean {
 
 	/**

@@ -42,8 +42,8 @@ public class AgentScopeHookFactory {
 			hooks.add(new AgentScopeStreamingHook(request.getAgentId(), request.getThreadId(), request.isNl2sqlOnly(),
 					eventPublisher));
 		}
-		hooks.add(new AgentScopeMemoryPersistenceHook(request.getThreadId(), request.getRuntimeRequestId(), sessionRegistry,
-				chatSessionService, chatMessageService));
+		hooks.add(new AgentScopeMemoryPersistenceHook(request.getThreadId(), request.getRuntimeRequestId(),
+				sessionRegistry, chatSessionService, chatMessageService));
 		HumanFeedbackHook humanFeedbackHook = HumanFeedbackHook.from(request);
 		if (humanFeedbackHook != null) {
 			hooks.add(humanFeedbackHook);

@@ -60,11 +60,12 @@ public class CommonAgent implements ManagedAgent {
 			builder.hooks(hooks);
 		}
 		ReActAgent agent = builder.build();
-		return agent.call(Msg.builder()
-			.name("user")
-			.role(MsgRole.USER)
-			.textContent(defaultUserPrompt(context.userPrompt()))
-			.build())
+		return agent
+			.call(Msg.builder()
+				.name("user")
+				.role(MsgRole.USER)
+				.textContent(defaultUserPrompt(context.userPrompt()))
+				.build())
 			.block(resolveTimeout(context.timeout()));
 	}
 

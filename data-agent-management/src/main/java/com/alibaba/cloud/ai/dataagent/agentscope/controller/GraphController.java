@@ -66,14 +66,14 @@ public class GraphController {
 			.build();
 		graphService.graphStreamProcess(sink, request);
 
-		return sink.asFlux()
-			.filter(sse -> {
-				if (STREAM_EVENT_COMPLETE.equals(sse.event()) || STREAM_EVENT_ERROR.equals(sse.event())) {
-					return true;
-				}
-				return sse.data() != null && sse.data().getText() != null && !sse.data().getText().isEmpty();
-			})
-			.doOnSubscribe(subscription -> log.info("Client subscribed to aiagent stream, threadId: {}", request.getThreadId()))
+		return sink.asFlux().filter(sse -> {
+			if (STREAM_EVENT_COMPLETE.equals(sse.event()) || STREAM_EVENT_ERROR.equals(sse.event())) {
+				return true;
+			}
+			return sse.data() != null && sse.data().getText() != null && !sse.data().getText().isEmpty();
+		})
+			.doOnSubscribe(subscription -> log.info("Client subscribed to aiagent stream, threadId: {}",
+					request.getThreadId()))
 			.doOnCancel(() -> {
 				log.info("Client disconnected from aiagent stream, threadId: {}", request.getThreadId());
 				if (request.getThreadId() != null && request.getRuntimeRequestId() != null) {

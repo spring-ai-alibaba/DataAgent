@@ -40,8 +40,8 @@ public class AgentScopeToolkitFactory {
 		Toolkit toolkit = new Toolkit();
 		Map<String, ToolCallback> toolCallbacks = getToolCallbacks();
 		toolCallbacks.values()
-			.forEach(toolCallback -> toolkit.registerAgentTool(new SpringToolCallbackAgentAdapter(toolCallback,
-					objectMapper)));
+			.forEach(toolCallback -> toolkit
+				.registerAgentTool(new SpringToolCallbackAgentAdapter(toolCallback, objectMapper)));
 		log.debug("Mapped {} Spring AI tool callbacks into AgentScope toolkit", toolCallbacks.size());
 		return toolkit;
 	}

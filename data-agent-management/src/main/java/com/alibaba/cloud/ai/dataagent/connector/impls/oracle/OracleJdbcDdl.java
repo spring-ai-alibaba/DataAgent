@@ -21,7 +21,7 @@ import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.SchemaInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.management.bo.schema.*;
+import com.alibaba.cloud.ai.dataagent.bo.schema.*;
 import com.alibaba.cloud.ai.dataagent.connector.SqlExecutor;
 import com.alibaba.cloud.ai.dataagent.connector.ddl.AbstractJdbcDdl;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;

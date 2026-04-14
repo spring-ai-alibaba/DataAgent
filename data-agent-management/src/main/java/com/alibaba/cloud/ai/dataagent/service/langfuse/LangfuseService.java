@@ -91,8 +91,7 @@ public class LangfuseService {
 					"{\"query\":\"%s\",\"agentId\":\"%s\",\"threadId\":\"%s\",\"nl2sqlOnly\":%s,\"humanFeedback\":%s}",
 					request.getQuery() != null ? request.getQuery() : "",
 					request.getAgentId() != null ? request.getAgentId() : "",
-					request.getThreadId() != null ? request.getThreadId() : "",
-					request.isNl2sqlOnly(),
+					request.getThreadId() != null ? request.getThreadId() : "", request.isNl2sqlOnly(),
 					request.isHumanFeedback());
 			span.setAttribute(INPUT_VALUE, inputValue);
 			span.setAttribute(ATTR_AGENT_ID, request.getAgentId() != null ? request.getAgentId() : "");

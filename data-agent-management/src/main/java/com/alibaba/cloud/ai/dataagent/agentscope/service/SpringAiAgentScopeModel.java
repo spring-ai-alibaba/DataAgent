@@ -71,7 +71,8 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 	}
 
 	@Override
-	protected Flux<ChatResponse> doStream(List<Msg> messages, List<ToolSchema> toolSchemas, GenerateOptions generateOptions) {
+	protected Flux<ChatResponse> doStream(List<Msg> messages, List<ToolSchema> toolSchemas,
+			GenerateOptions generateOptions) {
 		List<Message> promptMessages = new ArrayList<>();
 		for (Msg message : messages) {
 			Message springMessage = toSpringMessage(message);
@@ -164,7 +165,8 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 		String reasoningContent = extractReasoningContent(output);
 		Map<String, Object> thinkingMetadata = extractThinkingMetadata(output);
 		if (StringUtils.hasText(reasoningContent) || thinkingMetadata != null) {
-			contentBlocks.add(ThinkingBlock.builder().thinking(defaultText(reasoningContent)).metadata(thinkingMetadata).build());
+			contentBlocks.add(
+					ThinkingBlock.builder().thinking(defaultText(reasoningContent)).metadata(thinkingMetadata).build());
 		}
 		if (StringUtils.hasText(text)) {
 			contentBlocks.add(TextBlock.builder().text(text).build());

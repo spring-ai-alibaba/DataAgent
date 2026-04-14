@@ -77,14 +77,11 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 	private final AgentRuntimeExtensionFactory agentRuntimeExtensionFactory;
 
 	private final AgentService agentService;
+
 	@Override
 	public String nl2sql(String naturalQuery, String agentId) {
 		log.info("NL2SQL runtime invoked for agentId={}", agentId);
-		GraphRequest request = GraphRequest.builder()
-			.agentId(agentId)
-			.query(naturalQuery)
-			.nl2sqlOnly(true)
-			.build();
+		GraphRequest request = GraphRequest.builder().agentId(agentId).query(naturalQuery).nl2sqlOnly(true).build();
 		initializeRuntimeRequest(request);
 		sessionRegistry.register(request.getThreadId(), request.getRuntimeRequestId());
 		try {
@@ -106,7 +103,8 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 			if (!sessionRegistry.isActive(threadId, runtimeRequestId)) {
 				return;
 			}
-			if (response != null && response.getTextType() == TextType.TEXT && StringUtils.hasText(response.getText())) {
+			if (response != null && response.getTextType() == TextType.TEXT
+					&& StringUtils.hasText(response.getText())) {
 				streamTextTracker.record(response.getNodeName(), response.getText());
 			}
 			sink.tryEmitNext(ServerSentEvent.builder(response).event(STREAM_EVENT_MESSAGE).build());
@@ -142,8 +140,7 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 				.build();
 			sink.tryEmitNext(ServerSentEvent.builder(response).event(STREAM_EVENT_MESSAGE).build());
 		}
-		sink.tryEmitNext(ServerSentEvent
-			.builder(GraphNodeResponse.complete(request.getAgentId(), threadId))
+		sink.tryEmitNext(ServerSentEvent.builder(GraphNodeResponse.complete(request.getAgentId(), threadId))
 			.event(STREAM_EVENT_COMPLETE)
 			.build());
 		sink.tryEmitComplete();
@@ -162,8 +159,7 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		}
 		if (sessionRegistry.isActive(threadId, runtimeRequestId)) {
 			String message = error.getMessage() == null ? "AgentScope runtime failed." : error.getMessage();
-			sink.tryEmitNext(ServerSentEvent
-				.builder(GraphNodeResponse.error(request.getAgentId(), threadId, message))
+			sink.tryEmitNext(ServerSentEvent.builder(GraphNodeResponse.error(request.getAgentId(), threadId, message))
 				.event(STREAM_EVENT_ERROR)
 				.build());
 			sink.tryEmitComplete();

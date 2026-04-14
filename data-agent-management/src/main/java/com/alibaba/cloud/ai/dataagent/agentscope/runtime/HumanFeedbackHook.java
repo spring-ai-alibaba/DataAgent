@@ -63,11 +63,8 @@ public class HumanFeedbackHook implements Hook {
 			return Mono.just(event);
 		}
 		if (replayRequested.compareAndSet(true, false)) {
-			postReasoningEvent.gotoReasoning(List.of(Msg.builder()
-				.name("human-review")
-				.role(MsgRole.SYSTEM)
-				.textContent(feedbackDirective)
-				.build()));
+			postReasoningEvent.gotoReasoning(List
+				.of(Msg.builder().name("human-review").role(MsgRole.SYSTEM).textContent(feedbackDirective).build()));
 		}
 		return Mono.just(event);
 	}

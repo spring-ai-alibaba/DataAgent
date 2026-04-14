@@ -41,8 +41,9 @@ public class AgentScopeMemoryPersistenceHook implements Hook {
 
 	private final ChatMessageService chatMessageService;
 
-	public AgentScopeMemoryPersistenceHook(String threadId, String runtimeRequestId, AgentSessionRegistry sessionRegistry,
-			ChatSessionService chatSessionService, ChatMessageService chatMessageService) {
+	public AgentScopeMemoryPersistenceHook(String threadId, String runtimeRequestId,
+			AgentSessionRegistry sessionRegistry, ChatSessionService chatSessionService,
+			ChatMessageService chatMessageService) {
 		this.threadId = threadId;
 		this.runtimeRequestId = runtimeRequestId;
 		this.sessionRegistry = sessionRegistry;
