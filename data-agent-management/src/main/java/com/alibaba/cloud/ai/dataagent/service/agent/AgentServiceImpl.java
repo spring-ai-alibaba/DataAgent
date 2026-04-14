@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.agent;
 
+import com.alibaba.cloud.ai.dataagent.agentscope.template.CommonAgent;
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentMapper;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
@@ -23,6 +24,7 @@ import com.alibaba.cloud.ai.dataagent.util.ApiKeyUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -63,8 +65,12 @@ public class AgentServiceImpl implements AgentService {
 	}
 
 	@Override
+	@Transactional
 	public Agent save(Agent agent) {
 		LocalDateTime now = LocalDateTime.now();
+		if (agent.getAgentType() == null || agent.getAgentType().isBlank()) {
+			agent.setAgentType(CommonAgent.AGENT_TYPE);
+		}
 
 		if (agent.getId() == null) {
 			// Add
@@ -85,7 +91,7 @@ public class AgentServiceImpl implements AgentService {
 			agentMapper.updateById(agent);
 		}
 
-		return agent;
+		return agentMapper.findById(agent.getId());
 	}
 
 	@Override

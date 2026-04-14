@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.langfuse;
 
-import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
+import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;

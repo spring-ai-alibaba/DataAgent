@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.util;
+package com.alibaba.cloud.ai.dataagent.management.util;
 
+import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatResponse;
 

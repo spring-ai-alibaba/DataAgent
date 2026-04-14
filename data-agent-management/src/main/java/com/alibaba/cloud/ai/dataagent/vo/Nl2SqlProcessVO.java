@@ -15,7 +15,6 @@
  */
 package com.alibaba.cloud.ai.dataagent.vo;
 
-import com.alibaba.cloud.ai.graph.StateGraph;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,6 +28,8 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class Nl2SqlProcessVO {
+
+	private static final String END_NODE_NAME = "END";
 
 	/**
 	 * 标识过程是否结束
@@ -65,7 +66,7 @@ public class Nl2SqlProcessVO {
 	}
 
 	public static Nl2SqlProcessVO success(String result) {
-		return success(result, StateGraph.END, "");
+		return success(result, END_NODE_NAME, "");
 	}
 
 	public static Nl2SqlProcessVO fail(String reason, String currentNodeName, String currentNodeOutput) {
@@ -73,7 +74,7 @@ public class Nl2SqlProcessVO {
 	}
 
 	public static Nl2SqlProcessVO fail(String reason) {
-		return fail(reason, StateGraph.END, "");
+		return fail(reason, END_NODE_NAME, "");
 	}
 
 	public static Nl2SqlProcessVO processing(String currentNodeName, String currentNodeOutput) {

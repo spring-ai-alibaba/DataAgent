@@ -15,6 +15,12 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector.impls.sqlserver;
 
+import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.SchemaInfoBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.*;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.connector.SqlExecutor;

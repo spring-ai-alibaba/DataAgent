@@ -66,8 +66,8 @@ public interface AgentMapper {
 	List<Agent> findByConditions(@Param("status") String status, @Param("keyword") String keyword);
 
 	@Insert("""
-			INSERT INTO agent (name, description, avatar, status, api_key, api_key_enabled, prompt, category, admin_id, tags, create_time, update_time)
-			VALUES (#{name}, #{description}, #{avatar}, #{status}, #{apiKey}, #{apiKeyEnabled}, #{prompt}, #{category}, #{adminId}, #{tags}, #{createTime}, #{updateTime})
+			INSERT INTO agent (name, description, avatar, agent_type, status, api_key, api_key_enabled, prompt, category, admin_id, tags, create_time, update_time)
+			VALUES (#{name}, #{description}, #{avatar}, #{agentType}, #{status}, #{apiKey}, #{apiKeyEnabled}, #{prompt}, #{category}, #{adminId}, #{tags}, #{createTime}, #{updateTime})
 			""")
 	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
 	int insert(Agent agent);
@@ -79,6 +79,7 @@ public interface AgentMapper {
 			            <if test='name != null'>name = #{name},</if>
 			            <if test='description != null'>description = #{description},</if>
 			            <if test='avatar != null'>avatar = #{avatar},</if>
+			            <if test='agentType != null'>agent_type = #{agentType},</if>
 			            <if test='status != null'>status = #{status},</if>
 			            <if test='apiKey != null'>api_key = #{apiKey},</if>
 			            <if test='apiKeyEnabled != null'>api_key_enabled = #{apiKeyEnabled},</if>

@@ -602,7 +602,7 @@
           // 保存用户消息
           const savedMessage = await ChatService.saveMessage(currentSession.value.id, userMessage);
           currentMessages.value.push(savedMessage);
-          const sessionState = getSessionState(currentSession.value.id);
+          getSessionState(currentSession.value.id);
 
           const request: GraphRequest = {
             agentId: agentId.value,
@@ -611,12 +611,12 @@
             nl2sqlOnly: requestOptions.value.nl2sqlOnly,
             rejectedPlan: false,
             humanFeedbackContent: null,
-            threadId: sessionState.lastRequest?.threadId || null,
+            threadId: currentSession.value.id,
           };
 
           userInput.value = '';
 
-          await sendGraphRequest(request, true);
+          await sendGraphRequest(request, false);
         } catch (error) {
           ElMessage.error('未知错误');
           console.error(error);
@@ -625,7 +625,7 @@
 
       const sendGraphRequest = async (request: GraphRequest, rejectedPlan: boolean) => {
         const sessionId = currentSession.value!.id;
-        const sessionTitle = currentSession.value!.title;
+        currentSession.value!.title;
         const sessionState = getSessionState(sessionId);
         try {
           lastRequest.value = request;
@@ -680,6 +680,17 @@
           };
 
           // 发送流式请求
+          const persistBlockAt = async (blockIndex: number): Promise<void> => {
+            if (blockIndex < 0 || !sessionState.nodeBlocks[blockIndex]) {
+              return;
+            }
+            await saveNodeMessage(sessionState.nodeBlocks[blockIndex]);
+            sessionState.persistedBlockCount = Math.max(
+              sessionState.persistedBlockCount,
+              blockIndex + 1,
+            );
+          };
+
           const closeStream = await GraphService.streamSearch(
             request,
             (response: GraphNodeResponse) => {
@@ -700,7 +711,7 @@
                 if (isNewNode) {
                   // 保存上一个节点的消息（如果有）
                   if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
-                    const savePromise = saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]);
+                    const savePromise = persistBlockAt(currentBlockIndex);
                     pendingSavePromises.push(savePromise);
                   }
 
@@ -759,7 +770,7 @@
               } else if (response.textType === TextType.RESULT_SET) {
                 currentNodeName = 'result_set';
                 if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
-                  const savePromise = saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]);
+                  const savePromise = persistBlockAt(currentBlockIndex);
                   pendingSavePromises.push(savePromise);
                 }
                 // 创建新的节点块
@@ -777,7 +788,7 @@
                 if (isNewNode) {
                   // 保存上一个节点的消息（如果有）
                   if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
-                    const savePromise = saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]);
+                    const savePromise = persistBlockAt(currentBlockIndex);
                     pendingSavePromises.push(savePromise);
                   }
 
@@ -826,6 +837,7 @@
                 await Promise.all(pendingSavePromises);
               }
               sessionState.isStreaming = false;
+              sessionState.persistedBlockCount = 0;
               sessionState.closeStream = null;
               currentNodeName = null;
               // 出错时只有当前会话才重新加载
@@ -835,85 +847,104 @@
               }
             },
             async () => {
-              // 等待所有待处理的保存操作完成
-              if (pendingSavePromises.length > 0) {
-                await Promise.all(pendingSavePromises);
-              }
-
-              // 保存报告到后端
-              if (sessionState.htmlReportContent) {
-                const htmlReportMessage: ChatMessage = {
-                  sessionId,
-                  role: 'assistant',
-                  content: sessionState.htmlReportContent,
-                  messageType: 'html-report',
-                };
-
-                await ChatService.saveMessage(sessionId, htmlReportMessage)
-                  .then(savedMessage => {
-                    if (currentSession.value?.id === sessionId) {
-                      currentMessages.value.push(savedMessage);
-                    }
-                  })
-                  .catch(error => {
-                    ElMessage.error('保存HTML报告失败！');
-                    console.error('保存HTML报告失败:', error);
-                  });
-                // 对话的HTML报告保存后结束流式响应，并判断是否需要同步页面
-                sessionState.isStreaming = false;
-                if (currentSession.value?.id === sessionId) {
-                  isStreaming.value = false;
-                  nodeBlocks.value = [];
-                }
-              } else if (sessionState.markdownReportContent) {
-                const markdownMessage: ChatMessage = {
-                  sessionId,
-                  role: 'assistant',
-                  content: sessionState.markdownReportContent,
-                  messageType: 'markdown-report',
-                };
-
-                await ChatService.saveMessage(sessionId, markdownMessage)
-                  .then(savedMessage => {
-                    if (currentSession.value?.id === sessionId) {
-                      currentMessages.value.push(savedMessage);
-                    }
-                  })
-                  .catch(error => {
-                    console.error('保存Markdown报告失败:', error);
-                  });
-
-                sessionState.isStreaming = false;
-                if (currentSession.value?.id === sessionId) {
-                  isStreaming.value = false;
-                  nodeBlocks.value = [];
-                }
-              } else {
-                // 其他节点，可能是错误或人类反馈模式
-                // 保存最后一个节点的消息（如果有）
-                if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
-                  await saveNodeMessage(sessionState.nodeBlocks[currentBlockIndex]);
+              try {
+                // 等待所有待处理的保存操作完成
+                if (pendingSavePromises.length > 0) {
+                  await Promise.all(pendingSavePromises);
                 }
 
-                // 如果是人工反馈模式，显示反馈组件
-                if (requestOptions.value.humanFeedback && rejectedPlan) {
-                  showHumanFeedback.value = true;
-                } else {
-                  // 所有节点处理完成
+                // 保存报告到后端
+                if (sessionState.htmlReportContent) {
+                  const htmlReportMessage: ChatMessage = {
+                    sessionId,
+                    role: 'assistant',
+                    content: sessionState.htmlReportContent,
+                    messageType: 'html-report',
+                  };
+
+                  await ChatService.saveMessage(sessionId, htmlReportMessage)
+                    .then(savedMessage => {
+                      if (currentSession.value?.id === sessionId) {
+                        currentMessages.value.push(savedMessage);
+                      }
+                    })
+                    .catch(error => {
+                      ElMessage.error('保存HTML报告失败！');
+                      console.error('保存HTML报告失败:', error);
+                    });
+                  // 对话的HTML报告保存后结束流式响应，并判断是否需要同步页面
                   sessionState.isStreaming = false;
-                  // 如果是当前显示的会话，同步到视图
+                  sessionState.persistedBlockCount = 0;
                   if (currentSession.value?.id === sessionId) {
                     isStreaming.value = false;
+                    nodeBlocks.value = [];
+                  }
+                } else if (sessionState.markdownReportContent) {
+                  const markdownMessage: ChatMessage = {
+                    sessionId,
+                    role: 'assistant',
+                    content: sessionState.markdownReportContent,
+                    messageType: 'markdown-report',
+                  };
+
+                  await ChatService.saveMessage(sessionId, markdownMessage)
+                    .then(savedMessage => {
+                      if (currentSession.value?.id === sessionId) {
+                        currentMessages.value.push(savedMessage);
+                      }
+                    })
+                    .catch(error => {
+                      console.error('保存Markdown报告失败:', error);
+                    });
+
+                  sessionState.isStreaming = false;
+                  sessionState.persistedBlockCount = 0;
+                  if (currentSession.value?.id === sessionId) {
+                    isStreaming.value = false;
+                    nodeBlocks.value = [];
+                  }
+                } else {
+                  // 其他节点，可能是错误或人类反馈模式
+                  // 保存最后一个节点的消息（如果有）
+                  if (currentBlockIndex >= 0 && sessionState.nodeBlocks[currentBlockIndex]) {
+                    await persistBlockAt(currentBlockIndex);
+                  }
+
+                  // 如果是人工反馈模式，显示反馈组件
+                  if (request.humanFeedback && rejectedPlan) {
+                    showHumanFeedback.value = true;
+                    sessionState.isStreaming = false;
+                    sessionState.persistedBlockCount = 0;
+                    sessionState.closeStream = null;
+                    if (currentSession.value?.id === sessionId) {
+                      isStreaming.value = false;
+                    }
+                  } else {
+                    // 所有节点处理完成
+                    sessionState.isStreaming = false;
+                    sessionState.persistedBlockCount = 0;
+                    // 如果是当前显示的会话，同步到视图
+                    if (currentSession.value?.id === sessionId) {
+                      isStreaming.value = false;
+                    }
                   }
                 }
-              }
 
-              ElMessage.success(`会话[${sessionTitle}]处理完成`);
-              currentNodeName = null;
-              closeStream();
-              // 只有当前会话才重新加载消息
-              if (currentSession.value?.id === sessionId) {
-                await selectSession(currentSession.value);
+                currentNodeName = null;
+                closeStream();
+                // 只有当前会话才重新加载消息
+                if (currentSession.value?.id === sessionId) {
+                  await selectSession(currentSession.value);
+                }
+              } catch (error) {
+                console.error('出现错误:', error);
+              } finally {
+                sessionState.isStreaming = false;
+                sessionState.persistedBlockCount = 0;
+                sessionState.closeStream = null;
+                if (currentSession.value?.id === sessionId) {
+                  isStreaming.value = false;
+                }
               }
             },
           );
@@ -923,6 +954,7 @@
           ElMessage.error('发送消息失败');
           console.error('发送消息失败:', error);
           sessionState.isStreaming = false;
+          sessionState.persistedBlockCount = 0;
           sessionState.closeStream = null;
           if (currentSession.value?.id === sessionId) {
             isStreaming.value = false;
@@ -1114,6 +1146,7 @@
       const resetReportState = (sessionState: SessionRuntimeState, request: GraphRequest) => {
         sessionState.isStreaming = true;
         sessionState.nodeBlocks = [];
+        sessionState.persistedBlockCount = 0;
         sessionState.lastRequest = request;
         sessionState.htmlReportContent = '';
         sessionState.htmlReportSize = 0;
@@ -1208,7 +1241,16 @@
             };
 
             // 保存所有未保存的节点块
-            const savePromises = sessionState.nodeBlocks.map(block => saveNodeMessage(block));
+            const basePersistedCount = sessionState.persistedBlockCount;
+            const unsavedBlocks = sessionState.nodeBlocks.slice(basePersistedCount);
+            const savePromises = unsavedBlocks.map((block, index) =>
+              saveNodeMessage(block).then(() => {
+                sessionState.persistedBlockCount = Math.max(
+                  sessionState.persistedBlockCount,
+                  basePersistedCount + index + 1,
+                );
+              }),
+            );
             await Promise.all(savePromises).catch(error => {
               console.error('保存节点消息时出错:', error);
             });
@@ -1217,6 +1259,7 @@
           // 清理流式状态
           sessionState.isStreaming = false;
           sessionState.nodeBlocks = [];
+          sessionState.persistedBlockCount = 0;
           sessionState.htmlReportContent = '';
           sessionState.htmlReportSize = 0;
           sessionState.markdownReportContent = '';
@@ -1236,6 +1279,7 @@
           ElMessage.error('停止对话失败');
           // 确保状态清理总是执行
           sessionState.isStreaming = false;
+          sessionState.persistedBlockCount = 0;
           sessionState.closeStream = null;
           if (currentSession.value?.id === sessionId) {
             isStreaming.value = false;

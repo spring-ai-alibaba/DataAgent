@@ -83,12 +83,6 @@
                 数据源配置
               </el-menu-item>
             </el-menu-item-group>
-            <el-menu-item-group title="PROMPT配置">
-              <el-menu-item index="prompt">
-                <el-icon><ChatLineSquare /></el-icon>
-                自定义 PROMPT 配置
-              </el-menu-item>
-            </el-menu-item-group>
             <el-menu-item-group title="知识配置">
               <el-menu-item index="agent-knowledge">
                 <el-icon><Document /></el-icon>
@@ -128,11 +122,6 @@
             v-else-if="activeMenuIndex === 'datasource'"
             :agent-id="agent.id"
           ></AgentDataSourceConfig>
-          <AgentPromptConfig
-            v-else-if="activeMenuIndex === 'prompt'"
-            :agent-id="agent.id"
-            :agent-prompt="agent.prompt"
-          ></AgentPromptConfig>
           <BusinessKnowledgeConfig
             v-else-if="activeMenuIndex === 'business-knowledge'"
             :agent-id="agent.id"
@@ -169,7 +158,6 @@
     ArrowLeft,
     InfoFilled,
     Coin,
-    ChatLineSquare,
     User,
     Suitcase,
     Setting,
@@ -179,7 +167,6 @@
   } from '@element-plus/icons-vue';
   import BaseLayout from '@/layouts/BaseLayout.vue';
   import AgentBaseSetting from '@/components/agent/BaseSetting.vue';
-  import AgentPromptConfig from '@/components/agent/PromptConfig.vue';
   import BusinessKnowledgeConfig from '@/components/agent/BusinessKnowledgeConfig.vue';
   import AgentSemanticsConfig from '@/components/agent/SemanticsConfig.vue';
   import AgentPresetsConfig from '@/components/agent/PresetsConfig.vue';
@@ -195,7 +182,6 @@
     components: {
       BaseLayout,
       AgentBaseSetting,
-      AgentPromptConfig,
       BusinessKnowledgeConfig,
       AgentSemanticsConfig,
       AgentPresetsConfig,
@@ -205,7 +191,6 @@
       NotFound,
       InfoFilled,
       Coin,
-      ChatLineSquare,
       User,
       Suitcase,
       Setting,

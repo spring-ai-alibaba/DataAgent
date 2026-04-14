@@ -15,10 +15,9 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.mcp;
 
+import com.alibaba.cloud.ai.dataagent.agentscope.service.GraphService;
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentMapper;
-import com.alibaba.cloud.ai.dataagent.service.graph.GraphService;
-import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import lombok.AllArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
@@ -53,7 +52,7 @@ public class McpServerService {
 	}
 
 	@Tool(description = "将自然语言查询转换为SQL语句。使用指定的智能体将用户的自然语言查询描述转换为可执行的SQL语句，支持复杂的数据查询需求。")
-	public String nl2SqlToolCallback(Nl2SqlRequest nl2SqlRequest) throws GraphRunnerException {
+	public String nl2SqlToolCallback(Nl2SqlRequest nl2SqlRequest) {
 		Assert.hasText(nl2SqlRequest.agentId(), "AgentId cannot be empty");
 		Assert.hasText(nl2SqlRequest.naturalQuery(), "Natural query cannot be empty");
 		return graphService.nl2sql(nl2SqlRequest.naturalQuery(), nl2SqlRequest.agentId());

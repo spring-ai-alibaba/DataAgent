@@ -20,6 +20,7 @@ import { GraphNodeResponse, GraphRequest } from '@/services/graph.ts';
 export interface SessionRuntimeState {
   isStreaming: boolean;
   nodeBlocks: GraphNodeResponse[][];
+  persistedBlockCount: number;
   closeStream: (() => void) | null;
   lastRequest: GraphRequest | null;
   htmlReportContent: string;
@@ -42,6 +43,7 @@ export function useSessionStateManager() {
       sessionStates.value.set(sessionId, {
         isStreaming: false,
         nodeBlocks: [],
+        persistedBlockCount: 0,
         closeStream: null,
         lastRequest: null,
         htmlReportContent: '',

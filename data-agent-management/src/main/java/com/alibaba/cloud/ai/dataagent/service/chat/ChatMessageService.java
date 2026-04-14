@@ -27,6 +27,16 @@ public interface ChatMessageService {
 	List<ChatMessage> findBySessionId(String sessionId);
 
 	/**
+	 * Get visible messages by session ID for UI rendering.
+	 */
+	List<ChatMessage> findVisibleBySessionId(String sessionId);
+
+	/**
+	 * Get recent messages by session ID for memory loading.
+	 */
+	List<ChatMessage> findRecentBySessionId(String sessionId, int limit);
+
+	/**
 	 * Save message
 	 */
 	ChatMessage saveMessage(ChatMessage message);

@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.controller;
 import com.alibaba.cloud.ai.dataagent.dto.ChatMessageDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ChatMessage;
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
+import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
 import com.alibaba.cloud.ai.dataagent.service.chat.ChatMessageService;
 import com.alibaba.cloud.ai.dataagent.service.chat.ChatSessionService;
 import com.alibaba.cloud.ai.dataagent.service.chat.SessionTitleService;
@@ -71,10 +72,32 @@ public class ChatController {
 	public ResponseEntity<ChatSession> createSession(@PathVariable(value = "id") Integer id,
 			@RequestBody(required = false) Map<String, Object> request) {
 		String title = request != null ? (String) request.get("title") : null;
-		Long userId = request != null ? (Long) request.get("userId") : null;
+		Long userId = request != null ? parseUserId(request.get("userId")) : null;
 
 		ChatSession session = chatSessionService.createSession(id, title, userId);
 		return ResponseEntity.ok(session);
+	}
+
+	private Long parseUserId(Object rawUserId) {
+		if (rawUserId == null) {
+			return null;
+		}
+		if (rawUserId instanceof Number number) {
+			return number.longValue();
+		}
+		if (rawUserId instanceof String value) {
+			String trimmedValue = value.trim();
+			if (!StringUtils.hasText(trimmedValue)) {
+				return null;
+			}
+			try {
+				return Long.valueOf(trimmedValue);
+			}
+			catch (NumberFormatException ex) {
+				throw new InvalidInputException("userId 必须是数字", rawUserId);
+			}
+		}
+		throw new InvalidInputException("userId 类型不合法", rawUserId);
 	}
 
 	/**
@@ -91,7 +114,7 @@ public class ChatController {
 	 */
 	@GetMapping("/sessions/{sessionId}/messages")
 	public ResponseEntity<List<ChatMessage>> getSessionMessages(@PathVariable(value = "sessionId") String sessionId) {
-		List<ChatMessage> messages = chatMessageService.findBySessionId(sessionId);
+		List<ChatMessage> messages = chatMessageService.findVisibleBySessionId(sessionId);
 		return ResponseEntity.ok(messages);
 	}
 

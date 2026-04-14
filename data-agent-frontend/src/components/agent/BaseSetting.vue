@@ -53,12 +53,12 @@
     <el-row :gutter="20">
       <el-col :span="24">
         <div class="form-item">
-          <label>智能体Prompt</label>
+          <label>系统提示词</label>
           <el-input
             v-model="props.agent.prompt"
             :rows="4"
             type="textarea"
-            placeholder="请输入智能体Prompt"
+            placeholder="请输入系统提示词"
             size="large"
           />
         </div>

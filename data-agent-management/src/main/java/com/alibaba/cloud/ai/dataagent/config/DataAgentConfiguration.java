@@ -24,16 +24,8 @@ import com.alibaba.cloud.ai.transformer.splitter.RecursiveCharacterTextSplitter;
 import com.alibaba.cloud.ai.dataagent.splitter.SemanticTextSplitter;
 import com.alibaba.cloud.ai.dataagent.splitter.ParagraphTextSplitter;
 import com.alibaba.cloud.ai.dataagent.util.McpServerToolUtil;
-import com.alibaba.cloud.ai.dataagent.util.NodeBeanUtil;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
 import com.alibaba.cloud.ai.dataagent.strategy.EnhancedTokenCountBatchingStrategy;
-import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.*;
-import com.alibaba.cloud.ai.dataagent.workflow.node.*;
-import com.alibaba.cloud.ai.graph.GraphRepresentation;
-import com.alibaba.cloud.ai.graph.KeyStrategy;
-import com.alibaba.cloud.ai.graph.KeyStrategyFactory;
-import com.alibaba.cloud.ai.graph.StateGraph;
-import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.knuddels.jtokkit.api.EncodingType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.BatchingStrategy;
@@ -72,11 +64,6 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
-import static com.alibaba.cloud.ai.graph.StateGraph.END;
-import static com.alibaba.cloud.ai.graph.StateGraph.START;
-import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
-
 /**
  * DataAgent的自动配置类
  *
@@ -86,7 +73,7 @@ import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
 @Slf4j
 @Configuration
 @EnableAsync
-@EnableConfigurationProperties({ CodeExecutorProperties.class, DataAgentProperties.class, FileStorageProperties.class })
+@EnableConfigurationProperties({ DataAgentProperties.class, FileStorageProperties.class, CodeExecutorProperties.class })
 public class DataAgentConfiguration implements DisposableBean {
 
 	/**
@@ -112,152 +99,6 @@ public class DataAgentConfiguration implements DisposableBean {
 		return WebClient.builder()
 			.clientConnector(new ReactorClientHttpConnector(
 					HttpClient.create().responseTimeout(Duration.ofSeconds(responseTimeout))));
-	}
-
-	@Bean
-	public StateGraph nl2sqlGraph(NodeBeanUtil nodeBeanUtil, CodeExecutorProperties codeExecutorProperties)
-			throws GraphStateException {
-
-		KeyStrategyFactory keyStrategyFactory = () -> {
-			HashMap<String, KeyStrategy> keyStrategyHashMap = new HashMap<>();
-			// User input
-			keyStrategyHashMap.put(INPUT_KEY, KeyStrategy.REPLACE);
-			// Agent ID
-			keyStrategyHashMap.put(AGENT_ID, KeyStrategy.REPLACE);
-			// Multi-turn context
-			keyStrategyHashMap.put(MULTI_TURN_CONTEXT, KeyStrategy.REPLACE);
-			// Intent recognition
-			keyStrategyHashMap.put(INTENT_RECOGNITION_NODE_OUTPUT, KeyStrategy.REPLACE);
-			// QUERY_ENHANCE_NODE节点输出
-			keyStrategyHashMap.put(QUERY_ENHANCE_NODE_OUTPUT, KeyStrategy.REPLACE);
-			// Semantic model
-			keyStrategyHashMap.put(GENEGRATED_SEMANTIC_MODEL_PROMPT, KeyStrategy.REPLACE);
-			// EVIDENCE节点输出
-			keyStrategyHashMap.put(EVIDENCE, KeyStrategy.REPLACE);
-			// schema recall节点输出
-			keyStrategyHashMap.put(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, KeyStrategy.REPLACE);
-			// table relation节点输出
-			keyStrategyHashMap.put(TABLE_RELATION_OUTPUT, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(TABLE_RELATION_EXCEPTION_OUTPUT, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(TABLE_RELATION_RETRY_COUNT, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(DB_DIALECT_TYPE, KeyStrategy.REPLACE);
-			// Feasibility Assessment 节点输出
-			keyStrategyHashMap.put(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, KeyStrategy.REPLACE);
-			// sql generate节点输出
-			keyStrategyHashMap.put(SQL_GENERATE_SCHEMA_MISSING_ADVICE, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(SQL_GENERATE_OUTPUT, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(SQL_GENERATE_COUNT, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(SQL_REGENERATE_REASON, KeyStrategy.REPLACE);
-			// Semantic consistence节点输出
-			keyStrategyHashMap.put(SEMANTIC_CONSISTENCY_NODE_OUTPUT, KeyStrategy.REPLACE);
-			// Planner 节点输出
-			keyStrategyHashMap.put(PLANNER_NODE_OUTPUT, KeyStrategy.REPLACE);
-			// PlanExecutorNode
-			keyStrategyHashMap.put(PLAN_CURRENT_STEP, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(PLAN_NEXT_NODE, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(PLAN_VALIDATION_STATUS, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(PLAN_VALIDATION_ERROR, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(PLAN_REPAIR_COUNT, KeyStrategy.REPLACE);
-			// SQL Execute 节点输出
-			keyStrategyHashMap.put(SQL_EXECUTE_NODE_OUTPUT, KeyStrategy.REPLACE);
-			// Python代码运行相关
-			keyStrategyHashMap.put(SQL_RESULT_LIST_MEMORY, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(PYTHON_IS_SUCCESS, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(PYTHON_TRIES_COUNT, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(PYTHON_FALLBACK_MODE, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(PYTHON_EXECUTE_NODE_OUTPUT, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(PYTHON_GENERATE_NODE_OUTPUT, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(PYTHON_ANALYSIS_NODE_OUTPUT, KeyStrategy.REPLACE);
-			// NL2SQL相关
-			keyStrategyHashMap.put(IS_ONLY_NL2SQL, KeyStrategy.REPLACE);
-			// Human Review keys
-			keyStrategyHashMap.put(HUMAN_REVIEW_ENABLED, KeyStrategy.REPLACE);
-			keyStrategyHashMap.put(HUMAN_FEEDBACK_DATA, KeyStrategy.REPLACE);
-			// Langfuse 追踪：threadId 透传
-			keyStrategyHashMap.put(TRACE_THREAD_ID, KeyStrategy.REPLACE);
-			// Final result
-			keyStrategyHashMap.put(RESULT, KeyStrategy.REPLACE);
-			return keyStrategyHashMap;
-		};
-
-		StateGraph stateGraph = new StateGraph(NL2SQL_GRAPH_NAME, keyStrategyFactory)
-			.addNode(INTENT_RECOGNITION_NODE, nodeBeanUtil.getNodeBeanAsync(IntentRecognitionNode.class))
-			.addNode(EVIDENCE_RECALL_NODE, nodeBeanUtil.getNodeBeanAsync(EvidenceRecallNode.class))
-			.addNode(QUERY_ENHANCE_NODE, nodeBeanUtil.getNodeBeanAsync(QueryEnhanceNode.class))
-			.addNode(SCHEMA_RECALL_NODE, nodeBeanUtil.getNodeBeanAsync(SchemaRecallNode.class))
-			.addNode(TABLE_RELATION_NODE, nodeBeanUtil.getNodeBeanAsync(TableRelationNode.class))
-			.addNode(FEASIBILITY_ASSESSMENT_NODE, nodeBeanUtil.getNodeBeanAsync(FeasibilityAssessmentNode.class))
-			.addNode(SQL_GENERATE_NODE, nodeBeanUtil.getNodeBeanAsync(SqlGenerateNode.class))
-			.addNode(PLANNER_NODE, nodeBeanUtil.getNodeBeanAsync(PlannerNode.class))
-			.addNode(PLAN_EXECUTOR_NODE, nodeBeanUtil.getNodeBeanAsync(PlanExecutorNode.class))
-			.addNode(SQL_EXECUTE_NODE, nodeBeanUtil.getNodeBeanAsync(SqlExecuteNode.class))
-			.addNode(PYTHON_GENERATE_NODE, nodeBeanUtil.getNodeBeanAsync(PythonGenerateNode.class))
-			.addNode(PYTHON_EXECUTE_NODE, nodeBeanUtil.getNodeBeanAsync(PythonExecuteNode.class))
-			.addNode(PYTHON_ANALYZE_NODE, nodeBeanUtil.getNodeBeanAsync(PythonAnalyzeNode.class))
-			.addNode(REPORT_GENERATOR_NODE, nodeBeanUtil.getNodeBeanAsync(ReportGeneratorNode.class))
-			.addNode(SEMANTIC_CONSISTENCY_NODE, nodeBeanUtil.getNodeBeanAsync(SemanticConsistencyNode.class))
-			.addNode(HUMAN_FEEDBACK_NODE, nodeBeanUtil.getNodeBeanAsync(HumanFeedbackNode.class));
-
-		stateGraph.addEdge(START, INTENT_RECOGNITION_NODE)
-			.addConditionalEdges(INTENT_RECOGNITION_NODE, edge_async(new IntentRecognitionDispatcher()),
-					Map.of(EVIDENCE_RECALL_NODE, EVIDENCE_RECALL_NODE, END, END))
-			.addEdge(EVIDENCE_RECALL_NODE, QUERY_ENHANCE_NODE)
-			.addConditionalEdges(QUERY_ENHANCE_NODE, edge_async(new QueryEnhanceDispatcher()),
-					Map.of(SCHEMA_RECALL_NODE, SCHEMA_RECALL_NODE, END, END))
-			.addConditionalEdges(SCHEMA_RECALL_NODE, edge_async(new SchemaRecallDispatcher()),
-					Map.of(TABLE_RELATION_NODE, TABLE_RELATION_NODE, END, END))
-
-			.addConditionalEdges(TABLE_RELATION_NODE, edge_async(new TableRelationDispatcher()),
-					Map.of(FEASIBILITY_ASSESSMENT_NODE, FEASIBILITY_ASSESSMENT_NODE, END, END, TABLE_RELATION_NODE,
-							TABLE_RELATION_NODE)) // retry
-			.addConditionalEdges(FEASIBILITY_ASSESSMENT_NODE, edge_async(new FeasibilityAssessmentDispatcher()),
-					Map.of(PLANNER_NODE, PLANNER_NODE, END, END))
-
-			// The edge from PlannerNode now goes to PlanExecutorNode for validation and
-			// execution
-			.addEdge(PLANNER_NODE, PLAN_EXECUTOR_NODE)
-			// python nodes
-			.addEdge(PYTHON_GENERATE_NODE, PYTHON_EXECUTE_NODE)
-			.addConditionalEdges(PYTHON_EXECUTE_NODE, edge_async(new PythonExecutorDispatcher(codeExecutorProperties)),
-					Map.of(PYTHON_ANALYZE_NODE, PYTHON_ANALYZE_NODE, END, END, PYTHON_GENERATE_NODE,
-							PYTHON_GENERATE_NODE))
-			.addEdge(PYTHON_ANALYZE_NODE, PLAN_EXECUTOR_NODE)
-			// The dispatcher at PlanExecutorNode will decide the next step
-			.addConditionalEdges(PLAN_EXECUTOR_NODE, edge_async(new PlanExecutorDispatcher()), Map.of(
-					// If validation fails, go back to PlannerNode to repair
-					PLANNER_NODE, PLANNER_NODE,
-					// If validation passes, proceed to the correct execution node
-					SQL_GENERATE_NODE, SQL_GENERATE_NODE, PYTHON_GENERATE_NODE, PYTHON_GENERATE_NODE,
-					REPORT_GENERATOR_NODE, REPORT_GENERATOR_NODE,
-					// If human review is enabled, go to human_feedback node
-					HUMAN_FEEDBACK_NODE, HUMAN_FEEDBACK_NODE,
-					// If max repair attempts are reached, end the process
-					END, END))
-			// Human feedback node routing
-			.addConditionalEdges(HUMAN_FEEDBACK_NODE, edge_async(new HumanFeedbackDispatcher()), Map.of(
-					// If plan is rejected, go back to PlannerNode
-					PLANNER_NODE, PLANNER_NODE,
-					// If plan is approved, continue with execution
-					PLAN_EXECUTOR_NODE, PLAN_EXECUTOR_NODE,
-					// If max repair attempts are reached, end the process
-					END, END))
-			.addEdge(REPORT_GENERATOR_NODE, END)
-			// sql generate and sql execute node
-			.addConditionalEdges(SQL_GENERATE_NODE, nodeBeanUtil.getEdgeBeanAsync(SqlGenerateDispatcher.class),
-					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, END, END, SEMANTIC_CONSISTENCY_NODE,
-							SEMANTIC_CONSISTENCY_NODE))
-			.addConditionalEdges(SEMANTIC_CONSISTENCY_NODE, edge_async(new SemanticConsistenceDispatcher()),
-					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, SQL_EXECUTE_NODE, SQL_EXECUTE_NODE))
-			.addConditionalEdges(SQL_EXECUTE_NODE, edge_async(new SQLExecutorDispatcher()),
-					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, PLAN_EXECUTOR_NODE, PLAN_EXECUTOR_NODE));
-
-		GraphRepresentation graphRepresentation = stateGraph.getGraph(GraphRepresentation.Type.PLANTUML,
-				"workflow graph");
-
-		log.info("workflow in PlantUML format as follows \n\n" + graphRepresentation.content() + "\n\n");
-
-		return stateGraph;
 	}
 
 	/**

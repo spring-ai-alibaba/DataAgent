@@ -19,9 +19,11 @@ on:
   push:
     branches:
       - main
+      - feat-agentscope
   pull_request:
     branches:
       - main
+      - feat-agentscope
 
 jobs:
   frontend-check:

@@ -18,9 +18,11 @@ on:
   push:
     branches:
       - main
+      - feat-agentscope
   pull_request:
     branches:
       - main
+      - feat-agentscope
 permissions:
   contents: read
 jobs:
