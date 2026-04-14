@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.agentscope.controller;
+package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.agentscope.service.GraphService;
@@ -39,7 +39,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.STREAM_EVENT_ERRO
 @AllArgsConstructor
 @CrossOrigin(origins = "*")
 @RequestMapping("/api")
-public class GraphController {
+public class DataAgentController {
 
 	private final GraphService graphService;
 
