@@ -27,6 +27,7 @@
     <!-- DashScope SDK Version -->
     <dashscope-sdk-java.version>2.15.1</dashscope-sdk-java.version>
     <agentscope.version>1.0.11</agentscope.version>
+    <jackson-annotations.version>2.21</jackson-annotations.version>
 
     <!-- Maven project basic config -->
     <java.version>17</java.version>
@@ -86,6 +87,11 @@
         <version>${spring-ai.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-annotations</artifactId>
+        <version>${jackson-annotations.version}</version>
       </dependency>
       <dependency>
         <groupId>com.github.docker-java</groupId>

@@ -39,7 +39,7 @@ public class AgentRuntimeExtensionFactory {
 	private final AgentScopeHookFactory hookFactory;
 
 	public AgentRuntimeExtensions create(GraphRequest request, @Nullable AgentRuntimeEventPublisher eventPublisher) {
-		Toolkit toolkit = toolkitFactory.create();
+		Toolkit toolkit = toolkitFactory.create(request.getAgentId());
 		Memory memory = memoryFactory.create(request.getThreadId());
 		AgentRuntimeRequestMetadata requestMetadata = new AgentRuntimeRequestMetadata(request.getAgentId(),
 				request.getThreadId(), request.isNl2sqlOnly());

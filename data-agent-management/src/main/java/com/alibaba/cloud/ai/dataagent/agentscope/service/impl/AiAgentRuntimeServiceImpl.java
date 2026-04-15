@@ -189,7 +189,7 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 			ModelConfigDTO modelConfig = modelConfigDataService.getActiveConfigByType(ModelType.CHAT);
 			validateModelConfig(modelConfig);
 			Model model = agentScopeModelFactory.create(dynamicModelFactory.createChatModel(modelConfig),
-					modelConfig.getModelName());
+					modelConfig.getModelName(), request.getAgentId());
 			ManagedAgent managedAgent = managedAgentRegistry.getRequired();
 			AgentRuntimeExtensions runtimeExtensions = agentRuntimeExtensionFactory.create(request, eventPublisher);
 			Msg response = managedAgent.run(new AgentRunContext(request.getAgentId(), request.getThreadId(), model,

@@ -22,6 +22,7 @@ import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.ContentBlock;
 import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.message.ThinkingBlock;
+import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.message.ToolUseBlock;
 import io.agentscope.core.model.ChatModelBase;
 import io.agentscope.core.model.ChatResponse;
@@ -53,6 +54,8 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 
 	private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
 	};
+
+	private static final String PARTIAL_TOOL_NAME = "__fragment__";
 
 	private final org.springframework.ai.chat.model.ChatModel delegate;
 
@@ -93,17 +96,48 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 		if (message == null) {
 			return null;
 		}
-		String text = defaultText(message.getTextContent());
+		String text = extractMessageText(message);
 		MsgRole role = message.getRole() == null ? MsgRole.USER : message.getRole();
 		return switch (role) {
 			case SYSTEM -> new SystemMessage(text);
-			case ASSISTANT -> new AssistantMessage(text);
-			case TOOL -> ToolResponseMessage.builder()
-				.responses(List.of(new ToolResponseMessage.ToolResponse(defaultId(message.getId()),
-						defaultToolName(message.getName()), text)))
-				.build();
+			case ASSISTANT -> toAssistantMessage(message, text);
+			case TOOL -> toToolResponseMessage(message, text);
 			case USER -> new UserMessage(text);
 		};
+	}
+
+	private AssistantMessage toAssistantMessage(Msg message, String text) {
+		List<AssistantMessage.ToolCall> toolCalls = message.getContentBlocks(ToolUseBlock.class)
+			.stream()
+			.map(this::toSpringToolCall)
+			.toList();
+		Map<String, Object> metadata = message.getMetadata();
+		if (toolCalls.isEmpty() && (metadata == null || metadata.isEmpty())) {
+			return new AssistantMessage(text);
+		}
+		AssistantMessage.Builder builder = AssistantMessage.builder();
+		if (StringUtils.hasText(text) || toolCalls.isEmpty()) {
+			builder.content(text);
+		}
+		if (!toolCalls.isEmpty()) {
+			builder.toolCalls(toolCalls);
+		}
+		if (metadata != null && !metadata.isEmpty()) {
+			builder.properties(metadata);
+		}
+		return builder.build();
+	}
+
+	private ToolResponseMessage toToolResponseMessage(Msg message, String fallbackText) {
+		List<ToolResponseMessage.ToolResponse> responses = message.getContentBlocks(ToolResultBlock.class)
+			.stream()
+			.map(this::toSpringToolResponse)
+			.toList();
+		if (responses.isEmpty()) {
+			responses = List.of(new ToolResponseMessage.ToolResponse(defaultId(message.getId()),
+					defaultToolName(message.getName()), fallbackText));
+		}
+		return ToolResponseMessage.builder().responses(responses).build();
 	}
 
 	private ToolCallingChatOptions buildChatOptions(List<ToolSchema> toolSchemas, GenerateOptions generateOptions) {
@@ -208,11 +242,21 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 		}
 		return ToolUseBlock.builder()
 			.id(toolCall.id())
-			.name(toolCall.name())
+			.name(resolveChunkToolName(toolCall))
 			.input(input)
 			.content(defaultText(toolCall.arguments()))
 			.metadata(metadata.isEmpty() ? null : metadata)
 			.build();
+	}
+
+	private AssistantMessage.ToolCall toSpringToolCall(ToolUseBlock toolUseBlock) {
+		return new AssistantMessage.ToolCall(defaultId(toolUseBlock.getId()), resolveToolCallType(toolUseBlock),
+				defaultToolName(toolUseBlock.getName()), resolveToolCallArguments(toolUseBlock));
+	}
+
+	private ToolResponseMessage.ToolResponse toSpringToolResponse(ToolResultBlock toolResultBlock) {
+		return new ToolResponseMessage.ToolResponse(defaultId(toolResultBlock.getId()),
+				defaultToolName(toolResultBlock.getName()), extractToolResultOutput(toolResultBlock));
 	}
 
 	private String extractReasoningContent(AssistantMessage output) {
@@ -273,6 +317,61 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 
 	private String defaultToolName(String name) {
 		return StringUtils.hasText(name) ? name : "tool";
+	}
+
+	private String extractMessageText(Msg message) {
+		String text = message.getTextContent();
+		if (StringUtils.hasText(text)) {
+			return text;
+		}
+		return message.getContentBlocks(TextBlock.class)
+			.stream()
+			.map(TextBlock::getText)
+			.filter(StringUtils::hasText)
+			.findFirst()
+			.orElse("");
+	}
+
+	private String resolveToolCallType(ToolUseBlock toolUseBlock) {
+		Map<String, Object> metadata = toolUseBlock.getMetadata();
+		if (metadata == null) {
+			return "function";
+		}
+		Object type = metadata.get("type");
+		return type instanceof String value && StringUtils.hasText(value) ? value : "function";
+	}
+
+	private String resolveToolCallArguments(ToolUseBlock toolUseBlock) {
+		if (StringUtils.hasText(toolUseBlock.getContent())) {
+			return toolUseBlock.getContent();
+		}
+		try {
+			return objectMapper.writeValueAsString(toolUseBlock.getInput() == null ? Map.of() : toolUseBlock.getInput());
+		}
+		catch (Exception ex) {
+			return "{}";
+		}
+	}
+
+	private String extractToolResultOutput(ToolResultBlock toolResultBlock) {
+		List<ContentBlock> output = toolResultBlock.getOutput();
+		if (output == null || output.isEmpty()) {
+			return "";
+		}
+		return output.stream()
+			.filter(TextBlock.class::isInstance)
+			.map(TextBlock.class::cast)
+			.map(TextBlock::getText)
+			.filter(StringUtils::hasText)
+			.findFirst()
+			.orElse("");
+	}
+
+	private String resolveChunkToolName(AssistantMessage.ToolCall toolCall) {
+		if (toolCall == null) {
+			return PARTIAL_TOOL_NAME;
+		}
+		return StringUtils.hasText(toolCall.name()) ? toolCall.name() : PARTIAL_TOOL_NAME;
 	}
 
 }
