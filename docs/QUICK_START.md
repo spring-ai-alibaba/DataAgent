@@ -14,6 +14,13 @@
 
 ## 🗄️ 1. 业务数据库准备
 
+在开始之前，建议先区分两类数据库配置：
+
+| 类型 | 作用 | 当前文档中的默认示例 |
+| :--- | :--- | :--- |
+| **management 数据库** | 保存智能体、模型配置、提示词、API Key 等系统管理数据 | MySQL |
+| **业务数据源** | 供 Text-to-SQL 实际查询的业务表、指标表、维度表 | MySQL / PostgreSQL |
+
 可以在项目仓库获取测试表和数据：
 
 文件在：`data-agent-management/src/main/resources/sql`，里面有4个文件：
@@ -49,6 +56,26 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     type: com.alibaba.druid.pool.DruidDataSource
 ```
+
+如果你希望先用一条最小 JDBC 连接做连通性验证，可以参考下面的示例：
+
+```yaml
+# MySQL business datasource example
+url: jdbc:mysql://127.0.0.1:3306/your_business_db?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+username: your_username
+password: your_password
+driver-class-name: com.mysql.cj.jdbc.Driver
+```
+
+```yaml
+# PostgreSQL business datasource example
+url: jdbc:postgresql://127.0.0.1:5432/your_business_db
+username: your_username
+password: your_password
+driver-class-name: org.postgresql.Driver
+```
+
+> 提示：这里的 MySQL / PostgreSQL 示例主要用于说明业务数据源注册时常见的连接格式；management 库的默认启动示例仍然是 MySQL 配置。
 
 ### 2.2 数据初始化配置
 
