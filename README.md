@@ -58,6 +58,13 @@
 
 ![dataagent-structure](img/dataagent-structure.png)
 
+| 模块 | 作用 |
+| :--- | :--- |
+| `data-agent-management` | Spring Boot 管理端，负责智能体配置、模型管理、工作流执行、API Key 与 MCP 能力。 |
+| `data-agent-frontend` | Web UI，负责智能体管理、运行界面、结果展示与报告下载。 |
+| `docs` | 快速开始、架构设计、开发者文档与高级功能说明。 |
+| `docker-file` | 本地开发和演示环境所需的容器编排与数据源启动样例。 |
+
 
 ## 🚀 快速开始
 
