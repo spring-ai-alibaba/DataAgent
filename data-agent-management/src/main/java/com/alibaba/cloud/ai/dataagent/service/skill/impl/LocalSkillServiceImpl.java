@@ -80,17 +80,6 @@ public class LocalSkillServiceImpl implements LocalSkillService {
 			4. 如果用户要求特定格式，按要求输出；否则同时给出标准日期时间。
 			""";
 
-	private static final String RUNTIME_INSTRUCTION_HEADER = """
-			以下 skills 已预加载为额外系统指令，不是隐式工具，也不是需要额外加载的插件。
-
-			使用规则：
-			1. 仅在用户请求与某个 skill 的描述或内容匹配时应用该 skill。
-			2. 不要调用 `load_skill_through_path`。
-			3. 不要臆造任何 `skill.<skill-id>.*`、`skill.<name>.*` 或其他未在当前可用工具列表中真实存在的工具。
-			4. 只有工具列表里明确存在的工具才能调用。
-			5. 如果 skill 内容提到了某个具体工具名，也只能在该工具真实可用时调用；否则把该 skill 当作普通提示词来遵循。
-			""";
-
 	private final AgentSkillProperties agentSkillProperties;
 
 	@Override
@@ -186,37 +175,6 @@ public class LocalSkillServiceImpl implements LocalSkillService {
 			}
 		}
 		return List.copyOf(agentSkills);
-	}
-
-	@Override
-	public String buildRuntimeInstructions(List<String> skillIds) {
-		ensureStorageReady();
-		if (skillIds == null || skillIds.isEmpty()) {
-			return "";
-		}
-		StringBuilder prompt = new StringBuilder(RUNTIME_INSTRUCTION_HEADER);
-		for (String skillId : new LinkedHashSet<>(skillIds)) {
-			if (!exists(skillId)) {
-				log.warn("Skip missing local skill when building runtime instructions: {}", skillId);
-				continue;
-			}
-			SkillDescriptor descriptor = readSkillDescriptor(skillId);
-			prompt.append(System.lineSeparator())
-				.append(System.lineSeparator())
-				.append("## Skill: ")
-				.append(descriptor.title())
-				.append(System.lineSeparator())
-				.append("skill_id: ")
-				.append(descriptor.id())
-				.append(System.lineSeparator())
-				.append("description: ")
-				.append(descriptor.description())
-				.append(System.lineSeparator())
-				.append(System.lineSeparator())
-				.append(descriptor.content().trim());
-			appendRuntimeResources(prompt, resolveSkillDirectory(skillId));
-		}
-		return prompt.toString().trim();
 	}
 
 	@Override
@@ -428,26 +386,6 @@ public class LocalSkillServiceImpl implements LocalSkillService {
 	private boolean isTextResource(Path path) {
 		String filename = path.getFileName().toString().toLowerCase(Locale.ROOT);
 		return TEXT_RESOURCE_EXTENSIONS.stream().anyMatch(filename::endsWith);
-	}
-
-	private void appendRuntimeResources(StringBuilder prompt, Path skillDir) {
-		try {
-			Map<String, String> resources = loadResources(skillDir);
-			if (resources.isEmpty()) {
-				return;
-			}
-			for (Map.Entry<String, String> entry : resources.entrySet()) {
-				prompt.append(System.lineSeparator())
-					.append(System.lineSeparator())
-					.append("### Resource: ")
-					.append(entry.getKey())
-					.append(System.lineSeparator())
-					.append(entry.getValue().trim());
-			}
-		}
-		catch (IOException ex) {
-			throw new IllegalStateException("Failed to load skill resources for runtime prompt: " + skillDir, ex);
-		}
 	}
 
 	private record SkillMarkdownParts(String title, String description, String bodyWithoutTitle) {

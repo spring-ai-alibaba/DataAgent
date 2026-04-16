@@ -38,8 +38,6 @@ public interface LocalSkillService {
 
 	List<AgentSkill> loadAgentSkills(List<String> skillIds);
 
-	String buildRuntimeInstructions(List<String> skillIds);
-
 	boolean exists(String skillId);
 
 	boolean isBuiltinSkill(String skillId);

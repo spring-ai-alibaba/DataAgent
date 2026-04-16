@@ -74,18 +74,6 @@ public class AgentScopeSkillBoxFactory {
 		return skillBox;
 	}
 
-	public String buildRuntimeInstructions(String agentId) {
-		if (!StringUtils.hasText(agentId)) {
-			return "";
-		}
-		Long numericAgentId = parseNumericAgentId(agentId);
-		if (numericAgentId == null) {
-			return "";
-		}
-		List<String> enabledSkillIds = agentSkillBindingService.listSkillIdsByAgentId(numericAgentId);
-		return localSkillService.buildRuntimeInstructions(enabledSkillIds);
-	}
-
 	private Long parseNumericAgentId(String agentId) {
 		try {
 			return Long.valueOf(agentId);

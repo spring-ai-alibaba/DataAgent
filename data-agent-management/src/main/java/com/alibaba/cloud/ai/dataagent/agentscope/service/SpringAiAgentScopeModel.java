@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -44,6 +45,7 @@ import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 
@@ -179,16 +181,59 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 			return List.of();
 		}
 		List<ToolCallback> selectedCallbacks = new ArrayList<>();
+		LinkedHashSet<String> selectedNames = new LinkedHashSet<>();
 		for (ToolSchema toolSchema : toolSchemas) {
 			if (toolSchema == null || !StringUtils.hasText(toolSchema.getName())) {
 				continue;
 			}
-			ToolCallback toolCallback = toolCallbacks.get(toolSchema.getName());
-			if (toolCallback != null) {
-				selectedCallbacks.add(toolCallback);
+			String toolName = toolSchema.getName();
+			if (!selectedNames.add(toolName)) {
+				continue;
 			}
+			ToolCallback toolCallback = toolCallbacks.get(toolName);
+			selectedCallbacks.add(toolCallback != null ? toolCallback : new ToolSchemaBackedToolCallback(toolSchema,
+					objectMapper));
 		}
 		return selectedCallbacks;
+	}
+
+	private static final class ToolSchemaBackedToolCallback implements ToolCallback {
+
+		private final ToolDefinition toolDefinition;
+
+		private ToolSchemaBackedToolCallback(ToolSchema toolSchema, ObjectMapper objectMapper) {
+			this.toolDefinition = ToolDefinition.builder()
+				.name(toolSchema.getName())
+				.description(defaultDescription(toolSchema.getDescription()))
+				.inputSchema(serializeSchema(toolSchema, objectMapper))
+				.build();
+		}
+
+		@Override
+		public ToolDefinition getToolDefinition() {
+			return toolDefinition;
+		}
+
+		@Override
+		public String call(String toolInput) {
+			return "{\"error\":\"Tool execution is delegated to AgentScope runtime.\"}";
+		}
+
+		private static String serializeSchema(ToolSchema toolSchema, ObjectMapper objectMapper) {
+			Map<String, Object> parameters = toolSchema.getParameters() == null ? Map.of("type", "object",
+					"properties", Map.of()) : toolSchema.getParameters();
+			try {
+				return objectMapper.writeValueAsString(parameters);
+			}
+			catch (Exception ex) {
+				return "{\"type\":\"object\",\"properties\":{}}";
+			}
+		}
+
+		private static String defaultDescription(String description) {
+			return StringUtils.hasText(description) ? description : "";
+		}
+
 	}
 
 	private ChatResponse toAgentScopeResponse(org.springframework.ai.chat.model.ChatResponse response) {
