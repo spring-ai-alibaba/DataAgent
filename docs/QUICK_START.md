@@ -326,6 +326,13 @@ yarn dev
 
 ![show-sql-result.png](../img/show-sql-result.png)
 
+## 🛠️ 6. SQL 与 Python 分析快速排查
+
+- **SQL 一直无法执行**：先在数据源列表里执行一次连接校验，再确认已勾选需要分析的数据表并点击过“初始化数据源”。
+- **导入示例数据后查询不到结果**：确认 `schema.sql`、`data.sql`、`product_schema.sql`、`product_data.sql` 都已导入到同一个业务数据库中。
+- **可以生成 SQL，但没有 Python 分析结果**：先检查当前问题是否真的触发了 Python 步骤；如果需要深度分析能力，建议优先确认 Docker 或本地 Python 执行环境配置是否可用。
+- **Python 步骤报环境相关错误**：优先对照 `spring.ai.alibaba.data-agent.code-executor.*` 配置，并参考[高级功能 - Python 执行环境配置](ADVANCED_FEATURES.md#python-执行环境配置)核对执行器类型、镜像或本地 Python 路径。
+
 
 ## 📚 下一步
 
