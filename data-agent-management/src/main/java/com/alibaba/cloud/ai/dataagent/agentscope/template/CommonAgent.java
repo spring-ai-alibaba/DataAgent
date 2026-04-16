@@ -44,7 +44,7 @@ public class CommonAgent implements ManagedAgent {
 		AgentRuntimeExtensions extensions = context.extensions();
 		ReActAgent.Builder builder = ReActAgent.builder()
 			.name(AGENT_TYPE)
-			.sysPrompt(defaultSystemPrompt(context.systemPrompt()))
+			.sysPrompt(defaultSystemPrompt(context.systemPrompt(), extensions.skillInstructions()))
 			.model(context.model());
 		if (extensions.toolkit() != null) {
 			builder.toolkit(extensions.toolkit());
@@ -54,6 +54,9 @@ public class CommonAgent implements ManagedAgent {
 		}
 		if (extensions.toolExecutionContext() != null) {
 			builder.toolExecutionContext(extensions.toolExecutionContext());
+		}
+		if (extensions.skillBox() != null) {
+			builder.skillBox(extensions.skillBox());
 		}
 		List<Hook> hooks = extensions.hooks();
 		if (!hooks.isEmpty()) {
@@ -69,8 +72,16 @@ public class CommonAgent implements ManagedAgent {
 			.block(resolveTimeout(context.timeout()));
 	}
 
-	private String defaultSystemPrompt(String systemPrompt) {
-		return StringUtils.hasText(systemPrompt) ? systemPrompt : "";
+	private String defaultSystemPrompt(String systemPrompt, String skillInstructions) {
+		String basePrompt = StringUtils.hasText(systemPrompt) ? systemPrompt.trim() : "";
+		String runtimeSkillPrompt = StringUtils.hasText(skillInstructions) ? skillInstructions.trim() : "";
+		if (!StringUtils.hasText(basePrompt)) {
+			return runtimeSkillPrompt;
+		}
+		if (!StringUtils.hasText(runtimeSkillPrompt)) {
+			return basePrompt;
+		}
+		return basePrompt + System.lineSeparator() + System.lineSeparator() + runtimeSkillPrompt;
 	}
 
 	private String defaultUserPrompt(String userPrompt) {

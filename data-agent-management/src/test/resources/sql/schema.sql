@@ -153,6 +153,19 @@ CREATE TABLE IF NOT EXISTS agent_preset_question (
 ) ENGINE = InnoDB COMMENT = '智能体预设问题表';
 
 -- 会话表
+CREATE TABLE IF NOT EXISTS agent_skill_binding (
+  id INT NOT NULL AUTO_INCREMENT,
+  agent_id INT NOT NULL COMMENT '智能体ID',
+  skill_id VARCHAR(128) NOT NULL COMMENT '本地 skill 标识',
+  create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_agent_skill_binding (agent_id, skill_id),
+  INDEX idx_skill_id (skill_id),
+  INDEX idx_agent_skill_binding_agent_id (agent_id),
+  FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
+) ENGINE = InnoDB COMMENT = '智能体启用的本地技能绑定表';
+
 CREATE TABLE IF NOT EXISTS chat_session (
   id VARCHAR(36) NOT NULL COMMENT '会话ID（UUID）',
   agent_id INT NOT NULL COMMENT '智能体ID',
