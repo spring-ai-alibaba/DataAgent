@@ -30,7 +30,8 @@ public class AgentScopeModelFactory {
 	private final ObjectMapper objectMapper;
 
 	public Model create(org.springframework.ai.chat.model.ChatModel chatModel, String modelName, String agentId) {
-		return new SpringAiAgentScopeModel(chatModel, modelName, toolkitFactory.getToolCallbacks(agentId), objectMapper);
+		return new SpringAiAgentScopeModel(chatModel, modelName, toolkitFactory.getToolCallbacks(agentId),
+				objectMapper);
 	}
 
 }

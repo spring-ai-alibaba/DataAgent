@@ -100,9 +100,8 @@ public class DatasourceExplorerToolProvider implements AgentScopedToolProvider {
 			.description(description)
 			.inputSchema(INPUT_SCHEMA)
 			.build();
-		return Map.of(toolName,
-				new AgentBoundDatasourceExplorerToolCallback(agentId, toolDefinition, datasourceExplorerService,
-						objectMapper));
+		return Map.of(toolName, new AgentBoundDatasourceExplorerToolCallback(agentId, toolDefinition,
+				datasourceExplorerService, objectMapper));
 	}
 
 	private AgentDatasource resolveActiveDatasource(String agentId) {
@@ -128,10 +127,10 @@ public class DatasourceExplorerToolProvider implements AgentScopedToolProvider {
 	}
 
 	private String buildDescription(Datasource datasource, AgentDatasource agentDatasource) {
-		List<String> selectedTables = agentDatasource.getSelectTables() == null ? List.of() : agentDatasource.getSelectTables();
-		String visibleTables = selectedTables.isEmpty() ? "当前未显式选表，将回退到数据源全部可见表"
-				: "当前显式选表 %d 个：%s".formatted(selectedTables.size(),
-						String.join(", ", selectedTables.stream().limit(8).toList()));
+		List<String> selectedTables = agentDatasource.getSelectTables() == null ? List.of()
+				: agentDatasource.getSelectTables();
+		String visibleTables = selectedTables.isEmpty() ? "当前未显式选表，将回退到数据源全部可见表" : "当前显式选表 %d 个：%s"
+			.formatted(selectedTables.size(), String.join(", ", selectedTables.stream().limit(8).toList()));
 		return """
 				Unified explorer for datasource '%s' (%s).
 				Use this tool to inspect tables, inspect schema, preview rows, and execute readonly SQL search.

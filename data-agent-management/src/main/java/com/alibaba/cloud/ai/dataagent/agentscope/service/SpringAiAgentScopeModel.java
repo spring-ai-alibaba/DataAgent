@@ -346,7 +346,8 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 			return toolUseBlock.getContent();
 		}
 		try {
-			return objectMapper.writeValueAsString(toolUseBlock.getInput() == null ? Map.of() : toolUseBlock.getInput());
+			return objectMapper
+				.writeValueAsString(toolUseBlock.getInput() == null ? Map.of() : toolUseBlock.getInput());
 		}
 		catch (Exception ex) {
 			return "{}";

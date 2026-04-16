@@ -46,8 +46,8 @@ public class AgentScopeToolkitFactory {
 		toolCallbacks.values()
 			.forEach(toolCallback -> toolkit
 				.registerAgentTool(new SpringToolCallbackAgentAdapter(toolCallback, objectMapper)));
-		log.debug("Mapped {} Spring AI tool callbacks into AgentScope toolkit, agentId={}",
-				toolCallbacks.size(), agentId);
+		log.debug("Mapped {} Spring AI tool callbacks into AgentScope toolkit, agentId={}", toolCallbacks.size(),
+				agentId);
 		return toolkit;
 	}
 
@@ -57,7 +57,8 @@ public class AgentScopeToolkitFactory {
 
 	private Map<String, ToolCallback> collectToolCallbacks(String agentId) {
 		Map<String, ToolCallback> callbacks = new LinkedHashMap<>();
-		for (ToolCallback toolCallback : McpServerToolUtil.excludeMcpServerTool(applicationContext, ToolCallback.class)) {
+		for (ToolCallback toolCallback : McpServerToolUtil.excludeMcpServerTool(applicationContext,
+				ToolCallback.class)) {
 			register(callbacks, toolCallback);
 		}
 		for (ToolCallbackProvider provider : McpServerToolUtil.excludeMcpServerTool(applicationContext,

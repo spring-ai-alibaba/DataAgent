@@ -63,10 +63,11 @@ public class DatasourceExplorerService {
 
 	private static final Pattern TOP_PATTERN = Pattern.compile("(?i)\\bselect\\s+top\\s+\\d+\\b");
 
-	private static final Pattern FETCH_FIRST_PATTERN = Pattern.compile("(?i)\\bfetch\\s+first\\s+\\d+\\s+rows\\s+only\\b");
+	private static final Pattern FETCH_FIRST_PATTERN = Pattern
+		.compile("(?i)\\bfetch\\s+first\\s+\\d+\\s+rows\\s+only\\b");
 
-	private static final Pattern DANGEROUS_SQL_PATTERN = Pattern.compile(
-			"(?i)\\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|merge|call|exec|execute)\\b");
+	private static final Pattern DANGEROUS_SQL_PATTERN = Pattern
+		.compile("(?i)\\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|merge|call|exec|execute)\\b");
 
 	private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {
 	};
@@ -126,8 +127,7 @@ public class DatasourceExplorerService {
 			.toList();
 		String summary = query.isEmpty() ? "Returned visible tables without query filter"
 				: "Matched %d tables for query '%s'".formatted(matchedTables.size(), request.getQuery());
-		return baseResult(context, DatasourceExplorerAction.FIND_TABLES, summary)
-			.tables(matchedTables)
+		return baseResult(context, DatasourceExplorerAction.FIND_TABLES, summary).tables(matchedTables)
 			.nextSuggestedActions(List.of("get_table_schema", "preview_rows"))
 			.truncated(matchedTables.size() >= limit)
 			.build();
@@ -138,9 +138,10 @@ public class DatasourceExplorerService {
 		String tableName = requireSingleTableName(request);
 		assertVisibleTable(context, tableName);
 		List<ColumnInfoBO> columns = context.accessor()
-			.showColumns(context.dbConfig(), DbQueryParameter.from(context.dbConfig())
-				.setSchema(context.dbConfig().getSchema())
-				.setTable(tableName));
+			.showColumns(context.dbConfig(),
+					DbQueryParameter.from(context.dbConfig())
+						.setSchema(context.dbConfig().getSchema())
+						.setTable(tableName));
 		Document tableDocument = loadTableDocumentMap(context, List.of(tableName)).get(normalizeTableName(tableName));
 		List<Map<String, Object>> columnEntries = columns.stream().map(this::toColumnEntry).toList();
 		List<Map<String, Object>> relationEntries = filterRelations(context.logicalRelations(), tableName).stream()
@@ -162,7 +163,8 @@ public class DatasourceExplorerService {
 		List<LogicalRelation> relations = filterRelations(context.logicalRelations(), tableName);
 		List<Map<String, Object>> relationEntries = relations.stream().map(this::toRelationEntry).toList();
 		Set<String> relatedTables = relations.stream()
-			.flatMap(relation -> Arrays.stream(new String[] { relation.getSourceTableName(), relation.getTargetTableName() }))
+			.flatMap(relation -> Arrays
+				.stream(new String[] { relation.getSourceTableName(), relation.getTargetTableName() }))
 			.filter(candidate -> !normalizeTableName(candidate).equals(normalizeTableName(tableName)))
 			.filter(candidate -> context.visibleTableNameSet().contains(normalizeTableName(candidate)))
 			.collect(Collectors.toCollection(LinkedHashSet::new));
@@ -197,7 +199,8 @@ public class DatasourceExplorerService {
 			.build();
 	}
 
-	private DatasourceExplorerResult search(ExplorerContext context, DatasourceExplorerRequest request) throws Exception {
+	private DatasourceExplorerResult search(ExplorerContext context, DatasourceExplorerRequest request)
+			throws Exception {
 		String rawSql = StringUtils.trimToNull(request.getSql());
 		if (rawSql == null) {
 			throw new IllegalArgumentException("search action 必须提供 sql");
@@ -228,8 +231,7 @@ public class DatasourceExplorerService {
 		List<String> explicitSelectedTables = agentDatasource.getSelectTables() == null ? List.of()
 				: agentDatasource.getSelectTables();
 		List<String> visibleTables = explicitSelectedTables.isEmpty()
-				? datasourceService.getDatasourceTables(datasource.getId())
-				: explicitSelectedTables;
+				? datasourceService.getDatasourceTables(datasource.getId()) : explicitSelectedTables;
 		Set<String> visibleTableNameSet = visibleTables.stream()
 			.map(this::normalizeTableName)
 			.collect(Collectors.toCollection(LinkedHashSet::new));
@@ -247,8 +249,9 @@ public class DatasourceExplorerService {
 	}
 
 	private ResultSetBO executeSql(ExplorerContext context, String sql) throws Exception {
-		ResultSetBO resultSet = context.accessor().executeSqlAndReturnObject(context.dbConfig(),
-				DbQueryParameter.from(context.dbConfig()).setSchema(context.dbConfig().getSchema()).setSql(sql));
+		ResultSetBO resultSet = context.accessor()
+			.executeSqlAndReturnObject(context.dbConfig(),
+					DbQueryParameter.from(context.dbConfig()).setSchema(context.dbConfig().getSchema()).setSql(sql));
 		if (resultSet == null) {
 			return ResultSetBO.builder().column(List.of()).data(List.of()).errorMsg(null).build();
 		}
@@ -371,11 +374,12 @@ public class DatasourceExplorerService {
 		}
 	}
 
-	private Map<String, Object> toTableEntry(String tableName, Document tableDocument, List<String> explicitSelectedTables) {
+	private Map<String, Object> toTableEntry(String tableName, Document tableDocument,
+			List<String> explicitSelectedTables) {
 		Map<String, Object> tableEntry = new LinkedHashMap<>();
 		tableEntry.put("name", tableName);
-		tableEntry.put("selected", explicitSelectedTables.isEmpty()
-				|| explicitSelectedTables.stream().anyMatch(candidate -> normalizeTableName(candidate).equals(normalizeTableName(tableName))));
+		tableEntry.put("selected", explicitSelectedTables.isEmpty() || explicitSelectedTables.stream()
+			.anyMatch(candidate -> normalizeTableName(candidate).equals(normalizeTableName(tableName))));
 		if (tableDocument != null) {
 			tableEntry.put("schema", tableDocument.getMetadata().getOrDefault("schema", ""));
 			tableEntry.put("description", tableDocument.getMetadata().getOrDefault("description", ""));
@@ -433,18 +437,16 @@ public class DatasourceExplorerService {
 	}
 
 	private List<Map<String, Object>> toRows(ResultSetBO resultSet) {
-		return resultSet.getData()
-			.stream()
-			.map(row -> {
-				Map<String, Object> mappedRow = new LinkedHashMap<>();
-				mappedRow.putAll(row);
-				return mappedRow;
-			})
-			.toList();
+		return resultSet.getData().stream().map(row -> {
+			Map<String, Object> mappedRow = new LinkedHashMap<>();
+			mappedRow.putAll(row);
+			return mappedRow;
+		}).toList();
 	}
 
 	private boolean containsQuery(Map<String, Object> table, String query) {
-		return table.values().stream()
+		return table.values()
+			.stream()
 			.filter(String.class::isInstance)
 			.map(String.class::cast)
 			.map(value -> value.toLowerCase(Locale.ROOT))
