@@ -15,15 +15,12 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.tool.skill;
 
-import com.alibaba.cloud.ai.dataagent.agentscope.tool.AgentScopedToolProvider;
-import com.alibaba.cloud.ai.dataagent.service.skill.AgentSkillBindingService;
 import com.alibaba.cloud.ai.dataagent.service.skill.LocalSkillService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.model.ToolContext;
@@ -34,7 +31,7 @@ import org.springframework.util.StringUtils;
 
 @Component
 @RequiredArgsConstructor
-public class BuiltinCurrentTimeSkillToolProvider implements AgentScopedToolProvider {
+public class BuiltinCurrentTimeSkillToolProvider implements SkillBoundToolProvider {
 
 	private static final String TOOL_NAME = "skill.current_time.now";
 
@@ -54,38 +51,21 @@ public class BuiltinCurrentTimeSkillToolProvider implements AgentScopedToolProvi
 			}
 			""";
 
-	private final AgentSkillBindingService agentSkillBindingService;
-
 	private final ObjectMapper objectMapper;
 
 	@Override
+	public String getSkillId() {
+		return LocalSkillService.BUILTIN_CURRENT_TIME_SKILL_ID;
+	}
+
+	@Override
 	public Map<String, ToolCallback> getToolCallbacks(String agentId) {
-		Long numericAgentId = parseNumericAgentId(agentId);
-		if (numericAgentId == null) {
-			return Map.of();
-		}
-		List<String> skillIds = agentSkillBindingService.listSkillIdsByAgentId(numericAgentId);
-		if (!skillIds.contains(LocalSkillService.BUILTIN_CURRENT_TIME_SKILL_ID)) {
-			return Map.of();
-		}
 		ToolDefinition toolDefinition = ToolDefinition.builder()
 			.name(TOOL_NAME)
 			.description("返回指定时区的当前时间。需要精确时间信息时使用。")
 			.inputSchema(INPUT_SCHEMA)
 			.build();
 		return Map.of(TOOL_NAME, new CurrentTimeToolCallback(toolDefinition, objectMapper));
-	}
-
-	private Long parseNumericAgentId(String agentId) {
-		if (!StringUtils.hasText(agentId)) {
-			return null;
-		}
-		try {
-			return Long.valueOf(agentId);
-		}
-		catch (NumberFormatException ex) {
-			return null;
-		}
 	}
 
 	private static final class CurrentTimeToolCallback implements ToolCallback {

@@ -15,12 +15,17 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.runtime;
 
+import com.alibaba.cloud.ai.dataagent.agentscope.tool.skill.SkillBoundToolCatalogService;
 import com.alibaba.cloud.ai.dataagent.service.skill.AgentSkillBindingService;
 import com.alibaba.cloud.ai.dataagent.service.skill.LocalSkillService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.agentscope.core.skill.AgentSkill;
 import io.agentscope.core.skill.SkillBox;
 import io.agentscope.core.tool.Toolkit;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -32,8 +37,41 @@ public class AgentScopeSkillBoxFactory {
 
 	private final LocalSkillService localSkillService;
 
+	private final SkillBoundToolCatalogService skillBoundToolCatalogService;
+
+	private final ObjectMapper objectMapper;
+
 	public SkillBox create(String agentId, Toolkit toolkit) {
-		return null;
+		if (!StringUtils.hasText(agentId) || toolkit == null) {
+			return null;
+		}
+		Long numericAgentId = parseNumericAgentId(agentId);
+		if (numericAgentId == null) {
+			return null;
+		}
+		List<String> enabledSkillIds = agentSkillBindingService.listSkillIdsByAgentId(numericAgentId);
+		if (enabledSkillIds.isEmpty()) {
+			return null;
+		}
+		List<AgentSkill> skills = localSkillService.loadAgentSkills(enabledSkillIds);
+		if (skills.isEmpty()) {
+			return null;
+		}
+		SkillBox skillBox = new SkillBox(toolkit);
+		for (AgentSkill skill : skills) {
+			Map<String, ToolCallback> skillTools = skillBoundToolCatalogService.getToolCallbacks(agentId,
+					skill.getSkillId());
+			if (skillTools.isEmpty()) {
+				skillBox.registration().skill(skill).apply();
+				continue;
+			}
+			skillTools.values().forEach(toolCallback -> skillBox.registration()
+				.skill(skill)
+				.toolkit(toolkit)
+				.agentTool(new SpringToolCallbackAgentAdapter(toolCallback, objectMapper))
+				.apply());
+		}
+		return skillBox;
 	}
 
 	public String buildRuntimeInstructions(String agentId) {

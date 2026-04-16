@@ -44,7 +44,6 @@ public class AgentRuntimeExtensionFactory {
 	public AgentRuntimeExtensions create(GraphRequest request, @Nullable AgentRuntimeEventPublisher eventPublisher) {
 		Toolkit toolkit = toolkitFactory.create(request.getAgentId());
 		SkillBox skillBox = skillBoxFactory.create(request.getAgentId(), toolkit);
-		String skillInstructions = skillBoxFactory.buildRuntimeInstructions(request.getAgentId());
 		Memory memory = memoryFactory.create(request.getThreadId());
 		AgentRuntimeRequestMetadata requestMetadata = new AgentRuntimeRequestMetadata(request.getAgentId(),
 				request.getThreadId(), request.isNl2sqlOnly());
@@ -55,8 +54,7 @@ public class AgentRuntimeExtensionFactory {
 		List<Hook> hooks = hookFactory.create(request, eventPublisher);
 		Map<String, Object> attributes = new HashMap<>();
 		attributes.put("threadId", request.getThreadId());
-		return new AgentRuntimeExtensions(toolkit, memory, toolExecutionContext, hooks, attributes, skillBox,
-				skillInstructions);
+		return new AgentRuntimeExtensions(toolkit, memory, toolExecutionContext, hooks, attributes, skillBox, "");
 	}
 
 }
