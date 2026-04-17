@@ -23,9 +23,7 @@
       </div>
       <div class="header-actions">
         <el-button @click="loadSkillConfig">刷新</el-button>
-        <el-button type="primary" :loading="savingBindings" @click="saveAgentSkills">
-          保存启用项
-        </el-button>
+        <el-button type="primary" :loading="savingBindings" @click="saveAgentSkills">保存启用项</el-button>
       </div>
     </div>
 
@@ -91,22 +89,8 @@
           <template #default="{ row }">
             <div class="table-actions">
               <el-button link type="primary" @click="openViewDialog(row.id)">查看</el-button>
-              <el-button
-                link
-                type="primary"
-                :disabled="row.builtin"
-                @click="openEditDialog(row.id)"
-              >
-                编辑
-              </el-button>
-              <el-button
-                link
-                type="danger"
-                :disabled="row.builtin"
-                @click="handleDeleteSkill(row)"
-              >
-                删除
-              </el-button>
+              <el-button link type="primary" :disabled="row.builtin" @click="openEditDialog(row.id)">编辑</el-button>
+              <el-button link type="danger" :disabled="row.builtin" @click="handleDeleteSkill(row)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -119,25 +103,22 @@
       width="760px"
       destroy-on-close
     >
-      <el-form label-position="top">
-        <el-form-item v-if="dialogMode === 'create'" label="Skill ID（可选）">
-          <el-input
-            v-model="skillForm.id"
-            :disabled="dialogReadonly"
-            placeholder="留空时会根据标题自动生成，例如 sales-analyst"
-          />
+      <el-form ref="skillFormRef" :model="skillForm" :rules="skillRules" label-position="top">
+        <el-form-item v-if="dialogMode === 'create'" label="Skill ID" prop="id">
+          <el-input v-model="skillForm.id" :disabled="dialogReadonly" placeholder="例如：sales_analyst-01" />
+          <div class="field-tip">必填，只支持英文、数字、`-`、`_`。</div>
         </el-form-item>
-        <el-form-item label="标题">
+        <el-form-item label="标题" prop="title">
           <el-input v-model="skillForm.title" :disabled="dialogReadonly" placeholder="例如：销售分析助手" />
         </el-form-item>
-        <el-form-item label="描述">
+        <el-form-item label="描述" prop="description">
           <el-input
             v-model="skillForm.description"
             :disabled="dialogReadonly"
             placeholder="描述模型应该在什么场景下启用这个 skill"
           />
         </el-form-item>
-        <el-form-item label="Skill 内容">
+        <el-form-item label="Skill 内容" prop="content">
           <el-input
             v-model="skillForm.content"
             :disabled="dialogReadonly"
@@ -162,14 +143,7 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">关闭</el-button>
-          <el-button
-            v-if="!dialogReadonly"
-            type="primary"
-            :loading="savingSkill"
-            @click="submitSkill"
-          >
-            保存
-          </el-button>
+          <el-button v-if="!dialogReadonly" type="primary" :loading="savingSkill" @click="submitSkill">保存</el-button>
         </div>
       </template>
     </el-dialog>
@@ -177,8 +151,9 @@
 </template>
 
 <script lang="ts">
-  import { defineComponent, onMounted, reactive, ref } from 'vue';
-  import { ElMessage, ElMessageBox } from 'element-plus';
+  import { defineComponent, nextTick, onMounted, reactive, ref } from 'vue';
+  import axios from 'axios';
+  import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
   import skillService, {
     type AgentSkillConfig,
     type LocalSkillDetail,
@@ -186,6 +161,16 @@
   } from '@/services/skill';
 
   type DialogMode = 'create' | 'edit' | 'view';
+
+  interface SkillFormModel {
+    id: string;
+    title: string;
+    description: string;
+    content: string;
+    resources: string[];
+  }
+
+  const SKILL_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
   export default defineComponent({
     name: 'AgentSkillsConfig',
@@ -205,16 +190,29 @@
 
       const dialogVisible = ref(false);
       const dialogMode = ref<DialogMode>('create');
-      const currentSkillId = ref<string>('');
-      const skillForm = reactive({
+      const dialogReadonly = ref(false);
+      const currentSkillId = ref('');
+      const skillFormRef = ref<FormInstance>();
+      const skillForm = reactive<SkillFormModel>({
         id: '',
         title: '',
         description: '',
         content: '',
-        resources: [] as string[],
+        resources: [],
       });
-
-      const dialogReadonly = ref(false);
+      const skillRules = reactive<FormRules<SkillFormModel>>({
+        id: [
+          { required: true, message: '请输入 Skill ID', trigger: 'blur' },
+          {
+            pattern: SKILL_ID_PATTERN,
+            message: 'Skill ID 只能包含英文、数字、-、_',
+            trigger: 'blur',
+          },
+        ],
+        title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
+        description: [{ required: true, message: '请输入描述', trigger: 'blur' }],
+        content: [{ required: true, message: '请输入 Skill 内容', trigger: 'blur' }],
+      });
 
       const applyConfig = (config: AgentSkillConfig) => {
         storagePath.value = config.storagePath;
@@ -230,6 +228,19 @@
         skillForm.resources = [];
       };
 
+      const extractErrorMessage = (error: unknown, fallback: string): string => {
+        if (axios.isAxiosError(error)) {
+          const responseData = error.response?.data as { message?: string; msg?: string } | undefined;
+          if (responseData?.message?.trim()) {
+            return responseData.message.trim();
+          }
+          if (responseData?.msg?.trim()) {
+            return responseData.msg.trim();
+          }
+        }
+        return fallback;
+      };
+
       const loadSkillConfig = async () => {
         try {
           loading.value = true;
@@ -237,7 +248,7 @@
           applyConfig(config);
         } catch (error) {
           console.error('加载技能配置失败', error);
-          ElMessage.error('加载技能配置失败');
+          ElMessage.error(extractErrorMessage(error, '加载技能配置失败'));
         } finally {
           loading.value = false;
         }
@@ -251,7 +262,7 @@
           ElMessage.success('技能启用项已保存');
         } catch (error) {
           console.error('保存技能启用项失败', error);
-          ElMessage.error('保存技能启用项失败');
+          ElMessage.error(extractErrorMessage(error, '保存技能启用项失败'));
         } finally {
           savingBindings.value = false;
         }
@@ -274,19 +285,24 @@
           dialogMode.value = mode;
           dialogReadonly.value = mode === 'view' || detail.builtin;
           dialogVisible.value = true;
+          await nextTick();
+          skillFormRef.value?.clearValidate();
         } catch (error) {
           console.error('加载 skill 详情失败', error);
-          ElMessage.error('加载 skill 详情失败');
+          ElMessage.error(extractErrorMessage(error, '加载 skill 详情失败'));
         } finally {
           loading.value = false;
         }
       };
 
-      const openCreateDialog = () => {
+      const openCreateDialog = async () => {
         resetSkillForm();
+        currentSkillId.value = '';
         dialogMode.value = 'create';
         dialogReadonly.value = false;
         dialogVisible.value = true;
+        await nextTick();
+        skillFormRef.value?.clearValidate();
       };
 
       const openEditDialog = async (skillId: string) => {
@@ -298,25 +314,29 @@
       };
 
       const submitSkill = async () => {
-        if (!skillForm.title.trim() || !skillForm.description.trim() || !skillForm.content.trim()) {
-          ElMessage.warning('请填写完整的标题、描述和 skill 内容');
+        if (!skillFormRef.value) {
           return;
         }
+        const valid = await skillFormRef.value.validate().catch(() => false);
+        if (!valid) {
+          return;
+        }
+        const payload = {
+          id: skillForm.id.trim(),
+          title: skillForm.title.trim(),
+          description: skillForm.description.trim(),
+          content: skillForm.content.trim(),
+        };
         try {
           savingSkill.value = true;
           if (dialogMode.value === 'create') {
-            await skillService.create({
-              id: skillForm.id.trim() || undefined,
-              title: skillForm.title.trim(),
-              description: skillForm.description.trim(),
-              content: skillForm.content.trim(),
-            });
+            await skillService.create(payload);
             ElMessage.success('自定义 skill 创建成功');
           } else {
             await skillService.update(currentSkillId.value, {
-              title: skillForm.title.trim(),
-              description: skillForm.description.trim(),
-              content: skillForm.content.trim(),
+              title: payload.title,
+              description: payload.description,
+              content: payload.content,
             });
             ElMessage.success('自定义 skill 更新成功');
           }
@@ -324,7 +344,7 @@
           await loadSkillConfig();
         } catch (error) {
           console.error('保存自定义 skill 失败', error);
-          ElMessage.error('保存自定义 skill 失败');
+          ElMessage.error(extractErrorMessage(error, '保存自定义 skill 失败'));
         } finally {
           savingSkill.value = false;
         }
@@ -347,7 +367,7 @@
         } catch (error) {
           if (error !== 'cancel' && error !== 'close') {
             console.error('删除自定义 skill 失败', error);
-            ElMessage.error('删除自定义 skill 失败');
+            ElMessage.error(extractErrorMessage(error, '删除自定义 skill 失败'));
           }
         }
       };
@@ -372,13 +392,14 @@
         loading,
         savingBindings,
         savingSkill,
-        storagePath,
         skills,
         selectedSkillIds,
         dialogVisible,
         dialogMode,
         dialogReadonly,
+        skillFormRef,
         skillForm,
+        skillRules,
         loadSkillConfig,
         saveAgentSkills,
         openCreateDialog,
@@ -394,7 +415,9 @@
 
 <style scoped>
   .agent-skills-config {
-    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
   }
 
   .page-header {
@@ -402,11 +425,11 @@
     justify-content: space-between;
     gap: 16px;
     align-items: flex-start;
-    margin-bottom: 20px;
   }
 
   .page-header h2 {
     margin: 0 0 8px;
+    font-size: 22px;
   }
 
   .page-header p {
@@ -418,59 +441,62 @@
   .header-actions {
     display: flex;
     gap: 12px;
+    flex-wrap: wrap;
   }
 
-  .storage-alert {
-    margin-bottom: 24px;
-  }
-
-  .config-section + .config-section {
-    margin-top: 28px;
+  .config-section {
+    background: #fff;
+    border: 1px solid #ebeef5;
+    border-radius: 12px;
+    padding: 20px;
   }
 
   .section-title {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 16px;
     margin-bottom: 16px;
   }
 
   .section-title h3 {
-    margin: 0 0 4px;
+    margin: 0 0 6px;
+    font-size: 18px;
   }
 
   .section-title span {
     color: #606266;
-    font-size: 13px;
+    line-height: 1.6;
   }
 
   .skill-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 16px;
   }
 
   .skill-card {
-    border-radius: 14px;
+    border-radius: 12px;
   }
 
   .skill-card :deep(.el-card__body) {
-    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
 
   .skill-card-header {
     display: flex;
     justify-content: space-between;
-    gap: 12px;
     align-items: flex-start;
+    gap: 12px;
   }
 
   .skill-title-row {
     display: flex;
-    gap: 8px;
     align-items: center;
-    margin-bottom: 6px;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .skill-title-row h4 {
@@ -481,15 +507,17 @@
   .skill-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 8px 12px;
+    margin-top: 8px;
     color: #909399;
     font-size: 12px;
   }
 
   .skill-description {
-    margin: 14px 0 0;
+    margin: 0;
     color: #606266;
     line-height: 1.7;
+    white-space: pre-wrap;
   }
 
   .skills-table {
@@ -498,18 +526,24 @@
 
   .table-title {
     font-weight: 600;
-    color: #303133;
   }
 
   .table-subtitle {
     margin-top: 4px;
-    color: #909399;
     font-size: 12px;
+    color: #909399;
   }
 
   .table-actions {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
   }
 
   .resource-tag {
@@ -521,21 +555,22 @@
     color: #909399;
   }
 
-  .dialog-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
+  .field-tip {
+    margin-top: 6px;
+    color: #909399;
+    font-size: 12px;
+    line-height: 1.5;
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 768px) {
     .page-header,
-    .section-title {
+    .section-title,
+    .skill-card-header {
       flex-direction: column;
-      align-items: stretch;
     }
 
     .header-actions {
-      justify-content: flex-end;
+      width: 100%;
     }
   }
 </style>
