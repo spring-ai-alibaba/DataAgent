@@ -19,11 +19,16 @@
     <div class="page-header">
       <div>
         <h2>技能配置</h2>
-        <p>本地 skills 存放在专门目录中。你可以为当前智能体开启多个 skill，也可以在这里管理自定义 skill。</p>
+        <p>
+          本地 skills 存放在专门目录中。你可以为当前智能体开启多个 skill，也可以在这里管理自定义
+          skill。
+        </p>
       </div>
       <div class="header-actions">
         <el-button @click="loadSkillConfig">刷新</el-button>
-        <el-button type="primary" :loading="savingBindings" @click="saveAgentSkills">保存启用项</el-button>
+        <el-button type="primary" :loading="savingBindings" @click="saveAgentSkills">
+          保存启用项
+        </el-button>
       </div>
     </div>
 
@@ -89,8 +94,17 @@
           <template #default="{ row }">
             <div class="table-actions">
               <el-button link type="primary" @click="openViewDialog(row.id)">查看</el-button>
-              <el-button link type="primary" :disabled="row.builtin" @click="openEditDialog(row.id)">编辑</el-button>
-              <el-button link type="danger" :disabled="row.builtin" @click="handleDeleteSkill(row)">删除</el-button>
+              <el-button
+                link
+                type="primary"
+                :disabled="row.builtin"
+                @click="openEditDialog(row.id)"
+              >
+                编辑
+              </el-button>
+              <el-button link type="danger" :disabled="row.builtin" @click="handleDeleteSkill(row)">
+                删除
+              </el-button>
             </div>
           </template>
         </el-table-column>
@@ -99,17 +113,27 @@
 
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogMode === 'create' ? '新增本地 Skill' : dialogReadonly ? '查看 Skill' : '编辑 Skill'"
+      :title="
+        dialogMode === 'create' ? '新增本地 Skill' : dialogReadonly ? '查看 Skill' : '编辑 Skill'
+      "
       width="760px"
       destroy-on-close
     >
       <el-form ref="skillFormRef" :model="skillForm" :rules="skillRules" label-position="top">
         <el-form-item v-if="dialogMode === 'create'" label="Skill ID" prop="id">
-          <el-input v-model="skillForm.id" :disabled="dialogReadonly" placeholder="例如：sales_analyst-01" />
+          <el-input
+            v-model="skillForm.id"
+            :disabled="dialogReadonly"
+            placeholder="例如：sales_analyst-01"
+          />
           <div class="field-tip">必填，只支持英文、数字、`-`、`_`。</div>
         </el-form-item>
         <el-form-item label="标题" prop="title">
-          <el-input v-model="skillForm.title" :disabled="dialogReadonly" placeholder="例如：销售分析助手" />
+          <el-input
+            v-model="skillForm.title"
+            :disabled="dialogReadonly"
+            placeholder="例如：销售分析助手"
+          />
         </el-form-item>
         <el-form-item label="描述" prop="description">
           <el-input
@@ -143,7 +167,14 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">关闭</el-button>
-          <el-button v-if="!dialogReadonly" type="primary" :loading="savingSkill" @click="submitSkill">保存</el-button>
+          <el-button
+            v-if="!dialogReadonly"
+            type="primary"
+            :loading="savingSkill"
+            @click="submitSkill"
+          >
+            保存
+          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -230,7 +261,9 @@
 
       const extractErrorMessage = (error: unknown, fallback: string): string => {
         if (axios.isAxiosError(error)) {
-          const responseData = error.response?.data as { message?: string; msg?: string } | undefined;
+          const responseData = error.response?.data as
+            | { message?: string; msg?: string }
+            | undefined;
           if (responseData?.message?.trim()) {
             return responseData.message.trim();
           }
@@ -257,7 +290,10 @@
       const saveAgentSkills = async () => {
         try {
           savingBindings.value = true;
-          const config = await skillService.updateAgentSkills(props.agentId, selectedSkillIds.value);
+          const config = await skillService.updateAgentSkills(
+            props.agentId,
+            selectedSkillIds.value,
+          );
           applyConfig(config);
           ElMessage.success('技能启用项已保存');
         } catch (error) {

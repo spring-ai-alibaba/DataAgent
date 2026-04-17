@@ -191,8 +191,8 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 				continue;
 			}
 			ToolCallback toolCallback = toolCallbacks.get(toolName);
-			selectedCallbacks.add(toolCallback != null ? toolCallback : new ToolSchemaBackedToolCallback(toolSchema,
-					objectMapper));
+			selectedCallbacks
+				.add(toolCallback != null ? toolCallback : new ToolSchemaBackedToolCallback(toolSchema, objectMapper));
 		}
 		return selectedCallbacks;
 	}
@@ -220,8 +220,8 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 		}
 
 		private static String serializeSchema(ToolSchema toolSchema, ObjectMapper objectMapper) {
-			Map<String, Object> parameters = toolSchema.getParameters() == null ? Map.of("type", "object",
-					"properties", Map.of()) : toolSchema.getParameters();
+			Map<String, Object> parameters = toolSchema.getParameters() == null
+					? Map.of("type", "object", "properties", Map.of()) : toolSchema.getParameters();
 			try {
 				return objectMapper.writeValueAsString(parameters);
 			}

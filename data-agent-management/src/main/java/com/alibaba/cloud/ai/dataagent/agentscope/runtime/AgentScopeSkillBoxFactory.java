@@ -65,11 +65,12 @@ public class AgentScopeSkillBoxFactory {
 				skillBox.registration().skill(skill).apply();
 				continue;
 			}
-			skillTools.values().forEach(toolCallback -> skillBox.registration()
-				.skill(skill)
-				.toolkit(toolkit)
-				.agentTool(new SpringToolCallbackAgentAdapter(toolCallback, objectMapper))
-				.apply());
+			skillTools.values()
+				.forEach(toolCallback -> skillBox.registration()
+					.skill(skill)
+					.toolkit(toolkit)
+					.agentTool(new SpringToolCallbackAgentAdapter(toolCallback, objectMapper))
+					.apply());
 		}
 		return skillBox;
 	}

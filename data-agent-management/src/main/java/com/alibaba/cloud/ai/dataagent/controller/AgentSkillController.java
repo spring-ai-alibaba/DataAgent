@@ -42,40 +42,40 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class AgentSkillController {
 
-    private final AgentService agentService;
+	private final AgentService agentService;
 
-    private final AgentSkillBindingService agentSkillBindingService;
+	private final AgentSkillBindingService agentSkillBindingService;
 
-    private final LocalSkillService localSkillService;
+	private final LocalSkillService localSkillService;
 
-    @GetMapping
-    public AgentSkillConfigVO getAgentSkillConfig(@PathVariable Long agentId) {
-        ensureAgentExists(agentId);
-        return new AgentSkillConfigVO(localSkillService.getStoragePath().toString(),
-                agentSkillBindingService.listSkillIdsByAgentId(agentId), localSkillService.listSkills());
-    }
+	@GetMapping
+	public AgentSkillConfigVO getAgentSkillConfig(@PathVariable Long agentId) {
+		ensureAgentExists(agentId);
+		return new AgentSkillConfigVO(localSkillService.getStoragePath().toString(),
+				agentSkillBindingService.listSkillIdsByAgentId(agentId), localSkillService.listSkills());
+	}
 
-    @PutMapping
-    @ResponseStatus(HttpStatus.OK)
-    public AgentSkillConfigVO updateAgentSkillConfig(@PathVariable Long agentId,
-            @RequestBody UpdateAgentSkillsRequest request) {
-        ensureAgentExists(agentId);
-        List<String> normalizedSkillIds = request == null || request.skillIds() == null ? List.of()
-                : new LinkedHashSet<>(request.skillIds()).stream().toList();
-        normalizedSkillIds.forEach(skillId -> {
-            if (!localSkillService.exists(skillId)) {
-                throw new InvalidInputException("Skill not found: " + skillId);
-            }
-        });
-        agentSkillBindingService.replaceAgentSkills(agentId, normalizedSkillIds);
-        return getAgentSkillConfig(agentId);
-    }
+	@PutMapping
+	@ResponseStatus(HttpStatus.OK)
+	public AgentSkillConfigVO updateAgentSkillConfig(@PathVariable Long agentId,
+			@RequestBody UpdateAgentSkillsRequest request) {
+		ensureAgentExists(agentId);
+		List<String> normalizedSkillIds = request == null || request.skillIds() == null ? List.of()
+				: new LinkedHashSet<>(request.skillIds()).stream().toList();
+		normalizedSkillIds.forEach(skillId -> {
+			if (!localSkillService.exists(skillId)) {
+				throw new InvalidInputException("Skill not found: " + skillId);
+			}
+		});
+		agentSkillBindingService.replaceAgentSkills(agentId, normalizedSkillIds);
+		return getAgentSkillConfig(agentId);
+	}
 
-    private void ensureAgentExists(Long agentId) {
-        Agent agent = agentService.findById(agentId);
-        if (agent == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "agent with id: %d not found".formatted(agentId));
-        }
-    }
+	private void ensureAgentExists(Long agentId) {
+		Agent agent = agentService.findById(agentId);
+		if (agent == null) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "agent with id: %d not found".formatted(agentId));
+		}
+	}
 
 }
