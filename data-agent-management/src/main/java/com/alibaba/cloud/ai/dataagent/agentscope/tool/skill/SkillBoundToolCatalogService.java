@@ -38,7 +38,7 @@ public class SkillBoundToolCatalogService {
 		}
 		Map<String, ToolCallback> callbacks = new LinkedHashMap<>();
 		for (SkillBoundToolProvider provider : providers) {
-			if (!skillId.equals(provider.getSkillId())) {
+			if (!matchesSkillId(skillId, provider.getSkillId())) {
 				continue;
 			}
 			Map<String, ToolCallback> providedCallbacks = provider.getToolCallbacks(agentId);
@@ -60,6 +60,19 @@ public class SkillBoundToolCatalogService {
 			log.warn("Duplicate skill-bound tool name detected, keep first one. skillTool={}, provider={}", name,
 					provider.getClass().getName());
 		}
+	}
+
+	private boolean matchesSkillId(String actualSkillId, String providerSkillId) {
+		if (!StringUtils.hasText(actualSkillId) || !StringUtils.hasText(providerSkillId)) {
+			return false;
+		}
+		if (actualSkillId.equals(providerSkillId)) {
+			return true;
+		}
+		if (!providerSkillId.startsWith("builtin-")) {
+			return false;
+		}
+		return actualSkillId.startsWith(providerSkillId + "_") || actualSkillId.startsWith(providerSkillId + "-");
 	}
 
 }

@@ -64,19 +64,15 @@ public class DynamicFilterService {
 				break;
 
 			case DocumentMetadataConstant.BUSINESS_TERM:
-				// 场景 B: 业务知识 -> 查 business_knowledge 表的需要召回的
+				// 场景 B: 业务知识 -> 只校验是否存在可召回条目。
+				// SimpleVectorStore 里的 metadata 数值类型在序列化/反序列化后可能与 Long 精确类型不一致，
+				// 这里避免将 businessTermId IN (...) 下推到向量过滤层，改为在业务层二次校验 isRecall。
 				List<Long> recalledBusinessKnowledgeIds = businessKnowledgeMapper
 					.selectRecalledKnowledgeIds(Long.valueOf(agentId));
 
 				if (recalledBusinessKnowledgeIds.isEmpty()) {
 					log.warn("Agent {} has no recalled business terms. Returning empty filter signal.", agentId);
 					return null;
-				}
-				else {
-					// 添加 ID 过滤
-					conditions
-						.add(b.in(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, recalledBusinessKnowledgeIds.toArray())
-							.build());
 				}
 				break;
 

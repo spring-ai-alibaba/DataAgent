@@ -37,11 +37,13 @@ import io.agentscope.core.message.Msg;
 import io.agentscope.core.model.Model;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
@@ -153,10 +155,12 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 	private void emitError(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest request, Throwable error) {
 		String threadId = request.getThreadId();
 		String runtimeRequestId = request.getRuntimeRequestId();
-		log.error("AgentScope runtime failed, threadId={}", threadId, error);
 		if (sessionRegistry.isCancelled(threadId, runtimeRequestId)) {
+			log.info("AgentScope runtime cancelled, suppress error propagation. threadId={}, runtimeRequestId={}",
+					threadId, runtimeRequestId);
 			return;
 		}
+		log.error("AgentScope runtime failed, threadId={}", threadId, error);
 		if (sessionRegistry.isActive(threadId, runtimeRequestId)) {
 			String message = error.getMessage() == null ? "AgentScope runtime failed." : error.getMessage();
 			sink.tryEmitNext(ServerSentEvent.builder(GraphNodeResponse.error(request.getAgentId(), threadId, message))
@@ -192,9 +196,22 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 					modelConfig.getModelName(), request.getAgentId());
 			ManagedAgent managedAgent = managedAgentRegistry.getRequired();
 			AgentRuntimeExtensions runtimeExtensions = agentRuntimeExtensionFactory.create(request, eventPublisher);
-			Msg response = managedAgent.run(new AgentRunContext(request.getAgentId(), request.getThreadId(), model,
-					resolveManagedSystemPrompt(managedAgentConfig, request.getAgentId()), buildUserPrompt(request),
-					AGENT_CALL_TIMEOUT, runtimeExtensions));
+			Msg response;
+			try {
+				response = managedAgent.run(new AgentRunContext(request.getAgentId(), request.getThreadId(), model,
+						resolveManagedSystemPrompt(managedAgentConfig, request.getAgentId()), buildUserPrompt(request),
+						AGENT_CALL_TIMEOUT, runtimeExtensions));
+			}
+			catch (RuntimeException ex) {
+				if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())
+						&& isInterruptedCancellation(ex)) {
+					Thread.interrupted();
+					log.info("Agent execution interrupted by cancellation, threadId={}, runtimeRequestId={}",
+							request.getThreadId(), request.getRuntimeRequestId());
+					return "";
+				}
+				throw ex;
+			}
 			if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())) {
 				return "";
 			}
@@ -279,6 +296,17 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 			return "AgentScope returned an empty response.";
 		}
 		return response.getTextContent();
+	}
+
+	private boolean isInterruptedCancellation(Throwable throwable) {
+		Throwable current = Exceptions.unwrap(throwable);
+		while (current != null) {
+			if (current instanceof InterruptedException || current instanceof CancellationException) {
+				return true;
+			}
+			current = current.getCause();
+		}
+		return false;
 	}
 
 	private static final class StreamTextTracker {

@@ -48,13 +48,17 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 	private final DynamicFilterService dynamicFilterService;
 
+	private final Optional<SimpleVectorStoreInitialization> simpleVectorStoreInitialization;
+
 	public AgentVectorStoreServiceImpl(VectorStore vectorStore,
 			Optional<HybridRetrievalStrategy> hybridRetrievalStrategy, DataAgentProperties dataAgentProperties,
-			DynamicFilterService dynamicFilterService) {
+			DynamicFilterService dynamicFilterService,
+			Optional<SimpleVectorStoreInitialization> simpleVectorStoreInitialization) {
 		this.vectorStore = vectorStore;
 		this.hybridRetrievalStrategy = hybridRetrievalStrategy;
 		this.dataAgentProperties = dataAgentProperties;
 		this.dynamicFilterService = dynamicFilterService;
+		this.simpleVectorStoreInitialization = simpleVectorStoreInitialization;
 		log.info("VectorStore type: {}", vectorStore.getClass().getSimpleName());
 	}
 
@@ -128,7 +132,7 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 						"Document metadata agentId does not match.");
 			}
 		}
-		vectorStore.add(documents);
+		mutateVectorStore(() -> vectorStore.add(documents));
 	}
 
 	@Override
@@ -136,12 +140,14 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 		Assert.notNull(metadata, "Metadata cannot be null.");
 		String filterExpression = buildFilterExpressionString(metadata);
 
-		if (vectorStore instanceof SimpleVectorStore) {
-			batchDelDocumentsWithFilter(filterExpression);
-		}
-		else {
-			vectorStore.delete(filterExpression);
-		}
+		mutateVectorStore(() -> {
+			if (vectorStore instanceof SimpleVectorStore) {
+				batchDelDocumentsWithFilter(filterExpression);
+			}
+			else {
+				vectorStore.delete(filterExpression);
+			}
+		});
 
 		return true;
 	}
@@ -155,15 +161,29 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 		String filterExpression = buildFilterExpressionString(metadata);
 
 		// es的可以直接元数据删除
-		if (vectorStore instanceof SimpleVectorStore) {
-			// 目前SimpleVectorStore不支持通过元数据删除，使用会抛出UnsupportedOperationException,现在是通过id删除
-			batchDelDocumentsWithFilter(filterExpression);
-		}
-		else {
-			vectorStore.delete(filterExpression);
-		}
+		mutateVectorStore(() -> {
+			if (vectorStore instanceof SimpleVectorStore) {
+				// 目前SimpleVectorStore不支持通过元数据删除，使用会抛出UnsupportedOperationException,现在是通过id删除
+				batchDelDocumentsWithFilter(filterExpression);
+			}
+			else {
+				vectorStore.delete(filterExpression);
+			}
+		});
 
 		return true;
+	}
+
+	private void mutateVectorStore(Runnable action) {
+		Assert.notNull(action, "Vector store action cannot be null.");
+		if (!(vectorStore instanceof SimpleVectorStore) || simpleVectorStoreInitialization.isEmpty()) {
+			action.run();
+			return;
+		}
+		synchronized (vectorStore) {
+			action.run();
+			simpleVectorStoreInitialization.get().save();
+		}
 	}
 
 	private void batchDelDocumentsWithFilter(String filterExpression) {

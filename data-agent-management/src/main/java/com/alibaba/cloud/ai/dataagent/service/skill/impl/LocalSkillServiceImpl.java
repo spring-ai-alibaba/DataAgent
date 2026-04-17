@@ -79,6 +79,27 @@ public class LocalSkillServiceImpl implements LocalSkillService {
 			4. 如果用户要求特定格式，按要求输出；否则同时给出标准日期时间。
 			""";
 
+	private static final String BUILTIN_DOMAIN_BUSINESS_KNOWLEDGE_TITLE = "领域业务知识助手";
+
+	private static final String BUILTIN_DOMAIN_BUSINESS_KNOWLEDGE_DESCRIPTION = "当用户问题依赖公司内部业务规则、指标口径、SOP、FAQ 或历史案例时启用这个 skill。";
+
+	private static final String BUILTIN_DOMAIN_BUSINESS_KNOWLEDGE_CONTENT = """
+			当用户的问题涉及公司内部业务定义、指标口径、分析 SOP、FAQ、历史案例，或者需要确认某个业务名词的标准含义时，使用这个 skill。
+
+			工作原则：
+			1. 不要在每一轮都调用工具。只有当回答明显依赖业务知识，或者你不确定业务口径时，才调用 `domain_business_knowledge.search`。
+			2. 默认优先检索 `businessTerm` 与 `agentKnowledge`。如果你明确知道要查 FAQ、QA 或文档，可以通过 `knowledgeTypes` 缩小范围。
+			3. 将工具返回结果作为“证据”来辅助推理，而不是机械复述；回答时要提炼规则、说明口径，并在必要时指出来源。
+			4. 如果检索结果为空或证据冲突，必须明确告诉用户当前知识不足，不能编造业务规则。
+			5. 当问题会影响 SQL 过滤条件、指标定义、分析步骤时，优先调用该工具再继续生成回答或计划。
+
+			典型触发场景：
+			- “GMV 在你们系统里具体怎么算？”
+			- “销量预测应该按你们内部 SOP 怎么做？”
+			- “高价值用户的定义是什么？”
+			- “之前有没有类似问题的标准案例或 FAQ？”
+			""";
+
 	private final AgentSkillProperties agentSkillProperties;
 
 	@Override
@@ -188,7 +209,8 @@ public class LocalSkillServiceImpl implements LocalSkillService {
 
 	@Override
 	public boolean isBuiltinSkill(String skillId) {
-		return BUILTIN_CURRENT_TIME_SKILL_ID.equals(skillId);
+		return BUILTIN_CURRENT_TIME_SKILL_ID.equals(skillId)
+				|| BUILTIN_DOMAIN_BUSINESS_KNOWLEDGE_SKILL_ID.equals(skillId);
 	}
 
 	@Override
@@ -199,23 +221,34 @@ public class LocalSkillServiceImpl implements LocalSkillService {
 	private void ensureStorageReady() {
 		try {
 			Files.createDirectories(getStoragePath());
-			bootstrapBuiltinSkill();
+			bootstrapBuiltinSkills();
 		}
 		catch (IOException ex) {
 			throw new IllegalStateException("Failed to initialize local skill directory: " + getStoragePath(), ex);
 		}
 	}
 
-	private void bootstrapBuiltinSkill() throws IOException {
-		Path skillDir = resolveSkillDirectory(BUILTIN_CURRENT_TIME_SKILL_ID);
+	private void bootstrapBuiltinSkills() throws IOException {
+		bootstrapBuiltinSkill(BUILTIN_CURRENT_TIME_SKILL_ID, BUILTIN_CURRENT_TIME_DESCRIPTION,
+				BUILTIN_CURRENT_TIME_TITLE, BUILTIN_CURRENT_TIME_CONTENT);
+		bootstrapBuiltinSkill(BUILTIN_DOMAIN_BUSINESS_KNOWLEDGE_SKILL_ID,
+				BUILTIN_DOMAIN_BUSINESS_KNOWLEDGE_DESCRIPTION, BUILTIN_DOMAIN_BUSINESS_KNOWLEDGE_TITLE,
+				BUILTIN_DOMAIN_BUSINESS_KNOWLEDGE_CONTENT);
+	}
+
+	private void bootstrapBuiltinSkill(String skillId, String description, String title, String content)
+			throws IOException {
+		Path skillDir = resolveSkillDirectory(skillId);
 		Path skillFile = skillDir.resolve(SKILL_FILE_NAME);
-		if (Files.exists(skillFile)) {
-			return;
-		}
+		String expectedMarkdown = renderSkillMarkdown(skillId, description, title, content);
 		Files.createDirectories(skillDir);
-		Files.writeString(skillFile, renderSkillMarkdown(BUILTIN_CURRENT_TIME_SKILL_ID,
-				BUILTIN_CURRENT_TIME_DESCRIPTION, BUILTIN_CURRENT_TIME_TITLE, BUILTIN_CURRENT_TIME_CONTENT),
-				StandardCharsets.UTF_8);
+		if (Files.exists(skillFile)) {
+			String existingMarkdown = Files.readString(skillFile, StandardCharsets.UTF_8);
+			if (existingMarkdown.equals(expectedMarkdown)) {
+				return;
+			}
+		}
+		Files.writeString(skillFile, expectedMarkdown, StandardCharsets.UTF_8);
 	}
 
 	private Optional<LocalSkillSummaryVO> safeReadSkillDescriptor(Path skillDir) {

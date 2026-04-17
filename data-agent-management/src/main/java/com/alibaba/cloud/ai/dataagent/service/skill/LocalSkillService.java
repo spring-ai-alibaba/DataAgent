@@ -26,6 +26,8 @@ public interface LocalSkillService {
 
 	String BUILTIN_CURRENT_TIME_SKILL_ID = "builtin-current-time";
 
+	String BUILTIN_DOMAIN_BUSINESS_KNOWLEDGE_SKILL_ID = "builtin-domain-business-knowledge";
+
 	List<LocalSkillSummaryVO> listSkills();
 
 	LocalSkillDetailVO getSkill(String skillId);
