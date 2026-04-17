@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import org.springframework.format.annotation.DateTimeFormat;
 
@@ -45,7 +46,12 @@ public class Datasource {
 
 	private String username;
 
-	@JsonIgnore
+	/**
+	 * Password field is only writable (input only).
+	 * It will not be returned in API responses for security reasons,
+	 * but can be received from API requests.
+	 */
+	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
 	private String password;
 
 	@JsonIgnore

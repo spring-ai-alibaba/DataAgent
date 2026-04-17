@@ -34,8 +34,14 @@ public class OracleDatasourceTypeHandler implements DatasourceTypeHandler {
 			return datasource.getConnectionUrl();
 		}
 		// Oracle JDBC URL format: jdbc:oracle:thin:@host:port/serviceName
+		// databaseName may contain "serviceName|schemaName" format, extract serviceName part
+		String databaseName = datasource.getDatabaseName();
+		String serviceName = databaseName;
+		if (databaseName != null && databaseName.contains("|")) {
+			serviceName = databaseName.split("\\|")[0];
+		}
 		return String.format("jdbc:oracle:thin:@%s:%d/%s", datasource.getHost(), datasource.getPort(),
-				datasource.getDatabaseName());
+				serviceName);
 	}
 
 	@Override
