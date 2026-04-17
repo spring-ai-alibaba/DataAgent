@@ -112,11 +112,11 @@ public class DomainBusinessKnowledgeToolSupport {
 						}
 					}
 				}
-				Integer topK = jsonNode.has("topK") && jsonNode.get("topK").canConvertToInt() ? jsonNode.get("topK").asInt()
-						: null;
+				Integer topK = jsonNode.has("topK") && jsonNode.get("topK").canConvertToInt()
+						? jsonNode.get("topK").asInt() : null;
 				Double similarityThreshold = jsonNode.has("similarityThreshold")
-						&& jsonNode.get("similarityThreshold").isNumber() ? jsonNode.get("similarityThreshold").asDouble()
-								: null;
+						&& jsonNode.get("similarityThreshold").isNumber()
+								? jsonNode.get("similarityThreshold").asDouble() : null;
 
 				DomainKnowledgeSearchRequest request = new DomainKnowledgeSearchRequest(query,
 						knowledgeTypes.isEmpty() ? null : List.copyOf(knowledgeTypes), topK, similarityThreshold);

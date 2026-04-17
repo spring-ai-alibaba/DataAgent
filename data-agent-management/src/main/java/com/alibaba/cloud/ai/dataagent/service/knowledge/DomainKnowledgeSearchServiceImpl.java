@@ -82,8 +82,7 @@ public class DomainKnowledgeSearchServiceImpl implements DomainKnowledgeSearchSe
 
 		for (SearchCategory category : options.categories()) {
 			SearchReadiness readiness = diagnoseCategoryForSearch(
-					category == SearchCategory.BUSINESS_TERM ? businessTermDiagnostics
-					: agentKnowledgeDiagnostics);
+					category == SearchCategory.BUSINESS_TERM ? businessTermDiagnostics : agentKnowledgeDiagnostics);
 			warnings.addAll(readiness.warnings());
 			if (!readiness.searchable()) {
 				continue;
@@ -92,11 +91,10 @@ public class DomainKnowledgeSearchServiceImpl implements DomainKnowledgeSearchSe
 			CategoryDiagnostics categoryDiagnostics = category == SearchCategory.BUSINESS_TERM ? businessTermDiagnostics
 					: agentKnowledgeDiagnostics;
 			switch (category) {
-				case BUSINESS_TERM -> hits.addAll(searchBusinessKnowledge(agentId, vectorQuery, options.topK(),
-						effectiveThreshold));
+				case BUSINESS_TERM ->
+					hits.addAll(searchBusinessKnowledge(agentId, vectorQuery, options.topK(), effectiveThreshold));
 				case AGENT_KNOWLEDGE -> hits.addAll(searchAgentKnowledge(agentId, vectorQuery, options.topK(),
-						effectiveThreshold, options.agentKnowledgeTypes(),
-						options.filterAgentKnowledgeByType()));
+						effectiveThreshold, options.agentKnowledgeTypes(), options.filterAgentKnowledgeByType()));
 			}
 			if (hits.size() == beforeSize && categoryDiagnostics != null && categoryDiagnostics.recallEnabled()
 					&& !categoryDiagnostics.vectorReady()) {
@@ -180,8 +178,8 @@ public class DomainKnowledgeSearchServiceImpl implements DomainKnowledgeSearchSe
 			return new SearchReadiness(false, List.of("当前 Agent 没有启用可召回的 " + knowledgeLabel + " 条目。"));
 		}
 		if (!diagnostics.vectorReady()) {
-			return new SearchReadiness(false,
-					List.of("当前 Agent 已启用 " + knowledgeLabel + " 召回，但向量库中没有可检索文档。请检查 embeddingStatus，必要时执行 retry embedding。"));
+			return new SearchReadiness(false, List
+				.of("当前 Agent 已启用 " + knowledgeLabel + " 召回，但向量库中没有可检索文档。请检查 embeddingStatus，必要时执行 retry embedding。"));
 		}
 		return SearchReadiness.READY;
 	}
@@ -267,7 +265,8 @@ public class DomainKnowledgeSearchServiceImpl implements DomainKnowledgeSearchSe
 
 	private String resolveAgentKnowledgeSnippet(Document document, AgentKnowledge knowledge) {
 		if (knowledge.getType() == KnowledgeType.QA || knowledge.getType() == KnowledgeType.FAQ) {
-			return abbreviate("Q: " + defaultText(knowledge.getQuestion()) + "\nA: " + defaultText(knowledge.getContent()),
+			return abbreviate(
+					"Q: " + defaultText(knowledge.getQuestion()) + "\nA: " + defaultText(knowledge.getContent()),
 					MAX_SNIPPET_LENGTH);
 		}
 		return abbreviate(firstNonBlank(document.getText(), knowledge.getContent(), knowledge.getQuestion()),
