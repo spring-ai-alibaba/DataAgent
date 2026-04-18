@@ -117,5 +117,4 @@ public class AgentScopeToolkitFactory {
 			log.warn("Duplicate Spring AI tool callback detected, keep first one. toolName={}", toolName);
 		}
 	}
-
 }
