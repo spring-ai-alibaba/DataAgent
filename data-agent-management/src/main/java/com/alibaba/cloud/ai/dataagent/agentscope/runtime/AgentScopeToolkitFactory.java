@@ -26,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.stereotype.Component;
 
@@ -39,6 +41,8 @@ public class AgentScopeToolkitFactory {
 	private final GenericApplicationContext applicationContext;
 
 	private final ObjectMapper objectMapper;
+
+	private volatile Map<String, ToolCallback> commonToolCallbacksSnapshot = Collections.emptyMap();
 
 	public Toolkit create(String agentId) {
 		Toolkit toolkit = new Toolkit();
@@ -55,21 +59,45 @@ public class AgentScopeToolkitFactory {
 		return Collections.unmodifiableMap(collectToolCallbacks(agentId));
 	}
 
-	private Map<String, ToolCallback> collectToolCallbacks(String agentId) {
-		Map<String, ToolCallback> callbacks = new LinkedHashMap<>();
+	@EventListener(ApplicationReadyEvent.class)
+	public void warmUpCommonToolCallbacks() {
+		refreshCommonToolCallbacks();
+	}
+
+	public synchronized void refreshCommonToolCallbacks() {
+		Map<String, ToolCallback> snapshot = new LinkedHashMap<>();
 		for (ToolCallback toolCallback : McpServerToolUtil.excludeMcpServerTool(applicationContext,
 				ToolCallback.class)) {
-			register(callbacks, toolCallback);
+			register(snapshot, toolCallback);
 		}
 		for (ToolCallbackProvider provider : McpServerToolUtil.excludeMcpServerTool(applicationContext,
 				ToolCallbackProvider.class)) {
 			for (ToolCallback toolCallback : provider.getToolCallbacks()) {
-				register(callbacks, toolCallback);
+				register(snapshot, toolCallback);
 			}
 		}
+		this.commonToolCallbacksSnapshot = Collections.unmodifiableMap(snapshot);
+		log.debug("Warmed up {} common Spring AI tool callbacks.", snapshot.size());
+	}
+
+	private Map<String, ToolCallback> collectToolCallbacks(String agentId) {
+		Map<String, ToolCallback> callbacks = new LinkedHashMap<>(getCommonToolCallbacks());
 		agentScopedToolCatalogService.getToolCallbacks(agentId)
 			.forEach((toolName, toolCallback) -> register(callbacks, toolName, toolCallback));
 		return callbacks;
+	}
+
+	private Map<String, ToolCallback> getCommonToolCallbacks() {
+		Map<String, ToolCallback> snapshot = this.commonToolCallbacksSnapshot;
+		if (!snapshot.isEmpty()) {
+			return snapshot;
+		}
+		synchronized (this) {
+			if (this.commonToolCallbacksSnapshot.isEmpty()) {
+				refreshCommonToolCallbacks();
+			}
+			return this.commonToolCallbacksSnapshot;
+		}
 	}
 
 	private void register(Map<String, ToolCallback> callbacks, ToolCallback toolCallback) {

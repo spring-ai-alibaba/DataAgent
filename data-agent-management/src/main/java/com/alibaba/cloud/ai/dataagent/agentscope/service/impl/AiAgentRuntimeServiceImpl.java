@@ -245,9 +245,6 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 	}
 
 	private String resolveManagedSystemPrompt(Agent agent, String requestAgentId) {
-		if (agent == null) {
-			return "";
-		}
 		if (agent == null || !StringUtils.hasText(agent.getPrompt())) {
 			log.info("No agent prompt found, keep CommonAgent system prompt empty. agentId={}", requestAgentId);
 			return "";
