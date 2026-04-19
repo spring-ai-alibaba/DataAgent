@@ -36,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -409,8 +410,7 @@ public class SpringAiAgentScopeModel extends ChatModelBase {
 			.map(TextBlock.class::cast)
 			.map(TextBlock::getText)
 			.filter(StringUtils::hasText)
-			.findFirst()
-			.orElse("");
+			.collect(Collectors.joining(System.lineSeparator()));
 	}
 
 	private String resolveChunkToolName(AssistantMessage.ToolCall toolCall) {

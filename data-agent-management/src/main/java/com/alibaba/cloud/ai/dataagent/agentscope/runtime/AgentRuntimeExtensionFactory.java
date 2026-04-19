@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 
@@ -41,8 +42,9 @@ public class AgentRuntimeExtensionFactory {
 
 	private final AgentScopeSkillBoxFactory skillBoxFactory;
 
-	public AgentRuntimeExtensions create(GraphRequest request, @Nullable AgentRuntimeEventPublisher eventPublisher) {
-		Toolkit toolkit = toolkitFactory.create(request.getAgentId());
+	public AgentRuntimeExtensions create(GraphRequest request, @Nullable AgentRuntimeEventPublisher eventPublisher,
+			Map<String, ToolCallback> toolCallbacks) {
+		Toolkit toolkit = toolkitFactory.buildToolkit(toolCallbacks);
 		SkillBox skillBox = skillBoxFactory.create(request.getAgentId(), toolkit);
 		Memory memory = memoryFactory.create(request.getThreadId());
 		AgentRuntimeRequestMetadata requestMetadata = new AgentRuntimeRequestMetadata(request.getAgentId(),

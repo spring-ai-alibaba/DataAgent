@@ -66,9 +66,6 @@ public class DatasourceExplorerService {
 	private static final Pattern FETCH_FIRST_PATTERN = Pattern
 		.compile("(?i)\\bfetch\\s+first\\s+\\d+\\s+rows\\s+only\\b");
 
-	private static final Pattern DANGEROUS_SQL_PATTERN = Pattern
-		.compile("(?i)\\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|merge|call|exec|execute)\\b");
-
 	private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {
 	};
 
@@ -268,15 +265,11 @@ public class DatasourceExplorerService {
 	}
 
 	private String guardReadonlySql(ExplorerContext context, String rawSql, int limit) {
-		String compactSql = rawSql.trim();
-		if (compactSql.contains(";") || compactSql.contains("--") || compactSql.contains("/*")) {
-			throw new IllegalArgumentException("SQL 中不允许出现分号或注释");
+		String compactSql = stripTrailingSemicolons(rawSql);
+		if (compactSql.isEmpty()) {
+			throw new IllegalArgumentException("SQL 不能为空");
 		}
-		Statement statement = parseReadonlySelectStatement(compactSql);
-		String normalized = compactSql.toLowerCase(Locale.ROOT);
-		if (DANGEROUS_SQL_PATTERN.matcher(normalized).find()) {
-			throw new IllegalArgumentException("SQL 包含被禁止的写操作或 DDL 关键字");
-		}
+		Statement statement = parseSingleSelectStatement(compactSql);
 		Set<String> referencedTables = extractReferencedTables(statement);
 		if (!referencedTables.isEmpty()) {
 			List<String> forbiddenTables = referencedTables.stream()
@@ -292,25 +285,38 @@ public class DatasourceExplorerService {
 		return wrapLimitSql(context.dbConfig().getDialectType(), compactSql, limit);
 	}
 
+	private String stripTrailingSemicolons(String sql) {
+		String trimmed = StringUtils.trimToEmpty(sql);
+		while (trimmed.endsWith(";")) {
+			trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
+		}
+		return trimmed;
+	}
+
 	private boolean hasLimit(String sql) {
 		return LIMIT_PATTERN.matcher(sql).find() || TOP_PATTERN.matcher(sql).find()
 				|| FETCH_FIRST_PATTERN.matcher(sql).find();
 	}
 
-	private Statement parseReadonlySelectStatement(String sql) {
+	private Statement parseSingleSelectStatement(String sql) {
+		List<Statement> statements;
 		try {
-			Statement statement = CCJSqlParserUtil.parse(sql);
-			if (!(statement instanceof Select)) {
-				throw new IllegalArgumentException("只允许执行 SELECT / WITH 查询");
-			}
-			return statement;
-		}
-		catch (IllegalArgumentException ex) {
-			throw ex;
+			statements = CCJSqlParserUtil.parseStatements(sql).getStatements();
 		}
 		catch (Exception ex) {
 			throw new IllegalArgumentException("SQL 解析失败，请检查语法后重试", ex);
 		}
+		if (statements == null || statements.isEmpty()) {
+			throw new IllegalArgumentException("SQL 不能为空");
+		}
+		if (statements.size() > 1) {
+			throw new IllegalArgumentException("仅允许执行单条 SELECT / WITH 查询，请勿拼接多条语句");
+		}
+		Statement statement = statements.get(0);
+		if (!(statement instanceof Select)) {
+			throw new IllegalArgumentException("只允许执行 SELECT / WITH 查询");
+		}
+		return statement;
 	}
 
 	private Set<String> extractReferencedTables(Statement statement) {

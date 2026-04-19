@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.template;
 
+import com.alibaba.cloud.ai.dataagent.constant.AgentRuntimeConstant;
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.hook.Hook;
 import io.agentscope.core.message.Msg;
@@ -30,8 +31,6 @@ import org.springframework.util.StringUtils;
 public class CommonAgent implements ManagedAgent {
 
 	public static final String AGENT_TYPE = "commonagent";
-
-	private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(120);
 
 	private static final int DEFAULT_MAX_ITERS = 10;
 
@@ -105,7 +104,7 @@ public class CommonAgent implements ManagedAgent {
 	}
 
 	private Duration resolveTimeout(Duration timeout) {
-		return timeout == null ? DEFAULT_TIMEOUT : timeout;
+		return timeout == null ? AgentRuntimeConstant.AGENT_CALL_TIMEOUT : timeout;
 	}
 
 }

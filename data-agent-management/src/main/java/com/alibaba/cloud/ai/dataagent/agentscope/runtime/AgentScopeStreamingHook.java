@@ -27,6 +27,7 @@ import io.agentscope.core.message.ContentBlock;
 import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.message.ToolResultBlock;
 import java.util.List;
+import java.util.stream.Collectors;
 import reactor.core.publisher.Mono;
 
 public class AgentScopeStreamingHook implements Hook {
@@ -105,8 +106,7 @@ public class AgentScopeStreamingHook implements Hook {
 			.map(TextBlock.class::cast)
 			.map(TextBlock::getText)
 			.filter(text -> text != null && !text.isBlank())
-			.findFirst()
-			.orElse("");
+			.collect(Collectors.joining(System.lineSeparator()));
 	}
 
 }

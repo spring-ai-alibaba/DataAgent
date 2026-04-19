@@ -45,13 +45,18 @@ public class AgentScopeToolkitFactory {
 	private volatile Map<String, ToolCallback> commonToolCallbacksSnapshot = Collections.emptyMap();
 
 	public Toolkit create(String agentId) {
+		return buildToolkit(getToolCallbacks(agentId));
+	}
+
+	public Toolkit buildToolkit(Map<String, ToolCallback> toolCallbacks) {
 		Toolkit toolkit = new Toolkit();
-		Map<String, ToolCallback> toolCallbacks = getToolCallbacks(agentId);
+		if (toolCallbacks == null || toolCallbacks.isEmpty()) {
+			return toolkit;
+		}
 		toolCallbacks.values()
 			.forEach(toolCallback -> toolkit
 				.registerAgentTool(new SpringToolCallbackAgentAdapter(toolCallback, objectMapper)));
-		log.debug("Mapped {} Spring AI tool callbacks into AgentScope toolkit, agentId={}", toolCallbacks.size(),
-				agentId);
+		log.debug("Mapped {} Spring AI tool callbacks into AgentScope toolkit", toolCallbacks.size());
 		return toolkit;
 	}
 

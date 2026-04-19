@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.agentscope.service.impl;
 import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentRuntimeEventPublisher;
 import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentRuntimeExtensionFactory;
+import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentScopeToolkitFactory;
 import com.alibaba.cloud.ai.dataagent.agentscope.service.AgentScopeModelFactory;
 import com.alibaba.cloud.ai.dataagent.agentscope.service.GraphService;
 import com.alibaba.cloud.ai.dataagent.agentscope.session.AgentSessionRegistry;
@@ -26,6 +27,7 @@ import com.alibaba.cloud.ai.dataagent.agentscope.template.AgentRuntimeExtensions
 import com.alibaba.cloud.ai.dataagent.agentscope.template.ManagedAgent;
 import com.alibaba.cloud.ai.dataagent.agentscope.template.ManagedAgentRegistry;
 import com.alibaba.cloud.ai.dataagent.agentscope.vo.GraphNodeResponse;
+import com.alibaba.cloud.ai.dataagent.constant.AgentRuntimeConstant;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
@@ -35,11 +37,13 @@ import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.DynamicModelFactory;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigDataService;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.model.Model;
-import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -60,8 +64,6 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 
 	private static final String STREAM_EVENT_MESSAGE = "message";
 
-	private static final Duration AGENT_CALL_TIMEOUT = Duration.ofSeconds(120);
-
 	private static final String AGENT_STATUS_PUBLISHED = "published";
 
 	private static final String AGENT_STATUS_OFFLINE = "offline";
@@ -73,6 +75,8 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 	private final DynamicModelFactory dynamicModelFactory;
 
 	private final AgentScopeModelFactory agentScopeModelFactory;
+
+	private final AgentScopeToolkitFactory agentScopeToolkitFactory;
 
 	private final ManagedAgentRegistry managedAgentRegistry;
 
@@ -131,8 +135,7 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		if (!sessionRegistry.isActive(threadId, runtimeRequestId)) {
 			return;
 		}
-		String latestStreamText = streamTextTracker.getLatestText();
-		if (shouldEmitFinalResponse(result, latestStreamText)) {
+		if (shouldEmitFinalResponse(result, streamTextTracker)) {
 			GraphNodeResponse response = GraphNodeResponse.builder()
 				.agentId(request.getAgentId())
 				.threadId(threadId)
@@ -148,8 +151,8 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		sink.tryEmitComplete();
 	}
 
-	private boolean shouldEmitFinalResponse(String result, String latestStreamText) {
-		return StringUtils.hasText(result) && !result.equals(latestStreamText);
+	private boolean shouldEmitFinalResponse(String result, StreamTextTracker streamTextTracker) {
+		return StringUtils.hasText(result) && !streamTextTracker.matchesAnyNodeAccumulation(result);
 	}
 
 	private void emitError(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest request, Throwable error) {
@@ -192,15 +195,17 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 			Agent managedAgentConfig = resolveManagedAgent(request.getAgentId());
 			ModelConfigDTO modelConfig = modelConfigDataService.getActiveConfigByType(ModelType.CHAT);
 			validateModelConfig(modelConfig);
+			Map<String, ToolCallback> toolCallbacks = agentScopeToolkitFactory.getToolCallbacks(request.getAgentId());
 			Model model = agentScopeModelFactory.create(dynamicModelFactory.createChatModel(modelConfig),
-					modelConfig.getModelName(), request.getAgentId());
+					modelConfig.getModelName(), toolCallbacks);
 			ManagedAgent managedAgent = managedAgentRegistry.getRequired();
-			AgentRuntimeExtensions runtimeExtensions = agentRuntimeExtensionFactory.create(request, eventPublisher);
+			AgentRuntimeExtensions runtimeExtensions = agentRuntimeExtensionFactory.create(request, eventPublisher,
+					toolCallbacks);
 			Msg response;
 			try {
 				response = managedAgent.run(new AgentRunContext(request.getAgentId(), request.getThreadId(), model,
 						resolveManagedSystemPrompt(managedAgentConfig, request.getAgentId()), buildUserPrompt(request),
-						AGENT_CALL_TIMEOUT, runtimeExtensions));
+						AgentRuntimeConstant.AGENT_CALL_TIMEOUT, runtimeExtensions));
 			}
 			catch (RuntimeException ex) {
 				if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())
@@ -308,24 +313,25 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 
 	private static final class StreamTextTracker {
 
-		private String currentNodeName;
-
-		private String latestText;
+		private final Map<String, StringBuilder> accumulatedByNode = new LinkedHashMap<>();
 
 		synchronized void record(String nodeName, String text) {
 			if (!StringUtils.hasText(text)) {
 				return;
 			}
-			if (currentNodeName != null && currentNodeName.equals(nodeName)) {
-				latestText = latestText == null ? text : latestText + text;
-				return;
-			}
-			currentNodeName = nodeName;
-			latestText = text;
+			accumulatedByNode.computeIfAbsent(nodeName, key -> new StringBuilder()).append(text);
 		}
 
-		synchronized String getLatestText() {
-			return latestText;
+		synchronized boolean matchesAnyNodeAccumulation(String candidate) {
+			if (!StringUtils.hasText(candidate)) {
+				return false;
+			}
+			for (StringBuilder accumulated : accumulatedByNode.values()) {
+				if (candidate.equals(accumulated.toString())) {
+					return true;
+				}
+			}
+			return false;
 		}
 
 	}
