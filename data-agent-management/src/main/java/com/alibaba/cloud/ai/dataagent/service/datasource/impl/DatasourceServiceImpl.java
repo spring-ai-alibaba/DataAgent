@@ -176,6 +176,12 @@ public class DatasourceServiceImpl implements DatasourceService {
 	 * Actual connection test method
 	 */
 	private boolean realConnectionTest(Datasource datasource) {
+		// Validate password is not empty
+		if (datasource.getPassword() == null || datasource.getPassword().trim().isEmpty()) {
+			log.error("Password is empty for datasource: {}", datasource.getName());
+			return false;
+		}
+
 		// Convert Datasource to DbConfig
 		DbConfigBO config = new DbConfigBO();
 		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
