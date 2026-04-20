@@ -16,6 +16,18 @@
 
 // 路由模块化配置
 const routes = [
+  // 登录页面
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/Login.vue'),
+    meta: {
+      title: '登录',
+      module: 'auth',
+      public: true,
+    },
+  },
+
   // 首页重定向
   {
     path: '/',
@@ -30,6 +42,7 @@ const routes = [
     meta: {
       title: '智能体列表',
       module: 'agent',
+      requiresAuth: true,
     },
   },
   {
@@ -39,6 +52,7 @@ const routes = [
     meta: {
       title: '创建智能体',
       module: 'agent',
+      requiresAuth: true,
     },
   },
   {
@@ -48,6 +62,7 @@ const routes = [
     meta: {
       title: '智能体详情',
       module: 'agent',
+      requiresAuth: true,
     },
   },
 
@@ -58,6 +73,7 @@ const routes = [
     meta: {
       title: '运行智能体',
       module: 'agent',
+      requiresAuth: true,
     },
   },
 
@@ -69,6 +85,7 @@ const routes = [
     meta: {
       title: '模型配置',
       module: 'config',
+      requiresAuth: true,
     },
   },
 
@@ -80,6 +97,7 @@ const routes = [
     meta: {
       title: '页面未找到',
       module: 'error',
+      public: true,
     },
   },
 ];
