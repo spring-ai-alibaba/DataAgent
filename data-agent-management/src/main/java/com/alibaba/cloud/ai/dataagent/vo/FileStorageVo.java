@@ -13,16 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.exception;
+package com.alibaba.cloud.ai.dataagent.vo;
 
-public class InternalServerException extends RuntimeException {
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-	public InternalServerException(String message) {
-		super(message);
-	}
+/**
+ * 通用上传响应实体。
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class FileStorageVo {
 
-	public InternalServerException(String message, Throwable cause) {
-		super(message, cause);
-	}
+	private Long id;
+
+	private String url;
+
+	private String filePath;
+
+	private String filename;
 
 }

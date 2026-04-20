@@ -15,85 +15,50 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.file.impls;
 
+import com.alibaba.cloud.ai.dataagent.entity.FileStorage;
+import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
-import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
+import com.alibaba.cloud.ai.dataagent.service.file.FileStorageProvider;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.codec.multipart.FilePart;
-import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 @Slf4j
 @AllArgsConstructor
-public class LocalFileStorageServiceImpl implements FileStorageService {
+public class LocalFileStorageProviderImpl implements FileStorageProvider {
 
 	private final FileStorageProperties fileStorageProperties;
 
 	@Override
-	public Mono<String> storeFile(FilePart filePart, String subPath) {
-		String originalFilename = filePart.filename();
-		String extension = "";
-		if (originalFilename.contains(".")) {
-			extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-		}
-		String filename = UUID.randomUUID() + extension;
-
-		String storagePath = buildStoragePath(subPath, filename);
-
-		Path filePath = fileStorageProperties.getLocalBasePath().resolve(storagePath);
-
-		checkPathSecurity(filePath);
-
+	public Mono<FileStorage> storeFile(FilePart file, FileStorage fileStorage) {
 		return Mono.fromCallable(() -> {
-			Path uploadDir = filePath.getParent();
+			// 1. 执行所有同步/阻塞的 IO 操作
+			Path storagePath = fileStorageProperties.getLocalBasePath().resolve(fileStorage.getFilePath());
+
+			checkPathSecurity(storagePath);
+
+			Path uploadDir = storagePath.getParent();
 			if (!Files.exists(uploadDir)) {
 				Files.createDirectories(uploadDir);
 			}
-			return filePath;
-		}).subscribeOn(Schedulers.boundedElastic()).flatMap(filePart::transferTo).then(Mono.fromCallable(() -> {
-			log.info("文件存储成功: {}", storagePath);
-			return storagePath;
-		}));
-	}
-
-	@Override
-	public String storeFile(MultipartFile file, String subPath) {
-		try {
-			String originalFilename = file.getOriginalFilename();
-			String extension = "";
-			if (originalFilename != null && originalFilename.contains(".")) {
-				extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-			}
-			String filename = UUID.randomUUID() + extension;
-
-			String storagePath = buildStoragePath(subPath, filename);
-
-			Path filePath = fileStorageProperties.getLocalBasePath().resolve(storagePath);
-
-			checkPathSecurity(filePath);
-
-			Path uploadDir = filePath.getParent();
-			if (!Files.exists(uploadDir)) {
-				Files.createDirectories(uploadDir);
-			}
-			Files.copy(file.getInputStream(), filePath);
-
-			log.info("文件存储成功: {}", storagePath);
-			return storagePath;
-
-		}
-		catch (IOException e) {
-			log.error("文件存储失败", e);
-			throw new RuntimeException("文件存储失败: " + e.getMessage(), e);
-		}
+			return storagePath; // 返回计算结果给下一步
+		})
+			// 2. 关键：切换到 boundedElastic 线程池，避免阻塞 I/O 线程
+			.subscribeOn(Schedulers.boundedElastic())
+			// 3. 执行响应式文件传输（file.transferTo 返回 Mono<Void>）
+			.flatMap(storagePath -> file.transferTo(storagePath).thenReturn(fileStorage))
+			// 4. 成功日志（可选）
+			.doOnSuccess(stored -> log.info("文件存储成功: {}", stored))
+			// 5. 响应式错误处理
+			.doOnError(e -> log.error("文件存储失败", e))
+			.onErrorMap(IOException.class, e -> new InternalServerException("文件存储失败: " + e.getMessage(), e));
 	}
 
 	@Override
@@ -144,25 +109,6 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 		if (!filePath.normalize().startsWith(fileStorageProperties.getLocalBasePath())) {
 			throw new SecurityException("Invalid file path");
 		}
-	}
-
-	/**
-	 * 构建本地存储路径
-	 */
-	private String buildStoragePath(String subPath, String filename) {
-		StringBuilder pathBuilder = new StringBuilder();
-
-		if (StringUtils.hasText(fileStorageProperties.getPathPrefix())) {
-			pathBuilder.append(fileStorageProperties.getPathPrefix()).append("/");
-		}
-
-		if (StringUtils.hasText(subPath)) {
-			pathBuilder.append(subPath).append("/");
-		}
-
-		pathBuilder.append(filename);
-
-		return pathBuilder.toString();
 	}
 
 }

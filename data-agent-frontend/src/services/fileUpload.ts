@@ -13,40 +13,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import axios from 'axios';
+import { ApiResponse } from '@/services/common.ts';
 
 /**
  * 业务API服务
  * 封装所有业务相关的API调用
  */
 
-interface UploadResponse {
-  success: boolean;
-  message?: string;
-  url?: string;
+interface FileStorage {
+  id: number;
+  filePath?: string;
+  url: string;
+  filename?: string;
 }
+
+export type FileUploadResult = ApiResponse<FileStorage>;
 
 // 文件上传API
 export const fileUploadApi = {
   // 上传头像
-  uploadAvatar(file: File): Promise<UploadResponse> {
+  async uploadAvatar(file: File): Promise<FileStorage | null> {
     const formData = new FormData();
     formData.append('file', file);
-
     const url = '/api/upload/avatar';
-    return fetch(url, {
-      method: 'POST',
-      body: formData,
-    }).then(async response => {
-      if (!response.ok) {
-        const text = await response.text().catch(() => '');
-        throw new Error(`Upload failed: ${response.status} ${text}`);
+    try {
+      const response = await axios.post<FileUploadResult>(url, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      if (response.data.success) {
+        return response.data.data ?? null;
       }
-      const ct = response.headers.get('content-type') || '';
-      if (ct.includes('application/json')) {
-        return await response.json();
+      throw new Error(response.data.message);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return null;
       }
-      const text = await response.text();
-      return { success: true, message: 'ok', url: text };
-    });
+      throw error;
+    }
   },
 };

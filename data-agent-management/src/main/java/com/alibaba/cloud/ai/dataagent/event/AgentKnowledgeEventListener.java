@@ -15,18 +15,17 @@
  */
 package com.alibaba.cloud.ai.dataagent.event;
 
-import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
 import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
+import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeResourceManager;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-
-import java.time.LocalDateTime;
 
 @Component
 @Slf4j
@@ -58,7 +57,7 @@ public class AgentKnowledgeEventListener {
 			updateStatus(knowledge, EmbeddingStatus.PROCESSING, null);
 
 			// 3. 执行核心向量化逻辑
-			agentKnowledgeResourceManager.doEmbedingToVectorStore(knowledge);
+			agentKnowledgeResourceManager.doEmbeddingToVectorStore(knowledge);
 
 			// 4. 更新状态为 COMPLETED
 			updateStatus(knowledge, EmbeddingStatus.COMPLETED, null);
