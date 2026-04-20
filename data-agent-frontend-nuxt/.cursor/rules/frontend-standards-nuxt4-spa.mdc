@@ -1,0 +1,92 @@
+---
+alwaysApply: true
+---
+# DataAgent（Nuxt 4 SPA + TypeScript + Vuetify 3）开发法则
+
+## 0. 关键上下文（最高优先级）
+- 框架：Nuxt 4（Nitro），项目以 **纯 SPA 模式** 运行（`ssr: false`）。
+- 包管理器：只能使用 `pnpm`。
+- 语言：TypeScript（建议严格模式思维），**禁止**引入或使用 `.js` 新文件。
+- UI：Vuetify 3（MDI 图标使用 `mdi-*` 字符串形式，优先 `<v-icon icon="mdi-xxx" />`）。
+- 请求：服务层统一放在 `app/services/`，并以该仓库现有习惯为准（本项目当前广泛使用 `axios`；如有冲突以现有服务实现风格为准）。
+- HTML 安全：任何 `v-html` 展示都需先经过 `DOMPurify`（或明确来自已处理的安全渲染函数）。
+
+## 1. 知识检索协议（在“写代码/改代码”之前必须做）
+1. **框架层优先级**：涉及 Nuxt 核心（route、plugin、composable、Nitro 等）优先参考 Nuxt 官方文档与仓库内现有实现模式。
+2. **本地上下文**：修改或新增组件/模块前，先检查目标目录下是否存在自动生成的 `README.md`（技能卡/上下文卡片）。
+3. **查重机制（Exist before Create）**：如果仓库已有类似实现（组件、工具函数、composable、utils），优先复用与小幅改造，而不是复制新代码。
+4. **类型优先**：优先引用现有 `types/` 或同级 `.ts` 定义；避免凭空猜测数据结构。
+
+## 2. 编码规范（Coding Standards）
+### 2.1 TypeScript 约束
+- 所有变量/参数/返回值尽量显式类型（至少保证关键边界类型安全）。
+- 禁止使用 `any`；需要时使用合理联合类型/泛型/类型守卫（type guards）。
+- 避免“看起来已经判断过”的可空值类型仍被 TS 推断为 `T | undefined`：用局部变量收窄（例如 `const x = arr[0]; if (!x) return; ...`）或非空断言（仅在确认绝对安全时使用）。
+
+### 2.2 Vue / Nuxt 写法
+- 使用 `<script setup lang="ts">`（保持组合式 API 风格）。
+- 组件内部函数命名统一采用 `onXxx` / `handleXxx` / `getXxx` / `renderXxx` 等语义风格（与当前代码风格一致）。
+- 需要在模板中判断复杂逻辑时，优先提取成 `computed` / `function`，不要在模板里写超长表达式。
+- 涉及页面显隐、大块内容切换时，添加适当过渡（例如 `<v-fade-transition>` / `<v-expand-transition>` 或 `<transition>`）。
+- Nuxt 自动导入规则：Nuxt 及本项目配置会自动导入 Nuxt 组件、Vue 的常用响应式 API（如 `ref` / `computed` / `watch`）以及常用 composable；**无需手动 import 这些值**。仅当你要导入 **TypeScript 类型**（`type`）时，才需要 `import type`。
+
+### 2.3 模板规范（Vue 模板）
+- 属性顺序：`class` -> 其他属性 -> `v-if` -> 事件绑定（如 `@click`）。
+- 插槽：统一使用 `#slotName` 简写（禁止 `v-slot:`）。
+
+### 2.4 样式规范
+- `style` 默认使用 `scoped`。
+- 深层样式使用 `:deep(...)`，并控制在必要范围内，避免全局污染。
+
+## 3. 复用与重构策略（Reuse & Refactor）
+- DRY 原则：禁止无意义重复工具函数/极其相似的 UI 组件。
+- 多态扩展：优先通过可选参数、回调策略、泛型来扩展既有逻辑。
+- 兼容性：重构必须保证向后兼容；如果需要改变函数签名，改为可选参数而非修改必填参数。
+- 性能：在流式（SSE/逐字/逐块）场景，优先使用 `requestAnimationFrame` / 防抖节流 / 合并渲染更新，避免每个 SSE 消息都触发重渲染风暴。
+
+## 4. 组件 / 模块目录结构规范（必须遵守）
+> 目标：让“查找”和“复用”成本最低，同时保证服务层/组件层边界清晰。
+
+### 4.1 建议的目录结构（通用标准）
+```
+app/
+  components/
+    common/
+      <CommonComponent>/
+        index.vue
+        types.ts              (可选)
+        styles.scss           (可选)
+        README.md             (自动生成/不手改)
+    <feature>/
+      <ComponentName>.vue
+      <ComponentName>/
+        index.vue             (当组件较复杂时建议用文件夹承载)
+        types.ts              (可选)
+        utils.ts              (可选)
+  composables/
+    <feature>/
+      useXxx.ts
+  services/
+    <domain>/
+      index.ts
+      (其它模块按需拆分，但服务入口尽量保留 index.ts)
+  utils/
+    <domain>/
+      xxx.ts
+```
+
+### 4.2 组件组织规则（必须满足）
+- 如果组件复杂度较低：直接在 `app/components/<feature>/` 下放置单文件 `ComponentName.vue`。
+- 如果组件复杂度较高（包含多个逻辑分支/多块状态/对接多个子渲染器）：优先使用文件夹承载（`ComponentName/`），在其中提供 `index.vue`，并按需拆 `types.ts` / `utils.ts`。
+- 公共组件优先放在 `app/components/common/`。
+- 不要为每次需求重复造“只差一点点”的新组件；先复用或抽取差异点。
+
+### 4.3 模块边界规则（必须满足）
+- UI：只做渲染与交互，业务请求与数据获取放到 `app/services/`。
+- 服务层：只负责调用与数据转换，不直接耦合 UI。
+- utils/composables：用于纯逻辑/可复用状态与渲染辅助（例如 Markdown/ECharts 渲染器、SSE 解析等）。
+
+## 5. 协作协议（提交质量）
+- 禁止手动修改仓库中由自动脚本生成的 `README.md`（如不确定是否可改，先询问或保持不改）。
+- 提交前必须确认：TypeScript 无错误；同时页面不会引入明显运行时异常（尤其是 SSE 流式、v-html 渲染、iframe src/Blob URL 等路径）。
+

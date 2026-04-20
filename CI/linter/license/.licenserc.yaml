@@ -84,4 +84,5 @@ header:
     - 'CI/linter/codespell/.codespell.skip'
     - 'mvnw'
     - 'mvnw.cmd'
+    - '**/*.mdc'
   comment: never

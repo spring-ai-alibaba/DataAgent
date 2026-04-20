@@ -1,0 +1,42 @@
+{
+  "name": "data-agent-frontend-nuxt",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "gen:ctx": "node scripts/gen-ai-context.mjs"
+  },
+  "dependencies": {
+    "@nuxt/eslint": "^1.13.0",
+    "@pinia/nuxt": "0.11.3",
+    "axios": "^1.13.4",
+    "dompurify": "^3.3.3",
+    "echarts": "^6.0.0",
+    "eslint": "^9.39.2",
+    "highlight.js": "^11.11.1",
+    "markdown-it": "^14.1.1",
+    "markdown-it-container": "^4.0.0",
+    "nuxt": "^4.3.0",
+    "pinia": "^3.0.4",
+    "prettier": "^3.8.1",
+    "sass": "^1.97.3",
+    "vue": "^3.5.27",
+    "vue-router": "^4.6.4",
+    "vuetify": "^3.11.8",
+    "vuetify-nuxt-module": "0.19.5"
+  },
+  "devDependencies": {
+    "@types/dompurify": "^3.2.0",
+    "@types/markdown-it": "^14.1.2",
+    "@types/markdown-it-container": "^4.0.0",
+    "crypto": "^1.0.1",
+    "globby": "^16.1.0",
+    "ts-morph": "^27.0.2",
+    "typescript": "^5.9.3",
+    "vue-docgen-api": "^4.79.2"
+  }
+}

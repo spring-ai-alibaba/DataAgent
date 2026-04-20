@@ -1,0 +1,90 @@
+/*
+ * Copyright 2026 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* 页面淡入淡出且轻微位移 */
+.page-enter-active,
+.page-leave-active {
+	transition: all 0.3s ease;
+}
+
+.page-enter-from {
+	opacity: 0;
+	transform: translateY(10px); /* 从下方一点点浮现 */
+}
+
+.page-leave-to {
+	opacity: 0;
+	transform: translateY(-10px); /* 向上方一点点消失 */
+}
+
+/* ── 公共页面样式 ──────────────────────────────────────────────────────────── */
+
+.page-shell {
+	padding: 32px;
+}
+
+.search-field .v-field__outline {
+	--v-field-border-color: #e2e8f0;
+}
+
+.custom-label {
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: #64748b;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	margin-bottom: 6px;
+	display: block;
+}
+
+.breathing-dot {
+	width: 8px;
+	height: 8px;
+	background-color: #10b981;
+	border-radius: 50%;
+	margin-right: 6px;
+	display: inline-block;
+	animation: breathe 2s infinite ease-in-out;
+}
+
+.breathing-dot-green {
+	width: 8px;
+	height: 8px;
+	background-color: #10b981;
+	border-radius: 50%;
+	margin-right: 8px;
+	display: inline-block;
+	box-shadow: 0 0 0 rgba(16, 185, 129, 0.4);
+	animation: breathe 2s infinite ease-in-out;
+}
+
+@keyframes breathe {
+	0% {
+		transform: scale(0.9);
+		opacity: 0.7;
+		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+	}
+	50% {
+		transform: scale(1.1);
+		opacity: 1;
+		box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+	}
+	100% {
+		transform: scale(0.9);
+		opacity: 0.7;
+		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+	}
+}
