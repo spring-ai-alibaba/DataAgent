@@ -55,6 +55,8 @@ public class Datasource {
 
 	private String testStatus;
 
+	private String schemas;
+
 	private String description;
 
 	private Long creatorId;

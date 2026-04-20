@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -63,7 +64,7 @@ public class TableMetadataService {
 				tableColumnsMap);
 
 		// 3. 处理每个表的元数据
-		enrichTablesWithMetadata(tables, tableColumnsMap, allTablesSampleData, foreignKeyMap);
+		enrichTablesWithMetadata(tables, tableColumnsMap, allTablesSampleData, foreignKeyMap, dbConfig.getSchema());
 	}
 
 	/**
@@ -97,7 +98,8 @@ public class TableMetadataService {
 	 * @param foreignKeyMap 外键映射
 	 */
 	private void enrichTablesWithMetadata(List<TableInfoBO> tables, Map<String, List<ColumnInfoBO>> tableColumnsMap,
-			Map<String, Map<String, List<String>>> allTablesSampleData, Map<String, List<String>> foreignKeyMap) {
+			Map<String, Map<String, List<String>>> allTablesSampleData, Map<String, List<String>> foreignKeyMap,
+			String schemaName) {
 
 		for (TableInfoBO table : tables) {
 			List<ColumnInfoBO> columnInfoBOS = tableColumnsMap.get(table.getName());
@@ -111,7 +113,7 @@ public class TableMetadataService {
 			setTablePrimaryKeys(table, columnInfoBOS);
 
 			// 设置表的外键信息
-			setTableForeignKeys(table, foreignKeyMap);
+			setTableForeignKeys(table, foreignKeyMap, schemaName);
 		}
 	}
 
@@ -177,8 +179,19 @@ public class TableMetadataService {
 	 * @param table 表信息
 	 * @param foreignKeyMap 外键映射
 	 */
-	private void setTableForeignKeys(TableInfoBO table, Map<String, List<String>> foreignKeyMap) {
-		List<String> foreignKeys = foreignKeyMap.getOrDefault(table.getName(), new ArrayList<>());
+	private void setTableForeignKeys(TableInfoBO table, Map<String, List<String>> foreignKeyMap, String schemaName) {
+		// foreignKeyMap 在 SchemaServiceImpl 中通常使用 schema.table 作为 key，这里需要对齐查询口径
+		String rawTableName = table.getName();
+		List<String> foreignKeys = new ArrayList<>();
+		if (foreignKeyMap != null) {
+			if (StringUtils.isNotBlank(schemaName)) {
+				foreignKeys = foreignKeyMap.getOrDefault(schemaName + "." + rawTableName,
+						foreignKeyMap.getOrDefault(rawTableName, new ArrayList<>()));
+			}
+			else {
+				foreignKeys = foreignKeyMap.getOrDefault(rawTableName, new ArrayList<>());
+			}
+		}
 		table.setForeignKey(String.join("、", foreignKeys));
 	}
 

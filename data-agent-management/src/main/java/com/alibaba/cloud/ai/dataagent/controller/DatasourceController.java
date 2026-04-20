@@ -119,6 +119,17 @@ public class DatasourceController {
 		}
 	}
 
+	@GetMapping("/{id}/all-tables")
+	public List<String> getAllDatasourceTables(@PathVariable Integer id) {
+		checkDatasourceExists(id);
+		try {
+			return datasourceService.getAllSchemasTables(id);
+		}
+		catch (Exception e) {
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+		}
+	}
+
 	/**
 	 * Create data source
 	 */
