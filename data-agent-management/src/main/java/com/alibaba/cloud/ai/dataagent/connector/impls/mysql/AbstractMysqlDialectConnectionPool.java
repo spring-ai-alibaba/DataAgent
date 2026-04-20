@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.connector.impls.dameng;
+package com.alibaba.cloud.ai.dataagent.connector.impls.mysql;
 
 import com.alibaba.cloud.ai.dataagent.connector.pool.AbstractDBConnectionPool;
-import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
-import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
+import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.DATABASE_NOT_EXIST_3D000;
 import static com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum.OTHERS;
 
-@Service("damengJdbcConnectionPool")
-public class DamengJdbcConnectionPool extends AbstractDBConnectionPool {
+@Slf4j
+public abstract class AbstractMysqlDialectConnectionPool extends AbstractDBConnectionPool {
 
-	private static final String DRIVER = "dm.jdbc.driver.DmDriver";
+	private static final String DRIVER = "com.mysql.cj.jdbc.Driver";
 
 	@Override
 	public String getDriver() {
@@ -34,26 +34,26 @@ public class DamengJdbcConnectionPool extends AbstractDBConnectionPool {
 
 	@Override
 	public ErrorCodeEnum errorMapping(String sqlState) {
+		if (sqlState == null) {
+			return OTHERS;
+		}
+
 		ErrorCodeEnum ret = ErrorCodeEnum.fromCode(sqlState);
-		if (ret != null && ret != OTHERS) {
+		if (ret != OTHERS) {
 			return ret;
 		}
-		return OTHERS;
+
+		switch (sqlState) {
+			case "3F000":
+				return DATABASE_NOT_EXIST_3D000;
+			default:
+				return OTHERS;
+		}
 	}
 
 	@Override
 	protected boolean useWallFilter() {
 		return false;
-	}
-
-	@Override
-	public boolean supportedDataSourceType(String type) {
-		return BizDataSourceTypeEnum.DAMENG.getTypeName().equals(type);
-	}
-
-	@Override
-	public String getConnectionPoolType() {
-		return BizDataSourceTypeEnum.DAMENG.getTypeName();
 	}
 
 }
