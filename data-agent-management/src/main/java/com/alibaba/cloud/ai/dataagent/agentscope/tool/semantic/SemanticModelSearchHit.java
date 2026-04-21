@@ -13,27 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.dto.prompt;
+package com.alibaba.cloud.ai.dataagent.agentscope.tool.semantic;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
-@AllArgsConstructor
-@Builder
 @Data
-public class SemanticConsistencyDTO {
+@Builder
+public class SemanticModelSearchHit {
 
-	private String dialect;
+	private String tableName;
 
-	private String sql;
+	private String columnName;
 
-	private String executionDescription;
+	private String businessName;
 
-	private String schemaInfo;
+	private String businessDescription;
 
-	private String userQuery;
+	private String synonyms;
 
-	private String evidence;
+	private String columnComment;
+
+	private String dataType;
+
+	private String relationHint;
+
+	private String matchedBy;
 
 }

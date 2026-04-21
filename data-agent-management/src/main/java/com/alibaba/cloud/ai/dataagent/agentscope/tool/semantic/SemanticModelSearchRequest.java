@@ -13,30 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.dto.prompt;
+package com.alibaba.cloud.ai.dataagent.agentscope.tool.semantic;
 
-import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import java.util.List;
 import lombok.Data;
 
-@AllArgsConstructor
-@Builder
 @Data
-public class SqlGenerationDTO {
-
-	private String evidence;
+public class SemanticModelSearchRequest {
 
 	private String query;
 
-	private SchemaDTO schemaDTO;
-
-	private String sql;
-
-	private String exceptionMessage;
-
-	private String executionDescription;
-
-	private String dialect;
+	private List<String> tableNames;
 
 }

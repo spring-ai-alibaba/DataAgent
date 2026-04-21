@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.agentscope.template;
 
 import com.alibaba.cloud.ai.dataagent.constant.AgentRuntimeConstant;
+import com.alibaba.cloud.ai.dataagent.prompt.PromptLoader;
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.hook.Hook;
 import io.agentscope.core.message.Msg;
@@ -31,6 +32,8 @@ import org.springframework.util.StringUtils;
 public class CommonAgent implements ManagedAgent {
 
 	public static final String AGENT_TYPE = "commonagent";
+
+	private static final String SYSTEM_PROMPT = PromptLoader.loadPrompt(AGENT_TYPE, "md");
 
 	private static final int DEFAULT_MAX_ITERS = 10;
 
@@ -88,7 +91,7 @@ public class CommonAgent implements ManagedAgent {
 	}
 
 	private String defaultSystemPrompt(String systemPrompt, String skillInstructions) {
-		String basePrompt = StringUtils.hasText(systemPrompt) ? systemPrompt.trim() : "";
+		String basePrompt = mergePrompt(SYSTEM_PROMPT, systemPrompt);
 		String runtimeSkillPrompt = StringUtils.hasText(skillInstructions) ? skillInstructions.trim() : "";
 		if (!StringUtils.hasText(basePrompt)) {
 			return runtimeSkillPrompt;
@@ -97,6 +100,18 @@ public class CommonAgent implements ManagedAgent {
 			return basePrompt;
 		}
 		return basePrompt + System.lineSeparator() + System.lineSeparator() + runtimeSkillPrompt;
+	}
+
+	private String mergePrompt(String fixedPrompt, String customPrompt) {
+		String left = StringUtils.hasText(fixedPrompt) ? fixedPrompt.trim() : "";
+		String right = StringUtils.hasText(customPrompt) ? customPrompt.trim() : "";
+		if (!StringUtils.hasText(left)) {
+			return right;
+		}
+		if (!StringUtils.hasText(right)) {
+			return left;
+		}
+		return left + System.lineSeparator() + System.lineSeparator() + right;
 	}
 
 	private String defaultUserPrompt(String userPrompt) {

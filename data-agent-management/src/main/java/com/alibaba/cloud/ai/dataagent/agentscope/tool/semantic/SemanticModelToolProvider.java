@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.agentscope.tool.knowledge;
+package com.alibaba.cloud.ai.dataagent.agentscope.tool.semantic;
 
 import com.alibaba.cloud.ai.dataagent.agentscope.tool.AgentScopedToolProvider;
 import java.util.Map;
@@ -24,18 +24,19 @@ import org.springframework.util.StringUtils;
 
 @Component
 @RequiredArgsConstructor
-public class DomainBusinessKnowledgeToolProvider implements AgentScopedToolProvider {
+public class SemanticModelToolProvider implements AgentScopedToolProvider {
 
-	private static final String TOOL_NAME = "domain_business_knowledge.search";
+	private static final String TOOL_NAME = "semantic_model.search";
 
 	private static final String DESCRIPTION = """
-			Search the current agent's recalled business terms, FAQs, QA entries, and embedded documents on demand.
-			Use this tool when you need internal business definitions, metric rules, SOPs, historical cases, or terminology clarification.
-			Call it only when the answer depends on domain knowledge instead of general reasoning.
-			Do not use this tool for database table names, column names, field types, enum values, schema relations, field comments, or other table-structure interpretation questions. Those should go to datasource explorer first and semantic_model.search if supplemental semantic hints are needed.
+			Supplemental semantic hint tool for table/column understanding only.
+			Use this tool when the user asks what a table/column means, asks for a business-friendly name, asks for enum meaning, asks for field usage notes, or asks for relation hints that are not explicitly stored in the physical schema.
+			Typical examples: "token名称类型", "status字段什么意思", "这个字段有哪些别名", "这两个表可能怎么关联".
+			Use datasource explorer first for physical schema, column lists, data types already in the database, previews, and readonly SQL.
+			Do not use this tool for SQL execution, schema discovery already covered by datasource explorer, or business definitions/metric rules/SOPs that belong to domain_business_knowledge.search.
 			""";
 
-	private final DomainBusinessKnowledgeToolSupport toolSupport;
+	private final SemanticModelToolSupport toolSupport;
 
 	@Override
 	public Map<String, ToolCallback> getToolCallbacks(String agentId) {
