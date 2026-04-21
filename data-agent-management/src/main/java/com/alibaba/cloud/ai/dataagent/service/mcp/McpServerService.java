@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.mcp;
 
-import com.alibaba.cloud.ai.dataagent.agentscope.service.GraphService;
+import com.alibaba.cloud.ai.dataagent.agentscope.service.AgentService;
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentMapper;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
@@ -33,7 +33,7 @@ public class McpServerService {
 
 	private final AgentMapper agentMapper;
 
-	private GraphService graphService;
+	private AgentService agentService;
 
 	public record AgentListRequest(
 			@JsonPropertyDescription("按状态过滤，例如 '状态：draft-待发布，published-已发布，offline-已下线") String status,
@@ -55,7 +55,7 @@ public class McpServerService {
 	public String nl2SqlToolCallback(Nl2SqlRequest nl2SqlRequest) {
 		Assert.hasText(nl2SqlRequest.agentId(), "AgentId cannot be empty");
 		Assert.hasText(nl2SqlRequest.naturalQuery(), "Natural query cannot be empty");
-		return graphService.nl2sql(nl2SqlRequest.naturalQuery(), nl2SqlRequest.agentId());
+		return agentService.nl2sql(nl2SqlRequest.naturalQuery(), nl2SqlRequest.agentId());
 	}
 
 }

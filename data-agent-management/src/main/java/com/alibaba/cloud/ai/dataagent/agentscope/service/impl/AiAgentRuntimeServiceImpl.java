@@ -20,7 +20,7 @@ import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentRuntimeEventPublis
 import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentRuntimeExtensionFactory;
 import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentScopeToolkitFactory;
 import com.alibaba.cloud.ai.dataagent.agentscope.service.AgentScopeModelFactory;
-import com.alibaba.cloud.ai.dataagent.agentscope.service.GraphService;
+import com.alibaba.cloud.ai.dataagent.agentscope.service.AgentService;
 import com.alibaba.cloud.ai.dataagent.agentscope.session.AgentSessionRegistry;
 import com.alibaba.cloud.ai.dataagent.agentscope.template.AgentRunContext;
 import com.alibaba.cloud.ai.dataagent.agentscope.template.AgentRuntimeExtensions;
@@ -32,7 +32,6 @@ import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
-import com.alibaba.cloud.ai.dataagent.service.agent.AgentService;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.DynamicModelFactory;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigDataService;
 import io.agentscope.core.message.Msg;
@@ -58,7 +57,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.STREAM_EVENT_ERRO
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AiAgentRuntimeServiceImpl implements GraphService {
+public class AiAgentRuntimeServiceImpl implements AgentService {
 
 	private static final String RUNTIME_NODE_NAME = "AgentScopeRuntime";
 
@@ -82,7 +81,7 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 
 	private final AgentRuntimeExtensionFactory agentRuntimeExtensionFactory;
 
-	private final AgentService agentService;
+	private final com.alibaba.cloud.ai.dataagent.service.agent.AgentService agentService;
 
 	@Override
 	public String nl2sql(String naturalQuery, String agentId) {

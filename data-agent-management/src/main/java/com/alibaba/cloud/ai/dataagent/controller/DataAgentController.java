@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
-import com.alibaba.cloud.ai.dataagent.agentscope.service.GraphService;
+import com.alibaba.cloud.ai.dataagent.agentscope.service.AgentService;
 import com.alibaba.cloud.ai.dataagent.agentscope.vo.GraphNodeResponse;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +41,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.STREAM_EVENT_ERRO
 @RequestMapping("/api")
 public class DataAgentController {
 
-	private final GraphService graphService;
+	private final AgentService agentService;
 
 	@GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<ServerSentEvent<GraphNodeResponse>> streamSearch(@RequestParam("agentId") String agentId,
@@ -64,7 +64,7 @@ public class DataAgentController {
 			.rejectedPlan(rejectedPlan)
 			.nl2sqlOnly(nl2sqlOnly)
 			.build();
-		graphService.graphStreamProcess(sink, request);
+		agentService.graphStreamProcess(sink, request);
 
 		return sink.asFlux().filter(sse -> {
 			if (STREAM_EVENT_COMPLETE.equals(sse.event()) || STREAM_EVENT_ERROR.equals(sse.event())) {
@@ -77,13 +77,13 @@ public class DataAgentController {
 			.doOnCancel(() -> {
 				log.info("Client disconnected from aiagent stream, threadId: {}", request.getThreadId());
 				if (request.getThreadId() != null && request.getRuntimeRequestId() != null) {
-					graphService.stopStreamProcessing(request.getThreadId(), request.getRuntimeRequestId());
+					agentService.stopStreamProcessing(request.getThreadId(), request.getRuntimeRequestId());
 				}
 			})
 			.doOnError(error -> {
 				log.error("Error occurred during aiagent streaming, threadId: {}", request.getThreadId(), error);
 				if (request.getThreadId() != null && request.getRuntimeRequestId() != null) {
-					graphService.stopStreamProcessing(request.getThreadId(), request.getRuntimeRequestId());
+					agentService.stopStreamProcessing(request.getThreadId(), request.getRuntimeRequestId());
 				}
 			})
 			.doOnComplete(() -> log.info("Aiagent stream completed successfully, threadId: {}", request.getThreadId()));

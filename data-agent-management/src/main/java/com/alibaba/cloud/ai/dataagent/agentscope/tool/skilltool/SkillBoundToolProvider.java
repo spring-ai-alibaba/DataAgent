@@ -13,19 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.agentscope.service;
+package com.alibaba.cloud.ai.dataagent.agentscope.tool.skilltool;
 
-import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
-import com.alibaba.cloud.ai.dataagent.agentscope.vo.GraphNodeResponse;
-import org.springframework.http.codec.ServerSentEvent;
-import reactor.core.publisher.Sinks;
+import java.util.Map;
+import org.springframework.ai.tool.ToolCallback;
 
-public interface GraphService {
+public interface SkillBoundToolProvider {
 
-	String nl2sql(String naturalQuery, String agentId);
+	String getSkillId();
 
-	void graphStreamProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest);
-
-	void stopStreamProcessing(String threadId, String runtimeRequestId);
+	Map<String, ToolCallback> getToolCallbacks(String agentId);
 
 }

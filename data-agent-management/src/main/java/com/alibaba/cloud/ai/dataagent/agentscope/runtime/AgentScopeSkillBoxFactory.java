@@ -15,7 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.runtime;
 
-import com.alibaba.cloud.ai.dataagent.agentscope.tool.skill.SkillBoundToolCatalogService;
+import com.alibaba.cloud.ai.dataagent.agentscope.tool.skilltool.SkillBoundToolCatalogService;
 import com.alibaba.cloud.ai.dataagent.service.skill.AgentSkillBindingService;
 import com.alibaba.cloud.ai.dataagent.service.skill.LocalSkillService;
 import com.fasterxml.jackson.databind.ObjectMapper;
