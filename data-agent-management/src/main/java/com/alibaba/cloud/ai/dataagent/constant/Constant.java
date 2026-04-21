@@ -30,8 +30,6 @@ public final class Constant {
 
 	public static final String DATASOURCE_ID = "datasourceId";
 
-	public static final String SQL_GENERATE_NODE = "SQL_GENERATE_NODE";
-
 	// StreamEvent 常量
 	public static final String STREAM_EVENT_COMPLETE = "complete";
 
