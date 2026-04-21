@@ -21,6 +21,9 @@ import com.alibaba.cloud.ai.dataagent.workflow.node.PlannerNode;
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.MultiTurnContextManager;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.StreamContext;
+import com.alibaba.cloud.ai.dataagent.service.notify.NotificationInfo;
+import com.alibaba.cloud.ai.dataagent.service.notify.NotifierFactory;
+import com.alibaba.cloud.ai.dataagent.service.notify.NotifierService;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import com.alibaba.cloud.ai.graph.*;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
@@ -35,6 +38,7 @@ import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -58,13 +62,16 @@ public class GraphServiceImpl implements GraphService {
 
 	private final LangfuseService langfuseReporter;
 
+	private final NotifierFactory notifierFactory;
+
 	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService,
-			MultiTurnContextManager multiTurnContextManager, LangfuseService langfuseReporter)
-			throws GraphStateException {
+			MultiTurnContextManager multiTurnContextManager, LangfuseService langfuseReporter,
+			NotifierFactory notifierFactory) throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
 		this.executor = executorService;
 		this.multiTurnContextManager = multiTurnContextManager;
 		this.langfuseReporter = langfuseReporter;
+		this.notifierFactory = notifierFactory;
 	}
 
 	@Override
@@ -248,6 +255,12 @@ public class GraphServiceImpl implements GraphService {
 			}
 			// 清理资源（cleanup 内部已经保证只执行一次）
 			context.cleanup();
+			// Send failure notification
+			NotificationInfo notifyInfo = new NotificationInfo("Unknown", "失败", LocalDateTime.now(), threadId, agentId);
+			NotifierService notifierService = notifierFactory.create();
+			if (notifierService != null) {
+				notifierService.notify(notifyInfo);
+			}
 		}
 	}
 
@@ -271,6 +284,12 @@ public class GraphServiceImpl implements GraphService {
 				context.getSink().tryEmitComplete();
 			}
 			context.cleanup();
+			// Send notification on completion
+			NotificationInfo notifyInfo = new NotificationInfo("ReportGeneratorNode", "成功", LocalDateTime.now(), threadId, agentId);
+			NotifierService notifierService = notifierFactory.create();
+			if (notifierService != null) {
+				notifierService.notify(notifyInfo);
+			}
 		}
 	}
 
