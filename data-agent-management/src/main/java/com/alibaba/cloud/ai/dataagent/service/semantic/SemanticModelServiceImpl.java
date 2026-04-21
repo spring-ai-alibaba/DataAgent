@@ -191,8 +191,8 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 			SemanticModelImportItem item = dto.getItems().get(i);
 			try {
 				// 检查是否已存在
-				SemanticModel existing = semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(
-						dto.getAgentId(), item.getTableName(), item.getColumnName());
+				SemanticModel existing = semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(dto.getAgentId(),
+						item.getTableName(), item.getColumnName());
 
 				if (existing != null) {
 					// 更新已存在的记录

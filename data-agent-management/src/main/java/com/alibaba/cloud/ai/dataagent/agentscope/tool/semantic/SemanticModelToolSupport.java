@@ -70,8 +70,8 @@ public class SemanticModelToolSupport {
 
 		private final SemanticModelSearchService semanticModelSearchService;
 
-		private SemanticModelSearchToolCallback(ToolDefinition toolDefinition, ObjectMapper objectMapper, String agentId,
-				SemanticModelSearchService semanticModelSearchService) {
+		private SemanticModelSearchToolCallback(ToolDefinition toolDefinition, ObjectMapper objectMapper,
+				String agentId, SemanticModelSearchService semanticModelSearchService) {
 			this.toolDefinition = toolDefinition;
 			this.objectMapper = objectMapper;
 			this.agentId = agentId;

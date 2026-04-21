@@ -43,14 +43,16 @@ public class SemanticModelSearchService {
 
 	public SemanticModelSearchResult search(String agentId, SemanticModelSearchRequest request) {
 		if (!StringUtils.hasText(agentId)) {
-			return emptyResult(request == null ? null : request.getQuery(), "semantic_model.search requires a numeric agent id.");
+			return emptyResult(request == null ? null : request.getQuery(),
+					"semantic_model.search requires a numeric agent id.");
 		}
 		Long parsedAgentId;
 		try {
 			parsedAgentId = Long.valueOf(agentId);
 		}
 		catch (NumberFormatException ex) {
-			return emptyResult(request == null ? null : request.getQuery(), "semantic_model.search requires a numeric agent id.");
+			return emptyResult(request == null ? null : request.getQuery(),
+					"semantic_model.search requires a numeric agent id.");
 		}
 		return search(parsedAgentId, request);
 	}
@@ -64,7 +66,8 @@ public class SemanticModelSearchService {
 		if (activeDatasource == null || activeDatasource.getDatasourceId() == null) {
 			return emptyResult(query, "No active datasource is available for semantic_model.search.");
 		}
-		TableSearchScope scope = resolveTableSearchScope(activeDatasource, request == null ? null : request.getTableNames());
+		TableSearchScope scope = resolveTableSearchScope(activeDatasource,
+				request == null ? null : request.getTableNames());
 		if (scope.isScoped() && CollectionUtils.isEmpty(scope.getTableNames())) {
 			return emptyResult(query,
 					"Requested tables are outside the active datasource visibility scope for semantic_model.search.");
@@ -81,10 +84,14 @@ public class SemanticModelSearchService {
 		List<ScoredHit> scoredHits = candidates.stream()
 			.map(candidate -> score(query, candidate))
 			.filter(Objects::nonNull)
-			.sorted(Comparator.comparingInt(ScoredHit::getScore).reversed()
-				.thenComparing(scoredHit -> scoredHit.getModel().getCreatedTime(), Comparator.nullsLast(Comparator.reverseOrder()))
-				.thenComparing(scoredHit -> scoredHit.getModel().getTableName(), Comparator.nullsLast(String::compareToIgnoreCase))
-				.thenComparing(scoredHit -> scoredHit.getModel().getColumnName(), Comparator.nullsLast(String::compareToIgnoreCase)))
+			.sorted(Comparator.comparingInt(ScoredHit::getScore)
+				.reversed()
+				.thenComparing(scoredHit -> scoredHit.getModel().getCreatedTime(),
+						Comparator.nullsLast(Comparator.reverseOrder()))
+				.thenComparing(scoredHit -> scoredHit.getModel().getTableName(),
+						Comparator.nullsLast(String::compareToIgnoreCase))
+				.thenComparing(scoredHit -> scoredHit.getModel().getColumnName(),
+						Comparator.nullsLast(String::compareToIgnoreCase)))
 			.limit(DEFAULT_MAX_HITS)
 			.toList();
 
@@ -96,8 +103,9 @@ public class SemanticModelSearchService {
 		List<SemanticModelSearchHit> hits = scoredHits.stream().map(this::toHit).toList();
 		return SemanticModelSearchResult.builder()
 			.query(query)
-			.summary("Found %d supplemental semantic hints. These are auxiliary explanations for table/column understanding, not a replacement for datasource exploration."
-				.formatted(hits.size()))
+			.summary(
+					"Found %d supplemental semantic hints. These are auxiliary explanations for table/column understanding, not a replacement for datasource exploration."
+						.formatted(hits.size()))
 			.hits(hits)
 			.build();
 	}
@@ -150,13 +158,15 @@ public class SemanticModelSearchService {
 		List<String> tokens = tokenize(query);
 		Set<String> matchedBy = new LinkedHashSet<>();
 		int score = 0;
-		score += scoreField(model.getBusinessName(), normalizedQuery, tokens, "businessName", 120, 80, 36, 12, matchedBy);
+		score += scoreField(model.getBusinessName(), normalizedQuery, tokens, "businessName", 120, 80, 36, 12,
+				matchedBy);
 		score += scoreSynonyms(model.getSynonyms(), normalizedQuery, tokens, matchedBy);
 		score += scoreField(model.getColumnName(), normalizedQuery, tokens, "columnName", 110, 74, 30, 10, matchedBy);
 		score += scoreField(model.getTableName(), normalizedQuery, tokens, "tableName", 64, 42, 18, 6, matchedBy);
-		score += scoreField(model.getBusinessDescription(), normalizedQuery, tokens, "businessDescription", 48, 30, 12, 4,
+		score += scoreField(model.getBusinessDescription(), normalizedQuery, tokens, "businessDescription", 48, 30, 12,
+				4, matchedBy);
+		score += scoreField(model.getColumnComment(), normalizedQuery, tokens, "columnComment", 40, 24, 10, 3,
 				matchedBy);
-		score += scoreField(model.getColumnComment(), normalizedQuery, tokens, "columnComment", 40, 24, 10, 3, matchedBy);
 		score += scoreField(model.getDataType(), normalizedQuery, tokens, "dataType", 20, 14, 6, 2, matchedBy);
 		if (score <= 0) {
 			return null;
@@ -175,8 +185,8 @@ public class SemanticModelSearchService {
 		return score;
 	}
 
-	private int scoreField(String fieldValue, String normalizedQuery, List<String> tokens, String matchedLabel, int exactScore,
-			int containsScore, int tokenExactScore, int tokenContainsScore, Set<String> matchedBy) {
+	private int scoreField(String fieldValue, String normalizedQuery, List<String> tokens, String matchedLabel,
+			int exactScore, int containsScore, int tokenExactScore, int tokenContainsScore, Set<String> matchedBy) {
 		if (!StringUtils.hasText(fieldValue) || !StringUtils.hasText(normalizedQuery)) {
 			return 0;
 		}
@@ -224,7 +234,8 @@ public class SemanticModelSearchService {
 		List<String> selectedTables = normalizeTableNames(activeDatasource.getSelectTables());
 		List<String> requestedTables = normalizeTableNames(requestTableNames);
 		if (CollectionUtils.isEmpty(selectedTables)) {
-			return CollectionUtils.isEmpty(requestedTables) ? TableSearchScope.unbounded() : TableSearchScope.scoped(requestedTables);
+			return CollectionUtils.isEmpty(requestedTables) ? TableSearchScope.unbounded()
+					: TableSearchScope.scoped(requestedTables);
 		}
 		if (CollectionUtils.isEmpty(requestedTables)) {
 			return TableSearchScope.scoped(selectedTables);
