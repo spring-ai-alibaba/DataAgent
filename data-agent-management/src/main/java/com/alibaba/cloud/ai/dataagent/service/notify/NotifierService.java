@@ -17,7 +17,9 @@ package com.alibaba.cloud.ai.dataagent.service.notify;
 
 public interface NotifierService {
 
+    String getName();
+
     void notify(NotificationInfo info);
 
-    boolean supports(String channel);
+    void notify(String message);
 }

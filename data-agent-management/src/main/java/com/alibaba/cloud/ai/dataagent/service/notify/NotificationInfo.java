@@ -40,14 +40,6 @@ public class NotificationInfo {
         this.agentId = agentId;
     }
 
-    public String getNodeName() {
-        return nodeName;
-    }
-
-    public void setNodeName(String nodeName) {
-        this.nodeName = nodeName;
-    }
-
     public String getStatus() {
         return status;
     }
@@ -78,5 +70,13 @@ public class NotificationInfo {
 
     public void setAgentId(String agentId) {
         this.agentId = agentId;
+    }
+
+    public String getNodeName() {
+        return nodeName;
+    }
+
+    public void setNodeName(String nodeName) {
+        this.nodeName = nodeName;
     }
 }

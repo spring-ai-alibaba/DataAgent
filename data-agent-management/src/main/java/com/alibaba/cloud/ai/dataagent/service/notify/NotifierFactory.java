@@ -15,8 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.notify;
 
-import com.alibaba.cloud.ai.dataagent.properties.NotifyProperties;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -28,26 +28,28 @@ import java.util.stream.Collectors;
 @Component
 public class NotifierFactory {
 
-    private final NotifyProperties properties;
+    @Value("${spring.ai.alibaba.data-agent.notify.channel:dingtalk}")
+    private String defaultChannel;
 
     private final Map<String, NotifierService> notifierMap;
 
-    public NotifierFactory(NotifyProperties properties, List<NotifierService> notifierServices) {
-        this.properties = properties;
+    public NotifierFactory(List<NotifierService> notifierServices) {
         this.notifierMap = notifierServices.stream()
-            .collect(Collectors.toMap(this::extractChannel, Function.identity(), (a, b) -> a));
+            .collect(Collectors.toMap(NotifierService::getName, Function.identity(), (a, b) -> a));
     }
 
-    private String extractChannel(NotifierService service) {
-        return service.getClass().getSimpleName().replace("Notifier", "").toLowerCase();
-    }
-
-    public NotifierService create() {
-        String channel = properties.getChannel();
-        NotifierService notifier = notifierMap.get(channel);
+    public NotifierService getByName(String name) {
+        NotifierService notifier = notifierMap.get(name);
         if (notifier == null) {
-            log.warn("No notifier found for channel: {}, using first available", channel);
-            notifier = notifierMap.values().stream().findFirst().orElse(null);
+            throw new IllegalArgumentException("Notifier not found: " + name);
+        }
+        return notifier;
+    }
+
+    public NotifierService getDefault() {
+        NotifierService notifier = notifierMap.get(defaultChannel);
+        if (notifier == null) {
+            throw new IllegalArgumentException("Default notifier not found for channel: " + defaultChannel);
         }
         return notifier;
     }

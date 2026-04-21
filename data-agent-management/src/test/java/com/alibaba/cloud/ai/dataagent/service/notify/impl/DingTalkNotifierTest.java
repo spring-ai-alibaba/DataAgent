@@ -15,51 +15,52 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.notify.impl;
 
-import com.alibaba.cloud.ai.dataagent.properties.NotifyProperties;
 import com.alibaba.cloud.ai.dataagent.service.notify.NotificationInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class DingTalkNotifierTest {
 
-    private NotifyProperties properties;
-
     private DingTalkNotifier notifier;
 
     @BeforeEach
-    void setUp() {
-        properties = new NotifyProperties();
-        properties.setEnabled(true);
-        properties.setChannel("dingtalk");
-        notifier = new DingTalkNotifier(properties);
+    void setUp() throws Exception {
+        notifier = new DingTalkNotifier();
+
+        // Use reflection to set @Value fields
+        setField(notifier, "webhookUrl", "");
+        setField(notifier, "secretKey", "");
+    }
+
+    private void setField(Object target, String fieldName, Object value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 
     @Test
-    void testSupports() {
-        assertTrue(notifier.supports("dingtalk"));
-        assertFalse(notifier.supports("feishu"));
-        assertFalse(notifier.supports("wecom"));
-    }
+    void testNotifyWhenNoWebhookUrl() throws Exception {
+        DingTalkNotifier notifierNoWebhook = new DingTalkNotifier();
+        setField(notifierNoWebhook, "webhookUrl", "");
 
-    @Test
-    void testNotifyWhenDisabled() {
-        properties.setEnabled(false);
-        // Should not throw exception
-        NotificationInfo info = new NotificationInfo("TestNode", "成功", LocalDateTime.now(), "t1", "a1");
-        notifier.notify(info);
-        // If no exception, test passes
+        NotificationInfo info = new NotificationInfo("ReportGeneratorNode", "成功", LocalDateTime.now(), "t1", "a1");
+        notifierNoWebhook.notify(info);
     }
 
     @Test
     void testNotifyBuildsCorrectContent() {
-        // This test verifies the content building logic indirectly
         NotificationInfo info = new NotificationInfo("ReportGeneratorNode", "成功", LocalDateTime.now(), "thread-1", "agent-1");
-        // Should complete without exception (actual webhook call will fail without valid URL)
         notifier.notify(info);
+    }
+
+    @Test
+    void testNotifyStringMessage() {
+        notifier.notify("测试消息内容");
     }
 }
 

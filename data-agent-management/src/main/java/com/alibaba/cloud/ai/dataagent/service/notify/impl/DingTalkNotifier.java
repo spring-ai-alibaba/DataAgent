@@ -15,17 +15,20 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.notify.impl;
 
-import com.alibaba.cloud.ai.dataagent.properties.NotifyProperties;
 import com.alibaba.cloud.ai.dataagent.service.notify.NotificationInfo;
 import com.alibaba.cloud.ai.dataagent.service.notify.NotifierService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 
@@ -33,20 +36,23 @@ import java.util.Base64;
 @Component
 public class DingTalkNotifier implements NotifierService {
 
-    private static final String CHANNEL_NAME = "dingtalk";
-
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    private final NotifyProperties properties;
+    @Value("${spring.ai.alibaba.data-agent.notify.dingtalk.webhook-url:}")
+    private String webhookUrl;
 
-    public DingTalkNotifier(NotifyProperties properties) {
-        this.properties = properties;
+    @Value("${spring.ai.alibaba.data-agent.notify.dingtalk.secret-key:}")
+    private String secretKey;
+
+    @Override
+    public String getName() {
+        return "dingtalk";
     }
 
     @Override
     public void notify(NotificationInfo info) {
-        if (!properties.isEnabled()) {
-            log.debug("Notification is disabled, skipping");
+        if (webhookUrl == null || webhookUrl.isEmpty()) {
+            log.debug("DingTalk webhook-url is not configured, skipping notification");
             return;
         }
 
@@ -54,9 +60,17 @@ public class DingTalkNotifier implements NotifierService {
         sendDingTalkMessage(markdownContent);
     }
 
-    @Override
-    public boolean supports(String channel) {
-        return CHANNEL_NAME.equals(channel);
+    public void notify(String message) {
+        if (webhookUrl == null || webhookUrl.isEmpty()) {
+            log.debug("DingTalk webhook-url is not configured, skipping notification");
+            return;
+        }
+
+        String markdownContent = """
+            ## DataAgent 任务通知
+
+            """ + message;
+        sendDingTalkMessage(markdownContent);
     }
 
     private String buildMarkdownContent(NotificationInfo info) {
@@ -64,20 +78,19 @@ public class DingTalkNotifier implements NotifierService {
         return String.format("""
             ## DataAgent 任务通知
 
-            - **状态**: %s %s
             - **触发节点**: %s
+            - **状态**: %s %s
             - **时间**: %s
-            """, info.getStatus(), statusEmoji, info.getNodeName(),
+            """, info.getNodeName() != null ? info.getNodeName() : "N/A",
+                info.getStatus(), statusEmoji,
                 info.getTimestamp().format(FORMATTER));
     }
 
     private void sendDingTalkMessage(String markdownContent) {
         try {
-            String webhookUrl = properties.getDingtalk().getWebhookUrl();
-            String secretKey = properties.getDingtalk().getSecretKey();
-
-            String sign = generateSign(secretKey);
-            String urlWithSign = webhookUrl + "&sign=" + URLEncoder.encode(sign, StandardCharsets.UTF_8);
+            long timestamp = Instant.now().toEpochMilli();
+            String sign = computeSign(timestamp, secretKey);
+            String urlWithSign = webhookUrl + "&timestamp=" + timestamp + "&sign=" + URLEncoder.encode(sign, StandardCharsets.UTF_8);
 
             String requestBody = String.format("""
                 {
@@ -89,31 +102,34 @@ public class DingTalkNotifier implements NotifierService {
                 }
                 """, toJsonString(markdownContent));
 
-            WebClient.create(urlWithSign).post().bodyValue(requestBody).retrieve().bodyToMono(String.class)
+            String response = WebClient.create(urlWithSign)
+                .post()
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(String.class)
                 .block();
 
-            log.info("DingTalk notification sent successfully");
+            log.info("DingTalk response: {}", response);
+        }
+        catch (WebClientResponseException e) {
+            log.error("DingTalk API error: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
         }
         catch (Exception e) {
             log.error("Failed to send DingTalk notification", e);
         }
     }
 
-    private String generateSign(String secretKey) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            String timestamp = String.valueOf(System.currentTimeMillis());
-            SecretKeySpec secretKeySpec = new SecretKeySpec(secretKey.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-            mac.init(secretKeySpec);
-            byte[] hash = mac.doFinal((timestamp + "\n" + secretKey).getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Failed to generate signature", e);
-        }
-    }
 
     private String toJsonString(String text) {
         return "\"" + text.replace("\"", "\\\"").replace("\n", "\\n") + "\"";
+    }
+
+    private String computeSign(long timestamp, String secretKey) throws Exception {
+        String stringToSign = timestamp + "\n" + secretKey;
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(secretKey.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        byte[] signData = mac.doFinal(stringToSign.getBytes(StandardCharsets.UTF_8));
+        return Base64.getEncoder().encodeToString(signData);
     }
 }
