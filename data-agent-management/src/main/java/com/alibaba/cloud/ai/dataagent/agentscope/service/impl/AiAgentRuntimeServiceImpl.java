@@ -151,7 +151,7 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 	}
 
 	private boolean shouldEmitFinalResponse(String result, StreamTextTracker streamTextTracker) {
-		return StringUtils.hasText(result) && !streamTextTracker.matchesAnyNodeAccumulation(result);
+		return StringUtils.hasText(result) && !streamTextTracker.containsFinalAnswer(result);
 	}
 
 	private void emitError(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest request, Throwable error) {
@@ -314,23 +314,56 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 
 		private final Map<String, StringBuilder> accumulatedByNode = new LinkedHashMap<>();
 
+		private final Map<String, String> lastTextByNode = new LinkedHashMap<>();
+
 		synchronized void record(String nodeName, String text) {
 			if (!StringUtils.hasText(text)) {
 				return;
 			}
-			accumulatedByNode.computeIfAbsent(nodeName, key -> new StringBuilder()).append(text);
+			String normalizedNodeName = StringUtils.hasText(nodeName) ? nodeName : "";
+			accumulatedByNode.computeIfAbsent(normalizedNodeName, key -> new StringBuilder()).append(text);
+			lastTextByNode.put(normalizedNodeName, text);
 		}
 
-		synchronized boolean matchesAnyNodeAccumulation(String candidate) {
+		synchronized boolean containsFinalAnswer(String candidate) {
 			if (!StringUtils.hasText(candidate)) {
 				return false;
 			}
+			String normalizedCandidate = normalize(candidate);
+			if (!StringUtils.hasText(normalizedCandidate)) {
+				return false;
+			}
 			for (StringBuilder accumulated : accumulatedByNode.values()) {
-				if (candidate.equals(accumulated.toString())) {
+				String normalizedAccumulated = normalize(accumulated.toString());
+				if (matchesFinalAnswer(normalizedAccumulated, normalizedCandidate)) {
+					return true;
+				}
+			}
+			for (String lastText : lastTextByNode.values()) {
+				String normalizedLastText = normalize(lastText);
+				if (matchesFinalAnswer(normalizedLastText, normalizedCandidate)) {
 					return true;
 				}
 			}
 			return false;
+		}
+
+		private boolean matchesFinalAnswer(String existingText, String candidate) {
+			if (!StringUtils.hasText(existingText) || !StringUtils.hasText(candidate)) {
+				return false;
+			}
+			return existingText.equals(candidate) || existingText.endsWith(candidate) || candidate.endsWith(existingText);
+		}
+
+		private String normalize(String text) {
+			if (!StringUtils.hasText(text)) {
+				return "";
+			}
+			return text.replace("\r\n", "\n")
+				.replace('\r', '\n')
+				.replaceAll("[ \\t\\x0B\\f]+", " ")
+				.replaceAll(" *\\n *", "\n")
+				.trim();
 		}
 
 	}

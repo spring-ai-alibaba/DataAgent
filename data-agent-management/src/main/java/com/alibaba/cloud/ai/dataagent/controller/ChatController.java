@@ -141,7 +141,7 @@ public class ChatController {
 			// Update session activity time
 			chatSessionService.updateSessionTime(sessionId);
 
-			if (request.isTitleNeeded()) {
+			if (shouldGenerateTitle(request, savedMessage)) {
 				sessionTitleService.scheduleTitleGeneration(sessionId, message.getContent());
 			}
 
@@ -231,6 +231,20 @@ public class ChatController {
 			log.error("Download HTML report error for session {}: {}", sessionId, e.getMessage(), e);
 			return ResponseEntity.internalServerError().build();
 		}
+	}
+
+	private boolean shouldGenerateTitle(ChatMessageDTO request, ChatMessage savedMessage) {
+		if (request == null || savedMessage == null) {
+			return false;
+		}
+		if (request.isTitleNeeded()) {
+			return true;
+		}
+		if (!"user".equalsIgnoreCase(request.getRole())) {
+			return false;
+		}
+		List<ChatMessage> sessionMessages = chatMessageService.findBySessionId(savedMessage.getSessionId());
+		return sessionMessages.size() == 1;
 	}
 
 }
