@@ -133,12 +133,15 @@ public class DatasourceExplorerToolProvider implements AgentScopedToolProvider {
 			.formatted(selectedTables.size(), String.join(", ", selectedTables.stream().limit(8).toList()));
 		return """
 				Unified explorer for datasource '%s' (%s).
-				Use this tool to inspect tables, inspect schema, preview rows, and execute readonly SQL search.
+				Use this tool to inspect tables, inspect schema, inspect unified table relations, preview rows, and execute readonly SQL search.
 				Constraints:
 				1. Only the current agent's active datasource is visible.
 				2. Only readonly SQL is allowed for SEARCH.
-				3. Recommended call order: LIST_TABLES -> GET_TABLE_SCHEMA -> PREVIEW_ROWS -> SEARCH.
-				4. %s
+				3. GET_TABLE_SCHEMA and GET_RELATED_TABLES return a unified relations field that combines physical foreign keys discovered from the database and configured logical relations.
+				4. Treat the unified relations field as the primary source for table-to-table relationship reasoning and join planning.
+				5. The foreignKeys field inside table metadata is kept only for compatibility; prefer relations for agent reasoning.
+				6. Recommended call order: LIST_TABLES -> GET_TABLE_SCHEMA -> GET_RELATED_TABLES -> PREVIEW_ROWS -> SEARCH.
+				7. %s
 				""".formatted(datasource.getName(), datasource.getType(), visibleTables);
 	}
 

@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.agentscope.tool.datasource;
 
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
@@ -101,7 +102,8 @@ public class DatasourceExplorerService {
 			.stream()
 			.sorted(String.CASE_INSENSITIVE_ORDER)
 			.map(tableName -> toTableEntry(tableName, tableDocumentMap.get(normalizeTableName(tableName)),
-					context.explicitSelectedTables()))
+					context.explicitSelectedTables(),
+					context.relationsByTable().getOrDefault(normalizeTableName(tableName), List.of())))
 			.limit(limit)
 			.toList();
 		return baseResult(context, DatasourceExplorerAction.LIST_TABLES, tables.size() + " tables available")
@@ -118,7 +120,8 @@ public class DatasourceExplorerService {
 		List<Map<String, Object>> matchedTables = context.visibleTables()
 			.stream()
 			.map(tableName -> toTableEntry(tableName, tableDocumentMap.get(normalizeTableName(tableName)),
-					context.explicitSelectedTables()))
+					context.explicitSelectedTables(),
+					context.relationsByTable().getOrDefault(normalizeTableName(tableName), List.of())))
 			.filter(table -> query.isEmpty() || containsQuery(table, query))
 			.limit(limit)
 			.toList();
@@ -141,10 +144,12 @@ public class DatasourceExplorerService {
 						.setTable(tableName));
 		Document tableDocument = loadTableDocumentMap(context, List.of(tableName)).get(normalizeTableName(tableName));
 		List<Map<String, Object>> columnEntries = columns.stream().map(this::toColumnEntry).toList();
-		List<Map<String, Object>> relationEntries = filterRelations(context.logicalRelations(), tableName).stream()
+		List<UnifiedRelation> relations = filterRelations(context, tableName);
+		List<Map<String, Object>> relationEntries = relations.stream()
 			.map(this::toRelationEntry)
 			.toList();
-		Map<String, Object> tableEntry = toTableEntry(tableName, tableDocument, context.explicitSelectedTables());
+		Map<String, Object> tableEntry = toTableEntry(tableName, tableDocument, context.explicitSelectedTables(),
+				relations);
 		return baseResult(context, DatasourceExplorerAction.GET_TABLE_SCHEMA,
 				"Loaded schema for table '%s'".formatted(tableName))
 			.tables(List.of(tableEntry))
@@ -157,18 +162,18 @@ public class DatasourceExplorerService {
 	private DatasourceExplorerResult getRelatedTables(ExplorerContext context, DatasourceExplorerRequest request) {
 		String tableName = requireSingleTableName(request);
 		assertVisibleTable(context, tableName);
-		List<LogicalRelation> relations = filterRelations(context.logicalRelations(), tableName);
+		List<UnifiedRelation> relations = filterRelations(context, tableName);
 		List<Map<String, Object>> relationEntries = relations.stream().map(this::toRelationEntry).toList();
 		Set<String> relatedTables = relations.stream()
-			.flatMap(relation -> Arrays
-				.stream(new String[] { relation.getSourceTableName(), relation.getTargetTableName() }))
+			.flatMap(relation -> Arrays.stream(new String[] { relation.sourceTable(), relation.targetTable() }))
 			.filter(candidate -> !normalizeTableName(candidate).equals(normalizeTableName(tableName)))
 			.filter(candidate -> context.visibleTableNameSet().contains(normalizeTableName(candidate)))
 			.collect(Collectors.toCollection(LinkedHashSet::new));
 		Map<String, Document> tableDocumentMap = loadTableDocumentMap(context, new ArrayList<>(relatedTables));
 		List<Map<String, Object>> tableEntries = relatedTables.stream()
 			.map(relatedTable -> toTableEntry(relatedTable, tableDocumentMap.get(normalizeTableName(relatedTable)),
-					context.explicitSelectedTables()))
+					context.explicitSelectedTables(),
+					context.relationsByTable().getOrDefault(normalizeTableName(relatedTable), List.of())))
 			.toList();
 		return baseResult(context, DatasourceExplorerAction.GET_RELATED_TABLES,
 				"Found %d related tables for '%s'".formatted(tableEntries.size(), tableName))
@@ -233,9 +238,23 @@ public class DatasourceExplorerService {
 			.map(this::normalizeTableName)
 			.collect(Collectors.toCollection(LinkedHashSet::new));
 		List<LogicalRelation> logicalRelations = datasourceService.getLogicalRelations(datasource.getId());
+		List<ForeignKeyInfoBO> physicalRelations = loadPhysicalRelations(accessor, dbConfig);
+		List<UnifiedRelation> unifiedRelations = buildUnifiedRelations(visibleTableNameSet, physicalRelations,
+				logicalRelations == null ? List.of() : logicalRelations);
 		return new ExplorerContext(agentDatasource, datasource, dbConfig, accessor, List.copyOf(visibleTables),
 				Set.copyOf(visibleTableNameSet), List.copyOf(explicitSelectedTables),
-				logicalRelations == null ? List.of() : List.copyOf(logicalRelations));
+				List.copyOf(unifiedRelations), indexRelationsByTable(unifiedRelations));
+	}
+
+	private List<ForeignKeyInfoBO> loadPhysicalRelations(Accessor accessor, DbConfigBO dbConfig) {
+		try {
+			List<ForeignKeyInfoBO> foreignKeys = accessor.showForeignKeys(dbConfig,
+					DbQueryParameter.from(dbConfig).setSchema(dbConfig.getSchema()));
+			return foreignKeys == null ? List.of() : foreignKeys;
+		}
+		catch (Exception ex) {
+			return List.of();
+		}
 	}
 
 	private Long parseAgentId(String agentId) {
@@ -381,16 +400,22 @@ public class DatasourceExplorerService {
 	}
 
 	private Map<String, Object> toTableEntry(String tableName, Document tableDocument,
-			List<String> explicitSelectedTables) {
+			List<String> explicitSelectedTables, List<UnifiedRelation> relations) {
 		Map<String, Object> tableEntry = new LinkedHashMap<>();
 		tableEntry.put("name", tableName);
 		tableEntry.put("selected", explicitSelectedTables.isEmpty() || explicitSelectedTables.stream()
 			.anyMatch(candidate -> normalizeTableName(candidate).equals(normalizeTableName(tableName))));
+		String unifiedForeignKeys = summarizeRelations(relations);
 		if (tableDocument != null) {
 			tableEntry.put("schema", tableDocument.getMetadata().getOrDefault("schema", ""));
 			tableEntry.put("description", tableDocument.getMetadata().getOrDefault("description", ""));
 			tableEntry.put("primaryKeys", tableDocument.getMetadata().getOrDefault("primaryKey", List.of()));
-			tableEntry.put("foreignKeys", tableDocument.getMetadata().getOrDefault("foreignKey", ""));
+			tableEntry.put("foreignKeys",
+					StringUtils.defaultIfBlank(unifiedForeignKeys,
+							String.valueOf(tableDocument.getMetadata().getOrDefault("foreignKey", ""))));
+		}
+		else if (StringUtils.isNotBlank(unifiedForeignKeys)) {
+			tableEntry.put("foreignKeys", unifiedForeignKeys);
 		}
 		return tableEntry;
 	}
@@ -418,24 +443,117 @@ public class DatasourceExplorerService {
 		}
 	}
 
-	private List<LogicalRelation> filterRelations(List<LogicalRelation> logicalRelations, String tableName) {
-		String normalizedTableName = normalizeTableName(tableName);
-		return logicalRelations.stream()
-			.filter(relation -> normalizedTableName.equals(normalizeTableName(relation.getSourceTableName()))
-					|| normalizedTableName.equals(normalizeTableName(relation.getTargetTableName())))
-			.sorted(Comparator.comparing(relation -> StringUtils.defaultString(relation.getSourceTableName())))
+	private List<UnifiedRelation> filterRelations(ExplorerContext context, String tableName) {
+		return context.relationsByTable().getOrDefault(normalizeTableName(tableName), List.of());
+	}
+
+	private Map<String, Object> toRelationEntry(UnifiedRelation relation) {
+		Map<String, Object> relationEntry = new LinkedHashMap<>();
+		relationEntry.put("sourceTable", relation.sourceTable());
+		relationEntry.put("sourceColumn", relation.sourceColumn());
+		relationEntry.put("targetTable", relation.targetTable());
+		relationEntry.put("targetColumn", relation.targetColumn());
+		relationEntry.put("relationType", relation.relationType());
+		relationEntry.put("description", relation.description());
+		relationEntry.put("sourceType", relation.sourceType());
+		relationEntry.put("virtual", relation.virtual());
+		relationEntry.put("declaredInDatabase", relation.declaredInDatabase());
+		return relationEntry;
+	}
+
+	private List<UnifiedRelation> buildUnifiedRelations(Set<String> visibleTableNameSet,
+			List<ForeignKeyInfoBO> physicalRelations, List<LogicalRelation> logicalRelations) {
+		Map<String, UnifiedRelation> relationMap = new LinkedHashMap<>();
+		for (ForeignKeyInfoBO physicalRelation : physicalRelations) {
+			UnifiedRelation relation = toUnifiedRelation(physicalRelation);
+			if (isVisibleRelation(visibleTableNameSet, relation)) {
+				mergeRelation(relationMap, relation);
+			}
+		}
+		for (LogicalRelation logicalRelation : logicalRelations) {
+			UnifiedRelation relation = toUnifiedRelation(logicalRelation);
+			if (isVisibleRelation(visibleTableNameSet, relation)) {
+				mergeRelation(relationMap, relation);
+			}
+		}
+		return relationMap.values()
+			.stream()
+			.sorted(Comparator.comparing((UnifiedRelation relation) -> normalizeTableName(relation.sourceTable()))
+				.thenComparing(relation -> StringUtils.defaultString(relation.sourceColumn()))
+				.thenComparing(relation -> normalizeTableName(relation.targetTable()))
+				.thenComparing(relation -> StringUtils.defaultString(relation.targetColumn())))
 			.toList();
 	}
 
-	private Map<String, Object> toRelationEntry(LogicalRelation relation) {
-		Map<String, Object> relationEntry = new LinkedHashMap<>();
-		relationEntry.put("sourceTable", relation.getSourceTableName());
-		relationEntry.put("sourceColumn", relation.getSourceColumnName());
-		relationEntry.put("targetTable", relation.getTargetTableName());
-		relationEntry.put("targetColumn", relation.getTargetColumnName());
-		relationEntry.put("relationType", relation.getRelationType());
-		relationEntry.put("description", relation.getDescription());
-		return relationEntry;
+	private UnifiedRelation toUnifiedRelation(ForeignKeyInfoBO relation) {
+		return new UnifiedRelation(relation.getTable(), relation.getColumn(), relation.getReferencedTable(),
+				relation.getReferencedColumn(), StringUtils.EMPTY, StringUtils.EMPTY, "physical", false, true);
+	}
+
+	private UnifiedRelation toUnifiedRelation(LogicalRelation relation) {
+		return new UnifiedRelation(relation.getSourceTableName(), relation.getSourceColumnName(),
+				relation.getTargetTableName(), relation.getTargetColumnName(),
+				StringUtils.defaultString(relation.getRelationType()), StringUtils.defaultString(relation.getDescription()),
+				"logical", true, false);
+	}
+
+	private boolean isVisibleRelation(Set<String> visibleTableNameSet, UnifiedRelation relation) {
+		return visibleTableNameSet.contains(normalizeTableName(relation.sourceTable()))
+				&& visibleTableNameSet.contains(normalizeTableName(relation.targetTable()));
+	}
+
+	private void mergeRelation(Map<String, UnifiedRelation> relationMap, UnifiedRelation incoming) {
+		String relationKey = buildRelationKey(incoming);
+		UnifiedRelation existing = relationMap.get(relationKey);
+		if (existing == null) {
+			relationMap.put(relationKey, incoming);
+			return;
+		}
+		if (existing.declaredInDatabase() && !incoming.declaredInDatabase()) {
+			relationMap.put(relationKey, mergeRelation(existing, incoming));
+			return;
+		}
+		if (!existing.declaredInDatabase() && incoming.declaredInDatabase()) {
+			relationMap.put(relationKey, mergeRelation(incoming, existing));
+			return;
+		}
+		relationMap.put(relationKey, mergeRelation(existing, incoming));
+	}
+
+	private UnifiedRelation mergeRelation(UnifiedRelation preferred, UnifiedRelation supplement) {
+		return new UnifiedRelation(preferred.sourceTable(), preferred.sourceColumn(), preferred.targetTable(),
+				preferred.targetColumn(), StringUtils.firstNonBlank(preferred.relationType(), supplement.relationType()),
+				StringUtils.firstNonBlank(preferred.description(), supplement.description()), preferred.sourceType(),
+				preferred.virtual(), preferred.declaredInDatabase());
+	}
+
+	private String buildRelationKey(UnifiedRelation relation) {
+		return normalizeTableName(relation.sourceTable()) + "|" + StringUtils.defaultString(relation.sourceColumn())
+				+ "|" + normalizeTableName(relation.targetTable()) + "|"
+				+ StringUtils.defaultString(relation.targetColumn());
+	}
+
+	private Map<String, List<UnifiedRelation>> indexRelationsByTable(List<UnifiedRelation> relations) {
+		Map<String, List<UnifiedRelation>> relationIndex = new LinkedHashMap<>();
+		for (UnifiedRelation relation : relations) {
+			relationIndex.computeIfAbsent(normalizeTableName(relation.sourceTable()), key -> new ArrayList<>())
+				.add(relation);
+			String targetKey = normalizeTableName(relation.targetTable());
+			if (!targetKey.equals(normalizeTableName(relation.sourceTable()))) {
+				relationIndex.computeIfAbsent(targetKey, key -> new ArrayList<>()).add(relation);
+			}
+		}
+		Map<String, List<UnifiedRelation>> immutableIndex = new LinkedHashMap<>();
+		relationIndex.forEach((tableName, tableRelations) -> immutableIndex.put(tableName, List.copyOf(tableRelations)));
+		return Map.copyOf(immutableIndex);
+	}
+
+	private String summarizeRelations(List<UnifiedRelation> relations) {
+		return relations.stream()
+			.map(relation -> relation.sourceTable() + "." + relation.sourceColumn() + "=" + relation.targetTable()
+					+ "." + relation.targetColumn())
+			.distinct()
+			.collect(Collectors.joining("、"));
 	}
 
 	private List<Map<String, Object>> toColumnHeaders(ResultSetBO resultSet) {
@@ -483,7 +601,13 @@ public class DatasourceExplorerService {
 
 	private record ExplorerContext(AgentDatasource agentDatasource, Datasource datasource, DbConfigBO dbConfig,
 			Accessor accessor, List<String> visibleTables, Set<String> visibleTableNameSet,
-			List<String> explicitSelectedTables, List<LogicalRelation> logicalRelations) {
+			List<String> explicitSelectedTables, List<UnifiedRelation> unifiedRelations,
+			Map<String, List<UnifiedRelation>> relationsByTable) {
+	}
+
+	private record UnifiedRelation(String sourceTable, String sourceColumn, String targetTable, String targetColumn,
+			String relationType, String description, String sourceType, boolean virtual,
+			boolean declaredInDatabase) {
 	}
 
 }
