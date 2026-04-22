@@ -25,9 +25,11 @@ import com.alibaba.cloud.ai.dataagent.mapper.SemanticModelMapper;
 import com.alibaba.cloud.ai.dataagent.vo.BatchImportResult;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Locale;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 @AllArgsConstructor
@@ -51,14 +53,30 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 	}
 
 	@Override
-	public List<SemanticModel> getByAgentIdAndTableNames(Long agentId, List<String> tableNames) {
-		Integer datasourceId = findDatasourceIdByAgentId(agentId);
+	public List<SemanticModel> getEnabledByAgentIdAndDatasourceId(Long agentId, Integer datasourceId) {
+		if (agentId == null || datasourceId == null) {
+			return List.of();
+		}
+		return semanticModelMapper.selectEnabledByAgentIdAndDatasourceId(agentId, datasourceId);
+	}
 
-		if (datasourceId == null || tableNames == null || tableNames.isEmpty()) {
+	@Override
+	public List<SemanticModel> getByAgentIdAndTableNames(Long agentId, List<String> tableNames) {
+		if (agentId == null || tableNames == null || tableNames.isEmpty()) {
 			return List.of();
 		}
 
-		return semanticModelMapper.selectByDatasourceIdAndTableNames(datasourceId, tableNames);
+		return semanticModelMapper.selectEnabledByAgentIdAndTableNames(agentId, normalizeTableNames(tableNames));
+	}
+
+	@Override
+	public List<SemanticModel> getEnabledByAgentIdAndDatasourceIdAndTableNames(Long agentId, Integer datasourceId,
+			List<String> tableNames) {
+		if (agentId == null || datasourceId == null || tableNames == null || tableNames.isEmpty()) {
+			return List.of();
+		}
+		return semanticModelMapper.selectEnabledByAgentIdAndDatasourceIdAndTableNames(agentId, datasourceId,
+				normalizeTableNames(tableNames));
 	}
 
 	@Override
@@ -136,6 +154,14 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 	}
 
 	@Override
+	public List<SemanticModel> searchByAgentId(Long agentId, String keyword) {
+		if (agentId == null) {
+			return List.of();
+		}
+		return semanticModelMapper.searchByKeywordAndAgentId(agentId, keyword);
+	}
+
+	@Override
 	public void deleteSemanticModel(Long id) {
 		semanticModelMapper.deleteById(id);
 	}
@@ -165,8 +191,8 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 			SemanticModelImportItem item = dto.getItems().get(i);
 			try {
 				// 检查是否已存在
-				SemanticModel existing = semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(
-						dto.getAgentId().intValue(), item.getTableName(), item.getColumnName());
+				SemanticModel existing = semanticModelMapper.selectByAgentIdAndTableNameAndColumnName(dto.getAgentId(),
+						item.getTableName(), item.getColumnName());
 
 				if (existing != null) {
 					// 更新已存在的记录
@@ -247,6 +273,15 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 	public void updateSemanticModel(Long id, SemanticModel semanticModel) {
 		semanticModel.setId(id);
 		semanticModelMapper.updateById(semanticModel);
+	}
+
+	private List<String> normalizeTableNames(List<String> tableNames) {
+		return tableNames.stream()
+			.filter(StringUtils::hasText)
+			.map(String::trim)
+			.map(tableName -> tableName.toLowerCase(Locale.ROOT))
+			.distinct()
+			.toList();
 	}
 
 }

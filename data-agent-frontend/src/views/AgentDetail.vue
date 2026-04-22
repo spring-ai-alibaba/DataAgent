@@ -17,7 +17,7 @@
 <template>
   <BaseLayout>
     <el-container style="margin-top: 20px; gap: 10px">
-      <!-- 设置 header-->
+      <!-- 设置 header -->
       <el-header style="background-color: white; margin-bottom: 20px">
         <el-row :gutter="20" align="middle">
           <el-col :span="1">
@@ -64,7 +64,7 @@
         <el-divider />
       </el-header>
       <el-container style="gap: 10px">
-        <!-- 左侧菜单-->
+        <!-- 左侧菜单 -->
         <el-aside width="200px" style="background-color: white">
           <el-menu
             :default-active="activeMenuIndex"
@@ -97,6 +97,12 @@
                 语义模型配置
               </el-menu-item>
             </el-menu-item-group>
+            <el-menu-item-group title="Skills">
+              <el-menu-item index="skills">
+                <el-icon><Setting /></el-icon>
+                技能配置
+              </el-menu-item>
+            </el-menu-item-group>
             <el-menu-item-group title="预设问题管理">
               <el-menu-item index="preset-questions">
                 <el-icon><Setting /></el-icon>
@@ -116,7 +122,7 @@
           </el-menu>
         </el-aside>
         <el-main style="background-color: white">
-          <!-- 右侧内容-->
+          <!-- 右侧内容 -->
           <AgentBaseSetting v-if="activeMenuIndex === 'basic'" :agent="agent"></AgentBaseSetting>
           <AgentDataSourceConfig
             v-else-if="activeMenuIndex === 'datasource'"
@@ -130,6 +136,10 @@
             v-else-if="activeMenuIndex === 'semantic-model'"
             :agent-id="agent.id"
           ></AgentSemanticsConfig>
+          <AgentSkillsConfig
+            v-else-if="activeMenuIndex === 'skills'"
+            :agent-id="agent.id"
+          ></AgentSkillsConfig>
           <AgentPresetsConfig
             v-else-if="activeMenuIndex === 'preset-questions'"
             :agent-id="agent.id"
@@ -173,6 +183,7 @@
   import AgentAccessApi from '@/components/agent/AccessApi.vue';
   import AgentDataSourceConfig from '@/components/agent/DataSourceConfig.vue';
   import AgentKnowledgeConfig from '@/components/agent/AgentKnowledgeConfig.vue';
+  import AgentSkillsConfig from '@/components/agent/SkillsConfig.vue';
   import NotFound from '@/views/NotFound.vue';
   import { Agent } from '@/services/agent';
   import { fileUploadApi } from '@/services/fileUpload';
@@ -188,6 +199,7 @@
       AgentAccessApi,
       AgentDataSourceConfig,
       AgentKnowledgeConfig,
+      AgentSkillsConfig,
       NotFound,
       InfoFilled,
       Coin,
@@ -201,7 +213,6 @@
     setup() {
       const router = useRouter();
 
-      // 响应式数据
       const activeMenuIndex: Ref<string> = ref('basic');
       const agent: Ref<Agent> = ref({
         id: '',
@@ -234,21 +245,19 @@
         const file = target.files?.[0];
         if (!file) return;
 
-        // 验证文件类型
         if (!file.type.startsWith('image/')) {
           ElMessage.error('请选择图片文件');
           return;
         }
 
         if (file.size > 5 * 1024 * 1024) {
-          ElMessage.error('图片大小不能超过5MB');
+          ElMessage.error('图片大小不能超过 5MB');
           return;
         }
 
         try {
           headerUploading.value = true;
-
-          originalHeaderAvatar.value = agent.value.avatar;
+          originalHeaderAvatar.value = agent.value.avatar || '';
 
           const reader = new FileReader();
           reader.onload = e => {
@@ -257,7 +266,6 @@
           reader.readAsDataURL(file);
 
           const response = await fileUploadApi.uploadAvatar(file);
-
           if (response.success) {
             agent.value.avatar = response.url;
             ElMessage.success('头像上传成功');
@@ -265,7 +273,7 @@
             throw new Error(response.message || '上传失败');
           }
         } catch (error) {
-          ElMessage.error('头像上传失败: ' + (error instanceof Error ? error.message : '未知错误'));
+          ElMessage.error('头像上传失败：' + (error instanceof Error ? error.message : '未知错误'));
           agent.value.avatar = originalHeaderAvatar.value;
         } finally {
           headerUploading.value = false;
@@ -289,10 +297,10 @@
 
       const loadAgent = async () => {
         try {
-          const id = router.currentRoute.value.params.id;
-          const loadAgent = await AgentService.get(id);
-          if (loadAgent) {
-            agent.value = loadAgent;
+          const id = Number(router.currentRoute.value.params.id);
+          const loadedAgent = await AgentService.get(id);
+          if (loadedAgent) {
+            agent.value = loadedAgent;
           } else {
             throw new Error('Agent 不存在');
           }

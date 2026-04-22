@@ -15,22 +15,22 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.service;
 
-import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentScopeToolkitFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.agentscope.core.model.Model;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 public class AgentScopeModelFactory {
 
-	private final AgentScopeToolkitFactory toolkitFactory;
-
 	private final ObjectMapper objectMapper;
 
-	public Model create(org.springframework.ai.chat.model.ChatModel chatModel, String modelName) {
-		return new SpringAiAgentScopeModel(chatModel, modelName, toolkitFactory.getToolCallbacks(), objectMapper);
+	public Model create(org.springframework.ai.chat.model.ChatModel chatModel, String modelName,
+			Map<String, ToolCallback> toolCallbacks) {
+		return new SpringAiAgentScopeModel(chatModel, modelName, toolCallbacks, objectMapper);
 	}
 
 }

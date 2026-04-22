@@ -60,7 +60,10 @@ public class SemanticModelController {
 	public ApiResponse<List<SemanticModel>> list(@RequestParam(value = "keyword", required = false) String keyword,
 			@RequestParam(value = "agentId", required = false) Long agentId) {
 		List<SemanticModel> result;
-		if (keyword != null && !keyword.trim().isEmpty()) {
+		if (agentId != null && keyword != null && !keyword.trim().isEmpty()) {
+			result = semanticModelService.searchByAgentId(agentId, keyword);
+		}
+		else if (keyword != null && !keyword.trim().isEmpty()) {
 			result = semanticModelService.search(keyword);
 		}
 		else if (agentId != null) {

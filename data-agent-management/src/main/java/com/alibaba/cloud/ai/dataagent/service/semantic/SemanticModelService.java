@@ -19,7 +19,6 @@ import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelAddDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SemanticModelBatchImportDTO;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
 import com.alibaba.cloud.ai.dataagent.vo.BatchImportResult;
-
 import java.io.InputStream;
 import java.util.List;
 
@@ -29,7 +28,12 @@ public interface SemanticModelService {
 
 	List<SemanticModel> getEnabledByAgentId(Long agentId);
 
+	List<SemanticModel> getEnabledByAgentIdAndDatasourceId(Long agentId, Integer datasourceId);
+
 	List<SemanticModel> getByAgentIdAndTableNames(Long agentId, List<String> tableNames);
+
+	List<SemanticModel> getEnabledByAgentIdAndDatasourceIdAndTableNames(Long agentId, Integer datasourceId,
+			List<String> tableNames);
 
 	SemanticModel getById(Long id);
 
@@ -44,6 +48,8 @@ public interface SemanticModelService {
 	List<SemanticModel> getByAgentId(Long agentId);
 
 	List<SemanticModel> search(String keyword);
+
+	List<SemanticModel> searchByAgentId(Long agentId, String keyword);
 
 	void deleteSemanticModel(Long id);
 

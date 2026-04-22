@@ -52,6 +52,8 @@ spring:
             endpoint: ${OSS_ENDPOINT:}
             bucket-name: ${OSS_BUCKET_NAME:}
             custom-domain: ${OSS_CUSTOM_DOMAIN:}
+        skills:
+          local-path: ./agent-skills
         max-sql-retry-count: 10
         # Langfuse 可观测性配置
         langfuse:

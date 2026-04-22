@@ -15,10 +15,13 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.template;
 
+import com.alibaba.cloud.ai.dataagent.constant.AgentRuntimeConstant;
+import com.alibaba.cloud.ai.dataagent.prompt.PromptLoader;
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.hook.Hook;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
+import io.agentscope.core.model.ExecutionConfig;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -30,7 +33,19 @@ public class CommonAgent implements ManagedAgent {
 
 	public static final String AGENT_TYPE = "commonagent";
 
-	private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(120);
+	private static final String SYSTEM_PROMPT = PromptLoader.loadPrompt(AGENT_TYPE, "md");
+
+	private static final int DEFAULT_MAX_ITERS = 10;
+
+	private static final ExecutionConfig DEFAULT_MODEL_EXECUTION_CONFIG = ExecutionConfig.builder()
+		.timeout(Duration.ofMinutes(2))
+		.maxAttempts(2)
+		.build();
+
+	private static final ExecutionConfig DEFAULT_TOOL_EXECUTION_CONFIG = ExecutionConfig.builder()
+		.timeout(Duration.ofSeconds(30))
+		.maxAttempts(1)
+		.build();
 
 	@Override
 	public String getAgentType() {
@@ -44,8 +59,11 @@ public class CommonAgent implements ManagedAgent {
 		AgentRuntimeExtensions extensions = context.extensions();
 		ReActAgent.Builder builder = ReActAgent.builder()
 			.name(AGENT_TYPE)
-			.sysPrompt(defaultSystemPrompt(context.systemPrompt()))
-			.model(context.model());
+			.sysPrompt(defaultSystemPrompt(context.systemPrompt(), extensions.skillInstructions()))
+			.model(context.model())
+			.maxIters(DEFAULT_MAX_ITERS)
+			.modelExecutionConfig(DEFAULT_MODEL_EXECUTION_CONFIG)
+			.toolExecutionConfig(DEFAULT_TOOL_EXECUTION_CONFIG);
 		if (extensions.toolkit() != null) {
 			builder.toolkit(extensions.toolkit());
 		}
@@ -54,6 +72,9 @@ public class CommonAgent implements ManagedAgent {
 		}
 		if (extensions.toolExecutionContext() != null) {
 			builder.toolExecutionContext(extensions.toolExecutionContext());
+		}
+		if (extensions.skillBox() != null) {
+			builder.skillBox(extensions.skillBox());
 		}
 		List<Hook> hooks = extensions.hooks();
 		if (!hooks.isEmpty()) {
@@ -69,8 +90,28 @@ public class CommonAgent implements ManagedAgent {
 			.block(resolveTimeout(context.timeout()));
 	}
 
-	private String defaultSystemPrompt(String systemPrompt) {
-		return StringUtils.hasText(systemPrompt) ? systemPrompt : "";
+	private String defaultSystemPrompt(String systemPrompt, String skillInstructions) {
+		String basePrompt = mergePrompt(SYSTEM_PROMPT, systemPrompt);
+		String runtimeSkillPrompt = StringUtils.hasText(skillInstructions) ? skillInstructions.trim() : "";
+		if (!StringUtils.hasText(basePrompt)) {
+			return runtimeSkillPrompt;
+		}
+		if (!StringUtils.hasText(runtimeSkillPrompt)) {
+			return basePrompt;
+		}
+		return basePrompt + System.lineSeparator() + System.lineSeparator() + runtimeSkillPrompt;
+	}
+
+	private String mergePrompt(String fixedPrompt, String customPrompt) {
+		String left = StringUtils.hasText(fixedPrompt) ? fixedPrompt.trim() : "";
+		String right = StringUtils.hasText(customPrompt) ? customPrompt.trim() : "";
+		if (!StringUtils.hasText(left)) {
+			return right;
+		}
+		if (!StringUtils.hasText(right)) {
+			return left;
+		}
+		return left + System.lineSeparator() + System.lineSeparator() + right;
 	}
 
 	private String defaultUserPrompt(String userPrompt) {
@@ -78,7 +119,7 @@ public class CommonAgent implements ManagedAgent {
 	}
 
 	private Duration resolveTimeout(Duration timeout) {
-		return timeout == null ? DEFAULT_TIMEOUT : timeout;
+		return timeout == null ? AgentRuntimeConstant.AGENT_CALL_TIMEOUT : timeout;
 	}
 
 }

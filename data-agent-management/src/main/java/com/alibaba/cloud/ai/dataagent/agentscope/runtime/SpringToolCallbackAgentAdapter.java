@@ -21,9 +21,11 @@ import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.tool.AgentTool;
 import io.agentscope.core.tool.ToolCallParam;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -68,7 +70,7 @@ public class SpringToolCallbackAgentAdapter implements AgentTool {
 	private ToolResultBlock invoke(ToolCallParam toolCallParam) throws Exception {
 		String payload = objectMapper.writeValueAsString(toolCallParam.getInput());
 		try {
-			String result = toolCallback.call(payload);
+			String result = toolCallback.call(payload, toToolContext(toolCallParam));
 			return ToolResultBlock.of(toolCallParam.getToolUseBlock().getId(), getName(),
 					TextBlock.builder().text(result == null ? "" : result).build());
 		}
@@ -77,6 +79,24 @@ public class SpringToolCallbackAgentAdapter implements AgentTool {
 			return ToolResultBlock.error(ex.getMessage() == null ? "Tool execution failed." : ex.getMessage())
 				.withIdAndName(toolCallParam.getToolUseBlock().getId(), getName());
 		}
+	}
+
+	private ToolContext toToolContext(ToolCallParam toolCallParam) {
+		Map<String, Object> contextMap = new LinkedHashMap<>();
+		if (toolCallParam.getContext() != null) {
+			contextMap.put("agentScopeContext", toolCallParam.getContext());
+		}
+		if (toolCallParam.getAgent() != null) {
+			contextMap.put("agentScopeAgent", toolCallParam.getAgent());
+		}
+		if (toolCallParam.getEmitter() != null) {
+			contextMap.put("agentScopeEmitter", toolCallParam.getEmitter());
+		}
+		if (toolCallParam.getToolUseBlock() != null && toolCallParam.getToolUseBlock().getName() != null) {
+			contextMap.put("agentScopeToolName", toolCallParam.getToolUseBlock().getName());
+		}
+		contextMap.put("agentScopeToolInput", toolCallParam.getInput() == null ? Map.of() : toolCallParam.getInput());
+		return new ToolContext(contextMap);
 	}
 
 }

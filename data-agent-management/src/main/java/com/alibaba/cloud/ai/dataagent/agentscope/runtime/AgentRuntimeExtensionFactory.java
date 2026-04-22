@@ -19,12 +19,14 @@ import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.agentscope.template.AgentRuntimeExtensions;
 import io.agentscope.core.hook.Hook;
 import io.agentscope.core.memory.Memory;
+import io.agentscope.core.skill.SkillBox;
 import io.agentscope.core.tool.ToolExecutionContext;
 import io.agentscope.core.tool.Toolkit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 
@@ -38,8 +40,12 @@ public class AgentRuntimeExtensionFactory {
 
 	private final AgentScopeHookFactory hookFactory;
 
-	public AgentRuntimeExtensions create(GraphRequest request, @Nullable AgentRuntimeEventPublisher eventPublisher) {
-		Toolkit toolkit = toolkitFactory.create();
+	private final AgentScopeSkillBoxFactory skillBoxFactory;
+
+	public AgentRuntimeExtensions create(GraphRequest request, @Nullable AgentRuntimeEventPublisher eventPublisher,
+			Map<String, ToolCallback> toolCallbacks) {
+		Toolkit toolkit = toolkitFactory.buildToolkit(toolCallbacks);
+		SkillBox skillBox = skillBoxFactory.create(request.getAgentId(), toolkit);
 		Memory memory = memoryFactory.create(request.getThreadId());
 		AgentRuntimeRequestMetadata requestMetadata = new AgentRuntimeRequestMetadata(request.getAgentId(),
 				request.getThreadId(), request.isNl2sqlOnly());
@@ -50,7 +56,7 @@ public class AgentRuntimeExtensionFactory {
 		List<Hook> hooks = hookFactory.create(request, eventPublisher);
 		Map<String, Object> attributes = new HashMap<>();
 		attributes.put("threadId", request.getThreadId());
-		return new AgentRuntimeExtensions(toolkit, memory, toolExecutionContext, hooks, attributes);
+		return new AgentRuntimeExtensions(toolkit, memory, toolExecutionContext, hooks, attributes, skillBox, "");
 	}
 
 }

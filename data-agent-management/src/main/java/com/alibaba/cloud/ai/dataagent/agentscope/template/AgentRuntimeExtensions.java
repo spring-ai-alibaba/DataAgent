@@ -17,21 +17,23 @@ package com.alibaba.cloud.ai.dataagent.agentscope.template;
 
 import io.agentscope.core.hook.Hook;
 import io.agentscope.core.memory.Memory;
+import io.agentscope.core.skill.SkillBox;
 import io.agentscope.core.tool.ToolExecutionContext;
 import io.agentscope.core.tool.Toolkit;
 import java.util.List;
 import java.util.Map;
 
 public record AgentRuntimeExtensions(Toolkit toolkit, Memory memory, ToolExecutionContext toolExecutionContext,
-		List<Hook> hooks, Map<String, Object> attributes) {
+		List<Hook> hooks, Map<String, Object> attributes, SkillBox skillBox, String skillInstructions) {
 
 	private static final AgentRuntimeExtensions EMPTY = new AgentRuntimeExtensions(null, null,
-			ToolExecutionContext.empty(), List.of(), Map.of());
+			ToolExecutionContext.empty(), List.of(), Map.of(), null, "");
 
 	public AgentRuntimeExtensions {
 		toolExecutionContext = toolExecutionContext == null ? ToolExecutionContext.empty() : toolExecutionContext;
 		hooks = hooks == null ? List.of() : List.copyOf(hooks);
 		attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+		skillInstructions = skillInstructions == null ? "" : skillInstructions;
 	}
 
 	public static AgentRuntimeExtensions empty() {

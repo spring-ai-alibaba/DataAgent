@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.runtime;
 
+import com.alibaba.cloud.ai.dataagent.agentscope.tool.AgentScopedToolCatalogService;
 import com.alibaba.cloud.ai.dataagent.util.McpServerToolUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.agentscope.core.tool.Toolkit;
@@ -25,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.stereotype.Component;
 
@@ -33,13 +36,23 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AgentScopeToolkitFactory {
 
+	private final AgentScopedToolCatalogService agentScopedToolCatalogService;
+
 	private final GenericApplicationContext applicationContext;
 
 	private final ObjectMapper objectMapper;
 
-	public Toolkit create() {
+	private volatile Map<String, ToolCallback> commonToolCallbacksSnapshot = Collections.emptyMap();
+
+	public Toolkit create(String agentId) {
+		return buildToolkit(getToolCallbacks(agentId));
+	}
+
+	public Toolkit buildToolkit(Map<String, ToolCallback> toolCallbacks) {
 		Toolkit toolkit = new Toolkit();
-		Map<String, ToolCallback> toolCallbacks = getToolCallbacks();
+		if (toolCallbacks == null || toolCallbacks.isEmpty()) {
+			return toolkit;
+		}
 		toolCallbacks.values()
 			.forEach(toolCallback -> toolkit
 				.registerAgentTool(new SpringToolCallbackAgentAdapter(toolCallback, objectMapper)));
@@ -47,23 +60,49 @@ public class AgentScopeToolkitFactory {
 		return toolkit;
 	}
 
-	public Map<String, ToolCallback> getToolCallbacks() {
-		return Collections.unmodifiableMap(collectToolCallbacks());
+	public Map<String, ToolCallback> getToolCallbacks(String agentId) {
+		return Collections.unmodifiableMap(collectToolCallbacks(agentId));
 	}
 
-	private Map<String, ToolCallback> collectToolCallbacks() {
-		Map<String, ToolCallback> callbacks = new LinkedHashMap<>();
+	@EventListener(ApplicationReadyEvent.class)
+	public void warmUpCommonToolCallbacks() {
+		refreshCommonToolCallbacks();
+	}
+
+	public synchronized void refreshCommonToolCallbacks() {
+		Map<String, ToolCallback> snapshot = new LinkedHashMap<>();
 		for (ToolCallback toolCallback : McpServerToolUtil.excludeMcpServerTool(applicationContext,
 				ToolCallback.class)) {
-			register(callbacks, toolCallback);
+			register(snapshot, toolCallback);
 		}
 		for (ToolCallbackProvider provider : McpServerToolUtil.excludeMcpServerTool(applicationContext,
 				ToolCallbackProvider.class)) {
 			for (ToolCallback toolCallback : provider.getToolCallbacks()) {
-				register(callbacks, toolCallback);
+				register(snapshot, toolCallback);
 			}
 		}
+		this.commonToolCallbacksSnapshot = Collections.unmodifiableMap(snapshot);
+		log.debug("Warmed up {} common Spring AI tool callbacks.", snapshot.size());
+	}
+
+	private Map<String, ToolCallback> collectToolCallbacks(String agentId) {
+		Map<String, ToolCallback> callbacks = new LinkedHashMap<>(getCommonToolCallbacks());
+		agentScopedToolCatalogService.getToolCallbacks(agentId)
+			.forEach((toolName, toolCallback) -> register(callbacks, toolName, toolCallback));
 		return callbacks;
+	}
+
+	private Map<String, ToolCallback> getCommonToolCallbacks() {
+		Map<String, ToolCallback> snapshot = this.commonToolCallbacksSnapshot;
+		if (!snapshot.isEmpty()) {
+			return snapshot;
+		}
+		synchronized (this) {
+			if (this.commonToolCallbacksSnapshot.isEmpty()) {
+				refreshCommonToolCallbacks();
+			}
+			return this.commonToolCallbacksSnapshot;
+		}
 	}
 
 	private void register(Map<String, ToolCallback> callbacks, ToolCallback toolCallback) {
@@ -71,7 +110,17 @@ public class AgentScopeToolkitFactory {
 				|| toolCallback.getToolDefinition().name() == null) {
 			return;
 		}
-		callbacks.putIfAbsent(toolCallback.getToolDefinition().name(), toolCallback);
+		register(callbacks, toolCallback.getToolDefinition().name(), toolCallback);
+	}
+
+	private void register(Map<String, ToolCallback> callbacks, String toolName, ToolCallback toolCallback) {
+		if (toolCallback == null || toolName == null) {
+			return;
+		}
+		ToolCallback previous = callbacks.putIfAbsent(toolName, toolCallback);
+		if (previous != null && previous != toolCallback) {
+			log.warn("Duplicate Spring AI tool callback detected, keep first one. toolName={}", toolName);
+		}
 	}
 
 }

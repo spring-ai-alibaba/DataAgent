@@ -122,8 +122,10 @@ public class DocumentConverterUtil {
 	}
 
 	public static Document convertQaFaqKnowledgeToDocument(AgentKnowledge knowledge) {
-		// 使用question作为Document的content字段
-		String content = knowledge.getQuestion();
+		String title = Optional.ofNullable(knowledge.getTitle()).orElse("");
+		String question = Optional.ofNullable(knowledge.getQuestion()).orElse("");
+		String answer = Optional.ofNullable(knowledge.getContent()).orElse("");
+		String content = String.format("标题: %s\n问题: %s\n答案: %s", title, question, answer).trim();
 		Map<String, Object> metadata = new HashMap<>();
 		// answer和isRecall经常变更的放到关系数据库
 		metadata.put(Constant.AGENT_ID, knowledge.getAgentId().toString());

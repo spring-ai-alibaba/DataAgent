@@ -15,13 +15,12 @@
  */
 package com.alibaba.cloud.ai.dataagent.prompt;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.StreamUtils;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.StreamUtils;
 
 /**
  * Prompt loader, used to load prompt templates from file system
@@ -41,17 +40,40 @@ public class PromptLoader {
 	 * @return prompt content
 	 */
 	public static String loadPrompt(String promptName) {
-		return promptCache.computeIfAbsent(promptName, name -> {
-			String fileName = PROMPT_PATH_PREFIX + name + ".txt";
+		return loadPrompt(promptName, "md");
+	}
+
+	/**
+	 * Load prompt template from file with explicit extension
+	 * @param promptName prompt file name (without path and extension)
+	 * @param extension prompt file extension without leading dot
+	 * @return prompt content
+	 */
+	public static String loadPrompt(String promptName, String extension) {
+		String normalizedExtension = normalizeExtension(extension);
+		String cacheKey = promptName + "#" + normalizedExtension;
+		return promptCache.computeIfAbsent(cacheKey, key -> {
+			String fileName = PROMPT_PATH_PREFIX + promptName + "." + normalizedExtension;
 			// 使用本类的类加载器获取资源（避免jar包中无法获取资源）
 			try (InputStream inputStream = PromptLoader.class.getClassLoader().getResourceAsStream(fileName)) {
+				if (inputStream == null) {
+					throw new IllegalStateException("Prompt resource not found: " + fileName);
+				}
 				return StreamUtils.copyToString(inputStream, StandardCharsets.UTF_8);
 			}
-			catch (IOException e) {
+			catch (IOException | IllegalStateException e) {
 				log.error("加载提示词失败！{}", e.getMessage(), e);
-				throw new RuntimeException("加载提示词失败: " + name, e);
+				throw new RuntimeException("加载提示词失败: " + promptName, e);
 			}
 		});
+	}
+
+	private static String normalizeExtension(String extension) {
+		if (extension == null || extension.isBlank()) {
+			return "md";
+		}
+		String normalized = extension.trim();
+		return normalized.startsWith(".") ? normalized.substring(1) : normalized;
 	}
 
 	/**

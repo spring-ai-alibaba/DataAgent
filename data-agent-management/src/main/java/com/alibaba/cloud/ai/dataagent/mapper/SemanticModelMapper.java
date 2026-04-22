@@ -51,12 +51,31 @@ public interface SemanticModelMapper {
 	@Select("""
 			SELECT * FROM semantic_model
 			WHERE column_name LIKE CONCAT('%', #{keyword}, '%')
+			   OR table_name LIKE CONCAT('%', #{keyword}, '%')
 			   OR business_name LIKE CONCAT('%', #{keyword}, '%')
 			   OR business_description LIKE CONCAT('%', #{keyword}, '%')
 			   OR synonyms LIKE CONCAT('%', #{keyword}, '%')
+			   OR column_comment LIKE CONCAT('%', #{keyword}, '%')
+			   OR data_type LIKE CONCAT('%', #{keyword}, '%')
 			ORDER BY created_time DESC
 			""")
 	List<SemanticModel> searchByKeyword(@Param("keyword") String keyword);
+
+	@Select("""
+			SELECT * FROM semantic_model
+			WHERE agent_id = #{agentId}
+			  AND (
+			       column_name LIKE CONCAT('%', #{keyword}, '%')
+			    OR table_name LIKE CONCAT('%', #{keyword}, '%')
+			    OR business_name LIKE CONCAT('%', #{keyword}, '%')
+			    OR business_description LIKE CONCAT('%', #{keyword}, '%')
+			    OR synonyms LIKE CONCAT('%', #{keyword}, '%')
+			    OR column_comment LIKE CONCAT('%', #{keyword}, '%')
+			    OR data_type LIKE CONCAT('%', #{keyword}, '%')
+			  )
+			ORDER BY created_time DESC
+			""")
+	List<SemanticModel> searchByKeywordAndAgentId(@Param("agentId") Long agentId, @Param("keyword") String keyword);
 
 	/**
 	 * Batch enable fields
@@ -88,6 +107,16 @@ public interface SemanticModelMapper {
 			ORDER BY created_time DESC
 			""")
 	List<SemanticModel> selectEnabledByAgentId(@Param("agentId") Long agentId);
+
+	@Select("""
+			SELECT * FROM semantic_model
+			WHERE agent_id = #{agentId}
+			  AND datasource_id = #{datasourceId}
+			  AND status != 0
+			ORDER BY created_time DESC
+			""")
+	List<SemanticModel> selectEnabledByAgentIdAndDatasourceId(@Param("agentId") Long agentId,
+			@Param("datasourceId") Integer datasourceId);
 
 	@Insert("""
 			INSERT INTO semantic_model
@@ -126,22 +155,38 @@ public interface SemanticModelMapper {
 	int deleteById(@Param("id") Long id);
 
 	/**
-	 * Query semantic models by datasource ID, status and table names
+	 * Query enabled semantic models by agent ID and table names
 	 */
 	@Select("""
 			<script>
 			SELECT * FROM semantic_model
-			WHERE datasource_id = #{datasourceId}
+			WHERE agent_id = #{agentId}
 			  AND status = 1
-			  AND table_name IN
+			  AND LOWER(table_name) IN
 			  <foreach item='tableName' index='index' collection='tableNames' open='(' separator=',' close=')'>
 			    #{tableName}
 			  </foreach>
 			ORDER BY created_time DESC
 			</script>
 			""")
-	List<SemanticModel> selectByDatasourceIdAndTableNames(@Param("datasourceId") Integer datasourceId,
+	List<SemanticModel> selectEnabledByAgentIdAndTableNames(@Param("agentId") Long agentId,
 			@Param("tableNames") List<String> tableNames);
+
+	@Select("""
+			<script>
+			SELECT * FROM semantic_model
+			WHERE agent_id = #{agentId}
+			  AND datasource_id = #{datasourceId}
+			  AND status = 1
+			  AND LOWER(table_name) IN
+			  <foreach item='tableName' index='index' collection='tableNames' open='(' separator=',' close=')'>
+			    #{tableName}
+			  </foreach>
+			ORDER BY created_time DESC
+			</script>
+			""")
+	List<SemanticModel> selectEnabledByAgentIdAndDatasourceIdAndTableNames(@Param("agentId") Long agentId,
+			@Param("datasourceId") Integer datasourceId, @Param("tableNames") List<String> tableNames);
 
 	/**
 	 * Query semantic model based on agentId, tableName, and columnName
@@ -153,7 +198,7 @@ public interface SemanticModelMapper {
 			  AND column_name = #{columnName}
 			LIMIT 1
 			""")
-	SemanticModel selectByAgentIdAndTableNameAndColumnName(@Param("agentId") Integer agentId,
+	SemanticModel selectByAgentIdAndTableNameAndColumnName(@Param("agentId") Long agentId,
 			@Param("tableName") String tableName, @Param("columnName") String columnName);
 
 }

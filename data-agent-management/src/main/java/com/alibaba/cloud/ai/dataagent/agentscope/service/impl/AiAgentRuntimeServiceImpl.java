@@ -18,30 +18,35 @@ package com.alibaba.cloud.ai.dataagent.agentscope.service.impl;
 import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentRuntimeEventPublisher;
 import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentRuntimeExtensionFactory;
+import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentScopeToolkitFactory;
 import com.alibaba.cloud.ai.dataagent.agentscope.service.AgentScopeModelFactory;
-import com.alibaba.cloud.ai.dataagent.agentscope.service.GraphService;
+import com.alibaba.cloud.ai.dataagent.agentscope.service.AgentService;
 import com.alibaba.cloud.ai.dataagent.agentscope.session.AgentSessionRegistry;
 import com.alibaba.cloud.ai.dataagent.agentscope.template.AgentRunContext;
 import com.alibaba.cloud.ai.dataagent.agentscope.template.AgentRuntimeExtensions;
 import com.alibaba.cloud.ai.dataagent.agentscope.template.ManagedAgent;
 import com.alibaba.cloud.ai.dataagent.agentscope.template.ManagedAgentRegistry;
 import com.alibaba.cloud.ai.dataagent.agentscope.vo.GraphNodeResponse;
+import com.alibaba.cloud.ai.dataagent.constant.AgentRuntimeConstant;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
-import com.alibaba.cloud.ai.dataagent.service.agent.AgentService;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.DynamicModelFactory;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigDataService;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.model.Model;
-import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
@@ -52,13 +57,11 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.STREAM_EVENT_ERRO
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AiAgentRuntimeServiceImpl implements GraphService {
+public class AiAgentRuntimeServiceImpl implements AgentService {
 
 	private static final String RUNTIME_NODE_NAME = "AgentScopeRuntime";
 
 	private static final String STREAM_EVENT_MESSAGE = "message";
-
-	private static final Duration AGENT_CALL_TIMEOUT = Duration.ofSeconds(120);
 
 	private static final String AGENT_STATUS_PUBLISHED = "published";
 
@@ -72,11 +75,13 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 
 	private final AgentScopeModelFactory agentScopeModelFactory;
 
+	private final AgentScopeToolkitFactory agentScopeToolkitFactory;
+
 	private final ManagedAgentRegistry managedAgentRegistry;
 
 	private final AgentRuntimeExtensionFactory agentRuntimeExtensionFactory;
 
-	private final AgentService agentService;
+	private final com.alibaba.cloud.ai.dataagent.service.agent.AgentService agentService;
 
 	@Override
 	public String nl2sql(String naturalQuery, String agentId) {
@@ -129,8 +134,7 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		if (!sessionRegistry.isActive(threadId, runtimeRequestId)) {
 			return;
 		}
-		String latestStreamText = streamTextTracker.getLatestText();
-		if (shouldEmitFinalResponse(result, latestStreamText)) {
+		if (shouldEmitFinalResponse(result, streamTextTracker)) {
 			GraphNodeResponse response = GraphNodeResponse.builder()
 				.agentId(request.getAgentId())
 				.threadId(threadId)
@@ -146,17 +150,19 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		sink.tryEmitComplete();
 	}
 
-	private boolean shouldEmitFinalResponse(String result, String latestStreamText) {
-		return StringUtils.hasText(result) && !result.equals(latestStreamText);
+	private boolean shouldEmitFinalResponse(String result, StreamTextTracker streamTextTracker) {
+		return StringUtils.hasText(result) && !streamTextTracker.matchesAnyNodeAccumulation(result);
 	}
 
 	private void emitError(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest request, Throwable error) {
 		String threadId = request.getThreadId();
 		String runtimeRequestId = request.getRuntimeRequestId();
-		log.error("AgentScope runtime failed, threadId={}", threadId, error);
 		if (sessionRegistry.isCancelled(threadId, runtimeRequestId)) {
+			log.info("AgentScope runtime cancelled, suppress error propagation. threadId={}, runtimeRequestId={}",
+					threadId, runtimeRequestId);
 			return;
 		}
+		log.error("AgentScope runtime failed, threadId={}", threadId, error);
 		if (sessionRegistry.isActive(threadId, runtimeRequestId)) {
 			String message = error.getMessage() == null ? "AgentScope runtime failed." : error.getMessage();
 			sink.tryEmitNext(ServerSentEvent.builder(GraphNodeResponse.error(request.getAgentId(), threadId, message))
@@ -188,13 +194,28 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 			Agent managedAgentConfig = resolveManagedAgent(request.getAgentId());
 			ModelConfigDTO modelConfig = modelConfigDataService.getActiveConfigByType(ModelType.CHAT);
 			validateModelConfig(modelConfig);
+			Map<String, ToolCallback> toolCallbacks = agentScopeToolkitFactory.getToolCallbacks(request.getAgentId());
 			Model model = agentScopeModelFactory.create(dynamicModelFactory.createChatModel(modelConfig),
-					modelConfig.getModelName());
+					modelConfig.getModelName(), toolCallbacks);
 			ManagedAgent managedAgent = managedAgentRegistry.getRequired();
-			AgentRuntimeExtensions runtimeExtensions = agentRuntimeExtensionFactory.create(request, eventPublisher);
-			Msg response = managedAgent.run(new AgentRunContext(request.getAgentId(), request.getThreadId(), model,
-					resolveManagedSystemPrompt(managedAgentConfig, request.getAgentId()), buildUserPrompt(request),
-					AGENT_CALL_TIMEOUT, runtimeExtensions));
+			AgentRuntimeExtensions runtimeExtensions = agentRuntimeExtensionFactory.create(request, eventPublisher,
+					toolCallbacks);
+			Msg response;
+			try {
+				response = managedAgent.run(new AgentRunContext(request.getAgentId(), request.getThreadId(), model,
+						resolveManagedSystemPrompt(managedAgentConfig, request.getAgentId()), buildUserPrompt(request),
+						AgentRuntimeConstant.AGENT_CALL_TIMEOUT, runtimeExtensions));
+			}
+			catch (RuntimeException ex) {
+				if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())
+						&& isInterruptedCancellation(ex)) {
+					Thread.interrupted();
+					log.info("Agent execution interrupted by cancellation, threadId={}, runtimeRequestId={}",
+							request.getThreadId(), request.getRuntimeRequestId());
+					return "";
+				}
+				throw ex;
+			}
 			if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())) {
 				return "";
 			}
@@ -228,9 +249,6 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 	}
 
 	private String resolveManagedSystemPrompt(Agent agent, String requestAgentId) {
-		if (agent == null) {
-			return "";
-		}
 		if (agent == null || !StringUtils.hasText(agent.getPrompt())) {
 			log.info("No agent prompt found, keep CommonAgent system prompt empty. agentId={}", requestAgentId);
 			return "";
@@ -281,26 +299,38 @@ public class AiAgentRuntimeServiceImpl implements GraphService {
 		return response.getTextContent();
 	}
 
+	private boolean isInterruptedCancellation(Throwable throwable) {
+		Throwable current = Exceptions.unwrap(throwable);
+		while (current != null) {
+			if (current instanceof InterruptedException || current instanceof CancellationException) {
+				return true;
+			}
+			current = current.getCause();
+		}
+		return false;
+	}
+
 	private static final class StreamTextTracker {
 
-		private String currentNodeName;
-
-		private String latestText;
+		private final Map<String, StringBuilder> accumulatedByNode = new LinkedHashMap<>();
 
 		synchronized void record(String nodeName, String text) {
 			if (!StringUtils.hasText(text)) {
 				return;
 			}
-			if (currentNodeName != null && currentNodeName.equals(nodeName)) {
-				latestText = latestText == null ? text : latestText + text;
-				return;
-			}
-			currentNodeName = nodeName;
-			latestText = text;
+			accumulatedByNode.computeIfAbsent(nodeName, key -> new StringBuilder()).append(text);
 		}
 
-		synchronized String getLatestText() {
-			return latestText;
+		synchronized boolean matchesAnyNodeAccumulation(String candidate) {
+			if (!StringUtils.hasText(candidate)) {
+				return false;
+			}
+			for (StringBuilder accumulated : accumulatedByNode.values()) {
+				if (candidate.equals(accumulated.toString())) {
+					return true;
+				}
+			}
+			return false;
 		}
 
 	}
