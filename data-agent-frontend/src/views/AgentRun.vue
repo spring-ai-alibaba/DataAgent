@@ -281,6 +281,16 @@
             </div>
           </div>
           <div class="input-container">
+            <el-button
+              text
+              bg
+              size="small"
+              class="trace-button"
+              :disabled="traceLoading"
+              @click="openTraceDialog"
+            >
+              Trace
+            </el-button>
             <el-input
               v-model="userInput"
               type="textarea"
@@ -350,6 +360,74 @@
         </div>
       </div>
     </Teleport>
+
+    <el-dialog v-model="traceDialogVisible" title="最近一次 Trace" width="900px" destroy-on-close>
+      <div class="trace-toolbar">
+        <div v-if="sessionTrace" class="trace-summary">
+          <span>Trace ID: {{ sessionTrace.traceId }}</span>
+          <span>Span 数: {{ sessionTrace.spanCount }}</span>
+          <span>耗时: {{ formatTraceDuration(sessionTrace.durationMs) }}</span>
+          <span>开始时间: {{ formatTraceTime(sessionTrace.startEpochMs) }}</span>
+        </div>
+        <el-button size="small" :loading="traceLoading" @click="refreshTrace">刷新</el-button>
+      </div>
+
+      <el-alert
+        v-if="traceError"
+        :title="traceError"
+        type="info"
+        :closable="false"
+        show-icon
+        class="trace-alert"
+      />
+      <el-empty
+        v-else-if="!traceLoading && !sessionTrace"
+        description="当前会话还没有最近一次 trace"
+      />
+
+      <div v-if="sessionTrace" class="trace-list">
+        <div
+          v-for="row in flattenedTraceSpans"
+          :key="row.span.spanId"
+          class="trace-row"
+          :style="{ paddingLeft: `${row.depth * 20 + 12}px` }"
+        >
+          <div class="trace-row-main">
+            <span class="trace-row-name">{{ row.span.name }}</span>
+            <el-tag size="small" effect="plain">{{ row.span.kind }}</el-tag>
+            <el-tag
+              size="small"
+              effect="plain"
+              :type="row.span.status === 'ERROR' ? 'danger' : 'success'"
+            >
+              {{ row.span.status }}
+            </el-tag>
+            <span class="trace-row-duration">{{ formatTraceDuration(row.span.durationMs) }}</span>
+          </div>
+          <div class="trace-row-meta">
+            <span>spanId: {{ row.span.spanId }}</span>
+            <span>parent: {{ row.span.parentSpanId || '-' }}</span>
+            <span>开始: {{ formatTraceTime(row.span.startEpochMs) }}</span>
+          </div>
+          <details
+            v-if="row.attributeEntries.length > 0"
+            class="trace-attributes"
+          >
+            <summary>属性</summary>
+            <div class="trace-attributes-grid">
+              <div
+                v-for="entry in row.attributeEntries"
+                :key="`${row.span.spanId}-${entry.key}`"
+                class="trace-attribute-item"
+              >
+                <span class="trace-attribute-key">{{ entry.key }}</span>
+                <span class="trace-attribute-value">{{ entry.value }}</span>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </el-dialog>
   </BaseLayout>
 </template>
 
@@ -382,7 +460,12 @@
   hljs.registerLanguage('json', json);
   import BaseLayout from '@/layouts/BaseLayout.vue';
   import AgentService from '@/services/agent';
-  import ChatService, { type ChatSession, type ChatMessage } from '@/services/chat';
+  import ChatService, {
+    type ChatSession,
+    type ChatMessage,
+    type SessionTrace,
+    type TraceSpan,
+  } from '@/services/chat';
   import GraphService, {
     type GraphRequest,
     type GraphNodeResponse,
@@ -519,6 +602,10 @@
       const showReportFullscreen = ref(false);
       const fullscreenReportContent = ref('');
       const inputControlsCollapsed = ref(false);
+      const traceDialogVisible = ref(false);
+      const traceLoading = ref(false);
+      const traceError = ref('');
+      const sessionTrace = ref<SessionTrace | null>(null);
 
       // 监听NL2SQL开关变化
       const handleNl2sqlOnlyChange = (value: boolean) => {
@@ -562,6 +649,9 @@
           saveViewToState(currentSession.value.id, { isStreaming, nodeBlocks });
         }
         currentSession.value = session;
+        sessionTrace.value = null;
+        traceError.value = '';
+        traceDialogVisible.value = false;
 
         try {
           if (session === null) {
@@ -1153,6 +1243,79 @@
         sessionState.markdownReportContent = '';
       };
 
+      const flattenTraceSpans = (
+        spans: TraceSpan[],
+        depth = 0,
+      ): Array<{ span: TraceSpan; depth: number; attributeEntries: Array<{ key: string; value: string }> }> => {
+        return spans.flatMap(span => {
+          const attributeEntries = Object.entries(span.attributes ?? {}).map(([key, value]) => ({
+            key,
+            value,
+          }));
+          return [
+            {
+              span,
+              depth,
+              attributeEntries,
+            },
+            ...flattenTraceSpans(span.children ?? [], depth + 1),
+          ];
+        });
+      };
+
+      const flattenedTraceSpans = computed(() =>
+        sessionTrace.value ? flattenTraceSpans(sessionTrace.value.rootSpans ?? []) : [],
+      );
+
+      const formatTraceDuration = (durationMs: number) => {
+        if (durationMs < 1000) {
+          return `${durationMs} ms`;
+        }
+        if (durationMs < 10000) {
+          return `${(durationMs / 1000).toFixed(2)} s`;
+        }
+        return `${(durationMs / 1000).toFixed(1)} s`;
+      };
+
+      const formatTraceTime = (epochMs: number) => {
+        if (!epochMs) {
+          return '--';
+        }
+        return new Date(epochMs).toLocaleString();
+      };
+
+      const loadLatestTrace = async () => {
+        if (!currentSession.value) {
+          sessionTrace.value = null;
+          traceError.value = '当前没有可查看 trace 的会话';
+          return;
+        }
+        traceLoading.value = true;
+        traceError.value = '';
+        try {
+          sessionTrace.value = await ChatService.getSessionTrace(currentSession.value.id);
+        } catch (error: any) {
+          sessionTrace.value = null;
+          if (error?.response?.status === 404) {
+            traceError.value = '当前会话还没有最近一次 trace，请先执行一轮对话。';
+          } else {
+            traceError.value = '加载 trace 失败，请稍后重试。';
+          }
+          console.error('加载 trace 失败:', error);
+        } finally {
+          traceLoading.value = false;
+        }
+      };
+
+      const openTraceDialog = async () => {
+        traceDialogVisible.value = true;
+        await loadLatestTrace();
+      };
+
+      const refreshTrace = async () => {
+        await loadLatestTrace();
+      };
+
       const scrollToBottom = () => {
         nextTick(() => {
           if (chatContainer.value) {
@@ -1398,6 +1561,10 @@
         showReportFullscreen,
         fullscreenReportContent,
         inputControlsCollapsed,
+        traceDialogVisible,
+        traceLoading,
+        traceError,
+        sessionTrace,
         autoScroll,
         chatContainer,
         nodeBlocks,
@@ -1406,6 +1573,9 @@
         lastRequest,
         resultSetDisplayConfig,
         options,
+        flattenedTraceSpans,
+        formatTraceDuration,
+        formatTraceTime,
         getMarkdownContentFromNode,
         selectSession,
         sendMessage,
@@ -1422,6 +1592,8 @@
         handleHumanFeedback,
         handlePresetQuestionClick,
         stopStreaming,
+        openTraceDialog,
+        refreshTrace,
         deleteSessionState,
       };
     },
@@ -1828,6 +2000,109 @@
     align-items: flex-end;
   }
 
+  .trace-button {
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+
+  .trace-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .trace-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    color: #606266;
+    font-size: 13px;
+  }
+
+  .trace-alert {
+    margin-bottom: 16px;
+  }
+
+  .trace-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 65vh;
+    overflow: auto;
+    padding-right: 6px;
+  }
+
+  .trace-row {
+    border: 1px solid #ebeef5;
+    border-radius: 12px;
+    padding: 12px;
+    background: #fff;
+  }
+
+  .trace-row-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .trace-row-name {
+    font-weight: 600;
+    color: #303133;
+  }
+
+  .trace-row-duration {
+    color: #409eff;
+    font-size: 12px;
+  }
+
+  .trace-row-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+    color: #909399;
+    font-size: 12px;
+    word-break: break-all;
+  }
+
+  .trace-attributes {
+    margin-top: 10px;
+  }
+
+  .trace-attributes summary {
+    cursor: pointer;
+    color: #606266;
+    font-size: 13px;
+  }
+
+  .trace-attributes-grid {
+    display: grid;
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+    gap: 8px 12px;
+    margin-top: 10px;
+  }
+
+  .trace-attribute-item {
+    display: contents;
+  }
+
+  .trace-attribute-key {
+    color: #606266;
+    font-size: 12px;
+    word-break: break-all;
+  }
+
+  .trace-attribute-value {
+    color: #303133;
+    font-size: 12px;
+    word-break: break-all;
+  }
+
   @keyframes spin {
     from {
       transform: rotate(0deg);
@@ -1849,6 +2124,15 @@
 
     .input-container {
       flex-direction: column;
+    }
+
+    .trace-toolbar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .trace-attributes-grid {
+      grid-template-columns: 1fr;
     }
   }
 </style>

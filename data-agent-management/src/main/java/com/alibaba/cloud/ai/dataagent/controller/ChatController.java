@@ -19,6 +19,7 @@ import com.alibaba.cloud.ai.dataagent.dto.ChatMessageDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ChatMessage;
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
 import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
+import com.alibaba.cloud.ai.dataagent.observability.SessionTraceStore;
 import com.alibaba.cloud.ai.dataagent.service.chat.ChatMessageService;
 import com.alibaba.cloud.ai.dataagent.service.chat.ChatSessionService;
 import com.alibaba.cloud.ai.dataagent.service.chat.SessionTitleService;
@@ -55,6 +56,8 @@ public class ChatController {
 	private final SessionTitleService sessionTitleService;
 
 	private final ReportTemplateUtil reportTemplateUtil;
+
+	private final SessionTraceStore sessionTraceStore;
 
 	/**
 	 * Get session list for an agent
@@ -116,6 +119,13 @@ public class ChatController {
 	public ResponseEntity<List<ChatMessage>> getSessionMessages(@PathVariable(value = "sessionId") String sessionId) {
 		List<ChatMessage> messages = chatMessageService.findVisibleBySessionId(sessionId);
 		return ResponseEntity.ok(messages);
+	}
+
+	@GetMapping("/sessions/{sessionId}/trace")
+	public ResponseEntity<?> getLatestSessionTrace(@PathVariable(value = "sessionId") String sessionId) {
+		return sessionTraceStore.getLatestTrace(sessionId)
+			.<ResponseEntity<?>>map(ResponseEntity::ok)
+			.orElseGet(() -> ResponseEntity.notFound().build());
 	}
 
 	/**

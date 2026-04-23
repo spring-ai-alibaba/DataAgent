@@ -29,6 +29,8 @@ import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.sql.Connection;
 import java.util.List;
@@ -63,7 +65,8 @@ public abstract class AbstractAccessor implements Accessor {
 				case "showColumns":
 					return (T) ddlExecutor.showColumns(connection, param.getSchema(), param.getTable());
 				case "showForeignKeys":
-					return (T) ddlExecutor.showForeignKeys(connection, param.getSchema(), param.getTables());
+					return (T) ddlExecutor.showForeignKeys(connection, param.getSchema(),
+							resolveTablesForForeignKeys(connection, ddlExecutor, param));
 				case "sampleColumn":
 					return (T) ddlExecutor.sampleColumn(connection, param.getSchema(), param.getTable(),
 							param.getColumn());
@@ -120,6 +123,21 @@ public abstract class AbstractAccessor implements Accessor {
 
 	public Connection getConnection(DbConfigBO config) {
 		return this.dbConnectionPool.getConnection(config);
+	}
+
+	private List<String> resolveTablesForForeignKeys(Connection connection, AbstractJdbcDdl ddlExecutor,
+			DbQueryParameter param) {
+		if (param == null) {
+			return List.of();
+		}
+		if (!CollectionUtils.isEmpty(param.getTables())) {
+			return param.getTables();
+		}
+		List<TableInfoBO> tables = ddlExecutor.showTables(connection, param.getSchema(), param.getTablePattern());
+		if (CollectionUtils.isEmpty(tables)) {
+			return List.of();
+		}
+		return tables.stream().map(TableInfoBO::getName).filter(StringUtils::hasText).distinct().toList();
 	}
 
 }

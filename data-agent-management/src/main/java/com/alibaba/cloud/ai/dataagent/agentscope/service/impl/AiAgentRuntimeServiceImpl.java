@@ -32,10 +32,15 @@ import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
+import com.alibaba.cloud.ai.dataagent.observability.SessionTraceStore;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.DynamicModelFactory;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigDataService;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.model.Model;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -43,6 +48,7 @@ import java.util.concurrent.CancellationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -63,6 +69,8 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 
 	private static final String STREAM_EVENT_MESSAGE = "message";
 
+	private static final String ROOT_SPAN_NAME = "data-agent.agent.run";
+
 	private static final String AGENT_STATUS_PUBLISHED = "published";
 
 	private static final String AGENT_STATUS_OFFLINE = "offline";
@@ -82,6 +90,9 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 	private final AgentRuntimeExtensionFactory agentRuntimeExtensionFactory;
 
 	private final com.alibaba.cloud.ai.dataagent.service.agent.AgentService agentService;
+
+	@Qualifier("agentScopeTracer")
+	private final Tracer tracer;
 
 	@Override
 	public String nl2sql(String naturalQuery, String agentId) {
@@ -187,43 +198,73 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 
 	private String executeAgent(GraphRequest request, AgentRuntimeEventPublisher eventPublisher) {
 		sessionRegistry.markRunning(request.getThreadId(), request.getRuntimeRequestId(), Thread.currentThread());
+		Span rootSpan = startRuntimeSpan(request);
 		try {
-			if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())) {
-				return "";
-			}
-			Agent managedAgentConfig = resolveManagedAgent(request.getAgentId());
-			ModelConfigDTO modelConfig = modelConfigDataService.getActiveConfigByType(ModelType.CHAT);
-			validateModelConfig(modelConfig);
-			Map<String, ToolCallback> toolCallbacks = agentScopeToolkitFactory.getToolCallbacks(request.getAgentId());
-			Model model = agentScopeModelFactory.create(dynamicModelFactory.createChatModel(modelConfig),
-					modelConfig.getModelName(), toolCallbacks);
-			ManagedAgent managedAgent = managedAgentRegistry.getRequired();
-			AgentRuntimeExtensions runtimeExtensions = agentRuntimeExtensionFactory.create(request, eventPublisher,
-					toolCallbacks);
-			Msg response;
-			try {
-				response = managedAgent.run(new AgentRunContext(request.getAgentId(), request.getThreadId(), model,
-						resolveManagedSystemPrompt(managedAgentConfig, request.getAgentId()), buildUserPrompt(request),
-						AgentRuntimeConstant.AGENT_CALL_TIMEOUT, runtimeExtensions));
-			}
-			catch (RuntimeException ex) {
-				if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())
-						&& isInterruptedCancellation(ex)) {
-					Thread.interrupted();
-					log.info("Agent execution interrupted by cancellation, threadId={}, runtimeRequestId={}",
-							request.getThreadId(), request.getRuntimeRequestId());
+			try (Scope ignored = rootSpan.makeCurrent()) {
+				if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())) {
+					rootSpan.setStatus(StatusCode.OK, "cancelled");
 					return "";
 				}
-				throw ex;
+				Agent managedAgentConfig = resolveManagedAgent(request.getAgentId());
+				ModelConfigDTO modelConfig = modelConfigDataService.getActiveConfigByType(ModelType.CHAT);
+				validateModelConfig(modelConfig);
+				Map<String, ToolCallback> toolCallbacks = agentScopeToolkitFactory.getToolCallbacks(request.getAgentId());
+				Model model = agentScopeModelFactory.create(dynamicModelFactory.createChatModel(modelConfig),
+						modelConfig.getModelName(), toolCallbacks);
+				ManagedAgent managedAgent = managedAgentRegistry.getRequired();
+				AgentRuntimeExtensions runtimeExtensions = agentRuntimeExtensionFactory.create(request, eventPublisher,
+						toolCallbacks);
+				Msg response;
+				try {
+					response = managedAgent.run(new AgentRunContext(request.getAgentId(), request.getThreadId(), model,
+							resolveManagedSystemPrompt(managedAgentConfig, request.getAgentId()), buildUserPrompt(request),
+							AgentRuntimeConstant.AGENT_CALL_TIMEOUT, runtimeExtensions));
+				}
+				catch (RuntimeException ex) {
+					if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())
+							&& isInterruptedCancellation(ex)) {
+						Thread.interrupted();
+						rootSpan.setStatus(StatusCode.OK, "cancelled");
+						log.info("Agent execution interrupted by cancellation, threadId={}, runtimeRequestId={}",
+								request.getThreadId(), request.getRuntimeRequestId());
+						return "";
+					}
+					throw ex;
+				}
+				if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())) {
+					rootSpan.setStatus(StatusCode.OK, "cancelled");
+					return "";
+				}
+				rootSpan.setStatus(StatusCode.OK);
+				return extractText(response);
 			}
-			if (sessionRegistry.isCancelled(request.getThreadId(), request.getRuntimeRequestId())) {
-				return "";
-			}
-			return extractText(response);
+		}
+		catch (RuntimeException ex) {
+			recordRuntimeFailure(rootSpan, ex);
+			throw ex;
 		}
 		finally {
+			rootSpan.end();
 			sessionRegistry.clearRunning(request.getThreadId(), request.getRuntimeRequestId());
 		}
+	}
+
+	private Span startRuntimeSpan(GraphRequest request) {
+		Span span = tracer.spanBuilder(ROOT_SPAN_NAME).startSpan();
+		span.setAttribute(SessionTraceStore.ATTR_THREAD_ID, request.getThreadId());
+		span.setAttribute(SessionTraceStore.ATTR_RUNTIME_REQUEST_ID, request.getRuntimeRequestId());
+		span.setAttribute(SessionTraceStore.ATTR_AGENT_ID, request.getAgentId() == null ? "" : request.getAgentId());
+		span.setAttribute("dataagent.runtime.human_feedback", request.isHumanFeedback());
+		span.setAttribute("dataagent.runtime.nl2sql_only", request.isNl2sqlOnly());
+		return span;
+	}
+
+	private void recordRuntimeFailure(Span rootSpan, Throwable throwable) {
+		if (rootSpan == null) {
+			return;
+		}
+		rootSpan.setStatus(StatusCode.ERROR, throwable.getMessage() == null ? "runtime failed" : throwable.getMessage());
+		rootSpan.recordException(throwable);
 	}
 
 	private void validateModelConfig(ModelConfigDTO modelConfig) {

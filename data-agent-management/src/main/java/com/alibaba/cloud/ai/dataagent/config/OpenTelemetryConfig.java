@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.config;
 
 import com.alibaba.cloud.ai.dataagent.constant.Constant;
+import com.alibaba.cloud.ai.dataagent.observability.SessionTraceStore;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -24,10 +25,13 @@ import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import jakarta.annotation.PreDestroy;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -57,50 +61,77 @@ public class OpenTelemetryConfig {
 
 	private String secretKey;
 
-	private SdkTracerProvider tracerProvider;
+	private SdkTracerProvider langfuseTracerProvider;
 
-	@Bean
-	public OpenTelemetry openTelemetry() {
-		if (!enabled) {
-			return OpenTelemetry.noop();
+	private SdkTracerProvider localTraceTracerProvider;
+
+	@Bean("langfuseOpenTelemetry")
+	public OpenTelemetry langfuseOpenTelemetry(SessionTraceStore sessionTraceStore) {
+		langfuseTracerProvider = buildTracerProvider(sessionTraceStore, enabled);
+		OpenTelemetrySdk openTelemetrySdk = OpenTelemetrySdk.builder()
+			.setTracerProvider(langfuseTracerProvider)
+			.build();
+
+		if (enabled) {
+			log.info("OpenTelemetry initialized with local trace cache and Langfuse OTLP HTTP exporter.");
 		}
-
-		String auth = publicKey + ":" + secretKey;
-		String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
-
-		OtlpHttpSpanExporter spanExporter = OtlpHttpSpanExporter.builder()
-			.setEndpoint(host + "/api/public/otel/v1/traces")
-			.addHeader("Authorization", "Basic " + encodedAuth)
-			.setTimeout(10, TimeUnit.SECONDS)
-			.build();
-
-		Resource resource = Resource.getDefault()
-			.merge(Resource.create(Attributes.of(AttributeKey.stringKey("service.name"), SERVICE_NAME)));
-
-		tracerProvider = SdkTracerProvider.builder()
-			.addSpanProcessor(BatchSpanProcessor.builder(spanExporter)
-				.setScheduleDelay(1, TimeUnit.SECONDS)
-				.setMaxExportBatchSize(100)
-				.build())
-			.setResource(resource)
-			.build();
-
-		OpenTelemetrySdk openTelemetrySdk = OpenTelemetrySdk.builder().setTracerProvider(tracerProvider).build();
-
-		log.info("OpenTelemetry initialized with Langfuse OTLP HTTP exporter");
+		else {
+			log.info("OpenTelemetry initialized with local trace cache only.");
+		}
 
 		return openTelemetrySdk;
 	}
 
-	@Bean
-	public Tracer langfuseTracer(OpenTelemetry openTelemetry) {
+	@Bean("agentScopeLocalOpenTelemetry")
+	public OpenTelemetry agentScopeLocalOpenTelemetry(SessionTraceStore sessionTraceStore) {
+		localTraceTracerProvider = buildTracerProvider(sessionTraceStore, false);
+		return OpenTelemetrySdk.builder().setTracerProvider(localTraceTracerProvider).build();
+	}
+
+	private SdkTracerProvider buildTracerProvider(SessionTraceStore sessionTraceStore, boolean withLangfuseExporter) {
+		Resource resource = Resource.getDefault()
+			.merge(Resource.create(Attributes.of(AttributeKey.stringKey("service.name"), SERVICE_NAME)));
+
+		SdkTracerProviderBuilder builder = SdkTracerProvider.builder()
+			.addSpanProcessor(SimpleSpanProcessor.create(sessionTraceStore))
+			.setResource(resource);
+
+		if (withLangfuseExporter) {
+			String auth = publicKey + ":" + secretKey;
+			String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+
+			OtlpHttpSpanExporter spanExporter = OtlpHttpSpanExporter.builder()
+				.setEndpoint(host + "/api/public/otel/v1/traces")
+				.addHeader("Authorization", "Basic " + encodedAuth)
+				.setTimeout(10, TimeUnit.SECONDS)
+				.build();
+
+			builder.addSpanProcessor(BatchSpanProcessor.builder(spanExporter)
+				.setScheduleDelay(1, TimeUnit.SECONDS)
+				.setMaxExportBatchSize(100)
+				.build());
+		}
+
+		return builder.build();
+	}
+
+	@Bean("langfuseTracer")
+	public Tracer langfuseTracer(@Qualifier("langfuseOpenTelemetry") OpenTelemetry openTelemetry) {
 		return openTelemetry.getTracer(SERVICE_NAME);
+	}
+
+	@Bean("agentScopeLocalTracer")
+	public Tracer agentScopeLocalTracer(@Qualifier("agentScopeLocalOpenTelemetry") OpenTelemetry openTelemetry) {
+		return openTelemetry.getTracer(SERVICE_NAME + ".agentscope.local");
 	}
 
 	@PreDestroy
 	public void shutdown() {
-		if (tracerProvider != null) {
-			tracerProvider.close();
+		if (langfuseTracerProvider != null) {
+			langfuseTracerProvider.close();
+		}
+		if (localTraceTracerProvider != null) {
+			localTraceTracerProvider.close();
 		}
 	}
 

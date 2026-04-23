@@ -238,7 +238,7 @@ public class DatasourceExplorerService {
 			.map(this::normalizeTableName)
 			.collect(Collectors.toCollection(LinkedHashSet::new));
 		List<LogicalRelation> logicalRelations = datasourceService.getLogicalRelations(datasource.getId());
-		List<ForeignKeyInfoBO> physicalRelations = loadPhysicalRelations(accessor, dbConfig);
+		List<ForeignKeyInfoBO> physicalRelations = loadPhysicalRelations(accessor, dbConfig, visibleTables);
 		List<UnifiedRelation> unifiedRelations = buildUnifiedRelations(visibleTableNameSet, physicalRelations,
 				logicalRelations == null ? List.of() : logicalRelations);
 		return new ExplorerContext(agentDatasource, datasource, dbConfig, accessor, List.copyOf(visibleTables),
@@ -246,10 +246,10 @@ public class DatasourceExplorerService {
 				List.copyOf(unifiedRelations), indexRelationsByTable(unifiedRelations));
 	}
 
-	private List<ForeignKeyInfoBO> loadPhysicalRelations(Accessor accessor, DbConfigBO dbConfig) {
+	private List<ForeignKeyInfoBO> loadPhysicalRelations(Accessor accessor, DbConfigBO dbConfig, List<String> tables) {
 		try {
 			List<ForeignKeyInfoBO> foreignKeys = accessor.showForeignKeys(dbConfig,
-					DbQueryParameter.from(dbConfig).setSchema(dbConfig.getSchema()));
+					DbQueryParameter.from(dbConfig).setSchema(dbConfig.getSchema()).setTables(tables));
 			return foreignKeys == null ? List.of() : foreignKeys;
 		}
 		catch (Exception ex) {

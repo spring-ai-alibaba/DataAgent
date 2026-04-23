@@ -39,6 +39,32 @@ export interface ChatMessage {
   titleNeeded?: boolean;
 }
 
+export interface TraceSpan {
+  name: string;
+  spanId: string;
+  parentSpanId: string;
+  kind: string;
+  status: string;
+  startEpochMs: number;
+  endEpochMs: number;
+  durationMs: number;
+  attributes: Record<string, string>;
+  children: TraceSpan[];
+}
+
+export interface SessionTrace {
+  sessionId: string;
+  traceId: string;
+  runtimeRequestId: string;
+  agentId: string;
+  startEpochMs: number;
+  endEpochMs: number;
+  durationMs: number;
+  spanCount: number;
+  rootSpan: TraceSpan | null;
+  rootSpans: TraceSpan[];
+}
+
 const API_BASE_URL = '/api';
 
 class ChatService {
@@ -87,6 +113,11 @@ class ChatService {
     const response = await axios.get<ChatMessage[]>(
       `${API_BASE_URL}/sessions/${sessionId}/messages`,
     );
+    return response.data;
+  }
+
+  async getSessionTrace(sessionId: string): Promise<SessionTrace> {
+    const response = await axios.get<SessionTrace>(`${API_BASE_URL}/sessions/${sessionId}/trace`);
     return response.data;
   }
 
