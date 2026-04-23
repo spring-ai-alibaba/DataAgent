@@ -18,14 +18,17 @@ package com.alibaba.cloud.ai.dataagent.controller;
 import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
 import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.support.WebExchangeBindException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * 全局异常处理器 (WebFlux 版本)
+ * Global exception handler.
  */
 @Slf4j
 @RestControllerAdvice
@@ -36,6 +39,26 @@ public class GlobalExceptionHandler {
 	public ApiResponse<Object> handleInvalidInputException(InvalidInputException e) {
 		log.warn("Invalid input: {}", e.getMessage());
 		return ApiResponse.error(e.getMessage(), e.getData());
+	}
+
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	@ResponseStatus(HttpStatus.BAD_REQUEST)
+	public ApiResponse<Object> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+		String message = buildValidationMessage(e.getBindingResult().getFieldErrors().stream()
+			.map(error -> error.getField() + ": " + error.getDefaultMessage())
+			.collect(Collectors.toList()));
+		log.warn("Method argument not valid: {}", message);
+		return ApiResponse.error(message);
+	}
+
+	@ExceptionHandler(WebExchangeBindException.class)
+	@ResponseStatus(HttpStatus.BAD_REQUEST)
+	public ApiResponse<Object> handleWebExchangeBindException(WebExchangeBindException e) {
+		String message = buildValidationMessage(e.getFieldErrors().stream()
+			.map(error -> error.getField() + ": " + error.getDefaultMessage())
+			.collect(Collectors.toList()));
+		log.warn("Web exchange bind not valid: {}", message);
+		return ApiResponse.error(message);
 	}
 
 	@ExceptionHandler(InternalServerException.class)
@@ -49,7 +72,15 @@ public class GlobalExceptionHandler {
 	@ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
 	public ApiResponse<Object> handleGenericException(Exception e) {
 		log.error("Unexpected error: {}", e.getMessage(), e);
-		return ApiResponse.error("服务器内部错误");
+		return ApiResponse.error("Internal server error");
+	}
+
+	private String buildValidationMessage(java.util.List<String> messages) {
+		String message = messages.stream().filter(item -> item != null && !item.isBlank()).collect(Collectors.joining("; "));
+		if (message.isBlank()) {
+			return "Request validation failed";
+		}
+		return message;
 	}
 
 }

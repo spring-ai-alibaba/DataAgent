@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.datasource;
 
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import java.util.List;
+import java.util.Map;
 
 public interface AgentDatasourceService {
 
@@ -38,6 +39,11 @@ public interface AgentDatasourceService {
 
 	AgentDatasource toggleDatasourceForAgent(Long agentId, Integer datasourceId, Boolean isActive);
 
-	void updateDatasourceTables(Long agentId, Integer datasourceId, List<String> tables);
+	AgentDatasource updateDatasourceTables(Long agentId, Integer datasourceId, List<String> tables);
+
+	AgentDatasource updateDatasourceColumns(Long agentId, Integer datasourceId, Map<String, List<String>> columnsByTable)
+			throws Exception;
+
+	List<String> getVisibleTableColumns(Long agentId, Integer datasourceId, String tableName) throws Exception;
 
 }

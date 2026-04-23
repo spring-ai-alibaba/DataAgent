@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS `agent_knowledge` (
   `title` varchar(255) COLLATE utf8mb4_bin NOT NULL COMMENT '知识的标题 (用户定义, 用于在UI上展示和识别)',
   `type` varchar(50) COLLATE utf8mb4_bin NOT NULL COMMENT '知识类型: DOCUMENT-文档, QA-问答, FAQ-常见问题',
   `question` text COLLATE utf8mb4_bin COMMENT '问题 (仅当type为QA或FAQ时使用)',
-  `content` mediumtext COLLATE utf8mb4_bin COMMENT '知识内容 (对于QA/FAQ是答案; 对于DOCUMENT, 此字段通常为空)',
+  `content` mediumtext COLLATE utf8mb4_bin COMMENT '知识内容 (对于QA/FAQ是答案，对于DOCUMENT此字段通常为空)',
   `is_recall` int(11) DEFAULT 1 COMMENT '业务状态: 1=召回, 0=非召回',
   `embedding_status` varchar(20) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '向量化状态：PENDING待处理，PROCESSING处理中，COMPLETED已完成，FAILED失败',
   `error_msg` varchar(255) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '操作失败的错误信息',
@@ -228,13 +228,29 @@ create table if not exists agent_datasource_tables
     table_name          varchar(255)                        not null comment '数据表名',
     create_time         timestamp default CURRENT_TIMESTAMP null comment '创建时间',
     update_time         timestamp default CURRENT_TIMESTAMP null comment '更新时间',
-    constraint agent_datasource_tables_agent_datasource_id_table_name_uindex
+    constraint uk_agent_ds_tables_ds_table
         unique (agent_datasource_id, table_name),
-    constraint agent_datasource_tables_agent_datasource_id_fk
+    constraint fk_agent_ds_tables_agent_ds
         foreign key (agent_datasource_id) references agent_datasource (id)
             on update cascade on delete cascade
 )
     comment '某个智能体某个数据源所选中的数据表';
+
+create table if not exists agent_datasource_columns
+(
+    id                  int auto_increment primary key,
+    agent_datasource_id int                                 not null comment '智能体数据源ID',
+    table_name          varchar(255)                        not null comment '数据表名',
+    column_name         varchar(255)                        not null comment '字段名',
+    create_time         timestamp default CURRENT_TIMESTAMP null comment '创建时间',
+    update_time         timestamp default CURRENT_TIMESTAMP null comment '更新时间',
+    constraint uk_agent_ds_cols_ds_table_col
+        unique (agent_datasource_id, table_name, column_name),
+    constraint fk_agent_ds_cols_agent_ds
+        foreign key (agent_datasource_id) references agent_datasource (id)
+            on update cascade on delete cascade
+)
+    comment '某个智能体某个数据源所选中的字段白名单';
 
 
 -- 模型配置表

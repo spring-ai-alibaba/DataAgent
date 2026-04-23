@@ -141,7 +141,8 @@ public class DatasourceExplorerToolProvider implements AgentScopedToolProvider {
 				4. Treat the unified relations field as the primary source for table-to-table relationship reasoning and join planning.
 				5. The foreignKeys field inside table metadata is kept only for compatibility; prefer relations for agent reasoning.
 				6. Recommended call order: LIST_TABLES -> GET_TABLE_SCHEMA -> GET_RELATED_TABLES -> PREVIEW_ROWS -> SEARCH.
-				7. %s
+				7. Never infer hidden fields from visible values. For example, do not derive a username or person name from an email local-part, ID, code, or alias.
+				8. %s
 				""".formatted(datasource.getName(), datasource.getType(), visibleTables);
 	}
 

@@ -1,4 +1,4 @@
-<!--
+﻿<!--
  * Copyright 2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -97,6 +97,15 @@
                   round
                 >
                   更新数据表
+                </el-button>
+                <el-button
+                  @click="openColumnVisibilityDialog(scope.row)"
+                  size="small"
+                  type="warning"
+                  round
+                  plain
+                >
+                  字段可见性
                 </el-button>
                 <el-button
                   @click="selectAllTables(scope.row)"
@@ -521,6 +530,124 @@
     </div>
   </el-dialog>
 
+  <el-dialog
+    v-model="columnDialogVisible"
+    title="字段可见性配置"
+    width="900px"
+    :close-on-click-modal="false"
+  >
+    <div v-if="currentColumnDatasource">
+      <div style="margin-bottom: 16px; padding: 12px; background: #f5f7fa; border-radius: 6px">
+        <div style="font-size: 14px; color: #606266">
+          当前数据源：
+          <span style="font-weight: 600; color: #303133">
+            {{ currentColumnDatasource.name }}
+          </span>
+        </div>
+      </div>
+
+      <div
+        v-if="currentColumnTables.length === 0"
+        style="text-align: center; color: #909399; padding: 32px 0"
+      >
+        当前没有已保存的数据表，请先配置并保存数据表。
+      </div>
+
+      <div v-else style="display: flex; flex-direction: column; gap: 16px">
+        <div
+          v-for="tableName in currentColumnTables"
+          :key="tableName"
+          style="border: 1px solid #ebeef5; border-radius: 8px; padding: 16px"
+        >
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 12px;
+              gap: 12px;
+              flex-wrap: wrap;
+            "
+          >
+            <div>
+              <div style="font-size: 15px; font-weight: 600; color: #303133">{{ tableName }}</div>
+              <div style="font-size: 12px; color: #909399; margin-top: 4px">
+                关闭限制时，默认该表所有字段可见；开启后仅允许下方勾选字段可见。
+              </div>
+            </div>
+            <el-switch
+              :model-value="columnRestrictionEnabled[currentColumnDatasource.id]?.[tableName]"
+              active-text="限制字段"
+              inactive-text="全部字段"
+              @change="toggleColumnRestriction(tableName, $event)"
+            />
+          </div>
+
+          <div
+            v-if="columnLoadingStates[getColumnLoadingKey(currentColumnDatasource.id, tableName)]"
+            style="padding: 16px 0"
+          >
+            <el-skeleton :rows="2" animated />
+          </div>
+
+          <div
+            v-else-if="!(columnOptionsByDatasource[currentColumnDatasource.id]?.[tableName] || []).length"
+            style="padding: 12px 0; color: #909399"
+          >
+            未加载到字段信息。
+          </div>
+
+          <div v-else>
+            <div style="margin-bottom: 10px; text-align: right">
+              <el-button
+                size="small"
+                type="primary"
+                plain
+                :disabled="!columnRestrictionEnabled[currentColumnDatasource.id]?.[tableName]"
+                @click="selectAllColumnsForTable(tableName)"
+              >
+                全选字段
+              </el-button>
+              <el-button
+                size="small"
+                plain
+                :disabled="!columnRestrictionEnabled[currentColumnDatasource.id]?.[tableName]"
+                @click="clearColumnsForTable(tableName)"
+              >
+                清空字段
+              </el-button>
+            </div>
+
+            <el-checkbox-group
+              v-model="selectedColumns[currentColumnDatasource.id][tableName]"
+              :disabled="!columnRestrictionEnabled[currentColumnDatasource.id]?.[tableName]"
+            >
+              <el-row :gutter="10">
+                <el-col
+                  v-for="column in columnOptionsByDatasource[currentColumnDatasource.id]?.[tableName] || []"
+                  :key="column"
+                  :span="8"
+                  style="margin-bottom: 10px"
+                >
+                  <el-checkbox :label="column">{{ column }}</el-checkbox>
+                </el-col>
+              </el-row>
+            </el-checkbox-group>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <template #footer>
+      <div style="text-align: right">
+        <el-button @click="columnDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="savingColumnVisibility" @click="saveDatasourceColumns">
+          保存字段可见性
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
+
   <!-- 逻辑外键配置Dialog（逻辑外键管理） -->
   <el-dialog
     v-model="foreignKeyDialogVisible"
@@ -844,6 +971,14 @@
       const tableLoadingStates: Ref<Record<number, boolean>> = ref({});
       const updateLoadingStates: Ref<Record<number, boolean>> = ref({});
       const agentDatasourceList: Ref<AgentDatasource[]> = ref([]);
+      const selectedColumns: Ref<Record<number, Record<string, string[]>>> = ref({});
+      const columnOptionsByDatasource: Ref<Record<number, Record<string, string[]>>> = ref({});
+      const columnRestrictionEnabled: Ref<Record<number, Record<string, boolean>>> = ref({});
+      const columnLoadingStates: Ref<Record<string, boolean>> = ref({});
+      const columnDialogVisible: Ref<boolean> = ref(false);
+      const currentColumnDatasource: Ref<Datasource | null> = ref(null);
+      const currentColumnTables: Ref<string[]> = ref([]);
+      const savingColumnVisibility: Ref<boolean> = ref(false);
 
       // 逻辑外键管理相关状态
       const foreignKeyDialogVisible: Ref<boolean> = ref(false);
@@ -892,9 +1027,20 @@
             const datasourceItem = { ...item.datasource };
             datasourceItem.status = item.isActive === 1 ? 'active' : 'inactive';
 
-            // 初始化已选择的表
-            if (item.selectTables && item.datasource?.id) {
-              selectedTables.value[item.datasource.id] = [...item.selectTables];
+            if (item.datasource?.id) {
+              if (item.selectTables) {
+                selectedTables.value[item.datasource.id] = [...item.selectTables];
+              }
+              selectedColumns.value[item.datasource.id] = Object.entries(item.selectColumns || {}).reduce<
+                Record<string, string[]>
+              >((result, [tableName, columns]) => {
+                result[tableName] = [...columns];
+                return result;
+              }, {});
+              columnRestrictionEnabled.value[item.datasource.id] = {};
+              Object.keys(selectedColumns.value[item.datasource.id]).forEach(tableName => {
+                columnRestrictionEnabled.value[item.datasource.id][tableName] = true;
+              });
             }
 
             return datasourceItem;
@@ -902,6 +1048,136 @@
         } catch (error) {
           ElMessage.error('加载当前智能体的数据源列表失败');
           console.error('Failed to load datasource:', error);
+        }
+      };
+
+      const getAgentDatasourceByDatasourceId = (datasourceId: number): AgentDatasource | undefined => {
+        return agentDatasourceList.value.find(item => item.datasource?.id === datasourceId);
+      };
+
+      const getErrorMessage = (error: unknown, fallback: string): string => {
+        if (error instanceof Error && error.message.trim()) {
+          return error.message;
+        }
+        return fallback;
+      };
+
+      const applyAgentDatasourceSnapshot = (snapshot: AgentDatasource): void => {
+        const datasourceId = snapshot.datasource?.id;
+        if (!datasourceId || !snapshot.datasource) {
+          return;
+        }
+
+        const nextSnapshot: AgentDatasource = {
+          ...snapshot,
+          selectTables: [...(snapshot.selectTables || [])],
+          selectColumns: Object.entries(snapshot.selectColumns || {}).reduce<Record<string, string[]>>(
+            (result, [tableName, columns]) => {
+              result[tableName] = [...columns];
+              return result;
+            },
+            {},
+          ),
+        };
+
+        const agentDatasourceIndex = agentDatasourceList.value.findIndex(
+          item => item.datasource?.id === datasourceId,
+        );
+        if (agentDatasourceIndex >= 0) {
+          agentDatasourceList.value[agentDatasourceIndex] = nextSnapshot;
+        } else {
+          agentDatasourceList.value.push(nextSnapshot);
+        }
+
+        const datasourceSnapshot: Datasource = {
+          ...nextSnapshot.datasource,
+          status: nextSnapshot.isActive === 1 ? 'active' : 'inactive',
+        };
+        const datasourceIndex = datasource.value.findIndex(item => item.id === datasourceId);
+        if (datasourceIndex >= 0) {
+          datasource.value[datasourceIndex] = datasourceSnapshot;
+        } else {
+          datasource.value.push(datasourceSnapshot);
+        }
+
+        selectedTables.value[datasourceId] = [...(nextSnapshot.selectTables || [])];
+        selectedColumns.value[datasourceId] = Object.entries(nextSnapshot.selectColumns || {}).reduce<
+          Record<string, string[]>
+        >((result, [tableName, columns]) => {
+          result[tableName] = [...columns];
+          return result;
+        }, {});
+        columnRestrictionEnabled.value[datasourceId] = {};
+        (nextSnapshot.selectTables || []).forEach(tableName => {
+          columnRestrictionEnabled.value[datasourceId][tableName] =
+            (nextSnapshot.selectColumns?.[tableName] || []).length > 0;
+        });
+      };
+
+      const getSelectedTablesForDatasource = (datasourceId: number): string[] => {
+        const currentTables = selectedTables.value[datasourceId];
+        if (currentTables && currentTables.length > 0) {
+          return [...currentTables];
+        }
+        return [...(getAgentDatasourceByDatasourceId(datasourceId)?.selectTables || [])];
+      };
+
+      const normalizeNameList = (values: string[] = []): string[] => {
+        return [...values]
+          .map(value => value.trim())
+          .filter(Boolean)
+          .sort((left, right) => left.localeCompare(right));
+      };
+
+      const hasPendingTableChanges = (datasourceRow: Datasource): boolean => {
+        if (!datasourceRow.id) {
+          return false;
+        }
+        const savedTables = normalizeNameList(
+          getAgentDatasourceByDatasourceId(datasourceRow.id)?.selectTables || [],
+        );
+        const currentTables = normalizeNameList(selectedTables.value[datasourceRow.id] || []);
+        return savedTables.join('|') !== currentTables.join('|');
+      };
+
+      const resolveConfiguredColumns = (
+        selectColumns: Record<string, string[]> | undefined,
+        tableName: string,
+      ): string[] => {
+        if (!selectColumns) {
+          return [];
+        }
+        if (selectColumns[tableName]) {
+          return [...selectColumns[tableName]];
+        }
+        const matchedKey = Object.keys(selectColumns).find(
+          key => key.toLowerCase() === tableName.toLowerCase(),
+        );
+        return matchedKey ? [...(selectColumns[matchedKey] || [])] : [];
+      };
+
+      const getColumnLoadingKey = (datasourceId: number, tableName: string): string => {
+        return `${datasourceId}:${tableName}`;
+      };
+
+      const loadColumnsForTable = async (datasourceId: number, tableName: string): Promise<void> => {
+        const loadingKey = getColumnLoadingKey(datasourceId, tableName);
+        columnLoadingStates.value[loadingKey] = true;
+        try {
+          const columns = await agentDatasourceService.getVisibleTableColumns(
+            String(props.agentId),
+            datasourceId,
+            tableName,
+          );
+          if (!columnOptionsByDatasource.value[datasourceId]) {
+            columnOptionsByDatasource.value[datasourceId] = {};
+          }
+          columnOptionsByDatasource.value[datasourceId][tableName] = columns;
+        } catch (error) {
+          ElMessage.error(getErrorMessage(error, `加载表 ${tableName} 的字段失败`));
+          console.error('Failed to load datasource columns:', error);
+        } finally {
+          columnLoadingStates.value[loadingKey] = false;
         }
       };
 
@@ -1274,31 +1550,139 @@
 
         updateLoadingStates.value[datasource.id] = true;
         try {
-          const response = await agentDatasourceService.updateDatasourceTables(
-            String(props.agentId),
-            {
-              datasourceId: datasource.id,
-              tables: selectedTables.value[datasource.id] || [],
-            },
-          );
+          const response = await agentDatasourceService.updateDatasourceTables(String(props.agentId), {
+            datasourceId: datasource.id,
+            tables: selectedTables.value[datasource.id] || [],
+          });
 
-          if (response.success) {
+          if (response.success && response.data) {
+            applyAgentDatasourceSnapshot(response.data);
             ElMessage.success('数据表更新成功');
-            // 更新本地存储的已选择表
-            const agentDatasource = agentDatasourceList.value.find(
-              item => item.datasource?.id === datasource.id,
-            );
-            if (agentDatasource) {
-              agentDatasource.selectTables = [...(selectedTables.value[datasource.id] || [])];
-            }
           } else {
-            ElMessage.error('数据表更新失败');
+            ElMessage.error(response.message || '数据表更新失败');
           }
         } catch (error) {
-          ElMessage.error('数据表更新失败');
+          ElMessage.error(getErrorMessage(error, '数据表更新失败'));
           console.error('Failed to update datasource tables:', error);
         } finally {
           updateLoadingStates.value[datasource.id] = false;
+        }
+      };
+
+      const toggleColumnRestriction = (tableName: string, enabled: boolean | string | number) => {
+        const datasourceId = currentColumnDatasource.value?.id;
+        if (!datasourceId) {
+          return;
+        }
+        if (!columnRestrictionEnabled.value[datasourceId]) {
+          columnRestrictionEnabled.value[datasourceId] = {};
+        }
+        columnRestrictionEnabled.value[datasourceId][tableName] = Boolean(enabled);
+        if (!enabled) {
+          selectedColumns.value[datasourceId][tableName] = [];
+        }
+      };
+
+      const openColumnVisibilityDialog = async (datasourceRow: Datasource) => {
+        if (!datasourceRow.id) {
+          return;
+        }
+        if (hasPendingTableChanges(datasourceRow)) {
+          ElMessage.warning('请先点击“更新数据表”保存当前表配置，再设置字段可见性');
+          return;
+        }
+
+        const tables = getSelectedTablesForDatasource(datasourceRow.id);
+        if (tables.length === 0) {
+          ElMessage.warning('请先选择并保存数据表，再配置字段可见性');
+          return;
+        }
+
+        currentColumnDatasource.value = datasourceRow;
+        currentColumnTables.value = [...tables];
+
+        if (!selectedColumns.value[datasourceRow.id]) {
+          selectedColumns.value[datasourceRow.id] = {};
+        }
+        if (!columnRestrictionEnabled.value[datasourceRow.id]) {
+          columnRestrictionEnabled.value[datasourceRow.id] = {};
+        }
+        if (!columnOptionsByDatasource.value[datasourceRow.id]) {
+          columnOptionsByDatasource.value[datasourceRow.id] = {};
+        }
+
+        const agentDatasource = getAgentDatasourceByDatasourceId(datasourceRow.id);
+        tables.forEach(tableName => {
+          const configuredColumns = resolveConfiguredColumns(agentDatasource?.selectColumns, tableName);
+          selectedColumns.value[datasourceRow.id][tableName] = configuredColumns;
+          columnRestrictionEnabled.value[datasourceRow.id][tableName] = configuredColumns.length > 0;
+        });
+
+        await Promise.all(tables.map(tableName => loadColumnsForTable(datasourceRow.id!, tableName)));
+        columnDialogVisible.value = true;
+      };
+
+      const selectAllColumnsForTable = (tableName: string) => {
+        const datasourceId = currentColumnDatasource.value?.id;
+        if (!datasourceId) {
+          return;
+        }
+        selectedColumns.value[datasourceId][tableName] = [
+          ...(columnOptionsByDatasource.value[datasourceId]?.[tableName] || []),
+        ];
+      };
+
+      const clearColumnsForTable = (tableName: string) => {
+        const datasourceId = currentColumnDatasource.value?.id;
+        if (!datasourceId) {
+          return;
+        }
+        selectedColumns.value[datasourceId][tableName] = [];
+      };
+
+      const saveDatasourceColumns = async () => {
+        const datasourceId = currentColumnDatasource.value?.id;
+        if (!datasourceId) {
+          return;
+        }
+
+        const invalidTables = currentColumnTables.value.filter(tableName => {
+          return (
+            columnRestrictionEnabled.value[datasourceId]?.[tableName] &&
+            !(selectedColumns.value[datasourceId]?.[tableName] || []).length
+          );
+        });
+        if (invalidTables.length > 0) {
+          ElMessage.warning(`请至少为以下数据表选择一个字段：${invalidTables.join('、')}`);
+          return;
+        }
+
+        savingColumnVisibility.value = true;
+        try {
+          const tables = currentColumnTables.value
+            .filter(tableName => columnRestrictionEnabled.value[datasourceId]?.[tableName])
+            .map(tableName => ({
+              tableName,
+              columns: [...(selectedColumns.value[datasourceId]?.[tableName] || [])],
+            }));
+
+          const response = await agentDatasourceService.updateDatasourceColumns(String(props.agentId), {
+            datasourceId,
+            tables,
+          });
+
+          if (response.success && response.data) {
+            applyAgentDatasourceSnapshot(response.data);
+            ElMessage.success('字段可见性更新成功');
+            columnDialogVisible.value = false;
+          } else {
+            ElMessage.error(response.message || '字段可见性更新失败');
+          }
+        } catch (error) {
+          ElMessage.error(getErrorMessage(error, '字段可见性更新失败'));
+          console.error('Failed to update datasource columns:', error);
+        } finally {
+          savingColumnVisibility.value = false;
         }
       };
 
@@ -1590,6 +1974,14 @@
         editingDatasource,
         tableLists,
         selectedTables,
+        selectedColumns,
+        columnOptionsByDatasource,
+        columnRestrictionEnabled,
+        columnLoadingStates,
+        columnDialogVisible,
+        currentColumnDatasource,
+        currentColumnTables,
+        savingColumnVisibility,
         tableLoadingStates,
         updateLoadingStates,
         initAgentDatasource,
@@ -1605,6 +1997,12 @@
         deleteDatasource,
         loadDatasourceTables,
         updateDatasourceTables,
+        openColumnVisibilityDialog,
+        saveDatasourceColumns,
+        selectAllColumnsForTable,
+        clearColumnsForTable,
+        toggleColumnRestriction,
+        getColumnLoadingKey,
         selectAllTables,
         clearAllTables,
         truncateText,

@@ -28,26 +28,44 @@ interface UpdateDatasourceTablesDto {
   tables?: string[];
 }
 
+interface TableColumnsSelectionDto {
+  tableName: string;
+  columns?: string[];
+}
+
+interface UpdateDatasourceColumnsDto {
+  datasourceId?: number;
+  tables?: TableColumnsSelectionDto[];
+}
+
 const BASE_URL_FUNC = (agentId: string) => `/api/agent/${agentId}/datasources`;
 
+const extractApiErrorMessage = (error: unknown, fallback: string): string => {
+  if (axios.isAxiosError(error)) {
+    const responseMessage = error.response?.data?.message;
+    if (typeof responseMessage === 'string' && responseMessage.trim()) {
+      return responseMessage;
+    }
+    if (typeof error.message === 'string' && error.message.trim()) {
+      return error.message;
+    }
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+};
+
 class AgentDatasourceService {
-  /**
-   * 初始化数据源Schema
-   * @param agentId 智能体ID
-   */
   async initSchema(agentId: string): Promise<ApiResponse<null>> {
     try {
       const response = await axios.post<ApiResponse<null>>(`${BASE_URL_FUNC(agentId)}/init`);
       return response.data;
     } catch (error) {
-      throw new Error(`初始化Schema失败: ${error}`);
+      throw new Error(extractApiErrorMessage(error, '初始化 Schema 失败'));
     }
   }
 
-  /**
-   * 获取智能体的数据源列表
-   * @param agentId 智能体ID
-   */
   async getAgentDatasource(agentId: number): Promise<AgentDatasource[]> {
     try {
       const response = await axios.get<ApiResponse<AgentDatasource[]>>(
@@ -58,36 +76,24 @@ class AgentDatasourceService {
       }
       throw new Error(response.data.message);
     } catch (error) {
-      throw new Error(`获取数据源列表失败: ${error}`);
+      throw new Error(extractApiErrorMessage(error, '获取数据源列表失败'));
     }
   }
 
-  /**
-   * 获取当前激活的智能体
-   * @param agentId 智能体ID
-   */
   async getActiveAgentDatasource(agentId: number): Promise<AgentDatasource> {
     try {
       const response = await axios.get<ApiResponse<AgentDatasource>>(
-        BASE_URL_FUNC(String(agentId)) + '/active',
+        `${BASE_URL_FUNC(String(agentId))}/active`,
       );
-      if (response.data.success) {
-        if (response.data.data === undefined) {
-          throw new Error('后端错误');
-        }
+      if (response.data.success && response.data.data) {
         return response.data.data;
       }
-      throw new Error(response.data.message);
+      throw new Error(response.data.message || '后端返回了空数据');
     } catch (error) {
-      throw new Error(`获取数据源列表失败: ${error}`);
+      throw new Error(extractApiErrorMessage(error, '获取当前启用数据源失败'));
     }
   }
 
-  /**
-   * 为智能体添加数据源
-   * @param agentId 智能体ID
-   * @param datasourceId 数据源ID
-   */
   async addDatasourceToAgent(
     agentId: string,
     datasourceId: number,
@@ -98,15 +104,10 @@ class AgentDatasourceService {
       );
       return response.data;
     } catch (error) {
-      throw new Error(`添加数据源失败: ${error}`);
+      throw new Error(extractApiErrorMessage(error, '添加数据源失败'));
     }
   }
 
-  /**
-   * 从智能体移除数据源
-   * @param agentId 智能体ID
-   * @param datasourceId 数据源ID
-   */
   async removeDatasourceFromAgent(
     agentId: string,
     datasourceId: number,
@@ -117,15 +118,10 @@ class AgentDatasourceService {
       );
       return response.data;
     } catch (error) {
-      throw new Error(`移除数据源失败: ${error}`);
+      throw new Error(extractApiErrorMessage(error, '移除数据源失败'));
     }
   }
 
-  /**
-   * 启用/禁用智能体的数据源
-   * @param agentId 智能体ID
-   * @param dto 切换参数
-   */
   async toggleDatasourceForAgent(
     agentId: string,
     dto: ToggleDatasourceDto,
@@ -137,24 +133,55 @@ class AgentDatasourceService {
       );
       return response.data;
     } catch (error) {
-      throw new Error(`切换数据源状态失败: ${error}`);
+      throw new Error(extractApiErrorMessage(error, '切换数据源状态失败'));
     }
   }
 
-  /**
-   * 更新数据源的表列表
-   * @param agentId 智能体ID
-   * @param dto 更新参数
-   */
   async updateDatasourceTables(
     agentId: string,
     dto: UpdateDatasourceTablesDto,
-  ): Promise<ApiResponse<null>> {
+  ): Promise<ApiResponse<AgentDatasource>> {
     try {
-      const response = await axios.post<ApiResponse<null>>(`${BASE_URL_FUNC(agentId)}/tables`, dto);
+      const response = await axios.post<ApiResponse<AgentDatasource>>(
+        `${BASE_URL_FUNC(agentId)}/tables`,
+        dto,
+      );
       return response.data;
     } catch (error) {
-      throw new Error(`更新数据源表列表失败: ${error}`);
+      throw new Error(extractApiErrorMessage(error, '更新数据表列表失败'));
+    }
+  }
+
+  async updateDatasourceColumns(
+    agentId: string,
+    dto: UpdateDatasourceColumnsDto,
+  ): Promise<ApiResponse<AgentDatasource>> {
+    try {
+      const response = await axios.post<ApiResponse<AgentDatasource>>(
+        `${BASE_URL_FUNC(agentId)}/columns`,
+        dto,
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(extractApiErrorMessage(error, '更新字段可见性失败'));
+    }
+  }
+
+  async getVisibleTableColumns(
+    agentId: string,
+    datasourceId: number,
+    tableName: string,
+  ): Promise<string[]> {
+    try {
+      const response = await axios.get<ApiResponse<string[]>>(
+        `${BASE_URL_FUNC(agentId)}/${datasourceId}/tables/${encodeURIComponent(tableName)}/columns`,
+      );
+      if (response.data.success) {
+        return response.data.data || [];
+      }
+      throw new Error(response.data.message);
+    } catch (error) {
+      throw new Error(extractApiErrorMessage(error, `加载表 ${tableName} 的字段失败`));
     }
   }
 }
