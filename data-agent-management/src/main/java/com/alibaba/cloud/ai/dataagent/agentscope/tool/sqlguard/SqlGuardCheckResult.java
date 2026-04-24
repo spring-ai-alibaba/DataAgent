@@ -22,36 +22,47 @@ import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 class SqlGuardCheckResult {
 
-    private String query;
+	private String action;
 
-    private String sql;
+	private String query;
 
-    private String summary;
+	private String sql;
 
-    private String explainedIntent;
+	private String tableName;
 
-    @JsonProperty("isAligned")
-    private boolean isAligned;
+	private String summary;
 
-    @Builder.Default
-    private List<SqlGuardProblem> problems = new ArrayList<>();
+	private String explainedIntent;
 
-    @Builder.Default
-    private List<String> fixSuggestions = new ArrayList<>();
+	@JsonProperty("isAligned")
+	private Boolean isAligned;
 
-    @Builder.Default
-    private List<String> usedTables = new ArrayList<>();
+	private Long totalRows;
 
-    @Builder.Default
-    private List<String> usedMetrics = new ArrayList<>();
+	private Integer inspectedColumnCount;
 
-    @Builder.Default
-    private List<SqlGuardRuleCheck> ruleChecks = new ArrayList<>();
+	@Builder.Default
+	private List<SqlGuardProblem> problems = new ArrayList<>();
 
+	@Builder.Default
+	private List<String> fixSuggestions = new ArrayList<>();
+
+	@Builder.Default
+	private List<String> usedTables = new ArrayList<>();
+
+	@Builder.Default
+	private List<String> usedMetrics = new ArrayList<>();
+
+	@Builder.Default
+	private List<SqlGuardRuleCheck> ruleChecks = new ArrayList<>();
+
+	@Builder.Default
+	private List<Map<String, Object>> columnProfiles = new ArrayList<>();
 }

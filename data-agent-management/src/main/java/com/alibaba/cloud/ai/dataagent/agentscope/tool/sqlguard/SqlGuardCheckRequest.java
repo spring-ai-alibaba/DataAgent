@@ -16,19 +16,32 @@
 package com.alibaba.cloud.ai.dataagent.agentscope.tool.sqlguard;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.List;
 import lombok.Data;
+import org.apache.commons.lang3.StringUtils;
 
 @Data
 class SqlGuardCheckRequest {
 
-    private String query;
+	private String action;
 
-    private String sql;
+	private String query;
 
-    private JsonNode tableSchemas;
+	private String sql;
 
-    private JsonNode semanticHits;
+	private String tableName;
 
-    private JsonNode businessKnowledgeHits;
+	private List<String> columnNames;
 
+	private Integer limit;
+
+	private JsonNode tableSchemas;
+
+	private JsonNode semanticHits;
+
+	private JsonNode businessKnowledgeHits;
+
+	String normalizedAction() {
+		return StringUtils.defaultIfBlank(action, "SQL_VERIFY").trim().toUpperCase();
+	}
 }

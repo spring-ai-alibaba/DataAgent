@@ -15,12 +15,26 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.tool.sqlguard;
 
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
+import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
+import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
+import com.alibaba.cloud.ai.dataagent.entity.Datasource;
+import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
+import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
+import com.alibaba.cloud.ai.dataagent.util.SqlUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,6 +47,16 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class SqlVerifyExplainService {
+
+	private static final String ACTION_SQL_VERIFY = "SQL_VERIFY";
+
+	private static final String ACTION_DATA_PROFILE = "DATA_PROFILE";
+
+	private static final int DEFAULT_PROFILE_LIMIT = 5;
+
+	private static final int MAX_PROFILE_LIMIT = 20;
+
+	private static final int DEFAULT_PROFILE_COLUMN_COUNT = 3;
 
     private static final Pattern AGGREGATE_PATTERN = Pattern
         .compile("(?i)\\b(count|sum|avg|average|min|max)\\s*\\(([^)]*)\\)\\s*(?:as\\s+([a-zA-Z0-9_]+))?");
@@ -72,6 +96,19 @@ public class SqlVerifyExplainService {
     private static final Pattern SQL_FETCH_FIRST_VALUE_PATTERN = Pattern
         .compile("(?is)\\bfetch\\s+first\\s+(\\d+)\\s+rows\\s+only\\b");
 
+	private final AgentDatasourceService agentDatasourceService;
+
+	private final DatasourceService datasourceService;
+
+	private final AccessorFactory accessorFactory;
+
+	public SqlVerifyExplainService(AgentDatasourceService agentDatasourceService, DatasourceService datasourceService,
+			AccessorFactory accessorFactory) {
+		this.agentDatasourceService = agentDatasourceService;
+		this.datasourceService = datasourceService;
+		this.accessorFactory = accessorFactory;
+	}
+
     public SqlGuardCheckResult explain(SqlGuardCheckRequest request) {
         String query = StringUtils.trimToEmpty(request == null ? null : request.getQuery());
         String sql = StringUtils.trimToEmpty(request == null ? null : request.getSql());
@@ -88,6 +125,7 @@ public class SqlVerifyExplainService {
         }
         catch (IllegalArgumentException ex) {
             return SqlGuardCheckResult.builder()
+                .action(ACTION_SQL_VERIFY)
                 .query(query)
                 .sql(sql)
                 .isAligned(false)
@@ -138,6 +176,7 @@ public class SqlVerifyExplainService {
             fixSuggestions.add("当前规则校验通过；如要进一步提高置信度，可继续核对执行结果与最终答案解释。");
         }
         return SqlGuardCheckResult.builder()
+            .action(ACTION_SQL_VERIFY)
             .query(query)
             .sql(sql)
             .isAligned(aligned)
@@ -150,6 +189,457 @@ public class SqlVerifyExplainService {
             .ruleChecks(ruleChecks)
             .build();
     }
+
+	public SqlGuardCheckResult inspectProfile(String agentId, SqlGuardCheckRequest request) {
+		String tableName = StringUtils.trimToEmpty(request == null ? null : request.getTableName());
+		if (StringUtils.isBlank(tableName)) {
+			throw new IllegalArgumentException("sql_guard.check with action=DATA_PROFILE requires tableName");
+		}
+		ProfileContext context = resolveProfileContext(agentId);
+		String actualTableName = resolveVisibleTableName(context, tableName);
+		List<ColumnInfoBO> availableColumns = loadTableColumns(context, actualTableName);
+		List<ColumnInfoBO> visibleColumns = applyVisibleColumnRestrictions(context, actualTableName, availableColumns);
+		if (visibleColumns.isEmpty()) {
+			throw new IllegalArgumentException(
+					"Table '%s' has no visible columns for current agent".formatted(actualTableName));
+		}
+		List<ColumnInfoBO> columnsToInspect = resolveColumnsToInspect(request, actualTableName, visibleColumns);
+		int sampleLimit = normalizeProfileLimit(request == null ? null : request.getLimit());
+		long totalRows = querySingleLong(context, "SELECT COUNT(*) AS total_rows FROM " + quoteTable(context, actualTableName),
+				"total_rows");
+		List<Map<String, Object>> columnProfiles = columnsToInspect.stream()
+			.map(column -> buildColumnProfile(context, actualTableName, column, totalRows, sampleLimit))
+			.toList();
+		String summary = "Profiled %d columns from '%s' using visible columns only."
+			.formatted(columnProfiles.size(), actualTableName);
+		return SqlGuardCheckResult.builder()
+			.action(ACTION_DATA_PROFILE)
+			.query(request == null ? null : request.getQuery())
+			.tableName(actualTableName)
+			.summary(summary)
+			.totalRows(totalRows)
+			.inspectedColumnCount(columnProfiles.size())
+			.usedTables(List.of(actualTableName))
+			.columnProfiles(columnProfiles)
+			.fixSuggestions(List.of(
+					"Use categorical fields with concentrated topValues as filters or GROUP BY candidates.",
+					"Use numeric/date fields with min/max ranges as metric, trend, or time-window candidates."))
+			.build();
+	}
+
+	private ProfileContext resolveProfileContext(String agentId) {
+		if (!StringUtils.isNumeric(agentId)) {
+			throw new IllegalArgumentException("sql_guard.check DATA_PROFILE only supports numeric agentId");
+		}
+		Long numericAgentId = Long.valueOf(agentId);
+		AgentDatasource agentDatasource = agentDatasourceService.getCurrentAgentDatasource(numericAgentId);
+		Datasource datasource = agentDatasource.getDatasource() != null ? agentDatasource.getDatasource()
+				: datasourceService.getDatasourceById(agentDatasource.getDatasourceId());
+		if (datasource == null) {
+			throw new IllegalStateException("Active datasource not found for agent " + agentId);
+		}
+		DbConfigBO dbConfig = datasourceService.getDbConfig(datasource);
+		Accessor accessor = accessorFactory.getAccessorByDbConfig(dbConfig);
+		List<String> explicitSelectedTables = Optional.ofNullable(agentDatasource.getSelectTables()).orElse(List.of());
+		List<String> visibleTables;
+		try {
+			visibleTables = explicitSelectedTables.isEmpty() ? datasourceService.getDatasourceTables(datasource.getId())
+					: explicitSelectedTables;
+		}
+		catch (Exception ex) {
+			throw new IllegalStateException(
+					"Failed to load visible tables for datasource %s: %s".formatted(datasource.getId(), ex.getMessage()),
+					ex);
+		}
+		Map<String, List<String>> visibleTablesByName = indexTables(visibleTables, false);
+		Map<String, List<String>> visibleTablesByLeafName = indexTables(visibleTables, true);
+		Map<String, List<String>> visibleColumnsByTable = buildVisibleColumnsByTable(agentDatasource, visibleTablesByName,
+				visibleTablesByLeafName);
+		Map<String, Set<String>> visibleColumnNameSetByTable = new LinkedHashMap<>();
+		visibleColumnsByTable.forEach((key, value) -> visibleColumnNameSetByTable.put(key,
+				value.stream()
+					.map(this::normalizeColumnName)
+					.collect(LinkedHashSet::new, LinkedHashSet::add, LinkedHashSet::addAll)));
+		return new ProfileContext(agentDatasource, datasource, dbConfig, accessor, List.copyOf(visibleTables),
+				Map.copyOf(visibleTablesByName), Map.copyOf(visibleTablesByLeafName), Map.copyOf(visibleColumnsByTable),
+				Map.copyOf(visibleColumnNameSetByTable), Set.copyOf(visibleColumnsByTable.keySet()));
+	}
+
+	private List<ColumnInfoBO> loadTableColumns(ProfileContext context, String tableName) {
+		try {
+			return Optional.ofNullable(context.accessor()
+				.showColumns(context.dbConfig(),
+						DbQueryParameter.from(context.dbConfig()).setSchema(context.dbConfig().getSchema()).setTable(tableName)))
+				.orElse(List.of());
+		}
+		catch (Exception ex) {
+			throw new IllegalStateException("Failed to load columns for table '%s': %s".formatted(tableName, ex.getMessage()),
+					ex);
+		}
+	}
+
+	private List<ColumnInfoBO> applyVisibleColumnRestrictions(ProfileContext context, String tableName,
+			List<ColumnInfoBO> columns) {
+		return Optional.ofNullable(columns)
+			.orElse(List.of())
+			.stream()
+			.filter(column -> isColumnVisible(context, tableName, column.getName()))
+			.toList();
+	}
+
+	private List<ColumnInfoBO> resolveColumnsToInspect(SqlGuardCheckRequest request, String tableName,
+			List<ColumnInfoBO> visibleColumns) {
+		Map<String, ColumnInfoBO> columnsByName = new LinkedHashMap<>();
+		for (ColumnInfoBO column : visibleColumns) {
+			columnsByName.put(normalizeColumnName(column.getName()), column);
+		}
+		List<String> requestedColumns = Optional.ofNullable(request == null ? null : request.getColumnNames())
+			.orElse(List.of())
+			.stream()
+			.filter(StringUtils::isNotBlank)
+			.map(String::trim)
+			.toList();
+		if (requestedColumns.isEmpty()) {
+			return visibleColumns.stream().limit(DEFAULT_PROFILE_COLUMN_COUNT).toList();
+		}
+		List<ColumnInfoBO> resolvedColumns = new ArrayList<>();
+		for (String requestedColumn : requestedColumns) {
+			ColumnInfoBO column = columnsByName.get(normalizeColumnName(requestedColumn));
+			if (column == null) {
+				throw new IllegalArgumentException(
+						"Column '%s' is not visible in table '%s' for current agent".formatted(requestedColumn, tableName));
+			}
+			resolvedColumns.add(column);
+		}
+		return resolvedColumns;
+	}
+
+	private Map<String, Object> buildColumnProfile(ProfileContext context, String tableName, ColumnInfoBO column,
+			long totalRows, int sampleLimit) {
+		String quotedTable = quoteTable(context, tableName);
+		String quotedColumn = SqlUtil.quoteIdentifier(context.dbConfig().getDialectType(), column.getName());
+		long nullCount = querySingleLong(context,
+				"SELECT COUNT(*) AS null_rows FROM %s WHERE %s IS NULL".formatted(quotedTable, quotedColumn), "null_rows");
+		Double nullRatio = totalRows <= 0 ? 0D : roundRatio((double) nullCount / (double) totalRows);
+		Long distinctCount = null;
+		if (supportsDistinctCount(column)) {
+			distinctCount = querySingleLong(context, "SELECT COUNT(DISTINCT %s) AS distinct_count FROM %s"
+				.formatted(quotedColumn, quotedTable), "distinct_count");
+		}
+		List<Map<String, Object>> topValues = supportsGroupedTopValues(column)
+				? queryTopValues(context, quotedTable, quotedColumn, sampleLimit) : List.of();
+		List<String> sampleValues = querySampleValues(context, quotedTable, quotedColumn, sampleLimit, supportsDistinctCount(column));
+		String minValue = supportsMinMax(column)
+				? querySingleValue(context,
+						"SELECT MIN(%s) AS min_value FROM %s".formatted(quotedColumn, quotedTable), "min_value")
+				: null;
+		String maxValue = supportsMinMax(column)
+				? querySingleValue(context,
+						"SELECT MAX(%s) AS max_value FROM %s".formatted(quotedColumn, quotedTable), "max_value")
+				: null;
+		Map<String, Object> profile = new LinkedHashMap<>();
+		profile.put("columnName", column.getName());
+		profile.put("dataType", column.getType());
+		profile.put("notNull", column.isNotnull());
+		profile.put("nullCount", nullCount);
+		profile.put("nullRatio", nullRatio);
+		profile.put("distinctCount", distinctCount);
+		profile.put("sampleValues", sampleValues);
+		profile.put("topValues", topValues);
+		profile.put("min", minValue);
+		profile.put("max", maxValue);
+		profile.put("profileHints", buildProfileHints(column, nullRatio, distinctCount, totalRows, topValues));
+		return profile;
+	}
+
+	private List<Map<String, Object>> queryTopValues(ProfileContext context, String quotedTable, String quotedColumn,
+			int sampleLimit) {
+		String sql = applyLimit("""
+				SELECT %s AS profile_value, COUNT(*) AS profile_count
+				FROM %s
+				WHERE %s IS NOT NULL
+				GROUP BY %s
+				ORDER BY profile_count DESC
+				""".formatted(quotedColumn, quotedTable, quotedColumn, quotedColumn), context.dbConfig().getDialectType(),
+				sampleLimit);
+		ResultSetBO resultSet = executeSql(context, sql);
+		List<Map<String, Object>> values = new ArrayList<>();
+		for (Map<String, String> row : Optional.ofNullable(resultSet.getData()).orElse(List.of())) {
+			Map<String, Object> entry = new LinkedHashMap<>();
+			entry.put("value", row.get("profile_value"));
+			entry.put("count", parseLong(row.get("profile_count")));
+			values.add(entry);
+		}
+		return values;
+	}
+
+	private List<String> querySampleValues(ProfileContext context, String quotedTable, String quotedColumn, int sampleLimit,
+			boolean distinctPreferred) {
+		String selectClause = distinctPreferred ? "SELECT DISTINCT %s AS sample_value".formatted(quotedColumn)
+				: "SELECT %s AS sample_value".formatted(quotedColumn);
+		String sql = applyLimit("""
+				%s
+				FROM %s
+				WHERE %s IS NOT NULL
+				ORDER BY %s
+				""".formatted(selectClause, quotedTable, quotedColumn, quotedColumn), context.dbConfig().getDialectType(),
+				sampleLimit);
+		ResultSetBO resultSet = executeSql(context, sql);
+		return Optional.ofNullable(resultSet.getData())
+			.orElse(List.of())
+			.stream()
+			.map(row -> row.get("sample_value"))
+			.filter(StringUtils::isNotBlank)
+			.toList();
+	}
+
+	private List<String> buildProfileHints(ColumnInfoBO column, Double nullRatio, Long distinctCount, long totalRows,
+			List<Map<String, Object>> topValues) {
+		List<String> hints = new ArrayList<>();
+		if (Boolean.TRUE.equals(isLikelyCategorical(column, distinctCount, totalRows, topValues))) {
+			hints.add("Likely categorical field; suitable for filter or GROUP BY.");
+		}
+		if (supportsMinMax(column)) {
+			hints.add("Likely ordered field; suitable for range filter, metric, or trend axis.");
+		}
+		if (nullRatio != null && nullRatio >= 0.5D) {
+			hints.add("High null ratio; be careful when using it as a hard filter.");
+		}
+		if (hints.isEmpty()) {
+			hints.add("Inspect samples and top values before deciding whether to use it in SQL.");
+		}
+		return hints;
+	}
+
+	private Boolean isLikelyCategorical(ColumnInfoBO column, Long distinctCount, long totalRows,
+			List<Map<String, Object>> topValues) {
+		if (!supportsGroupedTopValues(column)) {
+			return false;
+		}
+		if (distinctCount != null && distinctCount > 0 && distinctCount <= 20) {
+			return true;
+		}
+		if (totalRows > 0 && distinctCount != null && distinctCount <= Math.max(10, totalRows / 10)) {
+			return true;
+		}
+		return !topValues.isEmpty() && topValues.size() <= 10;
+	}
+
+	private long querySingleLong(ProfileContext context, String sql, String columnName) {
+		return parseLong(querySingleValue(context, sql, columnName));
+	}
+
+	private String querySingleValue(ProfileContext context, String sql, String columnName) {
+		ResultSetBO resultSet = executeSql(context, sql);
+		List<Map<String, String>> rows = Optional.ofNullable(resultSet.getData()).orElse(List.of());
+		if (rows.isEmpty()) {
+			return null;
+		}
+		Map<String, String> row = rows.get(0);
+		if (row.containsKey(columnName)) {
+			return row.get(columnName);
+		}
+		return row.values().stream().findFirst().orElse(null);
+	}
+
+	private ResultSetBO executeSql(ProfileContext context, String sql) {
+		try {
+			ResultSetBO resultSet = context.accessor().executeSqlAndReturnObject(context.dbConfig(),
+					DbQueryParameter.from(context.dbConfig()).setSchema(context.dbConfig().getSchema()).setSql(sql));
+			if (resultSet == null) {
+				return ResultSetBO.builder().column(List.of()).data(List.of()).build();
+			}
+			if (StringUtils.isNotBlank(resultSet.getErrorMsg())) {
+				throw new IllegalStateException(resultSet.getErrorMsg());
+			}
+			if (resultSet.getColumn() == null) {
+				resultSet.setColumn(List.of());
+			}
+			if (resultSet.getData() == null) {
+				resultSet.setData(List.of());
+			}
+			return resultSet;
+		}
+		catch (Exception ex) {
+			throw new IllegalStateException("Failed to execute profile SQL: " + ex.getMessage(), ex);
+		}
+	}
+
+	private int normalizeProfileLimit(Integer requestedLimit) {
+		if (requestedLimit == null || requestedLimit <= 0) {
+			return DEFAULT_PROFILE_LIMIT;
+		}
+		return Math.min(requestedLimit, MAX_PROFILE_LIMIT);
+	}
+
+	private boolean supportsDistinctCount(ColumnInfoBO column) {
+		String normalizedType = normalizeType(column);
+		return !containsAny(normalizedType, "blob", "clob", "text", "ntext", "image", "json", "xml", "bytea");
+	}
+
+	private boolean supportsGroupedTopValues(ColumnInfoBO column) {
+		String normalizedType = normalizeType(column);
+		return !containsAny(normalizedType, "blob", "clob", "ntext", "image", "bytea");
+	}
+
+	private boolean supportsMinMax(ColumnInfoBO column) {
+		String normalizedType = normalizeType(column);
+		return containsAny(normalizedType, "int", "number", "numeric", "decimal", "double", "float", "real", "date",
+				"time", "year", "timestamp");
+	}
+
+	private String normalizeType(ColumnInfoBO column) {
+		return StringUtils.defaultString(column == null ? null : column.getType()).toLowerCase(Locale.ROOT);
+	}
+
+	private String applyLimit(String sql, String dialectType, int limit) {
+		String trimmed = StringUtils.trimToEmpty(sql);
+		if (trimmed.isEmpty()) {
+			return trimmed;
+		}
+		String normalizedDialect = StringUtils.defaultString(dialectType).toLowerCase(Locale.ROOT);
+		if (normalizedDialect.contains("sqlserver") || normalizedDialect.contains("sql_server")) {
+			if (trimmed.matches("(?is)^select\\s+distinct\\b.*")) {
+				return trimmed.replaceFirst("(?is)^select\\s+distinct\\b", "SELECT DISTINCT TOP %d".formatted(limit));
+			}
+			return trimmed.replaceFirst("(?is)^select\\b", "SELECT TOP %d".formatted(limit));
+		}
+		if (normalizedDialect.contains("oracle")) {
+			return trimmed + " FETCH FIRST " + limit + " ROWS ONLY";
+		}
+		return trimmed + " LIMIT " + limit;
+	}
+
+	private String quoteTable(ProfileContext context, String tableName) {
+		return SqlUtil.quoteIdentifier(context.dbConfig().getDialectType(), tableName);
+	}
+
+	private double roundRatio(double value) {
+		return Math.round(value * 10000D) / 10000D;
+	}
+
+	private long parseLong(String value) {
+		if (StringUtils.isBlank(value)) {
+			return 0L;
+		}
+		try {
+			return Long.parseLong(value.trim());
+		}
+		catch (NumberFormatException ex) {
+			try {
+				return Math.round(Double.parseDouble(value.trim()));
+			}
+			catch (NumberFormatException ignored) {
+				return 0L;
+			}
+		}
+	}
+
+	private String resolveVisibleTableName(ProfileContext context, String tableName) {
+		return findVisibleTableName(context.visibleTablesByName(), context.visibleTablesByLeafName(), tableName, false)
+			.orElseThrow(() -> new IllegalArgumentException(
+					"Table '%s' is not visible for current agent. Visible tables: %s".formatted(tableName,
+							String.join(", ", context.visibleTables()))));
+	}
+
+	private Optional<String> findVisibleTableName(Map<String, List<String>> visibleTablesByName,
+			Map<String, List<String>> visibleTablesByLeafName, String tableName, boolean allowQualifiedFallback) {
+		String normalizedTableName = normalizeIdentifier(tableName);
+		List<String> exactMatches = visibleTablesByName.getOrDefault(normalizedTableName, List.of());
+		if (exactMatches.size() == 1) {
+			return Optional.of(exactMatches.get(0));
+		}
+		if (exactMatches.size() > 1) {
+			throw new IllegalArgumentException(
+					"Table '%s' maps to multiple visible tables: %s".formatted(tableName, String.join(", ", exactMatches)));
+		}
+		if (isQualifiedIdentifier(tableName) && !allowQualifiedFallback) {
+			return Optional.empty();
+		}
+		List<String> leafMatches = visibleTablesByLeafName.getOrDefault(normalizeTableLeafName(tableName), List.of());
+		if (leafMatches.size() == 1) {
+			return Optional.of(leafMatches.get(0));
+		}
+		if (leafMatches.size() > 1) {
+			throw new IllegalArgumentException("Table '%s' is ambiguous across visible tables: %s"
+				.formatted(tableName, String.join(", ", leafMatches)));
+		}
+		return Optional.empty();
+	}
+
+	private Map<String, List<String>> buildVisibleColumnsByTable(AgentDatasource agentDatasource,
+			Map<String, List<String>> visibleTablesByName, Map<String, List<String>> visibleTablesByLeafName) {
+		Map<String, List<String>> selectedColumns = Optional.ofNullable(agentDatasource.getSelectColumns()).orElse(Map.of());
+		Map<String, List<String>> visibleColumnsByTable = new LinkedHashMap<>();
+		selectedColumns.forEach((tableName, columns) -> {
+			Optional<String> resolvedTableName = findVisibleTableName(visibleTablesByName, visibleTablesByLeafName,
+					tableName, true);
+			if (resolvedTableName.isEmpty()) {
+				return;
+			}
+			List<String> sanitizedColumns = Optional.ofNullable(columns)
+				.orElse(List.of())
+				.stream()
+				.filter(StringUtils::isNotBlank)
+				.map(String::trim)
+				.distinct()
+				.toList();
+			if (!sanitizedColumns.isEmpty()) {
+				visibleColumnsByTable.put(normalizeTableName(resolvedTableName.get()), sanitizedColumns);
+			}
+		});
+		return visibleColumnsByTable;
+	}
+
+	private Map<String, List<String>> indexTables(List<String> tableNames, boolean leafOnly) {
+		Map<String, List<String>> index = new LinkedHashMap<>();
+		for (String tableName : Optional.ofNullable(tableNames).orElse(List.of())) {
+			if (StringUtils.isBlank(tableName)) {
+				continue;
+			}
+			String key = leafOnly ? normalizeTableLeafName(tableName) : normalizeTableName(tableName);
+			index.computeIfAbsent(key, ignored -> new ArrayList<>()).add(tableName);
+		}
+		return index;
+	}
+
+	private boolean isColumnVisible(ProfileContext context, String tableName, String columnName) {
+		String normalizedTableName = normalizeTableName(tableName);
+		if (!context.columnRestrictedTables().contains(normalizedTableName)) {
+			return true;
+		}
+		Set<String> visibleColumns = context.visibleColumnNameSetByTable().get(normalizedTableName);
+		return visibleColumns != null && visibleColumns.contains(normalizeColumnName(columnName));
+	}
+
+	private boolean isQualifiedIdentifier(String value) {
+		return normalizeIdentifier(value).contains(".");
+	}
+
+	private String normalizeIdentifier(String value) {
+		String normalized = StringUtils.trimToEmpty(value);
+		normalized = StringUtils.removeStart(normalized, "`");
+		normalized = StringUtils.removeEnd(normalized, "`");
+		normalized = StringUtils.removeStart(normalized, "\"");
+		normalized = StringUtils.removeEnd(normalized, "\"");
+		normalized = StringUtils.removeStart(normalized, "[");
+		normalized = StringUtils.removeEnd(normalized, "]");
+		return normalized.toLowerCase(Locale.ROOT);
+	}
+
+	private String normalizeTableName(String tableName) {
+		return normalizeIdentifier(tableName);
+	}
+
+	private String normalizeTableLeafName(String tableName) {
+		String normalized = normalizeIdentifier(tableName);
+		int lastDot = normalized.lastIndexOf('.');
+		return lastDot >= 0 ? normalized.substring(lastDot + 1) : normalized;
+	}
+
+	private String normalizeColumnName(String columnName) {
+		return normalizeTableLeafName(columnName);
+	}
 
     private void evaluateAggregationRule(String query, String sql, QueryIntent intent, SqlShape shape,
             List<SqlGuardProblem> problems, Set<String> fixSuggestions, List<SqlGuardRuleCheck> ruleChecks) {
@@ -698,14 +1188,20 @@ public class SqlVerifyExplainService {
         }
     }
 
+    private record ProfileContext(AgentDatasource agentDatasource, Datasource datasource, DbConfigBO dbConfig,
+        Accessor accessor, List<String> visibleTables, Map<String, List<String>> visibleTablesByName,
+        Map<String, List<String>> visibleTablesByLeafName, Map<String, List<String>> visibleColumnsByTable,
+        Map<String, Set<String>> visibleColumnNameSetByTable, Set<String> columnRestrictedTables) {
+    }
+
     private record QueryIntent(boolean requiresAggregation, boolean requiresGrouping, boolean requiresTimeFilter,
-            boolean requiresOrdering, boolean requiresLimit, boolean requiresDistinct, boolean requiresTrend,
-            boolean prefersDescending, boolean prefersAscending, Integer expectedLimit) {
+        boolean requiresOrdering, boolean requiresLimit, boolean requiresDistinct, boolean requiresTrend,
+        boolean prefersDescending, boolean prefersAscending, Integer expectedLimit) {
     }
 
     private record SqlShape(List<String> usedTables, List<String> usedMetrics, boolean hasAggregation, boolean hasGroupBy,
-            boolean hasOrderBy, boolean hasLimit, boolean hasDistinct, boolean hasTimePredicate, boolean hasTimeBucket,
-            boolean orderDescending, boolean orderDirectionKnown, boolean limitValueKnown, Integer limitValue) {
+        boolean hasOrderBy, boolean hasLimit, boolean hasDistinct, boolean hasTimePredicate, boolean hasTimeBucket,
+        boolean orderDescending, boolean orderDirectionKnown, boolean limitValueKnown, Integer limitValue) {
     }
 
 }

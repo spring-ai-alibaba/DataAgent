@@ -361,15 +361,35 @@
       </div>
     </Teleport>
 
-    <el-dialog v-model="traceDialogVisible" title="最近一次 Trace" width="900px" destroy-on-close>
+    <el-dialog
+      v-model="traceDialogVisible"
+      title="最近一次 Trace"
+      width="1280px"
+      top="4vh"
+      destroy-on-close
+    >
       <div class="trace-toolbar">
         <div v-if="sessionTrace" class="trace-summary">
-          <span>Trace ID: {{ sessionTrace.traceId }}</span>
-          <span>Span 数: {{ sessionTrace.spanCount }}</span>
-          <span>耗时: {{ formatTraceDuration(sessionTrace.durationMs) }}</span>
-          <span>开始时间: {{ formatTraceTime(sessionTrace.startEpochMs) }}</span>
+          <span class="trace-summary-pill">Trace ID: {{ sessionTrace.traceId }}</span>
+          <span class="trace-summary-pill">Span 数: {{ sessionTrace.spanCount }}</span>
+          <span class="trace-summary-pill">耗时: {{ formatTraceDuration(sessionTrace.durationMs) }}</span>
+          <span class="trace-summary-pill">开始时间: {{ formatTraceTime(sessionTrace.startEpochMs) }}</span>
+          <span v-if="sessionTrace.runtimeRequestId" class="trace-summary-pill">
+            Request: {{ sessionTrace.runtimeRequestId }}
+          </span>
+          <span v-if="sessionTrace.agentId" class="trace-summary-pill">
+            Agent: {{ sessionTrace.agentId }}
+          </span>
         </div>
-        <el-button size="small" :loading="traceLoading" @click="refreshTrace">刷新</el-button>
+        <div class="trace-toolbar-actions">
+          <el-input
+            v-model="traceSearchKeyword"
+            clearable
+            placeholder="搜索 span / 属性 / 值"
+            class="trace-search-input"
+          />
+          <el-button size="small" :loading="traceLoading" @click="refreshTrace">刷新</el-button>
+        </div>
       </div>
 
       <el-alert
@@ -385,46 +405,182 @@
         description="当前会话还没有最近一次 trace"
       />
 
-      <div v-if="sessionTrace" class="trace-list">
-        <div
-          v-for="row in flattenedTraceSpans"
-          :key="row.span.spanId"
-          class="trace-row"
-          :style="{ paddingLeft: `${row.depth * 20 + 12}px` }"
-        >
-          <div class="trace-row-main">
-            <span class="trace-row-name">{{ row.span.name }}</span>
-            <el-tag size="small" effect="plain">{{ row.span.kind }}</el-tag>
-            <el-tag
-              size="small"
-              effect="plain"
-              :type="row.span.status === 'ERROR' ? 'danger' : 'success'"
+      <div v-if="sessionTrace" class="trace-explorer">
+        <div class="trace-pane trace-pane-list">
+          <div class="trace-pane-header">
+            <span class="trace-pane-title">Span 列表</span>
+            <span class="trace-pane-count">
+              {{ filteredTraceSpans.length }}/{{ flattenedTraceSpans.length }}
+            </span>
+          </div>
+          <el-empty
+            v-if="filteredTraceSpans.length === 0"
+            description="没有匹配的 span，试试其他关键词"
+            :image-size="88"
+          />
+          <div v-else class="trace-list">
+            <button
+              v-for="row in filteredTraceSpans"
+              :key="row.span.spanId"
+              type="button"
+              class="trace-row"
+              :class="{
+                'is-selected': row.span.spanId === selectedTraceSpanId,
+                'is-error': row.span.status === 'ERROR',
+              }"
+              :style="{ paddingLeft: `${row.depth * 18 + 16}px` }"
+              @click="selectTraceSpan(row.span.spanId)"
             >
-              {{ row.span.status }}
-            </el-tag>
-            <span class="trace-row-duration">{{ formatTraceDuration(row.span.durationMs) }}</span>
+              <div class="trace-row-main">
+                <span class="trace-row-name">{{ row.span.name }}</span>
+                <el-tag size="small" effect="plain">{{ row.span.kind }}</el-tag>
+                <el-tag
+                  size="small"
+                  effect="plain"
+                  :type="row.span.status === 'ERROR' ? 'danger' : 'success'"
+                >
+                  {{ row.span.status }}
+                </el-tag>
+                <span class="trace-row-duration">{{ formatTraceDuration(row.span.durationMs) }}</span>
+              </div>
+              <div class="trace-row-meta">
+                <span>spanId: {{ row.span.spanId }}</span>
+                <span>parent: {{ row.span.parentSpanId || '-' }}</span>
+                <span>属性: {{ row.attributeEntries.length }}</span>
+                <span>偏移: {{ formatTraceOffset(row.span.startEpochMs) }}</span>
+              </div>
+            </button>
           </div>
-          <div class="trace-row-meta">
-            <span>spanId: {{ row.span.spanId }}</span>
-            <span>parent: {{ row.span.parentSpanId || '-' }}</span>
-            <span>开始: {{ formatTraceTime(row.span.startEpochMs) }}</span>
-          </div>
-          <details
-            v-if="row.attributeEntries.length > 0"
-            class="trace-attributes"
-          >
-            <summary>属性</summary>
-            <div class="trace-attributes-grid">
-              <div
-                v-for="entry in row.attributeEntries"
-                :key="`${row.span.spanId}-${entry.key}`"
-                class="trace-attribute-item"
-              >
-                <span class="trace-attribute-key">{{ entry.key }}</span>
-                <span class="trace-attribute-value">{{ entry.value }}</span>
+        </div>
+
+        <div class="trace-pane trace-pane-detail">
+          <template v-if="selectedTraceRow">
+            <div class="trace-detail-header">
+              <div>
+                <div class="trace-detail-title">{{ selectedTraceRow.span.name }}</div>
+                <div class="trace-detail-subtitle">
+                  <span>spanId: {{ selectedTraceRow.span.spanId }}</span>
+                  <span>parent: {{ selectedTraceRow.span.parentSpanId || '-' }}</span>
+                </div>
+              </div>
+              <div class="trace-detail-tags">
+                <el-tag effect="plain">{{ selectedTraceRow.span.kind }}</el-tag>
+                <el-tag
+                  effect="plain"
+                  :type="selectedTraceRow.span.status === 'ERROR' ? 'danger' : 'success'"
+                >
+                  {{ selectedTraceRow.span.status }}
+                </el-tag>
               </div>
             </div>
-          </details>
+
+            <el-descriptions :column="2" border size="small" class="trace-descriptions">
+              <el-descriptions-item label="开始时间">
+                {{ formatTraceTime(selectedTraceRow.span.startEpochMs) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="结束时间">
+                {{ formatTraceTime(selectedTraceRow.span.endEpochMs) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="耗时">
+                {{ formatTraceDuration(selectedTraceRow.span.durationMs) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="相对偏移">
+                {{ formatTraceOffset(selectedTraceRow.span.startEpochMs) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="属性数">
+                {{ selectedTraceRow.attributeEntries.length }}
+              </el-descriptions-item>
+              <el-descriptions-item label="子 Span 数">
+                {{ selectedTraceRow.span.children?.length ?? 0 }}
+              </el-descriptions-item>
+            </el-descriptions>
+
+            <div v-if="parsedTraceConversations.length > 0" class="trace-message-panel">
+              <div class="trace-pane-header">
+                <span class="trace-pane-title">消息视图</span>
+                <span class="trace-pane-count">{{ parsedTraceConversations.length }} 组</span>
+              </div>
+              <div class="trace-message-groups">
+                <div
+                  v-for="group in parsedTraceConversations"
+                  :key="group.attributeKey"
+                  class="trace-message-group"
+                >
+                  <div class="trace-message-group-header">
+                    <div class="trace-message-group-title">{{ group.title }}</div>
+                    <div class="trace-message-group-meta">{{ group.attributeKey }}</div>
+                  </div>
+                  <div class="trace-message-list">
+                    <div
+                      v-for="message in group.messages"
+                      :key="message.id"
+                      class="trace-message-item"
+                      :class="`is-${message.kind}`"
+                    >
+                      <div class="trace-message-role">
+                        <span class="trace-message-role-badge">{{ message.label }}</span>
+                      </div>
+                      <div class="trace-message-body">
+                        <div v-if="message.title" class="trace-message-title">{{ message.title }}</div>
+                        <div v-if="message.skills.length > 0" class="trace-message-skills">
+                          <span
+                            v-for="skill in message.skills"
+                            :key="`${message.id}-${skill}`"
+                            class="trace-skill-chip"
+                          >
+                            {{ skill }}
+                          </span>
+                        </div>
+                        <pre
+                          v-if="isStructuredTraceValue(message.content)"
+                          class="trace-message-content trace-message-content-structured"
+                        >{{ formatStructuredTraceValue(message.content) }}</pre>
+                        <div v-else class="trace-message-content">{{ message.content || '空内容' }}</div>
+                        <pre
+                          v-if="message.details"
+                          class="trace-message-details"
+                        >{{ message.details }}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="trace-attribute-panel">
+              <div class="trace-pane-header">
+                <span class="trace-pane-title">属性详情</span>
+                <span class="trace-pane-count">
+                  {{ selectedTraceAttributeEntries.length }}/{{ selectedTraceRow.attributeEntries.length }}
+                </span>
+              </div>
+
+              <el-empty
+                v-if="selectedTraceAttributeEntries.length === 0"
+                description="这个 span 没有可显示的属性"
+                :image-size="88"
+              />
+              <div v-else class="trace-attribute-table">
+                <div class="trace-attribute-table-header">
+                  <span>Key</span>
+                  <span>Value</span>
+                </div>
+                <div
+                  v-for="entry in selectedTraceAttributeEntries"
+                  :key="`${selectedTraceRow.span.spanId}-${entry.key}`"
+                  class="trace-attribute-row"
+                >
+                  <div class="trace-attribute-key">{{ entry.key }}</div>
+                  <pre
+                    v-if="isStructuredTraceValue(entry.value)"
+                    class="trace-attribute-value trace-attribute-value-structured"
+                  >{{ formatStructuredTraceValue(entry.value) }}</pre>
+                  <div v-else class="trace-attribute-value">{{ entry.value }}</div>
+                </div>
+              </div>
+            </div>
+          </template>
+          <el-empty v-else description="选择一个 span 查看详情" :image-size="88" />
         </div>
       </div>
     </el-dialog>
@@ -605,6 +761,8 @@
       const traceDialogVisible = ref(false);
       const traceLoading = ref(false);
       const traceError = ref('');
+      const traceSearchKeyword = ref('');
+      const selectedTraceSpanId = ref('');
       const sessionTrace = ref<SessionTrace | null>(null);
 
       // 监听NL2SQL开关变化
@@ -651,6 +809,8 @@
         currentSession.value = session;
         sessionTrace.value = null;
         traceError.value = '';
+        traceSearchKeyword.value = '';
+        selectedTraceSpanId.value = '';
         traceDialogVisible.value = false;
 
         try {
@@ -1243,20 +1403,702 @@
         sessionState.markdownReportContent = '';
       };
 
-      const flattenTraceSpans = (
-        spans: TraceSpan[],
-        depth = 0,
-      ): Array<{ span: TraceSpan; depth: number; attributeEntries: Array<{ key: string; value: string }> }> => {
-        return spans.flatMap(span => {
-          const attributeEntries = Object.entries(span.attributes ?? {}).map(([key, value]) => ({
+      type TraceAttributeEntry = { key: string; value: string };
+      type FlattenedTraceSpan = {
+        span: TraceSpan;
+        depth: number;
+        attributeEntries: TraceAttributeEntry[];
+        searchableText: string;
+      };
+      type TraceMessageKind = 'system' | 'user' | 'assistant' | 'tool-call' | 'tool-result' | 'other';
+      type ParsedTraceMessage = {
+        id: string;
+        kind: TraceMessageKind;
+        label: string;
+        title: string;
+        content: string;
+        details: string;
+        skills: string[];
+      };
+      type ParsedTraceConversationGroup = {
+        attributeKey: string;
+        title: string;
+        messages: ParsedTraceMessage[];
+      };
+
+      const TRACE_MESSAGE_CONTAINER_KEYS = [
+        'messagelist',
+        'message_list',
+        'messages',
+        'history',
+        'conversation',
+        'input',
+        'output',
+        'prompt',
+        'response',
+      ];
+      const TRACE_SKILL_KEYS = ['skills', 'skillNames', 'skill_names', 'availableSkills'];
+      const TRACE_TOOL_RESULT_KEY_HINTS = [
+        'tool.call.result',
+        'tool_call_result',
+        'toolresponse',
+        'tool_response',
+        'tool.result',
+        'function.output',
+        'function.result',
+      ];
+      const TRACE_TOOL_CALL_KEY_HINTS = [
+        'tool.call',
+        'tool_call',
+        'function.input',
+        'function.arguments',
+      ];
+      const TRACE_MESSAGE_KIND_PRIORITY: Record<TraceMessageKind, number> = {
+        'tool-result': 6,
+        'tool-call': 5,
+        system: 4,
+        assistant: 3,
+        user: 2,
+        other: 1,
+      };
+
+      const isTraceRecord = (value: unknown): value is Record<string, unknown> =>
+        value !== null && typeof value === 'object' && !Array.isArray(value);
+
+      const normalizeTraceKey = (value: string) => value.trim().toLowerCase();
+
+      const normalizeTraceFingerprintText = (value: string) =>
+        value
+          .trim()
+          .replace(/\s+/g, ' ')
+          .toLowerCase();
+
+      const tryParseTraceJson = (value: string): unknown | null => {
+        if (!isStructuredTraceValue(value)) {
+          return null;
+        }
+        try {
+          return JSON.parse(value);
+        } catch (error) {
+          return null;
+        }
+      };
+
+      const stringifyTracePayload = (value: unknown) => {
+        if (typeof value === 'string') {
+          return value;
+        }
+        if (value === null || value === undefined) {
+          return '';
+        }
+        try {
+          return JSON.stringify(value, null, 2);
+        } catch (error) {
+          return String(value);
+        }
+      };
+
+      const sortTraceValue = (value: unknown): unknown => {
+        if (Array.isArray(value)) {
+          return value.map(item => sortTraceValue(item));
+        }
+        if (!isTraceRecord(value)) {
+          return value;
+        }
+        return Object.keys(value)
+          .sort((left, right) => left.localeCompare(right))
+          .reduce<Record<string, unknown>>((accumulator, key) => {
+            accumulator[key] = sortTraceValue(value[key]);
+            return accumulator;
+          }, {});
+      };
+
+      const stringifyTraceSemanticPayload = (value: unknown) => {
+        const normalizedValue = unwrapTraceTextEnvelope(value);
+        if (typeof normalizedValue === 'string') {
+          const parsed = tryParseTraceJson(normalizedValue);
+          if (parsed !== null) {
+            return JSON.stringify(sortTraceValue(parsed));
+          }
+          return normalizeTraceFingerprintText(normalizedValue);
+        }
+        if (normalizedValue === null || normalizedValue === undefined) {
+          return '';
+        }
+        if (isTraceRecord(normalizedValue) || Array.isArray(normalizedValue)) {
+          return JSON.stringify(sortTraceValue(normalizedValue));
+        }
+        return normalizeTraceFingerprintText(String(normalizedValue));
+      };
+
+      const compactTraceObject = (value: Record<string, unknown>) => {
+        return Object.fromEntries(
+          Object.entries(value).filter(([, item]) => {
+            if (item === null || item === undefined) {
+              return false;
+            }
+            if (typeof item === 'string') {
+              return item.trim().length > 0;
+            }
+            if (Array.isArray(item)) {
+              return item.length > 0;
+            }
+            if (isTraceRecord(item)) {
+              return Object.keys(item).length > 0;
+            }
+            return true;
+          }),
+        );
+      };
+
+      const unwrapTraceTextEnvelope = (value: unknown): unknown => {
+        if (!isTraceRecord(value)) {
+          if (typeof value !== 'string') {
+            return value;
+          }
+          const parsed = tryParseTraceJson(value);
+          return parsed !== null ? unwrapTraceTextEnvelope(parsed) : value;
+        }
+        const keys = Object.keys(value);
+        const textValue = typeof value.text === 'string' ? value.text.trim() : '';
+        const isTextEnvelope =
+          textValue.length > 0 &&
+          keys.every(key => ['text', 'type', 'mimeType', 'metadata'].includes(key));
+        if (!isTextEnvelope) {
+          return value;
+        }
+        const parsedText = tryParseTraceJson(textValue);
+        return parsedText !== null ? unwrapTraceTextEnvelope(parsedText) : textValue;
+      };
+
+      const unwrapTraceToolCallPayload = (value: Record<string, unknown>) => {
+        if (isTraceRecord(value.param)) {
+          return value.param;
+        }
+        return value;
+      };
+
+      const resolveTraceToolTitle = (
+        value: Record<string, unknown>,
+        attributeKey: string,
+        kind: TraceMessageKind,
+      ) => {
+        const nameCandidate =
+          typeof value.name === 'string'
+            ? value.name
+            : typeof value.toolName === 'string'
+              ? value.toolName
+              : typeof value.function === 'string'
+                ? value.function
+                : typeof value.action === 'string'
+                  ? value.action
+                  : typeof value.messageType === 'string'
+                    ? value.messageType
+                    : '';
+        if (nameCandidate.trim()) {
+          return nameCandidate.trim();
+        }
+        return kind === 'tool-call' || kind === 'tool-result' ? '' : attributeKey;
+      };
+
+      const buildTraceToolCallContent = (value: Record<string, unknown>) => {
+        const unwrappedValue = unwrapTraceToolCallPayload(value);
+        const preferredPayload =
+          unwrappedValue.input ??
+          (isTraceRecord(unwrappedValue.metadata) ? unwrappedValue.metadata.arguments : undefined) ??
+          unwrappedValue.arguments ??
+          unwrappedValue.content ??
+          unwrappedValue;
+        if (typeof preferredPayload === 'string') {
+          const parsed = tryParseTraceJson(preferredPayload);
+          return parsed !== null ? stringifyTracePayload(parsed) : preferredPayload;
+        }
+        return stringifyTracePayload(preferredPayload);
+      };
+
+      const buildTraceToolResultContent = (value: Record<string, unknown>) => {
+        const preferredPayload = unwrapTraceTextEnvelope(value.output ?? value.content ?? value.result ?? value);
+        return stringifyTracePayload(preferredPayload);
+      };
+
+      const extractStringList = (value: unknown): string[] => {
+        if (typeof value === 'string') {
+          return value
+            .split(/[,，\n]/)
+            .map(item => item.trim())
+            .filter(Boolean);
+        }
+        if (!Array.isArray(value)) {
+          return [];
+        }
+        return value
+          .map(item => {
+            if (typeof item === 'string') {
+              return item.trim();
+            }
+            if (isTraceRecord(item)) {
+              const candidate = item.name ?? item.title ?? item.id ?? item.skillName;
+              return typeof candidate === 'string' ? candidate.trim() : '';
+            }
+            return '';
+          })
+          .filter(Boolean);
+      };
+
+      const extractTraceSkills = (record: Record<string, unknown>) => {
+        for (const key of TRACE_SKILL_KEYS) {
+          if (key in record) {
+            const skills = extractStringList(record[key]);
+            if (skills.length > 0) {
+              return skills;
+            }
+          }
+        }
+        const properties = isTraceRecord(record.properties) ? record.properties : null;
+        if (properties) {
+          for (const key of TRACE_SKILL_KEYS) {
+            if (key in properties) {
+              const skills = extractStringList(properties[key]);
+              if (skills.length > 0) {
+                return skills;
+              }
+            }
+          }
+        }
+        return [];
+      };
+
+      const extractTraceText = (value: unknown): string => {
+        if (typeof value === 'string') {
+          return value;
+        }
+        if (value === null || value === undefined) {
+          return '';
+        }
+        if (Array.isArray(value)) {
+          const textParts = value
+            .map(item => extractTraceText(item))
+            .map(item => item.trim())
+            .filter(Boolean);
+          return textParts.join('\n');
+        }
+        if (!isTraceRecord(value)) {
+          return String(value);
+        }
+
+        const directKeys = ['content', 'text', 'message', 'prompt', 'instruction', 'instructions', 'result'];
+        for (const key of directKeys) {
+          if (key in value) {
+            const text = extractTraceText(value[key]);
+            if (text.trim()) {
+              return text;
+            }
+          }
+        }
+
+        if (Array.isArray(value.content)) {
+          const textParts = value.content
+            .map(item => {
+              if (typeof item === 'string') {
+                return item;
+              }
+              if (isTraceRecord(item)) {
+                return extractTraceText(item.text ?? item.content ?? item.value ?? item.output);
+              }
+              return '';
+            })
+            .filter(Boolean);
+          if (textParts.length > 0) {
+            return textParts.join('\n');
+          }
+        }
+
+        return '';
+      };
+
+      const inferTraceMessageKind = (
+        record: Record<string, unknown>,
+        fallbackKey = '',
+      ): TraceMessageKind => {
+        const normalizedFallbackKey = normalizeTraceKey(fallbackKey);
+        if (
+          Array.isArray(record.toolCalls) ||
+          Array.isArray(record.tool_calls) ||
+          record.toolCall ||
+          record.functionCall
+        ) {
+          return 'tool-call';
+        }
+        if (
+          Array.isArray(record.toolResponses) ||
+          Array.isArray(record.tool_results) ||
+          Array.isArray(record.responses) ||
+          record.toolResponse ||
+          record.toolResult
+        ) {
+          return 'tool-result';
+        }
+        if (TRACE_TOOL_RESULT_KEY_HINTS.some(hint => normalizedFallbackKey.includes(hint))) {
+          return 'tool-result';
+        }
+        if (TRACE_TOOL_CALL_KEY_HINTS.some(hint => normalizedFallbackKey.includes(hint))) {
+          return 'tool-call';
+        }
+
+        const roleCandidate = [record.role, record.type, record.messageType, record.name, fallbackKey]
+          .map(item => (typeof item === 'string' ? normalizeTraceKey(item) : ''))
+          .find(Boolean);
+
+        if (!roleCandidate) {
+          return 'other';
+        }
+        if (roleCandidate.includes('system')) {
+          return 'system';
+        }
+        if (roleCandidate.includes('user') || roleCandidate.includes('human')) {
+          return 'user';
+        }
+        if (roleCandidate.includes('assistant') || roleCandidate.includes('model')) {
+          return 'assistant';
+        }
+        if (roleCandidate.includes('tool')) {
+          return 'tool-result';
+        }
+        return 'other';
+      };
+
+      const getTraceMessageFingerprint = (message: ParsedTraceMessage) => {
+        return [
+          message.kind,
+          normalizeTraceFingerprintText(message.title),
+          normalizeTraceFingerprintText(message.content),
+          normalizeTraceFingerprintText(message.details),
+          message.skills.map(normalizeTraceFingerprintText).sort().join(','),
+        ].join('|');
+      };
+
+      const getTraceMessageDedupFingerprint = (message: ParsedTraceMessage) => {
+        if (message.kind === 'tool-call' || message.kind === 'tool-result') {
+          return [
+            message.kind,
+            stringifyTraceSemanticPayload(message.content),
+            stringifyTraceSemanticPayload(message.details),
+          ].join('|');
+        }
+        return getTraceMessageFingerprint(message);
+      };
+
+      const rankTraceMessage = (message: ParsedTraceMessage) => {
+        return (
+          TRACE_MESSAGE_KIND_PRIORITY[message.kind] * 1000 +
+          message.skills.length * 20 +
+          message.title.trim().length * 2 +
+          message.content.trim().length
+        );
+      };
+
+      const getTraceConversationGroupFingerprint = (group: ParsedTraceConversationGroup) => {
+        return group.messages
+          .map((message, index) => `${index}:${getTraceMessageDedupFingerprint(message)}`)
+          .join('||');
+      };
+
+      const rankTraceConversationGroup = (group: ParsedTraceConversationGroup) => {
+        const messageScore = group.messages.reduce((sum, message) => sum + rankTraceMessage(message), 0);
+        const attributeDepth = group.attributeKey.split('.').length;
+        return messageScore * 100 - attributeDepth * 10 - group.attributeKey.length;
+      };
+
+      const dedupeTraceConversationGroups = (groups: ParsedTraceConversationGroup[]) => {
+        const bestGroupByFingerprint = new Map<string, ParsedTraceConversationGroup>();
+        groups.forEach(group => {
+          const fingerprint = getTraceConversationGroupFingerprint(group);
+          const current = bestGroupByFingerprint.get(fingerprint);
+          if (!current || rankTraceConversationGroup(group) > rankTraceConversationGroup(current)) {
+            bestGroupByFingerprint.set(fingerprint, group);
+          }
+        });
+        return Array.from(bestGroupByFingerprint.values());
+      };
+
+      const traceMessageLabelMap: Record<TraceMessageKind, string> = {
+        system: 'SYSTEM',
+        user: 'USER',
+        assistant: 'ASSISTANT',
+        'tool-call': 'TOOL CALL',
+        'tool-result': 'TOOL RESULT',
+        other: 'OTHER',
+      };
+
+      const createParsedTraceMessage = (
+        id: string,
+        kind: TraceMessageKind,
+        options: Partial<ParsedTraceMessage>,
+      ): ParsedTraceMessage => ({
+        id,
+        kind,
+        label: traceMessageLabelMap[kind],
+        title: options.title ?? '',
+        content: options.content ?? '',
+        details: options.details ?? '',
+        skills: options.skills ?? [],
+      });
+
+      const normalizeTraceToolCallMessages = (
+        value: unknown,
+        attributeKey: string,
+        path: string,
+      ): ParsedTraceMessage[] => {
+        const calls = Array.isArray(value) ? value : [value];
+        return calls
+          .map((call, index) => {
+            if (!isTraceRecord(call)) {
+              return createParsedTraceMessage(`${attributeKey}-${path}-tool-call-${index}`, 'tool-call', {
+                content: stringifyTracePayload(call),
+              });
+            }
+            const toolName =
+              typeof call.name === 'string'
+                ? call.name
+                : typeof call.toolName === 'string'
+                  ? call.toolName
+                  : typeof call.function === 'string'
+                    ? call.function
+                    : typeof call.id === 'string'
+                      ? call.id
+                      : '未命名工具';
+            const callContent = extractTraceText(call.arguments ?? call.input ?? call.content) || stringifyTracePayload(call);
+            const detailSource = compactTraceObject({
+              id: call.id,
+              type: call.type,
+              arguments: call.arguments,
+              input: call.input,
+            });
+            return createParsedTraceMessage(`${attributeKey}-${path}-tool-call-${index}`, 'tool-call', {
+              title: toolName,
+              content: callContent,
+              details: stringifyTracePayload(detailSource),
+            });
+          })
+          .map(message => ({
+            ...message,
+            details: message.details === '{}' ? '' : message.details,
+          }));
+      };
+
+      const normalizeTraceToolResultMessages = (
+        value: unknown,
+        attributeKey: string,
+        path: string,
+      ): ParsedTraceMessage[] => {
+        const responses = Array.isArray(value) ? value : [value];
+        return responses.map((response, index) => {
+          if (!isTraceRecord(response)) {
+            return createParsedTraceMessage(`${attributeKey}-${path}-tool-result-${index}`, 'tool-result', {
+              content: stringifyTracePayload(response),
+            });
+          }
+          const toolName =
+            typeof response.name === 'string'
+              ? response.name
+              : typeof response.toolName === 'string'
+                ? response.toolName
+                : typeof response.id === 'string'
+                  ? response.id
+                  : '工具返回';
+          const content =
+            extractTraceText(response.output ?? response.content ?? response.result) ||
+            stringifyTracePayload(response.output ?? response.content ?? response.result ?? response);
+          const detailSource = compactTraceObject({
+            id: response.id,
+            status: response.status,
+            error: response.error,
+          });
+          return createParsedTraceMessage(`${attributeKey}-${path}-tool-result-${index}`, 'tool-result', {
+            title: toolName,
+            content,
+            details: stringifyTracePayload(detailSource) === '{}' ? '' : stringifyTracePayload(detailSource),
+          });
+        });
+      };
+
+      const normalizeTraceMessagesFromNode = (
+        value: unknown,
+        attributeKey: string,
+        path: string,
+      ): ParsedTraceMessage[] => {
+        if (Array.isArray(value)) {
+          return value.flatMap((item, index) =>
+            normalizeTraceMessagesFromNode(item, attributeKey, `${path}-${index}`),
+          );
+        }
+        if (!isTraceRecord(value)) {
+          if (typeof value === 'string' && value.trim()) {
+            return [
+              createParsedTraceMessage(`${attributeKey}-${path}-text`, 'other', {
+                content: value,
+              }),
+            ];
+          }
+          return [];
+        }
+
+        const messages: ParsedTraceMessage[] = [];
+        const kind = inferTraceMessageKind(value, attributeKey);
+        const content = extractTraceText(value);
+        const skills = extractTraceSkills(value);
+        const titleCandidate =
+          typeof value.name === 'string'
+            ? value.name
+            : typeof value.title === 'string'
+              ? value.title
+              : typeof value.messageType === 'string'
+                ? value.messageType
+                : '';
+
+        const toolCalls = value.toolCalls ?? value.tool_calls ?? value.toolCall ?? value.functionCall;
+        const toolResponses =
+          value.toolResponses ?? value.tool_results ?? value.responses ?? value.toolResponse ?? value.toolResult;
+        const properties = isTraceRecord(value.properties) ? value.properties : null;
+        const propertyDetails = properties ? stringifyTracePayload(properties) : '';
+
+        if (kind !== 'tool-call' && kind !== 'tool-result' && (content.trim() || skills.length > 0)) {
+          messages.push(
+            createParsedTraceMessage(`${attributeKey}-${path}-base`, kind, {
+              title: titleCandidate,
+              content,
+              details: propertyDetails === '{}' ? '' : propertyDetails,
+              skills,
+            }),
+          );
+        }
+
+        if (toolCalls) {
+          messages.push(...normalizeTraceToolCallMessages(toolCalls, attributeKey, path));
+        }
+        if (toolResponses) {
+          messages.push(...normalizeTraceToolResultMessages(toolResponses, attributeKey, path));
+        }
+
+        if (
+          messages.length === 0 &&
+          (kind === 'tool-call' || kind === 'tool-result') &&
+          (content.trim() || Object.keys(value).length > 0)
+        ) {
+          const fallbackContent =
+            kind === 'tool-call'
+              ? buildTraceToolCallContent(value)
+              : buildTraceToolResultContent(value);
+          messages.push(
+            createParsedTraceMessage(`${attributeKey}-${path}-tool-object`, kind, {
+              title: titleCandidate || resolveTraceToolTitle(value, attributeKey, kind),
+              content: fallbackContent,
+              details: propertyDetails === '{}' ? '' : propertyDetails,
+              skills,
+            }),
+          );
+        }
+
+        if (messages.length === 0 && content.trim()) {
+          messages.push(
+            createParsedTraceMessage(`${attributeKey}-${path}-fallback`, kind, {
+              title: titleCandidate,
+              content,
+              skills,
+            }),
+          );
+        }
+
+        return messages;
+      };
+
+      const extractTraceConversationGroupsFromEntry = (
+        entry: TraceAttributeEntry,
+      ): ParsedTraceConversationGroup[] => {
+        const parsedValue = tryParseTraceJson(entry.value);
+        if (parsedValue === null) {
+          return [];
+        }
+
+        const groups: ParsedTraceConversationGroup[] = [];
+        const pushGroup = (title: string, node: unknown, path: string) => {
+          const messages = normalizeTraceMessagesFromNode(node, entry.key, path).filter(
+            message => message.content.trim() || message.details.trim() || message.skills.length > 0,
+          );
+          if (messages.length > 0) {
+            groups.push({
+              attributeKey: path === entry.key ? entry.key : `${entry.key}.${path}`,
+              title,
+              messages,
+            });
+          }
+        };
+
+        if (Array.isArray(parsedValue)) {
+          pushGroup(`${entry.key} · messages`, parsedValue, entry.key);
+          return groups;
+        }
+
+        if (!isTraceRecord(parsedValue)) {
+          return groups;
+        }
+
+        let matchedContainer = false;
+        Object.entries(parsedValue).forEach(([key, value]) => {
+          if (!TRACE_MESSAGE_CONTAINER_KEYS.includes(normalizeTraceKey(key))) {
+            return;
+          }
+          const nestedMessages = normalizeTraceMessagesFromNode(value, entry.key, key);
+          if (nestedMessages.length === 0) {
+            return;
+          }
+          groups.push({
+            attributeKey: `${entry.key}.${key}`,
+            title: `${entry.key} · ${key}`,
+            messages: nestedMessages,
+          });
+          matchedContainer = true;
+        });
+
+        if (!matchedContainer) {
+          pushGroup(`${entry.key} · message`, parsedValue, entry.key);
+        }
+
+        return groups;
+      };
+
+      const buildTraceAttributeEntries = (attributes: Record<string, string>): TraceAttributeEntry[] => {
+        return Object.entries(attributes ?? {})
+          .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+          .map(([key, value]) => ({
             key,
             value,
           }));
+      };
+
+      const flattenTraceSpans = (
+        spans: TraceSpan[],
+        depth = 0,
+      ): FlattenedTraceSpan[] => {
+        return spans.flatMap(span => {
+          const attributeEntries = buildTraceAttributeEntries(span.attributes ?? {});
+          const searchableText = [
+            span.name,
+            span.spanId,
+            span.parentSpanId,
+            span.kind,
+            span.status,
+            ...attributeEntries.flatMap(entry => [entry.key, entry.value]),
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
           return [
             {
               span,
               depth,
               attributeEntries,
+              searchableText,
             },
             ...flattenTraceSpans(span.children ?? [], depth + 1),
           ];
@@ -1266,6 +2108,70 @@
       const flattenedTraceSpans = computed(() =>
         sessionTrace.value ? flattenTraceSpans(sessionTrace.value.rootSpans ?? []) : [],
       );
+
+      const normalizedTraceSearchKeyword = computed(() => traceSearchKeyword.value.trim().toLowerCase());
+
+      const filteredTraceSpans = computed(() => {
+        const keyword = normalizedTraceSearchKeyword.value;
+        if (!keyword) {
+          return flattenedTraceSpans.value;
+        }
+        return flattenedTraceSpans.value.filter(row => row.searchableText.includes(keyword));
+      });
+
+      const selectedTraceRow = computed(() => {
+        if (!flattenedTraceSpans.value.length) {
+          return null;
+        }
+        return (
+          flattenedTraceSpans.value.find(row => row.span.spanId === selectedTraceSpanId.value) ??
+          filteredTraceSpans.value[0] ??
+          flattenedTraceSpans.value[0]
+        );
+      });
+
+      const selectedTraceAttributeEntries = computed(() => {
+        const row = selectedTraceRow.value;
+        if (!row) {
+          return [];
+        }
+        const keyword = normalizedTraceSearchKeyword.value;
+        if (!keyword) {
+          return row.attributeEntries;
+        }
+        return row.attributeEntries.filter(entry =>
+          `${entry.key} ${entry.value}`.toLowerCase().includes(keyword),
+        );
+      });
+
+      const parsedTraceConversations = computed(() => {
+        const row = selectedTraceRow.value;
+        if (!row) {
+          return [];
+        }
+        const keyword = normalizedTraceSearchKeyword.value;
+        return dedupeTraceConversationGroups(
+          row.attributeEntries.flatMap(entry => extractTraceConversationGroupsFromEntry(entry)),
+        )
+          .map(group => {
+            if (!keyword) {
+              return group;
+            }
+            return {
+              ...group,
+              messages: group.messages.filter(message =>
+                `${message.label} ${message.title} ${message.content} ${message.details} ${message.skills.join(' ')}` 
+                  .toLowerCase()
+                  .includes(keyword),
+              ),
+            };
+          })
+          .filter(group => group.messages.length > 0);
+      });
+
+      const selectTraceSpan = (spanId: string) => {
+        selectedTraceSpanId.value = spanId;
+      };
 
       const formatTraceDuration = (durationMs: number) => {
         if (durationMs < 1000) {
@@ -1284,6 +2190,34 @@
         return new Date(epochMs).toLocaleString();
       };
 
+      const formatTraceOffset = (epochMs: number) => {
+        if (!sessionTrace.value?.startEpochMs || !epochMs) {
+          return '--';
+        }
+        const offset = Math.max(0, epochMs - sessionTrace.value.startEpochMs);
+        return `+${formatTraceDuration(offset)}`;
+      };
+
+      const isStructuredTraceValue = (value: string) => {
+        const normalizedValue = value?.trim();
+        return Boolean(
+          normalizedValue &&
+            ((normalizedValue.startsWith('{') && normalizedValue.endsWith('}')) ||
+              (normalizedValue.startsWith('[') && normalizedValue.endsWith(']'))),
+        );
+      };
+
+      const formatStructuredTraceValue = (value: string) => {
+        if (!isStructuredTraceValue(value)) {
+          return value;
+        }
+        try {
+          return JSON.stringify(JSON.parse(value), null, 2);
+        } catch (error) {
+          return value;
+        }
+      };
+
       const loadLatestTrace = async () => {
         if (!currentSession.value) {
           sessionTrace.value = null;
@@ -1294,8 +2228,10 @@
         traceError.value = '';
         try {
           sessionTrace.value = await ChatService.getSessionTrace(currentSession.value.id);
+          selectedTraceSpanId.value = sessionTrace.value.rootSpans?.[0]?.spanId ?? '';
         } catch (error: any) {
           sessionTrace.value = null;
+          selectedTraceSpanId.value = '';
           if (error?.response?.status === 404) {
             traceError.value = '当前会话还没有最近一次 trace，请先执行一轮对话。';
           } else {
@@ -1573,9 +2509,18 @@
         lastRequest,
         resultSetDisplayConfig,
         options,
+        traceSearchKeyword,
         flattenedTraceSpans,
+        filteredTraceSpans,
+        selectedTraceSpanId,
+        selectedTraceRow,
+        selectedTraceAttributeEntries,
+        parsedTraceConversations,
         formatTraceDuration,
         formatTraceTime,
+        formatTraceOffset,
+        isStructuredTraceValue,
+        formatStructuredTraceValue,
         getMarkdownContentFromNode,
         selectSession,
         sendMessage,
@@ -1594,6 +2539,7 @@
         stopStreaming,
         openTraceDialog,
         refreshTrace,
+        selectTraceSpan,
         deleteSessionState,
       };
     },
@@ -2019,28 +2965,110 @@
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
-    color: #606266;
-    font-size: 13px;
+  }
+
+  .trace-summary-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0 12px;
+    border: 1px solid #d9ecff;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #f5fbff 0%, #eef6ff 100%);
+    color: #36658f;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .trace-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .trace-search-input {
+    width: 280px;
   }
 
   .trace-alert {
     margin-bottom: 16px;
   }
 
+  .trace-explorer {
+    display: grid;
+    grid-template-columns: minmax(360px, 44%) minmax(420px, 1fr);
+    gap: 16px;
+    min-height: 62vh;
+  }
+
+  .trace-pane {
+    border: 1px solid #e4ecf5;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #fcfdff 0%, #f7faff 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    overflow: hidden;
+  }
+
+  .trace-pane-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid rgba(31, 94, 155, 0.08);
+  }
+
+  .trace-pane-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f3b57;
+  }
+
+  .trace-pane-count {
+    color: #6d7f92;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
   .trace-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    max-height: 65vh;
+    gap: 10px;
+    max-height: calc(62vh - 56px);
     overflow: auto;
-    padding-right: 6px;
+    padding: 14px;
   }
 
   .trace-row {
-    border: 1px solid #ebeef5;
-    border-radius: 12px;
-    padding: 12px;
+    appearance: none;
+    width: 100%;
+    border: 1px solid #e6edf5;
+    border-radius: 16px;
+    padding: 14px 16px;
     background: #fff;
+    text-align: left;
+    cursor: pointer;
+    transition:
+      border-color 0.2s ease,
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .trace-row:hover {
+    border-color: #8ab8ff;
+    box-shadow: 0 10px 24px rgba(76, 115, 169, 0.12);
+    transform: translateY(-1px);
+  }
+
+  .trace-row.is-selected {
+    border-color: #4b8dff;
+    box-shadow: 0 14px 28px rgba(75, 141, 255, 0.16);
+    background: linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%);
+  }
+
+  .trace-row.is-error {
+    border-color: #f3c1c1;
+    background: linear-gradient(135deg, #ffffff 0%, #fff7f7 100%);
   }
 
   .trace-row-main {
@@ -2052,12 +3080,13 @@
 
   .trace-row-name {
     font-weight: 600;
-    color: #303133;
+    color: #20354d;
   }
 
   .trace-row-duration {
-    color: #409eff;
+    color: #3d7cff;
     font-size: 12px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
   }
 
   .trace-row-meta {
@@ -2070,37 +3099,288 @@
     word-break: break-all;
   }
 
-  .trace-attributes {
-    margin-top: 10px;
+  .trace-pane-detail {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 
-  .trace-attributes summary {
-    cursor: pointer;
-    color: #606266;
+  .trace-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 18px 18px 12px;
+    border-bottom: 1px solid rgba(31, 94, 155, 0.08);
+  }
+
+  .trace-detail-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1b334a;
+    line-height: 1.4;
+  }
+
+  .trace-detail-subtitle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+    color: #728398;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .trace-detail-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .trace-descriptions {
+    padding: 16px 18px 0;
+  }
+
+  .trace-message-panel {
+    padding: 18px 18px 0;
+  }
+
+  .trace-message-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 12px;
+  }
+
+  .trace-message-group {
+    border: 1px solid #e7edf5;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .trace-message-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, #f8fbff 0%, #f2f7fc 100%);
+    border-bottom: 1px solid #edf2f8;
+  }
+
+  .trace-message-group-title {
+    color: #20384f;
     font-size: 13px;
+    font-weight: 600;
   }
 
-  .trace-attributes-grid {
+  .trace-message-group-meta {
+    color: #78889c;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .trace-message-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .trace-message-item {
     display: grid;
-    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
-    gap: 8px 12px;
-    margin-top: 10px;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
   }
 
-  .trace-attribute-item {
-    display: contents;
+  .trace-message-role {
+    display: flex;
+    justify-content: center;
+    padding-top: 4px;
+  }
+
+  .trace-message-role-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 74px;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .trace-message-item.is-system .trace-message-role-badge {
+    color: #7b4f00;
+    background: #fff3d8;
+  }
+
+  .trace-message-item.is-user .trace-message-role-badge {
+    color: #0e4db8;
+    background: #e7f0ff;
+  }
+
+  .trace-message-item.is-assistant .trace-message-role-badge {
+    color: #166534;
+    background: #e8f7ed;
+  }
+
+  .trace-message-item.is-tool-call .trace-message-role-badge {
+    color: #7c2d12;
+    background: #ffe8dc;
+  }
+
+  .trace-message-item.is-tool-result .trace-message-role-badge {
+    color: #5b21b6;
+    background: #f2eaff;
+  }
+
+  .trace-message-item.is-other .trace-message-role-badge {
+    color: #475569;
+    background: #e9eef5;
+  }
+
+  .trace-message-body {
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid #e8edf4;
+    background: #fbfdff;
+  }
+
+  .trace-message-item.is-user .trace-message-body {
+    background: linear-gradient(180deg, #f5f9ff 0%, #edf4ff 100%);
+  }
+
+  .trace-message-item.is-assistant .trace-message-body {
+    background: linear-gradient(180deg, #fbfffc 0%, #f3fbf5 100%);
+  }
+
+  .trace-message-item.is-system .trace-message-body {
+    background: linear-gradient(180deg, #fffdf8 0%, #fff8ea 100%);
+  }
+
+  .trace-message-item.is-tool-call .trace-message-body {
+    background: linear-gradient(180deg, #fffaf7 0%, #fff1e8 100%);
+  }
+
+  .trace-message-item.is-tool-result .trace-message-body {
+    background: linear-gradient(180deg, #fcf9ff 0%, #f5efff 100%);
+  }
+
+  .trace-message-title {
+    color: #1d344b;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .trace-message-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .trace-skill-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    min-height: 24px;
+    border-radius: 999px;
+    background: #edf4ff;
+    color: #335f94;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .trace-message-content {
+    color: #26384b;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .trace-message-content-structured,
+  .trace-message-details {
+    margin: 10px 0 0;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid #e7edf5;
+    overflow: auto;
+    font-size: 12px;
+    line-height: 1.6;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .trace-attribute-panel {
+    padding: 18px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .trace-attribute-table {
+    border: 1px solid #e7edf5;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .trace-attribute-table-header,
+  .trace-attribute-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  }
+
+  .trace-attribute-table-header {
+    background: #f5f8fc;
+    color: #60758b;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .trace-attribute-table-header span,
+  .trace-attribute-key,
+  .trace-attribute-value {
+    padding: 12px 14px;
+  }
+
+  .trace-attribute-row + .trace-attribute-row {
+    border-top: 1px solid #eef3f8;
   }
 
   .trace-attribute-key {
-    color: #606266;
+    color: #41576d;
     font-size: 12px;
     word-break: break-all;
+    background: #fbfcfe;
+    border-right: 1px solid #eef3f8;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
   }
 
   .trace-attribute-value {
-    color: #303133;
+    color: #24384c;
     font-size: 12px;
-    word-break: break-all;
+    line-height: 1.6;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+
+  .trace-attribute-value-structured {
+    margin: 0;
+    overflow: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    background: #fbfdff;
   }
 
   @keyframes spin {
@@ -2131,8 +3411,46 @@
       align-items: stretch;
     }
 
-    .trace-attributes-grid {
+    .trace-toolbar-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .trace-search-input {
+      width: 100%;
+    }
+
+    .trace-explorer {
       grid-template-columns: 1fr;
+    }
+
+    .trace-detail-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .trace-message-item {
+      grid-template-columns: 1fr;
+    }
+
+    .trace-message-role {
+      justify-content: flex-start;
+      padding-top: 0;
+    }
+
+    .trace-message-group-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .trace-attribute-table-header,
+    .trace-attribute-row {
+      grid-template-columns: 1fr;
+    }
+
+    .trace-attribute-key {
+      border-right: none;
+      border-bottom: 1px solid #eef3f8;
     }
   }
 </style>

@@ -24,10 +24,10 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import lombok.Getter;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -51,14 +51,14 @@ public class SessionTraceStore implements SpanExporter {
 
 	private static final int MAX_SESSION_TRACES = 128;
 
-	private static final int MAX_ATTRIBUTE_VALUE_LENGTH = 256;
+	private static final int MAX_ATTRIBUTE_VALUE_LENGTH = 2048;
 
 	private static final String META_OMITTED_ATTRIBUTE_COUNT = "_meta.omitted_attribute_count";
 
-	private static final Set<String> SAFE_ATTRIBUTE_KEYS = Set.of(ATTR_THREAD_ID, ATTR_RUNTIME_REQUEST_ID, ATTR_AGENT_ID,
-			"dataagent.runtime.human_feedback", "dataagent.runtime.nl2sql_only", "data_agent.agent_id",
-			"data_agent.thread_id", "data_agent.nl2sql_only", "data_agent.human_feedback",
-			"gen_ai.usage.prompt_tokens", "gen_ai.usage.completion_tokens", "gen_ai.usage.total_tokens", "error.type");
+	private static final List<String> SENSITIVE_ATTRIBUTE_KEY_TOKENS = List.of("password", "passwd", "pwd", "secret",
+			"api_key", "apikey", "api_token", "apitoken", "access_key", "access_token", "accesstoken",
+			"refresh_token", "refreshtoken", "id_token", "idtoken", "auth_token", "authtoken", "private_key",
+			"privatekey", "authorization", "cookie", "credential", "signature");
 
 	private final Object monitor = new Object();
 
@@ -167,30 +167,44 @@ public class SessionTraceStore implements SpanExporter {
 
 	private Map<String, String> sanitizeAttributes(SpanData span) {
 		Map<String, String> attributes = new LinkedHashMap<>();
-		int omittedAttributeCount = 0;
 		span.getAttributes().forEach((key, value) -> {
 			String attributeKey = key.getKey();
-			if (!SAFE_ATTRIBUTE_KEYS.contains(attributeKey)) {
-				return;
-			}
-			attributes.put(attributeKey, sanitizeAttributeValue(String.valueOf(value)));
+			attributes.put(attributeKey, sanitizeAttributeValue(attributeKey, String.valueOf(value)));
 		});
-		omittedAttributeCount = Math.max(0, span.getTotalAttributeCount() - attributes.size());
+		int omittedAttributeCount = Math.max(0, span.getTotalAttributeCount() - span.getAttributes().size());
 		if (omittedAttributeCount > 0) {
 			attributes.put(META_OMITTED_ATTRIBUTE_COUNT, String.valueOf(omittedAttributeCount));
 		}
 		return attributes;
 	}
 
-	private String sanitizeAttributeValue(String value) {
+	private String sanitizeAttributeValue(String attributeKey, String value) {
 		if (!StringUtils.hasText(value)) {
 			return value;
 		}
 		String normalizedValue = value.replace('\r', ' ').replace('\n', ' ').trim();
+		if (isSensitiveAttributeKey(attributeKey)) {
+			return maskAttributeValue(normalizedValue);
+		}
 		if (normalizedValue.length() <= MAX_ATTRIBUTE_VALUE_LENGTH) {
 			return normalizedValue;
 		}
 		return normalizedValue.substring(0, MAX_ATTRIBUTE_VALUE_LENGTH) + "...";
+	}
+
+	private boolean isSensitiveAttributeKey(String attributeKey) {
+		if (!StringUtils.hasText(attributeKey)) {
+			return false;
+		}
+		String normalizedKey = attributeKey.toLowerCase(Locale.ROOT).replace('-', '_').replace('.', '_');
+		return SENSITIVE_ATTRIBUTE_KEY_TOKENS.stream().anyMatch(normalizedKey::contains);
+	}
+
+	private String maskAttributeValue(String value) {
+		if (value.length() <= 8) {
+			return "***";
+		}
+		return value.substring(0, 4) + "..." + value.substring(value.length() - 4);
 	}
 
 	private static final class TraceAssembly {

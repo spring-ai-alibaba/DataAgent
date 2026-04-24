@@ -33,17 +33,37 @@ public class SqlGuardToolProvider implements AgentScopedToolProvider {
 			{
 			  "type": "object",
 			  "properties": {
+			    "action": {
+			      "type": "string",
+			      "enum": ["SQL_VERIFY", "DATA_PROFILE"],
+			      "description": "可选。默认 SQL_VERIFY。SQL_VERIFY 用于候选 SQL 的结构与意图校验；DATA_PROFILE 用于查看字段值域、空值率、distinct、top values 与样例。"
+			    },
 			    "query": {
 			      "type": "string",
-			      "description": "必填。用户原始问题。"
+			      "description": "SQL_VERIFY 时必填。用户原始问题。"
 			    },
 			    "sql": {
 			      "type": "string",
-			      "description": "必填。当前准备执行或准备返回给用户的候选 SQL。"
+			      "description": "SQL_VERIFY 时必填。当前准备执行或准备返回给用户的候选 SQL。"
+			    },
+			    "tableName": {
+			      "type": "string",
+			      "description": "DATA_PROFILE 时必填。目标表名。"
+			    },
+			    "columnNames": {
+			      "type": "array",
+			      "items": {
+			        "type": "string"
+			      },
+			      "description": "DATA_PROFILE 时可选。要分析的字段列表；不传时默认取该表前几个可见字段。"
+			    },
+			    "limit": {
+			      "type": "integer",
+			      "description": "DATA_PROFILE 时可选。样例值和 top values 的返回上限，默认 5，最大 20。"
 			    },
 			    "tableSchemas": {
 			      "type": "object",
-			      "description": "可选。把 datasource explorer 的 schema 结果原样传入，帮助识别时间列、维度列与表关系。"
+			      "description": "可选。把 datasource explorer 的 schema 结果原样传入，帮助 SQL 校验识别时间列、维度列与表关系。"
 			    },
 			    "semanticHits": {
 			      "type": "object",
@@ -53,17 +73,17 @@ public class SqlGuardToolProvider implements AgentScopedToolProvider {
 			      "type": "object",
 			      "description": "可选。把 domain_business_knowledge.search 的结果原样传入。"
 			    }
-			  },
-			  "required": ["query", "sql"]
+			  }
 			}
 			""";
 
 	private static final String DESCRIPTION = """
-			Single SQL verification tool for SQL-backed answers.
-			Check whether the candidate SQL really matches the user's intent before execution or final answer.
-			If verification fails, read isAligned=false plus problems, ruleChecks and fixSuggestions, then rewrite SQL yourself and call sql_guard.check again.
-			Each problem explains why it is wrong, what was expected, what was actually detected and how to repair it.
-			Always pass a fresh top-level query and sql. Do not pass previous sql_guard.check output back into the tool.
+			Unified SQL guard tool for SQL-backed answers.
+			Action SQL_VERIFY: check whether the candidate SQL really matches the user's intent before execution or final answer.
+			Action DATA_PROFILE: inspect column value distribution before writing SQL when field semantics are unclear.
+			For SQL_VERIFY, if verification fails, read isAligned=false plus problems, ruleChecks and fixSuggestions, then rewrite SQL yourself and call sql_guard.check again.
+			For DATA_PROFILE, use the returned columnProfiles to understand null ratio, distinct count, top values, samples, and whether a field looks categorical, numeric, or temporal.
+			Always pass fresh top-level parameters for the current action. Do not pass previous sql_guard.check output back into the tool.
 			""";
 
 	private final ObjectMapper objectMapper;
@@ -82,10 +102,13 @@ public class SqlGuardToolProvider implements AgentScopedToolProvider {
 			.description(DESCRIPTION)
 			.inputSchema(INPUT_SCHEMA)
 			.build();
-		return Map.of(TOOL_NAME, new SqlGuardToolCallback(toolDefinition, objectMapper, sqlVerifyExplainService));
+		return Map.of(TOOL_NAME,
+				new SqlGuardToolCallback(agentId, toolDefinition, objectMapper, sqlVerifyExplainService));
 	}
 
 	private static final class SqlGuardToolCallback implements ToolCallback {
+
+		private final String agentId;
 
 		private final ToolDefinition toolDefinition;
 
@@ -93,8 +116,9 @@ public class SqlGuardToolProvider implements AgentScopedToolProvider {
 
 		private final SqlVerifyExplainService sqlVerifyExplainService;
 
-		private SqlGuardToolCallback(ToolDefinition toolDefinition, ObjectMapper objectMapper,
+		private SqlGuardToolCallback(String agentId, ToolDefinition toolDefinition, ObjectMapper objectMapper,
 				SqlVerifyExplainService sqlVerifyExplainService) {
+			this.agentId = agentId;
 			this.toolDefinition = toolDefinition;
 			this.objectMapper = objectMapper;
 			this.sqlVerifyExplainService = sqlVerifyExplainService;
@@ -110,7 +134,13 @@ public class SqlGuardToolProvider implements AgentScopedToolProvider {
 			try {
 				SqlGuardCheckRequest request = StringUtils.hasText(toolInput)
 						? objectMapper.readValue(toolInput, SqlGuardCheckRequest.class) : new SqlGuardCheckRequest();
-				return objectMapper.writeValueAsString(sqlVerifyExplainService.explain(request));
+				String action = request.normalizedAction();
+				SqlGuardCheckResult result = switch (action) {
+					case "DATA_PROFILE" -> sqlVerifyExplainService.inspectProfile(agentId, request);
+					case "SQL_VERIFY" -> sqlVerifyExplainService.explain(request);
+					default -> throw new IllegalArgumentException("Unsupported sql_guard.check action: " + action);
+				};
+				return objectMapper.writeValueAsString(result);
 			}
 			catch (Exception ex) {
 				throw new IllegalStateException("Failed to execute sql_guard.check: " + ex.getMessage(), ex);
