@@ -15,11 +15,16 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.knowledge;
 
+import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
 import java.util.List;
+import org.springframework.lang.Nullable;
 
 public interface DomainKnowledgeSearchService {
 
 	DomainKnowledgeSearchResult search(String agentId, DomainKnowledgeSearchRequest request);
+
+	DomainKnowledgeSearchResult search(String agentId, DomainKnowledgeSearchRequest request,
+			@Nullable GraphRequest graphRequest);
 
 	record DomainKnowledgeSearchRequest(String query, List<String> knowledgeTypes, Integer topK,
 			Double similarityThreshold) {

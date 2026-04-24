@@ -19,12 +19,14 @@ import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
+import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
+import com.alibaba.cloud.ai.dataagent.observability.AnswerTraceExplainStore;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
@@ -33,6 +35,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -69,6 +72,7 @@ import net.sf.jsqlparser.statement.select.TableFunction;
 import net.sf.jsqlparser.statement.select.WithItem;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -86,11 +90,17 @@ public class DatasourceExplorerService {
 	private static final Pattern FETCH_FIRST_PATTERN = Pattern
 		.compile("(?i)\\bfetch\\s+first\\s+\\d+\\s+rows\\s+only\\b");
 
+	private static final Pattern WHERE_PATTERN = Pattern.compile("(?i)\\bwhere\\b");
+
+	private static final Pattern GROUP_BY_PATTERN = Pattern.compile("(?i)\\bgroup\\s+by\\b");
+
+	private static final Pattern ORDER_BY_PATTERN = Pattern.compile("(?i)\\border\\s+by\\b");
+
 	private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {
 	};
 
 	private static final String HIDDEN_FIELD_INFERENCE_WARNING =
-			" Answer strictly from returned columns only. Never infer hidden fields from visible values such as email local parts, IDs, codes, or aliases.";
+			" 请严格基于返回字段作答，不要根据邮箱前缀、ID、编码、别名等可见值推断任何未返回的隐藏字段。";
 
 	private final AgentDatasourceService agentDatasourceService;
 
@@ -102,22 +112,30 @@ public class DatasourceExplorerService {
 
 	private final ObjectMapper objectMapper;
 
+	private final AnswerTraceExplainStore answerTraceExplainStore;
+
 	public DatasourceExplorerResult execute(String agentId, DatasourceExplorerRequest request) throws Exception {
+		return execute(agentId, request, null);
+	}
+
+	public DatasourceExplorerResult execute(String agentId, DatasourceExplorerRequest request,
+			@Nullable GraphRequest graphRequest) throws Exception {
 		if (request == null || request.getAction() == null) {
 			throw new IllegalArgumentException("Datasource explorer request.action 不能为空");
 		}
 		ExplorerContext context = resolveContext(agentId);
 		return switch (request.getAction()) {
-			case LIST_TABLES -> listTables(context, request);
-			case FIND_TABLES -> findTables(context, request);
-			case GET_TABLE_SCHEMA -> getTableSchema(context, request);
-			case GET_RELATED_TABLES -> getRelatedTables(context, request);
-			case PREVIEW_ROWS -> previewRows(context, request);
-			case SEARCH -> search(context, request);
+			case LIST_TABLES -> listTables(context, request, graphRequest);
+			case FIND_TABLES -> findTables(context, request, graphRequest);
+			case GET_TABLE_SCHEMA -> getTableSchema(context, request, graphRequest);
+			case GET_RELATED_TABLES -> getRelatedTables(context, request, graphRequest);
+			case PREVIEW_ROWS -> previewRows(context, request, graphRequest);
+			case SEARCH -> search(context, request, graphRequest);
 		};
 	}
 
-	private DatasourceExplorerResult listTables(ExplorerContext context, DatasourceExplorerRequest request) {
+	private DatasourceExplorerResult listTables(ExplorerContext context, DatasourceExplorerRequest request,
+			@Nullable GraphRequest graphRequest) {
 		int limit = normalizeLimit(request.getLimit());
 		Map<String, Document> tableDocumentMap = loadTableDocumentMap(context, context.visibleTables());
 		List<Map<String, Object>> tables = context.visibleTables()
@@ -127,14 +145,18 @@ public class DatasourceExplorerService {
 					filterRelations(context, tableName)))
 			.limit(limit)
 			.toList();
-		return baseResult(context, DatasourceExplorerAction.LIST_TABLES, tables.size() + " tables available")
+		return capture(baseResult(context, DatasourceExplorerAction.LIST_TABLES, "共发现 %d 张可见表".formatted(tables.size()))
 			.tables(tables)
+			.usedTables(tables.stream().map(table -> String.valueOf(table.get("name"))).toList())
+			.permissions(buildPermissionSummary(context, context.visibleTables()))
+			.stats(buildStatsSummary(0, limit, context.visibleTables().size() > limit, "not_collected"))
 			.nextSuggestedActions(List.of("get_table_schema", "preview_rows", "find_tables"))
 			.truncated(context.visibleTables().size() > limit)
-			.build();
+			.build(), graphRequest);
 	}
 
-	private DatasourceExplorerResult findTables(ExplorerContext context, DatasourceExplorerRequest request) {
+	private DatasourceExplorerResult findTables(ExplorerContext context, DatasourceExplorerRequest request,
+			@Nullable GraphRequest graphRequest) {
 		int limit = normalizeLimit(request.getLimit());
 		String query = StringUtils.trimToEmpty(request.getQuery()).toLowerCase(Locale.ROOT);
 		Map<String, Document> tableDocumentMap = loadTableDocumentMap(context, context.visibleTables());
@@ -145,15 +167,20 @@ public class DatasourceExplorerService {
 			.filter(table -> query.isEmpty() || containsQuery(table, query))
 			.limit(limit)
 			.toList();
-		String summary = query.isEmpty() ? "Returned visible tables without query filter"
-				: "Matched %d tables for query '%s'".formatted(matchedTables.size(), request.getQuery());
-		return baseResult(context, DatasourceExplorerAction.FIND_TABLES, summary).tables(matchedTables)
+		String summary = query.isEmpty() ? "未提供筛选词，返回当前可见表列表"
+				: "针对关键词“%s”匹配到 %d 张表".formatted(request.getQuery(), matchedTables.size());
+		return capture(baseResult(context, DatasourceExplorerAction.FIND_TABLES, summary).tables(matchedTables)
+			.usedTables(matchedTables.stream().map(table -> String.valueOf(table.get("name"))).toList())
+			.permissions(buildPermissionSummary(context,
+					matchedTables.stream().map(table -> String.valueOf(table.get("name"))).toList()))
+			.stats(buildStatsSummary(0, limit, matchedTables.size() >= limit, "not_collected"))
 			.nextSuggestedActions(List.of("get_table_schema", "preview_rows"))
 			.truncated(matchedTables.size() >= limit)
-			.build();
+			.build(), graphRequest);
 	}
 
-	private DatasourceExplorerResult getTableSchema(ExplorerContext context, DatasourceExplorerRequest request)
+	private DatasourceExplorerResult getTableSchema(ExplorerContext context, DatasourceExplorerRequest request,
+			@Nullable GraphRequest graphRequest)
 			throws Exception {
 		String tableName = resolveVisibleTableName(context, requireSingleTableName(request));
 		List<ColumnInfoBO> columns = context.accessor()
@@ -169,16 +196,21 @@ public class DatasourceExplorerService {
 		List<UnifiedRelation> relations = filterRelations(context, tableName);
 		List<Map<String, Object>> relationEntries = relations.stream().map(this::toRelationEntry).toList();
 		Map<String, Object> tableEntry = toTableEntry(context, tableName, tableDocument, relations);
-		return baseResult(context, DatasourceExplorerAction.GET_TABLE_SCHEMA,
-				"Loaded schema for table '%s'".formatted(tableName))
+		return capture(baseResult(context, DatasourceExplorerAction.GET_TABLE_SCHEMA,
+				"已加载表“%s”的结构信息".formatted(tableName))
 			.tables(List.of(tableEntry))
 			.columns(columnEntries)
 			.relations(relationEntries)
+			.usedTables(List.of(tableName))
+			.usedColumns(listColumnNames(columnEntries))
+			.permissions(buildPermissionSummary(context, List.of(tableName)))
+			.stats(buildStatsSummary(0, null, false, "not_collected"))
 			.nextSuggestedActions(List.of("preview_rows", "search", "get_related_tables"))
-			.build();
+			.build(), graphRequest);
 	}
 
-	private DatasourceExplorerResult getRelatedTables(ExplorerContext context, DatasourceExplorerRequest request) {
+	private DatasourceExplorerResult getRelatedTables(ExplorerContext context, DatasourceExplorerRequest request,
+			@Nullable GraphRequest graphRequest) {
 		String tableName = resolveVisibleTableName(context, requireSingleTableName(request));
 		List<UnifiedRelation> relations = filterRelations(context, tableName);
 		List<Map<String, Object>> relationEntries = relations.stream().map(this::toRelationEntry).toList();
@@ -192,15 +224,19 @@ public class DatasourceExplorerService {
 			.map(relatedTable -> toTableEntry(context, relatedTable, tableDocumentMap.get(normalizeTableName(relatedTable)),
 					filterRelations(context, relatedTable)))
 			.toList();
-		return baseResult(context, DatasourceExplorerAction.GET_RELATED_TABLES,
-				"Found %d related tables for '%s'".formatted(tableEntries.size(), tableName))
+		return capture(baseResult(context, DatasourceExplorerAction.GET_RELATED_TABLES,
+				"表“%s”共找到 %d 张关联表".formatted(tableName, tableEntries.size()))
 			.tables(tableEntries)
 			.relations(relationEntries)
+			.usedTables(tableEntries.stream().map(table -> String.valueOf(table.get("name"))).toList())
+			.permissions(buildPermissionSummary(context, relatedTables))
+			.stats(buildStatsSummary(0, null, false, "not_collected"))
 			.nextSuggestedActions(List.of("get_table_schema", "preview_rows"))
-			.build();
+			.build(), graphRequest);
 	}
 
-	private DatasourceExplorerResult previewRows(ExplorerContext context, DatasourceExplorerRequest request)
+	private DatasourceExplorerResult previewRows(ExplorerContext context, DatasourceExplorerRequest request,
+			@Nullable GraphRequest graphRequest)
 			throws Exception {
 		String tableName = resolveVisibleTableName(context, requireSingleTableName(request));
 		int limit = normalizeLimit(request.getLimit());
@@ -208,19 +244,27 @@ public class DatasourceExplorerService {
 				SqlUtil.quoteIdentifier(context.dbConfig().getDialectType(), tableName),
 				resolvePreviewColumnSelection(context, tableName), limit);
 		ResultSetBO resultSet = executeSql(context, sql);
-		return baseResult(context, DatasourceExplorerAction.PREVIEW_ROWS,
-				("Previewed %d rows from '%s'".formatted(resultSet.getData().size(), tableName))
+		return capture(baseResult(context, DatasourceExplorerAction.PREVIEW_ROWS,
+				("已预览表“%s”的 %d 行数据".formatted(tableName, resultSet.getData().size()))
 					+ HIDDEN_FIELD_INFERENCE_WARNING)
 			.tables(List.of(Map.of("name", tableName)))
 			.columns(toColumnHeaders(resultSet))
 			.rows(toRows(resultSet))
 			.sql(sql)
+			.sqlExplanation(buildSqlExplanation(DatasourceExplorerAction.PREVIEW_ROWS, sql, List.of(tableName),
+					resultSet.getColumn(), limit, resultSet.getData().size(), resultSet.getData().size() >= limit))
+			.usedTables(List.of(tableName))
+			.usedColumns(resultSet.getColumn())
+			.permissions(buildPermissionSummary(context, List.of(tableName)))
+			.stats(buildStatsSummary(resultSet.getData().size(), limit, resultSet.getData().size() >= limit,
+					"not_collected"))
 			.nextSuggestedActions(List.of("get_table_schema", "search"))
 			.truncated(resultSet.getData().size() >= limit)
-			.build();
+			.build(), graphRequest);
 	}
 
-	private DatasourceExplorerResult search(ExplorerContext context, DatasourceExplorerRequest request)
+	private DatasourceExplorerResult search(ExplorerContext context, DatasourceExplorerRequest request,
+			@Nullable GraphRequest graphRequest)
 			throws Exception {
 		String rawSql = StringUtils.trimToNull(request.getSql());
 		if (rawSql == null) {
@@ -229,15 +273,24 @@ public class DatasourceExplorerService {
 		int limit = normalizeLimit(request.getLimit());
 		SqlGuardedQuery guardedQuery = guardReadonlySql(context, rawSql, limit);
 		ResultSetBO resultSet = filterResultSet(executeSql(context, guardedQuery.sql()), guardedQuery);
-		return baseResult(context, DatasourceExplorerAction.SEARCH,
-				("Executed readonly search and returned %d rows".formatted(resultSet.getData().size()))
+		return capture(baseResult(context, DatasourceExplorerAction.SEARCH,
+				("已执行只读查询，返回 %d 行结果".formatted(resultSet.getData().size()))
 					+ HIDDEN_FIELD_INFERENCE_WARNING)
 			.columns(toColumnHeaders(resultSet))
 			.rows(toRows(resultSet))
 			.sql(guardedQuery.sql())
+			.sqlExplanation(buildSqlExplanation(DatasourceExplorerAction.SEARCH, guardedQuery.sql(),
+					guardedQuery.referencedTables().stream().toList(), resultSet.getColumn(), limit, resultSet.getData().size(),
+					resultSet.getData().size() >= limit))
+			.usedTables(guardedQuery.referencedTables().stream().toList())
+			.usedColumns(guardedQuery.allowedResultHeaders() == null || guardedQuery.allowedResultHeaders().isEmpty()
+					? resultSet.getColumn() : guardedQuery.allowedResultHeaders().stream().toList())
+			.permissions(buildPermissionSummary(context, guardedQuery.referencedTables()))
+			.stats(buildStatsSummary(resultSet.getData().size(), limit, resultSet.getData().size() >= limit,
+					"not_collected"))
 			.nextSuggestedActions(List.of("get_table_schema", "preview_rows", "find_tables"))
 			.truncated(resultSet.getData().size() >= limit)
-			.build();
+			.build(), graphRequest);
 	}
 
 	private ExplorerContext resolveContext(String agentId) throws Exception {
@@ -840,6 +893,121 @@ public class DatasourceExplorerService {
 			.datasource(context.datasource().getName())
 			.action(action.name())
 			.summary(summary);
+	}
+
+	private DatasourceExplorerResult capture(DatasourceExplorerResult result, @Nullable GraphRequest graphRequest) {
+		if (graphRequest != null) {
+			answerTraceExplainStore.recordDatasourceResult(graphRequest, result);
+		}
+		else {
+			answerTraceExplainStore.recordDatasourceResult(result);
+		}
+		return result;
+	}
+
+	private Map<String, Object> buildPermissionSummary(ExplorerContext context, Collection<String> relevantTables) {
+		Map<String, Object> permissions = new LinkedHashMap<>();
+		permissions.put("tableScopeMode",
+				context.explicitSelectedTables().isEmpty() ? "datasource_visible_tables" : "agent_selected_tables");
+		if (!context.explicitSelectedTables().isEmpty()) {
+			permissions.put("selectedTables", context.explicitSelectedTables());
+		}
+		List<String> resolvedTables = Optional.ofNullable(relevantTables)
+			.orElse(List.of())
+			.stream()
+			.filter(StringUtils::isNotBlank)
+			.map(String::trim)
+			.distinct()
+			.toList();
+		if (!resolvedTables.isEmpty()) {
+			permissions.put("relevantTables", resolvedTables);
+		}
+		List<Map<String, Object>> columnRestrictions = resolvedTables.stream()
+			.map(tableName -> {
+				List<String> visibleColumns = context.visibleColumnsByTable().get(normalizeTableName(tableName));
+				if (visibleColumns == null) {
+					return null;
+				}
+				Map<String, Object> restriction = new LinkedHashMap<>();
+				restriction.put("tableName", tableName);
+				restriction.put("allowedColumns", visibleColumns);
+				return restriction;
+			})
+			.filter(Objects::nonNull)
+			.toList();
+		if (!columnRestrictions.isEmpty()) {
+			permissions.put("columnRestrictions", columnRestrictions);
+		}
+		return permissions;
+	}
+
+	private Map<String, Object> buildStatsSummary(int returnedRows, Integer limit, boolean truncated, String scanStatus) {
+		Map<String, Object> stats = new LinkedHashMap<>();
+		stats.put("returnedRows", returnedRows);
+		if (limit != null) {
+			stats.put("limitApplied", limit);
+		}
+		stats.put("truncated", truncated);
+		stats.put("rowScanStatus", scanStatus);
+		stats.put("rowsScanned", null);
+		return stats;
+	}
+
+	private String buildSqlExplanation(DatasourceExplorerAction action, String sql, Collection<String> usedTables,
+			Collection<String> usedColumns, Integer limit, int returnedRows, boolean truncated) {
+		if (!StringUtils.isNotBlank(sql)) {
+			return null;
+		}
+		List<String> clauses = new ArrayList<>();
+		List<String> tables = Optional.ofNullable(usedTables)
+			.orElse(List.of())
+			.stream()
+			.filter(StringUtils::isNotBlank)
+			.toList();
+		if (!tables.isEmpty()) {
+			clauses.add("查询的数据来源是 " + String.join("、", tables));
+		}
+		if (WHERE_PATTERN.matcher(sql).find()) {
+			clauses.add("SQL 带有 WHERE 条件，会先筛选符合条件的数据");
+		}
+		if (GROUP_BY_PATTERN.matcher(sql).find()) {
+			clauses.add("SQL 带有 GROUP BY，会按维度分组后再做统计");
+		}
+		if (ORDER_BY_PATTERN.matcher(sql).find()) {
+			clauses.add("SQL 带有 ORDER BY，会对结果做排序");
+		}
+		if (hasLimit(sql) || limit != null) {
+			clauses.add("结果条数受 LIMIT/TOP 之类的上限控制");
+		}
+		List<String> columns = Optional.ofNullable(usedColumns)
+			.orElse(List.of())
+			.stream()
+			.filter(StringUtils::isNotBlank)
+			.limit(8)
+			.toList();
+		if (!columns.isEmpty()) {
+			clauses.add("最终展示的字段主要是 " + String.join("、", columns));
+		}
+		clauses.add("本次返回了 %d 行结果".formatted(returnedRows));
+		if (truncated) {
+			clauses.add("由于命中了返回上限，当前看到的可能只是部分结果");
+		}
+		if (action == DatasourceExplorerAction.PREVIEW_ROWS) {
+			clauses.add("这条 SQL 主要用于预览样例数据，不是正式分析统计");
+		}
+		return String.join("。", clauses) + "。";
+	}
+
+	private List<String> listColumnNames(List<Map<String, Object>> columnEntries) {
+		if (columnEntries == null) {
+			return List.of();
+		}
+		return columnEntries.stream()
+			.map(entry -> entry.get("name"))
+			.filter(Objects::nonNull)
+			.map(String::valueOf)
+			.filter(StringUtils::isNotBlank)
+			.toList();
 	}
 
 	private record ExplorerContext(AgentDatasource agentDatasource, Datasource datasource, DbConfigBO dbConfig,

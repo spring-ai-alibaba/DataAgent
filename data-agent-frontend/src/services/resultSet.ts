@@ -41,11 +41,3 @@ export interface PaginationConfig {
   pageSize: number;
   total: number;
 }
-
-/**
- * 结果集显示配置
- */
-export interface ResultSetDisplayConfig {
-  showSqlResults: boolean;
-  pageSize: number;
-}

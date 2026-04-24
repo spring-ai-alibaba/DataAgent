@@ -40,4 +40,6 @@ public class SemanticModelSearchHit {
 
 	private String matchedBy;
 
+	private Integer score;
+
 }

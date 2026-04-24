@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.runtime;
 
-public record AgentRuntimeRequestMetadata(String agentId, String threadId, boolean nl2sqlOnly) {
+public record AgentRuntimeRequestMetadata(String agentId, String threadId, String runtimeRequestId,
+		boolean nl2sqlOnly) {
 
 }

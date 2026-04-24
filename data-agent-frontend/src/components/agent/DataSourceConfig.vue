@@ -591,7 +591,9 @@
           </div>
 
           <div
-            v-else-if="!(columnOptionsByDatasource[currentColumnDatasource.id]?.[tableName] || []).length"
+            v-else-if="
+              !(columnOptionsByDatasource[currentColumnDatasource.id]?.[tableName] || []).length
+            "
             style="padding: 12px 0; color: #909399"
           >
             未加载到字段信息。
@@ -624,7 +626,9 @@
             >
               <el-row :gutter="10">
                 <el-col
-                  v-for="column in columnOptionsByDatasource[currentColumnDatasource.id]?.[tableName] || []"
+                  v-for="column in columnOptionsByDatasource[currentColumnDatasource.id]?.[
+                    tableName
+                  ] || []"
                   :key="column"
                   :span="8"
                   style="margin-bottom: 10px"
@@ -1031,9 +1035,9 @@
               if (item.selectTables) {
                 selectedTables.value[item.datasource.id] = [...item.selectTables];
               }
-              selectedColumns.value[item.datasource.id] = Object.entries(item.selectColumns || {}).reduce<
-                Record<string, string[]>
-              >((result, [tableName, columns]) => {
+              selectedColumns.value[item.datasource.id] = Object.entries(
+                item.selectColumns || {},
+              ).reduce<Record<string, string[]>>((result, [tableName, columns]) => {
                 result[tableName] = [...columns];
                 return result;
               }, {});
@@ -1051,7 +1055,9 @@
         }
       };
 
-      const getAgentDatasourceByDatasourceId = (datasourceId: number): AgentDatasource | undefined => {
+      const getAgentDatasourceByDatasourceId = (
+        datasourceId: number,
+      ): AgentDatasource | undefined => {
         return agentDatasourceList.value.find(item => item.datasource?.id === datasourceId);
       };
 
@@ -1071,13 +1077,12 @@
         const nextSnapshot: AgentDatasource = {
           ...snapshot,
           selectTables: [...(snapshot.selectTables || [])],
-          selectColumns: Object.entries(snapshot.selectColumns || {}).reduce<Record<string, string[]>>(
-            (result, [tableName, columns]) => {
-              result[tableName] = [...columns];
-              return result;
-            },
-            {},
-          ),
+          selectColumns: Object.entries(snapshot.selectColumns || {}).reduce<
+            Record<string, string[]>
+          >((result, [tableName, columns]) => {
+            result[tableName] = [...columns];
+            return result;
+          }, {}),
         };
 
         const agentDatasourceIndex = agentDatasourceList.value.findIndex(
@@ -1101,9 +1106,9 @@
         }
 
         selectedTables.value[datasourceId] = [...(nextSnapshot.selectTables || [])];
-        selectedColumns.value[datasourceId] = Object.entries(nextSnapshot.selectColumns || {}).reduce<
-          Record<string, string[]>
-        >((result, [tableName, columns]) => {
+        selectedColumns.value[datasourceId] = Object.entries(
+          nextSnapshot.selectColumns || {},
+        ).reduce<Record<string, string[]>>((result, [tableName, columns]) => {
           result[tableName] = [...columns];
           return result;
         }, {});
@@ -1160,7 +1165,10 @@
         return `${datasourceId}:${tableName}`;
       };
 
-      const loadColumnsForTable = async (datasourceId: number, tableName: string): Promise<void> => {
+      const loadColumnsForTable = async (
+        datasourceId: number,
+        tableName: string,
+      ): Promise<void> => {
         const loadingKey = getColumnLoadingKey(datasourceId, tableName);
         columnLoadingStates.value[loadingKey] = true;
         try {
@@ -1550,10 +1558,13 @@
 
         updateLoadingStates.value[datasource.id] = true;
         try {
-          const response = await agentDatasourceService.updateDatasourceTables(String(props.agentId), {
-            datasourceId: datasource.id,
-            tables: selectedTables.value[datasource.id] || [],
-          });
+          const response = await agentDatasourceService.updateDatasourceTables(
+            String(props.agentId),
+            {
+              datasourceId: datasource.id,
+              tables: selectedTables.value[datasource.id] || [],
+            },
+          );
 
           if (response.success && response.data) {
             applyAgentDatasourceSnapshot(response.data);
@@ -1613,12 +1624,18 @@
 
         const agentDatasource = getAgentDatasourceByDatasourceId(datasourceRow.id);
         tables.forEach(tableName => {
-          const configuredColumns = resolveConfiguredColumns(agentDatasource?.selectColumns, tableName);
+          const configuredColumns = resolveConfiguredColumns(
+            agentDatasource?.selectColumns,
+            tableName,
+          );
           selectedColumns.value[datasourceRow.id][tableName] = configuredColumns;
-          columnRestrictionEnabled.value[datasourceRow.id][tableName] = configuredColumns.length > 0;
+          columnRestrictionEnabled.value[datasourceRow.id][tableName] =
+            configuredColumns.length > 0;
         });
 
-        await Promise.all(tables.map(tableName => loadColumnsForTable(datasourceRow.id!, tableName)));
+        await Promise.all(
+          tables.map(tableName => loadColumnsForTable(datasourceRow.id!, tableName)),
+        );
         columnDialogVisible.value = true;
       };
 
@@ -1666,10 +1683,13 @@
               columns: [...(selectedColumns.value[datasourceId]?.[tableName] || [])],
             }));
 
-          const response = await agentDatasourceService.updateDatasourceColumns(String(props.agentId), {
-            datasourceId,
-            tables,
-          });
+          const response = await agentDatasourceService.updateDatasourceColumns(
+            String(props.agentId),
+            {
+              datasourceId,
+              tables,
+            },
+          );
 
           if (response.success && response.data) {
             applyAgentDatasourceSnapshot(response.data);

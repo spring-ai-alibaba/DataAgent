@@ -32,9 +32,14 @@ import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
+import com.alibaba.cloud.ai.dataagent.entity.ChatMessage;
+import com.alibaba.cloud.ai.dataagent.observability.AnswerTraceExplainStore;
 import com.alibaba.cloud.ai.dataagent.observability.SessionTraceStore;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.DynamicModelFactory;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigDataService;
+import com.alibaba.cloud.ai.dataagent.service.chat.ChatMessageService;
+import com.alibaba.cloud.ai.dataagent.service.chat.ChatSessionService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.model.Model;
 import io.opentelemetry.api.trace.Span;
@@ -67,6 +72,8 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 
 	private static final String RUNTIME_NODE_NAME = "AgentScopeRuntime";
 
+	private static final String ANSWER_EXPLAIN_MESSAGE_TYPE = "answer-explain";
+
 	private static final String STREAM_EVENT_MESSAGE = "message";
 
 	private static final String ROOT_SPAN_NAME = "data-agent.agent.run";
@@ -93,6 +100,14 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 
 	@Qualifier("agentScopeTracer")
 	private final Tracer tracer;
+
+	private final AnswerTraceExplainStore answerTraceExplainStore;
+
+	private final ChatSessionService chatSessionService;
+
+	private final ChatMessageService chatMessageService;
+
+	private final ObjectMapper objectMapper;
 
 	@Override
 	public String nl2sql(String naturalQuery, String agentId) {
@@ -198,6 +213,7 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 
 	private String executeAgent(GraphRequest request, AgentRuntimeEventPublisher eventPublisher) {
 		sessionRegistry.markRunning(request.getThreadId(), request.getRuntimeRequestId(), Thread.currentThread());
+		answerTraceExplainStore.openScope(request);
 		Span rootSpan = startRuntimeSpan(request);
 		try {
 			try (Scope ignored = rootSpan.makeCurrent()) {
@@ -236,7 +252,11 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 					return "";
 				}
 				rootSpan.setStatus(StatusCode.OK);
-				return extractText(response);
+				String answer = extractText(response);
+				answerTraceExplainStore.recordFinalAnswer(answer);
+				persistAnswerExplainSnapshot(request);
+				mirrorExplainSummary(rootSpan, request);
+				return answer;
 			}
 		}
 		catch (RuntimeException ex) {
@@ -246,6 +266,7 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 		finally {
 			rootSpan.end();
 			sessionRegistry.clearRunning(request.getThreadId(), request.getRuntimeRequestId());
+			answerTraceExplainStore.closeScope();
 		}
 	}
 
@@ -265,6 +286,58 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 		}
 		rootSpan.setStatus(StatusCode.ERROR, throwable.getMessage() == null ? "runtime failed" : throwable.getMessage());
 		rootSpan.recordException(throwable);
+	}
+
+	private void mirrorExplainSummary(Span rootSpan, GraphRequest request) {
+		if (rootSpan == null || request == null) {
+			return;
+		}
+		answerTraceExplainStore.getMirrorSummary(request.getThreadId(), request.getRuntimeRequestId()).ifPresent(summary -> {
+			rootSpan.setAttribute("dataagent.answer.explain.available", true);
+			rootSpan.setAttribute("dataagent.answer.explain.tool_step_count", summary.getToolStepCount());
+			rootSpan.setAttribute("dataagent.answer.explain.semantic_hit_count", summary.getSemanticHitCount());
+			rootSpan.setAttribute("dataagent.answer.explain.knowledge_hit_count", summary.getKnowledgeHitCount());
+			if (StringUtils.hasText(summary.getDatasource())) {
+				rootSpan.setAttribute("dataagent.answer.explain.datasource", summary.getDatasource());
+			}
+			if (summary.getUsedTables() != null && !summary.getUsedTables().isEmpty()) {
+				rootSpan.setAttribute("dataagent.answer.explain.used_tables",
+						String.join(",", summary.getUsedTables()));
+			}
+		});
+	}
+
+	private void persistAnswerExplainSnapshot(GraphRequest request) {
+		if (request == null || !StringUtils.hasText(request.getThreadId())
+				|| !StringUtils.hasText(request.getRuntimeRequestId())) {
+			return;
+		}
+		if (chatSessionService.findBySessionId(request.getThreadId()) == null) {
+			return;
+		}
+		answerTraceExplainStore.getExplain(request.getThreadId(), request.getRuntimeRequestId()).ifPresent(explain -> {
+			try {
+				chatMessageService.saveMessage(ChatMessage.builder()
+					.sessionId(request.getThreadId())
+					.role("system")
+					.content(objectMapper.writeValueAsString(explain))
+					.messageType(ANSWER_EXPLAIN_MESSAGE_TYPE)
+					.metadata(buildAnswerExplainMetadata(request))
+					.build());
+			}
+			catch (Exception ex) {
+				log.warn("Failed to persist answer explain snapshot. sessionId={}, runtimeRequestId={}",
+						request.getThreadId(), request.getRuntimeRequestId(), ex);
+			}
+		});
+	}
+
+	private String buildAnswerExplainMetadata(GraphRequest request) throws Exception {
+		Map<String, Object> metadata = new LinkedHashMap<>();
+		metadata.put("kind", "answer-explain");
+		metadata.put("runtimeRequestId", request.getRuntimeRequestId());
+		metadata.put("visibility", "system-hidden");
+		return objectMapper.writeValueAsString(metadata);
 	}
 
 	private void validateModelConfig(ModelConfigDTO modelConfig) {

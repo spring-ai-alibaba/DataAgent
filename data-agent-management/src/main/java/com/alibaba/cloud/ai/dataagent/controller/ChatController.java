@@ -19,12 +19,15 @@ import com.alibaba.cloud.ai.dataagent.dto.ChatMessageDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ChatMessage;
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
 import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
+import com.alibaba.cloud.ai.dataagent.observability.AnswerTraceExplainStore;
 import com.alibaba.cloud.ai.dataagent.observability.SessionTraceStore;
 import com.alibaba.cloud.ai.dataagent.service.chat.ChatMessageService;
 import com.alibaba.cloud.ai.dataagent.service.chat.ChatSessionService;
 import com.alibaba.cloud.ai.dataagent.service.chat.SessionTitleService;
 import com.alibaba.cloud.ai.dataagent.util.ReportTemplateUtil;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -49,6 +52,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ChatController {
 
+	private static final String ANSWER_EXPLAIN_MESSAGE_TYPE = "answer-explain";
+
 	private final ChatSessionService chatSessionService;
 
 	private final ChatMessageService chatMessageService;
@@ -58,6 +63,10 @@ public class ChatController {
 	private final ReportTemplateUtil reportTemplateUtil;
 
 	private final SessionTraceStore sessionTraceStore;
+
+	private final AnswerTraceExplainStore answerTraceExplainStore;
+
+	private final ObjectMapper objectMapper;
 
 	/**
 	 * Get session list for an agent
@@ -126,6 +135,38 @@ public class ChatController {
 		return sessionTraceStore.getLatestTrace(sessionId)
 			.<ResponseEntity<?>>map(ResponseEntity::ok)
 			.orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	@GetMapping("/sessions/{sessionId}/answers/{runtimeRequestId}/explain")
+	public ResponseEntity<?> getAnswerExplain(@PathVariable(value = "sessionId") String sessionId,
+			@PathVariable(value = "runtimeRequestId") String runtimeRequestId) {
+		return answerTraceExplainStore.getExplain(sessionId, runtimeRequestId)
+			.<ResponseEntity<?>>map(ResponseEntity::ok)
+			.or(() -> loadPersistedAnswerExplain(sessionId, runtimeRequestId).map(ResponseEntity::ok))
+			.orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	private java.util.Optional<JsonNode> loadPersistedAnswerExplain(String sessionId, String runtimeRequestId) {
+		if (!StringUtils.hasText(sessionId) || !StringUtils.hasText(runtimeRequestId)) {
+			return java.util.Optional.empty();
+		}
+		List<ChatMessage> snapshots = chatMessageService.findBySessionIdAndMessageType(sessionId, ANSWER_EXPLAIN_MESSAGE_TYPE);
+		for (ChatMessage snapshot : snapshots) {
+			if (snapshot == null || !StringUtils.hasText(snapshot.getContent())) {
+				continue;
+			}
+			try {
+				JsonNode explainNode = objectMapper.readTree(snapshot.getContent());
+				if (runtimeRequestId.equals(explainNode.path("runtimeRequestId").asText())) {
+					return java.util.Optional.of(explainNode);
+				}
+			}
+			catch (Exception ex) {
+				log.warn("Failed to parse persisted answer explain snapshot. sessionId={}, messageId={}", sessionId,
+						snapshot.getId(), ex);
+			}
+		}
+		return java.util.Optional.empty();
 	}
 
 	/**

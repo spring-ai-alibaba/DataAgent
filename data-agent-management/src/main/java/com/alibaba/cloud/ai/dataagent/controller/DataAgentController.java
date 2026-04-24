@@ -45,7 +45,9 @@ public class DataAgentController {
 
 	@GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<ServerSentEvent<GraphNodeResponse>> streamSearch(@RequestParam("agentId") String agentId,
-			@RequestParam(value = "threadId", required = false) String threadId, @RequestParam("query") String query,
+			@RequestParam(value = "threadId", required = false) String threadId,
+			@RequestParam(value = "runtimeRequestId", required = false) String runtimeRequestId,
+			@RequestParam("query") String query,
 			@RequestParam(value = "humanFeedback", required = false) boolean humanFeedback,
 			@RequestParam(value = "humanFeedbackContent", required = false) String humanFeedbackContent,
 			@RequestParam(value = "rejectedPlan", required = false) boolean rejectedPlan,
@@ -58,6 +60,7 @@ public class DataAgentController {
 		GraphRequest request = GraphRequest.builder()
 			.agentId(agentId)
 			.threadId(threadId)
+			.runtimeRequestId(runtimeRequestId)
 			.query(query)
 			.humanFeedback(humanFeedback)
 			.humanFeedbackContent(humanFeedbackContent)

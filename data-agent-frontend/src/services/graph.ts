@@ -17,9 +17,8 @@
 export interface GraphRequest {
   agentId: string;
   threadId?: string;
+  runtimeRequestId?: string;
   query: string;
-  humanFeedback: boolean;
-  humanFeedbackContent?: string;
   rejectedPlan: boolean;
   nl2sqlOnly: boolean;
 }
@@ -67,14 +66,12 @@ class GraphService {
     if (request.threadId) {
       params.append('threadId', request.threadId);
     }
+    if (request.runtimeRequestId) {
+      params.append('runtimeRequestId', request.runtimeRequestId);
+    }
     params.append('query', request.query);
-    params.append('humanFeedback', request.humanFeedback.toString());
     params.append('rejectedPlan', request.rejectedPlan.toString());
     params.append('nl2sqlOnly', request.nl2sqlOnly.toString());
-
-    if (request.humanFeedbackContent) {
-      params.append('humanFeedbackContent', request.humanFeedbackContent);
-    }
 
     const url = `${API_BASE_URL}/stream/search?${params.toString()}`;
 

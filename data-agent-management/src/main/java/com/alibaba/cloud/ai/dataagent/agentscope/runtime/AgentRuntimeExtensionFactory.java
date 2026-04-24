@@ -48,7 +48,7 @@ public class AgentRuntimeExtensionFactory {
 		SkillBox skillBox = skillBoxFactory.create(request.getAgentId(), toolkit);
 		Memory memory = memoryFactory.create(request.getThreadId());
 		AgentRuntimeRequestMetadata requestMetadata = new AgentRuntimeRequestMetadata(request.getAgentId(),
-				request.getThreadId(), request.isNl2sqlOnly());
+				request.getThreadId(), request.getRuntimeRequestId(), request.isNl2sqlOnly());
 		ToolExecutionContext toolExecutionContext = ToolExecutionContext.builder()
 			.register(requestMetadata)
 			.register("graphRequest", request)

@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.tool.datasource;
 
+import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
+import com.alibaba.cloud.ai.dataagent.agentscope.runtime.ToolContextRequestResolver;
 import com.alibaba.cloud.ai.dataagent.agentscope.tool.AgentScopedToolProvider;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
@@ -132,16 +134,16 @@ public class DatasourceExplorerToolProvider implements AgentScopedToolProvider {
 		String visibleTables = selectedTables.isEmpty() ? "当前未显式选表，将回退到数据源全部可见表" : "当前显式选表 %d 个：%s"
 			.formatted(selectedTables.size(), String.join(", ", selectedTables.stream().limit(8).toList()));
 		return """
-				Unified explorer for datasource '%s' (%s).
-				Use this tool to inspect tables, inspect schema, inspect unified table relations, preview rows, and execute readonly SQL search.
-				Constraints:
-				1. Only the current agent's active datasource is visible.
-				2. Only readonly SQL is allowed for SEARCH.
-				3. GET_TABLE_SCHEMA and GET_RELATED_TABLES return a unified relations field that combines physical foreign keys discovered from the database and configured logical relations.
-				4. Treat the unified relations field as the primary source for table-to-table relationship reasoning and join planning.
-				5. The foreignKeys field inside table metadata is kept only for compatibility; prefer relations for agent reasoning.
-				6. Recommended call order: LIST_TABLES -> GET_TABLE_SCHEMA -> GET_RELATED_TABLES -> PREVIEW_ROWS -> SEARCH.
-				7. Never infer hidden fields from visible values. For example, do not derive a username or person name from an email local-part, ID, code, or alias.
+				数据源 '%s'（%s）的统一探索工具。
+				可用于查看表列表、查看表结构、查看统一关系、预览数据，以及执行只读 SQL 查询。
+				约束说明：
+				1. 只能访问当前 Agent 的活动数据源。
+				2. SEARCH 仅允许执行只读 SQL。
+				3. GET_TABLE_SCHEMA 和 GET_RELATED_TABLES 返回的 relations 字段，会合并数据库物理外键与已配置的逻辑关系。
+				4. 做表关系推断和 Join 规划时，应优先使用 relations 字段。
+				5. 表元数据里的 foreignKeys 字段仅为兼容保留，Agent 推理时优先使用 relations。
+				6. 推荐调用顺序：LIST_TABLES -> GET_TABLE_SCHEMA -> GET_RELATED_TABLES -> PREVIEW_ROWS -> SEARCH。
+				7. 不要根据可见值推断隐藏字段。例如不要从邮箱前缀、ID、编码或别名推断用户名或真实姓名。
 				8. %s
 				""".formatted(datasource.getName(), datasource.getType(), visibleTables);
 	}
@@ -171,18 +173,19 @@ public class DatasourceExplorerToolProvider implements AgentScopedToolProvider {
 
 		@Override
 		public String call(String toolInput) {
-			try {
-				DatasourceExplorerRequest request = objectMapper.readValue(toolInput, DatasourceExplorerRequest.class);
-				return objectMapper.writeValueAsString(datasourceExplorerService.execute(agentId, request));
-			}
-			catch (Exception ex) {
-				throw new IllegalStateException("Datasource explorer tool failed: " + ex.getMessage(), ex);
-			}
+			return call(toolInput, null);
 		}
 
 		@Override
 		public String call(String toolInput, ToolContext toolContext) {
-			return call(toolInput);
+			try {
+				DatasourceExplorerRequest request = objectMapper.readValue(toolInput, DatasourceExplorerRequest.class);
+				GraphRequest graphRequest = ToolContextRequestResolver.resolveGraphRequest(toolContext);
+				return objectMapper.writeValueAsString(datasourceExplorerService.execute(agentId, request, graphRequest));
+			}
+			catch (Exception ex) {
+				throw new IllegalStateException("Datasource explorer tool failed: " + ex.getMessage(), ex);
+			}
 		}
 
 	}
