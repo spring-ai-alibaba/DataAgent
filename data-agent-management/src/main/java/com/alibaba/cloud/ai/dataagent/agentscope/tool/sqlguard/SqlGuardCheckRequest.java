@@ -29,6 +29,8 @@ class SqlGuardCheckRequest {
 
 	private String sql;
 
+	private String humanFeedbackContent;
+
 	private String tableName;
 
 	private List<String> columnNames;

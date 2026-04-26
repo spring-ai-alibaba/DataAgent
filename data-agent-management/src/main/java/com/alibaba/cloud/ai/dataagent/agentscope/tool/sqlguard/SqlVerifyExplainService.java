@@ -96,6 +96,12 @@ public class SqlVerifyExplainService {
     private static final Pattern SQL_FETCH_FIRST_VALUE_PATTERN = Pattern
         .compile("(?is)\\bfetch\\s+first\\s+(\\d+)\\s+rows\\s+only\\b");
 
+    private static final Pattern STATUS_COLUMN_PATTERN = Pattern
+        .compile("(?is)\\b(status|order_status|payment_status|trade_status|state)\\b");
+
+    private static final Pattern NEGATIVE_STATUS_OPERATOR_PATTERN = Pattern
+        .compile("(?is)(<>|!=|not\\s+in\\s*\\(|not\\s+like\\b)");
+
 	private final AgentDatasourceService agentDatasourceService;
 
 	private final DatasourceService datasourceService;
@@ -112,12 +118,17 @@ public class SqlVerifyExplainService {
     public SqlGuardCheckResult explain(SqlGuardCheckRequest request) {
         String query = StringUtils.trimToEmpty(request == null ? null : request.getQuery());
         String sql = StringUtils.trimToEmpty(request == null ? null : request.getSql());
+        String humanFeedbackContent = StringUtils.trimToEmpty(request == null ? null : request.getHumanFeedbackContent());
         if (StringUtils.isBlank(query)) {
             throw new IllegalArgumentException("sql_guard.check 需要 query");
         }
         if (StringUtils.isBlank(sql)) {
             throw new IllegalArgumentException("sql_guard.check 需要 sql");
         }
+
+        String effectiveIntentSource = mergeIntentSource(query, humanFeedbackContent);
+        QueryIntent intent = analyzeQueryIntent(effectiveIntentSource);
+        HumanFeedbackConstraint feedbackConstraint = analyzeHumanFeedbackConstraint(humanFeedbackContent);
 
         Statement statement;
         try {
@@ -130,7 +141,7 @@ public class SqlVerifyExplainService {
                 .sql(sql)
                 .isAligned(false)
                 .summary("SQL 无法通过语法解析，无法继续做结构和意图一致性校验。")
-                .explainedIntent(buildIntentExplanation(analyzeQueryIntent(query)))
+                .explainedIntent(buildIntentExplanation(intent))
                 .problems(List.of(SqlGuardProblem.builder()
                     .code("SQL_PARSE_ERROR")
                     .title("SQL 语法解析失败")
@@ -153,7 +164,6 @@ public class SqlVerifyExplainService {
                 .build();
         }
 
-        QueryIntent intent = analyzeQueryIntent(query);
         SqlShape shape = analyzeSqlShape(statement, sql, request);
         List<SqlGuardProblem> problems = new ArrayList<>();
         Set<String> fixSuggestions = new LinkedHashSet<>();
@@ -168,6 +178,8 @@ public class SqlVerifyExplainService {
         evaluateLimitRule(query, sql, intent, shape, problems, fixSuggestions, ruleChecks);
         evaluateDistinctRule(query, sql, intent, shape, problems, fixSuggestions, ruleChecks);
         evaluateOrderDirectionRule(sql, intent, shape, problems, fixSuggestions, ruleChecks);
+        evaluateHumanFeedbackRule(query, sql, humanFeedbackContent, feedbackConstraint, problems, fixSuggestions,
+            ruleChecks);
 
         boolean aligned = problems.stream().noneMatch(problem -> isBlockingSeverity(problem.getSeverity()));
         String summary = aligned ? "SQL 通过了当前规则版意图一致性校验。"
@@ -872,6 +884,70 @@ public class SqlVerifyExplainService {
         }
     }
 
+    private void evaluateHumanFeedbackRule(String query, String sql, String humanFeedbackContent,
+            HumanFeedbackConstraint feedbackConstraint, List<SqlGuardProblem> problems, Set<String> fixSuggestions,
+            List<SqlGuardRuleCheck> ruleChecks) {
+        if (!feedbackConstraint.hasConstraints()) {
+            return;
+        }
+        String normalizedSql = StringUtils.trimToEmpty(sql).toLowerCase(Locale.ROOT);
+        List<String> feedbackProblems = new ArrayList<>();
+
+        if (!feedbackConstraint.requiredStatusTokens().isEmpty()) {
+            boolean matchedRequiredStatus = feedbackConstraint.requiredStatusTokens()
+                .stream()
+                .anyMatch(token -> sqlContainsStatusToken(normalizedSql, token));
+            if (!matchedRequiredStatus) {
+                feedbackProblems.add("未看到与人工反馈一致的状态过滤条件");
+                addProblem(problems, fixSuggestions, "MISSING_CONFIRMED_STATUS_FILTER", "缺少人工反馈确认的状态过滤", "high",
+                    "用户已经通过人工反馈明确了状态口径，但 SQL 里没有体现该约束。",
+                    "人工反馈属于已确认条件；如果 SQL 没落实这些条件，最终结果会与用户确认的口径不一致。",
+                    "SQL 应显式体现用户确认过的状态范围或订单口径。",
+                    "当前 SQL 未检测到与人工反馈一致的状态条件。",
+                    "query=" + query + "; feedback=" + humanFeedbackContent + "; sql=" + sql,
+                    "把人工反馈里确认过的状态过滤条件补进 WHERE，例如只统计 completed / paid 等已确认状态。");
+            }
+        }
+
+        if (!feedbackConstraint.excludedStatusTokens().isEmpty()) {
+            boolean mentionsExcludedStatus = feedbackConstraint.excludedStatusTokens()
+                .stream()
+                .anyMatch(token -> sqlContainsStatusToken(normalizedSql, token));
+            boolean hasStatusPredicate = STATUS_COLUMN_PATTERN.matcher(normalizedSql).find()
+                || feedbackConstraint.requiredStatusTokens().stream().anyMatch(token -> sqlContainsStatusToken(normalizedSql, token));
+            boolean hasNegativeStatusPredicate = NEGATIVE_STATUS_OPERATOR_PATTERN.matcher(normalizedSql).find();
+            if (!hasStatusPredicate && !mentionsExcludedStatus) {
+                feedbackProblems.add("未看到用于落实人工反馈排除条件的状态过滤");
+                addProblem(problems, fixSuggestions, "MISSING_CONFIRMED_STATUS_EXCLUSION", "缺少人工反馈确认的排除条件", "high",
+                    "用户已经通过人工反馈确认要排除某些状态，但 SQL 里没有看到对应的过滤条件。",
+                    "像“不含退款”“排除取消单”这类反馈会直接改变统计口径；如果 SQL 不落实，结果会偏大或口径错误。",
+                    "SQL 应显式体现这些排除条件，或通过更窄的已确认状态集合覆盖它们。",
+                    "当前 SQL 未检测到相关状态过滤。",
+                    "query=" + query + "; feedback=" + humanFeedbackContent + "; sql=" + sql,
+                    "把人工反馈里确认的排除条件补进 WHERE，例如排除 refund / cancelled 等状态。");
+            }
+            else if (mentionsExcludedStatus && !hasNegativeStatusPredicate
+                    && feedbackConstraint.requiredStatusTokens().isEmpty()) {
+                feedbackProblems.add("SQL 提到了应排除的状态，但没有看到明确排除写法");
+                addProblem(problems, fixSuggestions, "CONFIRMED_STATUS_EXCLUSION_MISMATCH", "人工反馈排除条件未落实", "high",
+                    "人工反馈要求排除某些状态，但 SQL 里虽然出现了这些状态词，却没有看到明确的排除写法。",
+                    "如果只是把 refund / cancelled 放进正向条件里，结果会和用户确认的口径相反。",
+                    "这些状态应通过 <> / != / NOT IN 等方式排除，或通过更窄的正向状态集间接排除。",
+                    "当前 SQL 提到了应排除的状态，但没有检测到明确排除条件。",
+                    "query=" + query + "; feedback=" + humanFeedbackContent + "; sql=" + sql,
+                    "把这些状态改成显式排除条件，或改成更精确的正向状态集合。");
+            }
+        }
+
+        if (feedbackProblems.isEmpty()) {
+            recordRuleCheck(ruleChecks, "CONFIRMED_FEEDBACK_CONSTRAINTS", "人工反馈一致性校验", "PASSED",
+                "SQL 已体现当前人工反馈中的显式状态口径约束。", "feedback=" + humanFeedbackContent);
+            return;
+        }
+        recordRuleCheck(ruleChecks, "CONFIRMED_FEEDBACK_CONSTRAINTS", "人工反馈一致性校验", "FAILED",
+            String.join("；", feedbackProblems), "feedback=" + humanFeedbackContent + "; sql=" + sql);
+    }
+
     private void addProblem(List<SqlGuardProblem> problems, Set<String> fixSuggestions, String code, String title,
             String severity, String message, String why, String expected, String actual, String evidence,
             String fixSuggestion) {
@@ -904,6 +980,74 @@ public class SqlVerifyExplainService {
         return "high".equalsIgnoreCase(severity) || "medium".equalsIgnoreCase(severity);
     }
 
+    private String mergeIntentSource(String query, String humanFeedbackContent) {
+        if (StringUtils.isBlank(humanFeedbackContent)) {
+            return query;
+        }
+        return query + "\n" + humanFeedbackContent;
+    }
+
+    private HumanFeedbackConstraint analyzeHumanFeedbackConstraint(String humanFeedbackContent) {
+        if (StringUtils.isBlank(humanFeedbackContent)) {
+            return HumanFeedbackConstraint.empty();
+        }
+        String feedback = humanFeedbackContent.trim();
+        String normalizedFeedback = feedback.toLowerCase(Locale.ROOT);
+        Set<String> requiredStatusTokens = new LinkedHashSet<>();
+        Set<String> excludedStatusTokens = new LinkedHashSet<>();
+
+        collectRequiredStatusTokens(feedback, normalizedFeedback, requiredStatusTokens);
+        collectExcludedStatusTokens(feedback, normalizedFeedback, excludedStatusTokens);
+        return new HumanFeedbackConstraint(feedback, Set.copyOf(requiredStatusTokens), Set.copyOf(excludedStatusTokens));
+    }
+
+    private void collectRequiredStatusTokens(String feedback, String normalizedFeedback, Set<String> target) {
+        if (containsAny(feedback, "已完成", "完成订单") || containsAny(normalizedFeedback, "completed", "complete")) {
+            target.add("completed");
+        }
+        if (containsAny(feedback, "已支付", "支付成功") || containsAny(normalizedFeedback, "paid", "payment_success")) {
+            target.add("paid");
+        }
+        if (containsAny(feedback, "待支付", "未支付", "待处理") || containsAny(normalizedFeedback, "pending", "unpaid")) {
+            target.add("pending");
+        }
+        if (containsAny(feedback, "已取消", "取消单") || containsAny(normalizedFeedback, "cancelled", "canceled")) {
+            target.add("cancelled");
+        }
+        if (containsAny(feedback, "退款", "已退款") || containsAny(normalizedFeedback, "refund", "refunded")) {
+            if (!containsAny(feedback, "不含退款", "不包含退款", "排除退款", "剔除退款")
+                    && !containsAny(normalizedFeedback, "exclude refund", "without refund", "not refunded")) {
+                target.add("refund");
+            }
+        }
+    }
+
+    private void collectExcludedStatusTokens(String feedback, String normalizedFeedback, Set<String> target) {
+        if (containsAny(feedback, "不含退款", "不包含退款", "排除退款", "剔除退款", "不看退款")
+                || containsAny(normalizedFeedback, "exclude refund", "without refund", "not refunded")) {
+            target.add("refund");
+        }
+        if (containsAny(feedback, "不含取消", "不包含取消", "排除取消", "剔除取消", "不看取消")
+                || containsAny(normalizedFeedback, "exclude cancel", "without cancel", "not cancelled", "not canceled")) {
+            target.add("cancelled");
+        }
+    }
+
+    private boolean sqlContainsStatusToken(String normalizedSql, String token) {
+        return switch (token) {
+            case "completed" -> containsAny(normalizedSql, "'completed'", "\"completed\"", " completed ", "'complete'",
+                    "已完成", "'success'", "\"success\"");
+            case "paid" -> containsAny(normalizedSql, "'paid'", "\"paid\"", " paid ", "已支付", "payment_success");
+            case "pending" -> containsAny(normalizedSql, "'pending'", "\"pending\"", " pending ", "待支付", "未支付",
+                    "'unpaid'");
+            case "cancelled" -> containsAny(normalizedSql, "'cancelled'", "\"cancelled\"", "'canceled'",
+                    "\"canceled\"", " cancelled ", " canceled ", "已取消", "取消");
+            case "refund" -> containsAny(normalizedSql, "'refund'", "\"refund\"", "'refunded'", "\"refunded\"",
+                    " refund ", " refunded ", "退款");
+            default -> containsAny(normalizedSql, token);
+        };
+    }
+
     private QueryIntent analyzeQueryIntent(String query) {
         String normalized = query.toLowerCase(Locale.ROOT);
         boolean requiresTrend = containsAny(query, "趋势", "走势图", "按天", "按周", "按月", "按年", "daily", "weekly", "monthly",
@@ -920,6 +1064,13 @@ public class SqlVerifyExplainService {
             || containsAny(query, "最高", "最多", "最大", "前");
         boolean prefersAscending = containsAny(normalized, "lowest", "least", "smallest", "worst")
             || containsAny(query, "最低", "最少", "最小");
+        boolean explicitDescendingDirection = containsAny(normalized, " desc", "descending")
+            || containsAny(query, "降序", "从高到低");
+        boolean explicitAscendingDirection = containsAny(normalized, " asc", "ascending")
+            || containsAny(query, "升序", "从低到高");
+        requiresOrdering = requiresOrdering || explicitDescendingDirection || explicitAscendingDirection;
+        prefersDescending = prefersDescending || explicitDescendingDirection;
+        prefersAscending = prefersAscending || explicitAscendingDirection;
         Integer expectedLimit = extractExpectedLimit(query, prefersDescending, prefersAscending);
         boolean requiresLimit = expectedLimit != null;
         boolean requiresDistinct = containsAny(normalized, "distinct", "deduplicate", "unique", "uv")
@@ -1164,6 +1315,11 @@ public class SqlVerifyExplainService {
                 }
             }
         }
+        boolean asksSingleExtreme = containsAny(safeQuery, "最多", "最高", "最低", "最少", "第一", "首位", "top1",
+            "top 1", "highest", "lowest", "most", "least", "first");
+        if (asksSingleExtreme && (prefersDescending || prefersAscending)) {
+            return 1;
+        }
         boolean asksSingleTarget = containsAny(safeQuery, "哪个", "哪位", "哪一个", "谁");
         if (asksSingleTarget && (prefersDescending || prefersAscending)) {
             return 1;
@@ -1197,6 +1353,19 @@ public class SqlVerifyExplainService {
     private record QueryIntent(boolean requiresAggregation, boolean requiresGrouping, boolean requiresTimeFilter,
         boolean requiresOrdering, boolean requiresLimit, boolean requiresDistinct, boolean requiresTrend,
         boolean prefersDescending, boolean prefersAscending, Integer expectedLimit) {
+    }
+
+    private record HumanFeedbackConstraint(String feedbackContent, Set<String> requiredStatusTokens,
+        Set<String> excludedStatusTokens) {
+
+        private static HumanFeedbackConstraint empty() {
+            return new HumanFeedbackConstraint("", Set.of(), Set.of());
+        }
+
+        private boolean hasConstraints() {
+            return StringUtils.isNotBlank(feedbackContent)
+                && (!requiredStatusTokens.isEmpty() || !excludedStatusTokens.isEmpty());
+        }
     }
 
     private record SqlShape(List<String> usedTables, List<String> usedMetrics, boolean hasAggregation, boolean hasGroupBy,

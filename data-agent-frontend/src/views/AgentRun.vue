@@ -283,7 +283,7 @@
               </el-button>
             </div>
             <div class="clarify-banner-footer">
-              <span>下一条输入会作为人工反馈补充给上一个高歧义问题。</span>
+              <span>下一条输入会作为人工反馈补充给上一个高歧义问题，填好后请点击发送按钮提交。</span>
               <el-button link type="primary" @click="cancelPendingClarify">改为新问题</el-button>
             </div>
           </div>
@@ -1058,9 +1058,8 @@
         }
       };
 
-      const applyClarifyAssumption = async (assumption: string) => {
+      const applyClarifyAssumption = (assumption: string) => {
         userInput.value = `按以下假设继续：${assumption}`;
-        await sendMessage();
       };
 
       const sendMessage = async () => {

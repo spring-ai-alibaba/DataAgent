@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.tool.sqlguard;
 
+import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
+import com.alibaba.cloud.ai.dataagent.agentscope.runtime.ToolContextRequestResolver;
 import com.alibaba.cloud.ai.dataagent.agentscope.tool.AgentScopedToolProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
@@ -133,9 +135,19 @@ public class SqlGuardToolProvider implements AgentScopedToolProvider {
 
 		@Override
 		public String call(String toolInput) {
+			return execute(toolInput, null);
+		}
+
+		@Override
+		public String call(String toolInput, ToolContext toolContext) {
+			return execute(toolInput, toolContext);
+		}
+
+		private String execute(String toolInput, ToolContext toolContext) {
 			try {
 				SqlGuardCheckRequest request = StringUtils.hasText(toolInput)
 						? objectMapper.readValue(toolInput, SqlGuardCheckRequest.class) : new SqlGuardCheckRequest();
+				enrichRequestFromToolContext(request, toolContext);
 				String action = request.normalizedAction();
 				SqlGuardCheckResult result = switch (action) {
 					case "DATA_PROFILE" -> sqlVerifyExplainService.inspectProfile(agentId, request);
@@ -149,9 +161,15 @@ public class SqlGuardToolProvider implements AgentScopedToolProvider {
 			}
 		}
 
-		@Override
-		public String call(String toolInput, ToolContext toolContext) {
-			return call(toolInput);
+		private void enrichRequestFromToolContext(SqlGuardCheckRequest request, ToolContext toolContext) {
+			if (request == null || StringUtils.hasText(request.getHumanFeedbackContent())) {
+				return;
+			}
+			GraphRequest graphRequest = ToolContextRequestResolver.resolveGraphRequest(toolContext);
+			if (graphRequest == null) {
+				return;
+			}
+			request.setHumanFeedbackContent(graphRequest.getHumanFeedbackContent());
 		}
 
 	}
