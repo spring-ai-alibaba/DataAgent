@@ -50,7 +50,7 @@ public class DatasourceExplorerToolProvider implements AgentScopedToolProvider {
 			        "PREVIEW_ROWS",
 			        "SEARCH"
 			      ],
-			      "description": "探索动作。推荐顺序：LIST_TABLES -> GET_TABLE_SCHEMA -> PREVIEW_ROWS/SEARCH"
+			      "description": "探索动作。默认顺序：LIST_TABLES/FIND_TABLES -> GET_TABLE_SCHEMA -> GET_RELATED_TABLES -> SEARCH。PREVIEW_ROWS 仅在用户明确要求看样例行，或关键字段语义仍不确定且会影响 SQL 写法时才使用"
 			    },
 			    "query": {
 			      "type": "string",
@@ -58,7 +58,7 @@ public class DatasourceExplorerToolProvider implements AgentScopedToolProvider {
 			    },
 			    "tableName": {
 			      "type": "string",
-			      "description": "目标表名。GET_TABLE_SCHEMA / GET_RELATED_TABLES / PREVIEW_ROWS 必填"
+			      "description": "目标表名。GET_TABLE_SCHEMA / GET_RELATED_TABLES / PREVIEW_ROWS 必填。不要把 PREVIEW_ROWS 当作默认前置动作"
 			    },
 			    "tableNames": {
 			      "type": "array",
@@ -131,20 +131,24 @@ public class DatasourceExplorerToolProvider implements AgentScopedToolProvider {
 	private String buildDescription(Datasource datasource, AgentDatasource agentDatasource) {
 		List<String> selectedTables = agentDatasource.getSelectTables() == null ? List.of()
 				: agentDatasource.getSelectTables();
-		String visibleTables = selectedTables.isEmpty() ? "当前未显式选表，将回退到数据源全部可见表" : "当前显式选表 %d 个：%s"
-			.formatted(selectedTables.size(), String.join(", ", selectedTables.stream().limit(8).toList()));
+		String visibleTables = selectedTables.isEmpty()
+				? "当前未显式选表，将回退到数据源全部可见表"
+				: "当前显式选表 %d 个：%s"
+					.formatted(selectedTables.size(), String.join(", ", selectedTables.stream().limit(8).toList()));
 		return """
-				数据源 '%s'（%s）的统一探索工具。
-				可用于查看表列表、查看表结构、查看统一关系、预览数据，以及执行只读 SQL 查询。
+				数据源'%s'（%s）的统一探索工具。
+				可用于查看表列表、查看表结构、查看统一关系、按需预览样例数据，以及执行只读 SQL 查询。
 				约束说明：
 				1. 只能访问当前 Agent 的活动数据源。
 				2. SEARCH 仅允许执行只读 SQL。
 				3. GET_TABLE_SCHEMA 和 GET_RELATED_TABLES 返回的 relations 字段，会合并数据库物理外键与已配置的逻辑关系。
 				4. 做表关系推断和 Join 规划时，应优先使用 relations 字段。
 				5. 表元数据里的 foreignKeys 字段仅为兼容保留，Agent 推理时优先使用 relations。
-				6. 推荐调用顺序：LIST_TABLES -> GET_TABLE_SCHEMA -> GET_RELATED_TABLES -> PREVIEW_ROWS -> SEARCH。
-				7. 不要根据可见值推断隐藏字段。例如不要从邮箱前缀、ID、编码或别名推断用户名或真实姓名。
-				8. %s
+				6. 默认调用顺序：LIST_TABLES/FIND_TABLES -> GET_TABLE_SCHEMA -> GET_RELATED_TABLES -> SEARCH。
+				7. PREVIEW_ROWS 只是条件动作，不是默认前置步骤。只有在用户明确要求看样例行，或 schema、列名和现有语义仍不足以判断关键字段实际语义，且这种不确定性会影响 SQL 写法时，才调用 PREVIEW_ROWS。
+				8. 如果 schema、relations、列名和已知语义已经足够支持写 SQL，就直接进入 SQL_VERIFY/SEARCH，不要为了“先确认数据质量”再额外预览样例。
+				9. 不要根据可见值推断隐藏字段。例如不要从邮箱前缀、ID、编码或别名推断用户名或真实姓名。
+				10. %s
 				""".formatted(datasource.getName(), datasource.getType(), visibleTables);
 	}
 

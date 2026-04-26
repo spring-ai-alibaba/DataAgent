@@ -18,6 +18,8 @@ package com.alibaba.cloud.ai.dataagent.agentscope.service.impl;
 import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentRuntimeEventPublisher;
 import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentRuntimeExtensionFactory;
+import com.alibaba.cloud.ai.dataagent.agentscope.runtime.QueryClarifyService;
+import com.alibaba.cloud.ai.dataagent.agentscope.runtime.QueryClarifyService.QueryClarifyAssessment;
 import com.alibaba.cloud.ai.dataagent.agentscope.runtime.AgentScopeToolkitFactory;
 import com.alibaba.cloud.ai.dataagent.agentscope.service.AgentScopeModelFactory;
 import com.alibaba.cloud.ai.dataagent.agentscope.service.AgentService;
@@ -108,6 +110,8 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 	private final ChatMessageService chatMessageService;
 
 	private final ObjectMapper objectMapper;
+
+	private final QueryClarifyService queryClarifyService;
 
 	@Override
 	public String nl2sql(String naturalQuery, String agentId) {
@@ -221,6 +225,14 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 					rootSpan.setStatus(StatusCode.OK, "cancelled");
 					return "";
 				}
+				QueryClarifyAssessment clarifyAssessment = queryClarifyService.assess(request.getQuery(),
+						request.getHumanFeedbackContent());
+				answerTraceExplainStore.recordClarifyAssessment(request, clarifyAssessment);
+				rootSpan.setAttribute("dataagent.query_clarify.risk_level", clarifyAssessment.riskLevel().value());
+				rootSpan.setAttribute("dataagent.query_clarify.blocked", clarifyAssessment.shouldBlockExecution());
+				if (clarifyAssessment.shouldBlockExecution()) {
+					return blockForClarification(request, eventPublisher, rootSpan, clarifyAssessment);
+				}
 				Agent managedAgentConfig = resolveManagedAgent(request.getAgentId());
 				ModelConfigDTO modelConfig = modelConfigDataService.getActiveConfigByType(ModelType.CHAT);
 				validateModelConfig(modelConfig);
@@ -286,6 +298,28 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 		}
 		rootSpan.setStatus(StatusCode.ERROR, throwable.getMessage() == null ? "runtime failed" : throwable.getMessage());
 		rootSpan.recordException(throwable);
+	}
+
+	private String blockForClarification(GraphRequest request, AgentRuntimeEventPublisher eventPublisher, Span rootSpan,
+			QueryClarifyAssessment clarifyAssessment) {
+		String clarifyText = clarifyAssessment.userMessage();
+		answerTraceExplainStore.recordFinalAnswer(clarifyText);
+		persistAnswerExplainSnapshot(request);
+		mirrorExplainSummary(rootSpan, request);
+		rootSpan.setStatus(StatusCode.OK, "clarify required");
+		if (eventPublisher != null) {
+			Map<String, Object> metadata = new LinkedHashMap<>(clarifyAssessment.toMetadata());
+			metadata.put("originalQuery", request.getQuery());
+			eventPublisher.publish(GraphNodeResponse.builder()
+				.agentId(request.getAgentId())
+				.threadId(request.getThreadId())
+				.nodeName(RUNTIME_NODE_NAME)
+				.textType(TextType.TEXT)
+				.text(clarifyText)
+				.metadata(metadata)
+				.build());
+		}
+		return clarifyText;
 	}
 
 	private void mirrorExplainSummary(Span rootSpan, GraphRequest request) {

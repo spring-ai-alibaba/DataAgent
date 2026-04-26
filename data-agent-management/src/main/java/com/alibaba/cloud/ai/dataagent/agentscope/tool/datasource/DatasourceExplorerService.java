@@ -150,7 +150,7 @@ public class DatasourceExplorerService {
 			.usedTables(tables.stream().map(table -> String.valueOf(table.get("name"))).toList())
 			.permissions(buildPermissionSummary(context, context.visibleTables()))
 			.stats(buildStatsSummary(0, limit, context.visibleTables().size() > limit, "not_collected"))
-			.nextSuggestedActions(List.of("get_table_schema", "preview_rows", "find_tables"))
+			.nextSuggestedActions(List.of("get_table_schema", "find_tables", "search"))
 			.truncated(context.visibleTables().size() > limit)
 			.build(), graphRequest);
 	}
@@ -174,7 +174,7 @@ public class DatasourceExplorerService {
 			.permissions(buildPermissionSummary(context,
 					matchedTables.stream().map(table -> String.valueOf(table.get("name"))).toList()))
 			.stats(buildStatsSummary(0, limit, matchedTables.size() >= limit, "not_collected"))
-			.nextSuggestedActions(List.of("get_table_schema", "preview_rows"))
+			.nextSuggestedActions(List.of("get_table_schema", "get_related_tables", "search"))
 			.truncated(matchedTables.size() >= limit)
 			.build(), graphRequest);
 	}
@@ -205,7 +205,7 @@ public class DatasourceExplorerService {
 			.usedColumns(listColumnNames(columnEntries))
 			.permissions(buildPermissionSummary(context, List.of(tableName)))
 			.stats(buildStatsSummary(0, null, false, "not_collected"))
-			.nextSuggestedActions(List.of("preview_rows", "search", "get_related_tables"))
+			.nextSuggestedActions(List.of("search", "get_related_tables", "get_table_schema"))
 			.build(), graphRequest);
 	}
 
@@ -231,7 +231,7 @@ public class DatasourceExplorerService {
 			.usedTables(tableEntries.stream().map(table -> String.valueOf(table.get("name"))).toList())
 			.permissions(buildPermissionSummary(context, relatedTables))
 			.stats(buildStatsSummary(0, null, false, "not_collected"))
-			.nextSuggestedActions(List.of("get_table_schema", "preview_rows"))
+			.nextSuggestedActions(List.of("get_table_schema", "search", "get_related_tables"))
 			.build(), graphRequest);
 	}
 
@@ -288,7 +288,7 @@ public class DatasourceExplorerService {
 			.permissions(buildPermissionSummary(context, guardedQuery.referencedTables()))
 			.stats(buildStatsSummary(resultSet.getData().size(), limit, resultSet.getData().size() >= limit,
 					"not_collected"))
-			.nextSuggestedActions(List.of("get_table_schema", "preview_rows", "find_tables"))
+			.nextSuggestedActions(List.of("get_table_schema", "find_tables", "search"))
 			.truncated(resultSet.getData().size() >= limit)
 			.build(), graphRequest);
 	}

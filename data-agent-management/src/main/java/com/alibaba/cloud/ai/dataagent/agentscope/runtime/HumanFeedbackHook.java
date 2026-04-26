@@ -18,9 +18,11 @@ package com.alibaba.cloud.ai.dataagent.agentscope.runtime;
 import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
 import io.agentscope.core.hook.Hook;
 import io.agentscope.core.hook.HookEvent;
+import io.agentscope.core.hook.PreReasoningEvent;
 import io.agentscope.core.hook.PostReasoningEvent;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.util.StringUtils;
@@ -55,16 +57,19 @@ public class HumanFeedbackHook implements Hook {
 
 	@Override
 	public <T extends HookEvent> Mono<T> onEvent(T event) {
+		if (event instanceof PreReasoningEvent preReasoningEvent && replayRequested.compareAndSet(true, false)
+				&& StringUtils.hasText(feedbackDirective)) {
+			List<Msg> messages = new ArrayList<>(preReasoningEvent.getInputMessages());
+			messages.add(0,
+					Msg.builder().name("human-review").role(MsgRole.SYSTEM).textContent(feedbackDirective).build());
+			preReasoningEvent.setInputMessages(messages);
+			return Mono.just(event);
+		}
 		if (!(event instanceof PostReasoningEvent postReasoningEvent)) {
 			return Mono.just(event);
 		}
 		if (pauseAfterPlanning) {
 			postReasoningEvent.stopAgent();
-			return Mono.just(event);
-		}
-		if (replayRequested.compareAndSet(true, false)) {
-			postReasoningEvent.gotoReasoning(List
-				.of(Msg.builder().name("human-review").role(MsgRole.SYSTEM).textContent(feedbackDirective).build()));
 		}
 		return Mono.just(event);
 	}
@@ -76,6 +81,7 @@ public class HumanFeedbackHook implements Hook {
 		}
 		if (StringUtils.hasText(request.getHumanFeedbackContent())) {
 			builder.append("\n- Feedback: ").append(request.getHumanFeedbackContent());
+			builder.append("\n- Treat the feedback as authoritative clarification or explicit assumptions before any tool call.");
 		}
 		return builder.toString();
 	}

@@ -80,7 +80,9 @@ public class SqlGuardToolProvider implements AgentScopedToolProvider {
 	private static final String DESCRIPTION = """
 			Unified SQL guard tool for SQL-backed answers.
 			Action SQL_VERIFY: check whether the candidate SQL really matches the user's intent before execution or final answer.
-			Action DATA_PROFILE: inspect column value distribution before writing SQL when field semantics are unclear.
+			Action DATA_PROFILE: inspect column value distribution only when a small set of candidate columns remain semantically ambiguous after schema inspection, and that ambiguity would materially change filters, grouping, ordering, time windows, or metric logic.
+			Do not call DATA_PROFILE as a default preflight step for every query. Skip it when the user request and schema already make the relevant columns obvious.
+			When using DATA_PROFILE, prefer focused columnNames instead of profiling an entire table.
 			For SQL_VERIFY, if verification fails, read isAligned=false plus problems, ruleChecks and fixSuggestions, then rewrite SQL yourself and call sql_guard.check again.
 			For DATA_PROFILE, use the returned columnProfiles to understand null ratio, distinct count, top values, samples, and whether a field looks categorical, numeric, or temporal.
 			Always pass fresh top-level parameters for the current action. Do not pass previous sql_guard.check output back into the tool.

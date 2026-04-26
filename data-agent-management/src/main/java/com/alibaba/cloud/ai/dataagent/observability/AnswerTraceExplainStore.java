@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.observability;
 
 import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
+import com.alibaba.cloud.ai.dataagent.agentscope.runtime.QueryClarifyService.QueryClarifyAssessment;
 import com.alibaba.cloud.ai.dataagent.agentscope.tool.datasource.DatasourceExplorerResult;
 import com.alibaba.cloud.ai.dataagent.agentscope.tool.semantic.SemanticModelSearchHit;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.DomainKnowledgeSearchService.DomainKnowledgeSearchResult;
@@ -82,6 +83,13 @@ public class AnswerTraceExplainStore {
 			assembly.warnings.add(warning.trim());
 			assembly.updatedAt = Instant.now().toEpochMilli();
 		});
+	}
+
+	public void recordClarifyAssessment(GraphRequest request, QueryClarifyAssessment assessment) {
+		if (assessment == null) {
+			return;
+		}
+		withAssembly(request, assembly -> applyClarifyAssessment(assembly, assessment));
 	}
 
 	public void recordSemanticSearch(String query, String summary, List<SemanticModelSearchHit> hits) {
@@ -274,6 +282,28 @@ public class AnswerTraceExplainStore {
 			.datasource(result.getDatasource())
 			.timestampEpochMs(Instant.now().toEpochMilli())
 			.build());
+		assembly.updatedAt = Instant.now().toEpochMilli();
+	}
+
+	private void applyClarifyAssessment(ExplainAssembly assembly, QueryClarifyAssessment assessment) {
+		assembly.stats.put("riskLevel", assessment.riskLevel().value());
+		assembly.stats.put("clarifyRequired", assessment.clarifyRequired());
+		assembly.stats.put("missingDimensions", assessment.missingDimensions());
+		assembly.stats.put("followUpQuestions", assessment.followUpQuestions());
+		assembly.stats.put("suggestedAssumptions", assessment.suggestedAssumptions());
+		if (StringUtils.hasText(assessment.feedbackContent())) {
+			assembly.stats.put("humanFeedbackContent", assessment.feedbackContent());
+		}
+		assembly.toolSteps.add(ToolStepView.builder()
+			.toolName("query_clarify.check")
+			.title("问题歧义检查")
+			.summary(assessment.summary())
+			.detail(assessment.userMessage())
+			.timestampEpochMs(Instant.now().toEpochMilli())
+			.build());
+		if (assessment.shouldBlockExecution()) {
+			assembly.warnings.add("riskLevel=high，已禁止直接查库，需先补充信息或明确假设。");
+		}
 		assembly.updatedAt = Instant.now().toEpochMilli();
 	}
 

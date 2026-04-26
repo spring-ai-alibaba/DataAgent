@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.agentscope.vo;
 
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -36,6 +37,8 @@ public class GraphNodeResponse {
 	private TextType textType;
 
 	private String text;
+
+	private Map<String, Object> metadata;
 
 	@Builder.Default
 	private boolean error = false;

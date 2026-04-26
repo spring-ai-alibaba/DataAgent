@@ -248,6 +248,45 @@
               </div>
             </div>
           </div>
+          <div v-if="pendingClarify" class="clarify-banner">
+            <div class="clarify-banner-header">
+              <span class="clarify-banner-title">需要先澄清后再查库</span>
+              <span class="clarify-banner-risk">riskLevel={{ pendingClarify.riskLevel }}</span>
+            </div>
+            <div class="clarify-banner-body">
+              {{ pendingClarify.summary || '当前问题存在高歧义，下一条输入将作为补充信息或显式假设回填。' }}
+            </div>
+            <div v-if="pendingClarify.missingDimensions.length > 0" class="clarify-banner-tags">
+              <el-tag
+                v-for="dimension in pendingClarify.missingDimensions"
+                :key="dimension"
+                size="small"
+                effect="plain"
+              >
+                {{ dimension }}
+              </el-tag>
+            </div>
+            <div
+              v-if="pendingClarify.suggestedAssumptions.length > 0"
+              class="clarify-banner-assumptions"
+            >
+              <el-button
+                v-for="assumption in pendingClarify.suggestedAssumptions"
+                :key="assumption"
+                size="small"
+                text
+                bg
+                :disabled="isStreaming || isSubmittingMessage"
+                @click="applyClarifyAssumption(assumption)"
+              >
+                {{ assumption }}
+              </el-button>
+            </div>
+            <div class="clarify-banner-footer">
+              <span>下一条输入会作为人工反馈补充给上一个高歧义问题。</span>
+              <el-button link type="primary" @click="cancelPendingClarify">改为新问题</el-button>
+            </div>
+          </div>
           <div class="input-container">
             <el-button
               text
@@ -263,13 +302,18 @@
               v-model="userInput"
               type="textarea"
               :rows="3"
-              placeholder="请输入您的问题..."
-              :disabled="isStreaming"
+              :placeholder="
+                pendingClarify
+                  ? '请输入补充信息，或直接写“按以下假设继续：...”'
+                  : '请输入您的问题...'
+              "
+              :disabled="isStreaming || isSubmittingMessage"
               @keydown.enter.exact.prevent="sendMessage"
             />
             <el-button
               v-if="!isStreaming"
               type="primary"
+              :disabled="isSubmittingMessage"
               @click="sendMessage"
               circle
               class="send-button"
@@ -772,13 +816,18 @@
     type TraceSpan,
   } from '@/services/chat';
   import GraphService, {
+    type ClarifyMetadata,
     type GraphRequest,
     type GraphNodeResponse,
     TextType,
   } from '@/services/graph';
   import { type Agent } from '@/services/agent';
   import { type ResultData, type ResultSetData } from '@/services/resultSet';
-  import { SessionRuntimeState, useSessionStateManager } from '@/services/sessionStateManager';
+  import {
+    type PendingClarifyState,
+    SessionRuntimeState,
+    useSessionStateManager,
+  } from '@/services/sessionStateManager';
   import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
   import PresetQuestions from '@/components/run/PresetQuestions.vue';
   import MarkdownAgentContainer from '@/components/run/markdown';
@@ -798,6 +847,12 @@
     explainAvailable?: boolean;
     nodeName?: string;
   }
+
+  const isClarifyMetadata = (
+    metadata?: (ClarifyMetadata & Record<string, any>) | null,
+  ): metadata is ClarifyMetadata & { clarifyRequired: true; originalQuery: string } => {
+    return Boolean(metadata?.clarifyRequired && metadata?.originalQuery);
+  };
 
   export default defineComponent({
     name: 'AgentRun',
@@ -887,6 +942,7 @@
       const { getSessionState, syncStateToView, saveViewToState, deleteSessionState } =
         useSessionStateManager();
       const isStreaming = ref(false);
+      const isSubmittingMessage = ref(false);
       const nodeBlocks = ref<GraphNodeResponse[][]>([]);
       const options = ref({
         markdownIt: {
@@ -915,6 +971,7 @@
       const answerExplainLoading = ref(false);
       const answerExplainError = ref('');
       const answerExplain = ref<AnswerTraceExplain | null>(null);
+      const pendingClarify = ref<PendingClarifyState | null>(null);
 
       const chatContainer = ref<HTMLElement | null>(null);
 
@@ -945,6 +1002,7 @@
             nodeBlocks,
             answerExplain,
             answerExplainVisible,
+            pendingClarify,
           });
         }
         currentSession.value = session;
@@ -962,6 +1020,7 @@
             answerExplainVisible.value = false;
             answerExplain.value = null;
             answerExplainError.value = '';
+            pendingClarify.value = null;
             return;
           }
           syncStateToView(session.id, {
@@ -969,6 +1028,7 @@
             nodeBlocks,
             answerExplain,
             answerExplainVisible,
+            pendingClarify,
           });
           currentMessages.value = await ChatService.getSessionMessages(session.id);
           scrollToBottom();
@@ -978,9 +1038,37 @@
         }
       };
 
+      const buildPendingClarifyState = (
+        metadata: ClarifyMetadata & { originalQuery: string },
+      ): PendingClarifyState => {
+        return {
+          originalQuery: metadata.originalQuery,
+          riskLevel: metadata.riskLevel || 'high',
+          summary: metadata.summary,
+          missingDimensions: metadata.missingDimensions || [],
+          followUpQuestions: metadata.followUpQuestions || [],
+          suggestedAssumptions: metadata.suggestedAssumptions || [],
+        };
+      };
+
+      const cancelPendingClarify = () => {
+        pendingClarify.value = null;
+        if (currentSession.value) {
+          getSessionState(currentSession.value.id).pendingClarify = null;
+        }
+      };
+
+      const applyClarifyAssumption = async (assumption: string) => {
+        userInput.value = `按以下假设继续：${assumption}`;
+        await sendMessage();
+      };
+
       const sendMessage = async () => {
         if (!userInput.value.trim()) {
           ElMessage.warning('请输入请求消息！');
+          return;
+        }
+        if (isSubmittingMessage.value) {
           return;
         }
         if (!currentSession.value || isStreaming.value) {
@@ -988,14 +1076,18 @@
           return;
         }
 
+        isSubmittingMessage.value = true;
         const needsTitle = !currentSession.value?.title || currentSession.value.title === '新会话';
+        const activeClarify = pendingClarify.value;
+        const requestQuery = activeClarify?.originalQuery ?? userInput.value.trim();
+        const feedbackContent = activeClarify ? userInput.value.trim() : undefined;
 
         const userMessage: ChatMessage = {
           sessionId: currentSession.value.id,
           role: 'user',
           content: userInput.value,
           messageType: 'text',
-          titleNeeded: needsTitle,
+          titleNeeded: needsTitle && !activeClarify,
         };
         try {
           // 保存用户消息
@@ -1005,7 +1097,9 @@
 
           const request: GraphRequest = {
             agentId: agentId.value,
-            query: userInput.value,
+            query: requestQuery,
+            humanFeedback: Boolean(activeClarify),
+            humanFeedbackContent: feedbackContent,
             nl2sqlOnly: false,
             rejectedPlan: false,
             threadId: currentSession.value.id,
@@ -1013,11 +1107,20 @@
           };
 
           userInput.value = '';
+          pendingClarify.value = null;
+          getSessionState(currentSession.value.id).pendingClarify = null;
 
           await sendGraphRequest(request);
         } catch (error) {
+          if (activeClarify && currentSession.value) {
+            pendingClarify.value = activeClarify;
+            getSessionState(currentSession.value.id).pendingClarify = activeClarify;
+          }
           ElMessage.error('未知错误');
           console.error(error);
+        }
+        finally {
+          isSubmittingMessage.value = false;
         }
       };
 
@@ -1126,6 +1229,13 @@
 
               if (sessionState.lastRequest) {
                 sessionState.lastRequest.threadId = response.threadId;
+              }
+              if (isClarifyMetadata(response.metadata)) {
+                const nextPendingClarify = buildPendingClarifyState(response.metadata);
+                sessionState.pendingClarify = nextPendingClarify;
+                if (currentSession.value?.id === sessionId) {
+                  pendingClarify.value = nextPendingClarify;
+                }
               }
 
               // 检查是否是报告节点
@@ -2270,6 +2380,8 @@
         currentMessages,
         userInput,
         isStreaming,
+        isSubmittingMessage,
+        pendingClarify,
         requestOptions,
         showReportFullscreen,
         fullscreenReportContent,
@@ -2306,6 +2418,8 @@
         getMarkdownContentFromNode,
         selectSession,
         sendMessage,
+        cancelPendingClarify,
+        applyClarifyAssumption,
         formatMessageContent,
         formatNodeContent,
         generateNodeHtml,
@@ -2358,6 +2472,59 @@
     background: #f8f9fa;
     border-radius: 8px;
     margin-bottom: 20px;
+  }
+
+  .clarify-banner {
+    margin-bottom: 12px;
+    padding: 14px 16px;
+    border: 1px solid #f7c56b;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #fff8e8 0%, #fff3d4 100%);
+    box-shadow: 0 8px 18px rgba(196, 138, 18, 0.08);
+  }
+
+  .clarify-banner-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .clarify-banner-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #7a4a00;
+  }
+
+  .clarify-banner-risk {
+    font-size: 12px;
+    font-weight: 600;
+    color: #a86100;
+  }
+
+  .clarify-banner-body {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #7a5618;
+  }
+
+  .clarify-banner-tags,
+  .clarify-banner-assumptions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .clarify-banner-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #8a6528;
   }
 
   .empty-state {

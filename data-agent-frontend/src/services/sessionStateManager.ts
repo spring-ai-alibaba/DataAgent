@@ -18,12 +18,22 @@ import { ref, Ref } from 'vue';
 import { GraphNodeResponse, GraphRequest } from '@/services/graph.ts';
 import { AnswerTraceExplain } from '@/services/chat.ts';
 
+export interface PendingClarifyState {
+  originalQuery: string;
+  riskLevel: string;
+  summary?: string;
+  missingDimensions: string[];
+  followUpQuestions: string[];
+  suggestedAssumptions: string[];
+}
+
 export interface SessionRuntimeState {
   isStreaming: boolean;
   nodeBlocks: GraphNodeResponse[][];
   persistedBlockCount: number;
   closeStream: (() => void) | null;
   lastRequest: GraphRequest | null;
+  pendingClarify: PendingClarifyState | null;
   htmlReportContent: string;
   htmlReportSize: number;
   markdownReportContent: string;
@@ -36,6 +46,7 @@ interface PersistableState {
   nodeBlocks: GraphNodeResponse[][];
   persistedBlockCount: number;
   lastRequest: GraphRequest | null;
+  pendingClarify: PendingClarifyState | null;
   htmlReportContent: string;
   htmlReportSize: number;
   markdownReportContent: string;
@@ -75,6 +86,7 @@ function saveStateToStorage(sessionId: string, state: SessionRuntimeState) {
       nodeBlocks: state.nodeBlocks.slice(-MAX_NODE_BLOCKS),
       persistedBlockCount: state.persistedBlockCount,
       lastRequest: state.lastRequest,
+      pendingClarify: state.pendingClarify,
       htmlReportContent: state.htmlReportContent,
       htmlReportSize: state.htmlReportSize,
       markdownReportContent: state.markdownReportContent,
@@ -130,6 +142,7 @@ export function useSessionStateManager() {
         persistedBlockCount: stored?.persistedBlockCount ?? 0,
         closeStream: null,
         lastRequest: stored?.lastRequest ?? null,
+        pendingClarify: stored?.pendingClarify ?? null,
         htmlReportContent: stored?.htmlReportContent ?? '',
         htmlReportSize: stored?.htmlReportSize ?? 0,
         markdownReportContent: stored?.markdownReportContent ?? '',
@@ -150,6 +163,7 @@ export function useSessionStateManager() {
       nodeBlocks: Ref<GraphNodeResponse[][]>;
       answerExplain?: Ref<AnswerTraceExplain | null>;
       answerExplainVisible?: Ref<boolean>;
+      pendingClarify?: Ref<PendingClarifyState | null>;
     },
   ) => {
     const state = getSessionState(sessionId);
@@ -160,6 +174,9 @@ export function useSessionStateManager() {
     }
     if (viewState.answerExplainVisible) {
       viewState.answerExplainVisible.value = state.answerExplainVisible;
+    }
+    if (viewState.pendingClarify) {
+      viewState.pendingClarify.value = state.pendingClarify;
     }
   };
 
@@ -173,6 +190,7 @@ export function useSessionStateManager() {
       nodeBlocks: Ref<GraphNodeResponse[][]>;
       answerExplain?: Ref<AnswerTraceExplain | null>;
       answerExplainVisible?: Ref<boolean>;
+      pendingClarify?: Ref<PendingClarifyState | null>;
     },
   ) => {
     const state = getSessionState(sessionId);
@@ -183,6 +201,9 @@ export function useSessionStateManager() {
     }
     if (viewState.answerExplainVisible) {
       state.answerExplainVisible = viewState.answerExplainVisible.value;
+    }
+    if (viewState.pendingClarify) {
+      state.pendingClarify = viewState.pendingClarify.value;
     }
 
     // 保存到 sessionStorage（带大小限制）
