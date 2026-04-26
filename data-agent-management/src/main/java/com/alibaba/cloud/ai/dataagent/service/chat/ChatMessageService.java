@@ -37,6 +37,11 @@ public interface ChatMessageService {
 	List<ChatMessage> findRecentBySessionId(String sessionId, int limit);
 
 	/**
+	 * Get messages by session ID and message type.
+	 */
+	List<ChatMessage> findBySessionIdAndMessageType(String sessionId, String messageType);
+
+	/**
 	 * Save message
 	 */
 	ChatMessage saveMessage(ChatMessage message);

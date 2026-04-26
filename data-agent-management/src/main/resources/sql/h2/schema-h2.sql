@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS agent_knowledge (
   title VARCHAR(255) NOT NULL COMMENT '知识的标题 (用户定义, 用于在UI上展示和识别)',
   type VARCHAR(50) NOT NULL COMMENT '知识类型: DOCUMENT-文档, QA-问答, FAQ-常见问题',
   question TEXT COMMENT '问题 (仅当type为QA或FAQ时使用)',
-  content MEDIUMTEXT COMMENT '知识内容 (对于QA/FAQ是答案; 对于DOCUMENT, 此字段通常为空)',
+  content MEDIUMTEXT COMMENT '知识内容 (对于QA/FAQ是答案，对于DOCUMENT此字段通常为空)',
   is_recall INT DEFAULT 1 COMMENT '业务状态: 1=召回, 0=非召回',
   embedding_status VARCHAR(20) DEFAULT NULL COMMENT '向量化状态：PENDING待处理，PROCESSING处理中，COMPLETED已完成，FAILED失败',
   error_msg VARCHAR(255) DEFAULT NULL COMMENT '操作失败的错误信息',
@@ -232,12 +232,27 @@ CREATE TABLE IF NOT EXISTS agent_datasource_tables
     table_name          VARCHAR(255)                        NOT NULL COMMENT '数据表名',
     create_time         TIMESTAMP DEFAULT CURRENT_TIMESTAMP NULL COMMENT '创建时间',
     update_time         TIMESTAMP DEFAULT CURRENT_TIMESTAMP NULL COMMENT '更新时间',
-    CONSTRAINT uk_agent_datasource_tables_agent_datasource_id_table_name
+    CONSTRAINT uk_agent_ds_tables_ds_table
         UNIQUE (agent_datasource_id, table_name),
-    CONSTRAINT fk_agent_datasource_tables_agent_datasource_id
+    CONSTRAINT fk_agent_ds_tables_agent_ds
         FOREIGN KEY (agent_datasource_id) REFERENCES agent_datasource (id)
             ON UPDATE CASCADE ON DELETE CASCADE
     ) ENGINE = InnoDB COMMENT = '某个智能体某个数据源所选中的数据表';
+
+CREATE TABLE IF NOT EXISTS agent_datasource_columns
+(
+    id                  INT AUTO_INCREMENT PRIMARY KEY,
+    agent_datasource_id INT                                 NOT NULL COMMENT '智能体数据源ID',
+    table_name          VARCHAR(255)                        NOT NULL COMMENT '数据表名',
+    column_name         VARCHAR(255)                        NOT NULL COMMENT '字段名',
+    create_time         TIMESTAMP DEFAULT CURRENT_TIMESTAMP NULL COMMENT '创建时间',
+    update_time         TIMESTAMP DEFAULT CURRENT_TIMESTAMP NULL COMMENT '更新时间',
+    CONSTRAINT uk_agent_ds_cols_ds_table_col
+        UNIQUE (agent_datasource_id, table_name, column_name),
+    CONSTRAINT fk_agent_ds_cols_agent_ds
+        FOREIGN KEY (agent_datasource_id) REFERENCES agent_datasource (id)
+            ON UPDATE CASCADE ON DELETE CASCADE
+    ) ENGINE = InnoDB COMMENT = '某个智能体某个数据源所选中的字段白名单';
 
 
 -- 模型配置表

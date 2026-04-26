@@ -61,6 +61,10 @@ spring:
           host: ${LANGFUSE_HOST:}
           public-key: ${LANGFUSE_PUBLIC_KEY:}
           secret-key: ${LANGFUSE_SECRET_KEY:}
+        agentscope:
+          observability:
+            enabled: ${AGENTSCOPE_OBSERVABILITY_ENABLED:true}
+            use-langfuse-tracer: ${AGENTSCOPE_OBSERVABILITY_USE_LANGFUSE_TRACER:true}
   webflux:
     multipart:
       max-file-size: 10MB

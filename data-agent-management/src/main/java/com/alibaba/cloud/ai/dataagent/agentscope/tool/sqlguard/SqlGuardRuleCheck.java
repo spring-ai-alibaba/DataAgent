@@ -1,5 +1,5 @@
 /*
- * Copyright 2024-2026 the original author or authors.
+ * Copyright 2026 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.agentscope.runtime;
+package com.alibaba.cloud.ai.dataagent.agentscope.tool.sqlguard;
 
-public record AgentRuntimeRequestMetadata(String agentId, String threadId, String runtimeRequestId,
-		boolean nl2sqlOnly, boolean humanFeedback, String humanFeedbackContent) {
+import lombok.Builder;
+import lombok.Data;
+
+@Data
+@Builder
+class SqlGuardRuleCheck {
+
+    private String code;
+
+    private String title;
+
+    private String status;
+
+    private String detail;
+
+    private String evidence;
 
 }

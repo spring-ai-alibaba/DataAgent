@@ -13,9 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.agentscope.runtime;
+package com.alibaba.cloud.ai.dataagent.dto.datasource;
 
-public record AgentRuntimeRequestMetadata(String agentId, String threadId, String runtimeRequestId,
-		boolean nl2sqlOnly, boolean humanFeedback, String humanFeedbackContent) {
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import java.util.List;
+import lombok.Data;
+
+@Data
+public class UpdateDatasourceColumnsDTO {
+
+	@NotNull(message = "datasourceId cannot be null")
+	private Integer datasourceId;
+
+	@Valid
+	private List<TableColumnsSelectionDTO> tables;
 
 }

@@ -15,8 +15,10 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.tool.semantic;
 
+import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
+import com.alibaba.cloud.ai.dataagent.observability.AnswerTraceExplainStore;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.semantic.SemanticModelService;
 import java.util.ArrayList;
@@ -27,6 +29,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -41,7 +44,14 @@ public class SemanticModelSearchService {
 
 	private final SemanticModelService semanticModelService;
 
+	private final AnswerTraceExplainStore answerTraceExplainStore;
+
 	public SemanticModelSearchResult search(String agentId, SemanticModelSearchRequest request) {
+		return search(agentId, request, null);
+	}
+
+	public SemanticModelSearchResult search(String agentId, SemanticModelSearchRequest request,
+			@Nullable GraphRequest graphRequest) {
 		if (!StringUtils.hasText(agentId)) {
 			return emptyResult(request == null ? null : request.getQuery(),
 					"semantic_model.search requires a numeric agent id.");
@@ -54,10 +64,15 @@ public class SemanticModelSearchService {
 			return emptyResult(request == null ? null : request.getQuery(),
 					"semantic_model.search requires a numeric agent id.");
 		}
-		return search(parsedAgentId, request);
+		return search(parsedAgentId, request, graphRequest);
 	}
 
 	public SemanticModelSearchResult search(Long agentId, SemanticModelSearchRequest request) {
+		return search(agentId, request, null);
+	}
+
+	public SemanticModelSearchResult search(Long agentId, SemanticModelSearchRequest request,
+			@Nullable GraphRequest graphRequest) {
 		String query = request == null ? null : request.getQuery();
 		if (!StringUtils.hasText(query)) {
 			throw new IllegalArgumentException("query is required for semantic_model.search");
@@ -101,6 +116,14 @@ public class SemanticModelSearchService {
 		}
 
 		List<SemanticModelSearchHit> hits = scoredHits.stream().map(this::toHit).toList();
+		if (graphRequest != null) {
+			answerTraceExplainStore.recordSemanticSearch(graphRequest, query,
+					"Found %d supplemental semantic hints".formatted(hits.size()), hits);
+		}
+		else {
+			answerTraceExplainStore.recordSemanticSearch(query,
+					"Found %d supplemental semantic hints".formatted(hits.size()), hits);
+		}
 		return SemanticModelSearchResult.builder()
 			.query(query)
 			.summary(
@@ -135,6 +158,7 @@ public class SemanticModelSearchService {
 			.dataType(model.getDataType())
 			.relationHint(extractRelationHint(model))
 			.matchedBy(String.join(", ", scoredHit.getMatchedBy()))
+			.score(scoredHit.getScore())
 			.build();
 	}
 

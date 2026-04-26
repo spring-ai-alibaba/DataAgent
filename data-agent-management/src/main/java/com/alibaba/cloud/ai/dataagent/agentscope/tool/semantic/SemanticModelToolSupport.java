@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.tool.semantic;
 
+import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
+import com.alibaba.cloud.ai.dataagent.agentscope.runtime.ToolContextRequestResolver;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.model.ToolContext;
@@ -85,20 +87,21 @@ public class SemanticModelToolSupport {
 
 		@Override
 		public String call(String toolInput) {
-			try {
-				SemanticModelSearchRequest request = StringUtils.hasText(toolInput)
-						? objectMapper.readValue(toolInput, SemanticModelSearchRequest.class)
-						: new SemanticModelSearchRequest();
-				return objectMapper.writeValueAsString(semanticModelSearchService.search(agentId, request));
-			}
-			catch (Exception ex) {
-				throw new IllegalStateException("Failed to search semantic model hints: " + ex.getMessage(), ex);
-			}
+			return call(toolInput, null);
 		}
 
 		@Override
 		public String call(String toolInput, ToolContext toolContext) {
-			return call(toolInput);
+			try {
+				SemanticModelSearchRequest request = StringUtils.hasText(toolInput)
+						? objectMapper.readValue(toolInput, SemanticModelSearchRequest.class)
+						: new SemanticModelSearchRequest();
+				GraphRequest graphRequest = ToolContextRequestResolver.resolveGraphRequest(toolContext);
+				return objectMapper.writeValueAsString(semanticModelSearchService.search(agentId, request, graphRequest));
+			}
+			catch (Exception ex) {
+				throw new IllegalStateException("Failed to search semantic model hints: " + ex.getMessage(), ex);
+			}
 		}
 
 	}

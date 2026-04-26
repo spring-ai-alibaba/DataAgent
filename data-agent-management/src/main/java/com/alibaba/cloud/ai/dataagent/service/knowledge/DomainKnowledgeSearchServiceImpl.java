@@ -15,12 +15,14 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.knowledge;
 
+import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.dataagent.entity.BusinessKnowledge;
 import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.BusinessKnowledgeMapper;
+import com.alibaba.cloud.ai.dataagent.observability.AnswerTraceExplainStore;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.DomainKnowledgeSearchService.DomainKnowledgeSearchRequest;
@@ -36,6 +38,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.filter.Filter;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
@@ -66,8 +69,16 @@ public class DomainKnowledgeSearchServiceImpl implements DomainKnowledgeSearchSe
 
 	private final DynamicFilterService dynamicFilterService;
 
+	private final AnswerTraceExplainStore answerTraceExplainStore;
+
 	@Override
 	public DomainKnowledgeSearchResult search(String agentId, DomainKnowledgeSearchRequest request) {
+		return search(agentId, request, null);
+	}
+
+	@Override
+	public DomainKnowledgeSearchResult search(String agentId, DomainKnowledgeSearchRequest request,
+			@Nullable GraphRequest graphRequest) {
 		Assert.hasText(agentId, "AgentId cannot be empty");
 		Assert.notNull(request, "Search request cannot be null");
 		String query = requireText(request.query(), "Query cannot be blank");
@@ -119,8 +130,15 @@ public class DomainKnowledgeSearchServiceImpl implements DomainKnowledgeSearchSe
 		SearchDiagnostics diagnostics = new SearchDiagnostics(agentId, businessTermDiagnostics.recalledCount(),
 				agentKnowledgeDiagnostics.recalledCount(), businessTermDiagnostics.vectorReady(),
 				agentKnowledgeDiagnostics.vectorReady());
-		return new DomainKnowledgeSearchResult(query, List.copyOf(options.appliedKnowledgeTypes()), List.copyOf(hits),
-				List.copyOf(warnings), diagnostics);
+		DomainKnowledgeSearchResult result = new DomainKnowledgeSearchResult(query,
+				List.copyOf(options.appliedKnowledgeTypes()), List.copyOf(hits), List.copyOf(warnings), diagnostics);
+		if (graphRequest != null) {
+			answerTraceExplainStore.recordKnowledgeSearch(graphRequest, result);
+		}
+		else {
+			answerTraceExplainStore.recordKnowledgeSearch(result);
+		}
+		return result;
 	}
 
 	private String buildVectorQuery(String rawQuery) {

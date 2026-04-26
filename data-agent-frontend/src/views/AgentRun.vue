@@ -55,13 +55,15 @@
               :class="message.messageType === 'text' ? ['message-container', message.role] : ''"
             >
               <!-- HTML类型消息直接渲染 -->
-              <div v-if="message.messageType === 'html'" v-html="message.content"></div>
+              <div v-if="message.messageType === 'html'" class="message-rich-card">
+                <div v-html="message.content"></div>
+              </div>
               <!-- 数据集消息尝试图表渲染 -->
               <div v-else-if="message.messageType === 'result-set'" class="result-set-message">
                 <ResultSetDisplay
                   v-if="message.content"
                   :resultData="JSON.parse(message.content)"
-                  :pageSize="resultSetDisplayConfig.pageSize"
+                  :pageSize="resultSetPageSize"
                 />
               </div>
               <div
@@ -172,7 +174,7 @@
                       <ResultSetDisplay
                         v-if="nodeBlock[0].text"
                         :resultData="JSON.parse(nodeBlock[0].text)"
-                        :pageSize="resultSetDisplayConfig.pageSize"
+                        :pageSize="resultSetPageSize"
                       />
                     </div>
                   </div>
@@ -183,13 +185,6 @@
             </div>
           </div>
         </div>
-
-        <!-- 人类反馈区域 -->
-        <HumanFeedback
-          v-if="showHumanFeedback"
-          :request="lastRequest"
-          :handleFeedback="handleHumanFeedback"
-        />
 
         <!-- 输入区域 -->
         <div class="input-area" v-if="currentSession">
@@ -220,47 +215,10 @@
               />
               <div class="switch-group">
                 <div class="switch-item">
-                  <span class="switch-label">人工反馈</span>
-                  <el-tooltip
-                    :disabled="!requestOptions.nl2sqlOnly"
-                    content="该功能在NL2SQL模式下不能使用"
-                    placement="top"
-                  >
-                    <el-switch
-                      v-model="requestOptions.humanFeedback"
-                      :disabled="requestOptions.nl2sqlOnly || isStreaming || showHumanFeedback"
-                    />
-                  </el-tooltip>
-                </div>
-                <div class="switch-item">
-                  <span class="switch-label">仅NL2SQL</span>
-                  <el-switch
-                    v-model="requestOptions.nl2sqlOnly"
-                    :disabled="isStreaming || showHumanFeedback"
-                    @change="handleNl2sqlOnlyChange"
-                  />
-                </div>
-                <div class="switch-item">
-                  <span class="switch-label">自动Scroll</span>
-                  <el-switch v-model="autoScroll" />
-                </div>
-                <div class="switch-item">
-                  <span class="switch-label">显示SQL结果</span>
-                  <el-tooltip
-                    content="启用本功能会将SQL查询结果存储到DataAgent项目的数据库中，如果数据量较大不建议开启本功能"
-                    placement="top"
-                  >
-                    <el-switch
-                      v-model="resultSetDisplayConfig.showSqlResults"
-                      :disabled="isStreaming || showHumanFeedback"
-                    />
-                  </el-tooltip>
-                </div>
-                <div class="switch-item">
                   <span class="switch-label">每页数量</span>
                   <el-select
-                    v-model="resultSetDisplayConfig.pageSize"
-                    :disabled="isStreaming || showHumanFeedback"
+                    v-model="resultSetPageSize"
+                    :disabled="isStreaming"
                     style="width: 80px"
                   >
                     <el-option label="5" :value="5" />
@@ -269,6 +227,16 @@
                     <el-option label="50" :value="50" />
                     <el-option label="100" :value="100" />
                   </el-select>
+                </div>
+                <div class="switch-item switch-item-action">
+                  <el-button
+                    type="primary"
+                    plain
+                    :disabled="!latestExplainRuntimeRequestId"
+                    @click="openLatestAnswerExplain"
+                  >
+                    查看数据来源
+                  </el-button>
                 </div>
                 <!-- <div class="switch-item">
                 <span class="switch-label">报告格式</span>
@@ -280,20 +248,73 @@
               </div>
             </div>
           </div>
+          <div v-if="pendingClarify" class="clarify-banner">
+            <div class="clarify-banner-header">
+              <span class="clarify-banner-title">需要先澄清后再查库</span>
+              <span class="clarify-banner-risk">riskLevel={{ pendingClarify.riskLevel }}</span>
+            </div>
+            <div class="clarify-banner-body">
+              {{ pendingClarify.summary || '当前问题存在高歧义，下一条输入将作为补充信息或显式假设回填。' }}
+            </div>
+            <div v-if="pendingClarify.missingDimensions.length > 0" class="clarify-banner-tags">
+              <el-tag
+                v-for="dimension in pendingClarify.missingDimensions"
+                :key="dimension"
+                size="small"
+                effect="plain"
+              >
+                {{ dimension }}
+              </el-tag>
+            </div>
+            <div
+              v-if="pendingClarify.suggestedAssumptions.length > 0"
+              class="clarify-banner-assumptions"
+            >
+              <el-button
+                v-for="assumption in pendingClarify.suggestedAssumptions"
+                :key="assumption"
+                size="small"
+                text
+                bg
+                :disabled="isStreaming || isSubmittingMessage"
+                @click="applyClarifyAssumption(assumption)"
+              >
+                {{ assumption }}
+              </el-button>
+            </div>
+            <div class="clarify-banner-footer">
+              <span>下一条输入会作为人工反馈补充给上一个高歧义问题，填好后请点击发送按钮提交。</span>
+              <el-button link type="primary" @click="cancelPendingClarify">改为新问题</el-button>
+            </div>
+          </div>
           <div class="input-container">
+            <el-button
+              text
+              bg
+              size="small"
+              class="trace-button"
+              :disabled="traceLoading"
+              @click="openTraceDialog"
+            >
+              Trace
+            </el-button>
             <el-input
               v-model="userInput"
               type="textarea"
               :rows="3"
-              placeholder="请输入您的问题..."
-              :disabled="isStreaming || showHumanFeedback"
+              :placeholder="
+                pendingClarify
+                  ? '请输入补充信息，或直接写“按以下假设继续：...”'
+                  : '请输入您的问题...'
+              "
+              :disabled="isStreaming || isSubmittingMessage"
               @keydown.enter.exact.prevent="sendMessage"
             />
             <el-button
               v-if="!isStreaming"
               type="primary"
+              :disabled="isSubmittingMessage"
               @click="sendMessage"
-              :disabled="showHumanFeedback"
               circle
               class="send-button"
             >
@@ -350,6 +371,411 @@
         </div>
       </div>
     </Teleport>
+
+    <el-dialog
+      v-model="traceDialogVisible"
+      title="最近一次 Trace"
+      width="1280px"
+      top="4vh"
+      destroy-on-close
+    >
+      <div class="trace-toolbar">
+        <div v-if="sessionTrace" class="trace-summary">
+          <span class="trace-summary-pill">Trace ID: {{ sessionTrace.traceId }}</span>
+          <span class="trace-summary-pill">Span 数: {{ sessionTrace.spanCount }}</span>
+          <span class="trace-summary-pill">
+            耗时: {{ formatTraceDuration(sessionTrace.durationMs) }}
+          </span>
+          <span class="trace-summary-pill">
+            开始时间: {{ formatTraceTime(sessionTrace.startEpochMs) }}
+          </span>
+          <span v-if="sessionTrace.runtimeRequestId" class="trace-summary-pill">
+            Request: {{ sessionTrace.runtimeRequestId }}
+          </span>
+          <span v-if="sessionTrace.agentId" class="trace-summary-pill">
+            Agent: {{ sessionTrace.agentId }}
+          </span>
+        </div>
+        <div class="trace-toolbar-actions">
+          <el-input
+            v-model="traceSearchKeyword"
+            clearable
+            placeholder="搜索 span / 属性 / 值"
+            class="trace-search-input"
+          />
+          <el-button size="small" :loading="traceLoading" @click="refreshTrace">刷新</el-button>
+        </div>
+      </div>
+
+      <el-alert
+        v-if="traceError"
+        :title="traceError"
+        type="info"
+        :closable="false"
+        show-icon
+        class="trace-alert"
+      />
+      <el-empty
+        v-else-if="!traceLoading && !sessionTrace"
+        description="当前会话还没有最近一次 trace"
+      />
+
+      <div v-if="sessionTrace" class="trace-explorer">
+        <div class="trace-pane trace-pane-list">
+          <div class="trace-pane-header">
+            <span class="trace-pane-title">Span 列表</span>
+            <span class="trace-pane-count">
+              {{ filteredTraceSpans.length }}/{{ flattenedTraceSpans.length }}
+            </span>
+          </div>
+          <el-empty
+            v-if="filteredTraceSpans.length === 0"
+            description="没有匹配的 span，试试其他关键词"
+            :image-size="88"
+          />
+          <div v-else class="trace-list">
+            <button
+              v-for="row in filteredTraceSpans"
+              :key="row.span.spanId"
+              type="button"
+              class="trace-row"
+              :class="{
+                'is-selected': row.span.spanId === selectedTraceSpanId,
+                'is-error': row.span.status === 'ERROR',
+              }"
+              :style="{ paddingLeft: `${row.depth * 32 + 20}px` }"
+              @click="selectTraceSpan(row.span.spanId)"
+            >
+              <div class="trace-row-main">
+                <span class="trace-row-name">{{ row.span.name }}</span>
+                <el-tag size="small" effect="plain">{{ row.span.kind }}</el-tag>
+                <el-tag
+                  size="small"
+                  effect="plain"
+                  :type="row.span.status === 'ERROR' ? 'danger' : 'success'"
+                >
+                  {{ row.span.status }}
+                </el-tag>
+                <span class="trace-row-duration">
+                  {{ formatTraceDuration(row.span.durationMs) }}
+                </span>
+              </div>
+              <div class="trace-row-meta">
+                <span>spanId: {{ row.span.spanId }}</span>
+                <span>parent: {{ row.span.parentSpanId || '-' }}</span>
+                <span>属性: {{ row.attributeEntries.length }}</span>
+                <span>偏移: {{ formatTraceOffset(row.span.startEpochMs) }}</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div class="trace-pane trace-pane-detail">
+          <template v-if="selectedTraceRow">
+            <div class="trace-detail-header">
+              <div>
+                <div class="trace-detail-title">{{ selectedTraceRow.span.name }}</div>
+                <div class="trace-detail-subtitle">
+                  <span>spanId: {{ selectedTraceRow.span.spanId }}</span>
+                  <span>parent: {{ selectedTraceRow.span.parentSpanId || '-' }}</span>
+                </div>
+              </div>
+              <div class="trace-detail-tags">
+                <el-tag effect="plain">{{ selectedTraceRow.span.kind }}</el-tag>
+                <el-tag
+                  effect="plain"
+                  :type="selectedTraceRow.span.status === 'ERROR' ? 'danger' : 'success'"
+                >
+                  {{ selectedTraceRow.span.status }}
+                </el-tag>
+              </div>
+            </div>
+
+            <el-descriptions :column="2" border size="small" class="trace-descriptions">
+              <el-descriptions-item label="开始时间">
+                {{ formatTraceTime(selectedTraceRow.span.startEpochMs) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="结束时间">
+                {{ formatTraceTime(selectedTraceRow.span.endEpochMs) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="耗时">
+                {{ formatTraceDuration(selectedTraceRow.span.durationMs) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="相对偏移">
+                {{ formatTraceOffset(selectedTraceRow.span.startEpochMs) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="属性数">
+                {{ selectedTraceRow.attributeEntries.length }}
+              </el-descriptions-item>
+              <el-descriptions-item label="子 Span 数">
+                {{ selectedTraceRow.span.children?.length ?? 0 }}
+              </el-descriptions-item>
+            </el-descriptions>
+
+            <div v-if="parsedTraceConversations.length > 0" class="trace-message-panel">
+              <div class="trace-pane-header">
+                <span class="trace-pane-title">消息视图</span>
+                <span class="trace-pane-count">{{ parsedTraceConversations.length }} 组</span>
+              </div>
+              <div class="trace-message-groups">
+                <div
+                  v-for="group in parsedTraceConversations"
+                  :key="group.attributeKey"
+                  class="trace-message-group"
+                >
+                  <div class="trace-message-group-header">
+                    <div class="trace-message-group-title">{{ group.title }}</div>
+                    <div class="trace-message-group-meta">{{ group.attributeKey }}</div>
+                  </div>
+                  <div class="trace-message-list">
+                    <div
+                      v-for="message in group.messages"
+                      :key="message.id"
+                      class="trace-message-item"
+                      :class="`is-${message.kind}`"
+                    >
+                      <div class="trace-message-role">
+                        <span class="trace-message-role-badge">{{ message.label }}</span>
+                      </div>
+                      <div class="trace-message-body">
+                        <div v-if="message.title" class="trace-message-title">
+                          {{ message.title }}
+                        </div>
+                        <div v-if="message.skills.length > 0" class="trace-message-skills">
+                          <span
+                            v-for="skill in message.skills"
+                            :key="`${message.id}-${skill}`"
+                            class="trace-skill-chip"
+                          >
+                            {{ skill }}
+                          </span>
+                        </div>
+                        <pre
+                          v-if="isStructuredTraceValue(message.content)"
+                          class="trace-message-content trace-message-content-structured"
+                          >{{ formatStructuredTraceValue(message.content) }}</pre
+                        >
+                        <div v-else class="trace-message-content">
+                          {{ message.content || '空内容' }}
+                        </div>
+                        <pre v-if="message.details" class="trace-message-details">{{
+                          message.details
+                        }}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="trace-attribute-panel">
+              <div class="trace-pane-header">
+                <span class="trace-pane-title">属性详情</span>
+                <span class="trace-pane-count">
+                  {{ selectedTraceAttributeEntries.length }}/{{
+                    selectedTraceRow.attributeEntries.length
+                  }}
+                </span>
+              </div>
+
+              <el-empty
+                v-if="selectedTraceAttributeEntries.length === 0"
+                description="这个 span 没有可显示的属性"
+                :image-size="88"
+              />
+              <div v-else class="trace-attribute-table">
+                <div class="trace-attribute-table-header">
+                  <span>Key</span>
+                  <span>Value</span>
+                </div>
+                <div
+                  v-for="entry in selectedTraceAttributeEntries"
+                  :key="`${selectedTraceRow.span.spanId}-${entry.key}`"
+                  class="trace-attribute-row"
+                >
+                  <div class="trace-attribute-key">{{ entry.key }}</div>
+                  <pre
+                    v-if="isStructuredTraceValue(entry.value)"
+                    class="trace-attribute-value trace-attribute-value-structured"
+                    >{{ formatStructuredTraceValue(entry.value) }}</pre
+                  >
+                  <div v-else class="trace-attribute-value">{{ entry.value }}</div>
+                </div>
+              </div>
+            </div>
+          </template>
+          <el-empty v-else description="选择一个 span 查看详情" :image-size="88" />
+        </div>
+      </div>
+    </el-dialog>
+
+    <el-drawer v-model="answerExplainVisible" title="数据来源与解释链" size="48%" destroy-on-close>
+      <el-skeleton v-if="answerExplainLoading" animated :rows="10" />
+      <el-alert
+        v-else-if="answerExplainError"
+        :title="answerExplainError"
+        type="warning"
+        :closable="false"
+        show-icon
+      />
+      <div v-else-if="answerExplain" class="answer-explain-panel">
+        <div class="answer-explain-summary">
+          <span class="answer-explain-pill">Request: {{ answerExplain.runtimeRequestId }}</span>
+          <span v-if="answerExplain.datasource" class="answer-explain-pill">
+            数据源: {{ answerExplain.datasource }}
+          </span>
+          <span v-if="answerExplain.updatedAt" class="answer-explain-pill">
+            更新时间: {{ formatTraceTime(answerExplain.updatedAt) }}
+          </span>
+        </div>
+
+        <section v-if="answerExplain.semanticHits.length > 0" class="answer-explain-section">
+          <div class="answer-explain-section-title">问题理解</div>
+          <div class="answer-explain-card-list">
+            <article
+              v-for="(hit, index) in answerExplain.semanticHits"
+              :key="`semantic-${index}`"
+              class="answer-explain-card"
+            >
+              <div class="answer-explain-card-title">
+                {{ hit.tableName || '未命名表' }}
+                <template v-if="hit.columnName">.{{ hit.columnName }}</template>
+              </div>
+              <div class="answer-explain-card-meta">
+                <span>分数: {{ hit.score ?? '-' }}</span>
+                <span>命中依据: {{ hit.matchedBy || '-' }}</span>
+              </div>
+              <div v-if="hit.businessName" class="answer-explain-card-body">
+                业务名: {{ hit.businessName }}
+              </div>
+              <div
+                v-if="hit.businessDescription || hit.relationHint"
+                class="answer-explain-card-body"
+              >
+                {{ hit.businessDescription || hit.relationHint }}
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section
+          v-if="answerExplain.sql || answerExplain.sqlExplanation"
+          class="answer-explain-section"
+        >
+          <div class="answer-explain-section-title">SQL 解释</div>
+          <div v-if="answerExplain.sqlExplanation" class="answer-explain-sql-summary">
+            {{ answerExplain.sqlExplanation }}
+          </div>
+          <pre v-if="answerExplain.sql" class="answer-explain-code">{{ answerExplain.sql }}</pre>
+        </section>
+
+        <section class="answer-explain-section">
+          <div class="answer-explain-section-title">数据来源</div>
+          <div class="answer-explain-kv">
+            <div class="answer-explain-kv-row">
+              <span class="answer-explain-kv-key">执行说明</span>
+              <span class="answer-explain-kv-value">
+                {{ summarizeExplainExecution(answerExplain) }}
+              </span>
+            </div>
+            <div v-if="answerExplain.question" class="answer-explain-kv-row">
+              <span class="answer-explain-kv-key">用户问题</span>
+              <span class="answer-explain-kv-value">{{ answerExplain.question }}</span>
+            </div>
+            <div v-if="answerExplain.answer" class="answer-explain-kv-row">
+              <span class="answer-explain-kv-key">最终回答</span>
+              <span class="answer-explain-kv-value">{{ answerExplain.answer }}</span>
+            </div>
+            <div v-if="answerExplain.datasource" class="answer-explain-kv-row">
+              <span class="answer-explain-kv-key">数据源</span>
+              <span class="answer-explain-kv-value">{{ answerExplain.datasource }}</span>
+            </div>
+            <div v-if="answerExplain.usedTables.length > 0" class="answer-explain-kv-row">
+              <span class="answer-explain-kv-key">使用表</span>
+              <span class="answer-explain-kv-value">{{ answerExplain.usedTables.join('、') }}</span>
+            </div>
+            <div v-if="answerExplain.usedColumns.length > 0" class="answer-explain-kv-row">
+              <span class="answer-explain-kv-key">使用字段</span>
+              <span class="answer-explain-kv-value">
+                {{ answerExplain.usedColumns.join('、') }}
+              </span>
+            </div>
+            <div
+              v-for="([key, value], index) in Object.entries(answerExplain.permissions || {})"
+              :key="`permission-${index}`"
+              class="answer-explain-kv-row"
+            >
+              <span class="answer-explain-kv-key">{{ key }}</span>
+              <span class="answer-explain-kv-value">{{ formatExplainValue(value) }}</span>
+            </div>
+            <div
+              v-for="([key, value], index) in Object.entries(answerExplain.stats || {})"
+              :key="`stat-${index}`"
+              class="answer-explain-kv-row"
+            >
+              <span class="answer-explain-kv-key">{{ key }}</span>
+              <span class="answer-explain-kv-value">{{ formatExplainValue(value) }}</span>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="answerExplain.toolSteps.length > 0" class="answer-explain-section">
+          <div class="answer-explain-section-title">执行过程</div>
+          <div class="answer-explain-step-list">
+            <article
+              v-for="(step, index) in answerExplain.toolSteps"
+              :key="`step-${index}`"
+              class="answer-explain-step"
+            >
+              <div class="answer-explain-step-title">
+                {{ step.title || step.toolName || '未命名步骤' }}
+              </div>
+              <div class="answer-explain-step-meta">
+                <span>{{ step.toolName || '-' }}</span>
+                <span v-if="step.datasource">数据源: {{ step.datasource }}</span>
+                <span v-if="step.timestampEpochMs">
+                  {{ formatTraceTime(step.timestampEpochMs) }}
+                </span>
+              </div>
+              <div v-if="step.summary" class="answer-explain-step-body">{{ step.summary }}</div>
+              <pre v-if="step.detail" class="answer-explain-step-detail">{{ step.detail }}</pre>
+            </article>
+          </div>
+        </section>
+
+        <section v-if="answerExplain.knowledgeHits.length > 0" class="answer-explain-section">
+          <div class="answer-explain-section-title">知识来源</div>
+          <div class="answer-explain-card-list">
+            <article
+              v-for="(hit, index) in answerExplain.knowledgeHits"
+              :key="`knowledge-${index}`"
+              class="answer-explain-card"
+            >
+              <div class="answer-explain-card-title">
+                {{ hit.title || hit.source || '知识命中' }}
+              </div>
+              <div class="answer-explain-card-meta">
+                <span>{{ hit.vectorType || '-' }}</span>
+                <span v-if="hit.concreteType">{{ hit.concreteType }}</span>
+                <span v-if="hit.source">{{ hit.source }}</span>
+              </div>
+              <div v-if="hit.summary" class="answer-explain-card-body">{{ hit.summary }}</div>
+              <div v-if="hit.snippet" class="answer-explain-card-body">{{ hit.snippet }}</div>
+            </article>
+          </div>
+        </section>
+
+        <section v-if="answerExplain.warnings.length > 0" class="answer-explain-section">
+          <div class="answer-explain-section-title">提示与限制</div>
+          <ul class="answer-explain-warning-list">
+            <li v-for="(warning, index) in answerExplain.warnings" :key="`warning-${index}`">
+              {{ warning }}
+            </li>
+          </ul>
+        </section>
+      </div>
+      <el-empty v-else description="当前回答还没有可展示的数据来源信息" :image-size="96" />
+    </el-drawer>
   </BaseLayout>
 </template>
 
@@ -382,20 +808,26 @@
   hljs.registerLanguage('json', json);
   import BaseLayout from '@/layouts/BaseLayout.vue';
   import AgentService from '@/services/agent';
-  import ChatService, { type ChatSession, type ChatMessage } from '@/services/chat';
+  import ChatService, {
+    type AnswerTraceExplain,
+    type ChatSession,
+    type ChatMessage,
+    type SessionTrace,
+    type TraceSpan,
+  } from '@/services/chat';
   import GraphService, {
+    type ClarifyMetadata,
     type GraphRequest,
     type GraphNodeResponse,
     TextType,
   } from '@/services/graph';
   import { type Agent } from '@/services/agent';
+  import { type ResultData, type ResultSetData } from '@/services/resultSet';
   import {
-    type ResultData,
-    type ResultSetData,
-    type ResultSetDisplayConfig,
-  } from '@/services/resultSet';
-  import { SessionRuntimeState, useSessionStateManager } from '@/services/sessionStateManager';
-  import HumanFeedback from '@/components/run/HumanFeedback.vue';
+    type PendingClarifyState,
+    SessionRuntimeState,
+    useSessionStateManager,
+  } from '@/services/sessionStateManager';
   import ChatSessionSidebar from '@/components/run/ChatSessionSidebar.vue';
   import PresetQuestions from '@/components/run/PresetQuestions.vue';
   import MarkdownAgentContainer from '@/components/run/markdown';
@@ -410,6 +842,18 @@
     }
   }
 
+  interface MessageExplainMetadata {
+    runtimeRequestId?: string;
+    explainAvailable?: boolean;
+    nodeName?: string;
+  }
+
+  const isClarifyMetadata = (
+    metadata?: (ClarifyMetadata & Record<string, any>) | null,
+  ): metadata is ClarifyMetadata & { clarifyRequired: true; originalQuery: string } => {
+    return Boolean(metadata?.clarifyRequired && metadata?.originalQuery);
+  };
+
   export default defineComponent({
     name: 'AgentRun',
     components: {
@@ -422,7 +866,6 @@
       FullScreen,
       Close,
       ArrowDown,
-      HumanFeedback,
       ChatSessionSidebar,
       PresetQuestions,
       MarkdownAgentContainer,
@@ -499,6 +942,7 @@
       const { getSessionState, syncStateToView, saveViewToState, deleteSessionState } =
         useSessionStateManager();
       const isStreaming = ref(false);
+      const isSubmittingMessage = ref(false);
       const nodeBlocks = ref<GraphNodeResponse[][]>([]);
       const options = ref({
         markdownIt: {
@@ -512,33 +956,27 @@
         },
       });
       const requestOptions = ref({
-        humanFeedback: false,
-        nl2sqlOnly: false,
         reportFormat: 'markdown' as 'markdown' | 'html', // 'markdown' | 'html'，控制报告展示方式
       });
       const showReportFullscreen = ref(false);
       const fullscreenReportContent = ref('');
       const inputControlsCollapsed = ref(false);
+      const traceDialogVisible = ref(false);
+      const traceLoading = ref(false);
+      const traceError = ref('');
+      const traceSearchKeyword = ref('');
+      const selectedTraceSpanId = ref('');
+      const sessionTrace = ref<SessionTrace | null>(null);
+      const answerExplainVisible = ref(false);
+      const answerExplainLoading = ref(false);
+      const answerExplainError = ref('');
+      const answerExplain = ref<AnswerTraceExplain | null>(null);
+      const pendingClarify = ref<PendingClarifyState | null>(null);
 
-      // 监听NL2SQL开关变化
-      const handleNl2sqlOnlyChange = (value: boolean) => {
-        if (value) {
-          // 当仅NL2SQL开启时，禁用人工反馈，并设为false
-          requestOptions.value.humanFeedback = false;
-        }
-      };
-      const autoScroll = ref(true);
       const chatContainer = ref<HTMLElement | null>(null);
 
-      // 人工反馈相关数据
-      const showHumanFeedback = ref(false);
-      const lastRequest = ref<GraphRequest | null>(null);
-
       // 结果集显示配置
-      const resultSetDisplayConfig = ref<ResultSetDisplayConfig>({
-        showSqlResults: false,
-        pageSize: 20,
-      });
+      const resultSetPageSize = ref(20);
 
       const agentId = computed(() => route.params.id as string);
 
@@ -559,18 +997,39 @@
       const selectSession = async (session: ChatSession | null) => {
         // 将源会话状态保存，然后切换到目标会话
         if (currentSession.value) {
-          saveViewToState(currentSession.value.id, { isStreaming, nodeBlocks });
+          saveViewToState(currentSession.value.id, {
+            isStreaming,
+            nodeBlocks,
+            answerExplain,
+            answerExplainVisible,
+            pendingClarify,
+          });
         }
         currentSession.value = session;
+        sessionTrace.value = null;
+        traceError.value = '';
+        traceSearchKeyword.value = '';
+        selectedTraceSpanId.value = '';
+        traceDialogVisible.value = false;
 
         try {
           if (session === null) {
             currentMessages.value = [];
             nodeBlocks.value = [];
             isStreaming.value = false;
+            answerExplainVisible.value = false;
+            answerExplain.value = null;
+            answerExplainError.value = '';
+            pendingClarify.value = null;
             return;
           }
-          syncStateToView(session.id, { isStreaming, nodeBlocks });
+          syncStateToView(session.id, {
+            isStreaming,
+            nodeBlocks,
+            answerExplain,
+            answerExplainVisible,
+            pendingClarify,
+          });
           currentMessages.value = await ChatService.getSessionMessages(session.id);
           scrollToBottom();
         } catch (error) {
@@ -579,9 +1038,36 @@
         }
       };
 
+      const buildPendingClarifyState = (
+        metadata: ClarifyMetadata & { originalQuery: string },
+      ): PendingClarifyState => {
+        return {
+          originalQuery: metadata.originalQuery,
+          riskLevel: metadata.riskLevel || 'high',
+          summary: metadata.summary,
+          missingDimensions: metadata.missingDimensions || [],
+          followUpQuestions: metadata.followUpQuestions || [],
+          suggestedAssumptions: metadata.suggestedAssumptions || [],
+        };
+      };
+
+      const cancelPendingClarify = () => {
+        pendingClarify.value = null;
+        if (currentSession.value) {
+          getSessionState(currentSession.value.id).pendingClarify = null;
+        }
+      };
+
+      const applyClarifyAssumption = (assumption: string) => {
+        userInput.value = `按以下假设继续：${assumption}`;
+      };
+
       const sendMessage = async () => {
         if (!userInput.value.trim()) {
           ElMessage.warning('请输入请求消息！');
+          return;
+        }
+        if (isSubmittingMessage.value) {
           return;
         }
         if (!currentSession.value || isStreaming.value) {
@@ -589,14 +1075,18 @@
           return;
         }
 
+        isSubmittingMessage.value = true;
         const needsTitle = !currentSession.value?.title || currentSession.value.title === '新会话';
+        const activeClarify = pendingClarify.value;
+        const requestQuery = activeClarify?.originalQuery ?? userInput.value.trim();
+        const feedbackContent = activeClarify ? userInput.value.trim() : undefined;
 
         const userMessage: ChatMessage = {
           sessionId: currentSession.value.id,
           role: 'user',
           content: userInput.value,
           messageType: 'text',
-          titleNeeded: needsTitle,
+          titleNeeded: needsTitle && !activeClarify,
         };
         try {
           // 保存用户消息
@@ -606,29 +1096,99 @@
 
           const request: GraphRequest = {
             agentId: agentId.value,
-            query: userInput.value,
-            humanFeedback: requestOptions.value.humanFeedback,
-            nl2sqlOnly: requestOptions.value.nl2sqlOnly,
+            query: requestQuery,
+            humanFeedback: Boolean(activeClarify),
+            humanFeedbackContent: feedbackContent,
+            nl2sqlOnly: false,
             rejectedPlan: false,
-            humanFeedbackContent: null,
             threadId: currentSession.value.id,
+            runtimeRequestId: createRuntimeRequestId(),
           };
 
           userInput.value = '';
+          pendingClarify.value = null;
+          getSessionState(currentSession.value.id).pendingClarify = null;
 
-          await sendGraphRequest(request, false);
+          await sendGraphRequest(request);
         } catch (error) {
+          if (activeClarify && currentSession.value) {
+            pendingClarify.value = activeClarify;
+            getSessionState(currentSession.value.id).pendingClarify = activeClarify;
+          }
           ElMessage.error('未知错误');
           console.error(error);
         }
+        finally {
+          isSubmittingMessage.value = false;
+        }
       };
 
-      const sendGraphRequest = async (request: GraphRequest, rejectedPlan: boolean) => {
+      const buildExplainMetadataForNode = (
+        request: GraphRequest,
+        node: GraphNodeResponse[],
+      ): MessageExplainMetadata | null => {
+        if (!request.runtimeRequestId || !node.length) {
+          return null;
+        }
+        const firstNode = node[0];
+        const explainAvailable =
+          firstNode.nodeName === 'AgentScopeRuntime' || firstNode.textType === TextType.RESULT_SET;
+        if (!explainAvailable) {
+          return null;
+        }
+        return {
+          runtimeRequestId: request.runtimeRequestId,
+          explainAvailable: true,
+          nodeName: firstNode.nodeName,
+        };
+      };
+
+      const saveAssistantNodeMessage = async (
+        sessionId: string,
+        node: GraphNodeResponse[],
+        request?: GraphRequest | null,
+      ): Promise<void> => {
+        if (!node || !node.length) {
+          return;
+        }
+        const explainMetadata = request ? buildExplainMetadataForNode(request, node) : null;
+        const metadataJson = explainMetadata ? JSON.stringify(explainMetadata) : undefined;
+
+        if (node[0].textType === TextType.RESULT_SET) {
+          try {
+            const resultData: ResultData = JSON.parse(node[0].text);
+            if (resultData.displayStyle?.type && resultData.displayStyle?.type !== 'table') {
+              const aiMessage: ChatMessage = {
+                sessionId,
+                role: 'assistant',
+                content: node[0].text,
+                messageType: 'result-set',
+                metadata: metadataJson,
+              };
+              await ChatService.saveMessage(sessionId, aiMessage);
+              return;
+            }
+          } catch (error) {
+            console.error('解析结果集 JSON 失败:', error);
+          }
+        }
+
+        const nodeHtml = generateNodeHtml(node);
+        const aiMessage: ChatMessage = {
+          sessionId,
+          role: 'assistant',
+          content: nodeHtml,
+          messageType: 'html',
+          metadata: metadataJson,
+        };
+        await ChatService.saveMessage(sessionId, aiMessage);
+      };
+
+      const sendGraphRequest = async (request: GraphRequest) => {
         const sessionId = currentSession.value!.id;
         currentSession.value!.title;
         const sessionState = getSessionState(sessionId);
         try {
-          lastRequest.value = request;
           // 准备流式请求
           isStreaming.value = true;
           nodeBlocks.value = [];
@@ -641,40 +1201,7 @@
           resetReportState(sessionState, request);
 
           const saveNodeMessage = (node: GraphNodeResponse[]): Promise<void> => {
-            if (!node || !node.length) return Promise.resolve();
-
-            // 特殊处理RESULT_SET节点
-            if (node.length > 0 && node[0].textType === TextType.RESULT_SET) {
-              try {
-                const resultData: ResultData = JSON.parse(node[0].text);
-                // 如果type不是table，保存一个特殊的标记，以便在历史消息中能够正确显示
-                if (resultData.displayStyle?.type && resultData.displayStyle?.type !== 'table') {
-                  const aiMessage: ChatMessage = {
-                    sessionId,
-                    role: 'assistant',
-                    content: node[0].text, // 保存原始JSON数据
-                    messageType: 'result-set', // 使用特殊的messageType
-                  };
-                  return ChatService.saveMessage(sessionId, aiMessage).catch(error => {
-                    console.error('保存AI消息失败:', error);
-                  });
-                }
-              } catch (error) {
-                console.error('解析结果集JSON失败:', error);
-              }
-            }
-
-            // 使用generateNodeHtml方法生成HTML代码，确保显示与保存一致
-            const nodeHtml = generateNodeHtml(node);
-
-            const aiMessage: ChatMessage = {
-              sessionId,
-              role: 'assistant',
-              content: nodeHtml,
-              messageType: 'html',
-            };
-
-            return ChatService.saveMessage(sessionId, aiMessage).catch(error => {
+            return saveAssistantNodeMessage(sessionId, node, request).catch(error => {
               console.error('保存AI消息失败:', error);
             });
           };
@@ -701,6 +1228,13 @@
 
               if (sessionState.lastRequest) {
                 sessionState.lastRequest.threadId = response.threadId;
+              }
+              if (isClarifyMetadata(response.metadata)) {
+                const nextPendingClarify = buildPendingClarifyState(response.metadata);
+                sessionState.pendingClarify = nextPendingClarify;
+                if (currentSession.value?.id === sessionId) {
+                  pendingClarify.value = nextPendingClarify;
+                }
               }
 
               // 检查是否是报告节点
@@ -824,9 +1358,7 @@
               // 如果是当前显示的会话，同步到视图并滚动
               if (currentSession.value?.id === sessionId) {
                 nodeBlocks.value = sessionState.nodeBlocks;
-                if (autoScroll.value) {
-                  scrollToBottom();
-                }
+                scrollToBottom();
               }
             },
             async (error: Error) => {
@@ -910,23 +1442,12 @@
                     await persistBlockAt(currentBlockIndex);
                   }
 
-                  // 如果是人工反馈模式，显示反馈组件
-                  if (request.humanFeedback && rejectedPlan) {
-                    showHumanFeedback.value = true;
-                    sessionState.isStreaming = false;
-                    sessionState.persistedBlockCount = 0;
-                    sessionState.closeStream = null;
-                    if (currentSession.value?.id === sessionId) {
-                      isStreaming.value = false;
-                    }
-                  } else {
-                    // 所有节点处理完成
-                    sessionState.isStreaming = false;
-                    sessionState.persistedBlockCount = 0;
-                    // 如果是当前显示的会话，同步到视图
-                    if (currentSession.value?.id === sessionId) {
-                      isStreaming.value = false;
-                    }
+                  // 所有节点处理完成
+                  sessionState.isStreaming = false;
+                  sessionState.persistedBlockCount = 0;
+                  // 如果是当前显示的会话，同步到视图
+                  if (currentSession.value?.id === sessionId) {
+                    isStreaming.value = false;
                   }
                 }
 
@@ -1083,11 +1604,6 @@
             }
           } else if (node[idx].textType === TextType.RESULT_SET) {
             // 渲染结果集
-            if (!resultSetDisplayConfig.value.showSqlResults) {
-              // 如果用户关闭了显示SQL结果，直接忽略这个节点
-              continue;
-            }
-
             try {
               // 解析JSON字符串
               const resultData: ResultData = JSON.parse(node[idx].text);
@@ -1113,10 +1629,7 @@
               // 如果type是table，保持原有逻辑生成表格HTML
               // 否则返回空字符串，因为已经在模板中用ResultSetDisplay组件处理了
               if (resultData.displayStyle?.type === 'table' || !resultData.displayStyle?.type) {
-                const tableHtml = generateResultSetTable(
-                  resultSetData,
-                  resultSetDisplayConfig.value.pageSize,
-                );
+                const tableHtml = generateResultSetTable(resultSetData, resultSetPageSize.value);
                 content += tableHtml;
               }
               // 如果type不是table，不生成HTML，由模板中的ResultSetDisplay组件处理
@@ -1153,25 +1666,506 @@
         sessionState.markdownReportContent = '';
       };
 
+      type TraceAttributeEntry = { key: string; value: string };
+      type FlattenedTraceSpan = {
+        span: TraceSpan;
+        depth: number;
+        attributeEntries: TraceAttributeEntry[];
+        searchableText: string;
+      };
+      type TraceMessageKind =
+        | 'system'
+        | 'user'
+        | 'assistant'
+        | 'tool-call'
+        | 'tool-result'
+        | 'other';
+      type ParsedTraceMessage = {
+        id: string;
+        kind: TraceMessageKind;
+        label: string;
+        title: string;
+        content: string;
+        details: string;
+        skills: string[];
+      };
+
+      const isTraceRecord = (value: unknown): value is Record<string, unknown> =>
+        value !== null && typeof value === 'object' && !Array.isArray(value);
+
+      const tryParseTraceJson = (value: string): unknown | null => {
+        if (!isStructuredTraceValue(value)) {
+          return null;
+        }
+        try {
+          return JSON.parse(value);
+        } catch (error) {
+          return null;
+        }
+      };
+
+      const createRuntimeRequestId = () => {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+          return crypto.randomUUID();
+        }
+        return `req-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+      };
+
+      const parseMessageMetadata = (message: ChatMessage): MessageExplainMetadata | null => {
+        if (!message.metadata) {
+          return null;
+        }
+        try {
+          const parsed = JSON.parse(message.metadata) as MessageExplainMetadata;
+          return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch (error) {
+          console.warn('解析消息 metadata 失败:', error);
+          return null;
+        }
+      };
+
+      const latestExplainMessage = computed<ChatMessage | null>(() => {
+        for (let index = currentMessages.value.length - 1; index >= 0; index -= 1) {
+          const message = currentMessages.value[index];
+          if (message.role !== 'assistant') {
+            continue;
+          }
+          const metadata = parseMessageMetadata(message);
+          if (metadata?.explainAvailable && metadata.runtimeRequestId) {
+            return message;
+          }
+        }
+        return null;
+      });
+
+      const latestExplainRuntimeRequestId = computed(() => {
+        if (!currentSession.value) {
+          return null;
+        }
+        const sessionState = getSessionState(currentSession.value.id);
+        if (sessionState.lastRequest?.runtimeRequestId) {
+          return sessionState.lastRequest.runtimeRequestId;
+        }
+        const message = latestExplainMessage.value;
+        if (!message) {
+          return null;
+        }
+        return parseMessageMetadata(message)?.runtimeRequestId ?? null;
+      });
+
+      const loadAnswerExplainByRuntimeRequestId = async (runtimeRequestId: string) => {
+        if (!currentSession.value) {
+          return;
+        }
+        answerExplainVisible.value = true;
+        answerExplainLoading.value = true;
+        answerExplainError.value = '';
+        try {
+          answerExplain.value = await ChatService.getAnswerExplain(
+            currentSession.value.id,
+            runtimeRequestId,
+          );
+          // 保存到会话状态（包括 sessionStorage）
+          saveViewToState(currentSession.value.id, {
+            isStreaming,
+            nodeBlocks,
+            answerExplain,
+            answerExplainVisible,
+          });
+        } catch (error: any) {
+          answerExplain.value = null;
+          if (error?.response?.status === 404) {
+            answerExplainError.value = '当前回答还没有生成 explain 数据，请稍后再试。';
+          } else {
+            answerExplainError.value = '加载数据来源失败，请稍后重试。';
+          }
+          console.error('加载 answer explain 失败:', error);
+        } finally {
+          answerExplainLoading.value = false;
+        }
+      };
+
+      const openLatestAnswerExplain = async () => {
+        const runtimeRequestId = latestExplainRuntimeRequestId.value;
+        if (!runtimeRequestId) {
+          ElMessage.warning('当前会话还没有可查看的数据来源');
+          return;
+        }
+        await loadAnswerExplainByRuntimeRequestId(runtimeRequestId);
+      };
+
+      const formatExplainValue = (value: unknown) => {
+        if (value === null || value === undefined || value === '') {
+          return '-';
+        }
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+          return String(value);
+        }
+        try {
+          return JSON.stringify(value, null, 2);
+        } catch (error) {
+          console.warn('格式化 explain 值失败:', error);
+          return String(value);
+        }
+      };
+
+      const summarizeExplainExecution = (explain: AnswerTraceExplain | null) => {
+        if (!explain) {
+          return '当前还没有可展示的执行说明。';
+        }
+        if (explain.datasource || explain.usedTables.length > 0 || explain.usedColumns.length > 0) {
+          return '本轮回答访问了结构化数据源，下面展示的是实际使用到的表、字段、权限范围和统计信息。';
+        }
+        if (explain.knowledgeHits.length > 0) {
+          return '本轮回答没有访问数据库，但命中了知识检索结果，回答受这些知识片段影响。';
+        }
+        if (explain.semanticHits.length > 0) {
+          return '本轮回答没有直接查库，但命中了语义模型，用来帮助系统理解你的问题和业务字段。';
+        }
+        if (explain.toolSteps.length > 0) {
+          return '本轮回答没有形成可展示的数据源明细，但系统执行过工具步骤，详细过程可在下方执行过程里查看。';
+        }
+        return '本轮回答没有访问数据库、知识库或其他可回放工具，当前结果主要来自模型直接生成。';
+      };
+
+      const stringifyTracePayload = (value: unknown) => {
+        if (typeof value === 'string') {
+          return value;
+        }
+        if (value === null || value === undefined) {
+          return '';
+        }
+        try {
+          return JSON.stringify(value, null, 2);
+        } catch (error) {
+          return String(value);
+        }
+      };
+
+      const unwrapTraceTextEnvelope = (value: unknown): unknown => {
+        if (!isTraceRecord(value)) {
+          if (typeof value !== 'string') {
+            return value;
+          }
+          const parsed = tryParseTraceJson(value);
+          return parsed !== null ? unwrapTraceTextEnvelope(parsed) : value;
+        }
+        const keys = Object.keys(value);
+        const textValue = typeof value.text === 'string' ? value.text.trim() : '';
+        const isTextEnvelope =
+          textValue.length > 0 &&
+          keys.every(key => ['text', 'type', 'mimeType', 'metadata'].includes(key));
+        if (!isTextEnvelope) {
+          return value;
+        }
+        const parsedText = tryParseTraceJson(textValue);
+        return parsedText !== null ? unwrapTraceTextEnvelope(parsedText) : textValue;
+      };
+
+      const unwrapTraceToolCallPayload = (value: Record<string, unknown>) => {
+        if (isTraceRecord(value.param)) {
+          return value.param;
+        }
+        return value;
+      };
+
+      const buildTraceToolCallContent = (value: Record<string, unknown>) => {
+        const unwrappedValue = unwrapTraceToolCallPayload(value);
+        const preferredPayload =
+          unwrappedValue.input ??
+          (isTraceRecord(unwrappedValue.metadata)
+            ? unwrappedValue.metadata.arguments
+            : undefined) ??
+          unwrappedValue.arguments ??
+          unwrappedValue.content ??
+          unwrappedValue;
+        if (typeof preferredPayload === 'string') {
+          const parsed = tryParseTraceJson(preferredPayload);
+          return parsed !== null ? stringifyTracePayload(parsed) : preferredPayload;
+        }
+        return stringifyTracePayload(preferredPayload);
+      };
+
+      const buildTraceToolResultContent = (value: Record<string, unknown>) => {
+        const preferredPayload = unwrapTraceTextEnvelope(
+          value.output ?? value.content ?? value.result ?? value,
+        );
+        return stringifyTracePayload(preferredPayload);
+      };
+
+      const traceMessageLabelMap: Record<TraceMessageKind, string> = {
+        system: 'SYSTEM',
+        user: 'USER',
+        assistant: 'ASSISTANT',
+        'tool-call': 'TOOL CALL',
+        'tool-result': 'TOOL RESULT',
+        other: 'OTHER',
+      };
+
+      const createParsedTraceMessage = (
+        id: string,
+        kind: TraceMessageKind,
+        options: Partial<ParsedTraceMessage>,
+      ): ParsedTraceMessage => ({
+        id,
+        kind,
+        label: traceMessageLabelMap[kind],
+        title: options.title ?? '',
+        content: options.content ?? '',
+        details: options.details ?? '',
+        skills: options.skills ?? [],
+      });
+
+      const buildTraceAttributeEntries = (
+        attributes: Record<string, string>,
+      ): TraceAttributeEntry[] => {
+        return Object.entries(attributes ?? {})
+          .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+          .map(([key, value]) => ({
+            key,
+            value,
+          }));
+      };
+
+      const flattenTraceSpans = (spans: TraceSpan[], depth = 0): FlattenedTraceSpan[] => {
+        return spans.flatMap(span => {
+          const attributeEntries = buildTraceAttributeEntries(span.attributes ?? {});
+          const searchableText = [
+            span.name,
+            span.spanId,
+            span.parentSpanId,
+            span.kind,
+            span.status,
+            ...attributeEntries.flatMap(entry => [entry.key, entry.value]),
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          return [
+            {
+              span,
+              depth,
+              attributeEntries,
+              searchableText,
+            },
+            ...flattenTraceSpans(span.children ?? [], depth + 1),
+          ];
+        });
+      };
+
+      const flattenedTraceSpans = computed(() =>
+        sessionTrace.value ? flattenTraceSpans(sessionTrace.value.rootSpans ?? []) : [],
+      );
+
+      const normalizedTraceSearchKeyword = computed(() =>
+        traceSearchKeyword.value.trim().toLowerCase(),
+      );
+
+      const filteredTraceSpans = computed(() => {
+        const keyword = normalizedTraceSearchKeyword.value;
+        if (!keyword) {
+          return flattenedTraceSpans.value;
+        }
+        return flattenedTraceSpans.value.filter(row => row.searchableText.includes(keyword));
+      });
+
+      const selectedTraceRow = computed(() => {
+        if (!flattenedTraceSpans.value.length) {
+          return null;
+        }
+        return (
+          flattenedTraceSpans.value.find(row => row.span.spanId === selectedTraceSpanId.value) ??
+          filteredTraceSpans.value[0] ??
+          flattenedTraceSpans.value[0]
+        );
+      });
+
+      const selectedTraceAttributeEntries = computed(() => {
+        const row = selectedTraceRow.value;
+        if (!row) {
+          return [];
+        }
+        const keyword = normalizedTraceSearchKeyword.value;
+        if (!keyword) {
+          return row.attributeEntries;
+        }
+        return row.attributeEntries.filter(entry =>
+          `${entry.key} ${entry.value}`.toLowerCase().includes(keyword),
+        );
+      });
+
+      const parsedTraceConversations = computed(() => {
+        const row = selectedTraceRow.value;
+        if (!row) {
+          return [];
+        }
+
+        // 只处理 agentscope.function.input 和 agentscope.function.output
+        const inputEntry = row.attributeEntries.find(e => e.key === 'agentscope.function.input');
+        const outputEntry = row.attributeEntries.find(e => e.key === 'agentscope.function.output');
+        const nameEntry = row.attributeEntries.find(e => e.key === 'agentscope.function.name');
+
+        if (inputEntry && outputEntry) {
+          const inputParsed = tryParseTraceJson(inputEntry.value);
+          const outputParsed = tryParseTraceJson(outputEntry.value);
+          const toolName = nameEntry ? tryParseTraceJson(nameEntry.value) : null;
+
+          const messages: ParsedTraceMessage[] = [];
+
+          // 提取工具名称
+          let name = '工具调用';
+          if (typeof toolName === 'string') {
+            name = toolName;
+          } else if (isTraceRecord(inputParsed) && isTraceRecord(inputParsed.param)) {
+            name = typeof inputParsed.param.name === 'string' ? inputParsed.param.name : name;
+          }
+
+          // 创建 TOOL CALL 消息
+          if (inputParsed !== null) {
+            const inputContent =
+              isTraceRecord(inputParsed) && isTraceRecord(inputParsed.param)
+                ? buildTraceToolCallContent(inputParsed.param)
+                : stringifyTracePayload(inputParsed);
+
+            messages.push(
+              createParsedTraceMessage('agentscope-function-call', 'tool-call', {
+                title: name,
+                content: inputContent,
+                details: '',
+              }),
+            );
+          }
+
+          // 创建 TOOL RESULT 消息（处理截断情况）
+          let outputContent: string;
+
+          if (outputParsed !== null) {
+            // JSON 解析成功
+            outputContent = buildTraceToolResultContent(
+              isTraceRecord(outputParsed) ? outputParsed : { output: outputParsed },
+            );
+          } else {
+            // JSON 解析失败（可能被截断），显示原始内容
+            outputContent = outputEntry.value;
+
+            // 如果内容被截断，添加提示
+            if (outputEntry.value.endsWith('...') || outputEntry.value.length > 10000) {
+              outputContent += '\n\n[注意：内容可能被截断，请在属性详情中查看完整内容]';
+            }
+          }
+
+          messages.push(
+            createParsedTraceMessage('agentscope-function-result', 'tool-result', {
+              title: name,
+              content: outputContent,
+              details: '',
+            }),
+          );
+
+          if (messages.length > 0) {
+            return [
+              {
+                attributeKey: 'agentscope.function',
+                title: 'agentscope.function · messages',
+                messages,
+              },
+            ];
+          }
+        }
+
+        // 如果没有找到 agentscope.function 属性，返回空
+        return [];
+      });
+
+      const selectTraceSpan = (spanId: string) => {
+        selectedTraceSpanId.value = spanId;
+      };
+
+      const formatTraceDuration = (durationMs: number) => {
+        if (durationMs < 1000) {
+          return `${durationMs} ms`;
+        }
+        if (durationMs < 10000) {
+          return `${(durationMs / 1000).toFixed(2)} s`;
+        }
+        return `${(durationMs / 1000).toFixed(1)} s`;
+      };
+
+      const formatTraceTime = (epochMs: number) => {
+        if (!epochMs) {
+          return '--';
+        }
+        return new Date(epochMs).toLocaleString();
+      };
+
+      const formatTraceOffset = (epochMs: number) => {
+        if (!sessionTrace.value?.startEpochMs || !epochMs) {
+          return '--';
+        }
+        const offset = Math.max(0, epochMs - sessionTrace.value.startEpochMs);
+        return `+${formatTraceDuration(offset)}`;
+      };
+
+      const isStructuredTraceValue = (value: string) => {
+        const normalizedValue = value?.trim();
+        return Boolean(
+          normalizedValue &&
+            ((normalizedValue.startsWith('{') && normalizedValue.endsWith('}')) ||
+              (normalizedValue.startsWith('[') && normalizedValue.endsWith(']'))),
+        );
+      };
+
+      const formatStructuredTraceValue = (value: string) => {
+        if (!isStructuredTraceValue(value)) {
+          return value;
+        }
+        try {
+          return JSON.stringify(JSON.parse(value), null, 2);
+        } catch (error) {
+          return value;
+        }
+      };
+
+      const loadLatestTrace = async () => {
+        if (!currentSession.value) {
+          sessionTrace.value = null;
+          traceError.value = '当前没有可查看 trace 的会话';
+          return;
+        }
+        traceLoading.value = true;
+        traceError.value = '';
+        try {
+          sessionTrace.value = await ChatService.getSessionTrace(currentSession.value.id);
+          selectedTraceSpanId.value = sessionTrace.value.rootSpans?.[0]?.spanId ?? '';
+        } catch (error: any) {
+          sessionTrace.value = null;
+          selectedTraceSpanId.value = '';
+          if (error?.response?.status === 404) {
+            traceError.value = '当前会话还没有最近一次 trace，请先执行一轮对话。';
+          } else {
+            traceError.value = '加载 trace 失败，请稍后重试。';
+          }
+          console.error('加载 trace 失败:', error);
+        } finally {
+          traceLoading.value = false;
+        }
+      };
+
+      const openTraceDialog = async () => {
+        traceDialogVisible.value = true;
+        await loadLatestTrace();
+      };
+
+      const refreshTrace = async () => {
+        await loadLatestTrace();
+      };
+
       const scrollToBottom = () => {
         nextTick(() => {
           if (chatContainer.value) {
             chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
           }
         });
-      };
-
-      const handleHumanFeedback = async (
-        request: GraphRequest,
-        rejectedPlan: boolean,
-        content: string,
-      ) => {
-        content = content.trim() || 'Accept';
-        showHumanFeedback.value = false;
-        const newRequest: GraphRequest = { ...request };
-        newRequest.rejectedPlan = rejectedPlan;
-        newRequest.humanFeedbackContent = content;
-        await sendGraphRequest(newRequest, rejectedPlan);
       };
 
       // 处理预设问题点击
@@ -1224,20 +2218,11 @@
           // 保存已接收的节点消息
           if (sessionState.nodeBlocks && sessionState.nodeBlocks.length > 0) {
             const saveNodeMessage = (node: GraphNodeResponse[]): Promise<void> => {
-              if (!node || !node.length) return Promise.resolve();
-
-              const nodeHtml = generateNodeHtml(node);
-
-              const aiMessage: ChatMessage = {
-                sessionId,
-                role: 'assistant',
-                content: nodeHtml,
-                messageType: 'html',
-              };
-
-              return ChatService.saveMessage(sessionId, aiMessage).catch(error => {
-                console.error('保存AI消息失败:', error);
-              });
+              return saveAssistantNodeMessage(sessionId, node, sessionState.lastRequest).catch(
+                error => {
+                  console.error('保存AI消息失败:', error);
+                },
+              );
             };
 
             // 保存所有未保存的节点块
@@ -1394,34 +2379,61 @@
         currentMessages,
         userInput,
         isStreaming,
+        isSubmittingMessage,
+        pendingClarify,
         requestOptions,
         showReportFullscreen,
         fullscreenReportContent,
         inputControlsCollapsed,
-        autoScroll,
+        traceDialogVisible,
+        traceLoading,
+        traceError,
+        sessionTrace,
+        answerExplainVisible,
+        answerExplainLoading,
+        answerExplainError,
+        answerExplain,
+        latestExplainMessage,
+        latestExplainRuntimeRequestId,
         chatContainer,
         nodeBlocks,
         agentId,
-        showHumanFeedback,
-        lastRequest,
-        resultSetDisplayConfig,
+        resultSetPageSize,
         options,
+        traceSearchKeyword,
+        flattenedTraceSpans,
+        filteredTraceSpans,
+        selectedTraceSpanId,
+        selectedTraceRow,
+        selectedTraceAttributeEntries,
+        parsedTraceConversations,
+        formatTraceDuration,
+        formatTraceTime,
+        formatTraceOffset,
+        formatExplainValue,
+        summarizeExplainExecution,
+        isStructuredTraceValue,
+        formatStructuredTraceValue,
         getMarkdownContentFromNode,
         selectSession,
         sendMessage,
+        cancelPendingClarify,
+        applyClarifyAssumption,
         formatMessageContent,
         formatNodeContent,
         generateNodeHtml,
-        handleNl2sqlOnlyChange,
         openReportFullscreen,
         closeReportFullscreen,
         downloadMarkdownReportFromMessage,
         downloadHtmlReportFromMessageByServer,
         markdownToHtml,
         resetReportState,
-        handleHumanFeedback,
         handlePresetQuestionClick,
         stopStreaming,
+        openLatestAnswerExplain,
+        openTraceDialog,
+        refreshTrace,
+        selectTraceSpan,
         deleteSessionState,
       };
     },
@@ -1429,6 +2441,28 @@
 </script>
 
 <style scoped>
+  /* CSS 变量定义 */
+  :root {
+    --trace-primary-color: #409eff;
+    --trace-primary-light: #66b1ff;
+    --trace-border-color: #e8f1fa;
+    --trace-border-hover: #b8daff;
+    --trace-bg-gradient-start: #ffffff;
+    --trace-bg-gradient-end: #f8fcff;
+    --trace-text-primary: #1e3a5f;
+    --trace-text-secondary: #5a7291;
+    --trace-text-meta: #6b7f95;
+    --trace-shadow-sm: 0 2px 8px rgba(37, 99, 235, 0.08);
+    --trace-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
+    --trace-shadow-lg: 0 8px 24px rgba(64, 158, 255, 0.15);
+    --trace-shadow-hover: 0 4px 12px rgba(37, 99, 235, 0.15);
+    --trace-indent-size: 32px;
+    --trace-base-padding: 20px;
+    --trace-border-radius: 16px;
+    --trace-border-radius-lg: 20px;
+    --trace-transition: all 0.3s ease;
+  }
+
   /* 聊天容器样式 */
   .chat-container {
     flex: 1;
@@ -1437,6 +2471,59 @@
     background: #f8f9fa;
     border-radius: 8px;
     margin-bottom: 20px;
+  }
+
+  .clarify-banner {
+    margin-bottom: 12px;
+    padding: 14px 16px;
+    border: 1px solid #f7c56b;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #fff8e8 0%, #fff3d4 100%);
+    box-shadow: 0 8px 18px rgba(196, 138, 18, 0.08);
+  }
+
+  .clarify-banner-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .clarify-banner-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #7a4a00;
+  }
+
+  .clarify-banner-risk {
+    font-size: 12px;
+    font-weight: 600;
+    color: #a86100;
+  }
+
+  .clarify-banner-body {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #7a5618;
+  }
+
+  .clarify-banner-tags,
+  .clarify-banner-assumptions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .clarify-banner-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #8a6528;
   }
 
   .empty-state {
@@ -1828,6 +2915,839 @@
     align-items: flex-end;
   }
 
+  .message-rich-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* 数据来源面板优化 */
+  .answer-explain-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding-right: 6px;
+  }
+
+  .answer-explain-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px;
+    background: linear-gradient(135deg, #f0f7ff 0%, #e8f4ff 100%);
+    border-radius: 16px;
+    border: 1px solid #d0e7ff;
+  }
+
+  .answer-explain-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 16px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #ffffff 0%, #f5fbff 100%);
+    border: 1px solid #b8daff;
+    color: #2563eb;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+    transition: all 0.3s ease;
+  }
+
+  .answer-explain-pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+    border-color: #409eff;
+  }
+
+  .answer-explain-section {
+    border: 1px solid #e0ebf8;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    transition: all 0.3s ease;
+  }
+
+  .answer-explain-section:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border-color: #c9dff5;
+  }
+
+  .answer-explain-section-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e3a5f;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .answer-explain-section-title::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 20px;
+    background: linear-gradient(180deg, #409eff 0%, #66b1ff 100%);
+    border-radius: 2px;
+  }
+
+  .answer-explain-card-list,
+  .answer-explain-step-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .answer-explain-card,
+  .answer-explain-step {
+    border: 1px solid #e8f1fa;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fcff 100%);
+    padding: 16px 18px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .answer-explain-card::before,
+  .answer-explain-step::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, #409eff 0%, #66b1ff 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .answer-explain-card:hover,
+  .answer-explain-step:hover {
+    border-color: #b8daff;
+    box-shadow: 0 4px 16px rgba(64, 158, 255, 0.12);
+    transform: translateX(4px);
+  }
+
+  .answer-explain-card:hover::before,
+  .answer-explain-step:hover::before {
+    opacity: 1;
+  }
+
+  .answer-explain-card-title,
+  .answer-explain-step-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: #1e3a5f;
+  }
+
+  .answer-explain-card-meta,
+  .answer-explain-step-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+    color: #6b7f95;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .answer-explain-card-body,
+  .answer-explain-step-body {
+    margin-top: 12px;
+    color: #3d5a7a;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .answer-explain-code,
+  .answer-explain-step-detail {
+    margin: 12px 0 0;
+    padding: 16px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #1a1f2e 0%, #0f1419 100%);
+    color: #e6f1ff;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+    border: 1px solid #2a3441;
+  }
+
+  .answer-explain-sql-summary {
+    color: #3d5a7a;
+    line-height: 1.9;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .answer-explain-kv {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .answer-explain-kv-row {
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+    padding: 12px 0;
+    border-bottom: 1px solid #eef4fa;
+    transition: background 0.2s ease;
+  }
+
+  .answer-explain-kv-row:hover {
+    background: linear-gradient(90deg, transparent 0%, #f5f9ff 100%);
+  }
+
+  .answer-explain-kv-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .answer-explain-kv-key {
+    color: #5a7291;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .answer-explain-kv-value {
+    color: #1e3a5f;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  .answer-explain-warning-list {
+    margin: 0;
+    padding-left: 20px;
+    color: #5a6e83;
+    line-height: 1.9;
+  }
+
+  /* Trace 按钮优化 */
+  .trace-button {
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+
+  .trace-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+  }
+
+  /* Trace 工具栏优化 */
+  .trace-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: linear-gradient(135deg, #f5f9ff 0%, #eef6ff 100%);
+    border-radius: 16px;
+    border: 1px solid #d0e7ff;
+  }
+
+  .trace-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .trace-summary-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 16px;
+    border: 1px solid #b8daff;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #ffffff 0%, #f5fbff 100%);
+    color: #2563eb;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+    transition: all 0.3s ease;
+  }
+
+  .trace-summary-pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+    border-color: #409eff;
+  }
+
+  .trace-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .trace-search-input {
+    width: 300px;
+  }
+
+  .trace-alert {
+    margin-bottom: 16px;
+  }
+
+  /* Trace 探索器优化 */
+  .trace-explorer {
+    display: grid;
+    grid-template-columns: minmax(380px, 45%) minmax(440px, 1fr);
+    gap: 20px;
+    min-height: 200vh;
+  }
+
+  .trace-pane {
+    border: 1px solid #d9e8f7;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fcff 100%);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .trace-pane:hover {
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
+  }
+
+  .trace-pane-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 20px 14px;
+    background: linear-gradient(135deg, #f5f9ff 0%, #eef6ff 100%);
+    border-bottom: 2px solid #e0ebf8;
+  }
+
+  .trace-pane-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e3a5f;
+  }
+
+  .trace-pane-count {
+    color: #5a7291;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    padding: 4px 12px;
+    background: rgba(64, 158, 255, 0.1);
+    border-radius: 999px;
+  }
+
+  /* Trace 列表优化 - 树形展示 */
+  .trace-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: calc(75vh - 60px);
+    overflow: auto;
+    padding: 16px;
+    position: relative;
+  }
+
+  .trace-row {
+    appearance: none;
+    width: 100%;
+    border: 2px solid #e8f1fa;
+    border-radius: 16px;
+    padding: 16px 18px;
+    background: linear-gradient(135deg, #ffffff 0%, #fafcff 100%);
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: visible;
+    margin-left: 0;
+  }
+
+  /* 树形连接线 - 垂直线 */
+  .trace-row::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 50%;
+    width: 16px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, #c9dff5 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  /* 树形连接线 - 水平线（用于显示层级） */
+  .trace-row::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #409eff 0%, #66b1ff 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border-radius: 16px 0 0 16px;
+  }
+
+  /* 为有深度的节点显示连接线 */
+  .trace-row[style*='paddingLeft']::before {
+    opacity: 0.6;
+  }
+
+  .trace-row:hover {
+    border-color: #409eff;
+    box-shadow: 0 8px 24px rgba(64, 158, 255, 0.15);
+    transform: translateY(-2px);
+    z-index: 1;
+  }
+
+  .trace-row:hover::after {
+    opacity: 1;
+  }
+
+  .trace-row.is-selected {
+    border-color: #409eff;
+    box-shadow: 0 12px 32px rgba(64, 158, 255, 0.2);
+    background: linear-gradient(135deg, #f0f7ff 0%, #e8f4ff 100%);
+    z-index: 2;
+  }
+
+  .trace-row.is-selected::after {
+    opacity: 1;
+    width: 5px;
+  }
+
+  .trace-row.is-error {
+    border-color: #f56c6c;
+    background: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);
+  }
+
+  .trace-row.is-error::after {
+    background: linear-gradient(180deg, #f56c6c 0%, #ff8080 100%);
+  }
+
+  .trace-row.is-error:hover {
+    border-color: #f56c6c;
+    box-shadow: 0 8px 24px rgba(245, 108, 108, 0.2);
+  }
+
+  .trace-row-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .trace-row-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: #1e3a5f;
+  }
+
+  .trace-row-duration {
+    color: #409eff;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    padding: 2px 10px;
+    background: rgba(64, 158, 255, 0.1);
+    border-radius: 999px;
+  }
+
+  .trace-row-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 10px;
+    color: #6b7f95;
+    font-size: 12px;
+    word-break: break-all;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .trace-row-meta span {
+    padding: 2px 8px;
+    background: rgba(107, 127, 149, 0.08);
+    border-radius: 6px;
+  }
+
+  /* Trace 详情面板优化 */
+  .trace-pane-detail {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .trace-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 20px 22px 16px;
+    background: linear-gradient(135deg, #f5f9ff 0%, #eef6ff 100%);
+    border-bottom: 2px solid #e0ebf8;
+  }
+
+  .trace-detail-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1e3a5f;
+    line-height: 1.4;
+  }
+
+  .trace-detail-subtitle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 10px;
+    color: #5a7291;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .trace-detail-subtitle span {
+    padding: 4px 10px;
+    background: rgba(90, 114, 145, 0.1);
+    border-radius: 6px;
+  }
+
+  .trace-detail-tags {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .trace-descriptions {
+    padding: 20px 22px 0;
+  }
+
+  /* Trace 消息面板优化 */
+  .trace-message-panel {
+    padding: 20px 22px 0;
+  }
+
+  .trace-message-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 14px;
+  }
+
+  .trace-message-group {
+    border: 2px solid #e0ebf8;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    transition: all 0.3s ease;
+  }
+
+  .trace-message-group:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border-color: #c9dff5;
+  }
+
+  .trace-message-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #f5f9ff 0%, #eef6ff 100%);
+    border-bottom: 2px solid #e0ebf8;
+  }
+
+  .trace-message-group-title {
+    color: #1e3a5f;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .trace-message-group-meta {
+    color: #5a7291;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    padding: 4px 12px;
+    background: rgba(64, 158, 255, 0.1);
+    border-radius: 999px;
+  }
+
+  .trace-message-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .trace-message-item {
+    display: grid;
+    grid-template-columns: 100px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+
+  .trace-message-role {
+    display: flex;
+    justify-content: center;
+    padding-top: 6px;
+  }
+
+  .trace-message-role-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 80px;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+  }
+
+  .trace-message-role-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+
+  .trace-message-item.is-system .trace-message-role-badge {
+    color: #92400e;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #fbbf24;
+  }
+
+  .trace-message-item.is-user .trace-message-role-badge {
+    color: #1e40af;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border: 1px solid #60a5fa;
+  }
+
+  .trace-message-item.is-assistant .trace-message-role-badge {
+    color: #065f46;
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    border: 1px solid #34d399;
+  }
+
+  .trace-message-item.is-tool-call .trace-message-role-badge {
+    color: #9a3412;
+    background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+    border: 1px solid #fb923c;
+  }
+
+  .trace-message-item.is-tool-result .trace-message-role-badge {
+    color: #6b21a8;
+    background: linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 100%);
+    border: 1px solid #a855f7;
+  }
+
+  .trace-message-item.is-other .trace-message-role-badge {
+    color: #374151;
+    background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+    border: 1px solid #9ca3af;
+  }
+
+  .trace-message-body {
+    padding: 16px 18px;
+    border-radius: 16px;
+    border: 2px solid #e8f1fa;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all 0.3s ease;
+  }
+
+  .trace-message-body:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    border-color: #d0e7ff;
+  }
+
+  .trace-message-item.is-user .trace-message-body {
+    background: linear-gradient(135deg, #f0f7ff 0%, #e8f4ff 100%);
+    border-color: #b8daff;
+  }
+
+  .trace-message-item.is-assistant .trace-message-body {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border-color: #bbf7d0;
+  }
+
+  .trace-message-item.is-system .trace-message-body {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border-color: #fde68a;
+  }
+
+  .trace-message-item.is-tool-call .trace-message-body {
+    background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+    border-color: #fed7aa;
+  }
+
+  .trace-message-item.is-tool-result .trace-message-body {
+    background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+    border-color: #e9d5ff;
+  }
+
+  .trace-message-title {
+    color: #1e3a5f;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  .trace-message-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .trace-skill-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 12px;
+    min-height: 28px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1e40af;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid #93c5fd;
+    box-shadow: 0 2px 6px rgba(30, 64, 175, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .trace-skill-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(30, 64, 175, 0.15);
+  }
+
+  .trace-message-content {
+    color: #1e3a5f;
+    font-size: 13px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .trace-message-content-structured,
+  .trace-message-details {
+    margin: 12px 0 0;
+    padding: 14px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #cbd5e1;
+    overflow: auto;
+    font-size: 12px;
+    line-height: 1.7;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Trace 属性面板优化 */
+  .trace-attribute-panel {
+    padding: 20px 22px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .trace-attribute-table {
+    border: 2px solid #e0ebf8;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    transition: all 0.3s ease;
+  }
+
+  .trace-attribute-table:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border-color: #c9dff5;
+  }
+
+  .trace-attribute-table-header,
+  .trace-attribute-row {
+    display: grid;
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  }
+
+  .trace-attribute-table-header {
+    background: linear-gradient(135deg, #f5f9ff 0%, #eef6ff 100%);
+    color: #1e3a5f;
+    font-size: 13px;
+    font-weight: 700;
+    border-bottom: 2px solid #e0ebf8;
+  }
+
+  .trace-attribute-table-header span,
+  .trace-attribute-key,
+  .trace-attribute-value {
+    padding: 14px 16px;
+  }
+
+  .trace-attribute-row + .trace-attribute-row {
+    border-top: 1px solid #eef4fa;
+  }
+
+  .trace-attribute-row {
+    transition: background 0.2s ease;
+  }
+
+  .trace-attribute-row:hover {
+    background: linear-gradient(90deg, #f8fcff 0%, #f0f7ff 100%);
+  }
+
+  .trace-attribute-key {
+    color: #1e3a5f;
+    font-size: 13px;
+    font-weight: 600;
+    word-break: break-all;
+    background: linear-gradient(135deg, #fafcff 0%, #f5f9ff 100%);
+    border-right: 2px solid #e0ebf8;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  .trace-attribute-value {
+    color: #3d5a7a;
+    font-size: 13px;
+    line-height: 1.8;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+
+  .trace-attribute-value-structured {
+    margin: 0;
+    padding: 14px;
+    overflow: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+  }
+
   @keyframes spin {
     from {
       transform: rotate(0deg);
@@ -1849,6 +3769,79 @@
 
     .input-container {
       flex-direction: column;
+    }
+
+    .trace-toolbar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+
+    .trace-toolbar-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .trace-search-input {
+      width: 100%;
+    }
+
+    .trace-explorer {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .answer-explain-kv-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .trace-detail-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+
+    .trace-message-item {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .trace-message-role {
+      justify-content: flex-start;
+      padding-top: 0;
+    }
+
+    .trace-message-group-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .trace-attribute-table-header,
+    .trace-attribute-row {
+      grid-template-columns: 1fr;
+    }
+
+    .trace-attribute-key {
+      border-right: none;
+      border-bottom: 1px solid #e0ebf8;
+    }
+
+    .answer-explain-summary {
+      padding: 12px;
+    }
+
+    .answer-explain-pill {
+      min-height: 32px;
+      padding: 0 12px;
+      font-size: 12px;
+    }
+
+    .trace-summary-pill {
+      min-height: 32px;
+      padding: 0 12px;
+      font-size: 12px;
     }
   }
 </style>

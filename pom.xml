@@ -52,22 +52,20 @@
     <!--        spotless version-->
     <spotless-maven-plugin.version>3.1.0</spotless-maven-plugin.version>
     <docker-java.version>3.5.3</docker-java.version>
-    <gpdb.version>3.0.0</gpdb.version>
     <druid.version>1.2.22</druid.version>
     <postgresql.version>42.4.1</postgresql.version>
     <commons-collections.version>3.2.1</commons-collections.version>
     <commons-io.version>2.18.0</commons-io.version>
-    <commonmark.version>0.17.0</commonmark.version>
     <httpclient5.version>5.4.1</httpclient5.version>
     <commons-compress.version>1.27.1</commons-compress.version>
     <netty-resolver-dns-native-macos.version>4.1.114.Final</netty-resolver-dns-native-macos.version>
     <netty-transport-native-epoll.version>4.1.114.Final</netty-transport-native-epoll.version>
-    <jsonschema.version>4.37.0</jsonschema.version>
     <h2.version>2.3.232</h2.version>
     <dameng.version>8.1.3.140</dameng.version>
     <testcontainers.version>1.21.4</testcontainers.version>
     <elasticsearch-client.version>8.18.0</elasticsearch-client.version>
     <opentelemetry.version>1.32.0</opentelemetry.version>
+    <opentelemetry-instrumentation.version>2.24.0-alpha</opentelemetry-instrumentation.version>
     <awaitility.version>4.2.2</awaitility.version>
     <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
   </properties>
@@ -99,11 +97,6 @@
         <version>${docker-java.version}</version>
         <type>pom</type>
         <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>com.aliyun</groupId>
-        <artifactId>gpdb20160503</artifactId>
-        <version>${gpdb.version}</version>
       </dependency>
       <dependency>
         <groupId>com.alibaba</groupId>
@@ -149,11 +142,6 @@
         <version>${commons-io.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.atlassian.commonmark</groupId>
-        <artifactId>commonmark</artifactId>
-        <version>${commonmark.version}</version>
-      </dependency>
-      <dependency>
         <groupId>org.apache.httpcomponents.client5</groupId>
         <artifactId>httpclient5</artifactId>
         <version>${httpclient5.version}</version>
@@ -162,16 +150,6 @@
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-compress</artifactId>
         <version>${commons-compress.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.github.victools</groupId>
-        <artifactId>jsonschema-generator</artifactId>
-        <version>${jsonschema.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.github.victools</groupId>
-        <artifactId>jsonschema-module-jackson</artifactId>
-        <version>${jsonschema.version}</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>

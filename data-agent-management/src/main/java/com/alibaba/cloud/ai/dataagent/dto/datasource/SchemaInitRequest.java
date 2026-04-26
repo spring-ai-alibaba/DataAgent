@@ -19,6 +19,7 @@ import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public class SchemaInitRequest implements Serializable {
@@ -26,6 +27,8 @@ public class SchemaInitRequest implements Serializable {
 	private DbConfigBO dbConfig;
 
 	private List<String> tables;
+
+	private Map<String, List<String>> visibleColumnsByTable;
 
 	public DbConfigBO getDbConfig() {
 		return dbConfig;
@@ -43,9 +46,18 @@ public class SchemaInitRequest implements Serializable {
 		this.tables = tables;
 	}
 
+	public Map<String, List<String>> getVisibleColumnsByTable() {
+		return visibleColumnsByTable;
+	}
+
+	public void setVisibleColumnsByTable(Map<String, List<String>> visibleColumnsByTable) {
+		this.visibleColumnsByTable = visibleColumnsByTable;
+	}
+
 	@Override
 	public String toString() {
-		return "SchemaInitRequest{" + "dbConfig=" + dbConfig + ", tables=" + tables + '}';
+		return "SchemaInitRequest{" + "dbConfig=" + dbConfig + ", tables=" + tables + ", visibleColumnsByTable="
+				+ visibleColumnsByTable + '}';
 	}
 
 	@Override
@@ -55,12 +67,13 @@ public class SchemaInitRequest implements Serializable {
 		if (o == null || getClass() != o.getClass())
 			return false;
 		SchemaInitRequest that = (SchemaInitRequest) o;
-		return Objects.equals(dbConfig, that.dbConfig) && Objects.equals(tables, that.tables);
+		return Objects.equals(dbConfig, that.dbConfig) && Objects.equals(tables, that.tables)
+				&& Objects.equals(visibleColumnsByTable, that.visibleColumnsByTable);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(dbConfig, tables);
+		return Objects.hash(dbConfig, tables, visibleColumnsByTable);
 	}
 
 }

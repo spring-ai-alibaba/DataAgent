@@ -45,6 +45,7 @@ export interface AgentDatasource {
   updateTime?: string;
   datasource?: Datasource;
   selectTables?: string[];
+  selectColumns?: Record<string, string[]>;
 }
 
 // 定义数据源类型接口
@@ -89,6 +90,23 @@ class DatasourceService {
     try {
       const response = await axios.get<string[]>(`${API_BASE_URL}/${id}/tables`);
       return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 400) {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  async getTableColumns(id: number, tableName: string): Promise<string[]> {
+    try {
+      const response = await axios.get<ApiResponse<string[]>>(
+        `${API_BASE_URL}/${id}/tables/${encodeURIComponent(tableName)}/columns`,
+      );
+      if (response.data.success) {
+        return response.data.data || [];
+      }
+      throw new Error(response.data.message);
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 400) {
         return [];

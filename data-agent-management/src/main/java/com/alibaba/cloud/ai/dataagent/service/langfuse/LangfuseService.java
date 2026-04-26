@@ -23,6 +23,7 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -68,7 +69,8 @@ public class LangfuseService {
 	// --- Token 累计器，按 threadId 隔离 ---
 	private static final ConcurrentHashMap<String, long[]> TOKEN_ACCUMULATOR = new ConcurrentHashMap<>();
 
-	public LangfuseService(Tracer langfuseTracer, @Value("${langfuse.enabled:true}") boolean enabled) {
+	public LangfuseService(@Qualifier("langfuseTracer") Tracer langfuseTracer,
+			@Value("${langfuse.enabled:true}") boolean enabled) {
 		this.tracer = langfuseTracer;
 		this.enabled = enabled;
 	}

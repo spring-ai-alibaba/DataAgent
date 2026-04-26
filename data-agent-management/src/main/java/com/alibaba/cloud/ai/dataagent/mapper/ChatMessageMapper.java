@@ -36,10 +36,19 @@ public interface ChatMessageMapper {
 	@Select("""
 			SELECT * FROM chat_message
 			WHERE session_id = #{sessionId}
-			  AND LOWER(TRIM(COALESCE(message_type, ''))) <> 'memory-text'
+			  AND LOWER(TRIM(COALESCE(message_type, ''))) NOT IN ('memory-text', 'answer-explain')
 			ORDER BY create_time ASC
 			""")
 	List<ChatMessage> selectVisibleBySessionId(@Param("sessionId") String sessionId);
+
+	@Select("""
+			SELECT * FROM chat_message
+			WHERE session_id = #{sessionId}
+			  AND LOWER(TRIM(COALESCE(message_type, ''))) = LOWER(#{messageType})
+			ORDER BY create_time DESC, id DESC
+			""")
+	List<ChatMessage> selectBySessionIdAndMessageType(@Param("sessionId") String sessionId,
+			@Param("messageType") String messageType);
 
 	@Select("""
 			SELECT * FROM (

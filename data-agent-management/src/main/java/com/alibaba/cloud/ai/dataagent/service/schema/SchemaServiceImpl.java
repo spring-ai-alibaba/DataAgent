@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.schema;
 
+import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
@@ -63,6 +64,8 @@ import static com.alibaba.cloud.ai.dataagent.util.DocumentConverterUtil.convertT
 @Service
 @AllArgsConstructor
 public class SchemaServiceImpl implements SchemaService {
+
+	private static final String FOREIGN_KEY_SEPARATOR = "、";
 
 	private final ExecutorService dbOperationExecutor;
 
@@ -168,6 +171,7 @@ public class SchemaServiceImpl implements SchemaService {
 			}
 
 			log.info("Successfully processed all tables for datasource: {}", datasourceId);
+			applyVisibleColumnRestrictions(tables, schemaInitRequest.getVisibleColumnsByTable());
 
 			// 转换为文档
 			List<Document> columnDocs = convertColumnsToDocuments(datasourceId, tables);
@@ -281,6 +285,123 @@ public class SchemaServiceImpl implements SchemaService {
 
 		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.TABLE);
 		agentVectorStoreService.deleteDocumentsByMetadata(metadata);
+	}
+
+	private void applyVisibleColumnRestrictions(List<TableInfoBO> tables, Map<String, List<String>> visibleColumnsByTable) {
+		Map<String, Set<String>> normalizedRestrictions = normalizeVisibleColumnRestrictions(visibleColumnsByTable);
+		if (normalizedRestrictions.isEmpty()) {
+			return;
+		}
+		for (TableInfoBO table : Optional.ofNullable(tables).orElse(List.of())) {
+			Set<String> visibleColumns = resolveVisibleColumns(normalizedRestrictions, table.getName());
+			if (visibleColumns == null) {
+				continue;
+			}
+			List<ColumnInfoBO> filteredColumns = Optional.ofNullable(table.getColumns())
+				.orElse(List.of())
+				.stream()
+				.filter(column -> visibleColumns.contains(normalizeIdentifier(column.getName())))
+				.toList();
+			table.setColumns(filteredColumns);
+			List<String> filteredPrimaryKeys = Optional.ofNullable(table.getPrimaryKeys())
+				.orElse(List.of())
+				.stream()
+				.filter(primaryKey -> visibleColumns.contains(normalizeIdentifier(primaryKey)))
+				.toList();
+			table.setPrimaryKeys(filteredPrimaryKeys);
+			table.setForeignKey(filterForeignKeyText(table.getForeignKey(), normalizedRestrictions));
+		}
+	}
+
+	private Map<String, Set<String>> normalizeVisibleColumnRestrictions(Map<String, List<String>> visibleColumnsByTable) {
+		Map<String, Set<String>> normalizedRestrictions = new LinkedHashMap<>();
+		Optional.ofNullable(visibleColumnsByTable).orElse(Map.of()).forEach((tableName, columns) -> {
+			String normalizedTableName = normalizeIdentifier(tableName);
+			if (StringUtils.isBlank(normalizedTableName)) {
+				return;
+			}
+			Set<String> normalizedColumns = Optional.ofNullable(columns)
+				.orElse(List.of())
+				.stream()
+				.map(this::normalizeIdentifier)
+				.filter(StringUtils::isNotBlank)
+				.collect(Collectors.toCollection(LinkedHashSet::new));
+			if (!normalizedColumns.isEmpty()) {
+				normalizedRestrictions.put(normalizedTableName, Set.copyOf(normalizedColumns));
+			}
+		});
+		return normalizedRestrictions;
+	}
+
+	private String filterForeignKeyText(String foreignKeyText, Map<String, Set<String>> visibleColumnsByTable) {
+		if (StringUtils.isBlank(foreignKeyText)) {
+			return foreignKeyText;
+		}
+		return Arrays.stream(foreignKeyText.split(Pattern.quote(FOREIGN_KEY_SEPARATOR)))
+			.map(StringUtils::trimToEmpty)
+			.filter(StringUtils::isNotBlank)
+			.filter(relation -> isForeignKeyRelationVisible(relation, visibleColumnsByTable))
+			.collect(Collectors.joining(FOREIGN_KEY_SEPARATOR));
+	}
+
+	private boolean isForeignKeyRelationVisible(String relation, Map<String, Set<String>> visibleColumnsByTable) {
+		String[] parts = StringUtils.splitByWholeSeparatorPreserveAllTokens(relation, "=");
+		if (parts == null || parts.length != 2) {
+			return false;
+		}
+		return isColumnReferenceVisible(parts[0], visibleColumnsByTable)
+				&& isColumnReferenceVisible(parts[1], visibleColumnsByTable);
+	}
+
+	private boolean isColumnReferenceVisible(String reference, Map<String, Set<String>> visibleColumnsByTable) {
+		String normalizedReference = normalizeIdentifier(reference);
+		int lastDot = normalizedReference.lastIndexOf('.');
+		if (lastDot <= 0 || lastDot >= normalizedReference.length() - 1) {
+			return false;
+		}
+		String tableName = normalizedReference.substring(0, lastDot);
+		String columnName = normalizedReference.substring(lastDot + 1);
+		Set<String> visibleColumns = resolveVisibleColumns(visibleColumnsByTable, tableName);
+		if (visibleColumns == null) {
+			return true;
+		}
+		return visibleColumns.contains(columnName);
+	}
+
+	private Set<String> resolveVisibleColumns(Map<String, Set<String>> visibleColumnsByTable, String tableName) {
+		String normalizedTableName = normalizeIdentifier(tableName);
+		Set<String> exactMatch = visibleColumnsByTable.get(normalizedTableName);
+		if (exactMatch != null) {
+			return exactMatch;
+		}
+		String normalizedLeafTableName = normalizeLeafIdentifier(normalizedTableName);
+		List<Set<String>> leafMatches = visibleColumnsByTable.entrySet()
+			.stream()
+			.filter(entry -> normalizeLeafIdentifier(entry.getKey()).equals(normalizedLeafTableName))
+			.map(Map.Entry::getValue)
+			.distinct()
+			.toList();
+		if (leafMatches.size() == 1) {
+			return leafMatches.get(0);
+		}
+		return null;
+	}
+
+	private String normalizeIdentifier(String value) {
+		String normalized = StringUtils.trimToEmpty(value);
+		normalized = StringUtils.removeStart(normalized, "`");
+		normalized = StringUtils.removeEnd(normalized, "`");
+		normalized = StringUtils.removeStart(normalized, "\"");
+		normalized = StringUtils.removeEnd(normalized, "\"");
+		normalized = StringUtils.removeStart(normalized, "[");
+		normalized = StringUtils.removeEnd(normalized, "]");
+		return normalized.toLowerCase(Locale.ROOT);
+	}
+
+	private String normalizeLeafIdentifier(String value) {
+		String normalized = normalizeIdentifier(value);
+		int lastDot = normalized.lastIndexOf('.');
+		return lastDot >= 0 ? normalized.substring(lastDot + 1) : normalized;
 	}
 
 	@Override

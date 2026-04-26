@@ -13,9 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.agentscope.runtime;
+package com.alibaba.cloud.ai.dataagent.dto.datasource;
 
-public record AgentRuntimeRequestMetadata(String agentId, String threadId, String runtimeRequestId,
-		boolean nl2sqlOnly, boolean humanFeedback, String humanFeedbackContent) {
+import jakarta.validation.constraints.NotBlank;
+import java.util.List;
+import lombok.Data;
+
+@Data
+public class TableColumnsSelectionDTO {
+
+	@NotBlank(message = "tableName cannot be blank")
+	private String tableName;
+
+	private List<String> columns;
 
 }

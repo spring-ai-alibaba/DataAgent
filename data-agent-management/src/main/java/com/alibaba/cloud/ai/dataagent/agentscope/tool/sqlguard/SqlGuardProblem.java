@@ -1,5 +1,5 @@
 /*
- * Copyright 2024-2026 the original author or authors.
+ * Copyright 2026 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,26 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.controller;
+package com.alibaba.cloud.ai.dataagent.agentscope.tool.sqlguard;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import lombok.Builder;
+import lombok.Data;
 
-/**
- * @author yingzi
- * @since 2025/9/16
- */
-@RestController
-@RequestMapping("/echo")
-public class EchoController {
+@Data
+@Builder
+class SqlGuardProblem {
 
-	/**
-	 * 心跳检测
-	 */
-	@GetMapping("ok")
-	public String ok() {
-		return "ok";
-	}
+    private String code;
+
+    private String title;
+
+    private String severity;
+
+    private String message;
+
+    private String why;
+
+    private String expected;
+
+    private String actual;
+
+    private String evidence;
+
+    private String repairHint;
 
 }

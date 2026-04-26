@@ -17,11 +17,22 @@
 export interface GraphRequest {
   agentId: string;
   threadId?: string;
+  runtimeRequestId?: string;
   query: string;
-  humanFeedback: boolean;
+  humanFeedback?: boolean;
   humanFeedbackContent?: string;
   rejectedPlan: boolean;
   nl2sqlOnly: boolean;
+}
+
+export interface ClarifyMetadata {
+  clarifyRequired?: boolean;
+  riskLevel?: string;
+  originalQuery?: string;
+  missingDimensions?: string[];
+  followUpQuestions?: string[];
+  suggestedAssumptions?: string[];
+  summary?: string;
 }
 
 export interface GraphNodeResponse {
@@ -30,6 +41,7 @@ export interface GraphNodeResponse {
   nodeName: string;
   textType: TextType;
   text: string;
+  metadata?: ClarifyMetadata & Record<string, any>;
   error: boolean;
   complete: boolean;
 }
@@ -67,14 +79,18 @@ class GraphService {
     if (request.threadId) {
       params.append('threadId', request.threadId);
     }
+    if (request.runtimeRequestId) {
+      params.append('runtimeRequestId', request.runtimeRequestId);
+    }
     params.append('query', request.query);
-    params.append('humanFeedback', request.humanFeedback.toString());
-    params.append('rejectedPlan', request.rejectedPlan.toString());
-    params.append('nl2sqlOnly', request.nl2sqlOnly.toString());
-
+    if (request.humanFeedback) {
+      params.append('humanFeedback', request.humanFeedback.toString());
+    }
     if (request.humanFeedbackContent) {
       params.append('humanFeedbackContent', request.humanFeedbackContent);
     }
+    params.append('rejectedPlan', request.rejectedPlan.toString());
+    params.append('nl2sqlOnly', request.nl2sqlOnly.toString());
 
     const url = `${API_BASE_URL}/stream/search?${params.toString()}`;
 

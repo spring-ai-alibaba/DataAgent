@@ -13,21 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.bo.schema;
+package com.alibaba.cloud.ai.dataagent.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ResultBO {
+public class AgentDatasourceColumn {
 
-	private ResultSetBO resultSet;
+	private Integer id;
 
-	private DisplayStyleBO displayStyle;
+	private Integer agentDatasourceId;
+
+	private String tableName;
+
+	private String columnName;
+
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	@DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	private LocalDateTime createTime;
+
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	@DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	private LocalDateTime updateTime;
 
 }

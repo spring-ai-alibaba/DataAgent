@@ -16,25 +16,17 @@
 package com.alibaba.cloud.ai.dataagent.util;
 
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
+import java.util.Arrays;
+import java.util.Locale;
+import java.util.stream.Collectors;
 import lombok.experimental.UtilityClass;
 
 /**
- * SQL 工具类
- *
- * @author Yang Yufeng
- * @version 1.0
+ * SQL utilities.
  */
 @UtilityClass
 public class SqlUtil {
 
-	/**
-	 * 构建SELECT SQL语句
-	 * @param typeName 数据源类型
-	 * @param tableName 表名
-	 * @param columnNames 列名
-	 * @param limit 查询数量限制
-	 * @return SELECT SQL语句
-	 */
 	public static String buildSelectSql(String typeName, String tableName, String columnNames, int limit) {
 		if (tableName == null || tableName.isEmpty()) {
 			throw new IllegalArgumentException("Table name cannot be empty");
@@ -44,17 +36,42 @@ public class SqlUtil {
 		}
 
 		if (BizDataSourceTypeEnum.isSqlServerDialect(typeName)) {
-			// SQL Server 使用 TOP
 			return String.format("SELECT TOP %d %s FROM %s", limit, columnNames, tableName);
 		}
-		else if (BizDataSourceTypeEnum.isOracleDialect(typeName)) {
-			// Oracle 使用 FETCH FIRST (Oracle 12c+)
+		if (BizDataSourceTypeEnum.isOracleDialect(typeName)) {
 			return String.format("SELECT %s FROM %s FETCH FIRST %d ROWS ONLY", columnNames, tableName, limit);
 		}
-		else {
-			// MySQL, PostgreSQL, H2, SQLite 通用 LIMIT
-			return String.format("SELECT %s FROM %s LIMIT %d", columnNames, tableName, limit);
+		return String.format("SELECT %s FROM %s LIMIT %d", columnNames, tableName, limit);
+	}
+
+	public static String quoteIdentifier(String typeName, String identifier) {
+		if (identifier == null || identifier.isBlank()) {
+			throw new IllegalArgumentException("Identifier cannot be empty");
 		}
+		String trimmed = identifier.trim();
+		if ("*".equals(trimmed)) {
+			return trimmed;
+		}
+		String normalizedType = typeName == null ? "" : typeName.toLowerCase(Locale.ROOT);
+		boolean mysqlLikeDialect = BizDataSourceTypeEnum.isMysqlDialect(normalizedType);
+		String quoteStart = mysqlLikeDialect ? "`" : "\"";
+		String quoteEnd = mysqlLikeDialect ? "`" : "\"";
+		return Arrays.stream(trimmed.split("\\."))
+			.map(String::trim)
+			.filter(part -> !part.isEmpty())
+			.map(part -> wrapIdentifierPart(part, quoteStart, quoteEnd))
+			.collect(Collectors.joining("."));
+	}
+
+	private static String wrapIdentifierPart(String identifierPart, String quoteStart, String quoteEnd) {
+		String normalizedPart = identifierPart;
+		if ((normalizedPart.startsWith("`") && normalizedPart.endsWith("`"))
+				|| (normalizedPart.startsWith("\"") && normalizedPart.endsWith("\""))
+				|| (normalizedPart.startsWith("[") && normalizedPart.endsWith("]"))) {
+			normalizedPart = normalizedPart.substring(1, normalizedPart.length() - 1);
+		}
+		String escapedPart = normalizedPart.replace(quoteEnd, quoteEnd + quoteEnd);
+		return quoteStart + escapedPart + quoteEnd;
 	}
 
 }

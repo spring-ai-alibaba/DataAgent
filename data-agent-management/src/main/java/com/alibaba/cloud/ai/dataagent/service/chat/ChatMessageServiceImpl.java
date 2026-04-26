@@ -53,6 +53,11 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 	}
 
 	@Override
+	public List<ChatMessage> findBySessionIdAndMessageType(String sessionId, String messageType) {
+		return chatMessageMapper.selectBySessionIdAndMessageType(sessionId, messageType);
+	}
+
+	@Override
 	public ChatMessage saveMessage(ChatMessage message) {
 		chatMessageMapper.insert(message);
 		log.info("Saved message: {} for session: {}", message.getId(), message.getSessionId());

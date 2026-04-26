@@ -39,6 +39,81 @@ export interface ChatMessage {
   titleNeeded?: boolean;
 }
 
+export interface AnswerTraceSemanticHit {
+  tableName?: string;
+  columnName?: string;
+  businessName?: string;
+  businessDescription?: string;
+  matchedBy?: string;
+  score?: number;
+  relationHint?: string;
+}
+
+export interface AnswerTraceKnowledgeHit {
+  vectorType?: string;
+  knowledgeId?: string;
+  title?: string;
+  summary?: string;
+  snippet?: string;
+  source?: string;
+  concreteType?: string;
+}
+
+export interface AnswerTraceToolStep {
+  toolName?: string;
+  title?: string;
+  summary?: string;
+  detail?: string;
+  datasource?: string;
+  timestampEpochMs?: number;
+}
+
+export interface AnswerTraceExplain {
+  sessionId: string;
+  runtimeRequestId: string;
+  agentId?: string;
+  question?: string;
+  answer?: string;
+  datasource?: string;
+  sql?: string;
+  sqlExplanation?: string;
+  semanticHits: AnswerTraceSemanticHit[];
+  knowledgeHits: AnswerTraceKnowledgeHit[];
+  toolSteps: AnswerTraceToolStep[];
+  usedTables: string[];
+  usedColumns: string[];
+  permissions: Record<string, any>;
+  stats: Record<string, any>;
+  warnings: string[];
+  updatedAt: number;
+}
+
+export interface TraceSpan {
+  name: string;
+  spanId: string;
+  parentSpanId: string;
+  kind: string;
+  status: string;
+  startEpochMs: number;
+  endEpochMs: number;
+  durationMs: number;
+  attributes: Record<string, string>;
+  children: TraceSpan[];
+}
+
+export interface SessionTrace {
+  sessionId: string;
+  traceId: string;
+  runtimeRequestId: string;
+  agentId: string;
+  startEpochMs: number;
+  endEpochMs: number;
+  durationMs: number;
+  spanCount: number;
+  rootSpan: TraceSpan | null;
+  rootSpans: TraceSpan[];
+}
+
 const API_BASE_URL = '/api';
 
 class ChatService {
@@ -86,6 +161,18 @@ class ChatService {
   async getSessionMessages(sessionId: string): Promise<ChatMessage[]> {
     const response = await axios.get<ChatMessage[]>(
       `${API_BASE_URL}/sessions/${sessionId}/messages`,
+    );
+    return response.data;
+  }
+
+  async getSessionTrace(sessionId: string): Promise<SessionTrace> {
+    const response = await axios.get<SessionTrace>(`${API_BASE_URL}/sessions/${sessionId}/trace`);
+    return response.data;
+  }
+
+  async getAnswerExplain(sessionId: string, runtimeRequestId: string): Promise<AnswerTraceExplain> {
+    const response = await axios.get<AnswerTraceExplain>(
+      `${API_BASE_URL}/sessions/${sessionId}/answers/${runtimeRequestId}/explain`,
     );
     return response.data;
   }

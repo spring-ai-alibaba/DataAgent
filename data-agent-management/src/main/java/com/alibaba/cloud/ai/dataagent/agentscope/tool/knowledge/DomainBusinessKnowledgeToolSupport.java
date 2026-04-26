@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.agentscope.tool.knowledge;
 
+import com.alibaba.cloud.ai.dataagent.agentscope.dto.GraphRequest;
+import com.alibaba.cloud.ai.dataagent.agentscope.runtime.ToolContextRequestResolver;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.DomainKnowledgeSearchService;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.DomainKnowledgeSearchService.DomainKnowledgeSearchRequest;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -99,6 +101,11 @@ public class DomainBusinessKnowledgeToolSupport {
 
 		@Override
 		public String call(String toolInput) {
+			return call(toolInput, null);
+		}
+
+		@Override
+		public String call(String toolInput, ToolContext toolContext) {
 			try {
 				JsonNode jsonNode = StringUtils.hasText(toolInput) ? objectMapper.readTree(toolInput)
 						: objectMapper.createObjectNode();
@@ -120,16 +127,12 @@ public class DomainBusinessKnowledgeToolSupport {
 
 				DomainKnowledgeSearchRequest request = new DomainKnowledgeSearchRequest(query,
 						knowledgeTypes.isEmpty() ? null : List.copyOf(knowledgeTypes), topK, similarityThreshold);
-				return objectMapper.writeValueAsString(domainKnowledgeSearchService.search(agentId, request));
+				GraphRequest graphRequest = ToolContextRequestResolver.resolveGraphRequest(toolContext);
+				return objectMapper.writeValueAsString(domainKnowledgeSearchService.search(agentId, request, graphRequest));
 			}
 			catch (Exception ex) {
 				throw new IllegalStateException("Failed to search domain business knowledge: " + ex.getMessage(), ex);
 			}
-		}
-
-		@Override
-		public String call(String toolInput, ToolContext toolContext) {
-			return call(toolInput);
 		}
 
 	}

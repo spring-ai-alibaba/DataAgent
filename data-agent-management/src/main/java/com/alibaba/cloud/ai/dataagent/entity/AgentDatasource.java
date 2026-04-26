@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.entity;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -49,6 +50,9 @@ public class AgentDatasource {
 
 	// 当前数据源选中的表
 	private List<String> selectTables;
+
+	// 当前数据源按表配置的字段白名单；未配置的表默认整表可见
+	private Map<String, List<String>> selectColumns;
 
 	public AgentDatasource(Long agentId, Integer datasourceId) {
 		this.agentId = agentId;

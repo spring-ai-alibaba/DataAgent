@@ -2,6 +2,5 @@
   "$schema": "https://unpkg.com/knip@4/schema.json",
   "entry": ["src/main.js", "src/**/*.vue", "vite.config.js"],
   "project": ["src/**/*.{js,ts,vue}"],
-  "ignore": ["**/*.d.ts"],
-  "ignoreDependencies": ["@vitejs/plugin-vue", "vite"]
+  "ignore": ["**/*.d.ts"]
 }
