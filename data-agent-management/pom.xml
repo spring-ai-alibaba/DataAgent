@@ -364,6 +364,13 @@
             <artifactId>docker-java-transport-zerodep</artifactId>
         </dependency>
 
+        <!-- clickhouse -->
+        <dependency>
+            <groupId>com.clickhouse</groupId>
+            <artifactId>clickhouse-jdbc</artifactId>
+            <version>0.9.7</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
     <repositories>
         <repository>
