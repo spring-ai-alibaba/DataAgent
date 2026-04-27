@@ -122,6 +122,11 @@ public class SqlExecutor {
 					statement.execute("ALTER SESSION SET CURRENT_SCHEMA = " + databaseOrSchema);
 				}
 			}
+			else if (dialect.equals(DatabaseDialectEnum.CLICKHOUSE.code)) {
+				if (StringUtils.isNotEmpty(databaseOrSchema)) {
+					statement.execute("set search_path = '" + databaseOrSchema + "';");
+				}
+			}
 
 			ResultSet rs = statement.executeQuery(sql);
 
