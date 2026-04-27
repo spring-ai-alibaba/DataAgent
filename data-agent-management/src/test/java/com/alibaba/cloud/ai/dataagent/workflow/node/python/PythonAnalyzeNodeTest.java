@@ -102,7 +102,7 @@ class PythonAnalyzeNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callSystem(anyString()))
+		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("销售总额为15000元，平均销售额3000元")));
 
 		Map<String, Object> result = pythonAnalyzeNode.apply(state);
@@ -116,7 +116,7 @@ class PythonAnalyzeNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callSystem(anyString())).thenThrow(new RuntimeException("LLM service unavailable"));
+		when(llmService.callUser(anyString())).thenThrow(new RuntimeException("LLM service unavailable"));
 
 		assertThrows(RuntimeException.class, () -> pythonAnalyzeNode.apply(state));
 	}
@@ -139,7 +139,7 @@ class PythonAnalyzeNodeTest {
 		state.updateState(Map.of(PYTHON_EXECUTE_NODE_OUTPUT, "", PLAN_CURRENT_STEP, 1, QUERY_ENHANCE_NODE_OUTPUT,
 				TEST_QUERY_ENHANCE, PLANNER_NODE_OUTPUT, TEST_PLAN_JSON));
 
-		when(llmService.callSystem(anyString()))
+		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("Python输出为空，无法进行深入分析")));
 
 		Map<String, Object> result = pythonAnalyzeNode.apply(state);
@@ -156,7 +156,7 @@ class PythonAnalyzeNodeTest {
 		existingResults.put("step_1", "{\"data\": []}");
 		state.updateState(Map.of(SQL_EXECUTE_NODE_OUTPUT, existingResults));
 
-		when(llmService.callSystem(anyString()))
+		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("分析完成：数据为空")));
 
 		Map<String, Object> result = pythonAnalyzeNode.apply(state);
@@ -171,7 +171,7 @@ class PythonAnalyzeNodeTest {
 		state.updateState(Map.of(PYTHON_EXECUTE_NODE_OUTPUT, "{{{{invalid json garbage}}}}", PLAN_CURRENT_STEP, 1,
 				QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE, PLANNER_NODE_OUTPUT, TEST_PLAN_JSON));
 
-		when(llmService.callSystem(anyString()))
+		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("无法解析Python输出")));
 
 		Map<String, Object> result = pythonAnalyzeNode.apply(state);
@@ -184,7 +184,7 @@ class PythonAnalyzeNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callSystem(anyString())).thenReturn(Flux.error(new RuntimeException("LLM analysis timeout")));
+		when(llmService.callUser(anyString())).thenReturn(Flux.error(new RuntimeException("LLM analysis timeout")));
 
 		Map<String, Object> result = pythonAnalyzeNode.apply(state);
 		assertNotNull(result);

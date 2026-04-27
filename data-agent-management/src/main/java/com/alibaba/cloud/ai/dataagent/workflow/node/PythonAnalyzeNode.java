@@ -84,7 +84,7 @@ public class PythonAnalyzeNode implements NodeAction {
 		String systemPrompt = PromptConstant.getPythonAnalyzePromptTemplate()
 			.render(Map.of("python_output", pythonOutput, "user_query", userQuery));
 
-		Flux<ChatResponse> pythonAnalyzeFlux = llmService.callSystem(systemPrompt);
+		Flux<ChatResponse> pythonAnalyzeFlux = llmService.callUser(systemPrompt);
 
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, "正在分析代码运行结果...\n", "\n结果分析完成。", aiResponse -> {
