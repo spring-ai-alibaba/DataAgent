@@ -26,12 +26,14 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -60,7 +62,7 @@ class AbstractHybridRetrievalStrategyTest {
 		Document fusedDoc = new Document("fused result");
 
 		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(vectorDoc));
-		when(fusionStrategy.fuseResults(anyInt(), any(), any())).thenReturn(List.of(fusedDoc));
+		when(fusionStrategy.fuseResultsWithWeights(anyInt(), anyList(), any(), any())).thenReturn(List.of(fusedDoc));
 
 		strategy.setKeywordResults(List.of(keywordDoc));
 
@@ -75,7 +77,7 @@ class AbstractHybridRetrievalStrategyTest {
 	@Test
 	void testRetrieve_emptyResults() {
 		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
-		when(fusionStrategy.fuseResults(anyInt(), any(), any())).thenReturn(List.of());
+		when(fusionStrategy.fuseResultsWithWeights(anyInt(), anyList(), any(), any())).thenReturn(List.of());
 
 		strategy.setKeywordResults(List.of());
 
@@ -84,6 +86,28 @@ class AbstractHybridRetrievalStrategyTest {
 		List<Document> results = strategy.retrieve(request);
 		assertNotNull(results);
 		assertTrue(results.isEmpty());
+	}
+
+	@Test
+	void testRetrieve_passesConfiguredFusionWeights() {
+		Document vectorDoc = new Document("vector result");
+		Document keywordDoc = new Document("keyword result");
+
+		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(vectorDoc));
+		when(fusionStrategy.fuseResultsWithWeights(anyInt(), anyList(), any(), any())).thenReturn(List.of(vectorDoc));
+
+		strategy.setKeywordResults(List.of(keywordDoc));
+
+		HybridSearchRequest request = HybridSearchRequest.builder()
+			.query("test")
+			.topK(5)
+			.vectorWeight(0.7)
+			.keywordWeight(0.3)
+			.build();
+
+		strategy.retrieve(request);
+
+		verify(fusionStrategy).fuseResultsWithWeights(eq(5), eq(Arrays.asList(0.7, 0.3)), any(), any());
 	}
 
 	static class TestHybridRetrievalStrategy extends AbstractHybridRetrievalStrategy {

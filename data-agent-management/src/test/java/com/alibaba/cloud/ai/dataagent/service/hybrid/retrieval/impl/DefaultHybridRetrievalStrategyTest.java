@@ -26,6 +26,7 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -71,14 +72,14 @@ class DefaultHybridRetrievalStrategyTest {
 		HybridSearchRequest request = HybridSearchRequest.builder().query("test query").topK(5).build();
 
 		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(vectorResults);
-		when(fusionStrategy.fuseResults(eq(5), any(), any())).thenReturn(vectorResults);
+		when(fusionStrategy.fuseResultsWithWeights(eq(5), anyList(), any(), any())).thenReturn(vectorResults);
 
 		List<Document> result = strategy.retrieve(request);
 
 		assertEquals(1, result.size());
 		assertEquals("v1", result.get(0).getId());
 		verify(vectorStore).similaritySearch(any(SearchRequest.class));
-		verify(fusionStrategy).fuseResults(eq(5), any(), any());
+		verify(fusionStrategy).fuseResultsWithWeights(eq(5), eq(Arrays.asList(0.5, 0.5)), any(), any());
 	}
 
 }
