@@ -101,6 +101,14 @@ public class DatasourceServiceImpl implements DatasourceService {
 			datasource.setTestStatus("unknown");
 		}
 
+		if (datasource.getPassword() == null) {
+			datasource.setPassword("");
+		}
+
+		if (datasource.getUsername() == null) {
+			datasource.setUsername("");
+		}
+
 		datasourceMapper.insert(datasource);
 		return datasource;
 	}
@@ -114,6 +122,14 @@ public class DatasourceServiceImpl implements DatasourceService {
 			datasource.setConnectionUrl(connectionUrl);
 		}
 		datasource.setId(id);
+
+		if (datasource.getPassword() == null) {
+			datasource.setPassword("");
+		}
+
+		if (datasource.getUsername() == null) {
+			datasource.setUsername("");
+		}
 
 		datasourceMapper.updateById(datasource);
 		return datasource;

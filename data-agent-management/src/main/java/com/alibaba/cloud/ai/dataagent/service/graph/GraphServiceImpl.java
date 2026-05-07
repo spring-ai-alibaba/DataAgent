@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.graph;
 
+import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.workflow.node.PlannerNode;
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
@@ -25,6 +26,7 @@ import com.alibaba.cloud.ai.graph.*;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
+import io.opentelemetry.api.trace.Span;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
@@ -54,11 +56,15 @@ public class GraphServiceImpl implements GraphService {
 
 	private final MultiTurnContextManager multiTurnContextManager;
 
+	private final LangfuseService langfuseReporter;
+
 	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService,
-			MultiTurnContextManager multiTurnContextManager) throws GraphStateException {
+			MultiTurnContextManager multiTurnContextManager, LangfuseService langfuseReporter)
+			throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
 		this.executor = executorService;
 		this.multiTurnContextManager = multiTurnContextManager;
+		this.langfuseReporter = langfuseReporter;
 	}
 
 	@Override
@@ -100,6 +106,10 @@ public class GraphServiceImpl implements GraphService {
 		multiTurnContextManager.discardPending(threadId);
 		StreamContext context = streamContextMap.remove(threadId);
 		if (context != null) {
+			// 客户端断开，结束 Langfuse span
+			if (context.getSpan() != null && context.getSpan().isRecording()) {
+				langfuseReporter.endSpanSuccess(context.getSpan(), threadId, context.getCollectedOutput());
+			}
 			context.cleanup();
 			log.info("Cleaned up stream context for threadId: {}", threadId);
 		}
@@ -123,11 +133,15 @@ public class GraphServiceImpl implements GraphService {
 			log.warn("StreamContext already cleaned for threadId: {}, skipping stream start", threadId);
 			return;
 		}
+		// 开始 Langfuse 追踪
+		Span span = langfuseReporter.startLLMSpan("graph-stream", graphRequest);
+		context.setSpan(span);
+
 		String multiTurnContext = multiTurnContextManager.buildContext(threadId);
 		multiTurnContextManager.beginTurn(threadId, query);
 		Flux<NodeOutput> nodeOutputFlux = compiledGraph.stream(
 				Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED,
-						humanReviewEnabled, MULTI_TURN_CONTEXT, multiTurnContext),
+						humanReviewEnabled, MULTI_TURN_CONTEXT, multiTurnContext, TRACE_THREAD_ID, threadId),
 				RunnableConfig.builder().threadId(threadId).build());
 		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
 	}
@@ -147,6 +161,10 @@ public class GraphServiceImpl implements GraphService {
 			log.warn("StreamContext already cleaned for threadId: {}, skipping stream start", threadId);
 			return;
 		}
+		// 开始 Langfuse 追踪
+		Span span = langfuseReporter.startLLMSpan("graph-feedback", graphRequest);
+		context.setSpan(span);
+
 		Map<String, Object> feedbackData = Map.of("feedback", !graphRequest.isRejectedPlan(), "feedback_content",
 				feedbackContent);
 		if (graphRequest.isRejectedPlan()) {
@@ -213,9 +231,13 @@ public class GraphServiceImpl implements GraphService {
 	private void handleStreamError(String agentId, String threadId, Throwable error) {
 		log.error("Error in stream processing for threadId: {}: ", threadId, error);
 		StreamContext context = streamContextMap.remove(threadId);
-		if (context != null && !context.isCleaned() && context.getSink() != null) {
-			// 检查 sink 是否还有订阅者
-			if (context.getSink().currentSubscriberCount() > 0) {
+		if (context != null && !context.isCleaned()) {
+			// 结束 Langfuse span（失败）
+			if (context.getSpan() != null) {
+				langfuseReporter.endSpanError(context.getSpan(), threadId,
+						error instanceof Exception ? (Exception) error : new RuntimeException(error));
+			}
+			if (context.getSink() != null && context.getSink().currentSubscriberCount() > 0) {
 				context.getSink()
 					.tryEmitNext(ServerSentEvent
 						.builder(GraphNodeResponse.error(agentId, threadId,
@@ -236,8 +258,12 @@ public class GraphServiceImpl implements GraphService {
 		log.info("Stream processing completed successfully for threadId: {}", threadId);
 		multiTurnContextManager.finishTurn(threadId);
 		StreamContext context = streamContextMap.remove(threadId);
-		if (context != null && !context.isCleaned() && context.getSink() != null) {
-			if (context.getSink().currentSubscriberCount() > 0) {
+		if (context != null && !context.isCleaned()) {
+			// 结束 Langfuse span（成功）
+			if (context.getSpan() != null) {
+				langfuseReporter.endSpanSuccess(context.getSpan(), threadId, context.getCollectedOutput());
+			}
+			if (context.getSink() != null && context.getSink().currentSubscriberCount() > 0) {
 				context.getSink()
 					.tryEmitNext(ServerSentEvent.builder(GraphNodeResponse.complete(agentId, threadId))
 						.event(STREAM_EVENT_COMPLETE)
@@ -294,6 +320,7 @@ public class GraphServiceImpl implements GraphService {
 		}
 		// 文本标记符号不返回给前端
 		if (!isTypeSign) {
+			context.appendOutput(chunk);
 			if (PlannerNode.class.getSimpleName().equals(node)) {
 				multiTurnContextManager.appendPlannerChunk(threadId, chunk);
 			}

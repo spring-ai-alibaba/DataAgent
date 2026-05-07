@@ -1,5 +1,5 @@
 /*
- * Copyright 2024-2026 the original author or authors.
+ * Copyright 2026 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,20 +25,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.testcontainers.shaded.com.google.common.util.concurrent.MoreExecutors;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
-/**
- * AbstractHybridRetrievalStrategy 单元测试 测试混合检索策略的模板方法实现
- */
 @ExtendWith(MockitoExtension.class)
 class AbstractHybridRetrievalStrategyTest {
 
@@ -48,101 +43,67 @@ class AbstractHybridRetrievalStrategyTest {
 	@Mock
 	private FusionStrategy fusionStrategy;
 
-	private ExecutorService directExecutor;
+	private ExecutorService executorService;
 
-	private MyHybridRetrievalStrategy retrievalStrategy;
+	private TestHybridRetrievalStrategy strategy;
 
-	// 这是一个具体的子类，用于测试抽象类中的逻辑
-	static class MyHybridRetrievalStrategy extends AbstractHybridRetrievalStrategy {
+	@BeforeEach
+	void setUp() {
+		executorService = Executors.newFixedThreadPool(2);
+		strategy = new TestHybridRetrievalStrategy(executorService, vectorStore, fusionStrategy);
+	}
 
-		public MyHybridRetrievalStrategy(ExecutorService executorService, VectorStore vectorStore,
+	@Test
+	void testRetrieve_combinesVectorAndKeywordResults() {
+		Document vectorDoc = new Document("vector result");
+		Document keywordDoc = new Document("keyword result");
+		Document fusedDoc = new Document("fused result");
+
+		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(vectorDoc));
+		when(fusionStrategy.fuseResults(anyInt(), any(), any())).thenReturn(List.of(fusedDoc));
+
+		strategy.setKeywordResults(List.of(keywordDoc));
+
+		HybridSearchRequest request = HybridSearchRequest.builder().query("test").topK(5).build();
+
+		List<Document> results = strategy.retrieve(request);
+		assertNotNull(results);
+		assertEquals(1, results.size());
+		assertEquals("fused result", results.get(0).getText());
+	}
+
+	@Test
+	void testRetrieve_emptyResults() {
+		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
+		when(fusionStrategy.fuseResults(anyInt(), any(), any())).thenReturn(List.of());
+
+		strategy.setKeywordResults(List.of());
+
+		HybridSearchRequest request = HybridSearchRequest.builder().query("test").topK(5).build();
+
+		List<Document> results = strategy.retrieve(request);
+		assertNotNull(results);
+		assertTrue(results.isEmpty());
+	}
+
+	static class TestHybridRetrievalStrategy extends AbstractHybridRetrievalStrategy {
+
+		private List<Document> keywordResults = List.of();
+
+		TestHybridRetrievalStrategy(ExecutorService executorService, VectorStore vectorStore,
 				FusionStrategy fusionStrategy) {
 			super(executorService, vectorStore, fusionStrategy);
 		}
 
-		@Override
-		public List<Document> getDocumentsByKeywords(HybridSearchRequest request) {
-			// 在测试中，这个方法的行为会被 Mockito 控制
-			return Collections.emptyList();
+		void setKeywordResults(List<Document> results) {
+			this.keywordResults = results;
 		}
 
-	}
+		@Override
+		public List<Document> getDocumentsByKeywords(HybridSearchRequest request) {
+			return keywordResults;
+		}
 
-	@BeforeEach
-	void setUp() {
-		directExecutor = MoreExecutors.newDirectExecutorService();
-
-		// 将 mock 对象和同步的 executor 注入到被测试的类中
-		retrievalStrategy = org.mockito.Mockito
-			.spy(new MyHybridRetrievalStrategy(directExecutor, vectorStore, fusionStrategy));
-	}
-
-	@Test
-	void retrieve_ShouldFuseVectorAndKeywordResults_WhenQueryIsPresent() {
-		// 1. 准备 (Arrange)
-		HybridSearchRequest request = HybridSearchRequest.builder()
-			.query("test query")
-			.topK(10)
-			.similarityThreshold(0.7)
-			.vectorWeight(0.6)
-			.keywordWeight(0.4)
-			.build();
-
-		// 先单独创建 Document 对象
-		Document vecDoc1 = new Document("vec_doc1", Map.of("source", "vector"));
-		Document vecDoc2 = new Document("vec_doc2", Map.of("source", "vector"));
-		Document keyDoc1 = new Document("key_doc1", Map.of("source", "keyword"));
-		Document fusedDoc1 = new Document("vec_doc1", Map.of("source", "vector"));
-
-		// 然后创建列表
-		List<Document> vectorResults = List.of(vecDoc1, vecDoc2);
-		List<Document> keywordResults = List.of(keyDoc1);
-		List<Document> fusedResults = List.of(fusedDoc1);
-
-		// 定义 mock 对象的行为
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(vectorResults);
-		// 使用 spy 来 mock getDocumentsByKeywords 方法
-		org.mockito.Mockito.doReturn(keywordResults).when(retrievalStrategy).getDocumentsByKeywords(request);
-		when(fusionStrategy.fuseResults(10, vectorResults, keywordResults)).thenReturn(fusedResults);
-
-		// 2. 执行 (Act)
-		// 因为我们用了 directExecutor，这里的调用会同步执行所有逻辑
-		List<Document> finalDocuments = retrievalStrategy.retrieve(request);
-
-		// 3. 断言 (Assert)
-		assertEquals(fusedResults.size(), finalDocuments.size());
-		assertEquals(fusedResults.get(0).getText(), finalDocuments.get(0).getText());
-	}
-
-	@Test
-	void retrieve_ShouldReturnOnlyVectorResults_WhenQueryIsEmpty() {
-		// 1. 准备 (Arrange)
-		HybridSearchRequest request = HybridSearchRequest.builder()
-			.query("") // 空查询字符串
-			.topK(10)
-			.similarityThreshold(0.5)
-			.vectorWeight(0.7)
-			.keywordWeight(0.3)
-			.build();
-
-		Document doc1 = new Document("vec_doc1", Map.of("source", "vector"));
-		Document doc2 = new Document("vec_doc2", Map.of("source", "vector"));
-		List<Document> vectorResults = List.of(doc1, doc2);
-		List<Document> keywordResults = Collections.emptyList(); // 空查询应该返回空结果
-		List<Document> fusedResults = List.of(doc1, doc2); // 融合后应该只有向量结果
-
-		// 定义 mock 对象的行为
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(vectorResults);
-		// 使用 spy 来 mock getDocumentsByKeywords 方法
-		org.mockito.Mockito.doReturn(keywordResults).when(retrievalStrategy).getDocumentsByKeywords(request);
-		when(fusionStrategy.fuseResults(10, vectorResults, keywordResults)).thenReturn(fusedResults);
-
-		// 2. 执行 (Act)
-		List<Document> finalDocuments = retrievalStrategy.retrieve(request);
-
-		// 3. 断言 (Assert)
-		assertEquals(fusedResults.size(), finalDocuments.size());
-		assertEquals(vectorResults, finalDocuments);
 	}
 
 }

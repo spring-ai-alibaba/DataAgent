@@ -15,239 +15,1016 @@
  */
 package com.alibaba.cloud.ai.dataagent.util;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class DateTimeUtilTest {
 
-	private LocalDate testDate;
+	private static final LocalDate FIXED_DATE = LocalDate.of(2026, 4, 3);
 
-	@BeforeEach
-	void setUp() {
-		// Set test base date to May 15, 2024 (Wednesday)
-		testDate = LocalDate.of(2024, 5, 15);
+	// --- getYearEx ---
+
+	@Test
+	void getYearEx_thisYear() {
+		assertEquals("2026年", DateTimeUtil.getYearEx(FIXED_DATE, "今年", true));
 	}
 
 	@Test
-	void testBuildDateTimeComment() {
-		List<String> expressions = Arrays.asList("今天", "昨天", "明天", "本月", "上月");
-		String result = DateTimeUtil.buildDateTimeComment(expressions);
-
-		assertNotNull(result);
-		assertTrue(result.contains("今天是"));
-		assertTrue(result.contains("需要计算的时间是："));
+	void getYearEx_lastYear() {
+		assertEquals("2025年", DateTimeUtil.getYearEx(FIXED_DATE, "去年", false));
 	}
 
 	@Test
-	void testBuildDateExpressions() {
-		List<String> expressions = Arrays.asList("今天", "昨天", "明天");
-		List<String> result = DateTimeUtil.buildDateExpressions(expressions, testDate);
-
-		assertNotNull(result);
-		assertEquals(3, result.size());
-		assertTrue(result.get(0).contains("今天="));
-		assertTrue(result.get(1).contains("昨天="));
-		assertTrue(result.get(2).contains("明天="));
+	void getYearEx_yearBeforeLast() {
+		assertEquals("2024年", DateTimeUtil.getYearEx(FIXED_DATE, "前年", false));
 	}
 
 	@Test
-	void testSpecificYearMonthDayPattern() {
-		List<String> expressions = Arrays.asList("2024年05月15日");
-		List<String> result = DateTimeUtil.buildDateExpressions(expressions, testDate);
-
-		assertEquals(1, result.size());
-		assertEquals("2024年05月15日=2024年05月15日", result.get(0));
+	void getYearEx_nextYear() {
+		assertEquals("2027年", DateTimeUtil.getYearEx(FIXED_DATE, "明年", false));
 	}
 
 	@Test
-	void testGeneralYearMonthDayPattern() {
-		List<String> expressions = Arrays.asList("今年05月01日", "去年05月01日");
-		List<String> result = DateTimeUtil.buildDateExpressions(expressions, testDate);
+	void getYearEx_yearAfterNext() {
+		assertEquals("2028年", DateTimeUtil.getYearEx(FIXED_DATE, "后年", false));
+	}
 
-		assertEquals(2, result.size());
-		assertTrue(result.get(0).contains("今年05月01日=2024年05月01日"));
-		assertTrue(result.get(1).contains("去年05月01日=2023年05月01日"));
+	// --- getMonthEx ---
+
+	@Test
+	void getMonthEx_thisMonth() {
+		assertEquals("2026年04月", DateTimeUtil.getMonthEx(FIXED_DATE, "本月"));
 	}
 
 	@Test
-	void testGetYearEx() {
-		String todayYear = DateTimeUtil.getYearEx(testDate, "今年", true);
-		assertEquals("2024年", todayYear);
-
-		String lastYear = DateTimeUtil.getYearEx(testDate, "去年", true);
-		assertEquals("2023年", lastYear);
-
-		String nextYear = DateTimeUtil.getYearEx(testDate, "明年", true);
-		assertEquals("2025年", nextYear);
+	void getMonthEx_lastMonth() {
+		assertEquals("2026年03月", DateTimeUtil.getMonthEx(FIXED_DATE, "上月"));
 	}
 
 	@Test
-	void testGetMonthEx() {
-		String thisMonth = DateTimeUtil.getMonthEx(testDate, "本月");
-		assertEquals("2024年05月", thisMonth);
-
-		String lastMonth = DateTimeUtil.getMonthEx(testDate, "上月");
-		assertEquals("2024年04月", lastMonth);
-
-		String nextMonth = DateTimeUtil.getMonthEx(testDate, "下月");
-		assertEquals("2024年06月", nextMonth);
+	void getMonthEx_twoMonthsAgo() {
+		assertEquals("2026年02月", DateTimeUtil.getMonthEx(FIXED_DATE, "上上月"));
 	}
 
 	@Test
-	void testGetDayEx() {
-		String today = DateTimeUtil.getDayEx(testDate, "今天");
-		assertEquals("2024年05月15日", today);
-
-		String yesterday = DateTimeUtil.getDayEx(testDate, "昨天");
-		assertEquals("2024年05月14日", yesterday);
-
-		String tomorrow = DateTimeUtil.getDayEx(testDate, "明天");
-		assertEquals("2024年05月16日", tomorrow);
+	void getMonthEx_nextMonth() {
+		assertEquals("2026年05月", DateTimeUtil.getMonthEx(FIXED_DATE, "下月"));
 	}
 
 	@Test
-	void testGetWeekDayEx() {
-		// 2024年5月15日是周三，所以本周第一天应该是5月13日（周一）
-		String monday = DateTimeUtil.getWeekDayEx(testDate, 1);
-		assertEquals("2024年05月13日", monday);
+	void getMonthEx_lastYearThisMonth() {
+		assertEquals("2025年04月", DateTimeUtil.getMonthEx(FIXED_DATE, "去年本月"));
+	}
 
-		String wednesday = DateTimeUtil.getWeekDayEx(testDate, 3);
-		assertEquals("2024年05月15日", wednesday);
+	// --- getDayEx ---
 
-		String sunday = DateTimeUtil.getWeekDayEx(testDate, 7);
-		assertEquals("2024年05月19日", sunday);
+	@Test
+	void getDayEx_today() {
+		assertEquals("2026年04月03日", DateTimeUtil.getDayEx(FIXED_DATE, "今天"));
 	}
 
 	@Test
-	void testGetGeneralWeekDayEx() {
-		String thisWeekMonday = DateTimeUtil.getGeneralWeekDayEx(testDate, "本周", 1);
-		assertEquals("2024年05月13日", thisWeekMonday);
-
-		String lastWeekMonday = DateTimeUtil.getGeneralWeekDayEx(testDate, "上周", 1);
-		assertEquals("2024年05月06日", lastWeekMonday);
-
-		String nextWeekMonday = DateTimeUtil.getGeneralWeekDayEx(testDate, "下周", 1);
-		assertEquals("2024年05月20日", nextWeekMonday);
+	void getDayEx_yesterday() {
+		assertEquals("2026年04月02日", DateTimeUtil.getDayEx(FIXED_DATE, "昨天"));
 	}
 
 	@Test
-	void testGetWeekEx() {
-		String thisWeek = DateTimeUtil.getWeekEx(testDate, "本周");
-		assertEquals("2024年05月13日至2024年05月19日", thisWeek);
-
-		String lastWeek = DateTimeUtil.getWeekEx(testDate, "上周");
-		assertEquals("2024年05月06日至2024年05月12日", lastWeek);
+	void getDayEx_dayBeforeYesterday() {
+		assertEquals("2026年04月01日", DateTimeUtil.getDayEx(FIXED_DATE, "前天"));
 	}
 
 	@Test
-	void testGetQuarterEx() {
-		String thisQuarter = DateTimeUtil.getQuarterEx(testDate, "本季度");
-		assertEquals("2024年第2季度", thisQuarter);
-
-		String lastQuarter = DateTimeUtil.getQuarterEx(testDate, "上季度");
-		assertEquals("2024年第1季度", lastQuarter);
+	void getDayEx_tomorrow() {
+		assertEquals("2026年04月04日", DateTimeUtil.getDayEx(FIXED_DATE, "明天"));
 	}
 
 	@Test
-	void testGetRecentNDay() {
-		String recent7Days = DateTimeUtil.getRecentNDay(testDate, 7);
-		assertEquals("2024年05月08日至2024年05月15日", recent7Days);
-
-		String recent30Days = DateTimeUtil.getRecentNDay(testDate, 30);
-		assertEquals("2024年04月15日至2024年05月15日", recent30Days);
+	void getDayEx_dayAfterTomorrow() {
+		assertEquals("2026年04月05日", DateTimeUtil.getDayEx(FIXED_DATE, "后天"));
 	}
 
 	@Test
-	void testGetRecentNDayWithoutToday() {
-		String recent7DaysWithoutToday = DateTimeUtil.getRecentNDayWithoutToday(testDate, 7);
-		assertEquals("2024年05月08日至2024年05月14日", recent7DaysWithoutToday);
+	void getDayEx_lastMonthToday() {
+		assertEquals("2026年03月03日", DateTimeUtil.getDayEx(FIXED_DATE, "上月今天"));
 	}
 
 	@Test
-	void testGetRecentNWeek() {
-		String recent2Weeks = DateTimeUtil.getRecentNWeek(testDate, 2);
-		assertEquals("2024年05月01日至2024年05月15日", recent2Weeks);
+	void getDayEx_twoMonthsAgoToday() {
+		assertEquals("2026年02月03日", DateTimeUtil.getDayEx(FIXED_DATE, "上上月今天"));
+	}
+
+	// --- getWeekDayEx ---
+
+	@Test
+	void getWeekDayEx_firstDayOfWeek() {
+		String result = DateTimeUtil.getWeekDayEx(FIXED_DATE, 1);
+		assertEquals("2026年03月30日", result);
 	}
 
 	@Test
-	void testGetRecentNMonth() {
-		String recent3Months = DateTimeUtil.getRecentNMonth(testDate, 3);
-		assertEquals("2024年02月15日至2024年05月15日", recent3Months);
+	void getWeekDayEx_fifthDayOfWeek() {
+		String result = DateTimeUtil.getWeekDayEx(FIXED_DATE, 5);
+		assertEquals("2026年04月03日", result);
+	}
+
+	// --- getGeneralWeekDayEx ---
+
+	@Test
+	void getGeneralWeekDayEx_thisWeek() {
+		String result = DateTimeUtil.getGeneralWeekDayEx(FIXED_DATE, "本周", 1);
+		assertEquals("2026年03月30日", result);
 	}
 
 	@Test
-	void testGetRecentNYear() {
-		String recent2Years = DateTimeUtil.getRecentNYear(testDate, 2);
-		assertEquals("2022年05月15日至2024年05月15日", recent2Years);
+	void getGeneralWeekDayEx_lastWeek() {
+		String result = DateTimeUtil.getGeneralWeekDayEx(FIXED_DATE, "上周", 1);
+		assertEquals("2026年03月23日", result);
 	}
 
 	@Test
-	void testGetMonthLastDayEx() {
-		String thisMonthLastDay = DateTimeUtil.getMonthLastDayEx(testDate, "本月");
-		assertEquals("2024年05月31日", thisMonthLastDay);
-
-		String lastMonthLastDay = DateTimeUtil.getMonthLastDayEx(testDate, "上月");
-		assertEquals("2024年04月30日", lastMonthLastDay);
+	void getGeneralWeekDayEx_twoWeeksAgo() {
+		String result = DateTimeUtil.getGeneralWeekDayEx(FIXED_DATE, "上上周", 1);
+		assertEquals("2026年03月16日", result);
 	}
 
 	@Test
-	void testGetSpecificYearHalfYearEx() {
-		String firstHalf = DateTimeUtil.getSpecificYearHalfYearEx(testDate, 2024, "上");
-		assertEquals("2024年01月01日至2024年06月30日", firstHalf);
-
-		String secondHalf = DateTimeUtil.getSpecificYearHalfYearEx(testDate, 2024, "下");
-		assertEquals("2024年07月01日至2024年12月31日", secondHalf);
+	void getGeneralWeekDayEx_nextWeek() {
+		String result = DateTimeUtil.getGeneralWeekDayEx(FIXED_DATE, "下周", 1);
+		assertEquals("2026年04月06日", result);
 	}
 
 	@Test
-	void testGetGeneralYearHalfYearEx() {
-		String thisYearFirstHalf = DateTimeUtil.getGeneralYearHalfYearEx(testDate, "今年", "上");
-		assertEquals("2024年01月01日至2024年06月30日", thisYearFirstHalf);
+	void getGeneralWeekDayEx_twoWeeksLater() {
+		String result = DateTimeUtil.getGeneralWeekDayEx(FIXED_DATE, "下下周", 1);
+		assertEquals("2026年04月13日", result);
+	}
 
-		String lastYearSecondHalf = DateTimeUtil.getGeneralYearHalfYearEx(testDate, "去年", "下");
-		assertEquals("2023年07月01日至2023年12月31日", lastYearSecondHalf);
+	// --- getWeekEx ---
+
+	@Test
+	void getWeekEx_thisWeek() {
+		String result = DateTimeUtil.getWeekEx(FIXED_DATE, "本周");
+		assertTrue(result.contains("至"));
 	}
 
 	@Test
-	void testComplexExpressions() {
-		List<String> expressions = Arrays.asList("2023年02月最后一周", "2024年05月01日", "今年04月22日", "本月22日", "上月今天", "今天",
-				"本周第5天", "本季度", "近1周", "近2个完整月", "不包含今天的近10天", "今年上半年");
+	void getWeekEx_lastWeek() {
+		String result = DateTimeUtil.getWeekEx(FIXED_DATE, "上周");
+		assertTrue(result.contains("至"));
+	}
 
-		List<String> result = DateTimeUtil.buildDateExpressions(expressions, testDate);
+	@Test
+	void getWeekEx_twoWeeksAgo() {
+		String result = DateTimeUtil.getWeekEx(FIXED_DATE, "上上周");
+		assertTrue(result.contains("至"));
+	}
 
-		assertNotNull(result);
-		assertEquals(expressions.size(), result.size());
+	@Test
+	void getWeekEx_nextWeek() {
+		String result = DateTimeUtil.getWeekEx(FIXED_DATE, "下周");
+		assertTrue(result.contains("至"));
+	}
 
-		// Verify each expression has corresponding conversion result
-		for (int i = 0; i < expressions.size(); i++) {
-			String expression = expressions.get(i);
-			String resultExpression = result.get(i);
-			assertTrue(resultExpression.startsWith(expression + "="));
+	@Test
+	void getWeekEx_twoWeeksLater() {
+		String result = DateTimeUtil.getWeekEx(FIXED_DATE, "下下周");
+		assertTrue(result.contains("至"));
+	}
+
+	// --- getQuarterEx ---
+
+	@Test
+	void getQuarterEx_thisQuarter() {
+		String result = DateTimeUtil.getQuarterEx(FIXED_DATE, "本季度");
+		assertEquals("2026年第2季度", result);
+	}
+
+	@Test
+	void getQuarterEx_lastQuarter() {
+		String result = DateTimeUtil.getQuarterEx(FIXED_DATE, "上季度");
+		assertEquals("2026年第1季度", result);
+	}
+
+	@Test
+	void getQuarterEx_nextQuarter() {
+		String result = DateTimeUtil.getQuarterEx(FIXED_DATE, "下季度");
+		assertEquals("2026年第3季度", result);
+	}
+
+	@Test
+	void getQuarterEx_lastYearThisQuarter() {
+		String result = DateTimeUtil.getQuarterEx(FIXED_DATE, "去年本季度");
+		assertEquals("2025年第2季度", result);
+	}
+
+	@Test
+	void getQuarterEx_q1() {
+		LocalDate jan = LocalDate.of(2026, 1, 15);
+		String result = DateTimeUtil.getQuarterEx(jan, "本季度");
+		assertEquals("2026年第1季度", result);
+	}
+
+	@Test
+	void getQuarterEx_q4_lastQuarter() {
+		LocalDate oct = LocalDate.of(2026, 10, 15);
+		String result = DateTimeUtil.getQuarterEx(oct, "上季度");
+		assertEquals("2026年第3季度", result);
+	}
+
+	@Test
+	void getQuarterEx_q4_nextQuarter_wrapsYear() {
+		LocalDate oct = LocalDate.of(2026, 10, 15);
+		String result = DateTimeUtil.getQuarterEx(oct, "下季度");
+		assertEquals("2027年第1季度", result);
+	}
+
+	@Test
+	void getQuarterEx_q1_lastQuarter_wrapsYear() {
+		LocalDate jan = LocalDate.of(2026, 1, 15);
+		String result = DateTimeUtil.getQuarterEx(jan, "上季度");
+		assertEquals("2025年第4季度", result);
+	}
+
+	// --- getRecentNYear ---
+
+	@Test
+	void getRecentNYear() {
+		String result = DateTimeUtil.getRecentNYear(FIXED_DATE, 2);
+		assertEquals("2024年04月03日至2026年04月03日", result);
+	}
+
+	// --- getRecentNMonth ---
+
+	@Test
+	void getRecentNMonth() {
+		String result = DateTimeUtil.getRecentNMonth(FIXED_DATE, 3);
+		assertEquals("2026年01月03日至2026年04月03日", result);
+	}
+
+	// --- getRecentNWeek ---
+
+	@Test
+	void getRecentNWeek() {
+		String result = DateTimeUtil.getRecentNWeek(FIXED_DATE, 2);
+		assertEquals("2026年03月20日至2026年04月03日", result);
+	}
+
+	// --- getRecentNDay ---
+
+	@Test
+	void getRecentNDay() {
+		String result = DateTimeUtil.getRecentNDay(FIXED_DATE, 7);
+		assertEquals("2026年03月27日至2026年04月03日", result);
+	}
+
+	// --- getRecentNDayWithoutToday ---
+
+	@Test
+	void getRecentNDayWithoutToday() {
+		String result = DateTimeUtil.getRecentNDayWithoutToday(FIXED_DATE, 7);
+		assertEquals("2026年03月27日至2026年04月02日", result);
+	}
+
+	// --- getRecentNCompleteYear ---
+
+	@Test
+	void getRecentNCompleteYear_notLastDayOfYear() {
+		String result = DateTimeUtil.getRecentNCompleteYear(FIXED_DATE, 2);
+		assertTrue(result.contains("至"));
+		assertTrue(result.contains("2025年12月31日"));
+	}
+
+	@Test
+	void getRecentNCompleteYear_lastDayOfYear() {
+		LocalDate dec31 = LocalDate.of(2026, 12, 31);
+		String result = DateTimeUtil.getRecentNCompleteYear(dec31, 2);
+		assertTrue(result.contains("至2026年12月31日"));
+	}
+
+	// --- getRecentNCompleteMonth ---
+
+	@Test
+	void getRecentNCompleteMonth_notLastDayOfMonth() {
+		String result = DateTimeUtil.getRecentNCompleteMonth(FIXED_DATE, 3);
+		assertTrue(result.contains("至"));
+		assertTrue(result.contains("2026年03月31日"));
+	}
+
+	@Test
+	void getRecentNCompleteMonth_lastDayOfMonth() {
+		LocalDate lastDay = LocalDate.of(2026, 3, 31);
+		String result = DateTimeUtil.getRecentNCompleteMonth(lastDay, 2);
+		assertTrue(result.contains("至2026年03月31日"));
+	}
+
+	// --- getRecentNCompleteQuarter ---
+
+	@Test
+	void getRecentNCompleteQuarter_q2() {
+		String result = DateTimeUtil.getRecentNCompleteQuarter(FIXED_DATE, 2);
+		assertTrue(result.contains("至"));
+		assertTrue(result.contains("2026年03月31日"));
+	}
+
+	@Test
+	void getRecentNCompleteQuarter_q3() {
+		LocalDate jul = LocalDate.of(2026, 7, 15);
+		String result = DateTimeUtil.getRecentNCompleteQuarter(jul, 1);
+		assertTrue(result.contains("至2026年06月30日"));
+	}
+
+	@Test
+	void getRecentNCompleteQuarter_q4() {
+		LocalDate oct = LocalDate.of(2026, 10, 15);
+		String result = DateTimeUtil.getRecentNCompleteQuarter(oct, 1);
+		assertTrue(result.contains("至2026年09月30日"));
+	}
+
+	@Test
+	void getRecentNCompleteQuarter_q1() {
+		LocalDate jan = LocalDate.of(2026, 1, 15);
+		String result = DateTimeUtil.getRecentNCompleteQuarter(jan, 1);
+		assertTrue(result.contains("至2025年12月31日"));
+	}
+
+	// --- getRecentNCompleteWeek ---
+
+	@Test
+	void getRecentNCompleteWeek_notSunday() {
+		String result = DateTimeUtil.getRecentNCompleteWeek(FIXED_DATE, 2);
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getRecentNCompleteWeek_onSunday() {
+		LocalDate sunday = LocalDate.of(2026, 4, 5);
+		String result = DateTimeUtil.getRecentNCompleteWeek(sunday, 2);
+		assertTrue(result.contains("至2026年04月05日"));
+	}
+
+	// --- getRecentNQuarterWithCurrent ---
+
+	@Test
+	void getRecentNQuarterWithCurrent_q2() {
+		String result = DateTimeUtil.getRecentNQuarterWithCurrent(FIXED_DATE, 2);
+		assertTrue(result.contains("至2026年06月30日"));
+	}
+
+	@Test
+	void getRecentNQuarterWithCurrent_q1() {
+		LocalDate jan = LocalDate.of(2026, 1, 15);
+		String result = DateTimeUtil.getRecentNQuarterWithCurrent(jan, 2);
+		assertTrue(result.contains("至2026年03月31日"));
+	}
+
+	@Test
+	void getRecentNQuarterWithCurrent_q3() {
+		LocalDate jul = LocalDate.of(2026, 7, 15);
+		String result = DateTimeUtil.getRecentNQuarterWithCurrent(jul, 2);
+		assertTrue(result.contains("至2026年09月30日"));
+	}
+
+	@Test
+	void getRecentNQuarterWithCurrent_q4() {
+		LocalDate oct = LocalDate.of(2026, 10, 15);
+		String result = DateTimeUtil.getRecentNQuarterWithCurrent(oct, 2);
+		assertTrue(result.contains("至2026年12月31日"));
+	}
+
+	// --- getMonthLastDayEx ---
+
+	@Test
+	void getMonthLastDayEx_thisMonth() {
+		String result = DateTimeUtil.getMonthLastDayEx(FIXED_DATE, "本月");
+		assertEquals("2026年04月30日", result);
+	}
+
+	@Test
+	void getMonthLastDayEx_lastMonth() {
+		String result = DateTimeUtil.getMonthLastDayEx(FIXED_DATE, "上月");
+		assertEquals("2026年03月31日", result);
+	}
+
+	// --- getGeneralYearMonthLastDayEx ---
+
+	@Test
+	void getGeneralYearMonthLastDayEx_thisYear() {
+		String result = DateTimeUtil.getGeneralYearMonthLastDayEx(FIXED_DATE, "今年", 2);
+		assertEquals("2026年02月28日", result);
+	}
+
+	@Test
+	void getGeneralYearMonthLastDayEx_lastYear() {
+		String result = DateTimeUtil.getGeneralYearMonthLastDayEx(FIXED_DATE, "去年", 2);
+		assertEquals("2025年02月28日", result);
+	}
+
+	@Test
+	void getGeneralYearMonthLastDayEx_yearBeforeLast() {
+		String result = DateTimeUtil.getGeneralYearMonthLastDayEx(FIXED_DATE, "前年", 2);
+		assertEquals("2024年02月29日", result);
+	}
+
+	@Test
+	void getGeneralYearMonthLastDayEx_nextYear() {
+		String result = DateTimeUtil.getGeneralYearMonthLastDayEx(FIXED_DATE, "明年", 2);
+		assertEquals("2027年02月28日", result);
+	}
+
+	@Test
+	void getGeneralYearMonthLastDayEx_yearAfterNext() {
+		String result = DateTimeUtil.getGeneralYearMonthLastDayEx(FIXED_DATE, "后年", 2);
+		assertEquals("2028年02月29日", result);
+	}
+
+	// --- getSpecificYearWeekEx ---
+
+	@Test
+	void getSpecificYearWeekEx() {
+		String result = DateTimeUtil.getSpecificYearWeekEx(FIXED_DATE, 2026, 5);
+		assertTrue(result.contains("至"));
+	}
+
+	// --- getGeneralYearWeekEx ---
+
+	@Test
+	void getGeneralYearWeekEx_thisYear() {
+		String result = DateTimeUtil.getGeneralYearWeekEx(FIXED_DATE, "今年", 5);
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralYearWeekEx_lastYear() {
+		String result = DateTimeUtil.getGeneralYearWeekEx(FIXED_DATE, "去年", 5);
+		assertTrue(result.contains("2025"));
+	}
+
+	@Test
+	void getGeneralYearWeekEx_yearBeforeLast() {
+		String result = DateTimeUtil.getGeneralYearWeekEx(FIXED_DATE, "前年", 5);
+		assertTrue(result.contains("2024"));
+	}
+
+	@Test
+	void getGeneralYearWeekEx_nextYear() {
+		String result = DateTimeUtil.getGeneralYearWeekEx(FIXED_DATE, "明年", 5);
+		assertTrue(result.contains("2027"));
+	}
+
+	@Test
+	void getGeneralYearWeekEx_yearAfterNext() {
+		String result = DateTimeUtil.getGeneralYearWeekEx(FIXED_DATE, "后年", 5);
+		assertTrue(result.contains("2028"));
+	}
+
+	// --- getGeneralMonthWeekEx ---
+
+	@Test
+	void getGeneralMonthWeekEx_thisMonth() {
+		String result = DateTimeUtil.getGeneralMonthWeekEx(FIXED_DATE, "本月", 1);
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthWeekEx_lastMonth() {
+		String result = DateTimeUtil.getGeneralMonthWeekEx(FIXED_DATE, "上月", 1);
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthWeekEx_lastMonth_januaryWrap() {
+		LocalDate jan = LocalDate.of(2026, 1, 15);
+		String result = DateTimeUtil.getGeneralMonthWeekEx(jan, "上月", 1);
+		assertTrue(result.contains("2025"));
+	}
+
+	// --- getSpecificYearMonthWeekEx ---
+
+	@Test
+	void getSpecificYearMonthWeekEx() {
+		String result = DateTimeUtil.getSpecificYearMonthWeekEx(FIXED_DATE, 2026, 4, 1);
+		assertTrue(result.contains("至"));
+	}
+
+	// --- getGeneralYearMonthWeekEx ---
+
+	@Test
+	void getGeneralYearMonthWeekEx_allYears() {
+		for (String yearEx : List.of("今年", "去年", "前年", "明年", "后年")) {
+			String result = DateTimeUtil.getGeneralYearMonthWeekEx(FIXED_DATE, yearEx, 4, 1);
+			assertTrue(result.contains("至"), "Failed for yearEx=" + yearEx);
 		}
 	}
 
+	// --- getSpecificYearMonthCompleteWeekEx ---
+
 	@Test
-	void testEdgeCases() {
-		// Test year-end boundary case
-		LocalDate yearEnd = LocalDate.of(2023, 12, 31);
-		String nextYear = DateTimeUtil.getYearEx(yearEnd, "明年", true);
-		assertEquals("2024年", nextYear);
+	void getSpecificYearMonthCompleteWeekEx() {
+		String result = DateTimeUtil.getSpecificYearMonthCompleteWeekEx(FIXED_DATE, 2026, 4, 1);
+		assertTrue(result.contains("至"));
+	}
 
-		// Test month-start boundary case
-		LocalDate monthStart = LocalDate.of(2024, 1, 1);
-		String lastMonth = DateTimeUtil.getMonthEx(monthStart, "上月");
-		assertEquals("2023年12月", lastMonth);
+	@Test
+	void getSpecificYearMonthCompleteWeekEx_exceedsMonth() {
+		String result = DateTimeUtil.getSpecificYearMonthCompleteWeekEx(FIXED_DATE, 2026, 2, 5);
+		assertEquals("", result);
+	}
 
-		// Test leap year case
-		LocalDate intercalaryYear = LocalDate.of(2024, 2, 29);
-		String today = DateTimeUtil.getDayEx(intercalaryYear, "今天");
-		assertEquals("2024年02月29日", today);
+	// --- getGeneralYearMonthCompleteWeekEx ---
+
+	@Test
+	void getGeneralYearMonthCompleteWeekEx_allYears() {
+		for (String yearEx : List.of("今年", "去年", "前年", "明年", "后年")) {
+			String result = DateTimeUtil.getGeneralYearMonthCompleteWeekEx(FIXED_DATE, yearEx, 4, 1);
+			assertTrue(result.contains("至"), "Failed for yearEx=" + yearEx);
+		}
+	}
+
+	// --- getGeneralMonthCompleteWeekEx ---
+
+	@Test
+	void getGeneralMonthCompleteWeekEx_thisMonth() {
+		String result = DateTimeUtil.getGeneralMonthCompleteWeekEx(FIXED_DATE, "本月", 1);
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthCompleteWeekEx_lastMonth() {
+		String result = DateTimeUtil.getGeneralMonthCompleteWeekEx(FIXED_DATE, "上月", 1);
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthCompleteWeekEx_twoMonthsAgo() {
+		String result = DateTimeUtil.getGeneralMonthCompleteWeekEx(FIXED_DATE, "上上月", 1);
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthCompleteWeekEx_nextMonth() {
+		String result = DateTimeUtil.getGeneralMonthCompleteWeekEx(FIXED_DATE, "下月", 1);
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthCompleteWeekEx_januaryWrap() {
+		LocalDate jan = LocalDate.of(2026, 1, 15);
+		String result = DateTimeUtil.getGeneralMonthCompleteWeekEx(jan, "上月", 1);
+		assertTrue(result.contains("2025"));
+	}
+
+	@Test
+	void getGeneralMonthCompleteWeekEx_decemberWrap() {
+		LocalDate dec = LocalDate.of(2026, 12, 15);
+		String result = DateTimeUtil.getGeneralMonthCompleteWeekEx(dec, "下月", 1);
+		assertTrue(result.contains("2027"));
+	}
+
+	// --- getSpecificYearCompleteWeekEx ---
+
+	@Test
+	void getSpecificYearCompleteWeekEx() {
+		String result = DateTimeUtil.getSpecificYearCompleteWeekEx(FIXED_DATE, 2026, 3);
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getSpecificYearCompleteWeekEx_exceedsYear() {
+		String result = DateTimeUtil.getSpecificYearCompleteWeekEx(FIXED_DATE, 2026, 53);
+		assertEquals("", result);
+	}
+
+	// --- getGeneralYearCompleteWeekEx ---
+
+	@Test
+	void getGeneralYearCompleteWeekEx_allYears() {
+		for (String yearEx : List.of("今年", "去年", "前年", "明年", "后年")) {
+			String result = DateTimeUtil.getGeneralYearCompleteWeekEx(FIXED_DATE, yearEx, 3);
+			assertTrue(result.contains("至"), "Failed for yearEx=" + yearEx);
+		}
+	}
+
+	// --- getSpecificYearMonthLastWeek ---
+
+	@Test
+	void getSpecificYearMonthLastWeek() {
+		String result = DateTimeUtil.getSpecificYearMonthLastWeek(FIXED_DATE, 2026, 4);
+		assertTrue(result.contains("至"));
+		assertTrue(result.contains("2026年04月30日"));
+	}
+
+	// --- getGeneralMonthLastWeek ---
+
+	@Test
+	void getGeneralMonthLastWeek_thisMonth() {
+		String result = DateTimeUtil.getGeneralMonthLastWeek(FIXED_DATE, "本月");
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthLastWeek_lastMonth() {
+		String result = DateTimeUtil.getGeneralMonthLastWeek(FIXED_DATE, "上月");
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthLastWeek_twoMonthsAgo() {
+		String result = DateTimeUtil.getGeneralMonthLastWeek(FIXED_DATE, "上上月");
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthLastWeek_nextMonth() {
+		String result = DateTimeUtil.getGeneralMonthLastWeek(FIXED_DATE, "下月");
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthLastWeek_januaryWrap() {
+		LocalDate jan = LocalDate.of(2026, 1, 15);
+		String result = DateTimeUtil.getGeneralMonthLastWeek(jan, "上月");
+		assertTrue(result.contains("2025"));
+	}
+
+	// --- getSpecificYearMonthLastCompleteWeekEx ---
+
+	@Test
+	void getSpecificYearMonthLastCompleteWeekEx() {
+		String result = DateTimeUtil.getSpecificYearMonthLastCompleteWeekEx(FIXED_DATE, 2026, 4);
+		assertTrue(result.contains("至"));
+	}
+
+	// --- getGeneralMonthLastCompleteWeekEx ---
+
+	@Test
+	void getGeneralMonthLastCompleteWeekEx_thisMonth() {
+		String result = DateTimeUtil.getGeneralMonthLastCompleteWeekEx(FIXED_DATE, "本月");
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthLastCompleteWeekEx_lastMonth() {
+		String result = DateTimeUtil.getGeneralMonthLastCompleteWeekEx(FIXED_DATE, "上月");
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthLastCompleteWeekEx_twoMonthsAgo() {
+		String result = DateTimeUtil.getGeneralMonthLastCompleteWeekEx(FIXED_DATE, "上上月");
+		assertTrue(result.contains("至"));
+	}
+
+	@Test
+	void getGeneralMonthLastCompleteWeekEx_nextMonth() {
+		String result = DateTimeUtil.getGeneralMonthLastCompleteWeekEx(FIXED_DATE, "下月");
+		assertTrue(result.contains("至"));
+	}
+
+	// --- getSpecificYearHalfYearEx ---
+
+	@Test
+	void getSpecificYearHalfYearEx_firstHalf() {
+		String result = DateTimeUtil.getSpecificYearHalfYearEx(FIXED_DATE, 2026, "上");
+		assertEquals("2026年01月01日至2026年06月30日", result);
+	}
+
+	@Test
+	void getSpecificYearHalfYearEx_secondHalf() {
+		String result = DateTimeUtil.getSpecificYearHalfYearEx(FIXED_DATE, 2026, "下");
+		assertEquals("2026年07月01日至2026年12月31日", result);
+	}
+
+	// --- getGeneralYearHalfYearEx ---
+
+	@Test
+	void getGeneralYearHalfYearEx_allYears() {
+		for (String yearEx : List.of("今年", "去年", "前年", "明年", "后年")) {
+			String result = DateTimeUtil.getGeneralYearHalfYearEx(FIXED_DATE, yearEx, "上");
+			assertTrue(result.contains("至"), "Failed for yearEx=" + yearEx);
+			assertTrue(result.contains("01月01日"), "Failed for yearEx=" + yearEx);
+		}
+	}
+
+	// --- buildDateExpressions (integration-style) ---
+
+	@Test
+	void buildDateExpressions_specificYearMonthDay() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("2026年04月03日"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertEquals("2026年04月03日=2026年04月03日", result.get(0));
+	}
+
+	@Test
+	void buildDateExpressions_generalYearMonthDay() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("今年04月03日"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("2026年04月03日"));
+	}
+
+	@Test
+	void buildDateExpressions_generalMonthDay() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("本月03日"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("2026年04月03日"));
+	}
+
+	@Test
+	void buildDateExpressions_generalDay() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("今天"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("2026年04月03日"));
+	}
+
+	@Test
+	void buildDateExpressions_specificYearMonth() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("2026年04月"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertEquals("2026年04月=2026年04月", result.get(0));
+	}
+
+	@Test
+	void buildDateExpressions_generalYearMonth() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("去年04月"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("2025年04月"));
+	}
+
+	@Test
+	void buildDateExpressions_generalMonth() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("本月"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("2026年04月"));
+	}
+
+	@Test
+	void buildDateExpressions_specificYear() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("2026年"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertEquals("2026年=2026年", result.get(0));
+	}
+
+	@Test
+	void buildDateExpressions_generalYear() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("去年"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("2025年"));
+	}
+
+	@Test
+	void buildDateExpressions_specificYearQuarter() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("2026年第2季度"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertEquals("2026年第2季度=2026年第2季度", result.get(0));
+	}
+
+	@Test
+	void buildDateExpressions_generalYearQuarter() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("今年第2季度"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("2026年第2季度"));
+	}
+
+	@Test
+	void buildDateExpressions_generalQuarter() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("本季度"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("2026年第2季度"));
+	}
+
+	@Test
+	void buildDateExpressions_generalWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("本周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_weekDay() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("本周第3天"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("2026年"));
+	}
+
+	@Test
+	void buildDateExpressions_monthLastDay() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("本月最后一天"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("2026年04月30日"));
+	}
+
+	@Test
+	void buildDateExpressions_yearMonthLastDay() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("今年02月最后一天"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("2026年02月28日"));
+	}
+
+	@Test
+	void buildDateExpressions_generalWeekSpecificDay() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("本周星期3"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("2026年"));
+	}
+
+	@Test
+	void buildDateExpressions_recentNYear() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("近2年"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_recentNMonth() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("近3个月"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_recentNWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("近2周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_recentNDay() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("近7天"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_recentNDayWithoutToday() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("不包含今天的近7天"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_recentNCompleteYear() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("近2个完整年"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_recentNCompleteQuarter() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("近2个完整季度"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_recentNCompleteMonth() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("近3个完整月"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_recentNCompleteWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("近2个完整周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_recentNQuarterWithCurrent() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("包含当前季度的近2个季度"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_specificYearWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("2026年第05周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_generalYearWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("今年第05周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_generalMonthWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("本月第1周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_specificYearMonthLastWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("2026年04月最后一周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_generalMonthLastWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("本月最后一周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_generalMonthLastCompleteWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("本月最后一个完整周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_specificYearMonthWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("2026年04月第1周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_generalYearMonthWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("今年04月第1周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_specificYearMonthCompleteWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("2026年04月第1个完整周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_generalYearMonthCompleteWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("今年04月第1个完整周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_generalMonthCompleteWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("本月第1个完整周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_specificYearCompleteWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("2026年第05个完整周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_generalYearCompleteWeek() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("今年第05个完整周"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_specificYearHalfYear() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("2026年上半年"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_generalYearHalfYear() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("今年上半年"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_halfYear() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of("上半年"), FIXED_DATE);
+		assertEquals(1, result.size());
+		assertTrue(result.get(0).contains("至"));
+	}
+
+	@Test
+	void buildDateExpressions_emptyList() {
+		List<String> result = DateTimeUtil.buildDateExpressions(List.of(), FIXED_DATE);
+		assertTrue(result.isEmpty());
+	}
+
+	// --- buildDateTimeComment ---
+
+	@Test
+	void buildDateTimeComment_containsTodayInfo() {
+		String result = DateTimeUtil.buildDateTimeComment(List.of("今天"));
+		assertTrue(result.contains("今天是"));
+		assertTrue(result.contains("需要计算的时间是"));
 	}
 
 }

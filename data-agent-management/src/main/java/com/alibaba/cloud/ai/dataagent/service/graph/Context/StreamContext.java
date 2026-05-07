@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.graph.Context;
 
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
+import io.opentelemetry.api.trace.Span;
 import lombok.Data;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.Disposable;
@@ -37,7 +38,22 @@ public class StreamContext {
 
 	private Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink;
 
+	private Span span;
+
 	private TextType textType;
+
+	/**
+	 * 收集流式输出内容，用于 Langfuse 上报
+	 */
+	private final StringBuilder outputCollector = new StringBuilder();
+
+	public void appendOutput(String chunk) {
+		outputCollector.append(chunk);
+	}
+
+	public String getCollectedOutput() {
+		return outputCollector.toString();
+	}
 
 	/**
 	 * 标记是否已经清理，用于防止重复清理

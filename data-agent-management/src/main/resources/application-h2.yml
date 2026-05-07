@@ -56,6 +56,12 @@ spring:
             bucket-name: ${OSS_BUCKET_NAME:}
             custom-domain: ${OSS_CUSTOM_DOMAIN:}
         max-sql-retry-count: 10
+        # Langfuse 可观测性配置
+        langfuse:
+          enabled: ${LANGFUSE_ENABLED:false}
+          host: ${LANGFUSE_HOST:}
+          public-key: ${LANGFUSE_PUBLIC_KEY:}
+          secret-key: ${LANGFUSE_SECRET_KEY:}
   servlet:
     multipart:
       max-file-size: 10MB

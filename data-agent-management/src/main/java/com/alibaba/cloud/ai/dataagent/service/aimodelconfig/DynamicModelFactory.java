@@ -76,6 +76,7 @@ public class DynamicModelFactory {
 			.model(config.getModelName())
 			.temperature(config.getTemperature())
 			.maxTokens(config.getMaxTokens())
+			.streamUsage(true)
 			.build();
 		// 4. 返回统一的 OpenAiChatModel
 		return OpenAiChatModel.builder().openAiApi(openAiApi).defaultOptions(openAiChatOptions).build();

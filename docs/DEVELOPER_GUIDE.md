@@ -417,6 +417,21 @@ public class AgentVectorStoreService {
 | `marked-url` | Marked.js 路径 (Markdown渲染库) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/marked/12.0.0/marked.min.js |
 | `echarts-url` | ECharts 路径 (图表库) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/echarts/5.5.0/echarts.min.js |
 
+### 11. Langfuse 可观测性配置 (Langfuse Observability)
+
+配置前缀: `spring.ai.alibaba.data-agent.langfuse`
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `enabled` | 是否启用 Langfuse 可观测性 | true |
+| `host` | Langfuse 服务地址（如 `https://cloud.langfuse.com` 或自部署地址） | - |
+| `public-key` | Langfuse 项目的 Public Key | - |
+| `secret-key` | Langfuse 项目的 Secret Key | - |
+
+对应环境变量: `LANGFUSE_ENABLED`、`LANGFUSE_HOST`、`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`
+
+> 详细使用说明请参考 [高级功能 - Langfuse 可观测性](ADVANCED_FEATURES.md#-langfuse-可观测性)。
+
 ## 📚 学习资源
 
 ### 官方文档

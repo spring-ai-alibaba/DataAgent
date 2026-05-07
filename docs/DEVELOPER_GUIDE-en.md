@@ -364,6 +364,21 @@ Configuration prefix: `spring.ai.alibaba.data-agent.report-template`
 | `marked-url` | Marked.js path (Markdown rendering library) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/marked/12.0.0/marked.min.js |
 | `echarts-url` | ECharts path (chart library) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/echarts/5.5.0/echarts.min.js |
 
+### 11. Langfuse Observability Configuration
+
+Configuration prefix: `spring.ai.alibaba.data-agent.langfuse`
+
+| Configuration Item | Description | Default Value |
+|-------------------|-------------|---------------|
+| `enabled` | Enable Langfuse observability | true |
+| `host` | Langfuse service URL (e.g. `https://cloud.langfuse.com` or self-hosted) | - |
+| `public-key` | Langfuse project Public Key | - |
+| `secret-key` | Langfuse project Secret Key | - |
+
+Environment variables: `LANGFUSE_ENABLED`, `LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`
+
+> For detailed usage, refer to [Advanced Features - Langfuse Observability](ADVANCED_FEATURES-en.md#langfuse-observability).
+
 ## Learning Resources
 
 ### Official Documentation
