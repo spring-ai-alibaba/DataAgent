@@ -22,7 +22,6 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -91,9 +90,20 @@ public class FileUploadController {
 			String requestMapPath = this.getClass().getAnnotation(RequestMapping.class).value()[0];
 			String requestPath = request.getPath().value();
 			String urlPrefix = fileStorageProperties.getUrlPrefix();
-			String filePath = requestPath.substring(requestMapPath.length() + urlPrefix.length());
+			String requestPrefix = requestMapPath + urlPrefix + "/";
+			if (!requestPath.startsWith(requestPrefix)) {
+				return ResponseEntity.badRequest().build();
+			}
+			String filePath = requestPath.substring(requestPrefix.length());
+			if (filePath.isBlank()) {
+				return ResponseEntity.badRequest().build();
+			}
 
-			Path fullPath = Paths.get(fileStorageProperties.getPath(), filePath);
+			Path basePath = fileStorageProperties.getLocalBasePath().toAbsolutePath().normalize();
+			Path fullPath = basePath.resolve(filePath).normalize();
+			if (!fullPath.startsWith(basePath)) {
+				return ResponseEntity.status(403).build();
+			}
 
 			if (!Files.exists(fullPath) || Files.isDirectory(fullPath)) {
 				return ResponseEntity.notFound().build();
