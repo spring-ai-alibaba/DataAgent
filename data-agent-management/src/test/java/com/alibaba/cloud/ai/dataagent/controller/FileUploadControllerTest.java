@@ -130,7 +130,7 @@ class FileUploadControllerTest {
 		org.springframework.http.server.RequestPath requestPath = mock(
 				org.springframework.http.server.RequestPath.class);
 		when(request.getPath()).thenReturn(requestPath);
-		when(requestPath.value()).thenReturn("/api/upload/uploads/missing.png");
+		when(requestPath.value()).thenReturn("/api/upload/uploads/avatars/missing.png");
 
 		ResponseEntity<byte[]> result = controller.getFile(request);
 

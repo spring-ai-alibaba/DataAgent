@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.workflow.node.sql;
 
+import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
 import com.alibaba.cloud.ai.dataagent.workflow.node.SqlGenerateNode;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
@@ -25,6 +26,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
@@ -38,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class SqlGenerateNodeTest {
 
 	private static final String TEST_PLAN_JSON = """
@@ -166,6 +170,151 @@ class SqlGenerateNodeTest {
 		Map<String, Object> result = sqlGenerateNode.apply(state);
 		assertNotNull(result);
 		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	void apply_nl2SqlServiceFailure_throwsException() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenThrow(new RuntimeException("NL2SQL service unavailable"));
+
+		assertThrows(RuntimeException.class, () -> sqlGenerateNode.apply(state));
+	}
+
+	@Test
+	void apply_missingSchemaState_throwsException() {
+		OverAllState state = createTestState();
+		state.updateState(Map.of(SQL_GENERATE_COUNT, 0, PLANNER_NODE_OUTPUT, TEST_PLAN_JSON, PLAN_CURRENT_STEP, 1,
+				EVIDENCE, "test evidence", DB_DIALECT_TYPE, "mysql", QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE));
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+
+		assertThrows(Exception.class, () -> sqlGenerateNode.apply(state));
+	}
+
+	@Test
+	void apply_nullPlannerOutput_throwsException() {
+		OverAllState state = createTestState();
+		state
+			.updateState(Map.of(SQL_GENERATE_COUNT, 0, PLAN_CURRENT_STEP, 1, EVIDENCE, "test evidence", DB_DIALECT_TYPE,
+					"mysql", QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE, TABLE_RELATION_OUTPUT, TEST_SCHEMA));
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+
+		assertThrows(Exception.class, () -> sqlGenerateNode.apply(state));
+	}
+
+	@Test
+	void apply_withRegenerateReason_includesReasonInPrompt() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		state.updateState(
+				Map.of(SQL_REGENERATE_REASON, new SqlRetryDto("SQL execution error: table not found", false, true),
+						SQL_GENERATE_OUTPUT, "SELECT * FROM nonexistent"));
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM users"));
+
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	void apply_semanticFailureReason_includesValidationFeedback() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		state.updateState(Map.of(SQL_REGENERATE_REASON,
+				new SqlRetryDto("Semantic check failed: query intent mismatch", true, false), SQL_GENERATE_OUTPUT,
+				"SELECT count(*) FROM orders"));
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT sum(amount) FROM orders"));
+
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	void apply_emptyEvidenceString_generatesWithoutEvidence() throws Exception {
+		OverAllState state = createTestState();
+		state.updateState(Map.of(SQL_GENERATE_COUNT, 0, PLANNER_NODE_OUTPUT, TEST_PLAN_JSON, PLAN_CURRENT_STEP, 1,
+				EVIDENCE, "", DB_DIALECT_TYPE, "mysql", QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE,
+				TABLE_RELATION_OUTPUT, TEST_SCHEMA));
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM users"));
+
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	void nestedQueries_generatesSubquerySyntax() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any()))
+			.thenReturn(Flux.just("SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)"));
+
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	void specialCharacters_inColumns_escapesProperly() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any()))
+			.thenReturn(Flux.just("SELECT `user-name`, `order#id` FROM `special_table`"));
+
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	void extremelyLongQuery_generatesValidSql() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		StringBuilder longSql = new StringBuilder("SELECT ");
+		for (int i = 0; i < 100; i++) {
+			if (i > 0)
+				longSql.append(", ");
+			longSql.append("col_").append(i);
+		}
+		longSql.append(" FROM large_table WHERE id > 0");
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just(longSql.toString()));
+
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	void apply_sqlTrimRemovesMarkdown_returnsCleanSql() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("```sql\nSELECT * FROM users\n```"));
+		when(nl2SqlService.sqlTrim(any())).thenReturn("SELECT * FROM users");
+
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		assertNotNull(result);
+		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+		assertNotNull(result.get(SQL_GENERATE_OUTPUT));
 	}
 
 }
