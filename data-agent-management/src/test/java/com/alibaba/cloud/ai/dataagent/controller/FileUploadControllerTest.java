@@ -122,7 +122,7 @@ class FileUploadControllerTest {
 
 	@Test
 	void getFile_nonExistentFile_returnsNotFound(@TempDir Path tempDir) {
-		when(fileStorageProperties.getPath()).thenReturn(tempDir.toString());
+		when(fileStorageProperties.getLocalBasePath()).thenReturn(tempDir);
 		when(fileStorageProperties.getUrlPrefix()).thenReturn("/uploads");
 
 		org.springframework.http.server.reactive.ServerHttpRequest request = mock(
@@ -141,7 +141,7 @@ class FileUploadControllerTest {
 	void getFile_existingFile_returnsFileContent(@TempDir Path tempDir) throws IOException {
 		Path file = tempDir.resolve("test.txt");
 		Files.writeString(file, "hello");
-		when(fileStorageProperties.getPath()).thenReturn(tempDir.toString());
+		when(fileStorageProperties.getLocalBasePath()).thenReturn(tempDir);
 		when(fileStorageProperties.getUrlPrefix()).thenReturn("/uploads");
 
 		org.springframework.http.server.reactive.ServerHttpRequest request = mock(
@@ -155,6 +155,23 @@ class FileUploadControllerTest {
 
 		assertEquals(200, result.getStatusCode().value());
 		assertEquals("hello", new String(result.getBody()));
+	}
+
+	@Test
+	void getFile_pathTraversal_returnsForbidden(@TempDir Path tempDir) {
+		when(fileStorageProperties.getLocalBasePath()).thenReturn(tempDir);
+		when(fileStorageProperties.getUrlPrefix()).thenReturn("/uploads");
+
+		org.springframework.http.server.reactive.ServerHttpRequest request = mock(
+				org.springframework.http.server.reactive.ServerHttpRequest.class);
+		org.springframework.http.server.RequestPath requestPath = mock(
+				org.springframework.http.server.RequestPath.class);
+		when(request.getPath()).thenReturn(requestPath);
+		when(requestPath.value()).thenReturn("/api/upload/uploads/../../../etc/passwd");
+
+		ResponseEntity<byte[]> result = controller.getFile(request);
+
+		assertEquals(403, result.getStatusCode().value());
 	}
 
 }
