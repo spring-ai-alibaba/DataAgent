@@ -15,33 +15,19 @@
  */
 package com.alibaba.cloud.ai.dataagent.dto.schema;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
-import java.util.List;
-
-/**
- * 语义模型批量导入DTO
- */
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class SemanticModelBatchImportDTO {
+public class SemanticTableQueryDTO {
 
-	@NotNull(message = "智能体ID不能为空")
 	private Long agentId;
 
-	@NotNull(message = "数据源ID不能为空")
 	private Integer datasourceId;
 
-	@NotEmpty(message = "导入数据不能为空")
-	@Valid
-	private List<SemanticModelImportItem> items;
+	private String keyword;
+
+	private Integer pageNum = 1;
+
+	private Integer pageSize = 20;
 
 }

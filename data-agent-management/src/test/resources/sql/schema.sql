@@ -46,29 +46,6 @@ CREATE TABLE IF NOT EXISTS business_knowledge (
   FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '业务知识表';
 
--- 语义模型表
-CREATE TABLE IF NOT EXISTS `semantic_model` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `agent_id` int(11) NOT NULL COMMENT '关联的智能体ID',
-  `datasource_id` int(11) NOT NULL COMMENT '关联的数据源ID',
-  `table_name` varchar(255) COLLATE utf8mb4_bin NOT NULL COMMENT '关联的表名',
-  `column_name` varchar(255) COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '数据库中的物理字段名 (例如: csat_score)',
-  `business_name` varchar(255) COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '业务名/别名 (例如: 客户满意度分数)',
-  `synonyms` text COLLATE utf8mb4_bin COMMENT '业务名的同义词 (例如: 满意度,客户评分)',
-  `business_description` text COLLATE utf8mb4_bin COMMENT '业务描述 (用于向LLM解释字段的业务含义)',
-  `column_comment` varchar(255) COLLATE utf8mb4_bin DEFAULT NULL COMMENT '数据库中的物理字段的原始注释 ',
-  `data_type` varchar(255) COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '物理数据类型 (例如: int, varchar(20))',
-  `status` tinyint(4) NOT NULL DEFAULT '1' COMMENT '0 停用 1 启用',
-  `created_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`) USING BTREE,
-  KEY `idx_agent_id` (`agent_id`) USING BTREE,
-  KEY `idx_field_name` (`business_name`) USING BTREE,
-  KEY `idx_status` (`status`) USING BTREE,
-  CONSTRAINT `fk_semantic_model_agent` FOREIGN KEY (`agent_id`) REFERENCES `agent` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin ROW_FORMAT=DYNAMIC COMMENT='语义模型表';
-
-
 -- 智能体知识表
 CREATE TABLE IF NOT EXISTS `agent_knowledge` (
   `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '主键ID, 用于内部关联',

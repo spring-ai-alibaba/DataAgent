@@ -17,7 +17,6 @@ package com.alibaba.cloud.ai.dataagent.agentscope.tool.datasource;
 
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
-import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
 import com.alibaba.cloud.ai.dataagent.agentscope.dto.AgentRequest;
 import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
@@ -25,11 +24,13 @@ import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
-import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
 import com.alibaba.cloud.ai.dataagent.observability.AnswerTraceExplainStore;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
+import com.alibaba.cloud.ai.dataagent.service.semantic.runtime.ResolvedSemanticRelation;
+import com.alibaba.cloud.ai.dataagent.service.semantic.runtime.SemanticContext;
+import com.alibaba.cloud.ai.dataagent.service.semantic.runtime.SemanticContextFactory;
 import com.alibaba.cloud.ai.dataagent.util.SqlUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -111,6 +112,8 @@ public class DatasourceExplorerService {
 	private final ObjectMapper objectMapper;
 
 	private final AnswerTraceExplainStore answerTraceExplainStore;
+
+	private final SemanticContextFactory semanticContextFactory;
 
 	public DatasourceExplorerResult execute(String agentId, DatasourceExplorerRequest request) throws Exception {
 		return execute(agentId, request, null);
@@ -298,27 +301,14 @@ public class DatasourceExplorerService {
 						.map(this::normalizeColumnName)
 						.collect(Collectors.toCollection(LinkedHashSet::new)),
 					(left, right) -> left, LinkedHashMap::new));
-		List<LogicalRelation> logicalRelations = datasourceService.getLogicalRelations(datasource.getId());
-		List<ForeignKeyInfoBO> physicalRelations = loadPhysicalRelations(accessor, dbConfig, visibleTables);
-		List<UnifiedRelation> unifiedRelations = buildUnifiedRelations(visibleTablesByName, visibleTablesByLeafName,
-				physicalRelations, logicalRelations == null ? List.of() : logicalRelations);
+		SemanticContext semanticContext = semanticContextFactory.create(numericAgentId, datasource.getId(), visibleTables);
+		List<UnifiedRelation> unifiedRelations = buildUnifiedRelations(semanticContext);
 		return new ExplorerContext(agentDatasource, datasource, dbConfig, accessor, List.copyOf(visibleTables),
 				Set.copyOf(visibleTableNameSet), toImmutableListIndex(visibleTablesByName),
 				toImmutableListIndex(visibleTablesByLeafName), List.copyOf(explicitSelectedTables),
 				Map.copyOf(visibleColumnsByTable), toImmutableSetIndex(visibleColumnNameSetByTable),
 				Set.copyOf(visibleColumnsByTable.keySet()), List.copyOf(unifiedRelations),
 				indexRelationsByTable(unifiedRelations));
-	}
-
-	private List<ForeignKeyInfoBO> loadPhysicalRelations(Accessor accessor, DbConfigBO dbConfig, List<String> tables) {
-		try {
-			List<ForeignKeyInfoBO> foreignKeys = accessor.showForeignKeys(dbConfig,
-					DbQueryParameter.from(dbConfig).setSchema(dbConfig.getSchema()).setTables(tables));
-			return foreignKeys == null ? List.of() : foreignKeys;
-		}
-		catch (Exception ex) {
-			return List.of();
-		}
 	}
 
 	private Long parseAgentId(String agentId) {
@@ -534,22 +524,13 @@ public class DatasourceExplorerService {
 		return relationEntry;
 	}
 
-	private List<UnifiedRelation> buildUnifiedRelations(Map<String, List<String>> visibleTablesByName,
-			Map<String, List<String>> visibleTablesByLeafName, List<ForeignKeyInfoBO> physicalRelations,
-			List<LogicalRelation> logicalRelations) {
+	private List<UnifiedRelation> buildUnifiedRelations(SemanticContext semanticContext) {
 		Map<String, UnifiedRelation> relationMap = new LinkedHashMap<>();
-		for (ForeignKeyInfoBO physicalRelation : physicalRelations) {
-			UnifiedRelation relation = canonicalizeRelation(visibleTablesByName, visibleTablesByLeafName,
-					toUnifiedRelation(physicalRelation));
-			if (relation != null) {
-				mergeRelation(relationMap, relation);
-			}
-		}
-		for (LogicalRelation logicalRelation : logicalRelations) {
-			UnifiedRelation relation = canonicalizeRelation(visibleTablesByName, visibleTablesByLeafName,
-					toUnifiedRelation(logicalRelation));
-			if (relation != null) {
-				mergeRelation(relationMap, relation);
+		for (List<ResolvedSemanticRelation> relations : semanticContext.relationsByTable().values()) {
+			for (ResolvedSemanticRelation relation : relations) {
+				for (UnifiedRelation unifiedRelation : flattenUnifiedRelations(relation)) {
+					mergeRelation(relationMap, unifiedRelation);
+				}
 			}
 		}
 		return relationMap.values()
@@ -561,30 +542,20 @@ public class DatasourceExplorerService {
 			.toList();
 	}
 
-	private UnifiedRelation toUnifiedRelation(ForeignKeyInfoBO relation) {
-		return new UnifiedRelation(relation.getTable(), relation.getColumn(), relation.getReferencedTable(),
-				relation.getReferencedColumn(), StringUtils.EMPTY, StringUtils.EMPTY, "physical", false, true);
-	}
-
-	private UnifiedRelation toUnifiedRelation(LogicalRelation relation) {
-		return new UnifiedRelation(relation.getSourceTableName(), relation.getSourceColumnName(),
-				relation.getTargetTableName(), relation.getTargetColumnName(),
-				StringUtils.defaultString(relation.getRelationType()),
-				StringUtils.defaultString(relation.getDescription()), "logical", true, false);
-	}
-
-	private UnifiedRelation canonicalizeRelation(Map<String, List<String>> visibleTablesByName,
-			Map<String, List<String>> visibleTablesByLeafName, UnifiedRelation relation) {
-		Optional<String> sourceTable = findVisibleTableName(visibleTablesByName, visibleTablesByLeafName,
-				relation.sourceTable(), true);
-		Optional<String> targetTable = findVisibleTableName(visibleTablesByName, visibleTablesByLeafName,
-				relation.targetTable(), true);
-		if (sourceTable.isEmpty() || targetTable.isEmpty()) {
-			return null;
+	private List<UnifiedRelation> flattenUnifiedRelations(ResolvedSemanticRelation relation) {
+		int pairCount = Math.min(relation.sourceColumnNames().size(), relation.targetColumnNames().size());
+		if (pairCount <= 0) {
+			return List.of(new UnifiedRelation(relation.sourceTableName(), relation.sourceColumnSummary(),
+					relation.targetTableName(), relation.targetColumnSummary(), relation.relationType(),
+					relation.description(), relation.sourceType(), relation.virtual(), relation.declaredInDatabase()));
 		}
-		return new UnifiedRelation(sourceTable.get(), relation.sourceColumn(), targetTable.get(),
-				relation.targetColumn(), relation.relationType(), relation.description(), relation.sourceType(),
-				relation.virtual(), relation.declaredInDatabase());
+		List<UnifiedRelation> flattened = new ArrayList<>(pairCount);
+		for (int i = 0; i < pairCount; i++) {
+			flattened.add(new UnifiedRelation(relation.sourceTableName(), relation.sourceColumnNames().get(i),
+					relation.targetTableName(), relation.targetColumnNames().get(i), relation.relationType(),
+					relation.description(), relation.sourceType(), relation.virtual(), relation.declaredInDatabase()));
+		}
+		return flattened;
 	}
 
 	private void mergeRelation(Map<String, UnifiedRelation> relationMap, UnifiedRelation incoming) {

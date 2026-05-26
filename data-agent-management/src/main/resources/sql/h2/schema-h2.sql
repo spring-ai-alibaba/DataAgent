@@ -46,29 +46,70 @@ CREATE TABLE IF NOT EXISTS business_knowledge (
   FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '业务知识表';
 
--- 语义模型表
-CREATE TABLE IF NOT EXISTS semantic_model (
+CREATE TABLE IF NOT EXISTS semantic_table (
   id INT NOT NULL AUTO_INCREMENT,
   agent_id INT NOT NULL COMMENT '关联的智能体ID',
   datasource_id INT NOT NULL COMMENT '关联的数据源ID',
-  table_name VARCHAR(255) NOT NULL COMMENT '关联的表名',
-  column_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '数据库中的物理字段名 (例如: csat_score)',
-  business_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '业务名/别名 (例如: 客户满意度分数)',
-  synonyms TEXT COMMENT '业务名的同义词 (例如: 满意度,客户评分)',
-  business_description TEXT COMMENT '业务描述 (用于向LLM解释字段的业务含义)',
-  column_comment VARCHAR(255) DEFAULT NULL COMMENT '数据库中的物理字段的原始注释 ',
-  data_type VARCHAR(255) NOT NULL DEFAULT '' COMMENT '物理数据类型 (例如: int, varchar(20))',
+  table_name VARCHAR(255) NOT NULL COMMENT '物理表名',
+  business_name VARCHAR(255) DEFAULT NULL COMMENT '业务名称/别名',
+  synonyms TEXT COMMENT '同义词',
+  business_description TEXT COMMENT '业务描述',
+  table_comment VARCHAR(255) DEFAULT NULL COMMENT '物理表注释快照',
+  is_visible TINYINT NOT NULL DEFAULT 1 COMMENT '0 不可见 1 可见',
   status TINYINT NOT NULL DEFAULT 1 COMMENT '0 停用 1 启用',
   created_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
-  UNIQUE KEY uk_semantic_model_agent_datasource_table_column (agent_id, datasource_id, table_name, column_name),
-  INDEX idx_semantic_model_agent_id (agent_id),
-  INDEX idx_semantic_model_business_name (business_name),
-  INDEX idx_semantic_model_status (status),
-  CONSTRAINT fk_semantic_model_agent FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
-) ENGINE = InnoDB COMMENT = '语义模型表';
+  UNIQUE KEY uk_semantic_table_agent_datasource_table (agent_id, datasource_id, table_name),
+  INDEX idx_semantic_table_agent_id (agent_id),
+  INDEX idx_semantic_table_datasource_id (datasource_id),
+  CONSTRAINT fk_semantic_table_agent FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE,
+  CONSTRAINT fk_semantic_table_datasource FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON DELETE CASCADE
+) ENGINE = InnoDB COMMENT = '结构化表语义层';
 
+CREATE TABLE IF NOT EXISTS semantic_column (
+  id INT NOT NULL AUTO_INCREMENT,
+  agent_id INT NOT NULL COMMENT '关联的智能体ID',
+  datasource_id INT NOT NULL COMMENT '关联的数据源ID',
+  table_name VARCHAR(255) NOT NULL COMMENT '物理表名',
+  column_name VARCHAR(255) NOT NULL COMMENT '物理字段名',
+  business_name VARCHAR(255) DEFAULT NULL COMMENT '业务名称/别名',
+  synonyms TEXT COMMENT '同义词',
+  business_description TEXT COMMENT '业务描述',
+  column_comment VARCHAR(255) DEFAULT NULL COMMENT '物理字段注释快照',
+  data_type VARCHAR(255) DEFAULT NULL COMMENT '物理数据类型快照',
+  is_visible TINYINT NOT NULL DEFAULT 1 COMMENT '0 不可见 1 可见',
+  status TINYINT NOT NULL DEFAULT 1 COMMENT '0 停用 1 启用',
+  created_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_semantic_column_agent_ds_table_col (agent_id, datasource_id, table_name, column_name),
+  INDEX idx_semantic_column_agent_id (agent_id),
+  INDEX idx_semantic_column_datasource_id (datasource_id),
+  CONSTRAINT fk_semantic_column_agent FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE,
+  CONSTRAINT fk_semantic_column_datasource FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON DELETE CASCADE
+) ENGINE = InnoDB COMMENT = '结构化列语义层';
+
+CREATE TABLE IF NOT EXISTS semantic_relation (
+  id INT NOT NULL AUTO_INCREMENT,
+  agent_id INT NOT NULL COMMENT '关联的智能体ID',
+  datasource_id INT NOT NULL COMMENT '关联的数据源ID',
+  source_table_name VARCHAR(255) NOT NULL COMMENT '源表名',
+  source_column_names VARCHAR(512) NOT NULL COMMENT '源字段列表，逗号分隔',
+  target_table_name VARCHAR(255) NOT NULL COMMENT '目标表名',
+  target_column_names VARCHAR(512) NOT NULL COMMENT '目标字段列表，逗号分隔',
+  relation_type VARCHAR(64) DEFAULT NULL COMMENT '关系类型',
+  description VARCHAR(1000) DEFAULT NULL COMMENT '业务描述',
+  status TINYINT NOT NULL DEFAULT 1 COMMENT '0 停用 1 启用',
+  created_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (id),
+  INDEX idx_semantic_relation_agent_id (agent_id),
+  INDEX idx_semantic_relation_datasource_id (datasource_id),
+  INDEX idx_semantic_relation_source_table (datasource_id, source_table_name),
+  CONSTRAINT fk_semantic_relation_agent FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE,
+  CONSTRAINT fk_semantic_relation_datasource FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON DELETE CASCADE
+) ENGINE = InnoDB COMMENT = '结构化关系语义层';
 
 -- 智能体知识表
 CREATE TABLE IF NOT EXISTS agent_knowledge (
@@ -119,25 +160,6 @@ CREATE TABLE IF NOT EXISTS datasource (
   INDEX idx_datasource_status (status),
   INDEX idx_datasource_creator_id (creator_id)
 ) ENGINE = InnoDB COMMENT = '数据源表';
-
--- 逻辑外键配置表
-CREATE TABLE IF NOT EXISTS logical_relation (
-  id INT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  datasource_id INT NOT NULL COMMENT '关联的数据源ID',
-  source_table_name VARCHAR(100) NOT NULL COMMENT '主表名 (例如 t_order)',
-  source_column_name VARCHAR(100) NOT NULL COMMENT '主表字段名 (例如 buyer_uid)',
-  target_table_name VARCHAR(100) NOT NULL COMMENT '关联表名 (例如 t_user)',
-  target_column_name VARCHAR(100) NOT NULL COMMENT '关联表字段名 (例如 id)',
-  relation_type VARCHAR(20) DEFAULT NULL COMMENT '关系类型: 1:1, 1:N, N:1 (辅助LLM理解数据基数，可选)',
-  description VARCHAR(500) DEFAULT NULL COMMENT '业务描述: 存入Prompt中帮助LLM理解 (例如: 订单表通过buyer_uid关联用户表id)',
-  is_deleted TINYINT(1) DEFAULT 0 COMMENT '逻辑删除: 0-未删除, 1-已删除',
-  created_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  updated_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (id),
-  INDEX idx_logical_relation_datasource_id (datasource_id),
-  INDEX idx_logical_relation_source_table (datasource_id, source_table_name),
-  FOREIGN KEY (datasource_id) REFERENCES datasource(id) ON DELETE CASCADE
-) ENGINE = InnoDB COMMENT = '逻辑外键配置表';
 
 -- 智能体数据源关联表
 CREATE TABLE IF NOT EXISTS agent_datasource (

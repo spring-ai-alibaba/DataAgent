@@ -31,6 +31,11 @@ import com.alibaba.cloud.ai.dataagent.dto.datasource.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
+import com.alibaba.cloud.ai.dataagent.service.semantic.runtime.ResolvedSemanticColumn;
+import com.alibaba.cloud.ai.dataagent.service.semantic.runtime.ResolvedSemanticRelation;
+import com.alibaba.cloud.ai.dataagent.service.semantic.runtime.ResolvedSemanticTable;
+import com.alibaba.cloud.ai.dataagent.service.semantic.runtime.SemanticContext;
+import com.alibaba.cloud.ai.dataagent.service.semantic.runtime.SemanticContextFactory;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -78,6 +83,8 @@ public class SchemaServiceImpl implements SchemaService {
 	private final DynamicFilterService dynamicFilterService;
 
 	private final DataAgentProperties dataAgentProperties;
+
+	private final SemanticContextFactory semanticContextFactory;
 
 	/**
 	 * Vector storage service
@@ -414,6 +421,22 @@ public class SchemaServiceImpl implements SchemaService {
 	public List<Document> getTableDocumentsByDatasource(String agentId, Integer datasourceId, String query) {
 		Assert.hasText(agentId, "agentId cannot be blank");
 		Assert.notNull(datasourceId, "datasourceId cannot be null");
+		if (semanticContextFactory != null) {
+			try {
+				SemanticContext context = semanticContextFactory.create(Long.parseLong(agentId), datasourceId);
+				String normalizedQuery = StringUtils.trimToEmpty(query).toLowerCase(Locale.ROOT);
+				return context.listTables()
+					.stream()
+					.filter(table -> normalizedQuery.isEmpty() || matchesTableQuery(table, normalizedQuery))
+					.map(table -> toTableDocument(agentId, datasourceId, context, table))
+					.toList();
+			}
+			catch (Exception ex) {
+				log.error("Failed to load semantic table documents for agentId={}, datasourceId={}", agentId, datasourceId,
+						ex);
+				return Collections.emptyList();
+			}
+		}
 		int tableTopK = dataAgentProperties.getVectorStore().getTableTopkLimit();
 		double tableThreshold = dataAgentProperties.getVectorStore().getTableSimilarityThreshold();
 
@@ -620,6 +643,20 @@ public class SchemaServiceImpl implements SchemaService {
 	public List<Document> getTableDocuments(String agentId, Integer datasourceId, List<String> tableNames) {
 		Assert.hasText(agentId, "AgentId cannot be blank.");
 		Assert.notNull(datasourceId, "DatasourceId cannot be null.");
+		if (semanticContextFactory != null) {
+			try {
+				SemanticContext context = semanticContextFactory.create(Long.parseLong(agentId), datasourceId, tableNames);
+				return context.listTables()
+					.stream()
+					.map(table -> toTableDocument(agentId, datasourceId, context, table))
+					.toList();
+			}
+			catch (Exception ex) {
+				log.error("Failed to load table documents for agentId={}, datasourceId={}, tableNames={}", agentId,
+						datasourceId, tableNames, ex);
+				return Collections.emptyList();
+			}
+		}
 		if (tableNames.isEmpty())
 			return Collections.emptyList();
 		// 通过元数据过滤查找目标表
@@ -636,6 +673,23 @@ public class SchemaServiceImpl implements SchemaService {
 	public List<Document> getColumnDocumentsByTableName(String agentId, Integer datasourceId, List<String> tableNames) {
 		Assert.hasText(agentId, "AgentId cannot be blank.");
 		Assert.notNull(datasourceId, "DatasourceId cannot be null.");
+		if (semanticContextFactory != null) {
+			try {
+				SemanticContext context = semanticContextFactory.create(Long.parseLong(agentId), datasourceId, tableNames);
+				List<Document> documents = new ArrayList<>();
+				for (ResolvedSemanticTable table : context.listTables()) {
+					for (ResolvedSemanticColumn column : context.listColumns(normalizeIdentifier(table.tableName()))) {
+						documents.add(toColumnDocument(agentId, datasourceId, column));
+					}
+				}
+				return documents;
+			}
+			catch (Exception ex) {
+				log.error("Failed to load column documents for agentId={}, datasourceId={}, tableNames={}", agentId,
+						datasourceId, tableNames, ex);
+				return Collections.emptyList();
+			}
+		}
 		if (tableNames.isEmpty()) {
 			log.warn("TableNames is empty.We need talbeNames to search their columns");
 			return Collections.emptyList();
@@ -650,6 +704,67 @@ public class SchemaServiceImpl implements SchemaService {
 		// TopK=表数量×最大预估列数
 		return agentVectorStoreService.getDocumentsOnlyByFilter(filterExpression,
 				tableNames.size() * dataAgentProperties.getMaxColumnsPerTable());
+	}
+
+	private boolean matchesTableQuery(ResolvedSemanticTable table, String normalizedQuery) {
+		return containsIgnoreCase(table.tableName(), normalizedQuery) || containsIgnoreCase(table.businessName(), normalizedQuery)
+				|| containsIgnoreCase(table.synonyms(), normalizedQuery)
+				|| containsIgnoreCase(table.description(), normalizedQuery)
+				|| containsIgnoreCase(table.physicalDescription(), normalizedQuery);
+	}
+
+	private boolean containsIgnoreCase(String value, String normalizedQuery) {
+		return StringUtils.isNotBlank(value) && value.toLowerCase(Locale.ROOT).contains(normalizedQuery);
+	}
+
+	private Document toTableDocument(String agentId, Integer datasourceId, SemanticContext context,
+			ResolvedSemanticTable table) {
+		Map<String, Object> metadata = new HashMap<>();
+		metadata.put("name", table.tableName());
+		metadata.put("description", StringUtils.defaultString(table.description()));
+		metadata.put("primaryKey", table.primaryKeys());
+		metadata.put("foreignKey", buildForeignKeyMetadata(context.listRelations(normalizeIdentifier(table.tableName()))));
+		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.TABLE);
+		metadata.put(Constant.AGENT_ID, agentId);
+		metadata.put(Constant.DATASOURCE_ID, datasourceId.toString());
+		String text = StringUtils.firstNonBlank(table.description(), table.businessName(), table.tableName());
+		return new Document(text, metadata);
+	}
+
+	private Document toColumnDocument(String agentId, Integer datasourceId, ResolvedSemanticColumn column) {
+		Map<String, Object> metadata = new HashMap<>();
+		metadata.put("name", column.columnName());
+		metadata.put("tableName", column.tableName());
+		metadata.put("description", StringUtils.defaultString(column.description()));
+		metadata.put("type", StringUtils.defaultString(column.dataType()));
+		metadata.put("primary", column.primary());
+		metadata.put("notnull", column.notNull());
+		metadata.put("samples", StringUtils.defaultString(column.samples()));
+		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.COLUMN);
+		metadata.put(Constant.AGENT_ID, agentId);
+		metadata.put(Constant.DATASOURCE_ID, datasourceId.toString());
+		String text = StringUtils.firstNonBlank(column.description(), column.businessName(), column.columnName());
+		return new Document(text, metadata);
+	}
+
+	private String buildForeignKeyMetadata(List<ResolvedSemanticRelation> relations) {
+		return relations.stream()
+			.flatMap(relation -> flattenRelationSegments(relation).stream())
+			.distinct()
+			.collect(Collectors.joining(FOREIGN_KEY_SEPARATOR));
+	}
+
+	private List<String> flattenRelationSegments(ResolvedSemanticRelation relation) {
+		int pairCount = Math.min(relation.sourceColumnNames().size(), relation.targetColumnNames().size());
+		if (pairCount <= 0) {
+			return List.of(relation.foreignKeyText());
+		}
+		List<String> segments = new ArrayList<>();
+		for (int i = 0; i < pairCount; i++) {
+			segments.add(relation.sourceTableName() + "." + relation.sourceColumnNames().get(i) + "="
+					+ relation.targetTableName() + "." + relation.targetColumnNames().get(i));
+		}
+		return segments;
 	}
 
 }

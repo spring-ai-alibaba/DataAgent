@@ -13,22 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.agentscope.tool.semantic;
+package com.alibaba.cloud.ai.dataagent.dto.schema;
 
-import java.util.ArrayList;
-import java.util.List;
-import lombok.Builder;
 import lombok.Data;
 
 @Data
-@Builder
-public class SemanticModelSearchResult {
+public class SemanticRelationQueryDTO {
 
-	private String resolution;
+	private Long agentId;
 
-	private String summary;
+	private Integer datasourceId;
 
-	@Builder.Default
-	private List<SemanticModelSearchHit> hits = new ArrayList<>();
+	private String tableName;
+
+	private String keyword;
+
+	private Integer pageNum = 1;
+
+	private Integer pageSize = 20;
 
 }

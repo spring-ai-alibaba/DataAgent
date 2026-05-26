@@ -337,7 +337,10 @@ public class AiAgentRuntimeServiceImpl implements AgentService {
 			.ifPresent(summary -> {
 				rootSpan.setAttribute("dataagent.answer.explain.available", true);
 				rootSpan.setAttribute("dataagent.answer.explain.tool_step_count", summary.getToolStepCount());
-				rootSpan.setAttribute("dataagent.answer.explain.semantic_hit_count", summary.getSemanticHitCount());
+				rootSpan.setAttribute("dataagent.answer.explain.relation_evidence_count",
+						summary.getRelationEvidenceCount());
+				rootSpan.setAttribute("dataagent.answer.explain.used_table_count", summary.getUsedTableCount());
+				rootSpan.setAttribute("dataagent.answer.explain.used_column_count", summary.getUsedColumnCount());
 				rootSpan.setAttribute("dataagent.answer.explain.knowledge_hit_count", summary.getKnowledgeHitCount());
 				if (StringUtils.hasText(summary.getDatasource())) {
 					rootSpan.setAttribute("dataagent.answer.explain.datasource", summary.getDatasource());

@@ -13,16 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.agentscope.tool.semantic;
+package com.alibaba.cloud.ai.dataagent.dto.schema;
 
-import java.util.List;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
-public class SemanticModelSearchRequest {
+public class SemanticColumnQueryDTO {
 
-	private String query;
+	private Long agentId;
 
-	private List<String> tableNames;
+	@NotNull(message = "datasourceId 不能为空")
+	private Integer datasourceId;
+
+	@NotNull(message = "tableName 不能为空")
+	private String tableName;
+
+	private String keyword;
+
+	private Integer pageNum = 1;
+
+	private Integer pageSize = 20;
 
 }

@@ -39,16 +39,6 @@ export interface ChatMessage {
   titleNeeded?: boolean;
 }
 
-export interface AnswerTraceSemanticHit {
-  tableName?: string;
-  columnName?: string;
-  businessName?: string;
-  businessDescription?: string;
-  matchedBy?: string;
-  score?: number;
-  relationHint?: string;
-}
-
 export interface AnswerTraceKnowledgeHit {
   vectorType?: string;
   knowledgeId?: string;
@@ -83,7 +73,6 @@ export interface AnswerTraceExplain {
   relationEvidence: Record<string, any>[];
   toolDecisionReasons: string[];
   resultScopeDetails: string[];
-  semanticHits: AnswerTraceSemanticHit[];
   knowledgeHits: AnswerTraceKnowledgeHit[];
   toolSteps: AnswerTraceToolStep[];
   clarify?: Record<string, any>;

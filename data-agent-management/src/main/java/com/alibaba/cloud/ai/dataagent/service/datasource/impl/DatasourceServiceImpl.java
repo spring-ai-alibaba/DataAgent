@@ -25,29 +25,23 @@ import com.alibaba.cloud.ai.dataagent.connector.pool.DBConnectionPool;
 import com.alibaba.cloud.ai.dataagent.connector.pool.DBConnectionPoolFactory;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
-import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
 import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.DatasourceMapper;
-import com.alibaba.cloud.ai.dataagent.mapper.LogicalRelationMapper;
-import com.alibaba.cloud.ai.dataagent.mapper.SemanticModelMapper;
+import com.alibaba.cloud.ai.dataagent.mapper.SemanticColumnMapper;
+import com.alibaba.cloud.ai.dataagent.mapper.SemanticRelationMapper;
+import com.alibaba.cloud.ai.dataagent.mapper.SemanticTableMapper;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeHandler;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.registry.DatasourceTypeHandlerRegistry;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// todo: 检查Mapper的返回值，判断是否执行成功（或者对Mapper进行AOP）
 @Slf4j
 @Service
 @AllArgsConstructor
@@ -57,9 +51,11 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 	private final AgentDatasourceMapper agentDatasourceMapper;
 
-	private final LogicalRelationMapper logicalRelationMapper;
+	private final SemanticTableMapper semanticTableMapper;
 
-	private final SemanticModelMapper semanticModelMapper;
+	private final SemanticColumnMapper semanticColumnMapper;
+
+	private final SemanticRelationMapper semanticRelationMapper;
 
 	private final DBConnectionPoolFactory poolFactory;
 
@@ -91,25 +87,21 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 	@Override
 	public Datasource createDatasource(Datasource datasource) {
-		// Generate connection URL
 		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
 		String connectionUrl = handler.resolveConnectionUrl(datasource);
 		if (StringUtils.isNotBlank(connectionUrl)) {
 			datasource.setConnectionUrl(connectionUrl);
 		}
 
-		// Set default values
 		if (datasource.getStatus() == null) {
 			datasource.setStatus("active");
 		}
 		if (datasource.getTestStatus() == null) {
 			datasource.setTestStatus("unknown");
 		}
-
 		if (datasource.getPassword() == null) {
 			datasource.setPassword("");
 		}
-
 		if (datasource.getUsername() == null) {
 			datasource.setUsername("");
 		}
@@ -121,7 +113,6 @@ public class DatasourceServiceImpl implements DatasourceService {
 	@Override
 	public Datasource updateDatasource(Integer id, Datasource datasource) {
 		Datasource existingDatasource = datasourceMapper.selectById(id);
-		// Regenerate connection URL
 		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
 		String connectionUrl = handler.resolveConnectionUrl(datasource);
 		if (StringUtils.isNotBlank(connectionUrl)) {
@@ -132,7 +123,6 @@ public class DatasourceServiceImpl implements DatasourceService {
 		if (datasource.getPassword() == null) {
 			datasource.setPassword("");
 		}
-
 		if (datasource.getUsername() == null) {
 			datasource.setUsername("");
 		}
@@ -160,12 +150,12 @@ public class DatasourceServiceImpl implements DatasourceService {
 			agentVectorStoreService.deleteSchemaDocuments(String.valueOf(agentDatasource.getAgentId()),
 					String.valueOf(id));
 		}
-		evictDatasourcePool(datasource);
-		// First, delete the associations
-		agentDatasourceMapper.deleteAllByDatasourceId(id);
-		semanticModelMapper.deleteByDatasourceId(id);
 
-		// Then, delete the data source
+		evictDatasourcePool(datasource);
+		agentDatasourceMapper.deleteAllByDatasourceId(id);
+		semanticTableMapper.deleteByDatasourceId(id);
+		semanticColumnMapper.deleteByDatasourceId(id);
+		semanticRelationMapper.deleteByDatasourceId(id);
 		datasourceMapper.deleteById(id);
 	}
 
@@ -181,30 +171,22 @@ public class DatasourceServiceImpl implements DatasourceService {
 			return false;
 		}
 		try {
-			// ping测试
 			boolean connectionSuccess = realConnectionTest(datasource);
-			log.info(datasource.getName() + " test connection result: " + connectionSuccess);
-			// Update test status
+			log.info("{} test connection result: {}", datasource.getName(), connectionSuccess);
 			updateTestStatus(id, connectionSuccess ? "success" : "failed");
-
 			return connectionSuccess;
 		}
 		catch (Exception e) {
 			updateTestStatus(id, "failed");
-			log.error("Error testing connection for datasource ID " + id + ": " + e.getMessage(), e);
+			log.error("Error testing connection for datasource ID {}: {}", id, e.getMessage(), e);
 			return false;
 		}
 	}
 
-	/**
-	 * Actual connection test method
-	 */
 	private boolean realConnectionTest(Datasource datasource) {
-		// Convert Datasource to DbConfig
 		DbConfigBO config = new DbConfigBO();
 		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
 		String originalUrl = handler.resolveConnectionUrl(datasource);
-
 		if (StringUtils.isNotBlank(originalUrl)) {
 			originalUrl = handler.normalizeTestUrl(datasource, originalUrl);
 		}
@@ -219,7 +201,6 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		ErrorCodeEnum result = pool.ping(config);
 		return result == ErrorCodeEnum.SUCCESS;
-
 	}
 
 	private void evictDatasourcePool(Datasource datasource) {
@@ -241,29 +222,19 @@ public class DatasourceServiceImpl implements DatasourceService {
 	@Override
 	public List<String> getDatasourceTables(Integer datasourceId) throws Exception {
 		log.info("Getting tables for datasource: {}", datasourceId);
-
-		// Get data source information
 		Datasource datasource = this.getDatasourceById(datasourceId);
 		if (datasource == null) {
 			throw new RuntimeException("Datasource not found with id: " + datasourceId);
 		}
 
-		// Create database configuration
 		DbConfigBO dbConfig = getDbConfig(datasource);
-
-		// Create query parameters
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
-
-		// 提取schema名称
 		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
 		String schemaName = handler.extractSchemaName(datasource);
 		queryParam.setSchema(schemaName);
 
-		// Query table list
 		Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
 		List<TableInfoBO> tableInfoList = dbAccessor.showTables(dbConfig, queryParam);
-
-		// Extract table names
 		List<String> tableNames = tableInfoList.stream()
 			.map(TableInfoBO::getName)
 			.filter(name -> name != null && !name.trim().isEmpty())
@@ -283,28 +254,20 @@ public class DatasourceServiceImpl implements DatasourceService {
 	@Override
 	public List<String> getTableColumns(Integer datasourceId, String tableName) throws Exception {
 		log.info("Getting columns for table: {} in datasource: {}", tableName, datasourceId);
-
-		// 获取数据源信息
 		Datasource datasource = this.getDatasourceById(datasourceId);
 		if (datasource == null) {
 			throw new RuntimeException("Datasource not found with id: " + datasourceId);
 		}
 
-		// 创建数据库配置
 		DbConfigBO dbConfig = getDbConfig(datasource);
-
-		// 创建查询参数
 		DbQueryParameter queryParam = DbQueryParameter.from(dbConfig);
-
-		// 提取schema名称
 		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
 		String schemaName = handler.extractSchemaName(datasource);
 		queryParam.setSchema(schemaName);
 		queryParam.setTable(tableName);
 
-		// 查询字段列表
 		Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(dbConfig);
-		List<ColumnInfoBO> columnInfoList = dbAccessor.showColumns(dbConfig, queryParam); // 提取字段名称
+		List<ColumnInfoBO> columnInfoList = dbAccessor.showColumns(dbConfig, queryParam);
 		List<String> columnNames = columnInfoList.stream()
 			.map(ColumnInfoBO::getName)
 			.filter(name -> name != null && !name.trim().isEmpty())
@@ -313,188 +276,6 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		log.info("Found {} columns for table {} in datasource: {}", columnNames.size(), tableName, datasourceId);
 		return columnNames;
-	}
-
-	@Override
-	public List<LogicalRelation> getLogicalRelations(Integer datasourceId) {
-		log.info("Getting logical relations for datasource: {}", datasourceId);
-		return logicalRelationMapper.selectByDatasourceId(datasourceId);
-	}
-
-	@Override
-	public LogicalRelation addLogicalRelation(Integer datasourceId, LogicalRelation logicalRelation) {
-		log.info("Adding logical relation for datasource: {}", datasourceId);
-
-		// 设置数据源ID
-		logicalRelation.setDatasourceId(datasourceId);
-		validateNoDuplicateLogicalRelation(datasourceId, logicalRelation, null);
-		purgeDeletedDuplicateRelations(datasourceId, logicalRelation);
-
-		// 插入外键
-		logicalRelationMapper.insert(logicalRelation);
-		log.info("Logical relation added successfully with id: {}", logicalRelation.getId());
-
-		return logicalRelation;
-	}
-
-	@Override
-	public LogicalRelation updateLogicalRelation(Integer datasourceId, Integer logicalRelationId,
-			LogicalRelation logicalRelation) {
-		log.info("Updating logical relation: {} for datasource: {}", logicalRelationId, datasourceId);
-
-		// 验证外键是否存在且属于该数据源
-		LogicalRelation existingRelation = logicalRelationMapper.selectByIdAndDatasourceId(logicalRelationId,
-				datasourceId);
-		if (existingRelation == null) {
-			throw new RuntimeException("逻辑外键不存在，ID: " + logicalRelationId);
-		}
-
-		if (!existingRelation.getDatasourceId().equals(datasourceId)) {
-			throw new RuntimeException("逻辑外键不属于指定的数据源");
-		}
-
-		// 设置ID和数据源ID
-		logicalRelation.setId(logicalRelationId);
-		logicalRelation.setDatasourceId(datasourceId);
-		validateNoDuplicateLogicalRelation(datasourceId, logicalRelation, logicalRelationId);
-		purgeDeletedDuplicateRelations(datasourceId, logicalRelation);
-
-		// 更新外键
-		int updated = logicalRelationMapper.updateByIdAndDatasourceId(datasourceId, logicalRelation);
-		if (updated == 0) {
-			throw new RuntimeException("更新逻辑外键失败");
-		}
-
-		log.info("Logical relation updated successfully: {}", logicalRelationId);
-
-		// 返回更新后的数据
-		return logicalRelationMapper.selectByIdAndDatasourceId(logicalRelationId, datasourceId);
-	}
-
-	@Override
-	public void deleteLogicalRelation(Integer datasourceId, Integer logicalRelationId) {
-		log.info("Deleting logical relation: {} for datasource: {}", logicalRelationId, datasourceId);
-
-		// 验证外键是否属于该数据源
-		LogicalRelation logicalRelation = logicalRelationMapper.selectByIdAndDatasourceId(logicalRelationId,
-				datasourceId);
-		if (logicalRelation == null) {
-			throw new RuntimeException("逻辑外键不存在，ID: " + logicalRelationId);
-		}
-
-		if (!logicalRelation.getDatasourceId().equals(datasourceId)) {
-			throw new RuntimeException("逻辑外键不属于指定的数据源");
-		}
-
-		// 删除外键（逻辑删除）
-		int deleted = logicalRelationMapper.deleteByIdAndDatasourceId(logicalRelationId, datasourceId);
-		if (deleted == 0) {
-			throw new RuntimeException("删除逻辑外键失败");
-		}
-
-		log.info("Logical relation deleted successfully: {}", logicalRelationId);
-	}
-
-	@Override
-	@Transactional
-	public List<LogicalRelation> saveLogicalRelations(Integer datasourceId, List<LogicalRelation> logicalRelations) {
-		log.info("Saving {} logical relations for datasource: {}", logicalRelations.size(), datasourceId);
-
-		// 获取现有的所有外键关系
-		List<LogicalRelation> existingRelations = logicalRelationMapper.selectByDatasourceId(datasourceId);
-		Map<Integer, LogicalRelation> existingMap = existingRelations.stream()
-			.collect(Collectors.toMap(LogicalRelation::getId, relation -> relation));
-
-		// 收集传入列表中已存在的ID
-		Set<Integer> incomingIds = logicalRelations.stream()
-			.map(LogicalRelation::getId)
-			.filter(Objects::nonNull)
-			.collect(Collectors.toSet());
-
-		for (LogicalRelation logicalRelation : logicalRelations) {
-			if (logicalRelation.getId() != null && !existingMap.containsKey(logicalRelation.getId())) {
-				throw new RuntimeException("批量保存包含不存在或不属于当前数据源的逻辑外键ID: " + logicalRelation.getId());
-			}
-		}
-
-		Map<String, LogicalRelation> uniqueRelationsByKey = new LinkedHashMap<>();
-		for (LogicalRelation logicalRelation : logicalRelations) {
-			String relationKey = buildLogicalRelationKey(logicalRelation);
-			LogicalRelation previous = uniqueRelationsByKey.putIfAbsent(relationKey, logicalRelation);
-			if (previous != null) {
-				throw new RuntimeException("批量保存包含重复的逻辑外键关系: " + relationKey);
-			}
-		}
-
-		// 删除那些不在传入列表中的外键
-		int deletedCount = 0;
-		for (LogicalRelation existing : existingRelations) {
-			if (!incomingIds.contains(existing.getId())) {
-				logicalRelationMapper.deleteByIdAndDatasourceId(existing.getId(), datasourceId);
-				deletedCount++;
-				log.info("Deleted logical relation: {} -> {}", existing.getSourceTableName(),
-						existing.getTargetTableName());
-			}
-		}
-		log.info("Deleted {} logical relations for datasource: {}", deletedCount, datasourceId);
-
-		// 插入或更新去重后的外键列表
-		int insertedCount = 0;
-		int updatedCount = 0;
-		for (LogicalRelation logicalRelation : uniqueRelationsByKey.values()) {
-			logicalRelation.setDatasourceId(datasourceId);
-			validateNoDuplicateLogicalRelation(datasourceId, logicalRelation, logicalRelation.getId());
-			purgeDeletedDuplicateRelations(datasourceId, logicalRelation);
-
-			if (logicalRelation.getId() != null && existingMap.containsKey(logicalRelation.getId())) {
-				// 更新现有记录
-				logicalRelationMapper.updateByIdAndDatasourceId(datasourceId, logicalRelation);
-				updatedCount++;
-				log.debug("Updated logical relation: {} -> {}", logicalRelation.getSourceTableName(),
-						logicalRelation.getTargetTableName());
-			}
-			else {
-				// 插入新记录
-				logicalRelation.setId(null);
-				logicalRelationMapper.insert(logicalRelation);
-				insertedCount++;
-				log.debug("Inserted logical relation: {} -> {}", logicalRelation.getSourceTableName(),
-						logicalRelation.getTargetTableName());
-			}
-		}
-
-		log.info("Saved logical relations for datasource {}: {} inserted, {} updated, {} deleted", datasourceId,
-				insertedCount, updatedCount, deletedCount);
-
-		return logicalRelationMapper.selectByDatasourceId(datasourceId);
-	}
-
-	private void validateNoDuplicateLogicalRelation(Integer datasourceId, LogicalRelation logicalRelation,
-			Integer excludeId) {
-		int exists = excludeId == null
-				? logicalRelationMapper.checkExists(datasourceId, logicalRelation.getSourceTableName(),
-						logicalRelation.getSourceColumnName(), logicalRelation.getTargetTableName(),
-						logicalRelation.getTargetColumnName())
-				: logicalRelationMapper.checkExistsExcludingId(datasourceId, logicalRelation.getSourceTableName(),
-						logicalRelation.getSourceColumnName(), logicalRelation.getTargetTableName(),
-						logicalRelation.getTargetColumnName(), excludeId);
-		if (exists > 0) {
-			throw new RuntimeException("该逻辑外键关系已存在");
-		}
-	}
-
-	private void purgeDeletedDuplicateRelations(Integer datasourceId, LogicalRelation logicalRelation) {
-		List<LogicalRelation> deletedRelations = logicalRelationMapper.selectDeletedByBusinessKey(datasourceId,
-				logicalRelation.getSourceTableName(), logicalRelation.getSourceColumnName(),
-				logicalRelation.getTargetTableName(), logicalRelation.getTargetColumnName());
-		for (LogicalRelation deletedRelation : deletedRelations) {
-			logicalRelationMapper.hardDeleteByIdAndDatasourceId(deletedRelation.getId(), datasourceId);
-		}
-	}
-
-	private String buildLogicalRelationKey(LogicalRelation logicalRelation) {
-		return logicalRelation.getSourceTableName() + "|" + logicalRelation.getSourceColumnName() + "|"
-				+ logicalRelation.getTargetTableName() + "|" + logicalRelation.getTargetColumnName();
 	}
 
 }

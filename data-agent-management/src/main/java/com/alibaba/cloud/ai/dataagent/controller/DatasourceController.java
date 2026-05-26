@@ -16,16 +16,12 @@
 package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.dto.datasource.DatasourceTypeDTO;
-import com.alibaba.cloud.ai.dataagent.dto.schema.CreateLogicalRelationDTO;
-import com.alibaba.cloud.ai.dataagent.dto.schema.UpdateLogicalRelationDTO;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
-import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
 import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
-import jakarta.validation.Valid;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -45,7 +41,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-// todo: 不要吞掉所有异常，可以直接抛出，写一个Advice拦截异常并做日志
 @Slf4j
 @RestController
 @RequestMapping("/api/datasource")
@@ -55,12 +50,8 @@ public class DatasourceController {
 
 	private final DatasourceService datasourceService;
 
-	/**
-	 * Get all data source list
-	 */
 	@GetMapping("/types")
 	public ApiResponse<List<DatasourceTypeDTO>> getDatasourceTypes() {
-		// 定义标准的 JDBC 数据源类型
 		List<BizDataSourceTypeEnum> standardTypes = Arrays.asList(BizDataSourceTypeEnum.MYSQL,
 				BizDataSourceTypeEnum.POSTGRESQL, BizDataSourceTypeEnum.DAMENG, BizDataSourceTypeEnum.SQL_SERVER,
 				BizDataSourceTypeEnum.ORACLE, BizDataSourceTypeEnum.HIVE);
@@ -71,38 +62,25 @@ public class DatasourceController {
 				.typeName(type.getTypeName())
 				.dialect(type.getDialect())
 				.protocol(type.getProtocol())
-				.displayName(type.getDialect()) // 使用 dialect 作为显示名称
+				.displayName(type.getDialect())
 				.build())
 			.collect(Collectors.toList());
 
 		return ApiResponse.success("获取数据源类型成功", types);
 	}
 
-	/**
-	 * Get all data source list
-	 */
 	@GetMapping
 	public List<Datasource> getAllDatasource(@RequestParam(value = "status", required = false) String status,
 			@RequestParam(value = "type", required = false) String type) {
-
-		List<Datasource> result;
-
 		if (StringUtils.isNotBlank(status)) {
-			result = datasourceService.getDatasourceByStatus(status);
+			return datasourceService.getDatasourceByStatus(status);
 		}
-		else if (StringUtils.isNotBlank(type)) {
-			result = datasourceService.getDatasourceByType(type);
+		if (StringUtils.isNotBlank(type)) {
+			return datasourceService.getDatasourceByType(type);
 		}
-		else {
-			result = datasourceService.getAllDatasource();
-		}
-
-		return result;
+		return datasourceService.getAllDatasource();
 	}
 
-	/**
-	 * Get data source details by ID
-	 */
 	@GetMapping("/{id}")
 	public Datasource getDatasourceById(@PathVariable Integer id) {
 		return checkDatasourceExists(id);
@@ -119,9 +97,6 @@ public class DatasourceController {
 		}
 	}
 
-	/**
-	 * Create data source
-	 */
 	@PostMapping
 	public Datasource createDatasource(@RequestBody Datasource datasource) {
 		try {
@@ -132,9 +107,6 @@ public class DatasourceController {
 		}
 	}
 
-	/**
-	 * Update data source
-	 */
 	@PutMapping("/{id}")
 	public Datasource updateDatasource(@PathVariable Integer id, @RequestBody Datasource datasource) {
 		checkDatasourceExists(id);
@@ -146,11 +118,8 @@ public class DatasourceController {
 		}
 	}
 
-	/**
-	 * Delete data source
-	 */
 	@DeleteMapping("/{id}")
-	public ApiResponse deleteDatasource(@PathVariable Integer id) {
+	public ApiResponse<Void> deleteDatasource(@PathVariable Integer id) {
 		try {
 			checkDatasourceExists(id);
 			datasourceService.deleteDatasource(id);
@@ -164,11 +133,8 @@ public class DatasourceController {
 		}
 	}
 
-	/**
-	 * Test data source connection
-	 */
 	@PostMapping("/{id}/test")
-	public ApiResponse testConnection(@PathVariable Integer id) {
+	public ApiResponse<Void> testConnection(@PathVariable Integer id) {
 		try {
 			boolean success = datasourceService.testConnection(id);
 			return success ? ApiResponse.success("连接测试成功") : ApiResponse.error("连接测试失败");
@@ -178,9 +144,6 @@ public class DatasourceController {
 		}
 	}
 
-	/**
-	 * 获取数据源表的字段列表
-	 */
 	@GetMapping("/{id}/tables/{tableName}/columns")
 	public ApiResponse<List<String>> getTableColumns(@PathVariable Integer id, @PathVariable String tableName) {
 		try {
@@ -189,104 +152,6 @@ public class DatasourceController {
 		}
 		catch (Exception e) {
 			throw new InternalServerException("获取字段列表失败：" + e.getMessage());
-		}
-	}
-
-	/**
-	 * 获取数据源的逻辑外键列表
-	 */
-	@GetMapping("/{id}/logical-relations")
-	public ApiResponse<List<LogicalRelation>> getLogicalRelations(@PathVariable(value = "id") Integer datasourceId) {
-		try {
-			List<LogicalRelation> logicalRelations = datasourceService.getLogicalRelations(datasourceId);
-			return ApiResponse.success("success get logical relations", logicalRelations);
-		}
-		catch (Exception e) {
-			log.error("Failed to get logical relations for datasource: {}", datasourceId, e);
-			throw new InternalServerException("获取逻辑外键失败：" + e.getMessage());
-		}
-	}
-
-	/**
-	 * 添加逻辑外键
-	 */
-	@PostMapping("/{id}/logical-relations")
-	public ApiResponse<LogicalRelation> addLogicalRelation(@PathVariable(value = "id") Integer datasourceId,
-			@Valid @RequestBody CreateLogicalRelationDTO dto) {
-		try {
-			LogicalRelation logicalRelation = LogicalRelation.builder()
-				.sourceTableName(dto.getSourceTableName())
-				.sourceColumnName(dto.getSourceColumnName())
-				.targetTableName(dto.getTargetTableName())
-				.targetColumnName(dto.getTargetColumnName())
-				.relationType(dto.getRelationType())
-				.description(dto.getDescription())
-				.build();
-
-			LogicalRelation created = datasourceService.addLogicalRelation(datasourceId, logicalRelation);
-			return ApiResponse.success("success create logical relation", created);
-		}
-		catch (Exception e) {
-			log.error("Failed to add logical relation for datasource: {}", datasourceId, e);
-			throw new InternalServerException("添加逻辑外键失败：" + e.getMessage());
-		}
-	}
-
-	/**
-	 * 更新逻辑外键
-	 */
-	@PutMapping("/{id}/logical-relations/{relationId}")
-	public ApiResponse<LogicalRelation> updateLogicalRelation(@PathVariable(value = "id") Integer datasourceId,
-			@PathVariable Integer relationId, @RequestBody UpdateLogicalRelationDTO dto) {
-		try {
-			LogicalRelation logicalRelation = LogicalRelation.builder()
-				.sourceTableName(dto.getSourceTableName())
-				.sourceColumnName(dto.getSourceColumnName())
-				.targetTableName(dto.getTargetTableName())
-				.targetColumnName(dto.getTargetColumnName())
-				.relationType(dto.getRelationType())
-				.description(dto.getDescription())
-				.build();
-
-			LogicalRelation updated = datasourceService.updateLogicalRelation(datasourceId, relationId,
-					logicalRelation);
-			return ApiResponse.success("success update logical relation", updated);
-		}
-		catch (Exception e) {
-			log.error("Failed to update logical relation {} for datasource: {}", relationId, datasourceId, e);
-			throw new InternalServerException("更新逻辑外键失败：" + e.getMessage());
-		}
-	}
-
-	/**
-	 * 删除逻辑外键
-	 */
-	@DeleteMapping("/{id}/logical-relations/{relationId}")
-	public ApiResponse<Void> deleteLogicalRelation(@PathVariable(value = "id") Integer datasourceId,
-			@PathVariable Integer relationId) {
-		try {
-			datasourceService.deleteLogicalRelation(datasourceId, relationId);
-			return ApiResponse.success("success delete logical relation");
-		}
-		catch (Exception e) {
-			log.error("Failed to delete logical relation {} for datasource: {}", relationId, datasourceId, e);
-			throw new InternalServerException("删除逻辑外键失败：" + e.getMessage());
-		}
-	}
-
-	/**
-	 * 批量保存逻辑外键（替换现有的所有外键）
-	 */
-	@PutMapping("/{id}/logical-relations")
-	public ApiResponse<List<LogicalRelation>> saveLogicalRelations(@PathVariable(value = "id") Integer datasourceId,
-			@RequestBody List<LogicalRelation> logicalRelations) {
-		try {
-			List<LogicalRelation> saved = datasourceService.saveLogicalRelations(datasourceId, logicalRelations);
-			return ApiResponse.success("success save logical relations", saved);
-		}
-		catch (Exception e) {
-			log.error("Failed to save logical relations for datasource: {}", datasourceId, e);
-			throw new InternalServerException("批量保存逻辑外键失败：" + e.getMessage());
 		}
 	}
 
