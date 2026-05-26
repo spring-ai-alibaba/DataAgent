@@ -24,13 +24,6 @@ INSERT INTO business_knowledge (id, business_term, description, synonyms, is_rec
 (3, 'Customer Retention Rate', 'The percentage of customers who continue to use a service over a given period.', 'retention, customer loyalty', 0, 2, NOW(), NOW())
 ON DUPLICATE KEY UPDATE business_term=VALUES(business_term);
 
--- 语义模型示例数据（依赖 agent 和 datasource）
-INSERT INTO semantic_model (id, agent_id, datasource_id, table_name, column_name, business_name, synonyms, business_description, column_comment, data_type, created_time, updated_time, status) VALUES
-(1, 1, 2, 'customer_feedback', 'csat_score', 'customerSatisfactionScore', 'satisfaction score, customer rating', 'Customer satisfaction rating from 1-10', '客户满意度评分', 'integer', NOW(), NOW(), 0),
-(2, 1, 2, 'customer_feedback', 'nps_value', 'netPromoterScore', 'NPS, promoter score', 'Net Promoter Score from -100 to 100', '净推荐值', 'integer', NOW(), NOW(), 0),
-(3, 2, 1, 'customer_metrics', 'retention_pct', 'customerRetentionRate', 'retention rate, loyalty rate', 'Percentage of retained customers', '客户保留率', 'decimal', NOW(), NOW(), 0)
-ON DUPLICATE KEY UPDATE business_name=VALUES(business_name);
-
 -- 智能体知识示例数据（依赖 agent）
 INSERT INTO agent_knowledge (id, agent_id, title, content, type, is_recall, embedding_status, file_type, created_time, updated_time) VALUES 
 (1, 1, '中国人口统计数据说明', '中国人口统计数据包含了历年的人口总数、性别比例、年龄结构、城乡分布等详细信息。数据来源于国家统计局，具有权威性和准确性。查询时请注意数据的时间范围和统计口径。', 'DOCUMENT', 1, 'PENDING', 'text', NOW(), NOW()),
@@ -49,3 +42,71 @@ INSERT INTO agent_datasource (id, agent_id, datasource_id, is_active, create_tim
 (3, 3, 1, 0, NOW(), NOW()),  -- 财务报表智能体使用生产环境数据库
 (4, 4, 1, 0, NOW(), NOW())  -- 库存管理智能体使用生产环境数据库
 ON DUPLICATE KEY UPDATE agent_id=VALUES(agent_id);
+INSERT INTO agent_datasource (id, agent_id, datasource_id, is_active, create_time, update_time) VALUES
+(5, 2, 3, 1, NOW(), NOW())
+ON DUPLICATE KEY UPDATE agent_id=VALUES(agent_id);
+
+INSERT INTO semantic_table
+(id, agent_id, datasource_id, table_name, business_name, synonyms, business_description, table_comment, is_visible, status, created_time, updated_time)
+VALUES
+(1101, 2, 3, 'users', '用户', '会员,客户,消费者,user,customer', '记录商城用户基础信息、会员等级、注册渠道和生命周期价值。', '电商用户表', 1, 1, NOW(), NOW()),
+(1102, 2, 3, 'products', '商品', '货品,SKU,产品,product,item', '记录商品主数据，包括品牌、类目、售价、成本和库存。', '商品表', 1, 1, NOW(), NOW()),
+(1103, 2, 3, 'orders', '订单', '销售订单,客户订单,交易单,order,sales order', '记录订单主信息，包括下单时间、订单状态、支付状态、地区和净收入。', '订单主表', 1, 1, NOW(), NOW()),
+(1104, 2, 3, 'order_items', '订单明细', '子订单,行项目,订单行,item line,order line', '记录每笔订单中的商品明细、数量、成交单价和实付金额。', '订单明细表', 1, 1, NOW(), NOW()),
+(1105, 2, 3, 'payments', '支付流水', '支付单,付款记录,payment,transaction', '记录订单支付方式、支付金额和支付状态。', '支付流水表', 1, 1, NOW(), NOW()),
+(1106, 2, 3, 'refunds', '退款', '售后退款,退单,refund,return refund', '记录退款申请原因、退款金额和退款完成状态。', '退款表', 1, 1, NOW(), NOW()),
+(1107, 2, 3, 'inventory_snapshots', '库存快照', '库存日报,库存日快照,stock snapshot,inventory daily', '记录商品在仓库维度的每日可售库存、锁定库存和在途数量。', '库存日快照表', 1, 1, NOW(), NOW()),
+(1108, 2, 3, 'customer_service_tickets', '客服工单', '售后工单,服务单,ticket,service ticket', '记录订单相关客服问题、优先级、状态和满意度评分。', '客服工单表', 1, 1, NOW(), NOW())
+ON DUPLICATE KEY UPDATE business_name=VALUES(business_name);
+
+INSERT INTO semantic_column
+(id, agent_id, datasource_id, table_name, column_name, business_name, synonyms, business_description, column_comment, data_type, is_visible, status, created_time, updated_time)
+VALUES
+(2101, 2, 3, 'users', 'user_no', '用户编号', '会员编号,客户编号,user no', '用户唯一编号，适合做用户标识查询。', '用户编号', 'VARCHAR(32)', 1, 1, NOW(), NOW()),
+(2102, 2, 3, 'users', 'member_level', '会员等级', '会员层级,等级,level,tier', '标识会员分层，如 bronze、silver、gold、platinum。', '会员等级', 'VARCHAR(32)', 1, 1, NOW(), NOW()),
+(2103, 2, 3, 'users', 'register_channel', '注册渠道', '拉新渠道,来源渠道,channel,source', '用户注册来源渠道，如 app、web、mini_program。', '注册渠道', 'VARCHAR(32)', 1, 1, NOW(), NOW()),
+(2104, 2, 3, 'users', 'lifetime_value', '生命周期价值', 'LTV,用户价值,customer lifetime value', '用户累计价值估计，可用于高价值用户分析。', '用户生命周期价值', 'DECIMAL(12,2)', 1, 1, NOW(), NOW()),
+(2105, 2, 3, 'products', 'product_name', '商品名称', '品名,货品名称,product name,item name', '商品展示名称。', '商品名称', 'VARCHAR(128)', 1, 1, NOW(), NOW()),
+(2106, 2, 3, 'products', 'sale_price', '销售价', '成交价,售价,selling price', '商品当前销售价格。', '销售价', 'DECIMAL(10,2)', 1, 1, NOW(), NOW()),
+(2107, 2, 3, 'products', 'cost_price', '成本价', '成本,采购成本,cost', '商品成本价格，可用于毛利分析。', '成本价', 'DECIMAL(10,2)', 1, 1, NOW(), NOW()),
+(2108, 2, 3, 'products', 'stock_quantity', '当前库存', '现货库存,库存量,on hand stock', '商品当前总库存数量。', '当前库存', 'INT', 1, 1, NOW(), NOW()),
+(2109, 2, 3, 'products', 'rating', '商品评分', '口碑评分,好评度,rating,score', '商品平均评分。', '商品评分', 'DECIMAL(3,2)', 1, 1, NOW(), NOW()),
+(2110, 2, 3, 'orders', 'order_time', '下单时间', '成交时间,购买时间,order date', '用户下单发生时间。', '下单时间', 'TIMESTAMP', 1, 1, NOW(), NOW()),
+(2111, 2, 3, 'orders', 'order_status', '订单状态', '交易状态,订单进度,status', '订单整体状态，如 completed、cancelled、refunded。', '订单状态', 'VARCHAR(32)', 1, 1, NOW(), NOW()),
+(2112, 2, 3, 'orders', 'payment_status', '支付状态', '付款状态,payment state', '订单支付结果状态。', '支付状态', 'VARCHAR(32)', 1, 1, NOW(), NOW()),
+(2113, 2, 3, 'orders', 'order_channel', '下单渠道', '成交渠道,购买渠道,order source', '订单来源渠道，如 app、web、mini_program。', '下单渠道', 'VARCHAR(32)', 1, 1, NOW(), NOW()),
+(2114, 2, 3, 'orders', 'gross_amount', '订单原价金额', '商品原额,订单总额,gross sales', '订单商品原始金额，未扣减优惠。', '商品原始金额', 'DECIMAL(12,2)', 1, 1, NOW(), NOW()),
+(2115, 2, 3, 'orders', 'discount_amount', '优惠金额', '折扣金额,立减金额,discount', '订单层面的优惠金额。', '优惠金额', 'DECIMAL(12,2)', 1, 1, NOW(), NOW()),
+(2116, 2, 3, 'orders', 'refund_amount', '退款金额', '售后退款额,refund value', '订单累计退款金额。', '退款金额', 'DECIMAL(12,2)', 1, 1, NOW(), NOW()),
+(2117, 2, 3, 'orders', 'net_amount', '订单净收入', '实收金额,净销售额,net revenue', '订单最终净收入，适合做 GMV/净收入分析。', '订单净收入', 'DECIMAL(12,2)', 1, 1, NOW(), NOW()),
+(2118, 2, 3, 'order_items', 'quantity', '购买件数', '销量,购买数量,sales qty,units sold', '该订单明细购买的商品件数。', '购买件数', 'INT', 1, 1, NOW(), NOW()),
+(2119, 2, 3, 'order_items', 'unit_price', '成交单价', '下单单价,unit selling price', '订单明细的成交单价。', '成交单价', 'DECIMAL(10,2)', 1, 1, NOW(), NOW()),
+(2120, 2, 3, 'order_items', 'final_amount', '明细实付金额', '行实收金额,实付小计,line revenue', '订单明细最终实付金额。', '明细实付金额', 'DECIMAL(12,2)', 1, 1, NOW(), NOW()),
+(2121, 2, 3, 'payments', 'payment_method', '支付方式', '付款方式,pay channel,payment channel', '订单支付方式，如 alipay、wechat_pay、credit_card。', '支付方式', 'VARCHAR(32)', 1, 1, NOW(), NOW()),
+(2122, 2, 3, 'payments', 'payment_amount', '支付金额', '付款金额,实付金额,payment amount', '支付流水中的付款金额。', '支付金额', 'DECIMAL(12,2)', 1, 1, NOW(), NOW()),
+(2123, 2, 3, 'payments', 'payment_status', '支付结果', '付款结果,payment result', '支付是否成功。', '支付状态', 'VARCHAR(32)', 1, 1, NOW(), NOW()),
+(2124, 2, 3, 'refunds', 'refund_reason', '退款原因', '售后原因,退货原因,refund reason', '退款申请原因。', '退款原因', 'VARCHAR(128)', 1, 1, NOW(), NOW()),
+(2125, 2, 3, 'refunds', 'refund_amount', '退款金额', '退款额,refund amount', '单次退款金额。', '退款金额', 'DECIMAL(12,2)', 1, 1, NOW(), NOW()),
+(2126, 2, 3, 'refunds', 'refund_status', '退款状态', '售后状态,refund state', '退款处理状态。', '退款状态', 'VARCHAR(32)', 1, 1, NOW(), NOW()),
+(2127, 2, 3, 'inventory_snapshots', 'snapshot_date', '快照日期', '库存日期,统计日期,snapshot date', '库存快照统计日期。', '快照日期', 'DATE', 1, 1, NOW(), NOW()),
+(2128, 2, 3, 'inventory_snapshots', 'available_stock', '可售库存', '可用库存,available qty', '当前可用于销售的库存数量。', '可售库存', 'INT', 1, 1, NOW(), NOW()),
+(2129, 2, 3, 'inventory_snapshots', 'locked_stock', '锁定库存', '占用库存,reserved stock', '已被订单占用但尚未释放的库存。', '锁定库存', 'INT', 1, 1, NOW(), NOW()),
+(2130, 2, 3, 'inventory_snapshots', 'inbound_qty', '在途数量', '入库在途,采购在途,in transit qty', '已采购或调拨但尚未入库的数量。', '在途数量', 'INT', 1, 1, NOW(), NOW()),
+(2131, 2, 3, 'customer_service_tickets', 'ticket_type', '工单类型', '问题类型,售后类型,ticket category', '客服工单业务类型，如 refund、shipping、invoice。', '工单类型', 'VARCHAR(64)', 1, 1, NOW(), NOW()),
+(2132, 2, 3, 'customer_service_tickets', 'priority', '优先级', '紧急程度,priority level', '客服工单优先级。', '优先级', 'VARCHAR(16)', 1, 1, NOW(), NOW()),
+(2133, 2, 3, 'customer_service_tickets', 'status', '工单状态', '处理状态,ticket status', '客服工单处理状态。', '工单状态', 'VARCHAR(32)', 1, 1, NOW(), NOW()),
+(2134, 2, 3, 'customer_service_tickets', 'satisfaction_score', '满意度评分', '服务评分,满意度,cs score', '客服处理完成后的满意度评分。', '满意度评分', 'INT', 1, 1, NOW(), NOW())
+ON DUPLICATE KEY UPDATE business_name=VALUES(business_name);
+
+INSERT INTO semantic_relation
+(id, agent_id, datasource_id, source_table_name, source_column_names, target_table_name, target_column_names, relation_type, description, status, created_time, updated_time)
+VALUES
+(3101, 2, 3, 'orders', 'user_id', 'users', 'id', 'many_to_one', '订单归属到下单用户，可做用户购买行为分析。', 1, NOW(), NOW()),
+(3102, 2, 3, 'order_items', 'order_id', 'orders', 'id', 'many_to_one', '订单明细归属到订单主表，可统计订单内商品和销量。', 1, NOW(), NOW()),
+(3103, 2, 3, 'order_items', 'product_id', 'products', 'id', 'many_to_one', '订单明细关联商品主数据，可分析品类、品牌和单品销售。', 1, NOW(), NOW()),
+(3104, 2, 3, 'payments', 'order_id', 'orders', 'id', 'one_to_one', '支付流水关联订单，可分析支付方式与支付成功率。', 1, NOW(), NOW()),
+(3105, 2, 3, 'refunds', 'order_id', 'orders', 'id', 'many_to_one', '退款记录关联订单，可分析退款订单分布。', 1, NOW(), NOW()),
+(3106, 2, 3, 'refunds', 'order_item_id', 'order_items', 'id', 'many_to_one', '退款记录可回溯到具体退款商品明细。', 1, NOW(), NOW()),
+(3107, 2, 3, 'inventory_snapshots', 'product_id', 'products', 'id', 'many_to_one', '库存快照关联商品，可分析单品库存走势。', 1, NOW(), NOW()),
+(3108, 2, 3, 'customer_service_tickets', 'order_id', 'orders', 'id', 'many_to_one', '客服工单关联订单，可分析售后问题来源订单。', 1, NOW(), NOW())
+ON DUPLICATE KEY UPDATE description=VALUES(description);

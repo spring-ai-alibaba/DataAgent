@@ -1,5 +1,5 @@
 <!--
- * Copyright 2025 the original author or authors.
+ * Copyright 2024-2026 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,205 +15,559 @@
 -->
 
 <template>
-  <div style="padding: 20px">
-    <div style="margin-bottom: 20px">
-      <h2>语义模型管理</h2>
-    </div>
-    <el-divider />
-
-    <div style="margin-bottom: 30px">
-      <el-row style="display: flex; justify-content: space-between; align-items: center">
-        <el-col :span="12">
-          <h3>语义模型列表</h3>
-          <el-button
-            v-if="selectedModels.length > 0"
-            :icon="Delete"
-            plain
-            size="default"
-            style="margin-left: 10px"
-            type="danger"
-            @click="batchDeleteModels"
-          >
-            批量删除 ({{ selectedModels.length }})
-          </el-button>
-        </el-col>
-        <el-col :span="12" style="text-align: right">
-          <el-input
-            v-model="searchKeyword"
-            clearable
-            placeholder="请输入关键词后回车搜索"
-            size="large"
-            style="width: 250px; margin-right: 10px"
-            @clear="handleSearch"
-            @keyup.enter="handleSearch"
-          >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
-          <el-button round size="large" type="success" @click="openBatchImportDialog">
-            <el-icon><UploadFilled /></el-icon>
-            批量导入
-          </el-button>
-          <el-button :icon="Plus" round size="large" type="primary" @click="openCreateDialog">
-            添加语义模型
-          </el-button>
-        </el-col>
-      </el-row>
-    </div>
-
-    <el-table
-      :data="semanticModelList"
-      border
-      style="width: 100%"
-      @selection-change="handleSelectionChange"
-    >
-      <el-table-column type="selection" width="55" />
-      <el-table-column label="ID" min-width="60px" prop="id" />
-      <el-table-column label="表名" min-width="120px" prop="tableName" />
-      <el-table-column label="字段名" min-width="120px" prop="columnName" />
-      <el-table-column label="业务名称" min-width="120px" prop="businessName" />
-      <el-table-column label="同义词" min-width="120px" prop="synonyms" />
-      <el-table-column label="数据类型" min-width="80px" prop="dataType" />
-      <el-table-column label="状态" min-width="80px">
-        <template #default="scope">
-          <el-tag :type="scope.row.status === 1 ? 'success' : 'info'" round>
-            {{ scope.row.status === 1 ? '启用' : '停用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" min-width="160px">
-        <template #default="scope">
-          {{ formatModelCreatedTime(scope.row) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" min-width="180px">
-        <template #default="scope">
-          <el-button plain round size="small" type="primary" @click="editModel(scope.row)">
-            编辑
-          </el-button>
-          <el-button
-            v-if="scope.row.status === 0"
-            plain
-            round
-            size="small"
-            type="success"
-            @click="toggleStatus(scope.row, 1)"
-          >
-            启用
-          </el-button>
-          <el-button
-            v-else
-            plain
-            round
-            size="small"
-            type="warning"
-            @click="toggleStatus(scope.row, 0)"
-          >
-            停用
-          </el-button>
-          <el-button plain round size="small" type="danger" @click="deleteModel(scope.row)">
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-  </div>
-
-  <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑语义模型' : '添加语义模型'" width="800">
-    <el-form ref="modelFormRef" :model="modelForm" label-width="120px">
-      <el-form-item label="表名" prop="tableName" required>
-        <el-input v-model="modelForm.tableName" :disabled="isEdit" placeholder="请输入表名" />
-      </el-form-item>
-
-      <el-form-item label="数据库字段名" prop="columnName" required>
-        <el-input
-          v-model="modelForm.columnName"
-          :disabled="isEdit"
-          placeholder="请输入数据库字段名"
-        />
-      </el-form-item>
-
-      <el-form-item label="业务名称" prop="businessName" required>
-        <el-input v-model="modelForm.businessName" placeholder="请输入业务名称" />
-      </el-form-item>
-
-      <el-form-item label="同义词" prop="synonyms">
-        <el-input
-          v-model="modelForm.synonyms"
-          :rows="2"
-          placeholder="请输入同义词，多个同义词使用逗号分隔"
-          type="textarea"
-        />
-      </el-form-item>
-
-      <el-form-item label="业务描述" prop="businessDescription">
-        <el-input
-          v-model="modelForm.businessDescription"
-          :rows="3"
-          placeholder="请输入业务描述，用于帮助模型理解字段含义"
-          type="textarea"
-        />
-      </el-form-item>
-
-      <el-form-item label="字段注释" prop="columnComment">
-        <el-input
-          v-model="modelForm.columnComment"
-          :rows="2"
-          placeholder="请输入数据库字段原始注释"
-          type="textarea"
-        />
-      </el-form-item>
-
-      <el-form-item label="数据类型" prop="dataType" required>
-        <el-input
-          v-model="modelForm.dataType"
-          placeholder="请输入数据类型，例如 int、varchar(20)"
-        />
-      </el-form-item>
-    </el-form>
-
-    <template #footer>
-      <div style="text-align: right">
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveModel">
-          {{ isEdit ? '更新' : '创建' }}
-        </el-button>
+  <div class="semantic-workspace">
+    <section class="hero-card">
+      <div>
+        <p class="hero-kicker">Structured Semantic Layer</p>
+        <h2 class="hero-title">语义层配置工作台</h2>
+        <p class="hero-desc">
+          统一维护表、列、关系三类结构化语义，不再依赖旧的 semantic RAG / logical relation 兼容链。
+        </p>
       </div>
-    </template>
-  </el-dialog>
+      <div class="hero-meta">
+        <span>当前数据源</span>
+        <strong>{{ currentDatasource?.name || '未选择' }}</strong>
+      </div>
+    </section>
 
-  <BatchImportDialog
-    v-model="batchImportDialogVisible"
-    :json-template="jsonTemplate"
-    :on-download-excel-template="downloadExcelTemplate"
-    :on-excel-import="executeExcelImport"
-    :on-json-import="executeBatchImport"
-    :validate-excel-file="validateExcelFile"
-    :validate-json="validateJson"
-    title="批量导入语义模型"
-    @imported="handleBatchImported"
-  />
+    <section class="toolbar-card">
+      <div class="toolbar-grid">
+        <el-select
+          v-model="selectedDatasourceId"
+          class="toolbar-field"
+          placeholder="选择已绑定数据源"
+          filterable
+        >
+          <el-option
+            v-for="item in datasourceOptions"
+            :key="item.id"
+            :label="`${item.name} (${item.type || 'unknown'})`"
+            :value="item.id"
+          />
+        </el-select>
+        <el-input
+          v-model="keyword"
+          class="toolbar-field"
+          placeholder="按表名、字段名、业务名或描述搜索"
+          clearable
+          @keyup.enter="handleSearch"
+        />
+        <el-select
+          v-if="activeTab === 'tables' && tableViewMode === 'columns'"
+          v-model="selectedTableName"
+          class="toolbar-field"
+          placeholder="选择数据表"
+          filterable
+          clearable
+        >
+          <el-option v-for="table in physicalTables" :key="table" :label="table" :value="table" />
+        </el-select>
+        <el-select
+          v-else-if="activeTab === 'relations'"
+          v-model="relationFilterTable"
+          class="toolbar-field"
+          placeholder="按数据表筛选关系（可选）"
+          filterable
+          clearable
+        >
+          <el-option v-for="table in physicalTables" :key="table" :label="table" :value="table" />
+        </el-select>
+        <div v-else class="toolbar-placeholder"></div>
+        <div class="toolbar-actions">
+          <el-button @click="handleSearch">查询</el-button>
+          <el-button type="primary" @click="handleOpenCreateDialog">{{ primaryActionLabel }}</el-button>
+        </div>
+      </div>
+      <div v-if="datasourceOptions.length === 0" class="empty-tip">
+        当前智能体还没有绑定数据源，请先到“数据源配置”中完成绑定。
+      </div>
+    </section>
+
+    <section class="content-card">
+      <el-tabs v-model="activeTab" class="semantic-tabs">
+        <el-tab-pane label="表语义" name="tables">
+          <template v-if="tableViewMode === 'list'">
+            <div class="section-header">
+              <div>
+                <h3>表语义列表</h3>
+                <p>维护表级业务名、同义词、描述和可见性。</p>
+              </div>
+              <el-tag type="primary" effect="plain">共 {{ tablePage.total }} 条</el-tag>
+            </div>
+
+            <el-table v-loading="tableLoading" :data="tableRows" class="semantic-table">
+              <el-table-column prop="tableName" label="表名" min-width="180" />
+              <el-table-column prop="businessName" label="业务名" min-width="180">
+                <template #default="{ row }">
+                  {{ row.businessName || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="synonyms" label="同义词" min-width="200" show-overflow-tooltip>
+                <template #default="{ row }">
+                  {{ row.synonyms || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="businessDescription"
+                label="业务描述"
+                min-width="240"
+                show-overflow-tooltip
+              >
+                <template #default="{ row }">
+                  {{ row.businessDescription || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column label="可见性" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="flagTagType(row.isVisible)">
+                    {{ flagLabel(row.isVisible) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="状态" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="flagTagType(row.status)">
+                    {{ statusLabel(row.status) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="更新时间" width="180">
+                <template #default="{ row }">
+                  {{ formatTime(row.updateTime || row.createdTime) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="240" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="viewTableColumns(row.tableName)">列语义</el-button>
+                  <el-button link type="primary" @click="openTableDialog(row)">编辑</el-button>
+                  <el-button link type="danger" @click="handleDeleteTable(row)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <div class="pagination-wrap">
+              <el-pagination
+                background
+                layout="total, sizes, prev, pager, next"
+                :current-page="tablePage.pageNum"
+                :page-size="tablePage.pageSize"
+                :page-sizes="[10, 20, 50]"
+                :total="tablePage.total"
+                @current-change="handleTablePageChange"
+                @size-change="handleTableSizeChange"
+              />
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="section-header column-subpage-header">
+              <div class="column-subpage-title">
+                <el-button link type="primary" @click="backToTableList">返回表语义</el-button>
+                <div>
+                  <h3>列语义列表</h3>
+                  <p>为字段补充业务口径、描述、同义词和是否启用。</p>
+                </div>
+              </div>
+              <el-tag type="primary" effect="plain">
+                {{ selectedTableName ? `${selectedTableName} · ${columnPage.total} 条` : '请先选择表' }}
+              </el-tag>
+            </div>
+
+            <div v-if="!selectedTableName" class="empty-panel">
+              请先选择一个数据表，再查看或编辑该表的列语义。
+            </div>
+            <template v-else>
+            <el-table v-loading="columnLoading" :data="columnRows" class="semantic-table">
+              <el-table-column prop="columnName" label="字段名" min-width="180" />
+              <el-table-column prop="businessName" label="业务名" min-width="180">
+                <template #default="{ row }">
+                  {{ row.businessName || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="dataType" label="数据类型" min-width="140">
+                <template #default="{ row }">
+                  {{ row.dataType || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="synonyms" label="同义词" min-width="200" show-overflow-tooltip>
+                <template #default="{ row }">
+                  {{ row.synonyms || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="businessDescription"
+                label="业务描述"
+                min-width="240"
+                show-overflow-tooltip
+              >
+                <template #default="{ row }">
+                  {{ row.businessDescription || '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column label="可见性" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="flagTagType(row.status)">
+                    {{ statusLabel(row.status) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="更新时间" width="180">
+                <template #default="{ row }">
+                  {{ formatTime(row.updateTime || row.createdTime) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="180" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="openColumnDialog(row)">编辑</el-button>
+                  <el-button link type="danger" @click="handleDeleteColumn(row)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <div class="pagination-wrap">
+              <el-pagination
+                background
+                layout="total, sizes, prev, pager, next"
+                :current-page="columnPage.pageNum"
+                :page-size="columnPage.pageSize"
+                :page-sizes="[10, 20, 50]"
+                :total="columnPage.total"
+                @current-change="handleColumnPageChange"
+                @size-change="handleColumnSizeChange"
+              />
+            </div>
+            </template>
+          </template>
+        </el-tab-pane>
+
+        <el-tab-pane label="关系语义" name="relations">
+          <div class="section-header">
+            <div>
+              <h3>关系语义列表</h3>
+              <p>显式维护跨表关联，完全替代旧 logical relation 配置入口。</p>
+            </div>
+            <el-tag type="primary" effect="plain">共 {{ relationPage.total }} 条</el-tag>
+          </div>
+
+          <el-table v-loading="relationLoading" :data="relationRows" class="semantic-table">
+            <el-table-column prop="sourceTableName" label="源表" min-width="160" />
+            <el-table-column prop="sourceColumnNames" label="源字段" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="targetTableName" label="目标表" min-width="160" />
+            <el-table-column prop="targetColumnNames" label="目标字段" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="relationType" label="关系类型" min-width="120">
+              <template #default="{ row }">
+                {{ row.relationType || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="description" label="说明" min-width="220" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.description || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="flagTagType(row.status)">
+                  {{ statusLabel(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="更新时间" width="180">
+              <template #default="{ row }">
+                {{ formatTime(row.updateTime || row.createdTime) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="openRelationDialog(row)">编辑</el-button>
+                <el-button link type="danger" @click="handleDeleteRelation(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="pagination-wrap">
+            <el-pagination
+              background
+              layout="total, sizes, prev, pager, next"
+              :current-page="relationPage.pageNum"
+              :page-size="relationPage.pageSize"
+              :page-sizes="[10, 20, 50]"
+              :total="relationPage.total"
+              @current-change="handleRelationPageChange"
+              @size-change="handleRelationSizeChange"
+            />
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </section>
+
+    <el-dialog v-model="tableDialogVisible" :title="editingTableId ? '编辑表语义' : '新增表语义'" width="720px">
+      <el-form ref="tableFormRef" :model="tableForm" :rules="tableRules" label-width="110px">
+        <el-form-item label="数据表" prop="tableName">
+          <el-select
+            v-model="tableForm.tableName"
+            :disabled="Boolean(editingTableId)"
+            filterable
+            placeholder="选择物理表"
+            style="width: 100%"
+          >
+            <el-option v-for="table in physicalTables" :key="table" :label="table" :value="table" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="业务名" prop="businessName">
+          <el-input v-model="tableForm.businessName" placeholder="例如：订单主表" />
+        </el-form-item>
+        <el-form-item label="同义词" prop="synonyms">
+          <el-input v-model="tableForm.synonyms" placeholder="多个同义词用逗号分隔" />
+        </el-form-item>
+        <el-form-item label="业务描述" prop="businessDescription">
+          <el-input
+            v-model="tableForm.businessDescription"
+            type="textarea"
+            :rows="4"
+            placeholder="描述表的业务含义、口径和适用场景"
+          />
+        </el-form-item>
+        <el-form-item label="表注释" prop="tableComment">
+          <el-input
+            v-model="tableForm.tableComment"
+            type="textarea"
+            :rows="3"
+            placeholder="可补充物理表注释或额外说明"
+          />
+        </el-form-item>
+        <el-form-item label="是否可见">
+          <el-switch v-model="tableFormVisible" />
+        </el-form-item>
+        <el-form-item label="是否启用">
+          <el-switch v-model="tableFormEnabled" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="tableDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="tableSubmitting" @click="submitTableDialog">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="columnDialogVisible" :title="editingColumnId ? '编辑列语义' : '新增列语义'" width="760px">
+      <el-form ref="columnFormRef" :model="columnForm" :rules="columnRules" label-width="110px">
+        <el-form-item label="数据表" prop="tableName">
+          <el-select
+            v-model="columnForm.tableName"
+            :disabled="Boolean(editingColumnId)"
+            filterable
+            placeholder="选择数据表"
+            style="width: 100%"
+            @change="handleColumnFormTableChange"
+          >
+            <el-option v-for="table in physicalTables" :key="table" :label="table" :value="table" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="字段名" prop="columnName">
+          <el-select
+            v-model="columnForm.columnName"
+            :disabled="Boolean(editingColumnId)"
+            filterable
+            placeholder="选择字段"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="column in columnFormTableColumns"
+              :key="column"
+              :label="column"
+              :value="column"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="业务名" prop="businessName">
+          <el-input v-model="columnForm.businessName" placeholder="例如：订单状态" />
+        </el-form-item>
+        <el-form-item label="同义词" prop="synonyms">
+          <el-input v-model="columnForm.synonyms" placeholder="多个同义词用逗号分隔" />
+        </el-form-item>
+        <el-form-item label="数据类型" prop="dataType">
+          <el-input v-model="columnForm.dataType" placeholder="例如：varchar(32)" />
+        </el-form-item>
+        <el-form-item label="业务描述" prop="businessDescription">
+          <el-input
+            v-model="columnForm.businessDescription"
+            type="textarea"
+            :rows="4"
+            placeholder="说明字段口径、枚举语义或使用限制"
+          />
+        </el-form-item>
+        <el-form-item label="字段注释" prop="columnComment">
+          <el-input
+            v-model="columnForm.columnComment"
+            type="textarea"
+            :rows="3"
+            placeholder="补充物理字段注释"
+          />
+        </el-form-item>
+        <el-form-item label="是否可见">
+          <el-switch v-model="columnFormVisible" />
+        </el-form-item>
+        <el-form-item label="是否启用">
+          <el-switch v-model="columnFormEnabled" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="columnDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="columnSubmitting" @click="submitColumnDialog">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="relationDialogVisible"
+      :title="editingRelationId ? '编辑关系语义' : '新增关系语义'"
+      width="760px"
+    >
+      <el-form ref="relationFormRef" :model="relationForm" :rules="relationRules" label-width="110px">
+        <el-form-item label="源表" prop="sourceTableName">
+          <el-select
+            v-model="relationForm.sourceTableName"
+            :disabled="Boolean(editingRelationId)"
+            filterable
+            placeholder="选择源表"
+            style="width: 100%"
+            @change="handleRelationSourceTableChange"
+          >
+            <el-option v-for="table in physicalTables" :key="table" :label="table" :value="table" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="源字段" prop="sourceColumnNames">
+          <el-select
+            v-model="relationForm.sourceColumnNames"
+            multiple
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="选择一个或多个源字段"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="column in relationSourceColumns"
+              :key="column"
+              :label="column"
+              :value="column"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="目标表" prop="targetTableName">
+          <el-select
+            v-model="relationForm.targetTableName"
+            :disabled="Boolean(editingRelationId)"
+            filterable
+            placeholder="选择目标表"
+            style="width: 100%"
+            @change="handleRelationTargetTableChange"
+          >
+            <el-option v-for="table in physicalTables" :key="table" :label="table" :value="table" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="目标字段" prop="targetColumnNames">
+          <el-select
+            v-model="relationForm.targetColumnNames"
+            multiple
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="选择与源字段数量一致的目标字段"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="column in relationTargetColumns"
+              :key="column"
+              :label="column"
+              :value="column"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="关系类型" prop="relationType">
+          <el-select v-model="relationForm.relationType" clearable placeholder="可选" style="width: 100%">
+            <el-option label="1:1" value="1:1" />
+            <el-option label="1:N" value="1:N" />
+            <el-option label="N:1" value="N:1" />
+            <el-option label="N:N" value="N:N" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="说明" prop="description">
+          <el-input
+            v-model="relationForm.description"
+            type="textarea"
+            :rows="4"
+            placeholder="说明这条关系的业务语义"
+          />
+        </el-form-item>
+        <el-form-item label="是否启用">
+          <el-switch v-model="relationFormEnabled" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="relationDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="relationSubmitting" @click="submitRelationDialog">保存</el-button>
+      </template>
+    </el-dialog>
+  </div>
 </template>
 
 <script lang="ts">
-  import { defineComponent, onMounted, ref, type Ref } from 'vue';
-  import { Delete, Plus, Search, UploadFilled } from '@element-plus/icons-vue';
+  import { computed, defineComponent, onMounted, reactive, ref, watch } from 'vue';
+  import type { FormInstance, FormRules } from 'element-plus';
   import { ElMessage, ElMessageBox } from 'element-plus';
-  import BatchImportDialog from './BatchImportDialog.vue';
   import agentDatasourceService from '@/services/agentDatasource';
-  import semanticModelService, {
-    type SemanticModel,
-    type SemanticModelAddDto,
-    type SemanticModelImportItem,
-    type SemanticModelUpdateDto,
-  } from '@/services/semanticModel';
+  import datasourceService, { type Datasource, type AgentDatasource } from '@/services/datasource';
+  import structuredSemanticService, {
+    type SemanticColumnItem,
+    type SemanticColumnUpsertDTO,
+    type SemanticRelationItem,
+    type SemanticRelationUpsertDTO,
+    type SemanticTableItem,
+    type SemanticTableUpsertDTO,
+  } from '@/services/structuredSemantic';
 
-  type SemanticModelView = SemanticModel & {
-    createTime?: string;
-  };
+  interface TableFormState {
+    tableName: string;
+    businessName: string;
+    synonyms: string;
+    businessDescription: string;
+    tableComment: string;
+    isVisible: number;
+    status: number;
+  }
 
-  const createEmptyModel = (agentId: number): SemanticModel => ({
+  interface ColumnFormState {
+    tableName: string;
+    columnName: string;
+    businessName: string;
+    synonyms: string;
+    businessDescription: string;
+    columnComment: string;
+    dataType: string;
+    isVisible: number;
+    status: number;
+  }
+
+  interface RelationFormState {
+    sourceTableName: string;
+    sourceColumnNames: string[];
+    targetTableName: string;
+    targetColumnNames: string[];
+    relationType: string;
+    description: string;
+    status: number;
+  }
+
+  const createEmptyTableForm = (): TableFormState => ({
+    tableName: '',
+    businessName: '',
+    synonyms: '',
+    businessDescription: '',
+    tableComment: '',
+    isVisible: 1,
+    status: 1,
+  });
+
+  const createEmptyColumnForm = (): ColumnFormState => ({
     tableName: '',
     columnName: '',
     businessName: '',
@@ -221,17 +575,22 @@
     businessDescription: '',
     columnComment: '',
     dataType: '',
+    isVisible: 1,
     status: 1,
-    agentId,
+  });
+
+  const createEmptyRelationForm = (): RelationFormState => ({
+    sourceTableName: '',
+    sourceColumnNames: [],
+    targetTableName: '',
+    targetColumnNames: [],
+    relationType: '',
+    description: '',
+    status: 1,
   });
 
   export default defineComponent({
     name: 'AgentSemanticsConfig',
-    components: {
-      BatchImportDialog,
-      UploadFilled,
-      Search,
-    },
     props: {
       agentId: {
         type: Number,
@@ -239,358 +598,903 @@
       },
     },
     setup(props) {
-      const semanticModelList: Ref<SemanticModel[]> = ref([]);
-      const dialogVisible = ref(false);
-      const batchImportDialogVisible = ref(false);
-      const isEdit = ref(false);
-      const searchKeyword = ref('');
-      const selectedModels: Ref<SemanticModel[]> = ref([]);
-      const currentEditId = ref<number | null>(null);
-      const modelForm: Ref<SemanticModel> = ref(createEmptyModel(props.agentId));
+      const activeTab = ref<'tables' | 'relations'>('tables');
+      const tableViewMode = ref<'list' | 'columns'>('list');
+      const keyword = ref('');
+      const selectedDatasourceId = ref<number>();
+      const datasourceOptions = ref<Datasource[]>([]);
+      const physicalTables = ref<string[]>([]);
+      const selectedTableName = ref('');
+      const relationFilterTable = ref('');
+      const tableColumnsCache = ref<Record<string, string[]>>({});
 
-      const jsonTemplate = [
-        {
-          tableName: 'work_order',
-          columnName: 'order_type',
-          businessName: '工单类型',
-          synonyms: '类型,工单种类',
-          businessDesc: '用于区分工单种类，例如 1=资产工单, 2=账号工单',
-          dataType: 'int',
+      const tableLoading = ref(false);
+      const columnLoading = ref(false);
+      const relationLoading = ref(false);
+
+      const tableRows = ref<SemanticTableItem[]>([]);
+      const columnRows = ref<SemanticColumnItem[]>([]);
+      const relationRows = ref<SemanticRelationItem[]>([]);
+
+      const tablePage = reactive({
+        pageNum: 1,
+        pageSize: 10,
+        total: 0,
+      });
+      const columnPage = reactive({
+        pageNum: 1,
+        pageSize: 10,
+        total: 0,
+      });
+      const relationPage = reactive({
+        pageNum: 1,
+        pageSize: 10,
+        total: 0,
+      });
+
+      const tableDialogVisible = ref(false);
+      const columnDialogVisible = ref(false);
+      const relationDialogVisible = ref(false);
+      const tableSubmitting = ref(false);
+      const columnSubmitting = ref(false);
+      const relationSubmitting = ref(false);
+      const editingTableId = ref<number>();
+      const editingColumnId = ref<number>();
+      const editingRelationId = ref<number>();
+
+      const tableFormRef = ref<FormInstance>();
+      const columnFormRef = ref<FormInstance>();
+      const relationFormRef = ref<FormInstance>();
+
+      const tableForm = reactive<TableFormState>(createEmptyTableForm());
+      const columnForm = reactive<ColumnFormState>(createEmptyColumnForm());
+      const relationForm = reactive<RelationFormState>(createEmptyRelationForm());
+
+      const relationSourceColumns = ref<string[]>([]);
+      const relationTargetColumns = ref<string[]>([]);
+      const columnFormTableColumns = ref<string[]>([]);
+
+      const currentDatasource = computed(() =>
+        datasourceOptions.value.find(item => item.id === selectedDatasourceId.value),
+      );
+
+      const primaryActionLabel = computed(() => {
+        if (activeTab.value === 'tables') {
+          return tableViewMode.value === 'columns' ? '新增列语义' : '新增表语义';
+        }
+        return '新增关系语义';
+      });
+
+      const tableFormVisible = computed({
+        get: () => tableForm.isVisible === 1,
+        set: value => {
+          tableForm.isVisible = value ? 1 : 0;
         },
-        {
-          tableName: 'work_order',
-          columnName: 'status',
-          businessName: '工单状态',
-          synonyms: '状态,处理状态',
-          businessDesc: '工单当前处理状态，例如 0=待处理, 1=处理中, 2=已完成, 3=已关闭',
-          dataType: 'int',
+      });
+
+      const tableFormEnabled = computed({
+        get: () => tableForm.status === 1,
+        set: value => {
+          tableForm.status = value ? 1 : 0;
         },
-      ];
+      });
 
-      const getErrorMessage = (error: unknown, fallback: string): string => {
-        if (error instanceof Error && error.message.trim()) {
-          return error.message;
+      const columnFormVisible = computed({
+        get: () => columnForm.isVisible === 1,
+        set: value => {
+          columnForm.isVisible = value ? 1 : 0;
+        },
+      });
+
+      const columnFormEnabled = computed({
+        get: () => columnForm.status === 1,
+        set: value => {
+          columnForm.status = value ? 1 : 0;
+        },
+      });
+
+      const relationFormEnabled = computed({
+        get: () => relationForm.status === 1,
+        set: value => {
+          relationForm.status = value ? 1 : 0;
+        },
+      });
+
+      const tableRules: FormRules<TableFormState> = {
+        tableName: [{ required: true, message: '请选择数据表', trigger: 'change' }],
+      };
+
+      const columnRules: FormRules<ColumnFormState> = {
+        tableName: [{ required: true, message: '请选择数据表', trigger: 'change' }],
+        columnName: [{ required: true, message: '请选择字段', trigger: 'change' }],
+      };
+
+      const relationRules: FormRules<RelationFormState> = {
+        sourceTableName: [{ required: true, message: '请选择源表', trigger: 'change' }],
+        sourceColumnNames: [{ required: true, message: '请选择源字段', trigger: 'change' }],
+        targetTableName: [{ required: true, message: '请选择目标表', trigger: 'change' }],
+        targetColumnNames: [{ required: true, message: '请选择目标字段', trigger: 'change' }],
+      };
+
+      const formatTime = (value?: string) => value || '-';
+
+      const normalizeText = (value: string) => {
+        const trimmed = value.trim();
+        return trimmed || undefined;
+      };
+
+      const splitColumns = (value?: string) =>
+        (value || '')
+          .split(',')
+          .map(item => item.trim())
+          .filter(Boolean);
+
+      const joinColumns = (value: string[]) => value.map(item => item.trim()).filter(Boolean).join(',');
+
+      const flagTagType = (value?: number) => (value === 1 ? 'success' : 'info');
+      const flagLabel = (value?: number) => (value === 1 ? '显示' : '隐藏');
+      const statusLabel = (value?: number) => (value === 1 ? '启用' : '停用');
+
+      const requireDatasourceId = (): number => {
+        if (!selectedDatasourceId.value) {
+          throw new Error('请先选择数据源');
         }
-        return fallback;
+        return selectedDatasourceId.value;
       };
 
-      const getActiveDatasourceId = async (): Promise<number> => {
-        const activeAgentDatasource = await agentDatasourceService.getActiveAgentDatasource(
-          props.agentId,
-        );
-        if (!activeAgentDatasource.datasourceId) {
-          throw new Error('当前未找到启用的数据源');
-        }
-        return activeAgentDatasource.datasourceId;
-      };
-
-      const loadSemanticModels = async () => {
-        try {
-          semanticModelList.value = await semanticModelService.list(
-            props.agentId,
-            searchKeyword.value || undefined,
-          );
-        } catch (error) {
-          ElMessage.error(getErrorMessage(error, '加载语义模型列表失败'));
-          console.error('Failed to load semantic models:', error);
+      const fetchAgentDatasources = async () => {
+        const bindings = await agentDatasourceService.getAgentDatasource(props.agentId);
+        datasourceOptions.value = (bindings || [])
+          .map((item: AgentDatasource) => item.datasource)
+          .filter((item): item is Datasource => Boolean(item && item.id));
+        if (!selectedDatasourceId.value && datasourceOptions.value.length > 0) {
+          const activeDatasource = (bindings || []).find(item => item.isActive === 1)?.datasource;
+          selectedDatasourceId.value = activeDatasource?.id || datasourceOptions.value[0].id;
         }
       };
 
-      const handleSearch = () => {
-        loadSemanticModels();
-      };
-
-      const openCreateDialog = () => {
-        isEdit.value = false;
-        currentEditId.value = null;
-        modelForm.value = createEmptyModel(props.agentId);
-        dialogVisible.value = true;
-      };
-
-      const openBatchImportDialog = () => {
-        batchImportDialogVisible.value = true;
-      };
-
-      const handleSelectionChange = (selection: SemanticModel[]) => {
-        selectedModels.value = selection;
-      };
-
-      const editModel = (model: SemanticModel) => {
-        isEdit.value = true;
-        currentEditId.value = model.id || null;
-        modelForm.value = { ...model };
-        dialogVisible.value = true;
-      };
-
-      const deleteModel = async (model: SemanticModel) => {
-        if (!model.id) {
+      const fetchPhysicalTables = async () => {
+        if (!selectedDatasourceId.value) {
+          physicalTables.value = [];
+          selectedTableName.value = '';
           return;
         }
-
         try {
-          await ElMessageBox.confirm(`确定要删除语义模型“${model.businessName}”吗？`, '确认删除', {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning',
-          });
+          physicalTables.value = await datasourceService.getDatasourceTables(selectedDatasourceId.value);
+          if (physicalTables.value.length === 0) {
+            selectedTableName.value = '';
+          }
+          else if (!physicalTables.value.includes(selectedTableName.value)) {
+            selectedTableName.value = physicalTables.value[0];
+          }
+        } catch (error) {
+          physicalTables.value = [];
+          selectedTableName.value = '';
+          ElMessage.error(error instanceof Error ? error.message : '加载物理表失败');
+        }
+      };
 
-          const result = await semanticModelService.delete(model.id);
-          if (!result) {
-            ElMessage.error('删除失败');
+      const fetchTableColumns = async (tableName: string): Promise<string[]> => {
+        const datasourceId = requireDatasourceId();
+        if (!tableName) {
+          return [];
+        }
+        if (tableColumnsCache.value[tableName]) {
+          return tableColumnsCache.value[tableName];
+        }
+        const columns = await datasourceService.getTableColumns(datasourceId, tableName);
+        tableColumnsCache.value[tableName] = columns;
+        return columns;
+      };
+
+      const loadTables = async () => {
+        if (!selectedDatasourceId.value) {
+          tableRows.value = [];
+          tablePage.total = 0;
+          return;
+        }
+        tableLoading.value = true;
+        try {
+          const response = await structuredSemanticService.listTables({
+            agentId: props.agentId,
+            datasourceId: selectedDatasourceId.value,
+            keyword: normalizeText(keyword.value),
+            pageNum: tablePage.pageNum,
+            pageSize: tablePage.pageSize,
+          });
+          tableRows.value = response.data || [];
+          tablePage.total = response.total || 0;
+        } catch (error) {
+          tableRows.value = [];
+          tablePage.total = 0;
+          ElMessage.error(error instanceof Error ? error.message : '加载表语义失败');
+        } finally {
+          tableLoading.value = false;
+        }
+      };
+
+      const loadColumns = async () => {
+        if (!selectedDatasourceId.value || !selectedTableName.value) {
+          columnRows.value = [];
+          columnPage.total = 0;
+          return;
+        }
+        columnLoading.value = true;
+        try {
+          const response = await structuredSemanticService.listColumns({
+            agentId: props.agentId,
+            datasourceId: selectedDatasourceId.value,
+            tableName: selectedTableName.value,
+            keyword: normalizeText(keyword.value),
+            pageNum: columnPage.pageNum,
+            pageSize: columnPage.pageSize,
+          });
+          columnRows.value = response.data || [];
+          columnPage.total = response.total || 0;
+        } catch (error) {
+          columnRows.value = [];
+          columnPage.total = 0;
+          ElMessage.error(error instanceof Error ? error.message : '加载列语义失败');
+        } finally {
+          columnLoading.value = false;
+        }
+      };
+
+      const loadRelations = async () => {
+        if (!selectedDatasourceId.value) {
+          relationRows.value = [];
+          relationPage.total = 0;
+          return;
+        }
+        relationLoading.value = true;
+        try {
+          const response = await structuredSemanticService.listRelations({
+            agentId: props.agentId,
+            datasourceId: selectedDatasourceId.value,
+            tableName: normalizeText(relationFilterTable.value),
+            keyword: normalizeText(keyword.value),
+            pageNum: relationPage.pageNum,
+            pageSize: relationPage.pageSize,
+          });
+          relationRows.value = response.data || [];
+          relationPage.total = response.total || 0;
+        } catch (error) {
+          relationRows.value = [];
+          relationPage.total = 0;
+          ElMessage.error(error instanceof Error ? error.message : '加载关系语义失败');
+        } finally {
+          relationLoading.value = false;
+        }
+      };
+
+      const loadCurrentTabData = async () => {
+        if (activeTab.value === 'tables') {
+          if (tableViewMode.value === 'columns') {
+            await loadColumns();
             return;
           }
+          await loadTables();
+          return;
+        }
+        await loadRelations();
+      };
 
-          ElMessage.success('删除成功');
-          await loadSemanticModels();
+      const handleSearch = async () => {
+        tablePage.pageNum = 1;
+        columnPage.pageNum = 1;
+        relationPage.pageNum = 1;
+        await loadCurrentTabData();
+      };
+
+      const resetTableForm = () => {
+        Object.assign(tableForm, createEmptyTableForm());
+        editingTableId.value = undefined;
+      };
+
+      const resetColumnForm = () => {
+        Object.assign(columnForm, createEmptyColumnForm());
+        editingColumnId.value = undefined;
+        columnFormTableColumns.value = [];
+      };
+
+      const resetRelationForm = () => {
+        Object.assign(relationForm, createEmptyRelationForm());
+        editingRelationId.value = undefined;
+        relationSourceColumns.value = [];
+        relationTargetColumns.value = [];
+      };
+
+      const handleOpenCreateDialog = async () => {
+        if (!selectedDatasourceId.value) {
+          ElMessage.warning('请先选择数据源');
+          return;
+        }
+        if (activeTab.value === 'tables' && tableViewMode.value === 'list') {
+          resetTableForm();
+          tableDialogVisible.value = true;
+          return;
+        }
+        if (activeTab.value === 'tables') {
+          if (!selectedTableName.value) {
+            ElMessage.warning('请先选择数据表');
+            return;
+          }
+          resetColumnForm();
+          columnForm.tableName = selectedTableName.value || '';
+          if (columnForm.tableName) {
+            columnFormTableColumns.value = await fetchTableColumns(columnForm.tableName);
+          }
+          columnDialogVisible.value = true;
+          return;
+        }
+        resetRelationForm();
+        relationDialogVisible.value = true;
+      };
+
+      const openTableDialog = (row: SemanticTableItem) => {
+        editingTableId.value = row.id;
+        Object.assign(tableForm, {
+          tableName: row.tableName,
+          businessName: row.businessName || '',
+          synonyms: row.synonyms || '',
+          businessDescription: row.businessDescription || '',
+          tableComment: row.tableComment || '',
+          isVisible: row.isVisible ?? 1,
+          status: row.status ?? 1,
+        });
+        tableDialogVisible.value = true;
+      };
+
+      const viewTableColumns = async (tableName: string) => {
+        if (!tableName) {
+          return;
+        }
+        activeTab.value = 'tables';
+        tableViewMode.value = 'columns';
+        if (selectedTableName.value !== tableName) {
+          selectedTableName.value = tableName;
+          return;
+        }
+        columnPage.pageNum = 1;
+        await loadColumns();
+      };
+
+      const backToTableList = async () => {
+        tableViewMode.value = 'list';
+        columnPage.pageNum = 1;
+        await loadTables();
+      };
+
+      const openColumnDialog = async (row: SemanticColumnItem) => {
+        editingColumnId.value = row.id;
+        Object.assign(columnForm, {
+          tableName: row.tableName,
+          columnName: row.columnName,
+          businessName: row.businessName || '',
+          synonyms: row.synonyms || '',
+          businessDescription: row.businessDescription || '',
+          columnComment: row.columnComment || '',
+          dataType: row.dataType || '',
+          isVisible: 1,
+          status: row.status ?? 1,
+        });
+        columnFormTableColumns.value = await fetchTableColumns(row.tableName);
+        columnDialogVisible.value = true;
+      };
+
+      const openRelationDialog = async (row: SemanticRelationItem) => {
+        editingRelationId.value = row.id;
+        Object.assign(relationForm, {
+          sourceTableName: row.sourceTableName,
+          sourceColumnNames: splitColumns(row.sourceColumnNames),
+          targetTableName: row.targetTableName,
+          targetColumnNames: splitColumns(row.targetColumnNames),
+          relationType: row.relationType || '',
+          description: row.description || '',
+          status: row.status ?? 1,
+        });
+        relationSourceColumns.value = await fetchTableColumns(row.sourceTableName);
+        relationTargetColumns.value = await fetchTableColumns(row.targetTableName);
+        relationDialogVisible.value = true;
+      };
+
+      const submitTableDialog = async () => {
+        if (!tableFormRef.value) {
+          return;
+        }
+        const valid = await tableFormRef.value.validate().catch(() => false);
+        if (!valid) {
+          return;
+        }
+        tableSubmitting.value = true;
+        try {
+          const dto: SemanticTableUpsertDTO = {
+            agentId: props.agentId,
+            datasourceId: requireDatasourceId(),
+            tableName: tableForm.tableName,
+            businessName: normalizeText(tableForm.businessName),
+            synonyms: normalizeText(tableForm.synonyms),
+            businessDescription: normalizeText(tableForm.businessDescription),
+            tableComment: normalizeText(tableForm.tableComment),
+            isVisible: tableForm.isVisible,
+            status: tableForm.status,
+          };
+          if (editingTableId.value) {
+            await structuredSemanticService.updateTable(editingTableId.value, dto);
+            ElMessage.success('表语义已更新');
+          } else {
+            await structuredSemanticService.createTable(dto);
+            ElMessage.success('表语义已创建');
+          }
+          tableDialogVisible.value = false;
+          await loadTables();
+        } catch (error) {
+          ElMessage.error(error instanceof Error ? error.message : '保存表语义失败');
+        } finally {
+          tableSubmitting.value = false;
+        }
+      };
+
+      const submitColumnDialog = async () => {
+        if (!columnFormRef.value) {
+          return;
+        }
+        const valid = await columnFormRef.value.validate().catch(() => false);
+        if (!valid) {
+          return;
+        }
+        columnSubmitting.value = true;
+        try {
+          const dto: SemanticColumnUpsertDTO = {
+            agentId: props.agentId,
+            datasourceId: requireDatasourceId(),
+            tableName: columnForm.tableName,
+            columnName: columnForm.columnName,
+            businessName: normalizeText(columnForm.businessName),
+            synonyms: normalizeText(columnForm.synonyms),
+            businessDescription: normalizeText(columnForm.businessDescription),
+            columnComment: normalizeText(columnForm.columnComment),
+            dataType: normalizeText(columnForm.dataType),
+            isVisible: columnForm.isVisible,
+            status: columnForm.status,
+          };
+          if (editingColumnId.value) {
+            await structuredSemanticService.updateColumn(editingColumnId.value, dto);
+            ElMessage.success('列语义已更新');
+          } else {
+            await structuredSemanticService.createColumn(dto);
+            ElMessage.success('列语义已创建');
+          }
+          selectedTableName.value = columnForm.tableName;
+          columnDialogVisible.value = false;
+          await loadColumns();
+        } catch (error) {
+          ElMessage.error(error instanceof Error ? error.message : '保存列语义失败');
+        } finally {
+          columnSubmitting.value = false;
+        }
+      };
+
+      const submitRelationDialog = async () => {
+        if (!relationFormRef.value) {
+          return;
+        }
+        if (relationForm.sourceColumnNames.length !== relationForm.targetColumnNames.length) {
+          ElMessage.warning('源字段和目标字段数量必须一致');
+          return;
+        }
+        const valid = await relationFormRef.value.validate().catch(() => false);
+        if (!valid) {
+          return;
+        }
+        relationSubmitting.value = true;
+        try {
+          const dto: SemanticRelationUpsertDTO = {
+            agentId: props.agentId,
+            datasourceId: requireDatasourceId(),
+            sourceTableName: relationForm.sourceTableName,
+            sourceColumnNames: joinColumns(relationForm.sourceColumnNames),
+            targetTableName: relationForm.targetTableName,
+            targetColumnNames: joinColumns(relationForm.targetColumnNames),
+            relationType: normalizeText(relationForm.relationType),
+            description: normalizeText(relationForm.description),
+            status: relationForm.status,
+          };
+          if (editingRelationId.value) {
+            await structuredSemanticService.updateRelation(editingRelationId.value, dto);
+            ElMessage.success('关系语义已更新');
+          } else {
+            await structuredSemanticService.createRelation(dto);
+            ElMessage.success('关系语义已创建');
+          }
+          relationDialogVisible.value = false;
+          await loadRelations();
+        } catch (error) {
+          ElMessage.error(error instanceof Error ? error.message : '保存关系语义失败');
+        } finally {
+          relationSubmitting.value = false;
+        }
+      };
+
+      const handleDeleteTable = async (row: SemanticTableItem) => {
+        if (!row.id) {
+          return;
+        }
+        try {
+          await ElMessageBox.confirm(`确定删除表语义 ${row.tableName} 吗？`, '提示', {
+            type: 'warning',
+          });
+          await structuredSemanticService.deleteTable(row.id);
+          ElMessage.success('表语义已删除');
+          await loadTables();
         } catch (error) {
           if (error !== 'cancel') {
-            console.error('Failed to delete semantic model:', error);
+            ElMessage.error(error instanceof Error ? error.message : '删除表语义失败');
           }
         }
       };
 
-      const batchDeleteModels = async () => {
-        if (selectedModels.value.length === 0) {
-          ElMessage.warning('请先选择要删除的语义模型');
+      const handleDeleteColumn = async (row: SemanticColumnItem) => {
+        if (!row.id) {
           return;
         }
+        try {
+          await ElMessageBox.confirm(`确定删除列语义 ${row.tableName}.${row.columnName} 吗？`, '提示', {
+            type: 'warning',
+          });
+          await structuredSemanticService.deleteColumn(row.id);
+          ElMessage.success('列语义已删除');
+          await loadColumns();
+        } catch (error) {
+          if (error !== 'cancel') {
+            ElMessage.error(error instanceof Error ? error.message : '删除列语义失败');
+          }
+        }
+      };
 
+      const handleDeleteRelation = async (row: SemanticRelationItem) => {
+        if (!row.id) {
+          return;
+        }
         try {
           await ElMessageBox.confirm(
-            `确定要删除选中的 ${selectedModels.value.length} 个语义模型吗？`,
-            '确认批量删除',
+            `确定删除关系 ${row.sourceTableName} -> ${row.targetTableName} 吗？`,
+            '提示',
             {
-              confirmButtonText: '确定',
-              cancelButtonText: '取消',
               type: 'warning',
             },
           );
-
-          const ids = selectedModels.value
-            .map(model => model.id)
-            .filter((id): id is number => id !== undefined);
-          const result = await semanticModelService.batchDelete(ids);
-          if (!result) {
-            ElMessage.error('批量删除失败');
-            return;
-          }
-
-          ElMessage.success(`成功删除 ${ids.length} 个语义模型`);
-          selectedModels.value = [];
-          await loadSemanticModels();
+          await structuredSemanticService.deleteRelation(row.id);
+          ElMessage.success('关系语义已删除');
+          await loadRelations();
         } catch (error) {
           if (error !== 'cancel') {
-            console.error('Failed to batch delete semantic models:', error);
+            ElMessage.error(error instanceof Error ? error.message : '删除关系语义失败');
           }
         }
       };
 
-      const toggleStatus = async (model: SemanticModel, status: number) => {
-        if (!model.id) {
-          return;
-        }
-
-        try {
-          const ids = [model.id];
-          const result =
-            status === 1
-              ? await semanticModelService.enable(ids)
-              : await semanticModelService.disable(ids);
-
-          if (!result) {
-            ElMessage.error(`${status === 1 ? '启用' : '停用'}失败`);
-            return;
-          }
-
-          ElMessage.success(`${status === 1 ? '启用' : '停用'}成功`);
-          model.status = status;
-        } catch (error) {
-          ElMessage.error(getErrorMessage(error, `${status === 1 ? '启用' : '停用'}失败`));
-          console.error('Failed to toggle status:', error);
-        }
+      const handleColumnFormTableChange = async (tableName: string) => {
+        columnForm.columnName = '';
+        columnFormTableColumns.value = tableName ? await fetchTableColumns(tableName) : [];
       };
 
-      const saveModel = async () => {
-        try {
-          if (isEdit.value && currentEditId.value) {
-            const formData: SemanticModelUpdateDto = {
-              businessName: modelForm.value.businessName,
-              synonyms: modelForm.value.synonyms,
-              businessDescription: modelForm.value.businessDescription,
-              columnComment: modelForm.value.columnComment,
-              dataType: modelForm.value.dataType,
-            };
-            const result = await semanticModelService.update(currentEditId.value, formData);
-            if (!result) {
-              ElMessage.error('更新失败');
-              return;
-            }
-            ElMessage.success('更新成功');
-          } else {
-            const datasourceId = await getActiveDatasourceId();
-            const formData: SemanticModelAddDto = {
-              agentId: props.agentId,
-              datasourceId,
-              tableName: modelForm.value.tableName,
-              columnName: modelForm.value.columnName,
-              businessName: modelForm.value.businessName,
-              synonyms: modelForm.value.synonyms,
-              businessDescription: modelForm.value.businessDescription,
-              columnComment: modelForm.value.columnComment,
-              dataType: modelForm.value.dataType,
-            };
-            const result = await semanticModelService.create(formData);
-            if (!result) {
-              ElMessage.error('创建失败');
-              return;
-            }
-            ElMessage.success('创建成功');
-          }
-
-          dialogVisible.value = false;
-          await loadSemanticModels();
-        } catch (error) {
-          ElMessage.error(getErrorMessage(error, isEdit.value ? '更新失败' : '创建失败'));
-          console.error('Failed to save model:', error);
-        }
+      const handleRelationSourceTableChange = async (tableName: string) => {
+        relationForm.sourceColumnNames = [];
+        relationSourceColumns.value = tableName ? await fetchTableColumns(tableName) : [];
       };
 
-      const validateJson = (jsonText: string) => {
-        try {
-          const data = JSON.parse(jsonText);
-          if (!Array.isArray(data)) {
-            ElMessage.error('JSON 格式错误：数据必须是数组');
-            return false;
-          }
-          if (data.length === 0) {
-            ElMessage.error('导入数据不能为空');
-            return false;
-          }
-
-          for (let i = 0; i < data.length; i++) {
-            const item = data[i];
-            if (!item.tableName || !item.columnName || !item.businessName || !item.dataType) {
-              ElMessage.error(
-                `第 ${i + 1} 条记录缺少必填字段（tableName、columnName、businessName、dataType）`,
-              );
-              return false;
-            }
-          }
-
-          ElMessage.success('JSON 格式校验通过');
-          return true;
-        } catch (error) {
-          ElMessage.error(`JSON 格式错误：${(error as Error).message}`);
-          return false;
-        }
+      const handleRelationTargetTableChange = async (tableName: string) => {
+        relationForm.targetColumnNames = [];
+        relationTargetColumns.value = tableName ? await fetchTableColumns(tableName) : [];
       };
 
-      const executeBatchImport = async (items: SemanticModelImportItem[]) => {
-        try {
-          const datasourceId = await getActiveDatasourceId();
-          return await semanticModelService.batchImport({
-            agentId: props.agentId,
-            datasourceId,
-            items,
-          });
-        } catch (error) {
-          ElMessage.error(`批量导入失败：${getErrorMessage(error, '导入失败')}`);
-          console.error('Failed to batch import:', error);
-          throw error;
-        }
+      const handleTablePageChange = async (page: number) => {
+        tablePage.pageNum = page;
+        await loadTables();
       };
 
-      const validateExcelFile = (file: File | null) => {
-        if (!file) {
-          ElMessage.error('请先选择 Excel 文件');
-          return false;
-        }
-        return true;
+      const handleTableSizeChange = async (size: number) => {
+        tablePage.pageSize = size;
+        tablePage.pageNum = 1;
+        await loadTables();
       };
 
-      const downloadExcelTemplate = async () => {
-        try {
-          await semanticModelService.downloadTemplate();
-          ElMessage.success('模板下载成功');
-        } catch (error) {
-          ElMessage.error(`模板下载失败：${getErrorMessage(error, '下载失败')}`);
-          console.error('Failed to download template:', error);
-        }
+      const handleColumnPageChange = async (page: number) => {
+        columnPage.pageNum = page;
+        await loadColumns();
       };
 
-      const executeExcelImport = async (file: File) => {
-        try {
-          const datasourceId = await getActiveDatasourceId();
-          return await semanticModelService.importExcel(file, props.agentId, datasourceId);
-        } catch (error) {
-          ElMessage.error(`Excel 导入失败：${getErrorMessage(error, '导入失败')}`);
-          console.error('Failed to import excel:', error);
-          throw error;
-        }
+      const handleColumnSizeChange = async (size: number) => {
+        columnPage.pageSize = size;
+        columnPage.pageNum = 1;
+        await loadColumns();
       };
 
-      const handleBatchImported = async () => {
-        await loadSemanticModels();
+      const handleRelationPageChange = async (page: number) => {
+        relationPage.pageNum = page;
+        await loadRelations();
       };
 
-      const formatDateTime = (dateTime?: string) => {
-        if (!dateTime) {
-          return '-';
-        }
-        try {
-          const date = new Date(dateTime);
-          return date.toLocaleString('zh-CN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false,
-          });
-        } catch {
-          return dateTime;
-        }
+      const handleRelationSizeChange = async (size: number) => {
+        relationPage.pageSize = size;
+        relationPage.pageNum = 1;
+        await loadRelations();
       };
 
-      const formatModelCreatedTime = (model: SemanticModelView) =>
-        formatDateTime(model.createdTime || model.createTime);
+      watch(selectedDatasourceId, async () => {
+        tableColumnsCache.value = {};
+        relationFilterTable.value = '';
+        tableViewMode.value = 'list';
+        await fetchPhysicalTables();
+        await loadCurrentTabData();
+      });
 
-      onMounted(() => {
-        loadSemanticModels();
+      watch(selectedTableName, async () => {
+        if (activeTab.value === 'tables' && tableViewMode.value === 'columns') {
+          columnPage.pageNum = 1;
+          await loadColumns();
+        }
+      });
+
+      watch(relationFilterTable, async () => {
+        if (activeTab.value === 'relations') {
+          relationPage.pageNum = 1;
+          await loadRelations();
+        }
+      });
+
+      watch(activeTab, async tab => {
+        if (tab !== 'tables') {
+          tableViewMode.value = 'list';
+        }
+        await loadCurrentTabData();
+      });
+
+      onMounted(async () => {
+        await fetchAgentDatasources();
+        await fetchPhysicalTables();
+        await loadTables();
       });
 
       return {
-        Plus,
-        Search,
-        Delete,
-        semanticModelList,
-        dialogVisible,
-        batchImportDialogVisible,
-        isEdit,
-        searchKeyword,
-        selectedModels,
-        modelForm,
-        jsonTemplate,
-        openCreateDialog,
-        openBatchImportDialog,
-        handleSelectionChange,
-        batchDeleteModels,
+        activeTab,
+        tableViewMode,
+        keyword,
+        selectedDatasourceId,
+        datasourceOptions,
+        currentDatasource,
+        primaryActionLabel,
+        physicalTables,
+        selectedTableName,
+        relationFilterTable,
+        tableLoading,
+        columnLoading,
+        relationLoading,
+        tableRows,
+        columnRows,
+        relationRows,
+        tablePage,
+        columnPage,
+        relationPage,
+        tableDialogVisible,
+        columnDialogVisible,
+        relationDialogVisible,
+        tableSubmitting,
+        columnSubmitting,
+        relationSubmitting,
+        tableFormRef,
+        columnFormRef,
+        relationFormRef,
+        tableForm,
+        columnForm,
+        relationForm,
+        tableFormVisible,
+        tableFormEnabled,
+        columnFormVisible,
+        columnFormEnabled,
+        relationFormEnabled,
+        tableRules,
+        columnRules,
+        relationRules,
+        relationSourceColumns,
+        relationTargetColumns,
+        columnFormTableColumns,
+        editingTableId,
+        editingColumnId,
+        editingRelationId,
         handleSearch,
-        editModel,
-        deleteModel,
-        toggleStatus,
-        saveModel,
-        validateJson,
-        validateExcelFile,
-        executeBatchImport,
-        downloadExcelTemplate,
-        executeExcelImport,
-        handleBatchImported,
-        formatModelCreatedTime,
+        handleOpenCreateDialog,
+        backToTableList,
+        openTableDialog,
+        viewTableColumns,
+        openColumnDialog,
+        openRelationDialog,
+        submitTableDialog,
+        submitColumnDialog,
+        submitRelationDialog,
+        handleDeleteTable,
+        handleDeleteColumn,
+        handleDeleteRelation,
+        handleColumnFormTableChange,
+        handleRelationSourceTableChange,
+        handleRelationTargetTableChange,
+        handleTablePageChange,
+        handleTableSizeChange,
+        handleColumnPageChange,
+        handleColumnSizeChange,
+        handleRelationPageChange,
+        handleRelationSizeChange,
+        flagTagType,
+        flagLabel,
+        statusLabel,
+        formatTime,
       };
     },
   });
 </script>
 
-<style scoped></style>
+<style scoped>
+  .semantic-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .hero-card,
+  .toolbar-card,
+  .content-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fbff 100%);
+    border: 1px solid #dbe7f3;
+    border-radius: 20px;
+    box-shadow: 0 20px 45px rgba(31, 41, 55, 0.06);
+  }
+
+  .hero-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 28px 32px;
+    background:
+      radial-gradient(circle at top right, rgba(14, 165, 233, 0.18), transparent 30%),
+      linear-gradient(145deg, #ffffff 0%, #eef6ff 100%);
+  }
+
+  .hero-kicker {
+    color: #0369a1;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .hero-title {
+    font-size: 28px;
+    color: #0f172a;
+    margin-bottom: 10px;
+  }
+
+  .hero-desc {
+    max-width: 760px;
+    color: #475569;
+    line-height: 1.7;
+  }
+
+  .hero-meta {
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 20px;
+    border-radius: 16px;
+    background-color: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(14, 165, 233, 0.18);
+    color: #64748b;
+  }
+
+  .hero-meta strong {
+    margin-top: 8px;
+    color: #0f172a;
+    font-size: 18px;
+  }
+
+  .toolbar-card,
+  .content-card {
+    padding: 24px;
+  }
+
+  .toolbar-grid {
+    display: grid;
+    grid-template-columns: minmax(240px, 300px) minmax(220px, 1fr) minmax(220px, 260px) auto;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .toolbar-field {
+    width: 100%;
+  }
+
+  .toolbar-placeholder {
+    min-height: 1px;
+  }
+
+  .toolbar-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  .semantic-tabs :deep(.el-tabs__header) {
+    margin-bottom: 24px;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .section-header h3 {
+    font-size: 20px;
+    color: #0f172a;
+    margin-bottom: 6px;
+  }
+
+  .section-header p {
+    color: #64748b;
+  }
+
+  .column-subpage-header {
+    align-items: center;
+  }
+
+  .column-subpage-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .column-subpage-title :deep(.el-button) {
+    padding-left: 0;
+  }
+
+  .semantic-table {
+    width: 100%;
+  }
+
+  .pagination-wrap {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+
+  .empty-tip,
+  .empty-panel {
+    color: #64748b;
+    line-height: 1.8;
+  }
+
+  .empty-panel {
+    padding: 28px 20px;
+    background: #f8fafc;
+    border-radius: 14px;
+  }
+
+  @media (max-width: 1200px) {
+    .toolbar-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .toolbar-actions {
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .hero-card {
+      flex-direction: column;
+    }
+  }
+</style>

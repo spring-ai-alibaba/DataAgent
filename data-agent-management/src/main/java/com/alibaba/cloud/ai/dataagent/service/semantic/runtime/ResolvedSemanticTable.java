@@ -13,31 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.dto.schema;
+package com.alibaba.cloud.ai.dataagent.service.semantic.runtime;
 
-import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.util.List;
 
-/** 语义模型更新 DTO，仅允许编辑业务解释字段。 */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class SemanticModelUpdateDTO {
-
-	@NotBlank(message = "业务名称不能为空")
-	private String businessName;
-
-	private String synonyms;
-
-	private String businessDescription;
-
-	private String columnComment;
-
-	@NotBlank(message = "数据类型不能为空")
-	private String dataType;
-
+public record ResolvedSemanticTable(Long semanticId, String tableName, String businessName, String synonyms,
+		String description, String physicalDescription, List<String> primaryKeys, boolean visible) {
 }

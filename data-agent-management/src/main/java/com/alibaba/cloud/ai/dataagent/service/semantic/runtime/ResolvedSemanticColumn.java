@@ -13,33 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.agentscope.tool.semantic;
+package com.alibaba.cloud.ai.dataagent.service.semantic.runtime;
 
-import lombok.Builder;
-import lombok.Data;
-
-@Data
-@Builder
-public class SemanticModelSearchHit {
-
-	private String tableName;
-
-	private String columnName;
-
-	private String businessName;
-
-	private String businessDescription;
-
-	private String synonyms;
-
-	private String columnComment;
-
-	private String dataType;
-
-	private String relationHint;
-
-	private String matchedBy;
-
-	private Integer score;
-
+public record ResolvedSemanticColumn(Long semanticId, String tableName, String columnName, String businessName,
+		String synonyms, String description, String physicalDescription, String dataType, boolean primary,
+		boolean notNull, String samples, boolean visible) {
 }

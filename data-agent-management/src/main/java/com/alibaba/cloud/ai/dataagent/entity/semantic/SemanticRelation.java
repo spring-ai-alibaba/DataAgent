@@ -13,50 +13,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.dto.schema;
+package com.alibaba.cloud.ai.dataagent.entity.semantic;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import jakarta.validation.constraints.NotBlank;
-
-/**
- * 创建逻辑外键的 DTO
- */
 @Data
-public class CreateLogicalRelationDTO {
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class SemanticRelation {
 
-	/**
-	 * 主表名（例如 t_order）
-	 */
-	@NotBlank(message = "主表名不能为空")
+	private Long id;
+
+	private Long agentId;
+
+	private Integer datasourceId;
+
 	private String sourceTableName;
 
-	/**
-	 * 主表字段名（例如 buyer_uid）
-	 */
-	@NotBlank(message = "主表字段名不能为空")
-	private String sourceColumnName;
+	private String sourceColumnNames;
 
-	/**
-	 * 关联表名（例如 t_user）
-	 */
-	@NotBlank(message = "关联表名不能为空")
 	private String targetTableName;
 
-	/**
-	 * 关联表字段名（例如 id）
-	 */
-	@NotBlank(message = "关联表字段名不能为空")
-	private String targetColumnName;
+	private String targetColumnNames;
 
-	/**
-	 * 关系类型（可选） 1:1, 1:N, N:1 - 辅助LLM理解数据基数
-	 */
 	private String relationType;
 
-	/**
-	 * 业务描述（可选）
-	 */
 	private String description;
+
+	private Integer status;
+
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+	private LocalDateTime createdTime;
+
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+	private LocalDateTime updateTime;
 
 }

@@ -8,17 +8,17 @@
    且这种不确定性会直接影响过滤条件、聚合口径、排序、时间窗口或 join 写法。
    不要因为“先确认数据质量”“先看看样例”“更稳妥一点”就默认调用 `PREVIEW_ROWS`。
 
-2. 只有当数据库本身不能直接表达某些表或列的补充语义时，才使用 `semantic_model.search`。
-   包括：别名、业务友好名称、枚举含义、字段说明、使用备注、补充性关系提示。
+2. 数据库表、列、字段说明、表关系、字段别名、补充语义，一律优先通过 `datasource explorer` 返回的结构化 schema 信息获取。
+   当前数据库语义层已经内置在 datasource explorer 中，不再使用旧的兼容式语义召回链路。
 
 3. 如果问题属于业务定义、指标口径、SOP、FAQ、历史案例、领域术语，而不是表结构本身，就使用 `domain_business_knowledge.search`。
 
 4. 如果用户问的是表名、列名、字段类型、枚举值、表关系、字段关系，不要先调 `domain_business_knowledge.search`。
-   先检查 datasource explorer；如果 datasource explorer 还不够，再考虑 `semantic_model.search`。
+   先检查 datasource explorer。
    如果 schema、relations、列名已经足够回答问题，也不要额外调用 `PREVIEW_ROWS`。
 
 5. 只有当以下条件同时成立时，才调用 `sql_guard.check`，传 `action=DATA_PROFILE`：
-   你已经通过 datasource explorer、`semantic_model.search` 或列名上下文，大致定位了候选表和候选列；
+   你已经通过 datasource explorer 或列名上下文，大致定位了候选表和候选列；
    但你仍然无法判断某个关键列到底是不是枚举列、状态列、时间列或数值列；
    且这个不确定性会直接影响 SQL 的 WHERE、GROUP BY、ORDER BY、时间窗口或聚合写法。
    不要把 `DATA_PROFILE` 当作每次写 SQL 前的默认步骤。

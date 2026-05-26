@@ -18,7 +18,6 @@ package com.alibaba.cloud.ai.dataagent.observability;
 import com.alibaba.cloud.ai.dataagent.agentscope.dto.AgentRequest;
 import com.alibaba.cloud.ai.dataagent.agentscope.runtime.QueryClarifyService.QueryClarifyAssessment;
 import com.alibaba.cloud.ai.dataagent.agentscope.tool.datasource.DatasourceExplorerResult;
-import com.alibaba.cloud.ai.dataagent.agentscope.tool.semantic.SemanticModelSearchHit;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.DomainKnowledgeSearchService.DomainKnowledgeSearchResult;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.DomainKnowledgeSearchService.KnowledgeHit;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -91,15 +90,6 @@ public class AnswerTraceExplainStore {
 		withAssembly(request, assembly -> applyClarifyAssessment(assembly, assessment));
 	}
 
-	public void recordSemanticSearch(String query, String summary, List<SemanticModelSearchHit> hits) {
-		withCurrentAssembly(assembly -> applySemanticSearch(assembly, query, summary, hits));
-	}
-
-	public void recordSemanticSearch(AgentRequest request, String query, String summary,
-			List<SemanticModelSearchHit> hits) {
-		withAssembly(request, assembly -> applySemanticSearch(assembly, query, summary, hits));
-	}
-
 	public void recordKnowledgeSearch(DomainKnowledgeSearchResult result) {
 		if (result == null) {
 			return;
@@ -165,7 +155,9 @@ public class AnswerTraceExplainStore {
 	public Optional<ExplainMirrorSummary> getMirrorSummary(String sessionId, String runtimeRequestId) {
 		return getExplain(sessionId, runtimeRequestId).map(explain -> ExplainMirrorSummary.builder()
 			.datasource(explain.getDatasource())
-			.semanticHitCount(explain.getSemanticHits() == null ? 0 : explain.getSemanticHits().size())
+			.relationEvidenceCount(explain.getRelationEvidence() == null ? 0 : explain.getRelationEvidence().size())
+			.usedTableCount(explain.getUsedTables() == null ? 0 : explain.getUsedTables().size())
+			.usedColumnCount(explain.getUsedColumns() == null ? 0 : explain.getUsedColumns().size())
 			.knowledgeHitCount(explain.getKnowledgeHits() == null ? 0 : explain.getKnowledgeHits().size())
 			.toolStepCount(explain.getToolSteps() == null ? 0 : explain.getToolSteps().size())
 			.build());
@@ -219,39 +211,11 @@ public class AnswerTraceExplainStore {
 		}
 	}
 
-	private void applySemanticSearch(ExplainAssembly assembly, String query, String summary,
-			List<SemanticModelSearchHit> hits) {
-		assembly.toolSteps.add(ToolStepView.builder()
-			.toolName("semantic_model.search")
-			.title("语义匹配")
-			.summary(summary)
-			.detail(query)
-			.timestampEpochMs(Instant.now().toEpochMilli())
-			.build());
-		if (hits != null) {
-			for (SemanticModelSearchHit hit : hits) {
-				if (hit == null) {
-					continue;
-				}
-				assembly.semanticHits.add(SemanticHitView.builder()
-					.tableName(hit.getTableName())
-					.columnName(hit.getColumnName())
-					.businessName(hit.getBusinessName())
-					.businessDescription(hit.getBusinessDescription())
-					.matchedBy(hit.getMatchedBy())
-					.score(hit.getScore())
-					.relationHint(hit.getRelationHint())
-					.build());
-			}
-		}
-		assembly.updatedAt = Instant.now().toEpochMilli();
-	}
-
 	private void applyKnowledgeSearch(ExplainAssembly assembly, DomainKnowledgeSearchResult result) {
 		assembly.toolSteps.add(ToolStepView.builder()
 			.toolName("domain_business_knowledge.search")
-			.title("业务知识检索")
-			.summary("检索到 %d 条知识命中".formatted(result.hits() == null ? 0 : result.hits().size()))
+			.title("Knowledge Search")
+			.summary("Matched %d knowledge item(s)".formatted(result.hits() == null ? 0 : result.hits().size()))
 			.detail(result.resolution())
 			.timestampEpochMs(Instant.now().toEpochMilli())
 			.build());
@@ -340,13 +304,13 @@ public class AnswerTraceExplainStore {
 		}
 		assembly.toolSteps.add(ToolStepView.builder()
 			.toolName("query_clarify.check")
-			.title("问题歧义检查")
+			.title("Query Clarify Check")
 			.summary(assessment.summary())
 			.detail(assessment.userMessage())
 			.timestampEpochMs(Instant.now().toEpochMilli())
 			.build());
 		if (assessment.shouldBlockExecution()) {
-			assembly.warnings.add("riskLevel=high，已禁止直接查库，需先补充信息或明确假设。");
+			assembly.warnings.add("riskLevel=high, execution blocked until missing context is clarified.");
 		}
 		assembly.updatedAt = Instant.now().toEpochMilli();
 	}
@@ -399,8 +363,6 @@ public class AnswerTraceExplainStore {
 
 		private final List<String> resultScopeDetails = new ArrayList<>();
 
-		private final List<SemanticHitView> semanticHits = new ArrayList<>();
-
 		private final List<KnowledgeHitView> knowledgeHits = new ArrayList<>();
 
 		private final List<ToolStepView> toolSteps = new ArrayList<>();
@@ -427,7 +389,6 @@ public class AnswerTraceExplainStore {
 				.relationEvidence(List.copyOf(relationEvidence))
 				.toolDecisionReasons(List.copyOf(toolDecisionReasons))
 				.resultScopeDetails(List.copyOf(resultScopeDetails))
-				.semanticHits(List.copyOf(semanticHits))
 				.knowledgeHits(List.copyOf(knowledgeHits))
 				.toolSteps(List.copyOf(toolSteps))
 				.clarify(new LinkedHashMap<>(clarify))
@@ -477,9 +438,6 @@ public class AnswerTraceExplainStore {
 		private List<String> resultScopeDetails = List.of();
 
 		@Builder.Default
-		private List<SemanticHitView> semanticHits = List.of();
-
-		@Builder.Default
 		private List<KnowledgeHitView> knowledgeHits = List.of();
 
 		@Builder.Default
@@ -492,27 +450,6 @@ public class AnswerTraceExplainStore {
 		private List<String> warnings = List.of();
 
 		private long updatedAt;
-
-	}
-
-	@Data
-	@Builder
-	@JsonInclude(JsonInclude.Include.NON_NULL)
-	public static class SemanticHitView {
-
-		private String tableName;
-
-		private String columnName;
-
-		private String businessName;
-
-		private String businessDescription;
-
-		private String matchedBy;
-
-		private Integer score;
-
-		private String relationHint;
 
 	}
 
@@ -563,7 +500,11 @@ public class AnswerTraceExplainStore {
 
 		private String datasource;
 
-		private int semanticHitCount;
+		private int relationEvidenceCount;
+
+		private int usedTableCount;
+
+		private int usedColumnCount;
 
 		private int knowledgeHitCount;
 

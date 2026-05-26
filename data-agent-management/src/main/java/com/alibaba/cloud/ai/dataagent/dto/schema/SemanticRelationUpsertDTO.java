@@ -15,42 +15,35 @@
  */
 package com.alibaba.cloud.ai.dataagent.dto.schema;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-/**
- * 更新逻辑外键的 DTO
- */
 @Data
-public class UpdateLogicalRelationDTO {
+public class SemanticRelationUpsertDTO {
 
-	/**
-	 * 主表名（例如 t_order）
-	 */
+	@NotNull(message = "agentId 不能为空")
+	private Long agentId;
+
+	@NotNull(message = "datasourceId 不能为空")
+	private Integer datasourceId;
+
+	@NotBlank(message = "sourceTableName 不能为空")
 	private String sourceTableName;
 
-	/**
-	 * 主表字段名（例如 buyer_uid）
-	 */
-	private String sourceColumnName;
+	@NotBlank(message = "sourceColumnNames 不能为空")
+	private String sourceColumnNames;
 
-	/**
-	 * 关联表名（例如 t_user）
-	 */
+	@NotBlank(message = "targetTableName 不能为空")
 	private String targetTableName;
 
-	/**
-	 * 关联表字段名（例如 id）
-	 */
-	private String targetColumnName;
+	@NotBlank(message = "targetColumnNames 不能为空")
+	private String targetColumnNames;
 
-	/**
-	 * 关系类型（可选） 1:1, 1:N, N:1 - 辅助LLM理解数据基数
-	 */
 	private String relationType;
 
-	/**
-	 * 业务描述（可选）
-	 */
 	private String description;
+
+	private Integer status = 1;
 
 }

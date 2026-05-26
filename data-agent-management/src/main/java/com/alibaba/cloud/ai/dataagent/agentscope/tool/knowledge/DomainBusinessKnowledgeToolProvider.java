@@ -32,7 +32,7 @@ public class DomainBusinessKnowledgeToolProvider implements AgentScopedToolProvi
 			按需检索当前 Agent 已召回的业务术语、FAQ、问答条目和嵌入文档。
 			当回答依赖内部业务定义、指标口径、SOP、历史案例或领域术语澄清时，才使用本工具。
 			只有当答案确实依赖领域知识，而不是通用推理或数据库物理结构本身时，才调用本工具。
-			不要把本工具用于数据库表名、列名、字段类型、枚举值、表关系、字段注释或其他表结构解释问题；这些问题应先交给数据源探索工具，如仍需补充语义，再考虑 `semantic_model.search`。
+			不要把本工具用于数据库表名、列名、字段类型、枚举值、表关系、字段注释或其他表结构解释问题；这些问题应先交给数据源探索工具，当前结构化语义层已经内置在 datasource explorer 中。
 			""";
 
 	private final DomainBusinessKnowledgeToolSupport toolSupport;

@@ -712,38 +712,6 @@
           </div>
         </section>
 
-        <section v-if="answerExplain.semanticHits.length > 0" class="answer-explain-section">
-          <div class="answer-explain-section-title">语义模型来源</div>
-          <div class="answer-explain-section-desc">
-            以下命中来自语义模型召回，用于补充表、字段和业务语义理解。
-          </div>
-          <div class="answer-explain-card-list">
-            <article
-              v-for="(hit, index) in answerExplain.semanticHits"
-              :key="`semantic-${index}`"
-              class="answer-explain-card"
-            >
-              <div class="answer-explain-card-title">
-                {{ hit.tableName || '未命名表' }}
-                <template v-if="hit.columnName">.{{ hit.columnName }}</template>
-              </div>
-              <div class="answer-explain-card-meta">
-                <span>分数: {{ hit.score ?? '-' }}</span>
-                <span>命中依据: {{ hit.matchedBy || '-' }}</span>
-              </div>
-              <div v-if="hit.businessName" class="answer-explain-card-body">
-                业务名: {{ hit.businessName }}
-              </div>
-              <div
-                v-if="hit.businessDescription || hit.relationHint"
-                class="answer-explain-card-body"
-              >
-                {{ hit.businessDescription || hit.relationHint }}
-              </div>
-            </article>
-          </div>
-        </section>
-
         <section v-if="answerExplain.sql" class="answer-explain-section">
           <div class="answer-explain-section-title">执行 SQL</div>
           <pre class="answer-explain-code">{{ answerExplain.sql }}</pre>
@@ -820,12 +788,6 @@
                     {{ detail }}
                   </li>
                 </ul>
-              </span>
-            </div>
-            <div v-if="answerExplain.semanticHits.length > 0" class="answer-explain-kv-row">
-              <span class="answer-explain-kv-key">语义模型命中</span>
-              <span class="answer-explain-kv-value">
-                {{ answerExplain.semanticHits.length }} 条
               </span>
             </div>
             <div v-if="answerExplain.knowledgeHits.length > 0" class="answer-explain-kv-row">
@@ -2076,13 +2038,13 @@
           Boolean(explain.datasource || explain.sql) ||
           explain.usedTables.length > 0 ||
           explain.usedColumns.length > 0;
-        const hasSemanticEvidence = explain.semanticHits.length > 0;
+        const hasStructuredSemanticEvidence = explain.relationEvidence.length > 0;
         const hasKnowledgeEvidence = explain.knowledgeHits.length > 0;
-        if (hasDatasourceEvidence && hasSemanticEvidence && hasKnowledgeEvidence) {
-          return '本轮回答同时使用了结构化数据源、语义模型召回和 RAG/知识召回，下面展示的是完整来源。';
+        if (hasDatasourceEvidence && hasStructuredSemanticEvidence && hasKnowledgeEvidence) {
+          return '本轮回答同时使用了结构化数据源、结构化语义关系证据和 RAG/知识召回，下面展示的是完整来源。';
         }
-        if (hasDatasourceEvidence && hasSemanticEvidence) {
-          return '本轮回答同时使用了结构化数据源和语义模型召回，下面展示的是 SQL 来源与语义来源。';
+        if (hasDatasourceEvidence && hasStructuredSemanticEvidence) {
+          return '本轮回答同时使用了结构化数据源和结构化语义关系证据，下面展示的是 SQL、字段和表关系来源。';
         }
         if (hasDatasourceEvidence && hasKnowledgeEvidence) {
           return '本轮回答同时使用了结构化数据源和 RAG/知识召回，下面展示的是 SQL 来源与知识来源。';
@@ -2090,14 +2052,14 @@
         if (hasDatasourceEvidence) {
           return '本轮回答访问了结构化数据源，下面展示的是实际执行过的数据源步骤、SQL、使用表和使用字段。';
         }
-        if (hasKnowledgeEvidence && hasSemanticEvidence) {
-          return '本轮回答没有直接查库，但同时命中了语义模型和 RAG/知识召回，回答受这些来源共同影响。';
+        if (hasKnowledgeEvidence && hasStructuredSemanticEvidence) {
+          return '本轮回答没有直接查库，但同时依赖了结构化语义关系证据和 RAG/知识召回，回答受这些来源共同影响。';
         }
         if (hasKnowledgeEvidence) {
           return '本轮回答没有直接查库，但命中了 RAG/知识召回结果，回答受这些知识片段影响。';
         }
-        if (hasSemanticEvidence) {
-          return '本轮回答没有直接查库，但命中了语义模型，用来帮助系统理解你的问题和业务字段。';
+        if (hasStructuredSemanticEvidence) {
+          return '本轮回答没有直接查库，但使用了结构化语义关系证据来辅助理解表关系和字段含义。';
         }
         if (
           explain.toolSteps.length > 0 ||
