@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.workflow.dispatcher;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
 
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_NODE;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
 
 /**
@@ -33,7 +34,7 @@ public class HumanFeedbackDispatcher implements EdgeAction {
 
 		// 如果是等待反馈状态，返回END让图暂停
 		if ("WAIT_FOR_FEEDBACK".equals(nextNode)) {
-			return END;
+			return HUMAN_FEEDBACK_NODE;
 		}
 
 		return nextNode;

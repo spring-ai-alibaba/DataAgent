@@ -241,7 +241,9 @@ public class DataAgentConfiguration implements DisposableBean {
 					// If plan is approved, continue with execution
 					PLAN_EXECUTOR_NODE, PLAN_EXECUTOR_NODE,
 					// If max repair attempts are reached, end the process
-					END, END))
+					END, END,
+					// If human feedback data is null, go back to HumanFeedbackNode
+					HUMAN_FEEDBACK_NODE, HUMAN_FEEDBACK_NODE))
 			.addEdge(REPORT_GENERATOR_NODE, END)
 			// sql generate and sql execute node
 			.addConditionalEdges(SQL_GENERATE_NODE, nodeBeanUtil.getEdgeBeanAsync(SqlGenerateDispatcher.class),
