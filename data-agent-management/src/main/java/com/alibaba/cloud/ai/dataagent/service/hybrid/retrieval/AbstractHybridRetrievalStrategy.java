@@ -22,6 +22,7 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -77,7 +78,8 @@ public abstract class AbstractHybridRetrievalStrategy implements HybridRetrieval
 			List<Document> keywordResults = keywordSearchFuture.get();
 
 			// 融合结果
-			List<Document> finalDocuments = fusionStrategy.fuseResults(request.getTopK(), vectorResults,
+			List<Document> finalDocuments = fusionStrategy.fuseResultsWithWeights(request.getTopK(),
+					Arrays.asList(request.getVectorWeight(), request.getKeywordWeight()), vectorResults,
 					keywordResults);
 			log.debug("Fusion completed. Found {} documents", finalDocuments.size());
 			return finalDocuments;
