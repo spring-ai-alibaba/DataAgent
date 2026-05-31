@@ -28,6 +28,7 @@ import reactor.core.publisher.Flux;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -113,9 +114,20 @@ class SessionTitleServiceTest {
 
 	@Test
 	void scheduleTitleGeneration_duplicateSessionId_skipsSecondCall() throws Exception {
-		ChatSession session = ChatSession.builder().id("session-1").agentId(1).title("\u65b0\u4f1a\u8bdd").build();
-		when(chatSessionService.findBySessionId("session-1")).thenReturn(session);
-
+		AtomicReference<ChatSession> sessionRef = new AtomicReference<>(
+				ChatSession.builder().id("session-1").agentId(1).title("\u65b0\u4f1a\u8bdd").build()
+		);
+		when(chatSessionService.findBySessionId("session-1")).thenReturn(sessionRef.get());
+		doAnswer(invocation -> {
+			String newTitle = invocation.getArgument(1);
+			ChatSession currentSession = sessionRef.get();
+			ChatSession updatedSession = ChatSession.builder().id(currentSession.getId())
+					.agentId(currentSession.getAgentId())
+					.title(newTitle)
+					.build();
+			sessionRef.set(updatedSession);
+			return null;
+		}).when(chatSessionService).renameSession(anyString(), anyString());
 		Flux<ChatResponse> chatResponseFlux = Flux.empty();
 		when(llmService.call(anyString(), anyString())).thenReturn(chatResponseFlux);
 		when(llmService.toStringFlux(chatResponseFlux)).thenReturn(Flux.just("Title"));
