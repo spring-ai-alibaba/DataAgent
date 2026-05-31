@@ -35,11 +35,11 @@ class HumanFeedbackDispatcherTest {
 	}
 
 	@Test
-	void apply_waitForFeedback_routesToEnd() throws Exception {
+	void apply_waitForFeedback_routesToHumanFeedback() throws Exception {
 		OverAllState state = new OverAllState();
 		state.updateState(Map.of("human_next_node", "WAIT_FOR_FEEDBACK"));
 
-		assertEquals(END, dispatcher.apply(state));
+		assertEquals(HUMAN_FEEDBACK_NODE, dispatcher.apply(state));
 	}
 
 	@Test
