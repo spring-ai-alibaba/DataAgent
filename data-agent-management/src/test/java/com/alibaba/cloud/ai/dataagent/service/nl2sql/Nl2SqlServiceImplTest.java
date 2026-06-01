@@ -202,10 +202,46 @@ class Nl2SqlServiceImplTest {
 	}
 
 	@Test
-	void sqlTrim_multipleBacktickBlocks_extractsFirst() {
-		String sql = "```sql\nSELECT 1\n```\nSome text\n```sql\nSELECT 2\n```";
+	void sqlTrim_multipleSqlBlocks_returnsLastSqlBlock() {
+		String sql = """
+				```sql
+				SELECT create_by
+				FROM sys_dept
+				WHERE dept_name = '研发部'
+				```
+				Some text
+				```sql
+				SELECT user_id
+				FROM sys_user
+				WHERE user_id IN (
+				SELECT create_by
+				FROM sys_dept
+				WHERE dept_name = '研发部'
+				)
+				```
+				More text
+				```sql
+				SELECT *
+				FROM sys_user
+				WHERE user_id IN (
+				SELECT create_by
+				FROM sys_dept
+				WHERE dept_name = '研发部'
+				)
+				```
+				""";
+		String expected = """
+				SELECT *
+				FROM sys_user
+				WHERE user_id IN (
+				SELECT create_by
+				FROM sys_dept
+				WHERE dept_name = '研发部'
+				)
+				""".trim();
+
 		String result = nl2SqlService.sqlTrim(sql);
-		assertNotNull(result);
+		assertEquals(expected, result);
 	}
 
 	@Test

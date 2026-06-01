@@ -46,6 +46,24 @@ class MarkdownParserUtilTest {
 	}
 
 	@Test
+	void testExtractLastRawText_singleBlock() {
+		String input = "```sql\nSELECT 1\n```";
+		assertEquals("SELECT 1\n", MarkdownParserUtil.extractLastRawText(input));
+	}
+
+	@Test
+	void testExtractLastRawText_multipleBlocks_returnsLast() {
+		String input = "```sql\nSELECT 1\n```\n```sql\nSELECT 2\n```";
+		assertEquals("SELECT 2\n", MarkdownParserUtil.extractLastRawText(input));
+	}
+
+	@Test
+	void testExtractLastRawText_noCodeBlock_returnsOriginal() {
+		String input = "plain SQL text";
+		assertEquals("plain SQL text", MarkdownParserUtil.extractLastRawText(input));
+	}
+
+	@Test
 	void testExtractText_replacesNewlines() {
 		String input = "```sql\nSELECT *\nFROM users;\n```";
 		String result = MarkdownParserUtil.extractText(input);

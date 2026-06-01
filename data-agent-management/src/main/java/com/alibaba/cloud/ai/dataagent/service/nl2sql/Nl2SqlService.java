@@ -35,7 +35,7 @@ public interface Nl2SqlService {
 			String sqlGenerateSchemaMissingAdvice, DbConfigBO specificDbConfig, Consumer<SchemaDTO> dtoConsumer);
 
 	default String sqlTrim(String sql) {
-		return MarkdownParserUtil.extractRawText(sql).trim();
+		return MarkdownParserUtil.extractLastRawText(sql).trim();
 	}
 
 }
