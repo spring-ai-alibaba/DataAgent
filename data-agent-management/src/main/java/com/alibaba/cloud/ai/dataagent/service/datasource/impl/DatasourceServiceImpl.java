@@ -115,6 +115,11 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 	@Override
 	public Datasource updateDatasource(Integer id, Datasource datasource) {
+		Datasource existingDatasource = datasourceMapper.selectById(id);
+		if (existingDatasource == null) {
+			throw new RuntimeException("Datasource not found with id: " + id);
+		}
+
 		// Regenerate connection URL
 		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
 		String connectionUrl = handler.resolveConnectionUrl(datasource);
@@ -124,11 +129,11 @@ public class DatasourceServiceImpl implements DatasourceService {
 		datasource.setId(id);
 
 		if (datasource.getPassword() == null) {
-			datasource.setPassword("");
+			datasource.setPassword(existingDatasource.getPassword());
 		}
 
 		if (datasource.getUsername() == null) {
-			datasource.setUsername("");
+			datasource.setUsername(existingDatasource.getUsername());
 		}
 
 		datasourceMapper.updateById(datasource);
