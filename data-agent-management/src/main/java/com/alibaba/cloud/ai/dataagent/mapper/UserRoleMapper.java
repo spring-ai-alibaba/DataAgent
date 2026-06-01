@@ -13,18 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { createApp } from 'vue';
-import '@/services/axiosSetup';
-import App from '@/App.vue';
-import router from '@/router';
+package com.alibaba.cloud.ai.dataagent.mapper;
 
-// 引入全局样式
-import '@/styles/global.css';
-import 'element-plus/dist/index.css';
-import ElementPlus from 'element-plus';
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
-// 创建应用实例
-const app = createApp(App);
-app.use(router);
-app.use(ElementPlus);
-app.mount('#app');
+@Mapper
+public interface UserRoleMapper {
+
+	@Insert("""
+			INSERT IGNORE INTO sys_user_role (user_id, role_id, created_time)
+			VALUES (#{userId}, #{roleId}, NOW())
+			""")
+	int insert(@Param("userId") Long userId, @Param("roleId") Long roleId);
+
+	@Select("SELECT id FROM sys_role WHERE role_code = #{roleCode} AND status = 1 AND is_deleted = 0")
+	Long findRoleIdByCode(String roleCode);
+
+}

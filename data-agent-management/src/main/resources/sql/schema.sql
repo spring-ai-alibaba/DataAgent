@@ -268,3 +268,122 @@ CREATE TABLE IF NOT EXISTS `model_config` (
     `proxy_password` varchar(255) DEFAULT NULL COMMENT '代理密码（可选）',
     PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ==================== 用户权限管理系统表 ====================
+
+-- 用户基础信息表
+CREATE TABLE IF NOT EXISTS sys_user (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '用户ID',
+    username VARCHAR(50) NOT NULL COMMENT '登录账号',
+    password VARCHAR(255) NOT NULL COMMENT 'BCrypt加密密码',
+    email VARCHAR(100) NOT NULL COMMENT '邮箱',
+    phone VARCHAR(20) COMMENT '手机号',
+    real_name VARCHAR(50) COMMENT '真实姓名',
+    avatar VARCHAR(500) COMMENT '头像URL',
+    status TINYINT DEFAULT 1 COMMENT '用户状态：0-禁用，1-启用，2-锁定',
+    user_type TINYINT DEFAULT 0 COMMENT '用户类型：0-普通用户，1-管理员',
+    failed_login_count INT DEFAULT 0 COMMENT '连续失败登录次数',
+    locked_until TIMESTAMP NULL COMMENT '账号锁定截止时间',
+    password_changed_time TIMESTAMP NULL COMMENT '密码修改时间',
+    last_login_time TIMESTAMP NULL COMMENT '最后登录时间',
+    last_login_ip VARCHAR(50) COMMENT '最后登录IP',
+    login_count INT DEFAULT 0 COMMENT '总登录次数',
+    created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    created_by BIGINT COMMENT '创建人ID',
+    updated_by BIGINT COMMENT '更新人ID',
+    is_deleted TINYINT DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_username (username),
+    UNIQUE KEY uk_email (email),
+    INDEX idx_status (status),
+    INDEX idx_user_type (user_type),
+    INDEX idx_created_time (created_time),
+    INDEX idx_is_deleted (is_deleted)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户基础信息表';
+
+-- 角色定义表
+CREATE TABLE IF NOT EXISTS sys_role (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '角色ID',
+    role_code VARCHAR(50) NOT NULL COMMENT '角色编码（如：ADMIN, ANALYST, VIEWER）',
+    role_name VARCHAR(100) NOT NULL COMMENT '角色名称',
+    description VARCHAR(500) COMMENT '角色描述',
+    permissions JSON COMMENT '权限列表（JSON格式）',
+    is_system TINYINT DEFAULT 0 COMMENT '是否系统角色：0-否，1-是（系统角色不可删除）',
+    sort_order INT DEFAULT 0 COMMENT '排序顺序',
+    status TINYINT DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
+    created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    created_by BIGINT COMMENT '创建人ID',
+    updated_by BIGINT COMMENT '更新人ID',
+    is_deleted TINYINT DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_role_code (role_code),
+    INDEX idx_status (status),
+    INDEX idx_is_system (is_system),
+    INDEX idx_sort_order (sort_order),
+    INDEX idx_is_deleted (is_deleted)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '角色定义表';
+
+-- 用户角色关联表
+CREATE TABLE IF NOT EXISTS sys_user_role (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '关联ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    role_id BIGINT NOT NULL COMMENT '角色ID',
+    created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '分配时间',
+    created_by BIGINT COMMENT '分配人ID',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_user_role (user_id, role_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_role_id (role_id),
+    FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES sys_role(id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户角色关联表';
+
+-- 用户会话表
+CREATE TABLE IF NOT EXISTS sys_user_session (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '会话ID',
+    session_id VARCHAR(100) NOT NULL COMMENT '会话标识（UUID或JWT Token ID）',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    token TEXT COMMENT 'JWT Token（完整token）',
+    refresh_token VARCHAR(255) COMMENT '刷新Token',
+    device_type VARCHAR(20) COMMENT '设备类型：web/mobile/desktop',
+    device_info VARCHAR(500) COMMENT '设备信息（User-Agent）',
+    ip_address VARCHAR(50) COMMENT '登录IP',
+    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '登录时间',
+    expires_at TIMESTAMP NOT NULL COMMENT 'Token过期时间',
+    last_activity_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '最后活动时间',
+    is_active TINYINT DEFAULT 1 COMMENT '是否活跃：0-否，1-是',
+    logout_time TIMESTAMP NULL COMMENT '登出时间',
+    logout_type TINYINT COMMENT '登出类型：1-主动，2-超时，3-强制',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_session_id (session_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_is_active (is_active),
+    INDEX idx_expires_at (expires_at),
+    INDEX idx_last_activity_time (last_activity_time),
+    FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户会话表';
+
+-- 登录日志表
+CREATE TABLE IF NOT EXISTS sys_login_log (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志ID',
+    user_id BIGINT COMMENT '用户ID（失败时可能为NULL）',
+    username VARCHAR(50) NOT NULL COMMENT '登录用户名',
+    login_type VARCHAR(20) DEFAULT 'password' COMMENT '登录类型：password-密码，oauth-第三方，api_key-API密钥',
+    login_status TINYINT NOT NULL COMMENT '登录状态：0-失败，1-成功',
+    failure_reason VARCHAR(255) COMMENT '失败原因',
+    ip_address VARCHAR(50) COMMENT '登录IP',
+    location VARCHAR(100) COMMENT '登录地点（根据IP解析）',
+    device_type VARCHAR(20) COMMENT '设备类型',
+    device_info VARCHAR(500) COMMENT '设备信息',
+    browser VARCHAR(100) COMMENT '浏览器',
+    os VARCHAR(100) COMMENT '操作系统',
+    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '登录时间',
+    PRIMARY KEY (id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_username (username),
+    INDEX idx_login_status (login_status),
+    INDEX idx_login_time (login_time),
+    INDEX idx_ip_address (ip_address)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '登录日志表';

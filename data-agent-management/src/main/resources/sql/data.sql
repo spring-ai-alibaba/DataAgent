@@ -42,3 +42,17 @@ INSERT IGNORE INTO `agent_datasource` (`id`, `agent_id`, `datasource_id`, `is_ac
 (2, 2, 1, 0, NOW(), NOW()),  -- 销售数据分析智能体使用生产环境数据库
 (3, 3, 1, 0, NOW(), NOW()),  -- 财务报表智能体使用生产环境数据库
 (4, 4, 1, 0, NOW(), NOW());  -- 库存管理智能体使用生产环境数据库
+
+-- 默认管理员用户 (密码: admin123, BCrypt加密)
+INSERT IGNORE INTO `sys_user` (`id`, `username`, `password`, `email`, `status`, `user_type`, `failed_login_count`, `login_count`, `is_deleted`, `created_time`, `updated_time`)
+VALUES (1, 'admin', '$2a$10$M1Lhdt1YZUPsTH0q6fTBfOupsswUChO36jQ0joigY2aDcPAf5w9Ee', 'admin@dataagent.local', 1, 1, 0, 0, 0, NOW(), NOW());
+
+-- 默认角色
+INSERT IGNORE INTO `sys_role` (`id`, `role_code`, `role_name`, `description`, `is_system`, `sort_order`, `status`, `is_deleted`, `created_time`, `updated_time`)
+VALUES (1, 'ADMIN', '管理员', '系统管理员，拥有所有权限', 1, 1, 1, 0, NOW(), NOW()),
+       (2, 'ANALYST', '分析师', '数据分析师，可以使用智能体', 1, 2, 1, 0, NOW(), NOW()),
+       (3, 'VIEWER', '观察者', '只读用户', 1, 3, 1, 0, NOW(), NOW());
+
+-- 管理员角色关联
+INSERT IGNORE INTO `sys_user_role` (`user_id`, `role_id`, `created_time`)
+VALUES (1, 1, NOW());

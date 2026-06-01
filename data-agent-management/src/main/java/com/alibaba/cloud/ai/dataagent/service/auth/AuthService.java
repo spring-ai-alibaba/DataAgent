@@ -13,18 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { createApp } from 'vue';
-import '@/services/axiosSetup';
-import App from '@/App.vue';
-import router from '@/router';
+package com.alibaba.cloud.ai.dataagent.service.auth;
 
-// 引入全局样式
-import '@/styles/global.css';
-import 'element-plus/dist/index.css';
-import ElementPlus from 'element-plus';
+import com.alibaba.cloud.ai.dataagent.dto.auth.*;
 
-// 创建应用实例
-const app = createApp(App);
-app.use(router);
-app.use(ElementPlus);
-app.mount('#app');
+public interface AuthService {
+
+	TokenResponse login(LoginRequest request, String ipAddress, String userAgent);
+
+	TokenResponse register(RegisterRequest request);
+
+	TokenResponse refreshToken(RefreshTokenRequest request);
+
+	void logout(String sessionId);
+
+	UserInfoResponse getCurrentUser(Long userId);
+
+}

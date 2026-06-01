@@ -13,18 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { createApp } from 'vue';
-import '@/services/axiosSetup';
-import App from '@/App.vue';
-import router from '@/router';
+package com.alibaba.cloud.ai.dataagent.entity;
 
-// 引入全局样式
-import '@/styles/global.css';
-import 'element-plus/dist/index.css';
-import ElementPlus from 'element-plus';
+import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-// 创建应用实例
-const app = createApp(App);
-app.use(router);
-app.use(ElementPlus);
-app.mount('#app');
+import java.time.LocalDateTime;
+
+/**
+ * User Role Association Entity Class
+ */
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+public class UserRole {
+
+	private Long id;
+
+	private Long userId; // User ID
+
+	private Long roleId; // Role ID
+
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+	private LocalDateTime createdTime;
+
+	private Long createdBy; // Assigner ID
+
+}
