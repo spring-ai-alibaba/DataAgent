@@ -49,6 +49,10 @@ public final class PlanProcessUtil {
 
 	}
 
+	public static String buildStepKey(int stepNumber) {
+		return STEP_PREFIX + stepNumber;
+	}
+
 	/**
 	 * Get the current execution step from the plan
 	 * @param state the overall state containing plan information
@@ -127,7 +131,7 @@ public final class PlanProcessUtil {
 	public static Map<String, String> addStepResult(Map<String, String> existingResults, Integer stepNumber,
 			String result) {
 		Map<String, String> updatedResults = new HashMap<>(existingResults);
-		updatedResults.put(STEP_PREFIX + stepNumber, result);
+		updatedResults.put(buildStepKey(stepNumber), result);
 		return updatedResults;
 	}
 
