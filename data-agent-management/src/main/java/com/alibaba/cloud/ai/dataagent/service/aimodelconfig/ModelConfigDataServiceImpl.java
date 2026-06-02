@@ -15,11 +15,13 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
+import com.alibaba.cloud.ai.dataagent.enums.ModelTier;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.converter.ModelConfigConverter;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
 import com.alibaba.cloud.ai.dataagent.mapper.ModelConfigMapper;
+import jakarta.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.alibaba.cloud.ai.dataagent.converter.ModelConfigConverter.toDTO;
@@ -46,9 +49,14 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 
 	@Transactional(rollbackFor = Exception.class)
 	@Override
-	public void switchActiveStatus(Integer id, ModelType type) {
+	public void switchActiveStatus(Integer id, ModelType type, @Nullable ModelTier tier) {
+		if (ModelType.CHAT.equals(type)) {
+			Objects.requireNonNull(tier, "tier must not be null when type is CHAT");
+			log.info("Switching active config for type [{}] and tier [{}], id: {}", type, tier, id);
+		}
+
 		// 1. 禁用同类型其他配置
-		modelConfigMapper.deactivateOthers(type.getCode(), id);
+		modelConfigMapper.deactivateOthers(type.getCode(), id, tier != null ? tier.getCode() : null);
 
 		// 2. 启用当前配置
 		ModelConfig entity = modelConfigMapper.findById(id);
@@ -100,6 +108,11 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		if (!entity.getModelType().getCode().equals(dto.getModelType()))
 			throw new RuntimeException("模型类型不允许修改");
 
+		if (Boolean.TRUE.equals(entity.getIsActive()) && ModelType.CHAT.equals(entity.getModelType()) && !Objects
+			.equals(dto.getModelTier(), entity.getModelTier() == null ? null : entity.getModelTier().getCode())) {
+			throw new RuntimeException("对话模型的档位在启用时不允许修改");
+		}
+
 		// 2. 合并字段
 		mergeDtoToEntity(dto, entity);
 		entity.setUpdatedTime(LocalDateTime.now());
@@ -124,6 +137,11 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		oldEntity.setProxyPort(dto.getProxyPort());
 		oldEntity.setProxyUsername(dto.getProxyUsername());
 		oldEntity.setProxyPassword(dto.getProxyPassword());
+
+		if (ModelType.CHAT.equals(oldEntity.getModelType())) {
+			// 只有对话模型会更新档位
+			oldEntity.setModelTier(ModelTier.fromCode(dto.getModelTier()));
+		}
 
 		// 只有当前端传来的 Key 不包含 "****" 时，才说明用户真的改了 Key，否则保持原样
 		if (dto.getApiKey() != null && !dto.getApiKey().contains("****")) {
@@ -159,6 +177,18 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		if (entity == null) {
 			log.warn("Activation model configuration of type [{}] not found, attempting to downgrade...", modelType);
 			return null;
+		}
+		return toDTO(entity);
+	}
+
+	@Override
+	public ModelConfigDTO getActiveConfigByTypeAndTier(ModelType modelType, ModelTier modelTier) {
+		ModelConfig entity = modelConfigMapper.selectActiveByTypeAndTier(modelType.getCode(), modelTier.getCode());
+		if (entity == null) {
+			log.warn(
+					"Activation model configuration of type [{}] and tier [{}] not found, downgrade to type-only active config...",
+					modelType, modelTier);
+			return getActiveConfigByType(modelType);
 		}
 		return toDTO(entity);
 	}
