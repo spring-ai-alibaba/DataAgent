@@ -13,31 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.bo;
+package com.alibaba.cloud.ai.dataagent.connector.impls.doris;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.alibaba.cloud.ai.dataagent.connector.impls.mysql.AbstractMysqlDialectDdl;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
+import org.springframework.stereotype.Service;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class DbConfigBO {
+@Service
+public class DorisJdbcDdl extends AbstractMysqlDialectDdl {
 
-	private String schema;
-
-	private String url;
-
-	private String username;
-
-	private String password;
-
-	private String connectionType;
-
-	private String dialectType;
-
-	private String databaseName;
+	@Override
+	public BizDataSourceTypeEnum getDataSourceType() {
+		return BizDataSourceTypeEnum.DORIS;
+	}
 
 }

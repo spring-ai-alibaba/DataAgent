@@ -161,14 +161,19 @@ public abstract class AbstractDBConnectionPool implements DBConnectionPool {
 	 * useful for resource cleanup in special scenarios.
 	 */
 
+	protected boolean useWallFilter() {
+		return true;
+	}
+
+	protected String getValidationQuery() {
+		return "SELECT 1";
+	}
+
 	public DataSource createdDataSource(String url, String username, String password) throws Exception {
 
 		String driver = getDriver();
 
-		String filters = "wall,stat";
-		if (driver != null && driver.toLowerCase().contains("dm.jdbc.driver.dmdriver")) {
-			filters = "stat";
-		}
+		String filters = useWallFilter() ? "wall,stat" : "stat";
 
 		java.util.Map<String, String> props = new java.util.HashMap<>();
 		props.put(DruidDataSourceFactory.PROP_DRIVERCLASSNAME, driver);
@@ -181,6 +186,7 @@ public abstract class AbstractDBConnectionPool implements DBConnectionPool {
 		props.put(DruidDataSourceFactory.PROP_MAXWAIT, "10000");
 		props.put(DruidDataSourceFactory.PROP_TIMEBETWEENEVICTIONRUNSMILLIS, "60000");
 		props.put(DruidDataSourceFactory.PROP_FILTERS, filters);
+		props.put(DruidDataSourceFactory.PROP_VALIDATIONQUERY, getValidationQuery());
 
 		DruidDataSource dataSource = (DruidDataSource) DruidDataSourceFactory.createDataSource(props);
 		dataSource.setBreakAfterAcquireFailure(Boolean.TRUE);

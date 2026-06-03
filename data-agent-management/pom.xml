@@ -161,7 +161,14 @@
                 </exclusion>
             </exclusions>
         </dependency>
-      
+
+        <!-- ClickHouse JDBC driver -->
+        <dependency>
+            <groupId>com.clickhouse</groupId>
+            <artifactId>clickhouse-jdbc</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Swagger/OpenAPI 3 with WebFlux (no MVC) -->
         <dependency>
             <groupId>org.springdoc</groupId>

@@ -13,31 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.bo;
+package com.alibaba.cloud.ai.dataagent.service.datasource.handler.impl;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
+import org.springframework.stereotype.Component;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class DbConfigBO {
+@Component
+public class StarRocksDatasourceTypeHandler extends AbstractMysqlDialectDatasourceTypeHandler {
 
-	private String schema;
-
-	private String url;
-
-	private String username;
-
-	private String password;
-
-	private String connectionType;
-
-	private String dialectType;
-
-	private String databaseName;
+	@Override
+	public String typeName() {
+		return BizDataSourceTypeEnum.STARROCKS.getTypeName();
+	}
 
 }
