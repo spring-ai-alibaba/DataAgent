@@ -82,6 +82,13 @@ public class GraphServiceImpl implements GraphService {
 			graphRequest.setThreadId(UUID.randomUUID().toString());
 		}
 		String threadId = graphRequest.getThreadId();
+		// 如果前端传了 sessionId，用 sessionId 统一多轮对话的 threadId
+		if (StringUtils.hasText(graphRequest.getSessionId())) {
+			threadId = graphRequest.getSessionId();
+			graphRequest.setThreadId(threadId);
+		}
+		log.info("[多轮调试] graphStreamProcess 入口, threadId={}, sessionId={}, query={}", threadId,
+				graphRequest.getSessionId(), graphRequest.getQuery());
 		// 创建或获取 StreamContext
 		StreamContext context = streamContextMap.computeIfAbsent(threadId, k -> new StreamContext());
 		context.setSink(sink);
@@ -138,6 +145,7 @@ public class GraphServiceImpl implements GraphService {
 		context.setSpan(span);
 
 		String multiTurnContext = multiTurnContextManager.buildContext(threadId);
+		log.info("[多轮调试] handleNewProcess, threadId={}, multiTurnContext={}", threadId, multiTurnContext);
 		multiTurnContextManager.beginTurn(threadId, query);
 		Flux<NodeOutput> nodeOutputFlux = compiledGraph.stream(
 				Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED,
