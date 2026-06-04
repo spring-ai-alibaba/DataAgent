@@ -1,0 +1,30 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+dist/
+.npm
+.pnpm-store
+
+# Nuxt
+.nuxt/
+.output/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.history/
