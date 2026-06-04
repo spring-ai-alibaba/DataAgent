@@ -17,7 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.graph;
 
 import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
-import com.alibaba.cloud.ai.dataagent.workflow.node.PlannerNode;
+
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.MultiTurnContextManager;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.StreamContext;
@@ -321,7 +321,7 @@ public class GraphServiceImpl implements GraphService {
 		// 文本标记符号不返回给前端
 		if (!isTypeSign) {
 			context.appendOutput(chunk);
-			if (PlannerNode.class.getSimpleName().equals(node)) {
+			if (PLANNER_NODE.equals(node)) {
 				multiTurnContextManager.appendPlannerChunk(threadId, chunk);
 			}
 			GraphNodeResponse response = GraphNodeResponse.builder()
