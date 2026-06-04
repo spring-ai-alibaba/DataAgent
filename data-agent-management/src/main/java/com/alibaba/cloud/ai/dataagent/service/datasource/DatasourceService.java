@@ -77,6 +77,8 @@ public interface DatasourceService {
 
 	List<String> getDatasourceTables(Integer datasourceId) throws Exception;
 
+	List<String> getAllSchemasTables(Integer datasourceId) throws Exception;
+
 	/**
 	 * 获取数据源表的字段列表
 	 */

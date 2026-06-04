@@ -107,6 +107,19 @@ class LogicalRelationService {
     return response.data;
   }
 
+  // 获取数据源所属数据库的全量表（包含所有有效的 schema）
+  async getAllDatasourceTables(datasourceId: number): Promise<string[]> {
+    try {
+      const response = await axios.get<string[]>(
+        `${API_BASE_URL}/${datasourceId}/all-tables`,
+      );
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to get all datasource tables:', error);
+      return [];
+    }
+  }
+
   // 获取数据源表的字段列表
   async getTableColumns(datasourceId: number, tableName: string): Promise<string[]> {
     try {

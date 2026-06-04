@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS datasource (
   connection_url VARCHAR(1000) COMMENT '完整连接URL',
   status VARCHAR(50) DEFAULT 'inactive' COMMENT '状态：active-启用，inactive-禁用',
   test_status VARCHAR(50) DEFAULT 'unknown' COMMENT '连接测试状态：success-成功，failed-失败，unknown-未知',
+  schemas VARCHAR(1000) COMMENT '配置的schemas(逗号隔开)'
   description TEXT COMMENT '描述',
   creator_id BIGINT COMMENT '创建者ID',
   create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
