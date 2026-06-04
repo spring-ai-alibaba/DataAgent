@@ -39,7 +39,6 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.BatchingStrategy;
-import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Service;
@@ -298,15 +297,7 @@ public class SchemaServiceImpl implements SchemaService {
 
 		Filter.Expression filterExpression = DynamicFilterService.combineWithAnd(conditions);
 
-		// 执行向量检索
-		SearchRequest searchRequest = SearchRequest.builder()
-			.query(query)
-			.topK(tableTopK)
-			.similarityThreshold(tableThreshold)
-			.filterExpression(filterExpression)
-			.build();
-
-		return agentVectorStoreService.getDocumentsOnlyByFilter(filterExpression, tableTopK);
+		return agentVectorStoreService.getDocumentsOnlyByFilter(filterExpression, tableTopK, query, tableThreshold);
 	}
 
 	private List<String> getMissingTableNamesWithForeignKeySet(List<Document> tableDocuments,
