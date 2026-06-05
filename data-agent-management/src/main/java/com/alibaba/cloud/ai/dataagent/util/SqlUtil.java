@@ -42,8 +42,8 @@ public class SqlUtil {
 		if (CollectionUtils.isEmpty(columnInfoBOs)) {
 			return "*";
 		}
-		if (BizDataSourceTypeEnum.isMysqlDialect(typeName)) {
-			// mysql使用``标识对象
+		if (BizDataSourceTypeEnum.isMysqlDialect(typeName) || BizDataSourceTypeEnum.isHiveDialect(typeName)) {
+			// mysql/hive使用``标识对象
 			return columnInfoBOs.stream().map(ColumnInfoBO::getName).map(name -> String.format("`%s`", name)).collect(Collectors.joining(", "));
 		}
 		return columnInfoBOs.stream().map(ColumnInfoBO::getName).map(name -> String.format("\"%s\"", name)).collect(Collectors.joining(", "));
