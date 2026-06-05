@@ -15,8 +15,13 @@
  */
 package com.alibaba.cloud.ai.dataagent.util;
 
+import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import lombok.experimental.UtilityClass;
+import org.apache.commons.collections.CollectionUtils;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * SQL 工具类
@@ -27,6 +32,22 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class SqlUtil {
 
+	/**
+	 * 构建Columns SQL块
+	 * @param typeName 数据源类型
+	 * @param columnInfoBOs 列名
+	 * @return Columns SQL块
+	 */
+	public static String buildColumnsSql(String typeName, List<ColumnInfoBO> columnInfoBOs) {
+		if (CollectionUtils.isEmpty(columnInfoBOs)) {
+			return "*";
+		}
+		if (BizDataSourceTypeEnum.isMysqlDialect(typeName) || BizDataSourceTypeEnum.isHiveDialect(typeName)) {
+			// mysql/hive使用``标识对象
+			return columnInfoBOs.stream().map(ColumnInfoBO::getName).map(name -> String.format("`%s`", name)).collect(Collectors.joining(", "));
+		}
+		return columnInfoBOs.stream().map(ColumnInfoBO::getName).map(name -> String.format("\"%s\"", name)).collect(Collectors.joining(", "));
+	}
 	/**
 	 * 构建SELECT SQL语句
 	 * @param typeName 数据源类型
