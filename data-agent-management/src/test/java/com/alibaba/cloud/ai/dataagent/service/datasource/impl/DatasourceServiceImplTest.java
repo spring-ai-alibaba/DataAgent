@@ -25,6 +25,9 @@ import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.LogicalRelationMapper;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeHandler;
+import com.alibaba.cloud.ai.dataagent.service.datasource.handler.impl.MysqlDatasourceTypeHandler;
+import com.alibaba.cloud.ai.dataagent.service.datasource.handler.impl.OracleDatasourceTypeHandler;
+import com.alibaba.cloud.ai.dataagent.service.datasource.handler.impl.PostgreSqlDatasourceTypeHandler;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.registry.DatasourceTypeHandlerRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -421,6 +424,126 @@ class DatasourceServiceImplTest {
 
 		assertEquals("", result.getUsername());
 		assertEquals("", result.getPassword());
+	}
+
+	@Test
+	void updateDatasource_rebuildsConnectionUrlWhenDatabaseNameChanges() {
+		// #345：修改数据库名后，即使客户端带回旧 URL，也要按新的连接参数重新生成。
+		Datasource existing = Datasource.builder()
+			.id(5)
+			.type("mysql")
+			.host("localhost")
+			.port(3306)
+			.databaseName("olddb")
+			.connectionUrl("jdbc:mysql://localhost:3306/olddb")
+			.build();
+		when(datasourceMapper.selectById(5)).thenReturn(existing);
+		when(handlerRegistry.getRequired("mysql")).thenReturn(new MysqlDatasourceTypeHandler());
+
+		Datasource incoming = Datasource.builder()
+			.type("mysql")
+			.host("localhost")
+			.port(3306)
+			.databaseName("newdb")
+			.connectionUrl("jdbc:mysql://localhost:3306/olddb")
+			.build();
+
+		Datasource result = datasourceService.updateDatasource(5, incoming);
+
+		assertTrue(result.getConnectionUrl().contains("/newdb"),
+				"URL should reflect the new database name but was: " + result.getConnectionUrl());
+		assertFalse(result.getConnectionUrl().contains("/olddb"), "URL should not keep the old database name");
+		verify(datasourceMapper).updateById(incoming);
+	}
+
+	@Test
+	void updateDatasource_preservesCustomUrlWhenParamsUnchanged() {
+		// 连接参数未变化时，认为 connectionUrl 是用户手动填写的自定义 URL，不主动覆盖。
+		Datasource existing = Datasource.builder()
+			.id(7)
+			.type("mysql")
+			.host("localhost")
+			.port(3306)
+			.databaseName("db")
+			.connectionUrl("jdbc:mysql://localhost:3306/db")
+			.build();
+		when(datasourceMapper.selectById(7)).thenReturn(existing);
+		when(handlerRegistry.getRequired("mysql")).thenReturn(new MysqlDatasourceTypeHandler());
+
+		String customUrl = "jdbc:mysql://localhost:3306/db?useSSL=true&customParam=keepme";
+		Datasource incoming = Datasource.builder()
+			.type("mysql")
+			.host("localhost")
+			.port(3306)
+			.databaseName("db")
+			.connectionUrl(customUrl)
+			.build();
+
+		Datasource result = datasourceService.updateDatasource(7, incoming);
+
+		assertEquals(customUrl, result.getConnectionUrl());
+		verify(datasourceMapper).updateById(incoming);
+	}
+
+	@Test
+	void updateDatasource_preservesUrlForCompositeDatabaseName() {
+		// Oracle 把 schema 编码进 databaseName（"service|schema"），朴素重建会把
+		// "|schema" 残留进 URL，因此这类结果保留原 URL（完整重建见 #509）。
+		Datasource existing = Datasource.builder()
+			.id(9)
+			.type("oracle")
+			.host("orahost")
+			.port(1521)
+			.databaseName("orcl|HR")
+			.connectionUrl("jdbc:oracle:thin:@orahost:1521/orcl")
+			.build();
+		when(datasourceMapper.selectById(9)).thenReturn(existing);
+		when(handlerRegistry.getRequired("oracle")).thenReturn(new OracleDatasourceTypeHandler());
+
+		Datasource incoming = Datasource.builder()
+			.type("oracle")
+			.host("orahost")
+			.port(1521)
+			.databaseName("orcl|SCOTT")
+			.connectionUrl("jdbc:oracle:thin:@orahost:1521/orcl")
+			.build();
+
+		Datasource result = datasourceService.updateDatasource(9, incoming);
+
+		assertEquals("jdbc:oracle:thin:@orahost:1521/orcl", result.getConnectionUrl());
+		verify(datasourceMapper).updateById(incoming);
+	}
+
+	@Test
+	void updateDatasource_rebuildsUrlForPostgresCompositeDatabaseName() {
+		// PostgreSQL 的 databaseName 同样是 "db|schema"，但 buildConnectionUrl 会切出 db。
+		// 重建结果不含 "|" 时应正常采用，避免误伤 PostgreSQL 的 #345 场景。
+		Datasource existing = Datasource.builder()
+			.id(11)
+			.type("postgresql")
+			.host("pghost")
+			.port(5432)
+			.databaseName("olddb|public")
+			.connectionUrl("jdbc:postgresql://pghost:5432/olddb")
+			.build();
+		when(datasourceMapper.selectById(11)).thenReturn(existing);
+		when(handlerRegistry.getRequired("postgresql")).thenReturn(new PostgreSqlDatasourceTypeHandler());
+
+		Datasource incoming = Datasource.builder()
+			.type("postgresql")
+			.host("pghost")
+			.port(5432)
+			.databaseName("newdb|public")
+			.connectionUrl("jdbc:postgresql://pghost:5432/olddb")
+			.build();
+
+		Datasource result = datasourceService.updateDatasource(11, incoming);
+
+		assertTrue(result.getConnectionUrl().contains("/newdb"),
+				"URL should reflect the new database but was: " + result.getConnectionUrl());
+		assertFalse(result.getConnectionUrl().contains("olddb"), "URL should not keep the old database");
+		assertFalse(result.getConnectionUrl().contains("|"), "schema separator must not leak into the URL");
+		verify(datasourceMapper).updateById(incoming);
 	}
 
 	@Test
