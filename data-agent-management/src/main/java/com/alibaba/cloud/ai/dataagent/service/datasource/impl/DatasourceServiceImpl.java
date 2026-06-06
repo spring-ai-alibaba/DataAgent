@@ -115,9 +115,27 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 	@Override
 	public Datasource updateDatasource(Integer id, Datasource datasource) {
-		// Regenerate connection URL
+		// 当连接参数发生变化时，需要重新生成连接 URL，避免继续保存客户端带回来的旧 URL。
+		// 参数未变化时仍保留 resolveConnectionUrl 的行为，避免覆盖用户手动填写的自定义 URL。
 		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
-		String connectionUrl = handler.resolveConnectionUrl(datasource);
+		Datasource existing = datasourceMapper.selectById(id);
+		String connectionUrl;
+		if (existing != null && handler.hasRequiredConnectionFields(datasource)
+				&& connectionParamsChanged(existing, datasource)) {
+			// 仅采用 handler 能完整拼出、且不会把复合 databaseName 泄漏进 URL 的重建结果。
+			// 例如当前 Oracle 的 databaseName 可能是 "service|schema"，#509 合并前朴素重建会把
+			// "|schema" 拼进 URL；此时继续保留 resolveConnectionUrl 的结果。
+			String rebuilt = handler.buildConnectionUrl(datasource);
+			if (StringUtils.isNotBlank(rebuilt) && !rebuilt.contains("|")) {
+				connectionUrl = rebuilt;
+			}
+			else {
+				connectionUrl = handler.resolveConnectionUrl(datasource);
+			}
+		}
+		else {
+			connectionUrl = handler.resolveConnectionUrl(datasource);
+		}
 		if (StringUtils.isNotBlank(connectionUrl)) {
 			datasource.setConnectionUrl(connectionUrl);
 		}
@@ -133,6 +151,16 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		datasourceMapper.updateById(datasource);
 		return datasource;
+	}
+
+	/**
+	 * 判断会影响自动生成连接 URL 的参数是否发生变化。
+	 */
+	private boolean connectionParamsChanged(Datasource existing, Datasource incoming) {
+		return !Objects.equals(existing.getType(), incoming.getType())
+				|| !Objects.equals(existing.getHost(), incoming.getHost())
+				|| !Objects.equals(existing.getPort(), incoming.getPort())
+				|| !Objects.equals(existing.getDatabaseName(), incoming.getDatabaseName());
 	}
 
 	@Override
