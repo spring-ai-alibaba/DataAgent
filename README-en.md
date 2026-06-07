@@ -100,6 +100,7 @@ Open your browser and visit `http://localhost:3000` to start creating your first
 
 - **DingTalk Group**: `154405001431` ("DataAgent User Group 1") Some users may not be able to join due to account security issues. If possible, please try with a different account.
 - **Contribution Guide**: Community contributions are welcome! Please refer to the [Developer Guide](docs/DEVELOPER_GUIDE.md) to learn how to submit PRs.
+- **Contribution Rules**: For contribution workflow details, see the [English guide](CONTRIBUTING-en.md) or the [Chinese guide](CONTRIBUTING-zh.md).
 
 ## License
 
