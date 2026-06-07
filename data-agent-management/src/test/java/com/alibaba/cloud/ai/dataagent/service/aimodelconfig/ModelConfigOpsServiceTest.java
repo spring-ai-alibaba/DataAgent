@@ -114,7 +114,7 @@ class ModelConfigOpsServiceTest {
 		dto.setModelName("gpt-4");
 
 		ChatModel chatModel = mock(ChatModel.class);
-		when(modelFactory.createChatModel(dto)).thenReturn(chatModel);
+		when(modelFactory.createChatModel(dto, DynamicModelFactory.NO_RETRY_TEMPLATE)).thenReturn(chatModel);
 		when(chatModel.call("Hello")).thenReturn("Hi there");
 
 		assertDoesNotThrow(() -> service.testConnection(dto));
@@ -128,7 +128,7 @@ class ModelConfigOpsServiceTest {
 		dto.setModelName("text-embedding");
 
 		EmbeddingModel embeddingModel = mock(EmbeddingModel.class);
-		when(modelFactory.createEmbeddingModel(dto)).thenReturn(embeddingModel);
+		when(modelFactory.createEmbeddingModel(dto, DynamicModelFactory.NO_RETRY_TEMPLATE)).thenReturn(embeddingModel);
 		when(embeddingModel.embed("Test")).thenReturn(new float[] { 0.1f, 0.2f });
 
 		assertDoesNotThrow(() -> service.testConnection(dto));
@@ -148,7 +148,7 @@ class ModelConfigOpsServiceTest {
 		dto.setModelType("CHAT");
 
 		ChatModel chatModel = mock(ChatModel.class);
-		when(modelFactory.createChatModel(dto)).thenReturn(chatModel);
+		when(modelFactory.createChatModel(dto, DynamicModelFactory.NO_RETRY_TEMPLATE)).thenReturn(chatModel);
 		when(chatModel.call("Hello")).thenReturn("");
 
 		assertThrows(RuntimeException.class, () -> service.testConnection(dto));
@@ -160,7 +160,7 @@ class ModelConfigOpsServiceTest {
 		dto.setModelType("EMBEDDING");
 
 		EmbeddingModel embeddingModel = mock(EmbeddingModel.class);
-		when(modelFactory.createEmbeddingModel(dto)).thenReturn(embeddingModel);
+		when(modelFactory.createEmbeddingModel(dto, DynamicModelFactory.NO_RETRY_TEMPLATE)).thenReturn(embeddingModel);
 		when(embeddingModel.embed("Test")).thenReturn(new float[0]);
 
 		assertThrows(RuntimeException.class, () -> service.testConnection(dto));
