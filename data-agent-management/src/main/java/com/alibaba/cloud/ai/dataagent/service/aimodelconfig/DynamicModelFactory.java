@@ -35,6 +35,7 @@ import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.retry.RetryUtils;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
@@ -48,11 +49,16 @@ import reactor.netty.transport.ProxyProvider;
 @RequiredArgsConstructor
 public class DynamicModelFactory {
 
+	public static final RetryTemplate NO_RETRY_TEMPLATE = RetryTemplate.builder().maxAttempts(1).build();
+
 	/**
 	 * 统一使用 OpenAiChatModel，通过 baseUrl 实现多厂商兼容
 	 */
 	public ChatModel createChatModel(ModelConfigDTO config) {
+		return createChatModel(config, RetryUtils.DEFAULT_RETRY_TEMPLATE);
+	}
 
+	public ChatModel createChatModel(ModelConfigDTO config, RetryTemplate retryTemplate) {
 		log.info("Creating NEW ChatModel instance. Provider: {}, Model: {}, BaseUrl: {}", config.getProvider(),
 				config.getModelName(), config.getBaseUrl());
 		// 1. 验证参数
@@ -79,13 +85,21 @@ public class DynamicModelFactory {
 			.streamUsage(true)
 			.build();
 		// 4. 返回统一的 OpenAiChatModel
-		return OpenAiChatModel.builder().openAiApi(openAiApi).defaultOptions(openAiChatOptions).build();
+		return OpenAiChatModel.builder()
+			.openAiApi(openAiApi)
+			.defaultOptions(openAiChatOptions)
+			.retryTemplate(retryTemplate)
+			.build();
 	}
 
 	/**
 	 * Embedding 同理
 	 */
 	public EmbeddingModel createEmbeddingModel(ModelConfigDTO config) {
+		return createEmbeddingModel(config, RetryUtils.DEFAULT_RETRY_TEMPLATE);
+	}
+
+	public EmbeddingModel createEmbeddingModel(ModelConfigDTO config, RetryTemplate retryTemplate) {
 		log.info("Creating NEW EmbeddingModel instance. Provider: {}, Model: {}, BaseUrl: {}", config.getProvider(),
 				config.getModelName(), config.getBaseUrl());
 		checkBasic(config);
@@ -103,8 +117,7 @@ public class DynamicModelFactory {
 
 		OpenAiApi openAiApi = apiBuilder.build();
 		return new OpenAiEmbeddingModel(openAiApi, MetadataMode.EMBED,
-				OpenAiEmbeddingOptions.builder().model(config.getModelName()).build(),
-				RetryUtils.DEFAULT_RETRY_TEMPLATE);
+				OpenAiEmbeddingOptions.builder().model(config.getModelName()).build(), retryTemplate);
 	}
 
 	private static void checkBasic(ModelConfigDTO config) {
