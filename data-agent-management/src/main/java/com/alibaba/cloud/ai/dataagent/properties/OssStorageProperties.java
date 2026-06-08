@@ -28,6 +28,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = Constant.PROJECT_PROPERTIES_PREFIX + ".file.oss")
 public class OssStorageProperties {
 
+	private boolean enabled = false;
+
 	/**
 	 * OSS访问密钥ID
 	 */

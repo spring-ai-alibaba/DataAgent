@@ -18,11 +18,10 @@ package com.alibaba.cloud.ai.dataagent.entity;
 import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
 import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 /**
  * Agent Knowledge Entity Class
@@ -55,6 +54,8 @@ public class AgentKnowledge {
 
 	// 操作失败的错误信息
 	private String errorMsg;
+
+	private Long fileId;
 
 	private String sourceFilename;
 

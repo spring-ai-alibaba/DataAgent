@@ -13,16 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.exception;
+package com.alibaba.cloud.ai.dataagent.service.file;
 
-public class InternalServerException extends RuntimeException {
+public enum FileStorageProviderEnum {
 
-	public InternalServerException(String message) {
-		super(message);
-	}
-
-	public InternalServerException(String message, Throwable cause) {
-		super(message, cause);
-	}
+	LOCAL, OSS
 
 }

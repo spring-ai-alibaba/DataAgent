@@ -20,7 +20,7 @@ import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.codec.multipart.FilePart;
 
 /**
  * 创建知识DTO
@@ -60,7 +60,7 @@ public class CreateKnowledgeDTO {
 	/**
 	 * 上传的文件（当type=DOCUMENT时必填）
 	 */
-	private MultipartFile file;
+	private FilePart file;
 
 	/**
 	 * 分块策略类型：token, recursive 默认值是 token

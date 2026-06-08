@@ -17,11 +17,15 @@ package com.alibaba.cloud.ai.dataagent.service.knowledge;
 
 import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
-import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
-import com.alibaba.cloud.ai.dataagent.util.DocumentConverterUtil;
 import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
+import com.alibaba.cloud.ai.dataagent.entity.FileStorage;
+import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
+import com.alibaba.cloud.ai.dataagent.util.DocumentConverterUtil;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
@@ -29,10 +33,6 @@ import org.springframework.ai.transformer.splitter.TextSplitter;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 // 智能体知识的向量资源和文件资源管理
 @Slf4j
@@ -52,7 +52,7 @@ public class AgentKnowledgeResourceManager {
 		this.agentVectorStoreService = agentVectorStoreService;
 	}
 
-	public void doEmbedingToVectorStore(AgentKnowledge agentKnowledge) throws Exception {
+	public void doEmbeddingToVectorStore(AgentKnowledge agentKnowledge) throws Exception {
 		// delete old data
 		this.deleteFromVectorStore(agentKnowledge.getAgentId(), agentKnowledge.getId());
 
@@ -75,11 +75,20 @@ public class AgentKnowledgeResourceManager {
 
 	private void processDocumentKnowledge(AgentKnowledge knowledge) {
 
+		FileStorage fileStorage;
+		if (knowledge.getFileId() != null) {
+			fileStorage = fileStorageService.getFileById(knowledge.getFileId());
+		}
+		else {
+			fileStorage = new FileStorage();
+			fileStorage.setFilePath(knowledge.getFilePath());
+		}
+
 		// 处理文档
-		List<Document> documents = getAndSplitDocument(knowledge.getFilePath(), knowledge.getSplitterType());
+		List<Document> documents = getAndSplitDocument(fileStorage, knowledge.getSplitterType());
 		if (documents == null || documents.isEmpty()) {
 			log.error("No documents extracted from file: knowledgeId={}, filePath={}", knowledge.getId(),
-					knowledge.getFilePath());
+					fileStorage.getFilePath());
 			throw new RuntimeException("No documents extracted from file");
 		}
 
@@ -90,13 +99,14 @@ public class AgentKnowledgeResourceManager {
 		// 添加到向量存储
 		agentVectorStoreService.addDocuments(knowledge.getAgentId().toString(), documentsWithMetadata);
 		log.info("Successfully vectorized DOCUMENT knowledge: id={}, filePath={}, documentCount={}, splitterType={}",
-				knowledge.getId(), knowledge.getFilePath(), documentsWithMetadata.size(), knowledge.getSplitterType());
+				knowledge.getId(), fileStorage.getFilePath(), documentsWithMetadata.size(),
+				knowledge.getSplitterType());
 
 	}
 
-	private List<Document> getAndSplitDocument(String filePath, String splitterType) {
+	private List<Document> getAndSplitDocument(FileStorage fileStorage, String splitterType) {
 		// 使用FileStorageService获取文件资源对象
-		Resource resource = fileStorageService.getFileResource(filePath);
+		Resource resource = fileStorageService.getFileResource(fileStorage);
 
 		// 使用TikaDocumentReader读取文件
 		TikaDocumentReader tikaDocumentReader = new TikaDocumentReader(resource);
@@ -155,7 +165,7 @@ public class AgentKnowledgeResourceManager {
 		}
 
 		try {
-			boolean fileDeleted = fileStorageService.deleteFile(knowledge.getFilePath());
+			boolean fileDeleted = fileStorageService.deleteFileResource(knowledge.getFilePath());
 			if (fileDeleted) {
 				log.info("Successfully deleted knowledge file, filePath: {}", knowledge.getFilePath());
 				return true;

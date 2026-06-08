@@ -20,9 +20,9 @@ import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
 import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
 import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.alibaba.cloud.ai.dataagent.vo.AgentKnowledgeVO;
-import org.springframework.stereotype.Component;
-
+import com.alibaba.cloud.ai.dataagent.vo.FileStorageVo;
 import java.time.LocalDateTime;
+import org.springframework.stereotype.Component;
 
 @Component
 public class AgentKnowledgeConverter {
@@ -45,7 +45,7 @@ public class AgentKnowledgeConverter {
 		return vo;
 	}
 
-	public AgentKnowledge toEntityForCreate(CreateKnowledgeDTO createKnowledgeDto, String storagePath) {
+	public AgentKnowledge toEntityForCreate(CreateKnowledgeDTO createKnowledgeDto, FileStorageVo fileStorageVo) {
 		// 创建AgentKnowledge对象
 		AgentKnowledge knowledge = new AgentKnowledge();
 		knowledge.setAgentId(createKnowledgeDto.getAgentId());
@@ -64,11 +64,8 @@ public class AgentKnowledgeConverter {
 		knowledge.setUpdatedTime(now);
 
 		// 如果是文档类型，设置文件相关信息
-		if (createKnowledgeDto.getFile() != null && !createKnowledgeDto.getFile().isEmpty()) {
-			knowledge.setSourceFilename(createKnowledgeDto.getFile().getOriginalFilename());
-			knowledge.setFilePath(storagePath);
-			knowledge.setFileSize(createKnowledgeDto.getFile().getSize());
-			knowledge.setFileType(createKnowledgeDto.getFile().getContentType());
+		if (fileStorageVo != null) {
+			knowledge.setFileId(fileStorageVo.getId());
 		}
 
 		// 设置分块策略类型，默认值为token

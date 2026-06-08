@@ -15,28 +15,28 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.knowledge;
 
-import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
-import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.alibaba.cloud.ai.dataagent.converter.AgentKnowledgeConverter;
-import com.alibaba.cloud.ai.dataagent.vo.PageResult;
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.AgentKnowledgeQueryDTO;
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.CreateKnowledgeDTO;
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.UpdateKnowledgeDTO;
 import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
+import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
+import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.alibaba.cloud.ai.dataagent.event.AgentKnowledgeDeletionEvent;
 import com.alibaba.cloud.ai.dataagent.event.AgentKnowledgeEmbeddingEvent;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.vo.AgentKnowledgeVO;
+import com.alibaba.cloud.ai.dataagent.vo.FileStorageVo;
+import com.alibaba.cloud.ai.dataagent.vo.PageResult;
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Slf4j
 @Service
@@ -62,13 +62,14 @@ public class AgentKnowledgeServiceImpl implements AgentKnowledgeService {
 	@Override
 	@Transactional
 	public AgentKnowledgeVO createKnowledge(CreateKnowledgeDTO createKnowledgeDto) {
-		String storagePath = null;
+		FileStorageVo fileStorage = null;
 		checkCreateKnowledgeDto(createKnowledgeDto);
 
 		if (createKnowledgeDto.getType().equals(KnowledgeType.DOCUMENT.getCode())) {
 			// 将文件保存到磁盘
 			try {
-				storagePath = fileStorageService.storeFile(createKnowledgeDto.getFile(), AGENT_KNOWLEDGE_FILE_PATH);
+				fileStorage = fileStorageService.storeFile(createKnowledgeDto.getFile(), AGENT_KNOWLEDGE_FILE_PATH)
+					.block();
 			}
 			catch (Exception e) {
 				log.error("Failed to store file, agentId:{} title:{} type:{} ", createKnowledgeDto.getAgentId(),
@@ -77,7 +78,7 @@ public class AgentKnowledgeServiceImpl implements AgentKnowledgeService {
 			}
 		}
 
-		AgentKnowledge knowledge = agentKnowledgeConverter.toEntityForCreate(createKnowledgeDto, storagePath);
+		AgentKnowledge knowledge = agentKnowledgeConverter.toEntityForCreate(createKnowledgeDto, fileStorage);
 
 		if (agentKnowledgeMapper.insert(knowledge) <= 0) {
 			log.error("Failed to create knowledge, agentId:{} title:{} type:{} ", knowledge.getAgentId(),
@@ -153,6 +154,9 @@ public class AgentKnowledgeServiceImpl implements AgentKnowledgeService {
 		knowledge.setUpdatedTime(LocalDateTime.now());
 
 		if (agentKnowledgeMapper.update(knowledge) > 0) {
+			if (knowledge.getFileId() != null) {
+				fileStorageService.deleteFileById(knowledge.getFileId());
+			}
 			eventPublisher.publishEvent(new AgentKnowledgeDeletionEvent(this, id));
 			return true;
 		}

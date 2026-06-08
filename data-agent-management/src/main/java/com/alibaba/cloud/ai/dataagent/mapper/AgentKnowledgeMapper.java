@@ -17,10 +17,14 @@ package com.alibaba.cloud.ai.dataagent.mapper;
 
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.agentknowledge.AgentKnowledgeQueryDTO;
 import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
-import org.apache.ibatis.annotations.*;
-
 import java.time.LocalDateTime;
 import java.util.List;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 @Mapper
 public interface AgentKnowledgeMapper {
@@ -37,8 +41,8 @@ public interface AgentKnowledgeMapper {
 
 	@Insert("""
 
-			INSERT INTO agent_knowledge (agent_id, title, content, type, question, is_recall, embedding_status, source_filename, file_path, file_size, file_type, splitter_type, is_deleted, is_resource_cleaned, created_time, updated_time)
-			VALUES (#{agentId}, #{title}, #{content}, #{type}, #{question}, #{isRecall}, #{embeddingStatus}, #{sourceFilename}, #{filePath}, #{fileSize}, #{fileType}, #{splitterType}, #{isDeleted}, #{isResourceCleaned}, #{createdTime}, #{updatedTime})
+			INSERT INTO agent_knowledge (agent_id, title, content, type, question, file_id, is_recall, embedding_status, splitter_type, is_deleted, is_resource_cleaned, created_time, updated_time)
+			VALUES (#{agentId}, #{title}, #{content}, #{type}, #{question}, #{fileId}, #{isRecall}, #{embeddingStatus}, #{splitterType}, #{isDeleted}, #{isResourceCleaned}, #{createdTime}, #{updatedTime})
 
 			""")
 	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
