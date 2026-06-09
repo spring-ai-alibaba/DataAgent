@@ -41,4 +41,14 @@ public class StreamLlmService implements LlmService {
 		return registry.getChatClient().prompt().user(user).stream().chatResponse();
 	}
 
+	@Override
+	public Flux<ChatResponse> callUserWithTools(String user, Object... tools) {
+		return registry.getChatClient()
+			.prompt()
+			.user(user)
+			.tools(tools) // 注册工具
+			.stream()
+			.chatResponse();
+	}
+
 }

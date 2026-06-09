@@ -145,6 +145,41 @@ public class ReportTemplateUtil {
 			                   border-radius: 8px;
 			               }
 
+			               /* 8. 表格样式 */
+							table {
+								width: 100%;
+								border-collapse: collapse;
+								margin: 1.5rem 0;
+								background-color: #ffffff;
+								border-radius: 0.5rem;
+								overflow: hidden;
+								box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+							}
+
+							th, td {
+								padding: 0.75rem 1rem;
+								text-align: left;
+								border: 1px solid #e5e7eb;
+							}
+
+							th {
+								background-color: #f9fafb;
+								font-weight: 600;
+								color: #374151;
+							}
+
+							td {
+								border-top: 1px solid #e5e7eb;
+							}
+
+							tr:nth-child(even) {
+								background-color: #f9fafb;
+							}
+
+							tr:hover {
+								background-color: #f3f4f6;
+							}
+
 			               /* --- 样式结束 --- */
 			</style>
 			</head>

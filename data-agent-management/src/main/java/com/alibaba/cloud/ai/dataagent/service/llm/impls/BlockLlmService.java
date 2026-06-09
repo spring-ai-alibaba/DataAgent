@@ -44,4 +44,10 @@ public class BlockLlmService implements LlmService {
 		return Mono.fromCallable(() -> registry.getChatClient().prompt().user(user).call().chatResponse()).flux();
 	}
 
+	@Override
+	public Flux<ChatResponse> callUserWithTools(String user, Object... tools) {
+		return Mono.fromCallable(() -> registry.getChatClient().prompt().user(user).tools(tools).call().chatResponse())
+			.flux();
+	}
+
 }

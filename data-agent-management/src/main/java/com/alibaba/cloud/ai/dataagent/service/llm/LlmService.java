@@ -27,6 +27,8 @@ public interface LlmService {
 
 	Flux<ChatResponse> callUser(String user);
 
+	Flux<ChatResponse> callUserWithTools(String user, Object... tools);
+
 	@Deprecated
 	default String blockToString(Flux<ChatResponse> responseFlux) {
 		return toStringFlux(responseFlux).collect(StringBuilder::new, StringBuilder::append)
