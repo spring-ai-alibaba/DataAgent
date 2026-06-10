@@ -84,14 +84,14 @@ class TableRelationNodeTest {
 		state.registerKeyAndStrategy(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(EVIDENCE, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
-		state.registerKeyAndStrategy(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(COLUMN_DOCUMENTS_FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(AGENT_ID, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(DB_DIALECT_TYPE, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_RETRY_COUNT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_EXCEPTION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_GENERATE_SCHEMA_MISSING_ADVICE, new ReplaceStrategy());
-		state.registerKeyAndStrategy(GENEGRATED_SEMANTIC_MODEL_PROMPT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(GENERATED_SEMANTIC_MODEL_PROMPT, new ReplaceStrategy());
 		return state;
 	}
 
@@ -132,7 +132,7 @@ class TableRelationNodeTest {
 		List<Document> colDocs = List.of(new Document("column doc"));
 
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, EVIDENCE, "evidence", AGENT_ID, "1",
-				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocs, COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, colDocs));
+				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocs, COLUMN_DOCUMENTS_FOR_SCHEMA_OUTPUT, colDocs));
 
 		setupCommonMocks("1", tableDocs);
 
@@ -154,7 +154,7 @@ class TableRelationNodeTest {
 		List<Document> emptyColDocs = Collections.emptyList();
 
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, EVIDENCE, "evidence", AGENT_ID, "2",
-				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, emptyTableDocs, COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, emptyColDocs));
+				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, emptyTableDocs, COLUMN_DOCUMENTS_FOR_SCHEMA_OUTPUT, emptyColDocs));
 
 		setupCommonMocks("2", emptyTableDocs);
 
@@ -172,7 +172,7 @@ class TableRelationNodeTest {
 		List<Document> tableDocs = List.of(createTableDocument("users"));
 
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, EVIDENCE, "evidence", AGENT_ID, "3",
-				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocs, COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT,
+				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocs, COLUMN_DOCUMENTS_FOR_SCHEMA_OUTPUT,
 				Collections.emptyList()));
 
 		setupCommonMocks("3", tableDocs);
@@ -190,7 +190,7 @@ class TableRelationNodeTest {
 		List<Document> tableDocs = List.of(createTableDocument("users"));
 
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, EVIDENCE, "evidence", AGENT_ID, "4",
-				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocs, COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT,
+				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocs, COLUMN_DOCUMENTS_FOR_SCHEMA_OUTPUT,
 				Collections.emptyList()));
 
 		when(databaseUtil.getAgentDbConfig(4L)).thenThrow(new RuntimeException("DB config not found"));
@@ -205,7 +205,7 @@ class TableRelationNodeTest {
 		List<Document> tableDocs = List.of(createTableDocument("users"));
 
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, EVIDENCE, "evidence", AGENT_ID, "5",
-				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocs, COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT,
+				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocs, COLUMN_DOCUMENTS_FOR_SCHEMA_OUTPUT,
 				Collections.emptyList()));
 
 		DbConfigBO dbConfig = DbConfigBO.builder().dialectType("mysql").schema("test_db").build();
@@ -239,7 +239,7 @@ class TableRelationNodeTest {
 		List<Document> tableDocs = List.of(createTableDocument("users"));
 
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, EVIDENCE, "evidence", AGENT_ID, "6",
-				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocs, COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT,
+				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocs, COLUMN_DOCUMENTS_FOR_SCHEMA_OUTPUT,
 				Collections.emptyList(), SQL_GENERATE_SCHEMA_MISSING_ADVICE, "add orders table"));
 
 		DbConfigBO dbConfig = DbConfigBO.builder().dialectType("mysql").schema("test_db").build();

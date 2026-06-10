@@ -124,7 +124,7 @@ class PlannerNodeTest {
 		state.registerKeyAndStrategy(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(EVIDENCE, new ReplaceStrategy());
-		state.registerKeyAndStrategy(GENEGRATED_SEMANTIC_MODEL_PROMPT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(GENERATED_SEMANTIC_MODEL_PROMPT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(IS_ONLY_NL2SQL, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PLAN_VALIDATION_ERROR, new ReplaceStrategy());
 		return state;
@@ -132,7 +132,7 @@ class PlannerNodeTest {
 
 	private void setupBasicState(OverAllState state) {
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE, TABLE_RELATION_OUTPUT, TEST_SCHEMA,
-				EVIDENCE, "业务知识：用户表包含所有注册用户", GENEGRATED_SEMANTIC_MODEL_PROMPT, ""));
+				EVIDENCE, "业务知识：用户表包含所有注册用户", GENERATED_SEMANTIC_MODEL_PROMPT, ""));
 	}
 
 	@Test
@@ -218,7 +218,7 @@ class PlannerNodeTest {
 	void apply_withSemanticModel_includesInPrompt() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
-		state.updateState(Map.of(GENEGRATED_SEMANTIC_MODEL_PROMPT, "语义模型定义：PV表示页面浏览量"));
+		state.updateState(Map.of(GENERATED_SEMANTIC_MODEL_PROMPT, "语义模型定义：PV表示页面浏览量"));
 
 		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(VALID_PLAN_JSON)));
@@ -233,7 +233,7 @@ class PlannerNodeTest {
 	void apply_emptyEvidence_generatesWithoutEvidence() throws Exception {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE, TABLE_RELATION_OUTPUT, TEST_SCHEMA,
-				EVIDENCE, "", GENEGRATED_SEMANTIC_MODEL_PROMPT, ""));
+				EVIDENCE, "", GENERATED_SEMANTIC_MODEL_PROMPT, ""));
 
 		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(VALID_PLAN_JSON)));

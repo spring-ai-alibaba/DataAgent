@@ -50,7 +50,7 @@ public final class Constant {
 
 	public static final String SCHEMA_RECALL_NODE_OUTPUT = "SCHEMA_RECALL_NODE_OUTPUT";
 
-	public static final String COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT = "COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT";
+	public static final String COLUMN_DOCUMENTS_FOR_SCHEMA_OUTPUT = "COLUMN_DOCUMENTS_FOR_SCHEMA_OUTPUT";
 
 	public static final String TABLE_RELATION_OUTPUT = "TABLE_RELATION_OUTPUT";
 
@@ -58,7 +58,7 @@ public final class Constant {
 
 	public static final String TABLE_RELATION_RETRY_COUNT = "TABLE_RELATION_RETRY_COUNT";
 
-	public static final String GENEGRATED_SEMANTIC_MODEL_PROMPT = "GENEGRATED_SEMANTIC_MODEL_PROMPT";
+	public static final String GENERATED_SEMANTIC_MODEL_PROMPT = "GENERATED_SEMANTIC_MODEL_PROMPT";
 
 	public static final String SQL_GENERATE_OUTPUT = "SQL_GENERATE_OUTPUT";
 
