@@ -72,7 +72,25 @@ public class MultiTurnContextManager {
 	}
 
 	/**
-	 * Finalize current turn and add to history if planner output is available.
+	 * Append assistant output chunk for the current turn. This is used as a
+	 * fallback history entry when a turn ends before PlannerNode, for example when
+	 * the feasibility assessment asks the user to clarify the query.
+	 * @param threadId conversation thread id
+	 * @param chunk assistant streaming chunk
+	 */
+	public void appendAssistantChunk(String threadId, String chunk) {
+		if (StringUtils.isAnyBlank(threadId, chunk)) {
+			return;
+		}
+		PendingTurn pending = pendingTurns.get(threadId);
+		if (pending != null) {
+			pending.assistantBuilder.append(chunk);
+		}
+	}
+
+	/**
+	 * Finalize current turn and add to history if planner or assistant output is
+	 * available.
 	 * @param threadId conversation thread id
 	 */
 	public void finishTurn(String threadId) {
@@ -81,18 +99,21 @@ public class MultiTurnContextManager {
 			return;
 		}
 		String plan = StringUtils.trimToEmpty(pending.planBuilder.toString());
-		if (StringUtils.isBlank(plan)) {
-			log.debug("No planner output recorded for thread {}, skipping history update", threadId);
+		String assistantOutput = StringUtils.trimToEmpty(pending.assistantBuilder.toString());
+		String response = StringUtils.isNotBlank(plan) ? plan : assistantOutput;
+		if (StringUtils.isBlank(response)) {
+			log.debug("No planner or assistant output recorded for thread {}, skipping history update", threadId);
 			return;
 		}
 
-		String trimmedPlan = StringUtils.abbreviate(plan, properties.getMaxplanlength());
+		String responseLabel = StringUtils.isNotBlank(plan) ? "AI计划" : "AI回复";
+		String trimmedResponse = StringUtils.abbreviate(response, properties.getMaxplanlength());
 		Deque<ConversationTurn> deque = history.computeIfAbsent(threadId, k -> new ArrayDeque<>());
 		synchronized (deque) {
 			while (deque.size() >= properties.getMaxturnhistory()) {
 				deque.pollFirst();
 			}
-			deque.addLast(new ConversationTurn(pending.userQuestion, trimmedPlan));
+			deque.addLast(new ConversationTurn(pending.userQuestion, responseLabel, trimmedResponse));
 		}
 	}
 
@@ -135,11 +156,11 @@ public class MultiTurnContextManager {
 			return "(无)";
 		}
 		return deque.stream()
-			.map(turn -> "用户: " + turn.userQuestion() + "\nAI计划: " + turn.plan())
+			.map(turn -> "用户: " + turn.userQuestion() + "\n" + turn.responseLabel() + ": " + turn.response())
 			.collect(Collectors.joining("\n"));
 	}
 
-	private record ConversationTurn(String userQuestion, String plan) {
+	private record ConversationTurn(String userQuestion, String responseLabel, String response) {
 	}
 
 	private static class PendingTurn {
@@ -147,6 +168,8 @@ public class MultiTurnContextManager {
 		private final String userQuestion;
 
 		private final StringBuilder planBuilder = new StringBuilder();
+
+		private final StringBuilder assistantBuilder = new StringBuilder();
 
 		private PendingTurn(String userQuestion) {
 			this.userQuestion = userQuestion;

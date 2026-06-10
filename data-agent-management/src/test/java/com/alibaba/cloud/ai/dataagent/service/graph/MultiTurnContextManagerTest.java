@@ -78,7 +78,18 @@ class MultiTurnContextManagerTest {
 	}
 
 	@Test
-	void finishTurn_noPlannerOutput_skipsHistory() {
+	void finishTurn_assistantOutputWithoutPlanner_storesHistory() {
+		contextManager.beginTurn("thread-1", "Query 1");
+		contextManager.appendAssistantChunk("thread-1", "Please clarify the metric.");
+		contextManager.finishTurn("thread-1");
+
+		String context = contextManager.buildContext("thread-1");
+		assertTrue(context.contains("Query 1"));
+		assertTrue(context.contains("AI回复: Please clarify the metric."));
+	}
+
+	@Test
+	void finishTurn_noOutput_skipsHistory() {
 		contextManager.beginTurn("thread-1", "Query 1");
 		contextManager.finishTurn("thread-1");
 
