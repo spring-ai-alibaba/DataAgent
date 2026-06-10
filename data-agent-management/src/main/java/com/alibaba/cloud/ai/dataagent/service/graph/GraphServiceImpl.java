@@ -324,6 +324,9 @@ public class GraphServiceImpl implements GraphService {
 			if (PlannerNode.class.getSimpleName().equals(node)) {
 				multiTurnContextManager.appendPlannerChunk(threadId, chunk);
 			}
+			else {
+				multiTurnContextManager.appendAssistantChunk(threadId, chunk);
+			}
 			GraphNodeResponse response = GraphNodeResponse.builder()
 				.agentId(request.getAgentId())
 				.threadId(threadId)
