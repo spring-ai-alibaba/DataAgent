@@ -16,10 +16,10 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.AGENT_ID;
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.COLUMN_DOCUMENTS_FOR_SCHEMA_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.DB_DIALECT_TYPE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.EVIDENCE;
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.GENEGRATED_SEMANTIC_MODEL_PROMPT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.GENERATED_SEMANTIC_MODEL_PROMPT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_SCHEMA_MISSING_ADVICE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_EXCEPTION_OUTPUT;
@@ -98,7 +98,7 @@ public class TableRelationNode implements NodeAction {
 
 		String evidence = StateUtil.getStringValue(state, EVIDENCE);
 		List<Document> tableDocuments = StateUtil.getDocumentList(state, TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT);
-		List<Document> columnDocuments = StateUtil.getDocumentList(state, COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT);
+		List<Document> columnDocuments = StateUtil.getDocumentList(state, COLUMN_DOCUMENTS_FOR_SCHEMA_OUTPUT);
 		String agentIdStr = StateUtil.getStringValue(state, AGENT_ID);
 
 		// Execute business logic first - get final result immediately
@@ -130,7 +130,7 @@ public class TableRelationNode implements NodeAction {
 
 					// 构建语义模型提示并存储到resultMap中
 					String semanticModelPrompt = buildSemanticModelPrompt(semanticModels);
-					resultMap.put(GENEGRATED_SEMANTIC_MODEL_PROMPT, semanticModelPrompt);
+					resultMap.put(GENERATED_SEMANTIC_MODEL_PROMPT, semanticModelPrompt);
 				});
 
 		// Create display stream for user experience only
