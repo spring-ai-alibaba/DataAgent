@@ -17,8 +17,10 @@ package com.alibaba.cloud.ai.dataagent.converter;
 
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
+import com.alibaba.cloud.ai.dataagent.enums.ChatApiProtocol;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 
@@ -75,7 +77,10 @@ public class ModelConfigConverter {
 		entity.setProxyPort(dto.getProxyPort());
 		entity.setProxyUsername(dto.getProxyUsername());
 		entity.setProxyPassword(dto.getProxyPassword());
-		entity.setChatApiProtocol(dto.getChatApiProtocol());
+		// chatApiProtocol 为空时回填默认协议：INSERT 显式写入 NULL 会绕过数据库列的 DEFAULT 值，
+		// 统一在转换层兜底，保证新增数据与列默认值口径一致
+		entity.setChatApiProtocol(StringUtils.hasText(dto.getChatApiProtocol()) ? dto.getChatApiProtocol()
+				: ChatApiProtocol.CHAT_COMPLETIONS.getCode());
 		// 默认值处理
 		entity.setIsActive(false);
 		entity.setIsDeleted(0);

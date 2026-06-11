@@ -67,6 +67,24 @@ class ResponsesApiTest {
 	}
 
 	@Test
+	void parseCompletedEvent_parsesFunctionCallOutputItem() {
+		// completed 事件的 output 中包含 function_call 项时，call_id/name/arguments 必须正确反序列化，
+		// 否则 tool calling 链路无法将调用与结果配对
+		String data = """
+				{"type":"response.completed","response":{"id":"resp_fc","status":"completed",
+				"output":[{"type":"function_call","id":"fc_1","call_id":"call_1","name":"search",
+				"arguments":"{\\"q\\":\\"天气\\"}"}]}}
+				""";
+		StreamEvent event = parse(data);
+		assertNotNull(event);
+		assertEquals(StreamEvent.Type.COMPLETED, event.type());
+		assertEquals("function_call", event.response().output().get(0).type());
+		assertEquals("call_1", event.response().output().get(0).callId());
+		assertEquals("search", event.response().output().get(0).name());
+		assertEquals("{\"q\":\"天气\"}", event.response().output().get(0).arguments());
+	}
+
+	@Test
 	void parseIncompleteEvent_returnsIncompleteType() {
 		String data = """
 				{"type":"response.incomplete","response":{"id":"resp_2","status":"incomplete",

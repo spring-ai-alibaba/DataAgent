@@ -40,4 +40,17 @@ public enum ChatApiProtocol {
 		this.code = code;
 	}
 
+	/**
+	 * 根据代码解析枚举（忽略大小写）。 非法值直接抛异常拦截在保存入口：若不拦截，拼写错误的协议值会在 DynamicModelFactory 静默落入默认的 Chat
+	 * Completions 分支，用户配置悄悄失效且难以排查。
+	 */
+	public static ChatApiProtocol fromCode(String code) {
+		for (ChatApiProtocol protocol : values()) {
+			if (protocol.getCode().equalsIgnoreCase(code)) {
+				return protocol;
+			}
+		}
+		throw new IllegalArgumentException("不支持的 Chat 接口协议: " + code + "，仅支持 CHAT_COMPLETIONS 或 RESPONSES");
+	}
+
 }

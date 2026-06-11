@@ -22,6 +22,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.retry.RetryUtils;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -35,9 +36,9 @@ import java.util.Map;
 
 /**
  * OpenAI Responses API 低层 HTTP 客户端。 负责构建请求、解析非流式响应与流式 SSE 事件。 协议 DTO 以内嵌 record/class
- * 形式定义，覆盖 DataAgent 实际用到的字段子集。
+ * 形式定义，覆盖 DataAgent 实际用到的字段子集（含 function calling）。
  * <p>
- * 不传 store、previous_response_id、tools 等字段，DataAgent 不使用这些特性。
+ * 不传 store、previous_response_id 等会话状态字段，DataAgent 自行管理对话历史。
  */
 @Slf4j
 public class ResponsesApi {
@@ -55,10 +56,15 @@ public class ResponsesApi {
 			WebClient.Builder webClientBuilder) {
 		this.responsesPath = StringUtils.hasText(responsesPath) ? responsesPath : "/v1/responses";
 
-		// 构建同步 RestClient（用于阻塞调用）
+		// 构建同步 RestClient（用于阻塞调用）。
+		// 必须挂载 DEFAULT_RESPONSE_ERROR_HANDLER：它把 4xx 映射为 NonTransientAiException、
+		// 5xx 映射为 TransientAiException，而上层 DEFAULT_RETRY_TEMPLATE 只对 TransientAiException
+		// 重试——
+		// 若不挂载，HTTP 错误抛出的是 RestClientResponseException，重试模板会直接放行，重试形同虚设
 		this.restClient = restClientBuilder.baseUrl(baseUrl)
 			.defaultHeader("Authorization", "Bearer " + apiKey)
 			.defaultHeader("Content-Type", "application/json")
+			.defaultStatusHandler(RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER)
 			.build();
 
 		// 构建异步 WebClient（用于 SSE 流式调用）
@@ -77,8 +83,7 @@ public class ResponsesApi {
 	 */
 	public ResponsesResponse call(ResponsesRequest request) {
 		// 确保非流式
-		ResponsesRequest syncRequest = new ResponsesRequest(request.model(), request.instructions(), request.input(),
-				request.temperature(), request.maxOutputTokens(), false);
+		ResponsesRequest syncRequest = request.withStream(false);
 
 		return restClient.post().uri(this.responsesPath).body(syncRequest).retrieve().body(ResponsesResponse.class);
 	}
@@ -93,8 +98,7 @@ public class ResponsesApi {
 	 */
 	public Flux<StreamEvent> stream(ResponsesRequest request) {
 		// 确保流式
-		ResponsesRequest streamRequest = new ResponsesRequest(request.model(), request.instructions(), request.input(),
-				request.temperature(), request.maxOutputTokens(), true);
+		ResponsesRequest streamRequest = request.withStream(true);
 
 		return webClient.post()
 			.uri(this.responsesPath)
@@ -161,9 +165,22 @@ public class ResponsesApi {
 			// readValue 抛 JsonProcessingException；convertValue 结构不匹配时抛
 			// IllegalArgumentException。
 			// 两者都按"单条事件损坏"处理：记录日志后跳过，不让一条畸形事件中断整个 SSE 流
-			log.warn("解析 Responses API SSE 事件失败，跳过: {}", data, e);
+			log.warn("解析 Responses API SSE 事件失败，跳过: {}", abbreviate(data), e);
 			return null;
 		}
+	}
+
+	/** 日志输出时保留的 SSE 负载最大长度 */
+	private static final int LOG_PAYLOAD_MAX_LENGTH = 500;
+
+	/**
+	 * 截断过长的 SSE 负载用于日志输出。 事件体可能携带完整模型输出，全量打印会造成日志膨胀并把对话内容写进日志， 截断后保留的前缀足够定位事件类型与结构问题。
+	 */
+	private static String abbreviate(String data) {
+		if (data == null || data.length() <= LOG_PAYLOAD_MAX_LENGTH) {
+			return data;
+		}
+		return data.substring(0, LOG_PAYLOAD_MAX_LENGTH) + "...(已截断，总长度 " + data.length() + ")";
 	}
 
 	/**
@@ -194,24 +211,73 @@ public class ResponsesApi {
 	// ======================== 协议 DTO ========================
 
 	/**
-	 * Responses API 请求体。 只包含 DataAgent 实际需要的字段，不传 tools/store/previous_response_id 等。
+	 * Responses API 请求体。 只包含 DataAgent 实际需要的字段，不传 store/previous_response_id 等。 tools
+	 * 字段用于声明可调用的 function 工具（AgentScope 链路依赖）。
 	 */
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	public record ResponsesRequest(String model, String instructions, List<InputItem> input, Double temperature,
-			@JsonProperty("max_output_tokens") Integer maxOutputTokens, Boolean stream) {
+	public record ResponsesRequest(String model, String instructions, List<InputItem> input, List<FunctionTool> tools,
+			Double temperature, @JsonProperty("max_output_tokens") Integer maxOutputTokens, Boolean stream) {
+
+		/**
+		 * 返回仅覆盖 stream 标志的副本。 call/stream 入口统一经此方法强制流式开关， 避免在多处手工重建
+		 * record——后续给请求体加字段时只需改这一处，防止字段漏拷
+		 */
+		public ResponsesRequest withStream(boolean stream) {
+			return new ResponsesRequest(model, instructions, input, tools, temperature, maxOutputTokens, stream);
+		}
 	}
 
 	/**
-	 * 输入消息项：对应 Responses API 的 input 数组元素。 DataAgent 只使用 user 角色的文本消息。
+	 * function 工具声明：对应请求 tools 数组元素。 Responses API 采用扁平结构（name/description/parameters 与
+	 * type 平级），与 Chat Completions 的嵌套 function 结构不同。
 	 */
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	public record InputItem(String role, List<ContentPart> content) {
+	public record FunctionTool(String type, String name, String description, Map<String, Object> parameters) {
 
 		/**
-		 * 构造 user 消息
+		 * 构造 function 类型工具声明
+		 */
+		public static FunctionTool function(String name, String description, Map<String, Object> parameters) {
+			return new FunctionTool("function", name, description, parameters);
+		}
+	}
+
+	/**
+	 * 输入项：对应 Responses API 的 input 数组元素。 一个 record 承载三种形态（按 type 区分）： 普通消息（type 为空，含
+	 * role+content）、function_call（助手历史中的工具调用）、 function_call_output（工具执行结果，模型靠 callId
+	 * 与调用配对）。
+	 */
+	@JsonInclude(JsonInclude.Include.NON_NULL)
+	public record InputItem(String type, String role, List<ContentPart> content, @JsonProperty("call_id") String callId,
+			String name, String arguments, String output) {
+
+		/**
+		 * 构造 user 消息（content 类型为 input_text）
 		 */
 		public static InputItem userMessage(String text) {
-			return new InputItem("user", List.of(new ContentPart("input_text", text)));
+			return new InputItem(null, "user", List.of(new ContentPart("input_text", text)), null, null, null, null);
+		}
+
+		/**
+		 * 构造 assistant 历史消息（content 类型为 output_text，与 user 消息不同）
+		 */
+		public static InputItem assistantMessage(String text) {
+			return new InputItem(null, "assistant", List.of(new ContentPart("output_text", text)), null, null, null,
+					null);
+		}
+
+		/**
+		 * 构造助手历史中的工具调用项，多轮 agent 循环回放历史时必须携带， 否则模型无法将 function_call_output 与调用配对
+		 */
+		public static InputItem functionCall(String callId, String name, String arguments) {
+			return new InputItem("function_call", null, null, callId, name, arguments, null);
+		}
+
+		/**
+		 * 构造工具执行结果项
+		 */
+		public static InputItem functionCallOutput(String callId, String output) {
+			return new InputItem("function_call_output", null, null, callId, null, null, output);
 		}
 	}
 
@@ -233,11 +299,12 @@ public class ResponsesApi {
 	}
 
 	/**
-	 * 输出项：对应 output 数组元素。 type 为 "message" 时包含 content 数组；DataAgent 只关注 output_text
-	 * 类型的文本内容。
+	 * 输出项：对应 output 数组元素。 type 为 "message" 时包含 content 数组（文本回复）； type 为 "function_call"
+	 * 时包含 callId/name/arguments（模型发起的工具调用）。
 	 */
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	public record OutputItem(String type, String role, List<ContentPart> content) {
+	public record OutputItem(String type, String role, List<ContentPart> content,
+			@JsonProperty("call_id") String callId, String name, String arguments) {
 	}
 
 	/**

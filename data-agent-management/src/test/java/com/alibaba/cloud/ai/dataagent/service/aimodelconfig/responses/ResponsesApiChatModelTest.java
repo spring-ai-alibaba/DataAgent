@@ -25,12 +25,17 @@ import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.responses.ResponsesA
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.definition.ToolDefinition;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -66,8 +71,18 @@ class ResponsesApiChatModelTest {
 	 * 构造一个携带文本输出和 usage 的完整响应
 	 */
 	private ResponsesResponse completedResponse(String text) {
-		OutputItem item = new OutputItem("message", "assistant", List.of(new ContentPart("output_text", text)));
+		OutputItem item = new OutputItem("message", "assistant", List.of(new ContentPart("output_text", text)), null,
+				null, null);
 		return new ResponsesResponse("resp_1", "gpt-test", "completed", List.of(item), new ResponsesUsage(10, 5, 15),
+				null, null);
+	}
+
+	/**
+	 * 构造一个携带 function_call 工具调用的完整响应
+	 */
+	private ResponsesResponse functionCallResponse() {
+		OutputItem call = new OutputItem("function_call", null, null, "call_1", "search", "{\"q\":\"北京天气\"}");
+		return new ResponsesResponse("resp_fc", "gpt-test", "completed", List.of(call), new ResponsesUsage(20, 8, 28),
 				null, null);
 	}
 
@@ -116,6 +131,20 @@ class ResponsesApiChatModelTest {
 		assertEquals(123, request.maxOutputTokens());
 	}
 
+	@Test
+	void call_multipleSystemMessages_concatenatedIntoInstructions() {
+		when(responsesApi.call(any())).thenReturn(completedResponse("ok"));
+
+		// 多条系统消息必须按顺序拼接为单个 instructions，直接覆盖会静默丢失前文
+		Prompt prompt = new Prompt(
+				List.of(new SystemMessage("first rule"), new SystemMessage("second rule"), new UserMessage("hi")));
+		chatModel.call(prompt);
+
+		ArgumentCaptor<ResponsesRequest> captor = ArgumentCaptor.forClass(ResponsesRequest.class);
+		verify(responsesApi).call(captor.capture());
+		assertEquals("first rule\n\nsecond rule", captor.getValue().instructions());
+	}
+
 	// ======================== 非流式响应转换 ========================
 
 	@Test
@@ -132,7 +161,8 @@ class ResponsesApiChatModelTest {
 
 	@Test
 	void call_incompleteWithMaxTokens_mapsToLengthFinishReason() {
-		OutputItem item = new OutputItem("message", "assistant", List.of(new ContentPart("output_text", "partial")));
+		OutputItem item = new OutputItem("message", "assistant", List.of(new ContentPart("output_text", "partial")),
+				null, null, null);
 		ResponsesResponse incomplete = new ResponsesResponse("resp_2", "gpt-test", "incomplete", List.of(item), null,
 				new IncompleteDetails("max_output_tokens"), null);
 		when(responsesApi.call(any())).thenReturn(incomplete);
@@ -199,6 +229,35 @@ class ResponsesApiChatModelTest {
 	}
 
 	@Test
+	void stream_noDeltaReceived_terminalCarriesFullText() {
+		// 个别兼容实现不推送 output_text.delta，文本只出现在 completed 事件的完整 output 中，
+		// 此时终包必须降级携带全文，否则文本整体丢失
+		when(responsesApi.stream(any())).thenReturn(
+				Flux.just(new StreamEvent(StreamEvent.Type.COMPLETED, null, completedResponse("full text only"), null)));
+
+		List<ChatResponse> chunks = chatModel.stream(new Prompt(List.of(new UserMessage("hi")))).collectList().block();
+
+		assertNotNull(chunks);
+		assertEquals(1, chunks.size());
+		assertEquals("full text only", chunks.get(0).getResult().getOutput().getText());
+		assertEquals("STOP", chunks.get(0).getResult().getMetadata().getFinishReason());
+	}
+
+	@Test
+	void stream_withDelta_terminalStaysEmptyEvenIfOutputHasText() {
+		// 已收到 delta 时终包必须保持空文本（防聚合重复），不能因 output 中有全文而降级
+		when(responsesApi.stream(any()))
+			.thenReturn(Flux.just(new StreamEvent(StreamEvent.Type.DELTA, "Hello world", null, null),
+					new StreamEvent(StreamEvent.Type.COMPLETED, null, completedResponse("Hello world"), null)));
+
+		List<ChatResponse> chunks = chatModel.stream(new Prompt(List.of(new UserMessage("hi")))).collectList().block();
+
+		assertNotNull(chunks);
+		assertEquals(2, chunks.size());
+		assertEquals("", chunks.get(1).getResult().getOutput().getText());
+	}
+
+	@Test
 	void stream_errorEvent_propagatesAsFluxError() {
 		when(responsesApi.stream(any()))
 			.thenReturn(Flux.just(new StreamEvent(StreamEvent.Type.ERROR, null, null, "boom")));
@@ -218,6 +277,158 @@ class ResponsesApiChatModelTest {
 		ArgumentCaptor<ResponsesRequest> captor = ArgumentCaptor.forClass(ResponsesRequest.class);
 		verify(responsesApi).stream(captor.capture());
 		assertTrue(captor.getValue().stream());
+	}
+
+	// ======================== Tool Calling ========================
+
+	/**
+	 * 构造一个用于测试的 ToolCallback（仅提供工具定义，不真正执行）
+	 */
+	private ToolCallback testToolCallback() {
+		return new ToolCallback() {
+			@Override
+			public ToolDefinition getToolDefinition() {
+				return ToolDefinition.builder()
+					.name("search")
+					.description("搜索工具")
+					.inputSchema("{\"type\":\"object\",\"properties\":{\"q\":{\"type\":\"string\"}}}")
+					.build();
+			}
+
+			@Override
+			public String call(String toolInput) {
+				return "";
+			}
+		};
+	}
+
+	@Test
+	void call_mapsToolCallbacksToFunctionTools() {
+		when(responsesApi.call(any())).thenReturn(completedResponse("ok"));
+
+		// AgentScope 链路通过 ToolCallingChatOptions 传入工具声明
+		ToolCallingChatOptions options = ToolCallingChatOptions.builder()
+			.toolCallbacks(testToolCallback())
+			.internalToolExecutionEnabled(false)
+			.build();
+		chatModel.call(new Prompt(List.of(new UserMessage("北京天气如何")), options));
+
+		ArgumentCaptor<ResponsesRequest> captor = ArgumentCaptor.forClass(ResponsesRequest.class);
+		verify(responsesApi).call(captor.capture());
+		ResponsesRequest request = captor.getValue();
+
+		assertNotNull(request.tools());
+		assertEquals(1, request.tools().size());
+		assertEquals("function", request.tools().get(0).type());
+		assertEquals("search", request.tools().get(0).name());
+		assertEquals("搜索工具", request.tools().get(0).description());
+		// inputSchema JSON 字符串应被解析为对象
+		assertEquals("object", request.tools().get(0).parameters().get("type"));
+	}
+
+	@Test
+	void call_withoutToolOptions_toolsFieldIsNull() {
+		when(responsesApi.call(any())).thenReturn(completedResponse("ok"));
+
+		chatModel.call(new Prompt(List.of(new UserMessage("hi"))));
+
+		ArgumentCaptor<ResponsesRequest> captor = ArgumentCaptor.forClass(ResponsesRequest.class);
+		verify(responsesApi).call(captor.capture());
+		// 非工具场景不应出现 tools 字段
+		assertNull(captor.getValue().tools());
+	}
+
+	@Test
+	void call_mapsToolHistoryToFunctionCallItems() {
+		when(responsesApi.call(any())).thenReturn(completedResponse("ok"));
+
+		// 模拟多轮 agent 循环的历史：助手发起工具调用 → 工具返回结果
+		AssistantMessage assistantWithToolCall = AssistantMessage.builder()
+			.content("")
+			.toolCalls(List.of(new AssistantMessage.ToolCall("call_1", "function", "search", "{\"q\":\"北京天气\"}")))
+			.build();
+		ToolResponseMessage toolResult = ToolResponseMessage.builder()
+			.responses(List.of(new ToolResponseMessage.ToolResponse("call_1", "search", "{\"weather\":\"晴\"}")))
+			.build();
+
+		chatModel.call(new Prompt(
+				List.of(new UserMessage("北京天气如何"), assistantWithToolCall, toolResult, new UserMessage("继续"))));
+
+		ArgumentCaptor<ResponsesRequest> captor = ArgumentCaptor.forClass(ResponsesRequest.class);
+		verify(responsesApi).call(captor.capture());
+		List<ResponsesApi.InputItem> input = captor.getValue().input();
+
+		// 顺序：user → function_call → function_call_output → user
+		assertEquals(4, input.size());
+		assertEquals("user", input.get(0).role());
+		assertEquals("function_call", input.get(1).type());
+		assertEquals("call_1", input.get(1).callId());
+		assertEquals("search", input.get(1).name());
+		assertEquals("{\"q\":\"北京天气\"}", input.get(1).arguments());
+		assertEquals("function_call_output", input.get(2).type());
+		assertEquals("call_1", input.get(2).callId());
+		assertEquals("{\"weather\":\"晴\"}", input.get(2).output());
+		assertEquals("user", input.get(3).role());
+	}
+
+	@Test
+	void call_toolResponseWithNullData_mapsToEmptyOutput() {
+		when(responsesApi.call(any())).thenReturn(completedResponse("ok"));
+
+		// 工具结果为 null 时 output 字段必须兜底空串，整体省略可能被服务端拒绝
+		AssistantMessage assistantWithToolCall = AssistantMessage.builder()
+			.content("")
+			.toolCalls(List.of(new AssistantMessage.ToolCall("call_1", "function", "search", "{}")))
+			.build();
+		ToolResponseMessage toolResult = ToolResponseMessage.builder()
+			.responses(List.of(new ToolResponseMessage.ToolResponse("call_1", "search", null)))
+			.build();
+
+		chatModel.call(new Prompt(List.of(new UserMessage("hi"), assistantWithToolCall, toolResult)));
+
+		ArgumentCaptor<ResponsesRequest> captor = ArgumentCaptor.forClass(ResponsesRequest.class);
+		verify(responsesApi).call(captor.capture());
+		List<ResponsesApi.InputItem> input = captor.getValue().input();
+		assertEquals("function_call_output", input.get(2).type());
+		assertEquals("", input.get(2).output());
+	}
+
+	@Test
+	void call_extractsToolCallsFromResponse() {
+		when(responsesApi.call(any())).thenReturn(functionCallResponse());
+
+		ChatResponse response = chatModel.call(new Prompt(List.of(new UserMessage("北京天气如何"))));
+
+		AssistantMessage output = response.getResult().getOutput();
+		assertTrue(output.hasToolCalls());
+		assertEquals(1, output.getToolCalls().size());
+		assertEquals("call_1", output.getToolCalls().get(0).id());
+		assertEquals("search", output.getToolCalls().get(0).name());
+		assertEquals("{\"q\":\"北京天气\"}", output.getToolCalls().get(0).arguments());
+		// 存在工具调用时 finishReason 为 TOOL_CALLS，与 OpenAiChatModel 对齐
+		assertEquals("TOOL_CALLS", response.getResult().getMetadata().getFinishReason());
+	}
+
+	@Test
+	void stream_terminalChunkCarriesToolCalls() {
+		// 流式场景下 function_call 只在 completed 事件的完整 output 中出现，
+		// 终包必须携带 toolCalls（文本仍为空串），否则 AgentScope 桥接层无法驱动工具执行
+		when(responsesApi.stream(any()))
+			.thenReturn(Flux.just(new StreamEvent(StreamEvent.Type.COMPLETED, null, functionCallResponse(), null)));
+
+		List<ChatResponse> chunks = chatModel.stream(new Prompt(List.of(new UserMessage("北京天气如何"))))
+			.collectList()
+			.block();
+
+		assertNotNull(chunks);
+		assertEquals(1, chunks.size());
+		AssistantMessage output = chunks.get(0).getResult().getOutput();
+		assertEquals("", output.getText());
+		assertTrue(output.hasToolCalls());
+		assertEquals("call_1", output.getToolCalls().get(0).id());
+		assertEquals("TOOL_CALLS", chunks.get(0).getResult().getMetadata().getFinishReason());
+		// usage 仍随终包携带
+		assertEquals(20, chunks.get(0).getMetadata().getUsage().getPromptTokens());
 	}
 
 }
