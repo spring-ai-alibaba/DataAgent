@@ -34,6 +34,7 @@ export interface ModelConfig {
   proxyPort?: number;
   proxyUsername?: string;
   proxyPassword?: string;
+  chatApiProtocol?: string; // Chat模型接口协议: CHAT_COMPLETIONS（默认）或 RESPONSES
 }
 
 export interface ModelCheckReady {
