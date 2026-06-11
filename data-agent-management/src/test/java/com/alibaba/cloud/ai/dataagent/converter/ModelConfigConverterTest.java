@@ -131,4 +131,36 @@ class ModelConfigConverterTest {
 		assertEquals(ModelType.EMBEDDING, entity.getModelType());
 	}
 
+	// ======================== chatApiProtocol 默认值兜底 ========================
+
+	private ModelConfigDTO buildChatDto(String chatApiProtocol) {
+		return ModelConfigDTO.builder()
+			.provider("openai")
+			.baseUrl("https://api.example.com")
+			.apiKey("sk-test")
+			.modelName("test-model")
+			.modelType("CHAT")
+			.chatApiProtocol(chatApiProtocol)
+			.build();
+	}
+
+	@Test
+	void toEntity_backfillsDefaultProtocolWhenNull() {
+		// chatApiProtocol 为空时必须回填默认协议：INSERT 显式写入 NULL 会绕过数据库列默认值
+		ModelConfig entity = ModelConfigConverter.toEntity(buildChatDto(null));
+		assertEquals("CHAT_COMPLETIONS", entity.getChatApiProtocol());
+	}
+
+	@Test
+	void toEntity_backfillsDefaultProtocolWhenBlank() {
+		ModelConfig entity = ModelConfigConverter.toEntity(buildChatDto("  "));
+		assertEquals("CHAT_COMPLETIONS", entity.getChatApiProtocol());
+	}
+
+	@Test
+	void toEntity_keepsExplicitProtocol() {
+		ModelConfig entity = ModelConfigConverter.toEntity(buildChatDto("RESPONSES"));
+		assertEquals("RESPONSES", entity.getChatApiProtocol());
+	}
+
 }

@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
+import com.alibaba.cloud.ai.dataagent.enums.ChatApiProtocol;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.converter.ModelConfigConverter;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
@@ -24,6 +25,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -81,6 +83,12 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		if (dto.getEmbeddingsPath() != null) {
 			dto.setEmbeddingsPath(dto.getEmbeddingsPath().trim());
 		}
+		// 校验并归一化接口协议：前端下拉框虽限制了取值，但 API 直调可能传任意字符串，
+		// 非法值若不在保存入口拦截，会在 DynamicModelFactory 静默落入默认协议分支导致配置悄悄失效。
+		// fromCode 忽略大小写，归一为枚举标准值后存库，保证库内口径统一
+		if (StringUtils.hasText(dto.getChatApiProtocol())) {
+			dto.setChatApiProtocol(ChatApiProtocol.fromCode(dto.getChatApiProtocol().trim()).getCode());
+		}
 	}
 
 	/**
@@ -124,6 +132,7 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		oldEntity.setProxyPort(dto.getProxyPort());
 		oldEntity.setProxyUsername(dto.getProxyUsername());
 		oldEntity.setProxyPassword(dto.getProxyPassword());
+		oldEntity.setChatApiProtocol(dto.getChatApiProtocol());
 
 		// 只有当前端传来的 Key 不包含 "****" 时，才说明用户真的改了 Key，否则保持原样
 		if (dto.getApiKey() != null && !dto.getApiKey().contains("****")) {

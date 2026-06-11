@@ -265,5 +265,6 @@ CREATE TABLE IF NOT EXISTS `model_config` (
   `proxy_port` int(11) DEFAULT NULL COMMENT '代理端口',
   `proxy_username` varchar(255) DEFAULT NULL COMMENT '代理用户名（可选）',
   `proxy_password` varchar(255) DEFAULT NULL COMMENT '代理密码（可选）',
+  `chat_api_protocol` varchar(32) DEFAULT 'CHAT_COMPLETIONS' COMMENT 'Chat模型接口协议：CHAT_COMPLETIONS（默认Chat Completions格式）、RESPONSES（OpenAI Responses API格式）。仅model_type=CHAT时生效',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB;
