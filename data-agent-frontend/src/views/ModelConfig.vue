@@ -230,12 +230,30 @@
 
           <el-form-item
             v-if="formData.modelType === 'CHAT'"
-            label="Completions路径"
+            label="接口协议"
+            prop="chatApiProtocol"
+          >
+            <el-select v-model="formData.chatApiProtocol" style="width: 100%">
+              <el-option label="Chat Completions（默认）" value="CHAT_COMPLETIONS" />
+              <el-option label="Responses API" value="RESPONSES" />
+            </el-select>
+            <div class="form-tip">
+              部分模型服务商仅支持 Responses API 格式，此时请选择 Responses API
+            </div>
+          </el-form-item>
+
+          <el-form-item
+            v-if="formData.modelType === 'CHAT'"
+            :label="formData.chatApiProtocol === 'RESPONSES' ? 'Responses路径' : 'Completions路径'"
             prop="completionsPath"
           >
             <el-input
               v-model="formData.completionsPath"
-              placeholder="附加到base-url的路径。留空则使用默认值/v1/chat/completions"
+              :placeholder="
+                formData.chatApiProtocol === 'RESPONSES'
+                  ? '附加到base-url的路径。留空则使用默认值/v1/responses'
+                  : '附加到base-url的路径。留空则使用默认值/v1/chat/completions'
+              "
             />
           </el-form-item>
 
@@ -374,6 +392,7 @@
         proxyPort: 7890, // 给个常用的默认端口
         proxyUsername: '',
         proxyPassword: '',
+        chatApiProtocol: 'CHAT_COMPLETIONS',
       });
 
       // 提供商与API地址的映射
@@ -493,13 +512,18 @@
           completionsPath: '',
           embeddingsPath: '',
           isActive: false,
+          chatApiProtocol: 'CHAT_COMPLETIONS',
         };
         dialogVisible.value = true;
       };
 
       const handleEdit = (config: ModelConfig) => {
         isEditMode.value = true;
-        formData.value = { ...config };
+        // 历史数据的 chatApiProtocol 可能为空（该字段为后续版本新增），回填默认协议避免下拉框空白
+        formData.value = {
+          ...config,
+          chatApiProtocol: config.chatApiProtocol || 'CHAT_COMPLETIONS',
+        };
         dialogVisible.value = true;
       };
 

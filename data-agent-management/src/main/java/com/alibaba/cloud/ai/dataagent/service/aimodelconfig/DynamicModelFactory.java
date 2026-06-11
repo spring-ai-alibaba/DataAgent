@@ -16,6 +16,9 @@
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
+import com.alibaba.cloud.ai.dataagent.enums.ChatApiProtocol;
+import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.responses.ResponsesApi;
+import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.responses.ResponsesApiChatModel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.auth.AuthScope;
@@ -49,15 +52,51 @@ import reactor.netty.transport.ProxyProvider;
 public class DynamicModelFactory {
 
 	/**
-	 * 统一使用 OpenAiChatModel，通过 baseUrl 实现多厂商兼容
+	 * 根据配置的接口协议创建 ChatModel。 RESPONSES 协议走自研 ResponsesApiChatModel； CHAT_COMPLETIONS（默认）走
+	 * OpenAiChatModel。 两者均实现 ChatModel 接口，对上层完全透明。
 	 */
 	public ChatModel createChatModel(ModelConfigDTO config) {
 
-		log.info("Creating NEW ChatModel instance. Provider: {}, Model: {}, BaseUrl: {}", config.getProvider(),
-				config.getModelName(), config.getBaseUrl());
+		log.info("Creating NEW ChatModel instance. Provider: {}, Model: {}, BaseUrl: {}, Protocol: {}",
+				config.getProvider(), config.getModelName(), config.getBaseUrl(), config.getChatApiProtocol());
 		// 1. 验证参数
 		checkBasic(config);
 
+		// 按接口协议分支：RESPONSES 走自研适配层，其余保持现状走 OpenAiChatModel
+		if (ChatApiProtocol.RESPONSES.name().equalsIgnoreCase(config.getChatApiProtocol())) {
+			return createResponsesApiChatModel(config);
+		}
+
+		// 默认：Chat Completions 协议（现有逻辑，零变更）
+		return createCompletionsChatModel(config);
+	}
+
+	/**
+	 * 创建基于 Responses API 的 ChatModel。 复用现有的 proxy RestClient/WebClient 构建体系，代理能力天然继承。
+	 * completionsPath 在 RESPONSES 协议下复用为自定义 responses 路径（默认 /v1/responses）。
+	 */
+	private ChatModel createResponsesApiChatModel(ModelConfigDTO config) {
+		String apiKey = StringUtils.hasText(config.getApiKey()) ? config.getApiKey() : "";
+		// completionsPath 复用为 Responses API 路径，默认 /v1/responses
+		String responsesPath = StringUtils.hasText(config.getCompletionsPath()) ? config.getCompletionsPath()
+				: "/v1/responses";
+
+		ResponsesApi responsesApi = new ResponsesApi(config.getBaseUrl(), apiKey, responsesPath,
+				getProxiedRestClientBuilder(config), getProxiedWebClientBuilder(config));
+
+		OpenAiChatOptions chatOptions = OpenAiChatOptions.builder()
+			.model(config.getModelName())
+			.temperature(config.getTemperature())
+			.maxTokens(config.getMaxTokens())
+			.build();
+
+		return new ResponsesApiChatModel(responsesApi, chatOptions);
+	}
+
+	/**
+	 * 创建基于 Chat Completions 协议的 ChatModel（原有逻辑）
+	 */
+	private ChatModel createCompletionsChatModel(ModelConfigDTO config) {
 		// 2. 构建 OpenAiApi (核心通讯对象)
 		String apiKey = StringUtils.hasText(config.getApiKey()) ? config.getApiKey() : "";
 		OpenAiApi.Builder apiBuilder = OpenAiApi.builder()

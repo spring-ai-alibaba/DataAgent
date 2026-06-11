@@ -69,4 +69,7 @@ public class ModelConfigDTO {
 
 	private String proxyPassword;
 
+	// Chat 模型接口协议：CHAT_COMPLETIONS（默认）或 RESPONSES，仅 modelType=CHAT 时生效
+	private String chatApiProtocol;
+
 }
