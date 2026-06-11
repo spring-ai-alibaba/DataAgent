@@ -124,6 +124,7 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		oldEntity.setProxyPort(dto.getProxyPort());
 		oldEntity.setProxyUsername(dto.getProxyUsername());
 		oldEntity.setProxyPassword(dto.getProxyPassword());
+		oldEntity.setChatApiProtocol(dto.getChatApiProtocol());
 
 		// 只有当前端传来的 Key 不包含 "****" 时，才说明用户真的改了 Key，否则保持原样
 		if (dto.getApiKey() != null && !dto.getApiKey().contains("****")) {

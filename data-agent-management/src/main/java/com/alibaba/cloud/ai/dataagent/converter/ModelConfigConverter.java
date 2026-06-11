@@ -48,6 +48,7 @@ public class ModelConfigConverter {
 			.proxyPort(entity.getProxyPort())
 			.proxyUsername(entity.getProxyUsername())
 			.proxyPassword(entity.getProxyPassword())
+			.chatApiProtocol(entity.getChatApiProtocol())
 			.build();
 	}
 
@@ -74,6 +75,7 @@ public class ModelConfigConverter {
 		entity.setProxyPort(dto.getProxyPort());
 		entity.setProxyUsername(dto.getProxyUsername());
 		entity.setProxyPassword(dto.getProxyPassword());
+		entity.setChatApiProtocol(dto.getChatApiProtocol());
 		// 默认值处理
 		entity.setIsActive(false);
 		entity.setIsDeleted(0);
