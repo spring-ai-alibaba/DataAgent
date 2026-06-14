@@ -87,7 +87,7 @@ public class GraphServiceImpl implements GraphService {
 			threadId = graphRequest.getSessionId();
 			graphRequest.setThreadId(threadId);
 		}
-		log.info("[多轮调试] graphStreamProcess 入口, threadId={}, sessionId={}, query={}", threadId,
+		log.info("[多轮调试-修复后] graphStreamProcess 入口, threadId={}, sessionId={}, query={}", threadId,
 				graphRequest.getSessionId(), graphRequest.getQuery());
 		// 创建或获取 StreamContext
 		StreamContext context = streamContextMap.computeIfAbsent(threadId, k -> new StreamContext());
