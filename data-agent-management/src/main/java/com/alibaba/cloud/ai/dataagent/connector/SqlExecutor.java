@@ -32,7 +32,7 @@ import java.util.List;
  */
 public class SqlExecutor {
 
-	public static final Integer RESULT_SET_LIMIT = 1000;
+	public static final Integer RESULT_SET_LIMIT = 1000 * 10;
 
 	public static final Integer STATEMENT_TIMEOUT = 30;
 
