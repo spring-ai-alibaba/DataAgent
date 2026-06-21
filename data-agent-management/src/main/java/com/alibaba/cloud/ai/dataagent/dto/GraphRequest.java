@@ -40,4 +40,6 @@ public class GraphRequest {
 
 	private boolean nl2sqlOnly;
 
+	private String sessionId;
+
 }

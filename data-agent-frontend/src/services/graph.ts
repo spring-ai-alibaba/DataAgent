@@ -17,6 +17,7 @@
 export interface GraphRequest {
   agentId: string;
   threadId?: string;
+  sessionId?: string;
   query: string;
   humanFeedback: boolean;
   humanFeedbackContent?: string;
@@ -72,6 +73,9 @@ class GraphService {
     params.append('rejectedPlan', request.rejectedPlan.toString());
     params.append('nl2sqlOnly', request.nl2sqlOnly.toString());
 
+    if (request.sessionId) {
+      params.append('sessionId', request.sessionId);
+    }
     if (request.humanFeedbackContent) {
       params.append('humanFeedbackContent', request.humanFeedbackContent);
     }
