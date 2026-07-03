@@ -112,8 +112,9 @@ public class PostgreJdbcDdl extends AbstractJdbcDdl {
 
 		List<TableInfoBO> tableInfoList = Lists.newArrayList();
 		try {
+			String actualSchema = StringUtils.isNotBlank(schema) ? schema : "public";
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection,
-					String.format(sql, schema, tablePattern));
+					String.format(sql,actualSchema, tablePattern));
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
 			}
@@ -216,13 +217,14 @@ public class PostgreJdbcDdl extends AbstractJdbcDdl {
 				+ "    ON tc.constraint_name = kcu.constraint_name\n" + "    AND tc.table_schema = kcu.table_schema\n"
 				+ "JOIN\n" + "    information_schema.constraint_column_usage AS ccu\n"
 				+ "    ON ccu.constraint_name = tc.constraint_name\n" + "    AND ccu.table_schema = tc.table_schema\n"
-				+ "WHERE\n" + "    tc.constraint_type = 'FOREIGN KEY'\n" + "    AND tc.table_schema='public'\n"
+				+ "WHERE\n" + "    tc.constraint_type = 'FOREIGN KEY'\n" + "    AND tc.table_schema='%s'\n"
 				+ "    AND tc.table_name in (%s)";
 		List<ForeignKeyInfoBO> foreignKeyInfoList = Lists.newArrayList();
 		String tableListStr = String.join(", ", tables.stream().map(x -> "'" + x + "'").collect(Collectors.toList()));
 
 		try {
-			sql = String.format(sql, tableListStr);
+			String actualSchema = StringUtils.isNotBlank(schema) ? schema : "public";
+			sql = String.format(sql,actualSchema, tableListStr);
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, null, sql);
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
@@ -249,10 +251,11 @@ public class PostgreJdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public List<String> sampleColumn(Connection connection, String schema, String table, String column) {
-		String sql = "SELECT \n" + "    \"%s\"\n" + "FROM \n" + "    \"%s\"\n" + "LIMIT 99;";
+		String actualSchema = StringUtils.isNotBlank(schema) ? schema : "public";
+		String qualifiedTable = String.format("\"%s\".\"%s\"", actualSchema, table);
+		String sql = String.format("SELECT \"%s\" FROM %s LIMIT 99", column, qualifiedTable);
 		List<String> sampleInfo = Lists.newArrayList();
 		try {
-			sql = String.format(sql, column, table);
 			String[][] resultArr = SqlExecutor.executeSqlAndReturnArr(connection, schema, sql);
 			if (resultArr.length <= 1) {
 				return Lists.newArrayList();
@@ -278,10 +281,12 @@ public class PostgreJdbcDdl extends AbstractJdbcDdl {
 
 	@Override
 	public ResultSetBO scanTable(Connection connection, String schema, String table) {
-		String sql = "SELECT *\n" + "FROM \n" + "    %s\n" + "LIMIT 20;";
+		String actualSchema = StringUtils.isNotBlank(schema) ? schema : "public";
+		String qualifiedTable = String.format("\"%s\".\"%s\"", actualSchema, table);
+		String sql = String.format("SELECT * FROM %s LIMIT 20", qualifiedTable);
 		ResultSetBO resultSet = ResultSetBO.builder().build();
 		try {
-			resultSet = SqlExecutor.executeSqlAndReturnObject(connection, schema, String.format(sql, table));
+			resultSet = SqlExecutor.executeSqlAndReturnObject(connection, schema, sql);
 		}
 		catch (SQLException e) {
 			throw new RuntimeException(e);

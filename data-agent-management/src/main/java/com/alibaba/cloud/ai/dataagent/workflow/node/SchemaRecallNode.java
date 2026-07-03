@@ -67,10 +67,10 @@ public class SchemaRecallNode implements NodeAction {
 		String input = queryEnhanceOutputDTO.getCanonicalQuery();
 		String agentId = StateUtil.getStringValue(state, AGENT_ID);
 
-		// 查询 Agent 的激活数据源
-		Integer datasourceId = agentDatasourceMapper.selectActiveDatasourceIdByAgentId(Long.valueOf(agentId));
+		// 查询 Agent 的所有激活数据源
+		List<Integer> datasourceIds = agentDatasourceMapper.selectActiveDatasourceIdsByAgentId(Long.valueOf(agentId));
 
-		if (datasourceId == null) {
+		if (datasourceIds == null || datasourceIds.isEmpty()) {
 			log.warn("Agent {} has no active datasource", agentId);
 			// 返回空结果
 			String noDataSourceMessage = """
@@ -98,11 +98,22 @@ public class SchemaRecallNode implements NodeAction {
 		}
 
 		// Execute business logic first - recall schema information immediately
-		List<Document> tableDocuments = new ArrayList<>(
-				schemaService.getTableDocumentsByDatasource(datasourceId, input));
-		// extract table names
-		List<String> recalledTableNames = extractTableName(tableDocuments);
-		List<Document> columnDocuments = schemaService.getColumnDocumentsByTableName(datasourceId, recalledTableNames);
+		List<Document> tableDocuments = new ArrayList<>();
+		List<String> recalledTableNames = new ArrayList<>();
+		List<Document> columnDocuments = new ArrayList<>();
+
+		for (Integer datasourceId : datasourceIds) {
+			List<Document> currentTableDocs = schemaService.getTableDocumentsByDatasource(datasourceId, input);
+			tableDocuments.addAll(currentTableDocs);
+
+			List<String> currentTableNames = extractTableName(currentTableDocs);
+			recalledTableNames.addAll(currentTableNames);
+
+			if (!currentTableNames.isEmpty()) {
+				List<Document> currentColumnDocs = schemaService.getColumnDocumentsByTableName(datasourceId, currentTableNames);
+				columnDocuments.addAll(currentColumnDocs);
+			}
+		}
 
 		String failMessage = """
 				\n 未检索到相关数据表

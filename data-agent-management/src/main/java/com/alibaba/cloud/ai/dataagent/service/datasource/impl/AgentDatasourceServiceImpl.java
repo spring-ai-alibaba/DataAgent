@@ -19,6 +19,8 @@ import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
+import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
+import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceTablesMapper;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
@@ -141,11 +143,27 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 
 	@Override
 	public AgentDatasource toggleDatasourceForAgent(Long agentId, Integer datasourceId, Boolean isActive) {
-		// If enabling data source, first check if there are other enabled data sources
+		// 如果要激活数据源，需要检查该数据源是否与当前激活的数据源属于同一物理实例，防止多数据源情况下跨实例调用报错
 		if (isActive) {
-			int activeCount = agentDatasourceMapper.countActiveByAgentIdExcluding(agentId, datasourceId);
-			if (activeCount > 0) {
-				throw new RuntimeException("同一智能体下只能启用一个数据源，请先禁用其他数据源后再启用此数据源");
+			Datasource targetDs = datasourceService.getDatasourceById(datasourceId);
+			if (targetDs != null) {
+				String targetHost = (targetDs.getHost() != null ? targetDs.getHost() : "");
+				Integer targetPort = targetDs.getPort();
+				String targetType = (targetDs.getType() != null ? targetDs.getType() : "");
+
+				List<AgentDatasource> existings = getAgentDatasource(agentId);
+				for (AgentDatasource existing : existings) {
+					if (existing.getIsActive() != 0 && !existing.getDatasourceId().equals(datasourceId) && existing.getDatasource() != null) {
+						Datasource activeDs = existing.getDatasource();
+						String activeHost = (activeDs.getHost() != null ? activeDs.getHost() : "");
+						Integer activePort = activeDs.getPort();
+						String activeType = (activeDs.getType() != null ? activeDs.getType() : "");
+
+						if (!targetHost.equals(activeHost) || !java.util.Objects.equals(targetPort, activePort) || !targetType.equals(activeType)) {
+							throw new InvalidInputException("同一智能体下仅允许激活属于同一数据库实例(主机、端口、引擎一致)的数据源。当前已激活异构源：" + activeHost + ":" + activePort);
+						}
+					}
+				}
 			}
 		}
 

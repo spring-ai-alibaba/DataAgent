@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.schema;
 
+import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
@@ -42,6 +43,7 @@ import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
@@ -83,7 +85,7 @@ public class SchemaServiceImpl implements SchemaService {
 
 	@Override
 	public void buildSchemaFromDocuments(String agentId, List<Document> currentColumnDocuments,
-			List<Document> tableDocuments, SchemaDTO schemaDTO) {
+			List<Document> tableDocuments, SchemaDTO schemaDTO, List<String> extraForeignKeys) {
 
 		// 创建可变列表副本，避免不可变集合异常
 		List<Document> mutableColumnDocuments = new ArrayList<>(currentColumnDocuments);
@@ -102,6 +104,21 @@ public class SchemaServiceImpl implements SchemaService {
 		// 将包含"订单表.订单ID"和"订单详情表.订单ID"
 		Set<String> relatedNamesFromForeignKeys = extractRelatedNamesFromForeignKeys(mutableTableDocuments);
 
+		// 将额外的外键信息（例如逻辑虚拟外键）一并纳入提取
+		if (extraForeignKeys != null) {
+			for (String fk : extraForeignKeys) {
+				if (StringUtils.isNotBlank(fk)) {
+					Arrays.stream(fk.split("、")).forEach(pair -> {
+						String[] parts = pair.split("=");
+						if (parts.length == 2) {
+							relatedNamesFromForeignKeys.add(parts[0].trim());
+							relatedNamesFromForeignKeys.add(parts[1].trim());
+						}
+					});
+				}
+			}
+		}
+
 		// 通过外键加载缺失的表和列
 		List<String> missingTables = getMissingTableNamesWithForeignKeySet(mutableTableDocuments,
 				relatedNamesFromForeignKeys);
@@ -119,7 +136,10 @@ public class SchemaServiceImpl implements SchemaService {
 		schemaDTO.setTable(tableList);
 
 		Set<String> foreignKeys = tableDocuments.stream()
-			.map(doc -> (String) doc.getMetadata().getOrDefault("foreignKey", ""))
+			.map(doc -> {
+				Object fk = doc.getMetadata().getOrDefault("foreignKey", "");
+				return fk != null ? fk.toString() : "";
+			})
 			.flatMap(fk -> Arrays.stream(fk.split("、")))
 			.filter(StringUtils::isNotBlank)
 			.collect(Collectors.toSet());
@@ -130,48 +150,82 @@ public class SchemaServiceImpl implements SchemaService {
 	public Boolean schema(Integer datasourceId, SchemaInitRequest schemaInitRequest) throws Exception {
 		log.info("Starting schema initialization for datasource: {}", datasourceId);
 		DbConfigBO config = schemaInitRequest.getDbConfig();
-		DbQueryParameter dqp = DbQueryParameter.from(config)
-			.setSchema(config.getSchema())
-			.setTables(schemaInitRequest.getTables());
+		// 将前端传入的表按 schema 归类
+		Map<String, List<String>> schemaToTables = new HashMap<>();
+		// 解析 "schema.table" 格式，按 schema 分组
+		for (String rawTable : schemaInitRequest.getTables()) {
+			String schemaName = config.getSchema();
+			String tableName = rawTable;
+			if (rawTable.contains(".")) {
+				String[] split = rawTable.split("\\.", 2);
+				schemaName = split[0];
+				tableName = split[1];
+			}
+			schemaToTables.computeIfAbsent(schemaName, k -> new ArrayList<>()).add(tableName);
+		}
 
 		try {
 			// 根据当前DbConfig获取Accessor
 			Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(config);
-
 			// 清理旧数据
 			log.info("Clearing existing schema data for datasource: {}", datasourceId);
 			clearSchemaDataForDatasource(datasourceId);
 			log.debug("Successfully cleared existing schema data for datasource: {}", datasourceId);
+			List<TableInfoBO> allTables = new ArrayList<>();
+			for (Map.Entry<String, List<String>> entry : schemaToTables.entrySet()) {
+				String schemaName = entry.getKey();
+				List<String> tableNamesForSchema = entry.getValue();
 
-			// 处理外键
-			log.debug("Fetching foreign keys for datasource: {}", datasourceId);
-			List<ForeignKeyInfoBO> foreignKeys = dbAccessor.showForeignKeys(config, dqp);
-			log.info("Found {} foreign keys for datasource: {}", foreignKeys.size(), datasourceId);
+				// 复制一个带有特定 schema 的配置对象
+				DbConfigBO currentSchemaConfig = new DbConfigBO();
+				BeanUtils.copyProperties(config, currentSchemaConfig);
+				currentSchemaConfig.setSchema(schemaName);
+				DbQueryParameter dqp = DbQueryParameter.from(currentSchemaConfig)
+						.setSchema(schemaName)
+						.setTables(tableNamesForSchema);
+				// 处理外键
+				log.debug("Fetching foreign keys for datasource: {}", datasourceId);
+				List<ForeignKeyInfoBO> foreignKeys = dbAccessor.showForeignKeys(currentSchemaConfig, dqp);
+				log.info("Found {} foreign keys for datasource: {}", foreignKeys.size(), datasourceId);
+				// 外键 map 的 key 需要使用 schema.table 格式，与后续表名前缀保持一致
+				Map<String, List<String>> foreignKeyMap = buildForeignKeyMap(foreignKeys, schemaName);
+				log.debug("Built foreign key map with {} entries for datasource: {}", foreignKeyMap.size(), datasourceId);
 
-			Map<String, List<String>> foreignKeyMap = buildForeignKeyMap(foreignKeys);
-			log.debug("Built foreign key map with {} entries for datasource: {}", foreignKeyMap.size(), datasourceId);
+				// 处理表和列
+				log.debug("Fetching tables for datasource: {}", datasourceId);
+				List<TableInfoBO> tables = dbAccessor.fetchTables(currentSchemaConfig, dqp);
+				log.info("Found {} tables for datasource: {}", tables.size(), datasourceId);
 
-			// 处理表和列
-			log.debug("Fetching tables for datasource: {}", datasourceId);
-			List<TableInfoBO> tables = dbAccessor.fetchTables(config, dqp);
-			log.info("Found  tables for datasource: {}", tables.size(), datasourceId);
-
-			if (tables.size() > 5) {
-				// 对于大量表，使用并行处理
-				log.info("Processing {} tables in parallel mode for datasource: {}", tables.size(), datasourceId);
-				processTablesInParallel(tables, config, foreignKeyMap);
-			}
-			else {
-				// 对于少量表，使用批量处理
-				log.info("Processing {} tables in batch mode for datasource: {}", tables.size(), datasourceId);
-				tableMetadataService.batchEnrichTableMetadata(tables, config, foreignKeyMap);
+				if (tables.size() > 5) {
+					// 对于大量表，使用并行处理
+					log.info("Processing {} tables in parallel mode for datasource: {}", tables.size(), datasourceId);
+					processTablesInParallel(tables, currentSchemaConfig, foreignKeyMap);
+				}
+				else {
+					// 对于少量表，使用批量处理
+					log.info("Processing {} tables in batch mode for datasource: {}", tables.size(), datasourceId);
+					tableMetadataService.batchEnrichTableMetadata(tables, currentSchemaConfig, foreignKeyMap);
+				}
+				// 将带有 schema 的表名和相关列的归属表名更新，方便存储到向量库中
+				if (StringUtils.isNotBlank(schemaName)) {
+					for (TableInfoBO table : tables) {
+						String fullName = schemaName + "." + table.getName();
+						table.setName(fullName);
+						if (table.getColumns() != null) {
+							for (ColumnInfoBO column : table.getColumns()) {
+								column.setTableName(fullName);
+							}
+						}
+					}
+				}
+				allTables.addAll(tables);
 			}
 
 			log.info("Successfully processed all tables for datasource: {}", datasourceId);
 
 			// 转换为文档
-			List<Document> columnDocs = convertColumnsToDocuments(datasourceId, tables);
-			List<Document> tableDocs = convertTablesToDocuments(datasourceId, tables);
+			List<Document> columnDocs = convertColumnsToDocuments(datasourceId,allTables);
+			List<Document> tableDocs = convertTablesToDocuments(datasourceId, allTables);
 
 			// 存储文档
 			log.info("Storing  columns and {} tables for datasource: {}", columnDocs.size(), tableDocs.size(),
@@ -260,13 +314,24 @@ public class SchemaServiceImpl implements SchemaService {
 	}
 
 	protected Map<String, List<String>> buildForeignKeyMap(List<ForeignKeyInfoBO> foreignKeys) {
-		Map<String, List<String>> map = new HashMap<>();
-		for (ForeignKeyInfoBO fk : foreignKeys) {
-			String key = fk.getTable() + "." + fk.getColumn() + "=" + fk.getReferencedTable() + "."
-					+ fk.getReferencedColumn();
+		return buildForeignKeyMap(foreignKeys, null);
+	}
 
-			map.computeIfAbsent(fk.getTable(), k -> new ArrayList<>()).add(key);
-			map.computeIfAbsent(fk.getReferencedTable(), k -> new ArrayList<>()).add(key);
+	/**
+	 * 构建外键映射，key 使用 schema.table 格式（与向量库表名保持一致）
+	 * @param foreignKeys 外键列表
+	 * @param schemaName schema 名称（为非空时，table 名前加 schema. 前缀）
+	 */
+	protected Map<String, List<String>> buildForeignKeyMap(List<ForeignKeyInfoBO> foreignKeys, String schemaName) {
+		Map<String, List<String>> map = new HashMap<>();
+		boolean hasSchema = StringUtils.isNotBlank(schemaName);
+		for (ForeignKeyInfoBO fk : foreignKeys) {
+			String table = hasSchema ? schemaName + "." + fk.getTable() : fk.getTable();
+			String refTable = hasSchema ? schemaName + "." + fk.getReferencedTable() : fk.getReferencedTable();
+			String key = table + "." + fk.getColumn() + "=" + refTable + "." + fk.getReferencedColumn();
+
+			map.computeIfAbsent(table, k -> new ArrayList<>()).add(key);
+			map.computeIfAbsent(refTable, k -> new ArrayList<>()).add(key);
 		}
 		return map;
 	}
@@ -317,9 +382,11 @@ public class SchemaServiceImpl implements SchemaService {
 
 		Set<String> missingTables = new HashSet<>();
 		for (String key : foreignKeySet) {
-			String[] parts = key.split("\\.");
-			if (parts.length == 2) {
-				String tableName = parts[0];
+			// key 格式： schema.table.column 或 table.column
+			// 从最后一个点拆分，取左边得到表名（可能是 schema.table 或 table）
+			int lastDot = key.lastIndexOf('.');
+			if (lastDot > 0) {
+				String tableName = key.substring(0, lastDot);
 				if (!uniqueTableNames.contains(tableName)) {
 					missingTables.add(tableName);
 				}
@@ -483,7 +550,11 @@ public class SchemaServiceImpl implements SchemaService {
 			}
 		}
 		else if (BizDataSourceTypeEnum.isPgDialect(dbConfig.getDialectType())) {
-			schemaDTO.setName(dbConfig.getSchema());
+			if (dbConfig.getSchemas() != null && !dbConfig.getSchemas().isEmpty()) {
+				schemaDTO.setName(String.join(",", dbConfig.getSchemas()));
+			}else {
+				schemaDTO.setName(dbConfig.getSchema());
+			}
 		}
 	}
 
