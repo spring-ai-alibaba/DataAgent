@@ -45,6 +45,9 @@ public interface DatasourceTypeHandler {
 	}
 
 	default String resolveConnectionUrl(Datasource datasource) {
+		if (hasRequiredConnectionFields(datasource)) {
+			return buildConnectionUrl(datasource);
+		}
 		String existing = datasource.getConnectionUrl();
 		if (StringUtils.hasText(existing)) {
 			return existing;
