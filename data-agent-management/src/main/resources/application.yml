@@ -9,6 +9,10 @@ springdoc:
 
 # 存储 DataAgent 业务数据的数据库，并非Agent分析数据的来源
 spring:
+  elasticsearch:
+    uris: ${DATA_AGENT_ELASTICSEARCH_URIS:http://127.0.0.1:9200}
+    username: ${DATA_AGENT_ELASTICSEARCH_USERNAME:elastic}
+    password: ${DATA_AGENT_ELASTICSEARCH_PASSWORD:}
   datasource:
     url: ${DATA_AGENT_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/saa_data_agent?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai}
     username: ${DATA_AGENT_DATASOURCE_USERNAME:root}
@@ -24,11 +28,23 @@ spring:
       separator: ;
       encoding: utf-8
   ai:
+    mcp:
+      server:
+        protocol: STREAMABLE
+        streamable-http:
+          mcp-endpoint: /mcp
     vectorstore:
-      type: simple
+      type: elasticsearch
+      elasticsearch:
+        index-name: spring-ai-document-index
+        initialize-schema: true
+        dimensions: 1024
+        similarity: cosine
     alibaba:
       data-agent:
         vector-store:
+          enable-hybrid-search: true
+          elasticsearch-min-score: 0.5
           table-topk-limit: 10
           table-similarity-threshold: 0.2
           default-topk-limit: 8
@@ -61,8 +77,8 @@ spring:
           secret-key: ${LANGFUSE_SECRET_KEY:}
   webflux:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 30MB
+      max-request-size: 30MB
       enabled: true
 
 mybatis:
@@ -79,3 +95,7 @@ logging:
     com.alibaba.cloud.ai.mapper: debug
     org.springframework.jdbc: debug
 
+
+
+# 前端打包： npm run dev -- --host 0.0.0.0
+# npm.cmd run generate

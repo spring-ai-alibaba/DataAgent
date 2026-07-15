@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.schema;
 
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
+import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
@@ -26,12 +27,14 @@ import com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.BatchingStrategy;
+import org.springframework.ai.vectorstore.SearchRequest;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -212,10 +215,27 @@ class SchemaServiceImplTest {
 
 	@Test
 	void getTableDocumentsByDatasource_delegates() {
-		when(agentVectorStoreService.getDocumentsOnlyByFilter(any(), anyInt())).thenReturn(List.of());
+		Document expectedDocument = createTableDoc("inventory");
+		when(agentVectorStoreService.similaritySearch(any(SearchRequest.class)))
+			.thenReturn(List.of(expectedDocument));
 
 		List<Document> result = schemaService.getTableDocumentsByDatasource(1, "test query");
-		assertNotNull(result);
+
+		assertEquals(List.of(expectedDocument), result);
+		ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
+		verify(agentVectorStoreService).similaritySearch(requestCaptor.capture());
+		verify(agentVectorStoreService, never()).getDocumentsOnlyByFilter(any(), anyInt());
+
+		SearchRequest request = requestCaptor.getValue();
+		assertEquals("test query", request.getQuery());
+		assertEquals(10, request.getTopK());
+		assertEquals(0.5, request.getSimilarityThreshold());
+		assertNotNull(request.getFilterExpression());
+		String filter = request.getFilterExpression().toString();
+		assertTrue(filter.contains("datasourceId"));
+		assertTrue(filter.contains("1"));
+		assertTrue(filter.contains(DocumentMetadataConstant.VECTOR_TYPE));
+		assertTrue(filter.contains(DocumentMetadataConstant.TABLE));
 	}
 
 	@Test

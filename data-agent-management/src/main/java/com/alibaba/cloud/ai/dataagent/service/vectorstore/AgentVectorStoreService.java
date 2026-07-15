@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.vectorstore;
 
 import com.alibaba.cloud.ai.dataagent.dto.search.AgentSearchRequest;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.filter.Filter;
 
 import java.util.List;
@@ -28,6 +29,11 @@ public interface AgentVectorStoreService {
 	 * 查询某个Agent的文档 总入口
 	 */
 	List<Document> search(AgentSearchRequest searchRequest);
+
+	/**
+	 * Execute a vector similarity search with a caller-provided filter.
+	 */
+	List<Document> similaritySearch(SearchRequest searchRequest);
 
 	Boolean deleteDocumentsByVectorType(String agentId, String vectorType) throws Exception;
 
