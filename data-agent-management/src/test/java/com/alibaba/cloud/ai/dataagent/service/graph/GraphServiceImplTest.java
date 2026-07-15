@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.service.graph;
 
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
+import com.alibaba.cloud.ai.dataagent.service.graph.Context.ClarificationContextManager;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.MultiTurnContextManager;
 import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
@@ -41,9 +42,18 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -54,6 +64,9 @@ class GraphServiceImplTest {
 
 	@Mock
 	private MultiTurnContextManager multiTurnContextManager;
+
+	@Mock
+	private ClarificationContextManager clarificationContextManager;
 
 	@Mock
 	private LangfuseService langfuseReporter;
@@ -72,11 +85,13 @@ class GraphServiceImplTest {
 		StateGraph mockStateGraph = mock(StateGraph.class);
 		when(mockStateGraph.compile(any())).thenReturn(compiledGraph);
 
-		graphService = new GraphServiceImpl(mockStateGraph, executor, multiTurnContextManager, langfuseReporter);
+		graphService = new GraphServiceImpl(mockStateGraph, executor, multiTurnContextManager,
+				clarificationContextManager, langfuseReporter);
 
 		when(langfuseReporter.startLLMSpan(anyString(), any())).thenReturn(mockSpan);
 		when(mockSpan.isRecording()).thenReturn(true);
 		when(multiTurnContextManager.buildContext(anyString())).thenReturn("(无)");
+		when(clarificationContextManager.isAwaitingClarification(anyString())).thenReturn(false);
 	}
 
 	@AfterEach

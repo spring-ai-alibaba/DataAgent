@@ -29,6 +29,7 @@ import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,11 +48,14 @@ class FeasibilityAssessmentNodeTest {
 	@Mock
 	private LlmService llmService;
 
+	@Mock
+	private JsonParseUtil jsonParseUtil;
+
 	private FeasibilityAssessmentNode feasibilityAssessmentNode;
 
 	@BeforeEach
 	void setUp() {
-		feasibilityAssessmentNode = new FeasibilityAssessmentNode(llmService);
+		feasibilityAssessmentNode = new FeasibilityAssessmentNode(llmService, jsonParseUtil);
 	}
 
 	private OverAllState createTestState() {

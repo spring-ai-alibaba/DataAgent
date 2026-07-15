@@ -15,13 +15,16 @@
  */
 package com.alibaba.cloud.ai.dataagent.workflow.dispatcher;
 
+import com.alibaba.cloud.ai.dataagent.dto.prompt.FeasibilityAssessmentOutputDTO;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.CLARIFICATION_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.FEASIBILITY_ASSESSMENT_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLANNER_NODE;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -37,15 +40,32 @@ class FeasibilityAssessmentDispatcherTest {
 	@Test
 	void apply_dataAnalysisOutput_routesToPlannerNode() throws Exception {
 		OverAllState state = new OverAllState();
-		state.updateState(Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, "【需求类型】：《数据分析》\n用户需要查询PV数据"));
+		FeasibilityAssessmentOutputDTO dto = new FeasibilityAssessmentOutputDTO();
+		dto.setRequestType(FeasibilityAssessmentOutputDTO.DATA_ANALYSIS);
+		dto.setContent("查询销售额");
+		state.updateState(Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, dto));
 
 		assertEquals(PLANNER_NODE, dispatcher.apply(state));
 	}
 
 	@Test
-	void apply_nonDataAnalysisOutput_routesToEnd() throws Exception {
+	void apply_needClarification_routesToClarificationNode() throws Exception {
 		OverAllState state = new OverAllState();
-		state.updateState(Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, "【需求类型】：《闲聊》"));
+		FeasibilityAssessmentOutputDTO dto = new FeasibilityAssessmentOutputDTO();
+		dto.setRequestType(FeasibilityAssessmentOutputDTO.NEED_CLARIFICATION);
+		dto.setContent("请问你想看哪个时间范围？");
+		state.updateState(Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, dto));
+
+		assertEquals(CLARIFICATION_NODE, dispatcher.apply(state));
+	}
+
+	@Test
+	void apply_chatOutput_routesToEnd() throws Exception {
+		OverAllState state = new OverAllState();
+		FeasibilityAssessmentOutputDTO dto = new FeasibilityAssessmentOutputDTO();
+		dto.setRequestType(FeasibilityAssessmentOutputDTO.CHIT_CHAT);
+		dto.setContent("你好");
+		state.updateState(Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, dto));
 
 		assertEquals(END, dispatcher.apply(state));
 	}
@@ -53,14 +73,6 @@ class FeasibilityAssessmentDispatcherTest {
 	@Test
 	void apply_missingOutput_routesToEnd() throws Exception {
 		OverAllState state = new OverAllState();
-
-		assertEquals(END, dispatcher.apply(state));
-	}
-
-	@Test
-	void apply_emptyOutput_routesToEnd() throws Exception {
-		OverAllState state = new OverAllState();
-		state.updateState(Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, ""));
 
 		assertEquals(END, dispatcher.apply(state));
 	}

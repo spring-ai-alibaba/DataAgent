@@ -144,6 +144,12 @@ public class DataAgentConfiguration implements DisposableBean {
 			keyStrategyHashMap.put(DB_DIALECT_TYPE, KeyStrategy.REPLACE);
 			// Feasibility Assessment 节点输出
 			keyStrategyHashMap.put(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(CLARIFICATION_QUESTION, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(CLARIFICATION_ANSWER, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(CLARIFICATION_COUNT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(AWAITING_CLARIFICATION, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(ORIGINAL_USER_QUERY, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(REFINED_USER_QUERY, KeyStrategy.REPLACE);
 			// sql generate节点输出
 			keyStrategyHashMap.put(SQL_GENERATE_SCHEMA_MISSING_ADVICE, KeyStrategy.REPLACE);
 			keyStrategyHashMap.put(SQL_GENERATE_OUTPUT, KeyStrategy.REPLACE);
@@ -188,6 +194,7 @@ public class DataAgentConfiguration implements DisposableBean {
 			.addNode(SCHEMA_RECALL_NODE, nodeBeanUtil.getNodeBeanAsync(SchemaRecallNode.class))
 			.addNode(TABLE_RELATION_NODE, nodeBeanUtil.getNodeBeanAsync(TableRelationNode.class))
 			.addNode(FEASIBILITY_ASSESSMENT_NODE, nodeBeanUtil.getNodeBeanAsync(FeasibilityAssessmentNode.class))
+			.addNode(CLARIFICATION_NODE, nodeBeanUtil.getNodeBeanAsync(ClarificationNode.class))
 			.addNode(SQL_GENERATE_NODE, nodeBeanUtil.getNodeBeanAsync(SqlGenerateNode.class))
 			.addNode(PLANNER_NODE, nodeBeanUtil.getNodeBeanAsync(PlannerNode.class))
 			.addNode(PLAN_EXECUTOR_NODE, nodeBeanUtil.getNodeBeanAsync(PlanExecutorNode.class))
@@ -212,7 +219,8 @@ public class DataAgentConfiguration implements DisposableBean {
 					Map.of(FEASIBILITY_ASSESSMENT_NODE, FEASIBILITY_ASSESSMENT_NODE, END, END, TABLE_RELATION_NODE,
 							TABLE_RELATION_NODE)) // retry
 			.addConditionalEdges(FEASIBILITY_ASSESSMENT_NODE, edge_async(new FeasibilityAssessmentDispatcher()),
-					Map.of(PLANNER_NODE, PLANNER_NODE, END, END))
+					Map.of(PLANNER_NODE, PLANNER_NODE, CLARIFICATION_NODE, CLARIFICATION_NODE, END, END))
+			.addEdge(CLARIFICATION_NODE, END)
 
 			// The edge from PlannerNode now goes to PlanExecutorNode for validation and
 			// execution

@@ -62,7 +62,7 @@ class GraphControllerTest {
 		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
 		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "thread-1",
-				"show me sales data", false, null, false, false, serverHttpResponse);
+				"show me sales data", false, null, null, null, false, false, serverHttpResponse);
 
 		assertNotNull(result);
 
@@ -81,7 +81,7 @@ class GraphControllerTest {
 		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
 		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "thread-2",
-				"approve this plan", true, "looks good", false, false, serverHttpResponse);
+				"approve this plan", true, "looks good", null, null, false, false, serverHttpResponse);
 
 		assertNotNull(result);
 
@@ -99,7 +99,7 @@ class GraphControllerTest {
 		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
 		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", null, "SELECT query",
-				false, null, false, true, serverHttpResponse);
+				false, null, null, null, false, true, serverHttpResponse);
 
 		assertNotNull(result);
 
@@ -109,6 +109,21 @@ class GraphControllerTest {
 		GraphRequest captured = requestCaptor.getValue();
 		assertTrue(captured.isNl2sqlOnly());
 		assertNull(captured.getThreadId());
+	}
+
+	@Test
+	void streamSearch_clarificationResume_passesClarificationParams() {
+		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
+
+		graphController.streamSearch("agent-1", "thread-3", "华东区", false, null, "华东区", "clarification", false,
+				false, serverHttpResponse);
+
+		ArgumentCaptor<GraphRequest> requestCaptor = ArgumentCaptor.forClass(GraphRequest.class);
+		verify(graphService).graphStreamProcess(any(Sinks.Many.class), requestCaptor.capture());
+
+		GraphRequest captured = requestCaptor.getValue();
+		assertEquals("华东区", captured.getClarificationAnswer());
+		assertEquals("clarification", captured.getResumeMode());
 	}
 
 }

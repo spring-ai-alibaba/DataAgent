@@ -104,6 +104,8 @@ public final class Constant {
 
 	public static final String FEASIBILITY_ASSESSMENT_NODE = "FEASIBILITY_ASSESSMENT_NODE";
 
+	public static final String CLARIFICATION_NODE = "CLARIFICATION_NODE";
+
 	public static final String REPORT_GENERATOR_NODE = "REPORT_GENERATOR_NODE";
 
 	public static final String SCHEMA_RECALL_NODE = "SCHEMA_RECALL_NODE";
@@ -150,6 +152,18 @@ public final class Constant {
 
 	// Human feedback data payload
 	public static final String HUMAN_FEEDBACK_DATA = "HUMAN_FEEDBACK_DATA";
+
+	public static final String CLARIFICATION_QUESTION = "CLARIFICATION_QUESTION";
+
+	public static final String CLARIFICATION_ANSWER = "CLARIFICATION_ANSWER";
+
+	public static final String CLARIFICATION_COUNT = "CLARIFICATION_COUNT";
+
+	public static final String AWAITING_CLARIFICATION = "AWAITING_CLARIFICATION";
+
+	public static final String ORIGINAL_USER_QUERY = "ORIGINAL_USER_QUERY";
+
+	public static final String REFINED_USER_QUERY = "REFINED_USER_QUERY";
 
 	// StreamEvent 常量
 	public static final String STREAM_EVENT_COMPLETE = "complete";

@@ -277,6 +277,17 @@ class PromptHelperTest {
 	}
 
 	@Test
+	void buildQueryEnhancePrompt_bareBusinessPhrase_preservesMissingGoalRule() {
+		String result = PromptHelper.buildQueryEnhancePrompt("(无)", "鸭尾缺陷", "鸭尾缺陷是一类产品质量缺陷");
+
+		assertTrue(result.contains("不得擅自补成"));
+		assertTrue(result.contains("用户尚未说明分析目标"));
+		assertTrue(result.contains("鸭尾缺陷"));
+		assertTrue(result.contains("销售订单"));
+		assertTrue(result.contains("客户流失"));
+	}
+
+	@Test
 	void buildQueryEnhancePrompt_emptyEvidence_usesDefault() {
 		String result = PromptHelper.buildQueryEnhancePrompt("history", "latest query", "");
 		assertNotNull(result);
@@ -305,6 +316,19 @@ class PromptHelperTest {
 		SchemaDTO schema = createTestSchema();
 		String result = PromptHelper.buildFeasibilityAssessmentPrompt("query", schema, "evidence", "history");
 		assertNotNull(result);
+	}
+
+	@Test
+	void buildFeasibilityAssessmentPrompt_bareBusinessPhrase_requiresGoalClarification() {
+		SchemaDTO schema = createTestSchema();
+		String result = PromptHelper.buildFeasibilityAssessmentPrompt("鸭尾缺陷（用户尚未说明分析目标）", schema,
+				"鸭尾缺陷是一类产品质量缺陷", "(无)");
+
+		assertTrue(result.contains("必须返回 NEED_CLARIFICATION"));
+		assertTrue(result.contains("你想了解鸭尾缺陷的哪方面"));
+		assertTrue(result.contains("查询鸭尾缺陷明细"));
+		assertTrue(result.contains("统计今年上半年鸭尾缺陷数量"));
+		assertTrue(result.contains("鸭尾缺陷有多少"));
 	}
 
 	@Test

@@ -15,14 +15,22 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.graph;
 
-import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
-import com.alibaba.cloud.ai.dataagent.enums.TextType;
-import com.alibaba.cloud.ai.dataagent.workflow.node.PlannerNode;
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
+import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.service.graph.Context.ClarificationContextManager;
+import com.alibaba.cloud.ai.dataagent.service.graph.Context.ClarificationContextManager.ClarificationStateSnapshot;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.MultiTurnContextManager;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.StreamContext;
+import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
-import com.alibaba.cloud.ai.graph.*;
+import com.alibaba.cloud.ai.dataagent.workflow.node.ClarificationNode;
+import com.alibaba.cloud.ai.dataagent.workflow.node.PlannerNode;
+import com.alibaba.cloud.ai.graph.CompileConfig;
+import com.alibaba.cloud.ai.graph.CompiledGraph;
+import com.alibaba.cloud.ai.graph.NodeOutput;
+import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.RunnableConfig;
+import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
@@ -37,16 +45,34 @@ import reactor.core.publisher.Sinks;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.AWAITING_CLARIFICATION;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.AGENT_ID;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.CLARIFICATION_ANSWER;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.CLARIFICATION_COUNT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_DATA;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_NODE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_REVIEW_ENABLED;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.INPUT_KEY;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.IS_ONLY_NL2SQL;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.MULTI_TURN_CONTEXT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.ORIGINAL_USER_QUERY;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.REFINED_USER_QUERY;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.STREAM_EVENT_COMPLETE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.STREAM_EVENT_ERROR;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TRACE_THREAD_ID;
 
 @Slf4j
 @Service
 public class GraphServiceImpl implements GraphService {
+
+	private static final String RESUME_MODE_CLARIFICATION = "clarification";
 
 	private final CompiledGraph compiledGraph;
 
@@ -56,14 +82,17 @@ public class GraphServiceImpl implements GraphService {
 
 	private final MultiTurnContextManager multiTurnContextManager;
 
+	private final ClarificationContextManager clarificationContextManager;
+
 	private final LangfuseService langfuseReporter;
 
 	public GraphServiceImpl(StateGraph stateGraph, ExecutorService executorService,
-			MultiTurnContextManager multiTurnContextManager, LangfuseService langfuseReporter)
-			throws GraphStateException {
+			MultiTurnContextManager multiTurnContextManager, ClarificationContextManager clarificationContextManager,
+			LangfuseService langfuseReporter) throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(CompileConfig.builder().interruptBefore(HUMAN_FEEDBACK_NODE).build());
 		this.executor = executorService;
 		this.multiTurnContextManager = multiTurnContextManager;
+		this.clarificationContextManager = clarificationContextManager;
 		this.langfuseReporter = langfuseReporter;
 	}
 
@@ -82,21 +111,24 @@ public class GraphServiceImpl implements GraphService {
 			graphRequest.setThreadId(UUID.randomUUID().toString());
 		}
 		String threadId = graphRequest.getThreadId();
-		// 创建或获取 StreamContext
 		StreamContext context = streamContextMap.computeIfAbsent(threadId, k -> new StreamContext());
 		context.setSink(sink);
+
 		if (StringUtils.hasText(graphRequest.getHumanFeedbackContent())) {
 			handleHumanFeedback(graphRequest);
+			return;
 		}
-		else {
-			handleNewProcess(graphRequest);
+
+		if (RESUME_MODE_CLARIFICATION.equalsIgnoreCase(graphRequest.getResumeMode())
+				&& StringUtils.hasText(graphRequest.getClarificationAnswer())) {
+			handleClarificationResume(graphRequest);
+			return;
 		}
+
+		clarificationContextManager.clear(threadId);
+		handleNewProcess(graphRequest);
 	}
 
-	/**
-	 * 停止指定 threadId 的流式处理 线程安全：使用 remove 操作确保只有一个线程能获取到 context
-	 * @param threadId 线程ID
-	 */
 	@Override
 	public void stopStreamProcessing(String threadId) {
 		if (!StringUtils.hasText(threadId)) {
@@ -106,7 +138,6 @@ public class GraphServiceImpl implements GraphService {
 		multiTurnContextManager.discardPending(threadId);
 		StreamContext context = streamContextMap.remove(threadId);
 		if (context != null) {
-			// 客户端断开，结束 Langfuse span
 			if (context.getSpan() != null && context.getSpan().isRecording()) {
 				langfuseReporter.endSpanSuccess(context.getSpan(), threadId, context.getCollectedOutput());
 			}
@@ -116,34 +147,94 @@ public class GraphServiceImpl implements GraphService {
 	}
 
 	private void handleNewProcess(GraphRequest graphRequest) {
-		String query = graphRequest.getQuery();
+		handleNewProcess(graphRequest, graphRequest.getQuery(), graphRequest.getQuery(), 0, null);
+	}
+
+	private void handleClarificationResume(GraphRequest graphRequest) {
+		String threadId = graphRequest.getThreadId();
+		String clarificationAnswer = graphRequest.getClarificationAnswer();
+		if (!StringUtils.hasText(threadId) || !StringUtils.hasText(graphRequest.getAgentId())
+				|| !StringUtils.hasText(clarificationAnswer)) {
+			throw new IllegalArgumentException("Invalid clarification arguments");
+		}
+
+		Optional<ClarificationStateSnapshot> snapshotOptional = clarificationContextManager.submitAnswer(threadId,
+				clarificationAnswer);
+		if (snapshotOptional.isEmpty()) {
+			throw new IllegalStateException("当前没有待补充的澄清问题，请重新描述完整问题");
+		}
+
+		ClarificationStateSnapshot snapshot = snapshotOptional.get();
+		String refinedQuery = clarificationContextManager.buildRefinedQuery(threadId);
+		if (!StringUtils.hasText(refinedQuery)) {
+			throw new IllegalStateException("澄清后的查询为空，请重新描述完整问题");
+		}
+
+		GraphRequest resumedRequest = GraphRequest.builder()
+			.agentId(graphRequest.getAgentId())
+			.threadId(threadId)
+			.query(refinedQuery)
+			.humanFeedback(graphRequest.isHumanFeedback())
+			.humanFeedbackContent(graphRequest.getHumanFeedbackContent())
+			.clarificationAnswer(clarificationAnswer)
+			.resumeMode(graphRequest.getResumeMode())
+			.rejectedPlan(graphRequest.isRejectedPlan())
+			.nl2sqlOnly(graphRequest.isNl2sqlOnly())
+			.build();
+
+		handleNewProcess(resumedRequest, snapshot.originalQuery(), refinedQuery, snapshot.clarificationCount(),
+				clarificationAnswer);
+	}
+
+	private void handleNewProcess(GraphRequest graphRequest, String originalUserQuery, String inputQuery,
+			int clarificationCount, String clarificationAnswer) {
 		String agentId = graphRequest.getAgentId();
 		String threadId = graphRequest.getThreadId();
 		boolean nl2sqlOnly = graphRequest.isNl2sqlOnly();
 		boolean humanReviewEnabled = graphRequest.isHumanFeedback() & !(nl2sqlOnly);
-		if (!StringUtils.hasText(threadId) || !StringUtils.hasText(agentId) || !StringUtils.hasText(query)) {
+		if (!StringUtils.hasText(threadId) || !StringUtils.hasText(agentId) || !StringUtils.hasText(inputQuery)) {
 			throw new IllegalArgumentException("Invalid arguments");
 		}
+
 		StreamContext context = streamContextMap.get(threadId);
 		if (context == null || context.getSink() == null) {
 			throw new IllegalStateException("StreamContext not found for threadId: " + threadId);
 		}
-		// 检查是否已经清理，如果已清理则不再启动新的流
 		if (context.isCleaned()) {
 			log.warn("StreamContext already cleaned for threadId: {}, skipping stream start", threadId);
 			return;
 		}
-		// 开始 Langfuse 追踪
+
 		Span span = langfuseReporter.startLLMSpan("graph-stream", graphRequest);
 		context.setSpan(span);
 
 		String multiTurnContext = multiTurnContextManager.buildContext(threadId);
-		multiTurnContextManager.beginTurn(threadId, query);
+		multiTurnContextManager.beginTurn(threadId, inputQuery);
 		Flux<NodeOutput> nodeOutputFlux = compiledGraph.stream(
-				Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED,
-						humanReviewEnabled, MULTI_TURN_CONTEXT, multiTurnContext, TRACE_THREAD_ID, threadId),
+				buildInitialState(agentId, threadId, inputQuery, originalUserQuery, multiTurnContext, nl2sqlOnly,
+						humanReviewEnabled, clarificationCount, clarificationAnswer),
 				RunnableConfig.builder().threadId(threadId).build());
 		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
+	}
+
+	private Map<String, Object> buildInitialState(String agentId, String threadId, String inputQuery,
+			String originalUserQuery, String multiTurnContext, boolean nl2sqlOnly, boolean humanReviewEnabled,
+			int clarificationCount, String clarificationAnswer) {
+		Map<String, Object> state = new HashMap<>();
+		state.put(IS_ONLY_NL2SQL, nl2sqlOnly);
+		state.put(INPUT_KEY, inputQuery);
+		state.put(AGENT_ID, agentId);
+		state.put(HUMAN_REVIEW_ENABLED, humanReviewEnabled);
+		state.put(MULTI_TURN_CONTEXT, multiTurnContext);
+		state.put(TRACE_THREAD_ID, threadId);
+		state.put(ORIGINAL_USER_QUERY, StringUtils.hasText(originalUserQuery) ? originalUserQuery : inputQuery);
+		state.put(REFINED_USER_QUERY, inputQuery);
+		state.put(CLARIFICATION_COUNT, clarificationCount);
+		state.put(AWAITING_CLARIFICATION, false);
+		if (StringUtils.hasText(clarificationAnswer)) {
+			state.put(CLARIFICATION_ANSWER, clarificationAnswer);
+		}
+		return state;
 	}
 
 	private void handleHumanFeedback(GraphRequest graphRequest) {
@@ -161,7 +252,7 @@ public class GraphServiceImpl implements GraphService {
 			log.warn("StreamContext already cleaned for threadId: {}, skipping stream start", threadId);
 			return;
 		}
-		// 开始 Langfuse 追踪
+
 		Span span = langfuseReporter.startLLMSpan("graph-feedback", graphRequest);
 		context.setSpan(span);
 
@@ -190,18 +281,9 @@ public class GraphServiceImpl implements GraphService {
 		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
 	}
 
-	/**
-	 * 订阅 Flux 并原子性地设置 Disposable 线程安全：使用 synchronized 确保 Disposable 设置的原子性
-	 * @param context 流式处理上下文
-	 * @param nodeOutputFlux 节点输出流
-	 * @param graphRequest 图请求
-	 * @param agentId 代理ID
-	 * @param threadId 线程ID
-	 */
 	private void subscribeToFlux(StreamContext context, Flux<NodeOutput> nodeOutputFlux, GraphRequest graphRequest,
 			String agentId, String threadId) {
 		CompletableFuture.runAsync(() -> {
-			// 在订阅之前检查上下文是否仍然有效
 			if (context.isCleaned()) {
 				log.debug("StreamContext cleaned before subscription for threadId: {}", threadId);
 				return;
@@ -209,30 +291,23 @@ public class GraphServiceImpl implements GraphService {
 			Disposable disposable = nodeOutputFlux.subscribe(output -> handleNodeOutput(graphRequest, output),
 					error -> handleStreamError(agentId, threadId, error),
 					() -> handleStreamComplete(agentId, threadId));
-			// 原子性地设置 Disposable，如果已经清理则立即释放
 			synchronized (context) {
 				if (context.isCleaned()) {
-					// 如果已经清理，立即释放刚创建的 Disposable
 					if (disposable != null && !disposable.isDisposed()) {
 						disposable.dispose();
 					}
 				}
 				else {
-					// 只有在未清理的情况下才设置 Disposable
 					context.setDisposable(disposable);
 				}
 			}
 		}, executor);
 	}
 
-	/**
-	 * 处理流式错误 线程安全：使用 remove 操作确保只有一个线程能获取到 context
-	 */
 	private void handleStreamError(String agentId, String threadId, Throwable error) {
 		log.error("Error in stream processing for threadId: {}: ", threadId, error);
 		StreamContext context = streamContextMap.remove(threadId);
 		if (context != null && !context.isCleaned()) {
-			// 结束 Langfuse span（失败）
 			if (context.getSpan() != null) {
 				langfuseReporter.endSpanError(context.getSpan(), threadId,
 						error instanceof Exception ? (Exception) error : new RuntimeException(error));
@@ -246,20 +321,19 @@ public class GraphServiceImpl implements GraphService {
 						.build());
 				context.getSink().tryEmitComplete();
 			}
-			// 清理资源（cleanup 内部已经保证只执行一次）
 			context.cleanup();
 		}
 	}
 
-	/**
-	 * 处理流式完成 线程安全：使用 remove 操作确保只有一个线程能获取到 context
-	 */
 	private void handleStreamComplete(String agentId, String threadId) {
 		log.info("Stream processing completed successfully for threadId: {}", threadId);
 		multiTurnContextManager.finishTurn(threadId);
+		if (!clarificationContextManager.isAwaitingClarification(threadId)) {
+			clarificationContextManager.clear(threadId);
+		}
+
 		StreamContext context = streamContextMap.remove(threadId);
 		if (context != null && !context.isCleaned()) {
-			// 结束 Langfuse span（成功）
 			if (context.getSpan() != null) {
 				langfuseReporter.endSpanSuccess(context.getSpan(), threadId, context.getCollectedOutput());
 			}
@@ -274,9 +348,6 @@ public class GraphServiceImpl implements GraphService {
 		}
 	}
 
-	/**
-	 * 处理节点输出
-	 */
 	private void handleNodeOutput(GraphRequest request, NodeOutput output) {
 		log.debug("Received output: {}", output.getClass().getSimpleName());
 		if (output instanceof StreamingOutput streamingOutput) {
@@ -287,7 +358,6 @@ public class GraphServiceImpl implements GraphService {
 	private void handleStreamNodeOutput(GraphRequest request, StreamingOutput output) {
 		String threadId = request.getThreadId();
 		StreamContext context = streamContextMap.get(threadId);
-		// 检查是否已经停止处理
 		if (context == null || context.getSink() == null) {
 			log.debug("Stream processing already stopped for threadId: {}, skipping output", threadId);
 			return;
@@ -300,7 +370,6 @@ public class GraphServiceImpl implements GraphService {
 			return;
 		}
 
-		// 如果是文本标记符号，则更新文本类型
 		TextType originType = context.getTextType();
 		TextType textType;
 		boolean isTypeSign = false;
@@ -318,25 +387,25 @@ public class GraphServiceImpl implements GraphService {
 			}
 			context.setTextType(textType);
 		}
-		// 文本标记符号不返回给前端
 		if (!isTypeSign) {
 			context.appendOutput(chunk);
 			if (PlannerNode.class.getSimpleName().equals(node)) {
 				multiTurnContextManager.appendPlannerChunk(threadId, chunk);
 			}
+			boolean isClarificationNode = ClarificationNode.class.getSimpleName().equals(node);
 			GraphNodeResponse response = GraphNodeResponse.builder()
 				.agentId(request.getAgentId())
 				.threadId(threadId)
 				.nodeName(node)
 				.text(chunk)
 				.textType(textType)
+				.interactionType(isClarificationNode ? RESUME_MODE_CLARIFICATION : "normal")
+				.awaitingInput(isClarificationNode && clarificationContextManager.isAwaitingClarification(threadId))
 				.build();
-			// 检查发送是否成功，如果失败说明客户端已断开
 			Sinks.EmitResult result = context.getSink().tryEmitNext(ServerSentEvent.builder(response).build());
 			if (result.isFailure()) {
 				log.warn("Failed to emit data to sink for threadId: {}, result: {}. Stopping stream processing.",
 						threadId, result);
-				// 如果发送失败，停止处理
 				stopStreamProcessing(threadId);
 			}
 		}

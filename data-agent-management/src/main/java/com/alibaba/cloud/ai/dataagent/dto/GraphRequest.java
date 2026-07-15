@@ -36,6 +36,10 @@ public class GraphRequest {
 
 	private String humanFeedbackContent;
 
+	private String clarificationAnswer;
+
+	private String resumeMode;
+
 	private boolean rejectedPlan;
 
 	private boolean nl2sqlOnly;

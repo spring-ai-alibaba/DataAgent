@@ -48,6 +48,8 @@ public class GraphController {
 			@RequestParam(value = "threadId", required = false) String threadId, @RequestParam("query") String query,
 			@RequestParam(value = "humanFeedback", required = false) boolean humanFeedback,
 			@RequestParam(value = "humanFeedbackContent", required = false) String humanFeedbackContent,
+			@RequestParam(value = "clarificationAnswer", required = false) String clarificationAnswer,
+			@RequestParam(value = "resumeMode", required = false) String resumeMode,
 			@RequestParam(value = "rejectedPlan", required = false) boolean rejectedPlan,
 			@RequestParam(value = "nl2sqlOnly", required = false) boolean nl2sqlOnly, ServerHttpResponse response) {
 		// Set SSE-related HTTP headers
@@ -63,6 +65,8 @@ public class GraphController {
 			.query(query)
 			.humanFeedback(humanFeedback)
 			.humanFeedbackContent(humanFeedbackContent)
+			.clarificationAnswer(clarificationAnswer)
+			.resumeMode(resumeMode)
 			.rejectedPlan(rejectedPlan)
 			.nl2sqlOnly(nl2sqlOnly)
 			.build();

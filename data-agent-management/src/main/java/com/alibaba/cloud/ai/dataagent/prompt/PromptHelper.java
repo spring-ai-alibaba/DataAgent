@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.prompt;
 
 import com.alibaba.cloud.ai.dataagent.bo.schema.DisplayStyleBO;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.EvidenceQueryRewriteDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.FeasibilityAssessmentOutputDTO;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.IntentRecognitionOutputDTO;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
@@ -286,6 +287,7 @@ public class PromptHelper {
 		params.put("recalled_schema", schemaInfo);
 		params.put("evidence", evidence != null ? evidence : "");
 		params.put("multi_turn", multiTurn != null ? multiTurn : "(无)");
+		params.put("format", new BeanOutputConverter<FeasibilityAssessmentOutputDTO>(FeasibilityAssessmentOutputDTO.class).getFormat());
 		return PromptConstant.getFeasibilityAssessmentPromptTemplate().render(params);
 	}
 

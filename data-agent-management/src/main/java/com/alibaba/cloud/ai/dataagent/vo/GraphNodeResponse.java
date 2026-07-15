@@ -39,6 +39,12 @@ public class GraphNodeResponse {
 	private String text;
 
 	@Builder.Default
+	private String interactionType = "normal";
+
+	@Builder.Default
+	private boolean awaitingInput = false;
+
+	@Builder.Default
 	private boolean error = false;
 
 	@Builder.Default
