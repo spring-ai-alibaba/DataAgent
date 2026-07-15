@@ -31,9 +31,14 @@ target/
 
 # Maven ignore
 .flattened-pom.xml
+*.log
 
 # node_modules
 **/node_modules
+**/frontend-dist.tar.gz
+
+# Local service certificates
+data-agent-management/src/main/resources/elasticsearch/
 
 
 # windows os
