@@ -61,6 +61,9 @@ export const useChatStore = defineStore('chat', () => {
 	const showHumanFeedback = ref(false);
 	const lastRequest = ref<GraphRequest | null>(null);
 	const feedbackContent = ref('');
+	const awaitingClarification = ref(false);
+	const clarificationQuestion = ref('');
+	const clarificationCount = ref(0);
 
 	// ── Request options ─────────────────────────────────────────────────────────
 	const requestOptions = ref<ChatRequestOptions>({
@@ -235,14 +238,86 @@ export const useChatStore = defineStore('chat', () => {
 		return newSession;
 	}
 
+	function resetClarificationState(sessionState?: ReturnType<typeof getSessionState>) {
+		awaitingClarification.value = false;
+		clarificationQuestion.value = '';
+		clarificationCount.value = 0;
+		if (sessionState) {
+			sessionState.awaitingClarification = false;
+			sessionState.clarificationQuestion = '';
+			sessionState.clarificationCount = 0;
+		}
+	}
+
+	function parseClarificationMetadata(metadata?: string) {
+		if (!metadata) return null;
+		try {
+			return JSON.parse(metadata) as {
+				awaitingClarification?: boolean;
+				clarificationQuestion?: string;
+				clarificationCount?: number;
+				threadId?: string;
+			};
+		} catch {
+			return null;
+		}
+	}
+
+	function restoreClarificationStateFromMessages(sessionState: ReturnType<typeof getSessionState>) {
+		resetClarificationState(sessionState);
+		const lastMessage = currentMessages.value[currentMessages.value.length - 1];
+		if (!lastMessage || lastMessage.role !== 'assistant' || lastMessage.messageType !== 'clarification') {
+			return;
+		}
+
+		const metadata = parseClarificationMetadata(lastMessage.metadata);
+		if (!metadata?.awaitingClarification) {
+			return;
+		}
+
+		awaitingClarification.value = true;
+		clarificationQuestion.value = metadata.clarificationQuestion || lastMessage.content || '';
+		clarificationCount.value = metadata.clarificationCount || 0;
+		sessionState.awaitingClarification = true;
+		sessionState.clarificationQuestion = clarificationQuestion.value;
+		sessionState.clarificationCount = clarificationCount.value;
+		sessionState.lastRequest = {
+			agentId: String(currentAgentId.value || ''),
+			threadId: metadata.threadId,
+			query: metadata.clarificationQuestion || '',
+			humanFeedback: requestOptions.value.humanFeedback,
+			humanFeedbackContent: undefined,
+			clarificationAnswer: undefined,
+			resumeMode: null,
+			rejectedPlan: false,
+			nl2sqlOnly: requestOptions.value.nl2sqlOnly,
+		};
+		lastRequest.value = sessionState.lastRequest;
+	}
+
 	async function selectSession(session: ChatSession) {
 		// Save current session state
 		if (currentSession.value) {
-			saveViewToState(currentSession.value.id, { isStreaming, nodeBlocks });
+			saveViewToState(currentSession.value.id, {
+				isStreaming,
+				nodeBlocks,
+				awaitingClarification,
+				clarificationQuestion,
+				clarificationCount,
+			});
 		}
 		currentSession.value = session;
-		syncStateToView(session.id, { isStreaming, nodeBlocks });
+		syncStateToView(session.id, {
+			isStreaming,
+			nodeBlocks,
+			awaitingClarification,
+			clarificationQuestion,
+			clarificationCount,
+		});
 		currentMessages.value = await chatService.getSessionMessages(session.id);
+		const sessionState = getSessionState(session.id);
+		restoreClarificationStateFromMessages(sessionState);
+		lastRequest.value = sessionState.lastRequest;
 	}
 
 	async function renameSession(session: ExtendedChatSession, newTitle: string) {
@@ -267,6 +342,7 @@ export const useChatStore = defineStore('chat', () => {
 			currentMessages.value = [];
 			isStreaming.value = false;
 			nodeBlocks.value = [];
+			resetClarificationState();
 		}
 	}
 
@@ -278,6 +354,7 @@ export const useChatStore = defineStore('chat', () => {
 		currentMessages.value = [];
 		isStreaming.value = false;
 		nodeBlocks.value = [];
+		resetClarificationState();
 	}
 
 	// ── Message send & stream ───────────────────────────────────────────────────
@@ -301,6 +378,8 @@ export const useChatStore = defineStore('chat', () => {
 		currentMessages.value.push(saved);
 
 		const sessionState = getSessionState(currentSession.value.id);
+		const isClarificationReply = sessionState.awaitingClarification;
+		const previousClarificationCount = sessionState.clarificationCount;
 		const request: GraphRequest = {
 			agentId: String(currentAgentId.value || ''),
 			query,
@@ -309,14 +388,26 @@ export const useChatStore = defineStore('chat', () => {
 			rejectedPlan: false,
 			humanFeedbackContent: undefined,
 			threadId: sessionState.lastRequest?.threadId,
+			clarificationAnswer: isClarificationReply ? query : undefined,
+			resumeMode: isClarificationReply ? 'clarification' : null,
 		};
+		if (isClarificationReply) {
+			resetClarificationState(sessionState);
+		}
 
-		await _sendGraphRequest(request, true);
+		await _sendGraphRequest(request, true, {
+			isClarificationReply,
+			previousClarificationCount,
+		});
 	}
 
 	async function _sendGraphRequest(
 		request: GraphRequest,
 		_rejectedPlan: boolean,
+		options: {
+			isClarificationReply?: boolean;
+			previousClarificationCount?: number;
+		} = {},
 	) {
 		const session = currentSession.value;
 		if (!session) return;
@@ -335,21 +426,59 @@ export const useChatStore = defineStore('chat', () => {
 		sessionState.htmlReportContent = '';
 		sessionState.htmlReportSize = 0;
 		sessionState.markdownReportContent = '';
+		sessionState.awaitingClarification = false;
+		sessionState.clarificationQuestion = '';
+		if (!options.isClarificationReply) {
+			sessionState.clarificationCount = 0;
+		}
 		streamingReportContent.value = '';
 		isReportStreaming.value = false;
 
 		let currentNodeName: string | null = null;
 		let currentBlockIndex = -1;
+		let isClarificationStream = false;
+		let streamedClarificationText = '';
+		let streamedClarificationCount = 0;
 
-		let viewSyncRafId: number | null = null;
+		function appendToCurrentBlock(response: GraphNodeResponse) {
+			const currentBlock =
+				currentBlockIndex >= 0
+					? sessionState.nodeBlocks[currentBlockIndex]
+					: undefined;
+			if (!currentBlock) {
+				sessionState.nodeBlocks.push([{ ...response }]);
+				currentBlockIndex = sessionState.nodeBlocks.length - 1;
+				currentNodeName = response.nodeName;
+				return;
+			}
+
+			const lastItem = currentBlock[currentBlock.length - 1];
+			if (
+				lastItem &&
+				lastItem.nodeName === response.nodeName &&
+				lastItem.textType === response.textType
+			) {
+				lastItem.text += response.text;
+				lastItem.complete = response.complete;
+				lastItem.error = response.error;
+				lastItem.threadId = response.threadId;
+				lastItem.interactionType = response.interactionType;
+				lastItem.awaitingInput = response.awaitingInput;
+			} else {
+				currentBlock.push({ ...response });
+			}
+		}
+
+		let viewSyncTimer: ReturnType<typeof setTimeout> | null = null;
+		const VIEW_SYNC_INTERVAL = 120;
 		function scheduleViewSync() {
-			if (viewSyncRafId) return;
-			viewSyncRafId = requestAnimationFrame(() => {
-				viewSyncRafId = null;
+			if (viewSyncTimer) return;
+			viewSyncTimer = setTimeout(() => {
+				viewSyncTimer = null;
 				if (currentSession.value?.id === sessionId) {
 					nodeBlocks.value = [...sessionState.nodeBlocks];
 				}
-			});
+			}, VIEW_SYNC_INTERVAL);
 		}
 
 		// Throttle report content pushes: batch SSE chunks and push at most
@@ -369,9 +498,9 @@ export const useChatStore = defineStore('chat', () => {
 		}
 
 		function flushPendingSync() {
-			if (viewSyncRafId) {
-				cancelAnimationFrame(viewSyncRafId);
-				viewSyncRafId = null;
+			if (viewSyncTimer) {
+				clearTimeout(viewSyncTimer);
+				viewSyncTimer = null;
 			}
 			if (reportSyncTimer) {
 				clearTimeout(reportSyncTimer);
@@ -390,8 +519,19 @@ export const useChatStore = defineStore('chat', () => {
 			request,
 			async (response: GraphNodeResponse) => {
 				if (response.error) return;
-				if (sessionState.lastRequest)
+				if (sessionState.lastRequest) {
 					sessionState.lastRequest.threadId = response.threadId;
+					lastRequest.value = sessionState.lastRequest;
+				}
+				if (response.interactionType === 'clarification') {
+					isClarificationStream = true;
+					streamedClarificationText += response.text;
+					if (response.awaitingInput) {
+						streamedClarificationCount = options.isClarificationReply
+							? (options.previousClarificationCount || 0) + 1
+							: 1;
+					}
+				}
 
 				if (response.nodeName === 'ReportGeneratorNode') {
 					const isNewNode =
@@ -443,17 +583,7 @@ export const useChatStore = defineStore('chat', () => {
 						currentBlockIndex = sessionState.nodeBlocks.length - 1;
 						currentNodeName = response.nodeName;
 					} else {
-						const currentBlock =
-							currentBlockIndex >= 0
-								? sessionState.nodeBlocks[currentBlockIndex]
-								: undefined;
-						if (currentBlock) {
-							currentBlock.push({ ...response });
-						} else {
-							sessionState.nodeBlocks.push([{ ...response }]);
-							currentBlockIndex = sessionState.nodeBlocks.length - 1;
-							currentNodeName = response.nodeName;
-						}
+						appendToCurrentBlock(response);
 					}
 				}
 
@@ -463,7 +593,7 @@ export const useChatStore = defineStore('chat', () => {
 				console.error('Stream error:', error);
 				flushPendingSync();
 
-				if (sessionState.nodeBlocks.length > 0) {
+				if (!isClarificationStream && sessionState.nodeBlocks.length > 0) {
 					const msg: ChatMessage = {
 						sessionId,
 						role: 'assistant',
@@ -500,28 +630,59 @@ export const useChatStore = defineStore('chat', () => {
 			async () => {
 				flushPendingSync();
 
-				if (sessionState.nodeBlocks.length > 0) {
-					const timelineMsg: ChatMessage = {
+				if (isClarificationStream) {
+					const question = streamedClarificationText.trim();
+					const count = streamedClarificationCount || (options.isClarificationReply
+						? (options.previousClarificationCount || 0) + 1
+						: 1);
+					const clarificationMsg: ChatMessage = {
 						sessionId,
 						role: 'assistant',
-						content: JSON.stringify(sessionState.nodeBlocks),
-						messageType: 'timeline',
+						content: question,
+						messageType: 'clarification',
+						metadata: JSON.stringify({
+							awaitingClarification: true,
+							clarificationQuestion: question,
+							clarificationCount: count,
+							threadId: sessionState.lastRequest?.threadId || request.threadId,
+						}),
 					};
-					const savedTimeline = await chatService
-						.saveMessage(sessionId, timelineMsg)
-						.catch((e) => {
-							console.error(e);
-							return null;
-						});
-					if (savedTimeline && currentSession.value?.id === sessionId)
-						currentMessages.value.push(savedTimeline);
-				}
-
-				if (requestOptions.value.humanFeedback && _rejectedPlan) {
-					showHumanFeedback.value = true;
-				} else {
+					await chatService
+						.saveMessage(sessionId, clarificationMsg)
+						.catch((e) => console.error(e));
+					sessionState.awaitingClarification = true;
+					sessionState.clarificationQuestion = question;
+					sessionState.clarificationCount = count;
+					awaitingClarification.value = true;
+					clarificationQuestion.value = question;
+					clarificationCount.value = count;
 					sessionState.isStreaming = false;
 					if (currentSession.value?.id === sessionId) isStreaming.value = false;
+				} else {
+					if (sessionState.nodeBlocks.length > 0) {
+						const timelineMsg: ChatMessage = {
+							sessionId,
+							role: 'assistant',
+							content: JSON.stringify(sessionState.nodeBlocks),
+							messageType: 'timeline',
+						};
+						const savedTimeline = await chatService
+							.saveMessage(sessionId, timelineMsg)
+							.catch((e) => {
+								console.error(e);
+								return null;
+							});
+						if (savedTimeline && currentSession.value?.id === sessionId)
+							currentMessages.value.push(savedTimeline);
+					}
+
+					resetClarificationState(sessionState);
+					if (requestOptions.value.humanFeedback && _rejectedPlan) {
+						showHumanFeedback.value = true;
+					} else {
+						sessionState.isStreaming = false;
+						if (currentSession.value?.id === sessionId) isStreaming.value = false;
+					}
 				}
 
 				if (currentSession.value?.id === sessionId) {
@@ -552,6 +713,7 @@ export const useChatStore = defineStore('chat', () => {
 		sessionState.closeStream = null;
 		sessionState.isStreaming = false;
 		sessionState.nodeBlocks = [];
+		resetClarificationState(sessionState);
 
 		// Save user-terminated warning message
 		const warningMsg: ChatMessage = {
@@ -606,6 +768,9 @@ export const useChatStore = defineStore('chat', () => {
 		showHumanFeedback,
 		lastRequest,
 		feedbackContent,
+		awaitingClarification,
+		clarificationQuestion,
+		clarificationCount,
 		requestOptions,
 		reportFormat,
 		showReportFullscreen,

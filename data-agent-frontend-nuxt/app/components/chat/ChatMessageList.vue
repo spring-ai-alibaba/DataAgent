@@ -15,188 +15,216 @@
  */
 
 <template>
-	<div ref="listRef" class="message-list custom-scrollbar">
-		<!-- Welcome state when no session -->
-		<ChatWelcome v-if="!store.currentSession" />
+	<div class="message-list-shell">
+		<div
+			ref="listRef"
+			class="message-list custom-scrollbar"
+			@wheel.passive="handleWheel"
+		>
+			<!-- Welcome state when no session -->
+			<ChatWelcome v-if="!store.currentSession" />
 
-		<!-- Messages -->
-		<template v-else>
-			<div class="messages-inner">
-				<template v-for="message in filteredMessages" :key="message.id">
-					<div class="message-wrapper">
-						<!-- ── User message ─────────────────────────────────── -->
-						<div v-if="message.role === 'user'" class="row user-row">
-							<v-card class="user-card" elevation="1">
-								<span
-									v-html="escapeHtml(message.content).replace(/\n/g, '<br>')"
-								/>
-							</v-card>
-							<v-avatar
-								color="grey-darken-2"
-								size="34"
-								rounded="lg"
-								class="avatar"
-							>
-								<v-icon size="18" color="white">mdi-account</v-icon>
-							</v-avatar>
-						</div>
-
-						<!-- ── AI messages ──────────────────────────────────── -->
-						<div v-else class="row ai-row">
-							<v-avatar
-								color="blue-darken-3"
-								size="34"
-								rounded="lg"
-								class="avatar"
-							>
-								<v-icon size="18" color="white">mdi-robot</v-icon>
-							</v-avatar>
-
-							<!-- HTML node message -->
-							<v-card
-								v-if="message.messageType === 'html'"
-								class="ai-card"
-								elevation="1"
-							>
-								<div class="md-body" v-html="sanitizeHtml(message.content)" />
-							</v-card>
-
-							<!-- Result Set -->
-							<v-card
-								v-else-if="message.messageType === 'result-set'"
-								class="ai-card"
-								elevation="1"
-							>
-								<ChatResultSet
-									:data="safeParseJson(message.content)"
-									:page-size="store.requestOptions.pageSize"
-								/>
-							</v-card>
-
-							<!-- Markdown Report -->
-							<v-card
-								v-else-if="message.messageType === 'markdown-report'"
-								class="ai-card report-card"
-								elevation="1"
-							>
-								<ChatMarkdownReport :content="message.content" />
-							</v-card>
-
-							<!-- Timeline -->
-							<v-card
-								v-else-if="message.messageType === 'timeline'"
-								class="ai-card timeline-card"
-								elevation="1"
-							>
-								<ChatWorkflowTimeline
-									:node-blocks="safeParseBlocks(message.content)"
-									:completed="true"
-								/>
-							</v-card>
-
-							<!-- Warning (user stopped) -->
-							<div
-								v-else-if="message.messageType === 'warning'"
-								class="status-banner status-banner--warning"
-							>
-								<v-icon size="16" class="mr-2">mdi-alert</v-icon>
-								{{ message.content }}
+			<!-- Messages -->
+			<template v-else>
+				<div class="messages-inner">
+					<template v-for="message in filteredMessages" :key="message.id">
+						<div class="message-wrapper">
+							<!-- ── User message ─────────────────────────────────── -->
+							<div v-if="message.role === 'user'" class="row user-row">
+								<v-card class="user-card" elevation="1">
+									<span
+										v-html="escapeHtml(message.content).replace(/\n/g, '<br>')"
+									/>
+								</v-card>
+								<v-avatar
+									color="grey-darken-2"
+									size="34"
+									rounded="lg"
+									class="avatar"
+								>
+									<v-icon size="18" color="white">mdi-account</v-icon>
+								</v-avatar>
 							</div>
 
-							<!-- Error -->
-							<div
-								v-else-if="message.messageType === 'error'"
-								class="status-banner status-banner--error"
-							>
-								<v-icon size="16" class="mr-2">mdi-alert-circle</v-icon>
-								{{ message.content }}
+							<!-- ── AI messages ──────────────────────────────────── -->
+							<div v-else class="row ai-row">
+								<v-avatar
+									color="blue-darken-3"
+									size="34"
+									rounded="lg"
+									class="avatar"
+								>
+									<v-icon size="18" color="white">mdi-robot</v-icon>
+								</v-avatar>
+
+								<!-- HTML node message -->
+								<v-card
+									v-if="message.messageType === 'html'"
+									class="ai-card"
+									elevation="1"
+								>
+									<div class="md-body" v-html="sanitizeHtml(message.content)" />
+								</v-card>
+
+								<!-- Result Set -->
+								<v-card
+									v-else-if="message.messageType === 'result-set'"
+									class="ai-card"
+									elevation="1"
+								>
+									<ChatResultSet
+										:data="safeParseJson(message.content)"
+										:page-size="store.requestOptions.pageSize"
+									/>
+								</v-card>
+
+								<!-- Markdown Report -->
+								<v-card
+									v-else-if="message.messageType === 'markdown-report'"
+									class="ai-card report-card"
+									elevation="1"
+								>
+									<ChatMarkdownReport :content="message.content" />
+								</v-card>
+
+								<!-- Timeline -->
+								<v-card
+									v-else-if="message.messageType === 'timeline'"
+									class="ai-card timeline-card"
+									elevation="1"
+								>
+									<ChatWorkflowTimeline
+										:node-blocks="safeParseBlocks(message.content)"
+										:completed="true"
+									/>
+								</v-card>
+
+								<!-- Warning (user stopped) -->
+								<div
+									v-else-if="message.messageType === 'warning'"
+									class="status-banner status-banner--warning"
+								>
+									<v-icon size="16" class="mr-2">mdi-alert</v-icon>
+									{{ message.content }}
+								</div>
+
+								<!-- Error -->
+								<div
+									v-else-if="message.messageType === 'error'"
+									class="status-banner status-banner--error"
+								>
+									<v-icon size="16" class="mr-2">mdi-alert-circle</v-icon>
+									{{ message.content }}
+								</div>
+
+								<!-- Plain AI text (render as markdown) -->
+								<v-card v-else class="ai-card" elevation="1">
+									<div
+										class="md-body"
+										v-html="renderMarkdown(message.content)"
+									/>
+								</v-card>
 							</div>
-
-							<!-- Plain AI text (render as markdown) -->
-							<v-card v-else class="ai-card" elevation="1">
-								<div class="md-body" v-html="renderMarkdown(message.content)" />
-							</v-card>
 						</div>
-					</div>
 
-					<!-- ── Report card below completed timeline ────────── -->
+						<!-- ── Report card below completed timeline ────────── -->
+						<div
+							v-if="
+								message.messageType === 'timeline' &&
+								extractReportContent(message.content)
+							"
+							class="message-wrapper"
+						>
+							<div class="row ai-row">
+								<v-avatar
+									color="blue-darken-3"
+									size="34"
+									rounded="lg"
+									class="avatar"
+									style="visibility: hidden"
+								/>
+								<v-card class="ai-card report-card" elevation="1">
+									<ChatMarkdownReport
+										:content="extractReportContent(message.content)!"
+									/>
+								</v-card>
+							</div>
+						</div>
+					</template>
+
+					<!-- ── Streaming: Workflow Timeline ──────────────────── -->
 					<div
-						v-if="
-							message.messageType === 'timeline' &&
-							extractReportContent(message.content)
-						"
-						class="message-wrapper"
+						v-if="store.isStreaming && store.nodeBlocks.length > 0"
+						class="row ai-row"
 					>
-						<div class="row ai-row">
-							<v-avatar
-								color="blue-darken-3"
-								size="34"
-								rounded="lg"
-								class="avatar"
-								style="visibility: hidden"
-							/>
-							<v-card class="ai-card report-card" elevation="1">
-								<ChatMarkdownReport
-									:content="extractReportContent(message.content)!"
-								/>
-							</v-card>
-						</div>
+						<v-avatar
+							color="blue-darken-3"
+							size="34"
+							rounded="lg"
+							class="avatar"
+						>
+							<v-icon size="18" color="white">mdi-robot</v-icon>
+						</v-avatar>
+						<v-card class="ai-card timeline-card" elevation="1">
+							<ChatWorkflowTimeline :node-blocks="store.nodeBlocks" />
+						</v-card>
 					</div>
-				</template>
 
-				<!-- ── Streaming: Workflow Timeline ──────────────────── -->
-				<div
-					v-if="store.isStreaming && store.nodeBlocks.length > 0"
-					class="row ai-row"
-				>
-					<v-avatar color="blue-darken-3" size="34" rounded="lg" class="avatar">
-						<v-icon size="18" color="white">mdi-robot</v-icon>
-					</v-avatar>
-					<v-card class="ai-card timeline-card" elevation="1">
-						<ChatWorkflowTimeline :node-blocks="store.nodeBlocks" />
-					</v-card>
-				</div>
+					<!-- ── Streaming: Report card below timeline ─────────── -->
+					<div
+						v-if="store.isReportStreaming && store.streamingReportContent"
+						class="row ai-row"
+					>
+						<v-avatar
+							color="blue-darken-3"
+							size="34"
+							rounded="lg"
+							class="avatar"
+							style="visibility: hidden"
+						/>
+						<v-card class="ai-card report-card" elevation="1">
+							<ChatStreamingReport :content="store.streamingReportContent" />
+						</v-card>
+					</div>
 
-				<!-- ── Streaming: Report card below timeline ─────────── -->
-				<div
-					v-if="store.isReportStreaming && store.streamingReportContent"
-					class="row ai-row"
-				>
-					<v-avatar
-						color="blue-darken-3"
-						size="34"
-						rounded="lg"
-						class="avatar"
-						style="visibility: hidden"
-					/>
-					<v-card class="ai-card report-card" elevation="1">
-						<ChatStreamingReport :content="store.streamingReportContent" />
-					</v-card>
+					<!-- ── Streaming spinner (before first node arrives) ── -->
+					<div
+						v-else-if="store.isStreaming && store.nodeBlocks.length === 0"
+						class="row ai-row"
+					>
+						<v-avatar
+							color="blue-darken-3"
+							size="34"
+							rounded="lg"
+							class="avatar"
+						>
+							<v-icon size="18" color="white">mdi-robot</v-icon>
+						</v-avatar>
+						<v-card class="ai-card" elevation="1">
+							<div class="thinking-dots">
+								<span class="dot" />
+								<span class="dot dot--2" />
+								<span class="dot dot--3" />
+							</div>
+						</v-card>
+					</div>
 				</div>
-
-				<!-- ── Streaming spinner (before first node arrives) ── -->
-				<div
-					v-else-if="store.isStreaming && store.nodeBlocks.length === 0"
-					class="row ai-row"
-				>
-					<v-avatar color="blue-darken-3" size="34" rounded="lg" class="avatar">
-						<v-icon size="18" color="white">mdi-robot</v-icon>
-					</v-avatar>
-					<v-card class="ai-card" elevation="1">
-						<div class="thinking-dots">
-							<span class="dot" />
-							<span class="dot dot--2" />
-							<span class="dot dot--3" />
-						</div>
-					</v-card>
-				</div>
-			</div>
-		</template>
+			</template>
+		</div>
+		<button
+			v-if="showJumpToLatestButton"
+			type="button"
+			class="jump-to-latest-btn"
+			@click="handleJumpToLatest"
+		>
+			<v-icon size="16">mdi-arrow-down</v-icon>
+			<span>回到最新</span>
+		</button>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import DOMPurify from 'dompurify';
 import { renderMarkdownContent } from '~/utils/markdown';
 import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
@@ -218,6 +246,15 @@ const TIMELINE_ABSORBED_TYPES = new Set([
 const store = useChatStore();
 const listRef = ref<HTMLElement | null>(null);
 const { renderECharts } = useEchartsRenderer();
+const isAutoScrollEnabled = ref(true);
+const showJumpToLatest = ref(false);
+const isProgrammaticScroll = ref(false);
+
+const AUTO_SCROLL_THRESHOLD = 80;
+
+const showJumpToLatestButton = computed(
+	() => showJumpToLatest.value && store.currentMessages.length > 0,
+);
 
 const filteredMessages = computed<ChatMessage[]>(() => {
 	const msgs = store.currentMessages;
@@ -309,45 +346,180 @@ function escapeHtml(text: string): string {
 }
 
 let scrollRafId: number | null = null;
-function scrollToBottom() {
+let releaseProgrammaticScrollRafId: number | null = null;
+
+function getDistanceFromBottom(element: HTMLElement): number {
+	return element.scrollHeight - element.scrollTop - element.clientHeight;
+}
+
+function isNearBottom(
+	element: HTMLElement,
+	threshold = AUTO_SCROLL_THRESHOLD,
+): boolean {
+	return getDistanceFromBottom(element) <= threshold;
+}
+
+function scrollToBottom(forceEnable = false) {
 	if (scrollRafId) cancelAnimationFrame(scrollRafId);
+	if (releaseProgrammaticScrollRafId)
+		cancelAnimationFrame(releaseProgrammaticScrollRafId);
+	if (forceEnable) {
+		isAutoScrollEnabled.value = true;
+		showJumpToLatest.value = false;
+	}
+	isProgrammaticScroll.value = true;
 	scrollRafId = requestAnimationFrame(() => {
-		if (listRef.value) listRef.value.scrollTop = listRef.value.scrollHeight;
+		if (listRef.value) {
+			listRef.value.scrollTop = listRef.value.scrollHeight;
+		}
 		scrollRafId = null;
+		releaseProgrammaticScrollRafId = requestAnimationFrame(() => {
+			isProgrammaticScroll.value = false;
+			releaseProgrammaticScrollRafId = null;
+			if (listRef.value && isNearBottom(listRef.value)) {
+				isAutoScrollEnabled.value = true;
+				showJumpToLatest.value = false;
+			}
+		});
 	});
+}
+
+function handleScroll() {
+	const element = listRef.value;
+	if (!element) return;
+
+	const nearBottom = isNearBottom(element);
+	if (isProgrammaticScroll.value && nearBottom) return;
+
+	if (nearBottom) {
+		isAutoScrollEnabled.value = true;
+		showJumpToLatest.value = false;
+		return;
+	}
+
+	isAutoScrollEnabled.value = false;
+	showJumpToLatest.value = true;
+}
+
+function handleWheel(event: WheelEvent) {
+	if (event.deltaY >= 0) return;
+	const element = listRef.value;
+	if (!element || element.scrollHeight <= element.clientHeight) return;
+
+	if (scrollRafId) {
+		cancelAnimationFrame(scrollRafId);
+		scrollRafId = null;
+	}
+	if (releaseProgrammaticScrollRafId) {
+		cancelAnimationFrame(releaseProgrammaticScrollRafId);
+		releaseProgrammaticScrollRafId = null;
+	}
+	isProgrammaticScroll.value = false;
+	isAutoScrollEnabled.value = false;
+	showJumpToLatest.value = true;
+}
+
+function handleJumpToLatest() {
+	scrollToBottom(true);
+}
+
+function maybeScrollToBottom() {
+	if (!isAutoScrollEnabled.value) return;
+	scrollToBottom();
 }
 
 watch(
 	() => store.currentMessages.length,
 	() => {
-		scrollToBottom();
+		maybeScrollToBottom();
 		nextTick(() => renderECharts(listRef.value));
 	},
 );
 watch(
 	() => store.nodeBlocks,
-	() => scrollToBottom(),
+	() => maybeScrollToBottom(),
 	{ deep: true },
 );
 watch(
 	() => store.streamingReportContent,
-	() => scrollToBottom(),
+	() => maybeScrollToBottom(),
 );
 watch(
 	() => store.isStreaming,
 	(v) => {
-		if (v) scrollToBottom();
+		if (v && isAutoScrollEnabled.value) scrollToBottom();
 	},
 );
+watch(
+	() => store.currentSession?.id,
+	async () => {
+		isAutoScrollEnabled.value = true;
+		showJumpToLatest.value = false;
+		await nextTick();
+		scrollToBottom(true);
+	},
+);
+
+onMounted(() => {
+	listRef.value?.addEventListener('scroll', handleScroll, { passive: true });
+});
+
+onUnmounted(() => {
+	listRef.value?.removeEventListener('scroll', handleScroll);
+	if (scrollRafId) cancelAnimationFrame(scrollRafId);
+	if (releaseProgrammaticScrollRafId)
+		cancelAnimationFrame(releaseProgrammaticScrollRafId);
+});
 </script>
 
 <style scoped>
 /* ── Layout ──────────────────────────────────────────────────────────────────── */
+.message-list-shell {
+	position: relative;
+	flex: 1;
+	display: flex;
+	min-height: 0;
+}
+
 .message-list {
 	flex: 1;
 	overflow-y: auto;
 	display: flex;
 	flex-direction: column;
+	min-height: 0;
+}
+
+.jump-to-latest-btn {
+	position: absolute;
+	right: 24px;
+	bottom: 24px;
+	z-index: 5;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 36px;
+	padding: 0 14px;
+	border: 1px solid #bfdbfe;
+	border-radius: 18px;
+	background: #2563eb;
+	color: #fff;
+	font-size: 13px;
+	font-weight: 500;
+	box-shadow: 0 4px 12px rgb(15 23 42 / 18%);
+	cursor: pointer;
+	transition:
+		background-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+
+.jump-to-latest-btn:hover {
+	background: #1d4ed8;
+	box-shadow: 0 6px 16px rgb(15 23 42 / 24%);
+}
+
+.jump-to-latest-btn:focus-visible {
+	outline: 2px solid #60a5fa;
+	outline-offset: 2px;
 }
 
 .messages-inner {

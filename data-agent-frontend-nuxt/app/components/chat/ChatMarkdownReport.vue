@@ -124,8 +124,9 @@
 				>
 					<div
 						v-if="store.reportFormat === 'markdown'"
+						ref="fullscreenMarkdownRef"
 						class="markdown-body"
-						v-html="renderMarkdown(store.fullscreenReportContent)"
+						v-html="fullscreenRenderedContent"
 					/>
 					<iframe
 						v-else
@@ -143,6 +144,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
 import DOMPurify from 'dompurify';
+import echartsScriptUrl from 'echarts/dist/echarts.min.js?url';
 import { renderMarkdownContent } from '~/utils/markdown';
 import { buildReportHtml } from '~/utils/report-html-template';
 import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
@@ -153,8 +155,10 @@ const store = useChatStore();
 const format = ref<'markdown' | 'html'>('markdown');
 const reportBodyRef = ref<HTMLElement | null>(null);
 const htmlIframeRef = ref<HTMLIFrameElement | null>(null);
+const fullscreenMarkdownRef = ref<HTMLElement | null>(null);
 const fullscreenIframeRef = ref<HTMLIFrameElement | null>(null);
-const { renderECharts } = useEchartsRenderer();
+const { renderECharts, disposeEChartsInContainer } = useEchartsRenderer();
+let activeFullscreenMarkdownContainer: HTMLElement | null = null;
 
 function renderMarkdown(md: string): string {
 	if (!md) return '';
@@ -174,45 +178,65 @@ function loadHtmlToIframe(
 			'<html><body style="padding:20px;color:#666;">暂无报告内容</body></html>';
 		return;
 	}
-	const html = buildReportHtml(markdownContent);
-	const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-	const url = URL.createObjectURL(blob);
-	const onLoad = () => {
-		URL.revokeObjectURL(url);
-		iframe.removeEventListener('load', onLoad);
-	};
-	iframe.addEventListener('load', onLoad);
-	iframe.src = url;
+	const localEchartsUrl = new URL(
+		echartsScriptUrl,
+		window.location.origin,
+	).toString();
+	iframe.srcdoc = buildReportHtml(
+		renderMarkdown(markdownContent),
+		localEchartsUrl,
+	);
 }
 
 const renderedContent = computed(() => renderMarkdown(props.content));
-
-watch(
-	renderedContent,
-	() => {
-		nextTick(() => renderECharts(reportBodyRef.value));
-	},
-	{ immediate: true },
+const fullscreenRenderedContent = computed(() =>
+	renderMarkdown(store.fullscreenReportContent),
 );
 
-watch(format, (val) => {
-	if (val === 'html') {
-		nextTick(() => loadHtmlToIframe(htmlIframeRef.value, props.content));
-	}
-});
+watch(
+	[renderedContent, format],
+	async ([, currentFormat]) => {
+		await nextTick();
+		if (currentFormat === 'markdown') {
+			renderECharts(reportBodyRef.value);
+		} else {
+			loadHtmlToIframe(htmlIframeRef.value, props.content);
+		}
+	},
+	{ immediate: true, flush: 'post' },
+);
 
 watch(
-	() => store.reportFormat,
-	(val) => {
-		if (val === 'html') {
-			nextTick(() =>
-				loadHtmlToIframe(
-					fullscreenIframeRef.value,
-					store.fullscreenReportContent,
-				),
+	[
+		() => store.showReportFullscreen,
+		() => store.reportFormat,
+		fullscreenRenderedContent,
+	],
+	async ([isOpen, currentFormat]) => {
+		if (!isOpen) {
+			if (activeFullscreenMarkdownContainer) {
+				disposeEChartsInContainer(activeFullscreenMarkdownContainer);
+				activeFullscreenMarkdownContainer = null;
+			}
+			return;
+		}
+
+		await nextTick();
+		if (currentFormat === 'markdown') {
+			activeFullscreenMarkdownContainer = fullscreenMarkdownRef.value;
+			renderECharts(activeFullscreenMarkdownContainer);
+		} else {
+			if (activeFullscreenMarkdownContainer) {
+				disposeEChartsInContainer(activeFullscreenMarkdownContainer);
+				activeFullscreenMarkdownContainer = null;
+			}
+			loadHtmlToIframe(
+				fullscreenIframeRef.value,
+				store.fullscreenReportContent,
 			);
 		}
 	},
+	{ flush: 'post' },
 );
 
 function downloadMd() {

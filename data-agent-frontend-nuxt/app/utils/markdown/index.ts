@@ -28,9 +28,16 @@ const md = new MarkdownIt({
 	.use(echartsPlugin)
 	.use(MarkdownItContainer);
 
-export function renderMarkdownContent(content: string): string {
+export interface MarkdownRenderOptions {
+	streaming?: boolean;
+}
+
+export function renderMarkdownContent(
+	content: string,
+	options: MarkdownRenderOptions = {},
+): string {
 	if (!content) return '';
-	return md.render(content);
+	return md.render(content, options);
 }
 
 export { md };

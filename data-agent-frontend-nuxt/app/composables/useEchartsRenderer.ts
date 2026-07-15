@@ -43,75 +43,188 @@ const EXTENDED_COLORS = [
 	'#009db2',
 ];
 
-function renderEChartsInContainer(container: HTMLElement) {
-	const elements = container.querySelectorAll<HTMLElement>('.md-echarts');
-	elements.forEach((el) => {
+interface ContainerController {
+	container: HTMLElement;
+	mutationObserver: MutationObserver;
+	resizeObserver: ResizeObserver;
+	observedElements: Set<HTMLElement>;
+	renderRafId: number | null;
+}
+
+function decodeChartConfig(rawConfig: string): string {
+	return rawConfig
+		.replace(/&quot;/g, '"')
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&amp;/g, '&');
+}
+
+function showChartError(element: HTMLElement, error: unknown) {
+	const message = error instanceof Error ? error.message : String(error);
+	element.dataset.echartsRenderError = message;
+	element.textContent = '';
+
+	const errorBox = document.createElement('div');
+	errorBox.className = 'md-echarts-error';
+	errorBox.style.cssText = [
+		'display:flex',
+		'align-items:center',
+		'justify-content:center',
+		'height:100%',
+		'min-height:160px',
+		'padding:16px',
+		'border:1px dashed #ef4444',
+		'border-radius:6px',
+		'background:#fef2f2',
+		'color:#b91c1c',
+		'font-size:13px',
+		'text-align:center',
+	].join(';');
+	errorBox.textContent = `图表渲染失败：${message}`;
+	element.appendChild(errorBox);
+}
+
+function disposeChartElement(element: HTMLElement) {
+	const chart = echarts.getInstanceByDom(element);
+	if (chart) chart.dispose();
+}
+
+export function useEchartsRenderer() {
+	const controllers = new Map<HTMLElement, ContainerController>();
+
+	function cleanupDetachedElements(controller: ContainerController) {
+		for (const element of controller.observedElements) {
+			if (controller.container.contains(element)) continue;
+			controller.resizeObserver.unobserve(element);
+			disposeChartElement(element);
+			controller.observedElements.delete(element);
+		}
+	}
+
+	function observeChartElement(
+		controller: ContainerController,
+		element: HTMLElement,
+	) {
+		if (controller.observedElements.has(element)) return;
+		controller.observedElements.add(element);
+		controller.resizeObserver.observe(element);
+	}
+
+	function renderChartElement(
+		controller: ContainerController,
+		element: HTMLElement,
+	) {
+		observeChartElement(controller, element);
+
+		const rawConfig = element.getAttribute('data-echarts-config');
+		if (!rawConfig) return;
+		if (element.dataset.echartsRenderError) return;
+
+		const { width, height } = element.getBoundingClientRect();
+		if (width <= 0 || height <= 0) return;
+
 		try {
-			const rawConfig = el.getAttribute('data-echarts-config');
-			if (!rawConfig) return; // already rendered (attribute removed after init)
-
-			const code = rawConfig
-				.replace(/&quot;/g, '"')
-				.replace(/&lt;/g, '<')
-				.replace(/&gt;/g, '>')
-				.replace(/&amp;/g, '&');
-
-			if (!code || code.trim() === '') return;
+			const code = decodeChartConfig(rawConfig);
+			if (!code.trim()) return;
 
 			const options = new Function(`return (${code})`)() as Record<
 				string,
 				unknown
 			>;
-			if (!options.color) {
-				options.color = EXTENDED_COLORS;
-			}
+			if (!options.color) options.color = EXTENDED_COLORS;
 
-			// Mark as initialized before touching DOM
-			el.removeAttribute('data-echarts-config');
-			el.textContent = '';
-
-			const existingChart = echarts.getInstanceByDom(el);
-			if (existingChart) {
-				existingChart.setOption(options, true);
-			} else {
-				const chart = echarts.init(el);
-				chart.setOption(options);
-			}
-		} catch (e) {
-			console.error('ECharts rendering error:', e);
+			const chart = echarts.getInstanceByDom(element) || echarts.init(element);
+			chart.setOption(options, true);
+			element.removeAttribute('data-echarts-config');
+			element.dataset.echartsRendered = 'true';
+		} catch (error) {
+			console.error('ECharts rendering error:', error);
+			showChartError(element, error);
 		}
-	});
-}
+	}
 
-function disposeEChartsInContainer(container: HTMLElement | null) {
-	if (!container) return;
-	const elements = container.querySelectorAll<HTMLElement>('.md-echarts');
-	elements.forEach((el) => {
-		const chart = echarts.getInstanceByDom(el);
-		if (chart) chart.dispose();
-	});
-}
+	function scanContainer(controller: ContainerController) {
+		controller.renderRafId = null;
+		cleanupDetachedElements(controller);
 
-export function useEchartsRenderer() {
-	// Each composable instance has its own timer — no cross-instance interference
-	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-	const chartContainers: HTMLElement[] = [];
+		const elements =
+			controller.container.querySelectorAll<HTMLElement>('.md-echarts');
+		elements.forEach((element) => renderChartElement(controller, element));
+	}
+
+	function scheduleScan(controller: ContainerController) {
+		if (controller.renderRafId !== null) return;
+		controller.renderRafId = requestAnimationFrame(() =>
+			scanContainer(controller),
+		);
+	}
+
+	function createController(container: HTMLElement): ContainerController {
+		const resizeObserver = new ResizeObserver((entries) => {
+			for (const entry of entries) {
+				const element = entry.target as HTMLElement;
+				const chart = echarts.getInstanceByDom(element);
+				if (chart) chart.resize();
+				else if (element.hasAttribute('data-echarts-config'))
+					scheduleScan(controller);
+			}
+		});
+		const mutationObserver = new MutationObserver(() => scheduleScan(controller));
+
+		const controller: ContainerController = {
+			container,
+			mutationObserver,
+			resizeObserver,
+			observedElements: new Set(),
+			renderRafId: null,
+		};
+
+		mutationObserver.observe(container, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['data-echarts-config'],
+		});
+		return controller;
+	}
 
 	function renderECharts(container: HTMLElement | null) {
-		if (!container) return;
-		if (!chartContainers.includes(container)) chartContainers.push(container);
+		if (!container || typeof window === 'undefined') return;
 
-		// Cancel any pending debounce for this instance only
-		if (debounceTimer) clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(() => {
-			debounceTimer = null;
-			nextTick(() => renderEChartsInContainer(container));
-		}, 200);
+		let controller = controllers.get(container);
+		if (!controller) {
+			controller = createController(container);
+			controllers.set(container, controller);
+		}
+
+		nextTick(() => {
+			if (container.isConnected) scheduleScan(controller);
+		});
+	}
+
+	function disposeEChartsInContainer(container: HTMLElement | null) {
+		if (!container) return;
+		const controller = controllers.get(container);
+		if (controller) {
+			if (controller.renderRafId !== null)
+				cancelAnimationFrame(controller.renderRafId);
+			controller.mutationObserver.disconnect();
+			controller.resizeObserver.disconnect();
+			controller.observedElements.forEach(disposeChartElement);
+			controller.observedElements.clear();
+			controllers.delete(container);
+			return;
+		}
+
+		container
+			.querySelectorAll<HTMLElement>('.md-echarts')
+			.forEach(disposeChartElement);
 	}
 
 	onBeforeUnmount(() => {
-		if (debounceTimer) clearTimeout(debounceTimer);
-		chartContainers.forEach((c) => disposeEChartsInContainer(c));
+		for (const container of [...controllers.keys()]) {
+			disposeEChartsInContainer(container);
+		}
 	});
 
 	return { renderECharts, disposeEChartsInContainer };

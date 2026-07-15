@@ -32,6 +32,8 @@ export interface GraphRequest {
   humanFeedback: boolean;
   /** 人工反馈内容 */
   humanFeedbackContent?: string;
+  clarificationAnswer?: string;
+  resumeMode?: 'clarification' | 'human_feedback' | null;
   /** 是否拒绝了之前的计划 */
   rejectedPlan: boolean;
   /** 是否仅执行 NL2SQL */
@@ -52,6 +54,8 @@ export interface GraphNodeResponse {
   textType: TextType;
   /** 文本内容 */
   text: string;
+  interactionType?: 'normal' | 'clarification';
+  awaitingInput?: boolean;
   /** 是否发生错误 */
   error: boolean;
   /** 是否已完成 */
@@ -111,6 +115,12 @@ class GraphService {
     if (request.humanFeedbackContent) {
       params.append("humanFeedbackContent", request.humanFeedbackContent);
     }
+    if (request.clarificationAnswer) {
+      params.append("clarificationAnswer", request.clarificationAnswer);
+    }
+    if (request.resumeMode) {
+      params.append("resumeMode", request.resumeMode);
+    }
 
     const url = `${API_BASE_URL}/stream/search?${params.toString()}`;
 
@@ -119,9 +129,6 @@ class GraphService {
     eventSource.onmessage = async (event) => {
       try {
         const nodeResponse: GraphNodeResponse = JSON.parse(event.data);
-        console.log(
-          `Node: ${nodeResponse.nodeName}, message: ${nodeResponse.text}, type: ${nodeResponse.textType}`,
-        );
         await onMessage(nodeResponse);
       } catch (parseError) {
         console.error("Failed to parse SSE data:", parseError);
@@ -132,21 +139,37 @@ class GraphService {
     };
 
     let isCompleted = false;
+    let isFailed = false;
 
-    eventSource.onerror = async (_error) => {
+    eventSource.onerror = async (errorEvent) => {
       // If already completed or the connection was intentionally closed, ignore
-      if (isCompleted) {
+      if (isCompleted || isFailed) {
         return;
       }
       // EventSource.CLOSED = 2: connection was closed (normal after complete)
       if (eventSource.readyState === EventSource.CLOSED) {
         return;
       }
-      console.error("EventSource error:", _error);
-      if (onError) {
-        await onError(new Error("Stream connection failed"));
-      }
+
+      isFailed = true;
       eventSource.close();
+
+      // The backend uses a named `error` SSE event for processing failures.
+      // Preserve its payload instead of reporting every failure as a transport error.
+      let streamError = new Error("Stream connection failed");
+      if (errorEvent instanceof MessageEvent && errorEvent.data) {
+        try {
+          const response = JSON.parse(errorEvent.data) as GraphNodeResponse;
+          streamError = new Error(response.text || "Stream processing failed");
+        } catch (parseError) {
+          console.error("Failed to parse SSE error data:", parseError);
+        }
+      }
+
+      console.error("EventSource error:", errorEvent);
+      if (onError) {
+        await onError(streamError);
+      }
     };
 
     eventSource.addEventListener("complete", async () => {

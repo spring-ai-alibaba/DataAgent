@@ -27,24 +27,21 @@
 				<span class="typing-dot typing-dot--3" />
 			</span>
 		</div>
-		<div ref="bodyRef" class="report-body">
+		<div class="report-body">
 			<div class="markdown-body streaming" v-html="renderedHtml" />
 		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, nextTick, onBeforeUnmount } from 'vue';
+import { ref, watch, onBeforeUnmount } from 'vue';
 import DOMPurify from 'dompurify';
 import { renderMarkdownContent } from '~/utils/markdown';
 import { useTypewriter } from '~/composables/useTypewriter';
-import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
 
 const props = defineProps<{ content: string }>();
-const bodyRef = ref<HTMLElement | null>(null);
 
 const { displayedText, append, reset } = useTypewriter();
-const { renderECharts } = useEchartsRenderer();
 
 // Track what we've already fed to the typewriter
 let lastFedLength = 0;
@@ -75,21 +72,32 @@ const SANITIZE_OPTIONS = {
 	ADD_ATTR: ['style', 'class', 'data-echarts-config'],
 };
 
-const renderedHtml = computed(() => {
-	const text = displayedText.value;
-	if (!text) return '';
-	return DOMPurify.sanitize(
-		renderMarkdownContent(text),
-		SANITIZE_OPTIONS,
-	) as string;
-});
+const renderedHtml = ref('');
+let renderTimer: ReturnType<typeof setTimeout> | null = null;
+const MARKDOWN_RENDER_INTERVAL = 120;
 
-// After each render, try to initialize any completed echarts blocks
-watch(renderedHtml, () => {
-	nextTick(() => renderECharts(bodyRef.value));
-});
+function renderDisplayedText() {
+	renderTimer = null;
+	const text = displayedText.value;
+	renderedHtml.value = text
+		? (DOMPurify.sanitize(
+				renderMarkdownContent(text, { streaming: true }),
+				SANITIZE_OPTIONS,
+			) as string)
+		: '';
+}
+
+watch(
+	displayedText,
+	() => {
+		if (renderTimer) return;
+		renderTimer = setTimeout(renderDisplayedText, MARKDOWN_RENDER_INTERVAL);
+	},
+	{ immediate: true },
+);
 
 onBeforeUnmount(() => {
+	if (renderTimer) clearTimeout(renderTimer);
 	lastFedLength = 0;
 });
 </script>

@@ -16,11 +16,8 @@
 
 <template>
 	<div class="input-area">
-		<!-- Status / Info bar -->
 		<div class="status-bar">
 			<div class="status-chips">
-
-				<!-- Datasource selector -->
 				<div class="ds-chip-wrap" @click.stop>
 					<div
 						class="status-chip status-chip--ds"
@@ -28,7 +25,7 @@
 						@click="toggleDsMenu"
 					>
 						<v-icon size="13" color="#64748b">mdi-database-outline</v-icon>
-						<span>{{ store.activeDatasource?.name || '选择数据库' }}</span>
+						<span>{{ store.activeDatasource?.name || '选择数据源' }}</span>
 						<v-icon size="13" color="#94a3b8">{{ showDsMenu ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
 					</div>
 					<div v-if="showDsMenu" class="chip-dropdown">
@@ -45,7 +42,6 @@
 					</div>
 				</div>
 
-				<!-- Model selector -->
 				<div class="ds-chip-wrap" @click.stop>
 					<div
 						class="status-chip status-chip--model"
@@ -69,25 +65,26 @@
 						</div>
 					</div>
 				</div>
-
 			</div>
 		</div>
 
-		<!-- Textarea -->
 		<div class="textarea-wrap">
+			<div v-if="store.awaitingClarification" class="clarification-tip">
+				<v-icon size="14" color="#d97706">mdi-chat-alert-outline</v-icon>
+				<span>当前正在补充查询条件，你的下一条消息将作为澄清回答</span>
+			</div>
 			<textarea
 				ref="textareaRef"
 				v-model="inputText"
 				class="chat-textarea"
 				:disabled="store.isStreaming || store.showHumanFeedback"
-				placeholder="在这里提问，例如：'分析上月各产品的销售增长情况'..."
+				:placeholder="inputPlaceholder"
 				rows="3"
 				@keydown.enter.exact.prevent="handleSend"
 				@input="autoResize"
 			/>
 		</div>
 
-		<!-- Bottom action bar -->
 		<div class="action-bar">
 			<div class="action-bar-left">
 				<div class="extra-options">
@@ -110,7 +107,7 @@
 							@change="onNl2sqlChange"
 						/>
 						<v-icon size="11">mdi-database-search-outline</v-icon>
-						仅NL2SQL
+						仅 NL2SQL
 					</label>
 					<label class="option-chip" :class="{ active: store.requestOptions.showSqlResults }">
 						<input
@@ -120,7 +117,7 @@
 							class="hidden-checkbox"
 						/>
 						<v-icon size="11">mdi-table-eye</v-icon>
-						显示SQL结果
+						显示 SQL 结果
 					</label>
 				</div>
 			</div>
@@ -142,7 +139,6 @@
 			</div>
 		</div>
 
-		<!-- Human Feedback Panel -->
 		<Transition name="slide-up">
 			<div v-if="store.showHumanFeedback" class="human-feedback-panel">
 				<div class="feedback-header">
@@ -160,7 +156,7 @@
 						<v-icon size="14" class="mr-1">mdi-check</v-icon>接受计划
 					</v-btn>
 					<v-btn class="feedback-btn feedback-btn--reject" @click="store.submitFeedback(true, store.feedbackContent)">
-						<v-icon size="14" class="mr-1">mdi-close</v-icon>拒绝重规划
+						<v-icon size="14" class="mr-1">mdi-close</v-icon>拒绝并重规划
 					</v-btn>
 				</div>
 			</div>
@@ -176,6 +172,11 @@ const inputText = ref('');
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
 const showDsMenu = ref(false);
 const showModelMenu = ref(false);
+const inputPlaceholder = computed(() =>
+	store.awaitingClarification
+		? '请继续补充时间范围、统计对象或指标口径...'
+		: '在这里提问，例如：分析上个月各产品的销售增长情况...',
+);
 
 function toggleDsMenu() {
 	if (store.isStreaming) return;
@@ -255,10 +256,10 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	padding: 12px 32px 16px;
 }
 
-/* ── Status bar ──────────────────────────────────────────────────────────────── */
 .status-bar {
 	margin-bottom: 10px;
 }
+
 .status-chips {
 	display: flex;
 	align-items: center;
@@ -285,18 +286,22 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	white-space: nowrap;
 	transition: border-color 0.1s, background 0.1s;
 }
+
 .status-chip:hover:not(.disabled) {
 	border-color: #94a3b8;
 }
+
 .status-chip.disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
 }
+
 .status-chip--model {
 	background: #eff6ff;
 	border-color: #bfdbfe;
 	color: #1d4ed8;
 }
+
 .status-chip--model:hover:not(.disabled) {
 	border-color: #93c5fd;
 }
@@ -309,7 +314,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	background: white;
 	border: 1px solid #e2e8f0;
 	border-radius: 10px;
-	box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
 	min-width: 200px;
 	max-width: 300px;
 	max-height: 280px;
@@ -328,20 +333,24 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	cursor: pointer;
 	transition: background 0.1s;
 }
+
 .chip-dropdown-item:hover {
 	background: #f1f5f9;
 }
+
 .chip-dropdown-item.active {
 	background: #eff6ff;
 	color: #2563eb;
 	font-weight: 500;
 }
+
 .item-name {
 	flex: 1;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+
 .item-tag {
 	flex-shrink: 0;
 	font-size: 11px;
@@ -351,7 +360,6 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	padding: 1px 5px;
 }
 
-/* ── Textarea ────────────────────────────────────────────────────────────────── */
 .textarea-wrap {
 	background: #f8fafc;
 	border: 1.5px solid #e2e8f0;
@@ -359,10 +367,22 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	overflow: hidden;
 	transition: border-color 0.15s;
 }
+
 .textarea-wrap:focus-within {
 	border-color: #3b82f6;
 	background: #fff;
 }
+
+.clarification-tip {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 10px 14px 0;
+	font-size: 12.5px;
+	color: #b45309;
+	background: #fffbeb;
+}
+
 .chat-textarea {
 	display: block;
 	width: 100%;
@@ -378,34 +398,37 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	min-height: 80px;
 	max-height: 300px;
 }
+
 .chat-textarea::placeholder {
 	color: #94a3b8;
 }
+
 .chat-textarea:disabled {
 	opacity: 0.6;
 	cursor: not-allowed;
 }
 
-/* ── Action bar ──────────────────────────────────────────────────────────────── */
 .action-bar {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	padding: 6px 4px 0;
 }
+
 .action-bar-left {
 	display: flex;
 	align-items: center;
 	gap: 4px;
 	flex-wrap: wrap;
 }
-/* ── Extra options ───────────────────────────────────────────────────────────── */
+
 .extra-options {
 	display: flex;
 	align-items: center;
 	gap: 6px;
 	flex-wrap: wrap;
 }
+
 .option-chip {
 	display: inline-flex;
 	align-items: center;
@@ -420,15 +443,18 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	transition: border-color 0.1s, background 0.1s;
 	user-select: none;
 }
+
 .option-chip:hover {
 	border-color: #3b82f6;
 	color: #3b82f6;
 }
+
 .option-chip.active {
 	background: #eff6ff;
 	border-color: #3b82f6;
 	color: #2563eb;
 }
+
 .hidden-checkbox {
 	position: absolute;
 	opacity: 0;
@@ -436,7 +462,6 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	height: 0;
 }
 
-/* ── Send button ─────────────────────────────────────────────────────────────── */
 .send-btn {
 	display: inline-flex;
 	align-items: center;
@@ -452,18 +477,16 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	transition: background 0.15s, opacity 0.15s;
 	white-space: nowrap;
 }
+
 .send-btn:hover:not(:disabled) {
 	background: #1d4ed8;
 }
+
 .send-btn:disabled {
 	opacity: 0.4;
 	cursor: not-allowed;
 }
-.send-icon {
-	flex-shrink: 0;
-}
 
-/* ── Stop button ─────────────────────────────────────────────────────────────── */
 .stop-btn {
 	display: inline-flex;
 	align-items: center;
@@ -478,11 +501,11 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	cursor: pointer;
 	transition: background 0.15s;
 }
+
 .stop-btn:hover {
 	background: #dc2626;
 }
 
-/* ── Human feedback ──────────────────────────────────────────────────────────── */
 .human-feedback-panel {
 	margin-top: 10px;
 	background: #fffbeb;
@@ -490,6 +513,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	border-radius: 10px;
 	padding: 12px 14px;
 }
+
 .feedback-header {
 	display: flex;
 	align-items: center;
@@ -498,6 +522,7 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	color: #92400e;
 	margin-bottom: 8px;
 }
+
 .feedback-textarea {
 	width: 100%;
 	background: white;
@@ -511,10 +536,12 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	font-family: inherit;
 	margin-bottom: 8px;
 }
+
 .feedback-actions {
 	display: flex;
 	gap: 8px;
 }
+
 .feedback-btn {
 	display: inline-flex;
 	align-items: center;
@@ -526,22 +553,40 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	cursor: pointer;
 	transition: opacity 0.1s;
 }
+
 .feedback-btn--accept {
 	background: #22c55e;
 	color: white;
 }
+
 .feedback-btn--reject {
 	background: white;
 	color: #ef4444;
 	border: 1px solid #ef4444;
 }
+
 .feedback-btn:hover {
 	opacity: 0.85;
 }
 
-/* ── Transitions ─────────────────────────────────────────────────────────────── */
-.fade-enter-active, .fade-leave-active { transition: opacity 0.15s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-.slide-up-enter-active, .slide-up-leave-active { transition: all 0.2s ease; }
-.slide-up-enter-from, .slide-up-leave-to { transform: translateY(10px); opacity: 0; }
+.fade-enter-active,
+.fade-leave-active {
+	transition: opacity 0.15s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+	opacity: 0;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+	transition: all 0.2s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+	transform: translateY(10px);
+	opacity: 0;
+}
 </style>

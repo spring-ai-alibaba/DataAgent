@@ -15,7 +15,7 @@
  */
 
 <template>
-	<div ref="timelineRef" class="workflow-timeline">
+	<div class="workflow-timeline">
 		<!-- Title + global toggle -->
 		<div class="timeline-title-bar">
 			<v-card-title class="timeline-title pa-0">
@@ -92,14 +92,42 @@
 						<!-- Pure code block (all items share same code type) -->
 						<div
 							v-else-if="isPureCodeBlock(step.block)"
-							v-html="renderCode(step.block)"
-						/>
+							class="step-output"
+						>
+							<div class="step-output-scroll" v-html="renderCode(step.block)" />
+							<button
+								type="button"
+								class="step-resize-handle"
+								title="拖拽调整高度"
+								aria-label="调整节点输出高度"
+								@pointerdown="startOutputResize"
+								@keydown.up.prevent="resizeOutputByKeyboard($event, -40)"
+								@keydown.down.prevent="resizeOutputByKeyboard($event, 40)"
+							>
+								<v-icon size="16">mdi-drag-horizontal</v-icon>
+							</button>
+						</div>
 						<!-- Mixed content: text with possible embedded JSON/code -->
 						<div
 							v-else
-							class="text-body"
-							v-html="renderTextWithJsonDetection(step.block)"
-						/>
+							class="step-output text-body"
+						>
+							<div
+								class="step-output-scroll"
+								v-html="renderTextWithJsonDetection(step.block)"
+							/>
+							<button
+								type="button"
+								class="step-resize-handle"
+								title="拖拽调整高度"
+								aria-label="调整节点输出高度"
+								@pointerdown="startOutputResize"
+								@keydown.up.prevent="resizeOutputByKeyboard($event, -40)"
+								@keydown.down.prevent="resizeOutputByKeyboard($event, 40)"
+							>
+								<v-icon size="16">mdi-drag-horizontal</v-icon>
+							</button>
+						</div>
 					</div>
 				</v-expand-transition>
 			</v-timeline-item>
@@ -110,7 +138,6 @@
 <script setup lang="ts">
 import hljs from 'highlight.js';
 import DOMPurify from 'dompurify';
-import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
 import type { GraphNodeResponse } from '~/services/graph/index';
 import type { ResultData } from '~/services/resultSet/index';
 import ChatResultSet from './ChatResultSet.vue';
@@ -249,10 +276,36 @@ interface TimelineStep extends NodeDef {
 	isReport: boolean;
 }
 
+function normalizeBlock(block: GraphNodeResponse[]): GraphNodeResponse[] {
+	if (block.length <= 1) return block;
+
+	const merged: GraphNodeResponse[] = [];
+	for (const item of block) {
+		const last = merged[merged.length - 1];
+		if (
+			last &&
+			last.nodeName === item.nodeName &&
+			last.textType === item.textType
+		) {
+			last.text += item.text;
+			last.complete = item.complete;
+			last.error = item.error;
+			last.threadId = item.threadId;
+		} else {
+			merged.push({ ...item });
+		}
+	}
+	return merged;
+}
+
+const normalizedNodeBlocks = computed(() =>
+	props.nodeBlocks.map((block) => normalizeBlock(block)),
+);
+
 const timelineSteps = computed<TimelineStep[]>(() => {
 	const seen = new Set<string>();
 	const orderedNodeNames: string[] = [];
-	for (const block of props.nodeBlocks) {
+	for (const block of normalizedNodeBlocks.value) {
 		const name = block[0]?.nodeName;
 		if (name && !seen.has(name)) {
 			seen.add(name);
@@ -270,7 +323,7 @@ const timelineSteps = computed<TimelineStep[]>(() => {
 			icon: 'mdi-lightning-bolt',
 		};
 		const block =
-			props.nodeBlocks.find((b) => b[0]?.nodeName === nodeName) || [];
+			normalizedNodeBlocks.value.find((b) => b[0]?.nodeName === nodeName) || [];
 		const isReport = nodeName === 'ReportGeneratorNode';
 
 		let status: 'pending' | 'active' | 'done' = 'pending';
@@ -316,8 +369,51 @@ function escapeHtml(text: string): string {
 	return div.innerHTML;
 }
 
-const timelineRef = ref<HTMLElement | null>(null);
-const { renderECharts } = useEchartsRenderer();
+const MIN_OUTPUT_HEIGHT = 44;
+let stopActiveOutputResize: (() => void) | null = null;
+
+function clampOutputHeight(height: number): number {
+	return Math.min(Math.max(height, MIN_OUTPUT_HEIGHT), window.innerHeight * 0.7);
+}
+
+function startOutputResize(event: PointerEvent) {
+	const handle = event.currentTarget as HTMLElement;
+	const output = handle.parentElement;
+	if (!output) return;
+
+	stopActiveOutputResize?.();
+	event.preventDefault();
+	const startY = event.clientY;
+	const startHeight = output.getBoundingClientRect().height;
+	const previousUserSelect = document.body.style.userSelect;
+	document.body.style.userSelect = 'none';
+
+	const onPointerMove = (moveEvent: PointerEvent) => {
+		output.style.height = `${clampOutputHeight(startHeight + moveEvent.clientY - startY)}px`;
+	};
+	const stopResize = () => {
+		document.body.style.userSelect = previousUserSelect;
+		window.removeEventListener('pointermove', onPointerMove);
+		window.removeEventListener('pointerup', stopResize);
+		window.removeEventListener('pointercancel', stopResize);
+		window.removeEventListener('blur', stopResize);
+		if (stopActiveOutputResize === stopResize) stopActiveOutputResize = null;
+	};
+
+	stopActiveOutputResize = stopResize;
+	window.addEventListener('pointermove', onPointerMove);
+	window.addEventListener('pointerup', stopResize);
+	window.addEventListener('pointercancel', stopResize);
+	window.addEventListener('blur', stopResize);
+}
+
+function resizeOutputByKeyboard(event: KeyboardEvent, delta: number) {
+	const output = (event.currentTarget as HTMLElement).parentElement;
+	if (!output) return;
+	output.style.height = `${clampOutputHeight(output.getBoundingClientRect().height + delta)}px`;
+}
+
+onBeforeUnmount(() => stopActiveOutputResize?.());
 
 const CODE_TEXT_TYPES = new Set(['SQL', 'PYTHON', 'JSON']);
 
@@ -333,20 +429,56 @@ const SANITIZE_OPTIONS = {
 	RETURN_TRUSTED_TYPE: false as const,
 };
 
+const renderCache = new Map<string, string>();
+
+function getBlockText(block: GraphNodeResponse[]): string {
+	return block.map((n) => n.text).join('');
+}
+
+function getBlockCacheKey(prefix: string, block: GraphNodeResponse[], text: string) {
+	return [
+		prefix,
+		block[0]?.nodeName || '',
+		block[0]?.textType || '',
+		text.length,
+		text.slice(0, 80),
+		text.slice(-80),
+	].join('|');
+}
+
+function setCachedRender(key: string, value: string): string {
+	renderCache.set(key, value);
+	if (renderCache.size > 200) {
+		const oldestKey = renderCache.keys().next().value;
+		if (oldestKey) renderCache.delete(oldestKey);
+	}
+	return value;
+}
+
 function renderCode(block: GraphNodeResponse[]): string {
 	const lang = (block[0]?.textType || 'text').toLowerCase();
-	const code = block.map((n) => n.text).join('');
+	const code = getBlockText(block);
+	const cacheKey = getBlockCacheKey('code', block, code);
+	const cached = renderCache.get(cacheKey);
+	if (cached) return cached;
+
 	try {
 		const h = hljs.highlight(code, { language: lang });
-		return DOMPurify.sanitize(
+		return setCachedRender(
+			cacheKey,
+			DOMPurify.sanitize(
 			`<pre class="tl-code"><code class="hljs ${lang}">${h.value}</code></pre>`,
 			SANITIZE_OPTIONS,
-		) as string;
+			) as string,
+		);
 	} catch {
-		return DOMPurify.sanitize(
+		return setCachedRender(
+			cacheKey,
+			DOMPurify.sanitize(
 			`<pre class="tl-code"><code>${escapeHtml(code)}</code></pre>`,
 			SANITIZE_OPTIONS,
-		) as string;
+			) as string,
+		);
 	}
 }
 
@@ -370,7 +502,10 @@ function tryExtractJson(
 }
 
 function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
-	const fullText = block.map((n) => n.text).join('');
+	const fullText = getBlockText(block);
+	const cacheKey = getBlockCacheKey('text', block, fullText);
+	const cached = renderCache.get(cacheKey);
+	if (cached) return cached;
 
 	const extracted = tryExtractJson(fullText);
 	if (extracted) {
@@ -396,27 +531,30 @@ function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
 				`<div class="text-body">${escapeHtml(extracted.after).replace(/\n/g, '<br>')}</div>`,
 			);
 		}
-		return DOMPurify.sanitize(parts.join(''), SANITIZE_OPTIONS) as string;
+		return setCachedRender(
+			cacheKey,
+			DOMPurify.sanitize(parts.join(''), SANITIZE_OPTIONS) as string,
+		);
 	}
 
-	return DOMPurify.sanitize(
-		`<div class="text-body">${escapeHtml(fullText).replace(/\n/g, '<br>')}</div>`,
-		SANITIZE_OPTIONS,
-	) as string;
+	return setCachedRender(
+		cacheKey,
+		DOMPurify.sanitize(
+			`<div class="text-body">${escapeHtml(fullText).replace(/\n/g, '<br>')}</div>`,
+			SANITIZE_OPTIONS,
+		) as string,
+	);
 }
-
-watch(
-	() => props.nodeBlocks,
-	() => {
-		nextTick(() => renderECharts(timelineRef.value));
-	},
-	{ deep: true },
-);
 </script>
 
 <style scoped>
 .workflow-timeline {
 	width: 100%;
+	min-width: 0;
+}
+
+.workflow-timeline :deep(.v-timeline-item__body) {
+	min-width: 0;
 }
 
 /* ── Title bar ───────────────────────────────────────────────────────────────── */
@@ -510,12 +648,57 @@ watch(
 	line-height: 1.65;
 	color: #1e293b;
 	min-width: 0;
+	overflow: visible;
+}
+
+.step-output {
+	position: relative;
+	width: 100%;
+	min-width: 0;
+	min-height: 44px;
+	height: clamp(140px, 25vh, 220px);
+	max-height: 70vh;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
+	background: #f8fafc;
 	overflow: hidden;
+}
+
+.step-output-scroll {
+	height: 100%;
+	padding: 8px 10px 24px;
+	overflow: auto;
+}
+
+.step-resize-handle {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 18px;
+	padding: 0;
+	border: 0;
+	border-top: 1px solid #e2e8f0;
+	background: #f1f5f9;
+	color: #64748b;
+	cursor: ns-resize;
+}
+
+.step-resize-handle:hover,
+.step-resize-handle:focus-visible {
+	background: #e2e8f0;
+	color: #334155;
+	outline: none;
 }
 
 .text-body {
 	white-space: pre-wrap;
 	word-break: break-word;
+	overflow-wrap: anywhere;
 }
 
 .is-muted .text-body {
@@ -537,14 +720,22 @@ watch(
 }
 
 :deep(.tl-code) {
-	background: #f8fafc;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
-	padding: 10px 12px;
+	background: transparent;
+	border: 0;
+	border-radius: 0;
+	padding: 0;
 	font-size: 12.5px;
-	overflow-x: auto;
-	white-space: pre;
-	margin: 4px 0 0;
+	overflow: visible;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+	margin: 0;
+}
+
+:deep(.tl-code code) {
+	white-space: inherit;
+	overflow-wrap: inherit;
+	word-break: inherit;
 }
 
 /* ── Markdown inside step content ────────────────────────────────────────────── */

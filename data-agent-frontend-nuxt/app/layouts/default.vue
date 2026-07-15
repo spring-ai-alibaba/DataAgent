@@ -27,7 +27,7 @@
 								</v-avatar>
 								<div>
 									<div class="text-subtitle-2 font-weight-bold text-white">
-										Spring AI Alibaba
+										智能问数
 									</div>
 									<div
 										class="text-caption text-blue-lighten-3 font-weight-bold brand-subtitle"
@@ -290,7 +290,7 @@
 						variant="outlined"
 						color="primary"
 						class="font-weight-bold"
-						>Alibaba Edition</v-chip
+						>智能问数</v-chip
 					>
 				</template>
 

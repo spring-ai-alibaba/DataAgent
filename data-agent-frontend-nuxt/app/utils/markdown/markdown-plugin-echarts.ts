@@ -22,6 +22,12 @@ const echartsPlugin = (md: MarkdownIt) => {
 		const token = tokens[idx]!;
 		if (token.info.trim() === 'echarts') {
 			const code = token.content.trim();
+			if (env?.streaming) {
+				return `<div class="md-echarts-skeleton">
+					<span class="md-echarts-skeleton-icon">⏳</span>
+					<span class="md-echarts-skeleton-text">图表生成中...</span>
+				</div>`;
+			}
 			const braceOpen = code.match(/\{/g)?.length ?? 0;
 			const braceClose = code.match(/\}/g)?.length ?? 0;
 			const hasValidContent =

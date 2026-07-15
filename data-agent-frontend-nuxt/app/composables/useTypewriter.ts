@@ -29,7 +29,8 @@ import { ref, onBeforeUnmount } from 'vue';
 
 // Characters to consume per animation frame.
 // ~60fps × 3 chars = ~180 chars/s — comfortable reading pace like ChatGPT.
-const CHARS_PER_FRAME = 3;
+const MIN_CHARS_PER_FRAME = 6;
+const MAX_CHARS_PER_FRAME = 96;
 
 export function useTypewriter() {
 	/** The text currently shown to the user */
@@ -51,7 +52,12 @@ export function useTypewriter() {
 		const target = enqueuedLength;
 
 		if (current < target) {
-			const end = Math.min(current + CHARS_PER_FRAME, target);
+			const pending = target - current;
+			const batchSize = Math.min(
+				MAX_CHARS_PER_FRAME,
+				Math.max(MIN_CHARS_PER_FRAME, Math.ceil(pending / 12)),
+			);
+			const end = Math.min(current + batchSize, target);
 			displayedText.value = sourceText.slice(0, end);
 		}
 
