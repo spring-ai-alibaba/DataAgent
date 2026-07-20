@@ -25,4 +25,9 @@ public interface FusionStrategy {
 	@SuppressWarnings("unchecked")
 	List<Document> fuseResults(int topK, List<Document>... resultLists);
 
+	@SuppressWarnings("unchecked")
+	default List<Document> fuseResultsWithWeights(int topK, List<Double> weights, List<Document>... resultLists) {
+		return fuseResults(topK, resultLists);
+	}
+
 }
