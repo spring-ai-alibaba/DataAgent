@@ -26,7 +26,8 @@ public interface ModelConfigMapper {
 	@Select("""
 			SELECT id, provider, base_url, api_key, model_name, temperature, is_active, max_tokens,
 			       model_type, completions_path, embeddings_path, created_time, updated_time, is_deleted,
-			       proxy_enabled, proxy_host, proxy_port, proxy_username, proxy_password
+			       proxy_enabled, proxy_host, proxy_port, proxy_username, proxy_password, chat_api_protocol,
+			       thinking_enabled, reasoning_effort
 			FROM model_config WHERE is_deleted = 0 ORDER BY created_time DESC
 			""")
 	List<ModelConfig> findAll();
@@ -34,7 +35,8 @@ public interface ModelConfigMapper {
 	@Select("""
 			SELECT id, provider, base_url, api_key, model_name, temperature, is_active, max_tokens,
 			       model_type, completions_path, embeddings_path, created_time, updated_time, is_deleted,
-			       proxy_enabled, proxy_host, proxy_port, proxy_username, proxy_password
+			       proxy_enabled, proxy_host, proxy_port, proxy_username, proxy_password, chat_api_protocol,
+			       thinking_enabled, reasoning_effort
 			FROM model_config WHERE id = #{id} AND is_deleted = 0
 			""")
 	ModelConfig findById(Integer id);
@@ -42,7 +44,8 @@ public interface ModelConfigMapper {
 	@Select("""
 			SELECT id, provider, base_url, api_key, model_name, temperature, is_active, max_tokens,
 			       model_type, completions_path, embeddings_path, created_time, updated_time, is_deleted,
-			       proxy_enabled, proxy_host, proxy_port, proxy_username, proxy_password
+			       proxy_enabled, proxy_host, proxy_port, proxy_username, proxy_password, chat_api_protocol,
+			       thinking_enabled, reasoning_effort
 			FROM model_config WHERE model_type = #{modelType} AND is_active = 1 AND is_deleted = 0 LIMIT 1
 			""")
 	ModelConfig selectActiveByType(@Param("modelType") String modelType);
@@ -54,7 +57,8 @@ public interface ModelConfigMapper {
 			<script>
 			   SELECT id, provider, base_url, api_key, model_name, temperature, is_active, max_tokens,
 			          model_type, completions_path, embeddings_path, created_time, updated_time, is_deleted,
-			          proxy_enabled, proxy_host, proxy_port, proxy_username, proxy_password
+			          proxy_enabled, proxy_host, proxy_port, proxy_username, proxy_password, chat_api_protocol,
+			          thinking_enabled, reasoning_effort
 			   FROM model_config
 			   <where>
 			      is_deleted = 0
@@ -86,10 +90,12 @@ public interface ModelConfigMapper {
 	@Insert("""
 			INSERT INTO model_config (provider, base_url, api_key, model_name, temperature, is_active, max_tokens,
 			                         model_type, completions_path, embeddings_path, created_time, updated_time, is_deleted,
-			                         proxy_enabled, proxy_host, proxy_port, proxy_username, proxy_password)
+			                         proxy_enabled, proxy_host, proxy_port, proxy_username, proxy_password, chat_api_protocol,
+			                         thinking_enabled, reasoning_effort)
 			VALUES (#{provider}, #{baseUrl}, #{apiKey}, #{modelName}, #{temperature}, #{isActive}, #{maxTokens},
 			        #{modelType}, #{completionsPath}, #{embeddingsPath}, NOW(), NOW(), 0,
-			        #{proxyEnabled}, #{proxyHost}, #{proxyPort}, #{proxyUsername}, #{proxyPassword})
+			        #{proxyEnabled}, #{proxyHost}, #{proxyPort}, #{proxyUsername}, #{proxyPassword}, #{chatApiProtocol},
+			        #{thinkingEnabled}, #{reasoningEffort})
 			""")
 	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
 	int insert(ModelConfig modelConfig);
@@ -114,6 +120,9 @@ public interface ModelConfigMapper {
 			            <if test='proxyPort != null'>proxy_port = #{proxyPort},</if>
 			            <if test='proxyUsername != null'>proxy_username = #{proxyUsername},</if>
 			            <if test='proxyPassword != null'>proxy_password = #{proxyPassword},</if>
+			            <if test='chatApiProtocol != null'>chat_api_protocol = #{chatApiProtocol},</if>
+			            <if test='thinkingEnabled != null'>thinking_enabled = #{thinkingEnabled},</if>
+			            <if test='reasoningEffort != null'>reasoning_effort = #{reasoningEffort},</if>
 			            updated_time = NOW()
 			          </trim>
 			          WHERE id = #{id}

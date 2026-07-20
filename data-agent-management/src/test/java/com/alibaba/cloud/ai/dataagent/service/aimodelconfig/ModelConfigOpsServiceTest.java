@@ -18,13 +18,16 @@ package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
+import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.embedding.EmbeddingModel;
+import reactor.core.publisher.Flux;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -115,7 +118,7 @@ class ModelConfigOpsServiceTest {
 
 		ChatModel chatModel = mock(ChatModel.class);
 		when(modelFactory.createChatModel(dto)).thenReturn(chatModel);
-		when(chatModel.call("Hello")).thenReturn("Hi there");
+		when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(ChatResponseUtil.createResponse("Hi there")));
 
 		assertDoesNotThrow(() -> service.testConnection(dto));
 	}
@@ -149,7 +152,7 @@ class ModelConfigOpsServiceTest {
 
 		ChatModel chatModel = mock(ChatModel.class);
 		when(modelFactory.createChatModel(dto)).thenReturn(chatModel);
-		when(chatModel.call("Hello")).thenReturn("");
+		when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.empty());
 
 		assertThrows(RuntimeException.class, () -> service.testConnection(dto));
 	}

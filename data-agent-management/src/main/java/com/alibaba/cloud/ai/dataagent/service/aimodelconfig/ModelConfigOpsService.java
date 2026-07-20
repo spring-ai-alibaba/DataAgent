@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -141,7 +142,11 @@ public class ModelConfigOpsService {
 		String promptText = "Hello";
 
 		// 3. 调用
-		String response = tempModel.call(promptText);
+		String response = tempModel.stream(new Prompt(promptText))
+			.map(chatResponse -> chatResponse.getResult().getOutput().getText())
+			.collect(StringBuilder::new, StringBuilder::append)
+			.map(StringBuilder::toString)
+			.block();
 
 		// 4. 校验结果
 		if (!StringUtils.hasText(response)) {

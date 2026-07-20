@@ -56,7 +56,7 @@ public class ModelConfigDTO {
 	private Double temperature = 0.0;
 
 	@Builder.Default
-	private Integer maxTokens = 2000;
+	private Integer maxTokens = 8000;
 
 	@Builder.Default
 	private Boolean isActive = true;
@@ -72,5 +72,14 @@ public class ModelConfigDTO {
 	private String proxyUsername;
 
 	private String proxyPassword;
+
+	// Chat 模型接口协议：CHAT_COMPLETIONS（默认）或 RESPONSES，仅 modelType=CHAT 时生效
+	private String chatApiProtocol;
+
+	@Builder.Default
+	private Boolean thinkingEnabled = false;
+
+	@Builder.Default
+	private String reasoningEffort = "high";
 
 }

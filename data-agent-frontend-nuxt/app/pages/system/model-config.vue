@@ -1,30 +1,30 @@
-/*
- * Copyright 2026 the original author or authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* * Copyright 2026 the original author or authors. * * Licensed under the
+Apache License, Version 2.0 (the "License"); * you may not use this file except
+in compliance with the License. * You may obtain a copy of the License at * *
+https://www.apache.org/licenses/LICENSE-2.0 * * Unless required by applicable
+law or agreed to in writing, software * distributed under the License is
+distributed on an "AS IS" BASIS, * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+either express or implied. * See the License for the specific language governing
+permissions and * limitations under the License. */
 
 <template>
 	<v-container fluid class="pa-8 model-config-container">
 		<!-- Header Section -->
-		<header class="d-flex align-center justify-space-between mb-8">
+		<header
+			class="model-config-header d-flex align-center justify-space-between mb-8"
+		>
 			<div>
-				<h1 class="text-h4 font-weight-bold mb-1 text-slate-900">模型服务</h1>
+				<p class="model-config-eyebrow">CONNECT TO YOUR STACK</p>
+				<h1
+					class="model-config-title text-h4 font-weight-bold mb-1 text-slate-900"
+				>
+					模型服务
+				</h1>
 				<p class="text-body-2 text-medium-emphasis">
 					连接 LLM 供应商，支持对话生成与向量检索。
 				</p>
 			</div>
-			<div class="d-flex ga-3">
+			<div class="model-header-actions d-flex ga-3">
 				<v-btn
 					variant="outlined"
 					prepend-icon="mdi-refresh"
@@ -114,7 +114,7 @@
 								:class="{ 'is-active': model.isActive }"
 								rounded="lg"
 							>
-								<div class="pa-5 d-flex align-center">
+								<div class="model-card-content pa-5 d-flex align-center">
 									<!-- Icon -->
 									<v-avatar
 										:color="model.isActive ? 'primary' : 'grey-lighten-4'"
@@ -149,6 +149,16 @@
 												<span class="breathing-dot"></span>
 												默认
 											</v-chip>
+											<v-chip
+												v-if="
+													model.modelType === 'CHAT' && model.thinkingEnabled
+												"
+												size="x-small"
+												variant="outlined"
+												color="primary"
+											>
+												思考 {{ reasoningEffortLabel(model.reasoningEffort) }}
+											</v-chip>
 										</div>
 										<div
 											class="d-flex align-center text-caption text-medium-emphasis ga-4"
@@ -165,7 +175,7 @@
 									</div>
 
 									<!-- Actions -->
-									<div class="d-flex align-center ga-4">
+									<div class="model-card-actions d-flex align-center ga-4">
 										<v-btn
 											v-if="!model.isActive"
 											variant="outlined"
@@ -305,12 +315,56 @@
 								/>
 							</v-col>
 
+							<v-col v-if="form.modelType === 'CHAT'" cols="12">
+								<span class="custom-label">接口协议</span>
+								<v-select
+									v-model="form.chatApiProtocol"
+									:items="chatApiProtocolOptions"
+									variant="outlined"
+									density="compact"
+								/>
+							</v-col>
+
+							<v-col v-if="form.modelType === 'CHAT'" cols="12">
+								<div class="thinking-config-row">
+									<div>
+										<span class="custom-label">默认启用深度思考</span>
+										<p class="thinking-config-hint">
+											需模型服务支持 reasoning_effort 参数
+										</p>
+									</div>
+									<v-switch
+										v-model="form.thinkingEnabled"
+										color="primary"
+										hide-details
+										inset
+									/>
+								</div>
+							</v-col>
+
+							<v-col
+								v-if="form.modelType === 'CHAT' && form.thinkingEnabled"
+								cols="12"
+							>
+								<span class="custom-label">默认思考强度</span>
+								<v-btn-toggle
+									v-model="form.reasoningEffort"
+									mandatory
+									divided
+									color="primary"
+									class="thinking-effort-toggle"
+								>
+									<v-btn value="high">高</v-btn>
+									<v-btn value="max">最高</v-btn>
+								</v-btn-toggle>
+							</v-col>
+
 							<!-- Extra fields from original but styled like new -->
 							<v-col cols="12" v-if="form.modelType === 'CHAT'">
-								<span class="custom-label">Completions 路径</span>
+								<span class="custom-label">{{ chatApiPathLabel }}</span>
 								<v-text-field
 									v-model="form.completionsPath"
-									placeholder="默认 /v1/chat/completions"
+									:placeholder="chatApiPathPlaceholder"
 									variant="outlined"
 									density="compact"
 								/>
@@ -399,6 +453,11 @@ const providerBaseUrlMap: Record<string, string> = {
 	custom: '',
 };
 
+const chatApiProtocolOptions = [
+	{ title: 'Chat Completions', value: 'CHAT_COMPLETIONS' },
+	{ title: 'Responses API', value: 'RESPONSES' },
+];
+
 const loading = ref(false);
 const configs = ref<ModelConfig[]>([]);
 const activeTab = ref<ModelType>('CHAT');
@@ -417,8 +476,11 @@ const form = reactive<ModelConfig>({
 	modelName: '',
 	modelType: 'CHAT',
 	temperature: 0,
-	maxTokens: 2000,
+	maxTokens: 8000,
 	completionsPath: '',
+	chatApiProtocol: 'CHAT_COMPLETIONS',
+	thinkingEnabled: false,
+	reasoningEffort: 'high',
 	embeddingsPath: '',
 	isActive: false,
 });
@@ -450,11 +512,22 @@ const filteredModels = computed(() =>
 	configs.value.filter((model) => model.modelType === activeTab.value),
 );
 
+const chatApiPathLabel = computed(() =>
+	form.chatApiProtocol === 'RESPONSES' ? 'Responses 路径' : 'Completions 路径',
+);
+const chatApiPathPlaceholder = computed(() =>
+	form.chatApiProtocol === 'RESPONSES'
+		? '默认 /v1/responses'
+		: '默认 /v1/chat/completions',
+);
 
 const providerLabel = (value: string) => {
 	const item = providerOptions.find((option) => option.value === value);
 	return item ? item.title : value;
 };
+
+const reasoningEffortLabel = (value?: string) =>
+	({ high: '高', max: '最高' })[value || 'high'] || '高';
 
 const resetForm = (type: ModelType) => {
 	form.provider = providerOptions[0]?.value || 'deepseek';
@@ -463,8 +536,11 @@ const resetForm = (type: ModelType) => {
 	form.modelName = '';
 	form.modelType = type;
 	form.temperature = 0;
-	form.maxTokens = 2000;
+	form.maxTokens = 8000;
 	form.completionsPath = '';
+	form.chatApiProtocol = 'CHAT_COMPLETIONS';
+	form.thinkingEnabled = false;
+	form.reasoningEffort = 'high';
 	form.embeddingsPath = '';
 	form.isActive = false;
 };
@@ -498,6 +574,9 @@ const handleEdit = (model: ModelConfig) => {
 	dialog.visible = true;
 	dialog.presetTab = model.modelType;
 	Object.assign(form, model);
+	form.chatApiProtocol = model.chatApiProtocol || 'CHAT_COMPLETIONS';
+	form.thinkingEnabled = Boolean(model.thinkingEnabled);
+	form.reasoningEffort = model.reasoningEffort || 'high';
 };
 
 const closeDialog = () => {
@@ -632,6 +711,19 @@ onMounted(fetchConfigs);
 </script>
 
 <style scoped>
+.model-config-eyebrow {
+	margin: 0 0 10px;
+	color: var(--domus-copper);
+	font-size: 11px;
+	font-weight: 800;
+	text-transform: uppercase;
+}
+
+.model-config-header {
+	padding-bottom: 24px;
+	border-bottom: 1px solid var(--domus-line);
+}
+
 .model-config-container {
 	background-color: #f8fafc;
 	min-height: 100%;
@@ -670,6 +762,32 @@ onMounted(fetchConfigs);
 	text-transform: none !important;
 	font-weight: 500 !important;
 	letter-spacing: 0 !important;
+}
+
+.thinking-config-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 10px 14px;
+	border: 1px solid var(--domus-line);
+	border-radius: 8px;
+	background: var(--domus-paper);
+}
+
+.thinking-config-hint {
+	margin: 3px 0 0;
+	color: var(--domus-muted);
+	font-size: 11px;
+}
+
+.thinking-effort-toggle {
+	width: 100%;
+}
+
+.thinking-effort-toggle :deep(.v-btn) {
+	flex: 1;
+	letter-spacing: 0;
 }
 
 /* 列表容器需要相对定位，方便子元素离开时绝对定位 */

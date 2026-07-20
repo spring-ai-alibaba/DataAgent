@@ -17,14 +17,15 @@
 <template>
 	<v-container fluid class="pa-8 model-config-container">
 		<!-- Header Section -->
-		<header class="d-flex align-center justify-space-between mb-8">
+		<header class="model-config-header d-flex align-center justify-space-between mb-8">
 			<div>
-				<h1 class="text-h4 font-weight-bold mb-1 text-slate-900">模型服务</h1>
+				<p class="model-config-eyebrow">CONNECT TO YOUR STACK</p>
+				<h1 class="model-config-title text-h4 font-weight-bold mb-1 text-slate-900">模型服务</h1>
 				<p class="text-body-2 text-medium-emphasis">
 					连接 LLM 供应商，支持对话生成与向量检索。
 				</p>
 			</div>
-			<div class="d-flex ga-3">
+			<div class="model-header-actions d-flex ga-3">
 				<v-btn
 					variant="outlined"
 					prepend-icon="mdi-refresh"
@@ -114,7 +115,7 @@
 								:class="{ 'is-active': model.isActive }"
 								rounded="lg"
 							>
-								<div class="pa-5 d-flex align-center">
+								<div class="model-card-content pa-5 d-flex align-center">
 									<!-- Icon -->
 									<v-avatar
 										:color="model.isActive ? 'primary' : 'grey-lighten-4'"
@@ -165,7 +166,7 @@
 									</div>
 
 									<!-- Actions -->
-									<div class="d-flex align-center ga-4">
+									<div class="model-card-actions d-flex align-center ga-4">
 										<v-btn
 											v-if="!model.isActive"
 											variant="outlined"
@@ -305,12 +306,22 @@
 								/>
 							</v-col>
 
+							<v-col v-if="form.modelType === 'CHAT'" cols="12">
+								<span class="custom-label">接口协议</span>
+								<v-select
+									v-model="form.chatApiProtocol"
+									:items="chatApiProtocolOptions"
+									variant="outlined"
+									density="compact"
+								/>
+							</v-col>
+
 							<!-- Extra fields from original but styled like new -->
 							<v-col v-if="form.modelType === 'CHAT'" cols="12">
-								<span class="custom-label">Completions 路径</span>
+								<span class="custom-label">{{ chatApiPathLabel }}</span>
 								<v-text-field
 									v-model="form.completionsPath"
-									placeholder="默认 /v1/chat/completions"
+									:placeholder="chatApiPathPlaceholder"
 									variant="outlined"
 									density="compact"
 								/>
@@ -399,6 +410,11 @@ const providerBaseUrlMap: Record<string, string> = {
 	custom: '',
 };
 
+const chatApiProtocolOptions = [
+	{ title: 'Chat Completions', value: 'CHAT_COMPLETIONS' },
+	{ title: 'Responses API', value: 'RESPONSES' },
+];
+
 const loading = ref(false);
 const configs = ref<ModelConfig[]>([]);
 const activeTab = ref<ModelType>('CHAT');
@@ -417,8 +433,9 @@ const form = reactive<ModelConfig>({
 	modelName: '',
 	modelType: 'CHAT',
 	temperature: 0,
-	maxTokens: 2000,
+	maxTokens: 8000,
 	completionsPath: '',
+	chatApiProtocol: 'CHAT_COMPLETIONS',
 	embeddingsPath: '',
 	isActive: false,
 });
@@ -450,6 +467,15 @@ const filteredModels = computed(() =>
 	configs.value.filter((model) => model.modelType === activeTab.value),
 );
 
+const chatApiPathLabel = computed(() =>
+	form.chatApiProtocol === 'RESPONSES' ? 'Responses 路径' : 'Completions 路径',
+);
+const chatApiPathPlaceholder = computed(() =>
+	form.chatApiProtocol === 'RESPONSES'
+		? '默认 /v1/responses'
+		: '默认 /v1/chat/completions',
+);
+
 
 const providerLabel = (value: string) => {
 	const item = providerOptions.find((option) => option.value === value);
@@ -463,8 +489,9 @@ const resetForm = (type: ModelType) => {
 	form.modelName = '';
 	form.modelType = type;
 	form.temperature = 0;
-	form.maxTokens = 2000;
+	form.maxTokens = 8000;
 	form.completionsPath = '';
+	form.chatApiProtocol = 'CHAT_COMPLETIONS';
 	form.embeddingsPath = '';
 	form.isActive = false;
 };
@@ -498,6 +525,7 @@ const handleEdit = (model: ModelConfig) => {
 	dialog.visible = true;
 	dialog.presetTab = model.modelType;
 	Object.assign(form, model);
+	form.chatApiProtocol = model.chatApiProtocol || 'CHAT_COMPLETIONS';
 };
 
 const closeDialog = () => {
@@ -722,5 +750,170 @@ onMounted(fetchConfigs);
 	background-color: #ffffff !important;
 	color: #0f172a !important;
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Domus product theme */
+.model-config-container {
+	min-height: calc(100vh - var(--domus-header-height));
+	padding: clamp(30px, 4vw, 58px) !important;
+	background: transparent !important;
+}
+
+.model-config-header {
+	width: min(1180px, 100%);
+	margin-inline: auto;
+	padding-bottom: 28px;
+	border-bottom: 1px solid var(--domus-line);
+}
+
+.model-config-eyebrow {
+	margin: 0 0 10px;
+	color: var(--domus-copper);
+	font-size: 11px;
+	font-weight: 800;
+	text-transform: uppercase;
+}
+
+.model-config-title {
+	color: var(--domus-ink) !important;
+	font-family: var(--domus-serif);
+	font-size: clamp(42px, 5vw, 72px) !important;
+	font-weight: 700 !important;
+	line-height: 1 !important;
+}
+
+.model-config-container :deep(.segmented-toggle) {
+	padding: 6px !important;
+	border: 1px solid var(--domus-line) !important;
+	background: rgb(255 246 232 / 58%) !important;
+}
+
+.model-config-container :deep(.segmented-toggle .v-btn) {
+	min-width: 150px;
+	color: var(--domus-muted) !important;
+	background: transparent !important;
+}
+
+.model-config-container :deep(.segmented-toggle .v-btn--active) {
+	color: var(--domus-paper) !important;
+	background: var(--domus-dark) !important;
+}
+
+.list-container {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.model-item-card {
+	position: relative;
+	overflow: hidden;
+	border: 1px solid var(--domus-line) !important;
+	border-radius: 8px !important;
+	background: rgb(255 246 232 / 88%) !important;
+}
+
+.model-item-card::before {
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 3px;
+	background: transparent;
+	content: '';
+}
+
+.model-item-card:hover {
+	transform: translateY(-1px);
+	border-color: var(--domus-line-strong) !important;
+	box-shadow: 0 14px 32px rgb(63 45 34 / 8%) !important;
+}
+
+.model-item-card.is-active {
+	border-color: rgb(141 86 51 / 44%) !important;
+	background: rgb(249 239 223 / 94%) !important;
+}
+
+.model-item-card.is-active::before {
+	background: var(--domus-amber);
+}
+
+.model-item-card :deep(.v-avatar) {
+	color: var(--domus-copper) !important;
+	background: rgb(199 131 47 / 13%) !important;
+	border: 1px solid var(--domus-line);
+}
+
+.model-item-card.is-active :deep(.v-avatar) {
+	color: var(--domus-paper) !important;
+	background: var(--domus-copper) !important;
+}
+
+.model-item-card :deep(.v-chip) {
+	color: var(--domus-success) !important;
+	background: rgb(79 112 75 / 12%) !important;
+}
+
+.border-dashed {
+	border: 1px dashed var(--domus-line-strong) !important;
+	border-radius: 8px !important;
+	background: rgb(255 246 232 / 58%) !important;
+}
+
+.model-config-container :deep(.v-skeleton-loader) {
+	background: rgb(255 246 232 / 70%) !important;
+}
+
+@media (max-width: 760px) {
+	.model-config-container {
+		padding: 26px 14px !important;
+	}
+
+	.model-config-header {
+		align-items: flex-start !important;
+		flex-direction: column;
+		gap: 22px;
+	}
+
+	.model-header-actions {
+		width: 100%;
+	}
+
+	.model-header-actions :deep(.v-btn) {
+		flex: 1;
+	}
+
+	.model-config-container :deep(.segmented-toggle) {
+		display: flex;
+		width: 100%;
+	}
+
+	.model-config-container :deep(.segmented-toggle .v-btn) {
+		flex: 1;
+		min-width: 0;
+		padding-inline: 14px !important;
+	}
+
+	.model-card-content {
+		align-items: flex-start !important;
+		flex-wrap: wrap;
+		gap: 12px;
+		padding: 18px !important;
+	}
+
+	.model-card-content > .flex-grow-1 {
+		width: calc(100% - 72px);
+		min-width: 0;
+	}
+
+	.model-card-content > .flex-grow-1 .text-caption {
+		align-items: flex-start !important;
+		flex-direction: column;
+		gap: 3px !important;
+	}
+
+	.model-card-actions {
+		width: 100%;
+		justify-content: flex-end;
+		gap: 7px !important;
+	}
 }
 </style>

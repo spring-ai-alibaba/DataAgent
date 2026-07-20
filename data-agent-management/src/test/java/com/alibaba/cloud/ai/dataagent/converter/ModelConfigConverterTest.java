@@ -48,6 +48,8 @@ class ModelConfigConverterTest {
 		entity.setProxyPort(8888);
 		entity.setProxyUsername("user");
 		entity.setProxyPassword("pass");
+		entity.setThinkingEnabled(true);
+		entity.setReasoningEffort("high");
 
 		ModelConfigDTO dto = ModelConfigConverter.toDTO(entity);
 
@@ -68,6 +70,8 @@ class ModelConfigConverterTest {
 		assertEquals(8888, dto.getProxyPort());
 		assertEquals("user", dto.getProxyUsername());
 		assertEquals("pass", dto.getProxyPassword());
+		assertTrue(dto.getThinkingEnabled());
+		assertEquals("high", dto.getReasoningEffort());
 	}
 
 	@Test
@@ -88,6 +92,8 @@ class ModelConfigConverterTest {
 			.proxyPort(9999)
 			.proxyUsername("u2")
 			.proxyPassword("p2")
+			.thinkingEnabled(true)
+			.reasoningEffort("max")
 			.build();
 
 		ModelConfig entity = ModelConfigConverter.toEntity(dto);
@@ -109,6 +115,8 @@ class ModelConfigConverterTest {
 		assertNotNull(entity.getUpdatedTime());
 		assertFalse(entity.getProxyEnabled());
 		assertEquals("proxy2.example.com", entity.getProxyHost());
+		assertTrue(entity.getThinkingEnabled());
+		assertEquals("max", entity.getReasoningEffort());
 	}
 
 	@Test
@@ -129,6 +137,38 @@ class ModelConfigConverterTest {
 		ModelConfig entity = ModelConfigConverter.toEntity(dto);
 
 		assertEquals(ModelType.EMBEDDING, entity.getModelType());
+	}
+
+	// ======================== chatApiProtocol 默认值兜底 ========================
+
+	private ModelConfigDTO buildChatDto(String chatApiProtocol) {
+		return ModelConfigDTO.builder()
+			.provider("openai")
+			.baseUrl("https://api.example.com")
+			.apiKey("sk-test")
+			.modelName("test-model")
+			.modelType("CHAT")
+			.chatApiProtocol(chatApiProtocol)
+			.build();
+	}
+
+	@Test
+	void toEntity_backfillsDefaultProtocolWhenNull() {
+		// chatApiProtocol 为空时必须回填默认协议：INSERT 显式写入 NULL 会绕过数据库列默认值
+		ModelConfig entity = ModelConfigConverter.toEntity(buildChatDto(null));
+		assertEquals("CHAT_COMPLETIONS", entity.getChatApiProtocol());
+	}
+
+	@Test
+	void toEntity_backfillsDefaultProtocolWhenBlank() {
+		ModelConfig entity = ModelConfigConverter.toEntity(buildChatDto("  "));
+		assertEquals("CHAT_COMPLETIONS", entity.getChatApiProtocol());
+	}
+
+	@Test
+	void toEntity_keepsExplicitProtocol() {
+		ModelConfig entity = ModelConfigConverter.toEntity(buildChatDto("RESPONSES"));
+		assertEquals("RESPONSES", entity.getChatApiProtocol());
 	}
 
 }

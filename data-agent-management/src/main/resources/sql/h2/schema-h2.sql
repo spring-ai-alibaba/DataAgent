@@ -252,7 +252,7 @@ CREATE TABLE IF NOT EXISTS `model_config` (
   `model_name` varchar(255) NOT NULL COMMENT '模型名称',
   `temperature` decimal(10,2) DEFAULT '0.00' COMMENT '温度参数',
   `is_active` tinyint(1) DEFAULT '0' COMMENT '是否激活',
-  `max_tokens` int(11) DEFAULT '2000' COMMENT '输出响应最大令牌数',
+  `max_tokens` int(11) DEFAULT '8000' COMMENT '输出响应最大令牌数',
   `model_type` varchar(20) NOT NULL DEFAULT 'CHAT' COMMENT '模型类型 (CHAT/EMBEDDING)',
   `completions_path` varchar(255) DEFAULT NULL COMMENT 'Chat模型专用。附加到 Base URL 的路径。例如OpenAi的/v1/chat/completions',
   `embeddings_path` varchar(255) DEFAULT NULL COMMENT '嵌入模型专用。附加到 Base URL 的路径。',
@@ -265,5 +265,8 @@ CREATE TABLE IF NOT EXISTS `model_config` (
   `proxy_port` int(11) DEFAULT NULL COMMENT '代理端口',
   `proxy_username` varchar(255) DEFAULT NULL COMMENT '代理用户名（可选）',
   `proxy_password` varchar(255) DEFAULT NULL COMMENT '代理密码（可选）',
+  `chat_api_protocol` varchar(32) DEFAULT 'CHAT_COMPLETIONS' COMMENT 'Chat模型接口协议：CHAT_COMPLETIONS（默认Chat Completions格式）、RESPONSES（OpenAI Responses API格式）。仅model_type=CHAT时生效',
+  `thinking_enabled` tinyint(1) DEFAULT '0' COMMENT '是否默认启用模型思考',
+  `reasoning_effort` varchar(16) DEFAULT 'high' COMMENT '默认思考强度：high、max',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB;
