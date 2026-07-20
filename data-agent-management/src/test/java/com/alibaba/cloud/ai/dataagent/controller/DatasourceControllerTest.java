@@ -23,6 +23,7 @@ import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
 import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
 import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
+import com.alibaba.cloud.ai.dataagent.service.lineage.LineageMetadataService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,11 +48,14 @@ class DatasourceControllerTest {
 	@Mock
 	private DatasourceService datasourceService;
 
+	@Mock
+	private LineageMetadataService lineageMetadataService;
+
 	private DatasourceController datasourceController;
 
 	@BeforeEach
 	void setUp() {
-		datasourceController = new DatasourceController(datasourceService);
+		datasourceController = new DatasourceController(datasourceService, lineageMetadataService);
 	}
 
 	@Test

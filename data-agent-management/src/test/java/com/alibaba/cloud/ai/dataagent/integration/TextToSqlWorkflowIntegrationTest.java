@@ -38,8 +38,10 @@ import com.alibaba.cloud.ai.dataagent.common.TestFixtures;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
+import com.alibaba.cloud.ai.dataagent.service.lineage.LineageQueryService;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
+import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.dataagent.workflow.node.SqlExecuteNode;
 import com.alibaba.cloud.ai.dataagent.workflow.node.SqlGenerateNode;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -66,6 +68,12 @@ class TextToSqlWorkflowIntegrationTest {
 	private LlmService llmService;
 
 	@Mock
+	private JsonParseUtil jsonParseUtil;
+
+	@Mock
+	private LineageQueryService lineageQueryService;
+
+	@Mock
 	private Accessor accessor;
 
 	private SqlGenerateNode sqlGenerateNode;
@@ -75,7 +83,8 @@ class TextToSqlWorkflowIntegrationTest {
 	@BeforeEach
 	void setUp() {
 		sqlGenerateNode = new SqlGenerateNode(nl2SqlService, properties);
-		sqlExecuteNode = new SqlExecuteNode(databaseUtil, nl2SqlService, llmService, properties);
+		sqlExecuteNode = new SqlExecuteNode(databaseUtil, nl2SqlService, llmService, properties, jsonParseUtil,
+				lineageQueryService);
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
 		when(properties.isEnableSqlResultChart()).thenReturn(false);

@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.alibaba.cloud.ai.dataagent.common.TestFixtures;
@@ -64,6 +65,7 @@ class ReportGeneratorNodeTest {
 		state.registerKeyAndStrategy(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PLAN_CURRENT_STEP, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(DATA_LINEAGE_SOURCES, new ReplaceStrategy());
 		state.registerKeyAndStrategy(AGENT_ID, new ReplaceStrategy());
 		state.registerKeyAndStrategy(RESULT, new ReplaceStrategy());
 		return state;
@@ -88,14 +90,14 @@ class ReportGeneratorNodeTest {
 
 		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), eq(1L)))
 			.thenReturn(Collections.emptyList());
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("<h1>用户数据分析报告</h1>")));
 
 		Map<String, Object> result = reportGeneratorNode.apply(state);
 
 		assertNotNull(result);
 		assertTrue(result.containsKey(RESULT));
-		verify(llmService).callUser(anyString());
+		verify(llmService).callUser(anyString(), org.mockito.ArgumentMatchers.any());
 	}
 
 	@Test
@@ -110,7 +112,7 @@ class ReportGeneratorNodeTest {
 
 		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), eq(2L)))
 			.thenReturn(Collections.emptyList());
-		when(llmService.callUser(anyString())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("暂无数据可分析")));
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("暂无数据可分析")));
 
 		Map<String, Object> result = reportGeneratorNode.apply(state);
 
@@ -135,7 +137,7 @@ class ReportGeneratorNodeTest {
 
 		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), eq(3L)))
 			.thenReturn(Collections.emptyList());
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("<h1>综合报告</h1>")));
 
 		Map<String, Object> result = reportGeneratorNode.apply(state);
@@ -151,7 +153,7 @@ class ReportGeneratorNodeTest {
 
 		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), eq(1L)))
 			.thenReturn(Collections.emptyList());
-		when(llmService.callUser(anyString())).thenThrow(new RuntimeException("LLM unavailable"));
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any())).thenThrow(new RuntimeException("LLM unavailable"));
 
 		assertThrows(RuntimeException.class, () -> reportGeneratorNode.apply(state));
 	}
@@ -168,7 +170,7 @@ class ReportGeneratorNodeTest {
 
 		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), isNull()))
 			.thenReturn(Collections.emptyList());
-		when(llmService.callUser(anyString())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("report")));
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("report")));
 
 		Map<String, Object> result = reportGeneratorNode.apply(state);
 
@@ -214,13 +216,41 @@ class ReportGeneratorNodeTest {
 
 		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), eq(4L)))
 			.thenReturn(Collections.emptyList());
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("<p>分析完成</p>")));
 
 		Map<String, Object> result = reportGeneratorNode.apply(state);
 
 		assertNotNull(result);
 		assertTrue(result.containsKey(RESULT));
+	}
+
+	@Test
+	void buildLineageMarkdown_rendersFileVersionAndEscapesCells() {
+		String markdown = reportGeneratorNode.buildLineageMarkdown(List.of(Map.of("source_file_name", "quality|1.xlsx",
+				"source_file_sha256", "1234567890abcdef", "source_sheet", "Sheet1", "source_imported_at",
+				"2026-07-16 10:00:00")));
+
+		assertTrue(markdown.contains("## 数据来源"));
+		assertTrue(markdown.contains("quality\\|1.xlsx"));
+		assertTrue(markdown.contains("1234567890ab"));
+		assertFalse(markdown.contains("1234567890abcdef"));
+	}
+
+	@Test
+	void buildReportSuffix_closesUnterminatedChartBeforeLineage() {
+		String suffix = reportGeneratorNode.buildReportSuffix("### 趋势图\n```echarts\n{\"series\": [",
+				"\n\n## 数据来源\n\nsource.xlsx");
+
+		assertTrue(suffix.startsWith("\n```\n"));
+		assertTrue(suffix.contains("## 数据来源"));
+	}
+
+	@Test
+	void buildReportSuffix_doesNotAddFenceWhenChartIsClosed() {
+		String suffix = reportGeneratorNode.buildReportSuffix("```echarts\n{}\n```", "\n\n## 数据来源");
+
+		assertEquals("\n\n## 数据来源", suffix);
 	}
 
 }

@@ -24,6 +24,7 @@ import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
 import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
 import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
+import com.alibaba.cloud.ai.dataagent.service.lineage.LineageMetadataService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.Arrays;
@@ -54,6 +55,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class DatasourceController {
 
 	private final DatasourceService datasourceService;
+
+	private final LineageMetadataService lineageMetadataService;
 
 	/**
 	 * Get all data source list
@@ -139,7 +142,9 @@ public class DatasourceController {
 	public Datasource updateDatasource(@PathVariable Integer id, @RequestBody Datasource datasource) {
 		checkDatasourceExists(id);
 		try {
-			return datasourceService.updateDatasource(id, datasource);
+			Datasource updated = datasourceService.updateDatasource(id, datasource);
+			lineageMetadataService.invalidate(id);
+			return updated;
 		}
 		catch (Exception e) {
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
@@ -154,6 +159,7 @@ public class DatasourceController {
 		try {
 			checkDatasourceExists(id);
 			datasourceService.deleteDatasource(id);
+			lineageMetadataService.invalidate(id);
 			return ApiResponse.success("数据源删除成功");
 		}
 		catch (ResponseStatusException e) {
@@ -224,6 +230,7 @@ public class DatasourceController {
 				.build();
 
 			LogicalRelation created = datasourceService.addLogicalRelation(datasourceId, logicalRelation);
+			lineageMetadataService.invalidate(datasourceId);
 			return ApiResponse.success("success create logical relation", created);
 		}
 		catch (Exception e) {
@@ -250,6 +257,7 @@ public class DatasourceController {
 
 			LogicalRelation updated = datasourceService.updateLogicalRelation(datasourceId, relationId,
 					logicalRelation);
+			lineageMetadataService.invalidate(datasourceId);
 			return ApiResponse.success("success update logical relation", updated);
 		}
 		catch (Exception e) {
@@ -266,6 +274,7 @@ public class DatasourceController {
 			@PathVariable Integer relationId) {
 		try {
 			datasourceService.deleteLogicalRelation(datasourceId, relationId);
+			lineageMetadataService.invalidate(datasourceId);
 			return ApiResponse.success("success delete logical relation");
 		}
 		catch (Exception e) {
@@ -282,6 +291,7 @@ public class DatasourceController {
 			@RequestBody List<LogicalRelation> logicalRelations) {
 		try {
 			List<LogicalRelation> saved = datasourceService.saveLogicalRelations(datasourceId, logicalRelations);
+			lineageMetadataService.invalidate(datasourceId);
 			return ApiResponse.success("success save logical relations", saved);
 		}
 		catch (Exception e) {

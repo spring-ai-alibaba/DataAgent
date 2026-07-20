@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_CURRENT_STEP;
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.IS_ONLY_NL2SQL;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.DATA_LINEAGE_SOURCES;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_COUNT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_OUTPUT;
@@ -37,10 +37,13 @@ import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
+import com.alibaba.cloud.ai.dataagent.service.lineage.LineageQueryService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.util.MarkdownParserUtil;
 import com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
@@ -48,17 +51,18 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /**
  * SQL execution node that executes SQL queries against the database.
@@ -83,10 +87,11 @@ public class SqlExecuteNode implements NodeAction {
 
 	private final DataAgentProperties properties;
 
-	private static final int SAMPLE_DATA_NUMBER = 20;
+	private final JsonParseUtil jsonParseUtil;
 
-	private static final BeanOutputConverter<DisplayStyleBO> DISPLAY_STYLE_CONVERTER = new BeanOutputConverter<>(
-			DisplayStyleBO.class);
+	private final LineageQueryService lineageQueryService;
+
+	private static final int SAMPLE_DATA_NUMBER = 20;
 
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -135,30 +140,75 @@ public class SqlExecuteNode implements NodeAction {
 		dbQueryParameter.setSchema(dbConfig.getSchema());
 
 		Accessor dbAccessor = databaseUtil.getAgentAccessor(agentId);
+		Integer datasourceId = databaseUtil.getAgentDatasourceId(agentId);
 		final Map<String, Object> result = new HashMap<>();
 
-		Flux<ChatResponse> startFlux = Flux.just(ChatResponseUtil.createResponse("开始执行SQL..."),
-				ChatResponseUtil.createResponse("执行SQL查询："),
-				ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign()),
-				ChatResponseUtil.createResponse(sqlQuery),
-				ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()));
+		// 先返回流式数据，在执行数据库查询
+		Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
+			emitter.next(ChatResponseUtil.createResponse("开始执行SQL..."));
+			emitter.next(ChatResponseUtil.createResponse("执行SQL查询："));
+			emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign()));
+			emitter.next(ChatResponseUtil.createResponse(sqlQuery));
+			emitter.next(ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()));
+			ResultBO resultBO = ResultBO.builder().build();
 
-		Mono<ExecutedSqlResult> sqlExecution = Mono
-			.fromCallable(() -> executeAndStoreResult(state, currentStep, sqlQuery, dbConfig, dbQueryParameter,
-					dbAccessor, result))
-			.subscribeOn(Schedulers.boundedElastic());
+			try {
+				// Execute SQL query and get results immediately
+				ResultSetBO resultSetBO = dbAccessor.executeSqlAndReturnObject(dbConfig, dbQueryParameter);
+				// 调用大模型获取图表配置信息并填充到ResultSetBO中
+				DisplayStyleBO displayStyleBO = enrichResultSetWithChartConfig(state, resultSetBO);
+				resultBO.setResultSet(resultSetBO);
+				resultBO.setDisplayStyle(displayStyleBO);
 
-		Flux<ChatResponse> executionFlux = sqlExecution
-			.flatMapMany(executed -> Flux.concat(baseResultResponses(executed.resultSet()),
-					chartUpdateResponses(state, executed.resultSet())))
-			.onErrorResume(e -> {
+				String strResultSetJson = JsonUtil.getObjectMapper().writeValueAsString(resultSetBO);
+				String strResultJson = JsonUtil.getObjectMapper().writeValueAsString(resultBO);
+
+				// 数据执行成功
+				emitter.next(ChatResponseUtil.createResponse("执行SQL完成"));
+				emitter.next(ChatResponseUtil.createResponse("SQL查询结果："));
+				emitter.next(ChatResponseUtil.createPureResponse(TextType.RESULT_SET.getStartSign()));
+				emitter.next(ChatResponseUtil.createPureResponse(strResultJson));
+				emitter.next(ChatResponseUtil.createPureResponse(TextType.RESULT_SET.getEndSign()));
+
+				// Update step results with the query output
+				Map<String, String> existingResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,
+						Map.class, new HashMap<>());
+				Map<String, String> updatedResults = PlanProcessUtil.addStepResult(existingResults, currentStep,
+						strResultSetJson);
+
+				log.info("SQL execution successful, result count: {}",
+						resultSetBO.getData() != null ? resultSetBO.getData().size() : 0);
+
+				if (resultSetBO.getData() != null && !resultSetBO.getData().isEmpty()) {
+					List<Map<String, String>> currentSources = StateUtil.getObjectValue(state, DATA_LINEAGE_SOURCES,
+							List.class, new ArrayList<>());
+					List<Map<String, String>> discoveredSources = lineageQueryService.querySources(datasourceId, dbConfig,
+							dbAccessor, sqlQuery);
+					result.put(DATA_LINEAGE_SOURCES, mergeLineageSources(currentSources, discoveredSources));
+				}
+
+				// 回写最终执行的sql，报告节点需要使用
+				ExecutionStep.ToolParameters currentStepParams = PlanProcessUtil.getCurrentExecutionStep(state)
+					.getToolParameters();
+				currentStepParams.setSqlQuery(sqlQuery);
+
+				// Prepare the final result object
+				// Store List of SQL query results for use by code execution node
+				// Reset sql generate count retry times when sql execute success
+				result.putAll(Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedResults, SQL_REGENERATE_REASON,
+						SqlRetryDto.empty(), SQL_RESULT_LIST_MEMORY, resultSetBO.getData(), PLAN_CURRENT_STEP,
+						currentStep + 1, SQL_GENERATE_COUNT, 0));
+			}
+			catch (Exception e) {
 				String errorMessage = e.getMessage();
 				log.error("SQL execution failed - SQL as follows: \n {} \n ", sqlQuery, e);
 				result.put(SQL_REGENERATE_REASON, SqlRetryDto.sqlExecute(errorMessage));
-				return Flux.just(ChatResponseUtil.createResponse("SQL执行失败: " + errorMessage));
-			});
-
-		Flux<ChatResponse> displayFlux = Flux.concat(startFlux, executionFlux);
+				emitter.next(ChatResponseUtil.createResponse("SQL执行失败: " + errorMessage));
+			}
+			finally {
+				emitter.complete();
+			}
+		});
 
 		// Create generator using utility class, returning pre-computed business logic
 		// result
@@ -167,135 +217,86 @@ public class SqlExecuteNode implements NodeAction {
 		return Map.of(SQL_EXECUTE_NODE_OUTPUT, generator);
 	}
 
+	private List<Map<String, String>> mergeLineageSources(List<Map<String, String>> currentSources,
+			List<Map<String, String>> discoveredSources) {
+		Map<String, Map<String, String>> merged = new LinkedHashMap<>();
+		for (Map<String, String> source : Optional.ofNullable(currentSources).orElseGet(List::of)) {
+			merged.put(lineageKey(source), source);
+		}
+		for (Map<String, String> source : Optional.ofNullable(discoveredSources).orElseGet(List::of)) {
+			merged.putIfAbsent(lineageKey(source), source);
+		}
+		return new ArrayList<>(merged.values());
+	}
+
+	private String lineageKey(Map<String, String> source) {
+		return source.getOrDefault("source_file_sha256", "") + "|" + source.getOrDefault("source_sheet", "");
+	}
+
 	/**
 	 * 调用大模型获取图表配置信息并填充到ResultSetBO中
 	 * @param state 整体状态
 	 * @param resultSetBO SQL执行结果
 	 */
-	private ExecutedSqlResult executeAndStoreResult(OverAllState state, Integer currentStep, String sqlQuery,
-			DbConfigBO dbConfig, DbQueryParameter dbQueryParameter, Accessor dbAccessor, Map<String, Object> result)
-			throws Exception {
-		ResultSetBO resultSetBO = dbAccessor.executeSqlAndReturnObject(dbConfig, dbQueryParameter);
-		String strResultSetJson = JsonUtil.getObjectMapper().writeValueAsString(resultSetBO);
-
-		result.put(SQL_REGENERATE_REASON, SqlRetryDto.empty());
-		result.put(SQL_RESULT_LIST_MEMORY, resultSetBO.getData());
-		result.put(PLAN_CURRENT_STEP, currentStep + 1);
-		result.put(SQL_GENERATE_COUNT, 0);
-
-		try {
-			Map<String, String> existingResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
-					new HashMap<>());
-			Map<String, String> updatedResults = PlanProcessUtil.addStepResult(existingResults, currentStep,
-					strResultSetJson);
-			result.put(SQL_EXECUTE_NODE_OUTPUT, updatedResults);
-
-			ExecutionStep.ToolParameters currentStepParams = PlanProcessUtil.getCurrentExecutionStep(state)
-				.getToolParameters();
-			currentStepParams.setSqlQuery(sqlQuery);
-		}
-		catch (Exception stateEx) {
-			log.warn("State processing after successful SQL execution failed (non-critical): {}", stateEx.getMessage());
-		}
-
-		log.info("SQL execution successful, result count: {}",
-				resultSetBO.getData() != null ? resultSetBO.getData().size() : 0);
-		return new ExecutedSqlResult(resultSetBO);
-	}
-
-	private Flux<ChatResponse> baseResultResponses(ResultSetBO resultSetBO) {
-		return resultPayloadResponses(resultSetBO, tableDisplayStyle())
-			.startWith(ChatResponseUtil.createResponse("执行SQL完成"), ChatResponseUtil.createResponse("SQL查询结果："));
-	}
-
-	private Flux<ChatResponse> chartUpdateResponses(OverAllState state, ResultSetBO resultSetBO) {
-		return enrichResultSetWithChartConfig(state, resultSetBO)
-			.flatMapMany(displayStyle -> resultPayloadResponses(resultSetBO, displayStyle))
-			.onErrorResume(e -> {
-				log.warn("Failed to publish optional chart config, keeping table result: {}", e.getMessage());
-				return Flux.empty();
-			});
-	}
-
-	private Flux<ChatResponse> resultPayloadResponses(ResultSetBO resultSetBO, DisplayStyleBO displayStyle) {
-		return Mono
-			.fromCallable(() -> JsonUtil.getObjectMapper()
-				.writeValueAsString(ResultBO.builder().resultSet(resultSetBO).displayStyle(displayStyle).build()))
-			.flatMapMany(
-					strResultJson -> Flux.just(ChatResponseUtil.createPureResponse(TextType.RESULT_SET.getStartSign()),
-							ChatResponseUtil.createPureResponse(strResultJson),
-							ChatResponseUtil.createPureResponse(TextType.RESULT_SET.getEndSign())));
-	}
-
-	private Mono<DisplayStyleBO> enrichResultSetWithChartConfig(OverAllState state, ResultSetBO resultSetBO) {
-		if (state.value(IS_ONLY_NL2SQL, false)) {
-			log.debug("NL2SQL-only mode skips optional chart generation and uses table display");
-			return Mono.empty();
-		}
+	private DisplayStyleBO enrichResultSetWithChartConfig(OverAllState state, ResultSetBO resultSetBO) {
+		// 创建ResultDisplayStyleBO对象
+		DisplayStyleBO displayStyle = new DisplayStyleBO();
 		if (!this.properties.isEnableSqlResultChart()) {
 			log.debug("Sql result chart is disabled, set display style as table default");
-			return Mono.empty();
+			displayStyle.setType("table");
+			return displayStyle;
 		}
 
-		return Mono.defer(() -> {
-			try {
-				// 获取用户查询
-				String userQuery = StateUtil.getCanonicalQuery(state);
+		try {
+			// 获取用户查询
+			String userQuery = StateUtil.getCanonicalQuery(state);
 
-				// 将SQL结果转换为JSON字符串，限制数据量以避免提示词过长
-				String sqlResultJson = JsonUtil.getObjectMapper()
-					.writeValueAsString(resultSetBO.getData() != null
-							? resultSetBO.getData().stream().limit(SAMPLE_DATA_NUMBER).toList() : null);
+			// 将SQL结果转换为JSON字符串，限制数据量以避免提示词过长
+			String sqlResultJson = JsonUtil.getObjectMapper()
+				.writeValueAsString(resultSetBO.getData() != null
+						? resultSetBO.getData().stream().limit(SAMPLE_DATA_NUMBER).toList() : null);
 
-				// 构建用户提示词，包含SQL结果数据
-				String userPrompt = String.format("""
-						# 正式任务
+			// 构建用户提示词，包含SQL结果数据
+			String userPrompt = String.format("""
+					# 正式任务
 
-						<最新>用户输入: %s
-						范例数据: %s
+					<最新>用户输入: %s
+					范例数据: %s
 
-						# 输出
-						""", userQuery != null ? userQuery : "数据可视化", sqlResultJson);
+					# 输出
+					""", userQuery != null ? userQuery : "数据可视化", sqlResultJson);
 
-				// 加载data-view-analyze提示词模板（系统提示词）
-				String fullPrompt = PromptHelper.buildDataViewAnalysisPrompt();
-				// 分割系统提示词和用户提示词模板
-				String[] parts = fullPrompt.split("=== 用户输入 ===", 2);
-				// 渲染系统提示词（当前没有变量，直接使用模板内容）
-				String systemPrompt = parts[0].trim();
+			// 加载data-view-analyze提示词模板（系统提示词）
+			String fullPrompt = PromptHelper.buildDataViewAnalysisPrompt();
+			// 分割系统提示词和用户提示词模板
+			String[] parts = fullPrompt.split("=== 用户输入 ===", 2);
+			// 渲染系统提示词（当前没有变量，直接使用模板内容）
+			String systemPrompt = parts[0].trim();
 
-				log.debug("Built chart config generation system prompt as follows \n {} \n", systemPrompt);
-				log.debug("Built chart config generation user prompt as follows \n {} \n", userPrompt);
+			log.debug("Built chart config generation system prompt as follows \n {} \n", systemPrompt);
+			log.debug("Built chart config generation user prompt as follows \n {} \n", userPrompt);
 
-				// 调用LLM生成图表配置（使用系统提示词和用户提示词）
-				return llmService.toStringFlux(llmService.call(systemPrompt, userPrompt, DisplayStyleBO.class))
-					.collect(StringBuilder::new, StringBuilder::append)
-					.map(StringBuilder::toString)
-					.filter(StringUtils::isNotBlank)
-					.map(DISPLAY_STYLE_CONVERTER::convert)
-					.timeout(Duration.ofMillis(properties.getEnrichSqlResultTimeout()))
-					.doOnNext(displayStyle -> {
-						log.debug("Successfully enriched ResultSetBO with chart config: type={}, title={}, x={}, y={}",
-								displayStyle.getType(), displayStyle.getTitle(), displayStyle.getX(),
-								displayStyle.getY());
-					});
+			// 调用LLM生成图表配置（使用系统提示词和用户提示词）
+			String chartConfigJson = llmService.toStringFlux(llmService.call(systemPrompt, userPrompt, state))
+				.collect(StringBuilder::new, StringBuilder::append)
+				.map(StringBuilder::toString)
+				.block(Duration.ofMillis(properties.getEnrichSqlResultTimeout()));
+			if (chartConfigJson != null && !chartConfigJson.trim().isEmpty()) {
+				String content = MarkdownParserUtil.extractText(chartConfigJson.trim());
+				displayStyle = jsonParseUtil.tryConvertToObject(content, DisplayStyleBO.class);
+				log.debug("Successfully enriched ResultSetBO with chart config: type={}, title={}, x={}, y={}",
+						displayStyle.getType(), displayStyle.getTitle(), displayStyle.getX(), displayStyle.getY());
+				return displayStyle;
 			}
-			catch (Exception e) {
-				return Mono.error(e);
+			else {
+				log.warn("LLM returned empty chart config, using default settings");
 			}
-		}).onErrorResume(e -> {
-			log.warn("Failed to generate optional chart config, keeping table result: {}", e.getMessage());
-			return Mono.empty();
-		});
-	}
-
-	private DisplayStyleBO tableDisplayStyle() {
-		DisplayStyleBO displayStyle = new DisplayStyleBO();
-		displayStyle.setType("table");
-		return displayStyle;
-	}
-
-	private record ExecutedSqlResult(ResultSetBO resultSet) {
+		}
+		catch (Exception e) {
+			log.error("Failed to enrich ResultSetBO with chart config", e);
+			// 不抛出异常，允许流程继续执行
+		}
+		return null;
 	}
 
 }

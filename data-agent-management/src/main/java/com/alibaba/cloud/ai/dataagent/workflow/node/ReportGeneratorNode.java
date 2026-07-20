@@ -39,6 +39,8 @@ import reactor.core.publisher.Flux;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 
@@ -55,6 +57,8 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 @Slf4j
 @Component
 public class ReportGeneratorNode implements NodeAction {
+
+	private static final Pattern FENCED_CODE_LINE = Pattern.compile("(?m)^\\s*```");
 
 	private final LlmService llmService;
 
@@ -79,6 +83,9 @@ public class ReportGeneratorNode implements NodeAction {
 		@SuppressWarnings("unchecked")
 		HashMap<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,
 				HashMap.class, new HashMap<>());
+		@SuppressWarnings("unchecked")
+		List<Map<String, String>> lineageSources = StateUtil.getObjectValue(state, DATA_LINEAGE_SOURCES, List.class,
+				List.of());
 
 		// Parse plan and get current step
 		Plan plan = converter.convert(plannerNodeOutput);
@@ -98,8 +105,15 @@ public class ReportGeneratorNode implements NodeAction {
 		}
 
 		// Generate report streaming flux
+		StringBuilder generatedReport = new StringBuilder();
 		Flux<ChatResponse> reportGenerationFlux = generateReport(userInput, plan, executionResults,
-				summaryAndRecommendations, agentId);
+				summaryAndRecommendations, agentId, state)
+			.doOnNext(response -> generatedReport.append(ChatResponseUtil.getText(response)));
+		String lineageMarkdown = buildLineageMarkdown(lineageSources);
+		reportGenerationFlux = reportGenerationFlux.concatWith(Flux.defer(() -> {
+			String suffix = buildReportSuffix(generatedReport.toString(), lineageMarkdown);
+			return suffix.isEmpty() ? Flux.empty() : Flux.just(ChatResponseUtil.createPureResponse(suffix));
+		}));
 
 		TextType reportTextType = TextType.MARK_DOWN;
 
@@ -110,6 +124,7 @@ public class ReportGeneratorNode implements NodeAction {
 					Map<String, Object> result = new HashMap<>();
 					result.put(RESULT, reportContent);
 					result.put(SQL_EXECUTE_NODE_OUTPUT, null);
+					result.put(DATA_LINEAGE_SOURCES, null);
 					result.put(PLAN_CURRENT_STEP, null);
 					result.put(PLANNER_NODE_OUTPUT, null);
 					return result;
@@ -119,6 +134,64 @@ public class ReportGeneratorNode implements NodeAction {
 						Flux.just(ChatResponseUtil.createPureResponse(reportTextType.getEndSign()))));
 
 		return Map.of(RESULT, generator);
+	}
+
+	String buildReportSuffix(String generatedReport, String lineageMarkdown) {
+		StringBuilder suffix = new StringBuilder();
+		Matcher matcher = FENCED_CODE_LINE.matcher(generatedReport == null ? "" : generatedReport);
+		int fenceCount = 0;
+		while (matcher.find()) {
+			fenceCount++;
+		}
+		if (fenceCount % 2 != 0) {
+			log.warn("Generated report ended with an unterminated fenced code block; closing it before report suffix");
+			suffix.append("\n```\n");
+		}
+		if (lineageMarkdown != null) {
+			suffix.append(lineageMarkdown);
+		}
+		return suffix.toString();
+	}
+
+	String buildLineageMarkdown(List<Map<String, String>> sources) {
+		if (sources == null || sources.isEmpty()) {
+			return "";
+		}
+		StringBuilder markdown = new StringBuilder("\n\n## 数据来源\n\n");
+		markdown.append("| 数据来源 | 平台 | 来源类型 | Sheet | 来源地址 | 采集时间 | 入库时间 | 版本 |\n");
+		markdown.append("| --- | --- | --- | --- | --- | --- | --- | --- |\n");
+		for (Map<String, String> source : sources) {
+			String hash = value(source, "source_file_sha256");
+			String shortHash = hash.length() > 12 ? hash.substring(0, 12) : hash;
+			markdown.append("| ")
+				.append(escapeMarkdownCell(value(source, "source_file_name")))
+				.append(" | ")
+				.append(escapeMarkdownCell(value(source, "source_platform")))
+				.append(" | ")
+				.append(escapeMarkdownCell(value(source, "source_type")))
+				.append(" | ")
+				.append(escapeMarkdownCell(value(source, "source_sheet")))
+				.append(" | ")
+				.append(escapeMarkdownCell(value(source, "source_uri")))
+				.append(" | ")
+				.append(escapeMarkdownCell(value(source, "source_acquired_at")))
+				.append(" | ")
+				.append(escapeMarkdownCell(value(source, "source_imported_at")))
+				.append(" | ")
+				.append(escapeMarkdownCell("-".equals(value(source, "source_version")) ? shortHash
+						: value(source, "source_version")))
+				.append(" |\n");
+		}
+		return markdown.toString();
+	}
+
+	private String value(Map<String, String> source, String key) {
+		String value = source.get(key);
+		return value == null || value.isBlank() ? "-" : value;
+	}
+
+	private String escapeMarkdownCell(String value) {
+		return value.replace("|", "\\|").replace("\r", " ").replace("\n", " ");
 	}
 
 	/**
@@ -142,7 +215,7 @@ public class ReportGeneratorNode implements NodeAction {
 	 * Generates the analysis report.
 	 */
 	private Flux<ChatResponse> generateReport(String userInput, Plan plan, HashMap<String, String> executionResults,
-			String summaryAndRecommendations, Long agentId) {
+			String summaryAndRecommendations, Long agentId, OverAllState state) {
 		// Build user requirements and plan description
 		String userRequirementsAndPlan = buildUserRequirementsAndPlan(userInput, plan);
 
@@ -156,7 +229,7 @@ public class ReportGeneratorNode implements NodeAction {
 		String reportPrompt = PromptHelper.buildReportGeneratorPromptWithOptimization(userRequirementsAndPlan,
 				analysisStepsAndData, summaryAndRecommendations, optimizationConfigs);
 		log.debug("Report Node Prompt: \n {} \n", reportPrompt);
-		return llmService.callUser(reportPrompt);
+		return llmService.callUser(reportPrompt, state);
 	}
 
 	/**

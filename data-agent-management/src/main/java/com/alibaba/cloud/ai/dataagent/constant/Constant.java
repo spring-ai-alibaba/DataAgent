@@ -77,6 +77,8 @@ public final class Constant {
 
 	public static final String SQL_EXECUTE_NODE_OUTPUT = "SQL_EXECUTE_NODE_OUTPUT";
 
+	public static final String DATA_LINEAGE_SOURCES = "DATA_LINEAGE_SOURCES";
+
 	// dialect
 	public static final String DB_DIALECT_TYPE = "DB_DIALECT_TYPE";
 
@@ -148,6 +150,10 @@ public final class Constant {
 
 	// nl2sql接口预留相关
 	public static final String IS_ONLY_NL2SQL = "IS_ONLY_NL2SQL";
+
+	public static final String THINKING_ENABLED = "THINKING_ENABLED";
+
+	public static final String REASONING_EFFORT = "REASONING_EFFORT";
 
 	// 人类复核相关
 	public static final String HUMAN_REVIEW_ENABLED = "HUMAN_REVIEW_ENABLED";

@@ -21,6 +21,9 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.time.Duration;
+import java.util.List;
+
 @Getter
 @Setter
 @ConfigurationProperties(prefix = Constant.PROJECT_PROPERTIES_PREFIX)
@@ -37,6 +40,8 @@ public class DataAgentProperties {
 	private EmbeddingBatch embeddingBatch = new EmbeddingBatch();
 
 	private VectorStoreProperties vectorStore = new VectorStoreProperties();
+
+	private LineageProperties lineage = new LineageProperties();
 
 	private ReportTemplate reportTemplate = new ReportTemplate();
 
@@ -259,7 +264,13 @@ public class DataAgentProperties {
 	public static class VectorStoreProperties {
 
 		// 专门给召回Table 用的配置
-		private int tableTopkLimit = 10;
+		private int tableTopkLimit = 50;
+
+		/** Schema 召回遇到瞬时网络 I/O 错误后的最大重试次数。 */
+		private int schemaRecallMaxRetries = 2;
+
+		/** Schema 召回重试的基础退避时间，后续重试按次数递增。 */
+		private Duration schemaRecallRetryBackoff = Duration.ofMillis(500);
 
 		// 设置低尽可能保证表不会召回漏掉
 		private double tableSimilarityThreshold = 0.2;
@@ -294,6 +305,40 @@ public class DataAgentProperties {
 		 * SimpleVectorStore本地序列化文件地址
 		 */
 		private String filePath = "./vectorstore/vectorstore.json";
+
+	}
+
+	@Getter
+	@Setter
+	public static class LineageProperties {
+
+		private boolean enabled = true;
+
+		private int maxSourceRows = 100;
+
+		private List<String> fileNameColumns = List.of("source_file_name", "source_filename");
+
+		private List<String> fileHashColumns = List.of("source_file_sha256");
+
+		private List<String> sheetColumns = List.of("source_sheet");
+
+		private List<String> importedAtColumns = List.of("source_imported_at", "imported_at", "created_at");
+
+		private List<String> platformColumns = List.of("source_platform");
+
+		private List<String> sourceTypeColumns = List.of("source_type");
+
+		private List<String> uriColumns = List.of("source_uri", "source_url");
+
+		private List<String> resourceIdColumns = List.of("source_resource_id");
+
+		private List<String> versionColumns = List.of("source_version");
+
+		private List<String> acquiredAtColumns = List.of("source_acquired_at", "acquired_at");
+
+		private List<String> artifactFormatColumns = List.of("artifact_format", "source_format");
+
+		private List<String> ingestionToolColumns = List.of("ingestion_tool");
 
 	}
 

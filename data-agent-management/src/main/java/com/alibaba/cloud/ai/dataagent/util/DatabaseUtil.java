@@ -57,4 +57,8 @@ public class DatabaseUtil {
 		return accessorFactory.getAccessorByDbConfig(dbConfig);
 	}
 
+	public Integer getAgentDatasourceId(Long agentId) {
+		return agentDatasourceService.getCurrentAgentDatasource(agentId).getDatasourceId();
+	}
+
 }

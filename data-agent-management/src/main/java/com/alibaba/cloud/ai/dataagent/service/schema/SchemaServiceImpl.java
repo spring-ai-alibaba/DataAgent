@@ -32,6 +32,7 @@ import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService;
+import com.alibaba.cloud.ai.dataagent.service.lineage.LineageMetadataService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +46,8 @@ import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
+import java.io.IOException;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -75,6 +78,8 @@ public class SchemaServiceImpl implements SchemaService {
 	private final DynamicFilterService dynamicFilterService;
 
 	private final DataAgentProperties dataAgentProperties;
+
+	private final LineageMetadataService lineageMetadataService;
 
 	/**
 	 * Vector storage service
@@ -129,6 +134,7 @@ public class SchemaServiceImpl implements SchemaService {
 	@Override
 	public Boolean schema(Integer datasourceId, SchemaInitRequest schemaInitRequest) throws Exception {
 		log.info("Starting schema initialization for datasource: {}", datasourceId);
+		lineageMetadataService.invalidate(datasourceId);
 		DbConfigBO config = schemaInitRequest.getDbConfig();
 		DbQueryParameter dqp = DbQueryParameter.from(config)
 			.setSchema(config.getSchema())
@@ -306,7 +312,46 @@ public class SchemaServiceImpl implements SchemaService {
 			.filterExpression(filterExpression)
 			.build();
 
-		return agentVectorStoreService.similaritySearch(searchRequest);
+		return similaritySearchWithRetry(searchRequest, datasourceId);
+	}
+
+	private List<Document> similaritySearchWithRetry(SearchRequest searchRequest, Integer datasourceId) {
+		int maxRetries = Math.max(0, dataAgentProperties.getVectorStore().getSchemaRecallMaxRetries());
+		Duration retryBackoff = dataAgentProperties.getVectorStore().getSchemaRecallRetryBackoff();
+		long baseBackoffMillis = retryBackoff == null ? 0 : Math.max(0, retryBackoff.toMillis());
+		int retryCount = 0;
+		while (true) {
+			try {
+				return agentVectorStoreService.similaritySearch(searchRequest);
+			}
+			catch (RuntimeException exception) {
+				if (!hasCause(exception, IOException.class) || retryCount >= maxRetries) {
+					throw exception;
+				}
+				retryCount++;
+				long delayMillis = baseBackoffMillis * retryCount;
+				log.warn("Schema table recall I/O failure for datasource {}, retry {}/{}, waiting {} ms: {}",
+						datasourceId, retryCount, maxRetries, delayMillis, exception.getMessage());
+				try {
+					Thread.sleep(delayMillis);
+				}
+				catch (InterruptedException interruptedException) {
+					Thread.currentThread().interrupt();
+					throw new IllegalStateException("Schema table recall retry was interrupted", interruptedException);
+				}
+			}
+		}
+	}
+
+	private boolean hasCause(Throwable throwable, Class<? extends Throwable> causeType) {
+		Throwable current = throwable;
+		while (current != null) {
+			if (causeType.isInstance(current)) {
+				return true;
+			}
+			current = current.getCause();
+		}
+		return false;
 	}
 
 	private List<String> getMissingTableNamesWithForeignKeySet(List<Document> tableDocuments,

@@ -15,26 +15,26 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.agent;
 
-import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
-import com.alibaba.cloud.ai.dataagent.enums.ModelType;
-import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
-import com.alibaba.cloud.ai.dataagent.mapper.BusinessKnowledgeMapper;
-import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigDataService;
-import com.alibaba.cloud.ai.dataagent.service.business.BusinessKnowledgeService;
+import com.alibaba.cloud.ai.dataagent.entity.Agent;
+import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
-import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.ApplicationArguments;
+import org.springframework.ai.document.Document;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -52,60 +52,34 @@ class AgentStartupInitializationTest {
 	private AgentDatasourceService agentDatasourceService;
 
 	@Mock
-	private BusinessKnowledgeService businessKnowledgeService;
-
-	@Mock
-	private AgentKnowledgeService agentKnowledgeService;
-
-	@Mock
-	private BusinessKnowledgeMapper businessKnowledgeMapper;
-
-	@Mock
-	private AgentKnowledgeMapper agentKnowledgeMapper;
-
-	@Mock
-	private ModelConfigDataService modelConfigDataService;
-
-	@Mock
 	private ExecutorService executorService;
-
-	@Mock
-	private ApplicationArguments applicationArguments;
 
 	private AgentStartupInitialization initialization;
 
 	@BeforeEach
 	void setUp() {
-		doAnswer(invocation -> {
-			invocation.<Runnable>getArgument(0).run();
-			return null;
-		}).when(executorService).execute(any(Runnable.class));
-		when(agentService.findByStatus("published")).thenReturn(List.of());
 		initialization = new AgentStartupInitialization(agentService, agentVectorStoreService, agentDatasourceService,
-				businessKnowledgeService, agentKnowledgeService, businessKnowledgeMapper, agentKnowledgeMapper,
-				modelConfigDataService, executorService);
+				executorService);
 	}
 
 	@Test
-	void run_withoutActiveEmbeddingModel_keepsPendingKnowledgeUntouched() {
-		when(modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING)).thenReturn(null);
+	void initializeAgentDataSource_completeDatasourceIndex_skipsRebuild() {
+		Agent agent = new Agent();
+		agent.setId(9L);
+		AgentDatasource datasource = new AgentDatasource();
+		datasource.setDatasourceId(6);
+		datasource.setSelectTables(List.of("delivery_actual_daily", "part_mappings"));
+		when(agentDatasourceService.getCurrentAgentDatasource(9L)).thenReturn(datasource);
+		when(agentVectorStoreService.getDocumentsOnlyByFilter(any(), eq(2)))
+			.thenReturn(List.of(tableDocument("delivery_actual_daily"), tableDocument("part_mappings")));
 
-		initialization.run(applicationArguments);
+		assertTrue(initialization.initializeAgentDataSource(agent));
 
-		verify(businessKnowledgeMapper, never()).selectAll();
-		verify(agentKnowledgeMapper, never()).selectPendingAndRecalled();
+		verify(agentDatasourceService, never()).initializeSchemaForAgentWithDatasource(anyLong(), anyInt(), anyList());
 	}
 
-	@Test
-	void run_withActiveEmbeddingModel_checksBothPendingKnowledgeSources() {
-		when(modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING)).thenReturn(ModelConfigDTO.builder().build());
-		when(businessKnowledgeMapper.selectAll()).thenReturn(List.of());
-		when(agentKnowledgeMapper.selectPendingAndRecalled()).thenReturn(List.of());
-
-		initialization.run(applicationArguments);
-
-		verify(businessKnowledgeMapper).selectAll();
-		verify(agentKnowledgeMapper).selectPendingAndRecalled();
+	private Document tableDocument(String name) {
+		return new Document(name, Map.of("name", name));
 	}
 
 }

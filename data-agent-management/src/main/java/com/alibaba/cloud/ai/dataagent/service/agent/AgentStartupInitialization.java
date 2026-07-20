@@ -17,16 +17,15 @@ package com.alibaba.cloud.ai.dataagent.service.agent;
 
 import com.alibaba.cloud.ai.dataagent.entity.Agent;
 import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
-import com.alibaba.cloud.ai.dataagent.enums.EmbeddingStatus;
-import com.alibaba.cloud.ai.dataagent.enums.ModelType;
-import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
-import com.alibaba.cloud.ai.dataagent.mapper.BusinessKnowledgeMapper;
-import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigDataService;
-import com.alibaba.cloud.ai.dataagent.service.business.BusinessKnowledgeService;
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
+import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
-import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeService;
+import com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +33,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.filter.Filter;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -47,16 +49,6 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 
 	private final AgentDatasourceService agentDatasourceService;
 
-	private final BusinessKnowledgeService businessKnowledgeService;
-
-	private final AgentKnowledgeService agentKnowledgeService;
-
-	private final BusinessKnowledgeMapper businessKnowledgeMapper;
-
-	private final AgentKnowledgeMapper agentKnowledgeMapper;
-
-	private final ModelConfigDataService modelConfigDataService;
-
 	private final ExecutorService executorService;
 
 	@Override
@@ -65,15 +57,7 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 
 		try {
 			// 因为异步可以让初始化过程在后台运行，不会阻塞Spring启动主线程，提高启动速度和响应性；即使初始化很耗时也不会影响主程序正常启动。
-			CompletableFuture.runAsync(() -> {
-				initializePublishedAgents();
-				if (!hasActiveEmbeddingModel()) {
-					log.warn("No active EMBEDDING model configured; pending knowledge will remain pending");
-					return;
-				}
-				embedPendingBusinessKnowledge();
-				embedPendingAgentKnowledge();
-			}, executorService).exceptionally(throwable -> {
+			CompletableFuture.runAsync(this::initializePublishedAgents, executorService).exceptionally(throwable -> {
 				log.error("Error during agent initialization: {}", throwable.getMessage());
 				return null;
 			});
@@ -81,16 +65,6 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 		}
 		catch (Exception e) {
 			log.error("Failed to start agent initialization process", e);
-		}
-	}
-
-	private boolean hasActiveEmbeddingModel() {
-		try {
-			return modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING) != null;
-		}
-		catch (Exception e) {
-			log.warn("Unable to inspect active EMBEDDING model; skipping startup embedding: {}", e.getMessage());
-			return false;
 		}
 	}
 
@@ -151,16 +125,9 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 	 * @param agent The agent
 	 * @return Whether the initialization was successful
 	 */
-	private boolean initializeAgentDataSource(Agent agent) {
+	boolean initializeAgentDataSource(Agent agent) {
 		try {
 			Long agentId = agent.getId();
-
-			boolean hasData = isAlreadyInitialized(agentId);
-
-			if (hasData) {
-				log.info("Agent {} already has vector data , skipping initialization", agentId);
-				return true;
-			}
 
 			AgentDatasource activeDatasource = agentDatasourceService.getCurrentAgentDatasource(agentId);
 
@@ -171,6 +138,12 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 			if (tables.isEmpty()) {
 				log.warn("Datasource {} has no tables available for agent {}", datasourceId, agentId);
 				return false;
+			}
+
+			if (isAlreadyInitialized(datasourceId, tables)) {
+				log.info("Agent {} datasource {} already has complete table vector data, skipping initialization", agentId,
+						datasourceId);
+				return true;
 			}
 
 			log.info("Initializing agent {} with datasource {} and {} tables", agentId, datasourceId, tables.size());
@@ -194,98 +167,28 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 		}
 	}
 
-	private boolean isAlreadyInitialized(Long agentId) {
+	boolean isAlreadyInitialized(Integer datasourceId, List<String> selectedTables) {
 		try {
-			String agentIdStr = String.valueOf(agentId);
-			return agentVectorStoreService.hasDocuments(agentIdStr);
+			FilterExpressionBuilder builder = new FilterExpressionBuilder();
+			List<Filter.Expression> conditions = new ArrayList<>();
+			conditions.add(builder.eq(Constant.DATASOURCE_ID, datasourceId.toString()).build());
+			conditions.add(builder.eq(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.TABLE).build());
+			Filter.Expression filterExpression = DynamicFilterService.combineWithAnd(conditions);
+			List<Document> tableDocuments = agentVectorStoreService.getDocumentsOnlyByFilter(filterExpression,
+					Math.max(selectedTables.size(), 1));
+			Set<String> indexedTables = new HashSet<>();
+			for (Document document : tableDocuments) {
+				Object tableName = document.getMetadata().get("name");
+				if (tableName != null) {
+					indexedTables.add(tableName.toString());
+				}
+			}
+			return indexedTables.containsAll(selectedTables);
 		}
 		catch (Exception e) {
-			log.error("Failed to check initialization status for agent: {}, assuming not initialized", agentId, e);
+			log.error("Failed to check initialization status for datasource: {}, assuming not initialized", datasourceId,
+					e);
 			return false;
-		}
-	}
-
-	/**
-	 * Auto-embed PENDING business knowledge records on startup.
-	 * <p>
-	 * Seed data inserted via data.sql has embedding_status='PENDING' but was never
-	 * embedded because it bypassed the addKnowledge API. This method finds all such
-	 * records (is_recall=1, is_deleted=0, embedding_status=PENDING) and triggers
-	 * embedding for each one.
-	 */
-	private void embedPendingBusinessKnowledge() {
-		try {
-			var allKnowledge = businessKnowledgeMapper.selectAll();
-			var pendingKnowledge = allKnowledge.stream()
-				.filter(k -> k.getEmbeddingStatus() == EmbeddingStatus.PENDING)
-				.filter(k -> k.getIsRecall() != null && k.getIsRecall() == 1)
-				.toList();
-
-			if (pendingKnowledge.isEmpty()) {
-				log.info("No pending business knowledge to embed");
-				return;
-			}
-
-			log.info("Found {} pending business knowledge records, starting auto-embedding...",
-					pendingKnowledge.size());
-
-			int successCount = 0;
-			int failureCount = 0;
-			for (var knowledge : pendingKnowledge) {
-				try {
-					businessKnowledgeService.retryEmbedding(knowledge.getId());
-					successCount++;
-				}
-				catch (Exception e) {
-					failureCount++;
-					log.error("Failed to auto-embed business knowledge id={}: {}", knowledge.getId(), e.getMessage());
-				}
-			}
-
-			log.info("Business knowledge auto-embedding completed. Success: {}, Failed: {}", successCount,
-					failureCount);
-		}
-		catch (Exception e) {
-			log.error("Error during pending business knowledge auto-embedding", e);
-		}
-	}
-
-	/**
-	 * Auto-embed PENDING agent knowledge records on startup.
-	 * <p>
-	 * Agent knowledge embedding is async (event-driven via
-	 * {@code AgentKnowledgeEmbeddingEvent}), so this method only triggers the embedding
-	 * by publishing events. The actual embedding happens in the background via
-	 * {@code AgentKnowledgeEventListener}.
-	 */
-	private void embedPendingAgentKnowledge() {
-		try {
-			var pendingKnowledge = agentKnowledgeMapper.selectPendingAndRecalled();
-
-			if (pendingKnowledge.isEmpty()) {
-				log.info("No pending agent knowledge to embed");
-				return;
-			}
-
-			log.info("Found {} pending agent knowledge records, starting auto-embedding...", pendingKnowledge.size());
-
-			int successCount = 0;
-			int failureCount = 0;
-			for (var knowledge : pendingKnowledge) {
-				try {
-					agentKnowledgeService.retryEmbedding(knowledge.getId());
-					successCount++;
-				}
-				catch (Exception e) {
-					failureCount++;
-					log.error("Failed to auto-embed agent knowledge id={}: {}", knowledge.getId(), e.getMessage());
-				}
-			}
-
-			log.info("Agent knowledge auto-embedding triggered. Success: {}, Failed: {}", successCount, failureCount);
-		}
-		catch (Exception e) {
-			log.error("Error during pending agent knowledge auto-embedding", e);
 		}
 	}
 

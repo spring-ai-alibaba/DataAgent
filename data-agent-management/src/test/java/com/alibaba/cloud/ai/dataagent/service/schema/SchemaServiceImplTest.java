@@ -24,6 +24,7 @@ import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService;
+import com.alibaba.cloud.ai.dataagent.service.lineage.LineageMetadataService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +37,8 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.BatchingStrategy;
 import org.springframework.ai.vectorstore.SearchRequest;
 
+import java.io.IOException;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -64,6 +67,9 @@ class SchemaServiceImplTest {
 	private DataAgentProperties dataAgentProperties;
 
 	@Mock
+	private LineageMetadataService lineageMetadataService;
+
+	@Mock
 	private AgentVectorStoreService agentVectorStoreService;
 
 	private SchemaServiceImpl schemaService;
@@ -72,11 +78,13 @@ class SchemaServiceImplTest {
 	void setUp() {
 		ExecutorService executor = Executors.newSingleThreadExecutor();
 		schemaService = new SchemaServiceImpl(executor, accessorFactory, tableMetadataService, batchingStrategy,
-				dynamicFilterService, dataAgentProperties, agentVectorStoreService);
+				dynamicFilterService, dataAgentProperties, lineageMetadataService, agentVectorStoreService);
 
 		DataAgentProperties.VectorStoreProperties vsProps = new DataAgentProperties.VectorStoreProperties();
 		vsProps.setTableTopkLimit(10);
 		vsProps.setTableSimilarityThreshold(0.5);
+		vsProps.setSchemaRecallMaxRetries(2);
+		vsProps.setSchemaRecallRetryBackoff(Duration.ZERO);
 		vsProps.setDefaultTopkLimit(10);
 		vsProps.setDefaultSimilarityThreshold(0.5);
 		when(dataAgentProperties.getVectorStore()).thenReturn(vsProps);
@@ -236,6 +244,29 @@ class SchemaServiceImplTest {
 		assertTrue(filter.contains("1"));
 		assertTrue(filter.contains(DocumentMetadataConstant.VECTOR_TYPE));
 		assertTrue(filter.contains(DocumentMetadataConstant.TABLE));
+	}
+
+	@Test
+	void getTableDocumentsByDatasource_connectionReset_retries() {
+		Document expectedDocument = createTableDoc("part_mappings");
+		when(agentVectorStoreService.similaritySearch(any(SearchRequest.class)))
+			.thenThrow(new RuntimeException(new IOException("Connection reset")))
+			.thenReturn(List.of(expectedDocument));
+
+		List<Document> result = schemaService.getTableDocumentsByDatasource(6, "查询零件清单");
+
+		assertEquals(List.of(expectedDocument), result);
+		verify(agentVectorStoreService, times(2)).similaritySearch(any(SearchRequest.class));
+	}
+
+	@Test
+	void getTableDocumentsByDatasource_nonIoFailure_doesNotRetry() {
+		when(agentVectorStoreService.similaritySearch(any(SearchRequest.class)))
+			.thenThrow(new IllegalArgumentException("invalid search request"));
+
+		assertThrows(IllegalArgumentException.class,
+				() -> schemaService.getTableDocumentsByDatasource(6, "查询零件清单"));
+		verify(agentVectorStoreService).similaritySearch(any(SearchRequest.class));
 	}
 
 	@Test
