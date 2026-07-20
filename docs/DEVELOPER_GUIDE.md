@@ -364,6 +364,7 @@ public class AgentVectorStoreService {
 | `max-thread-size` | 线程池最大线程数 | 5 |
 | `code-timeout` | Python代码执行超时时间 | 60s |
 | `container-timeout` | 容器最大运行时长 | 3000 (ms) |
+| `security-opt` | 可选 Docker 安全参数（例如 `seccomp=unconfined`） | null |
 | `limit-memory` | 容器内存限制 (MB) | 500 |
 | `cpu-core` | 容器CPU核数 | 1 |
 

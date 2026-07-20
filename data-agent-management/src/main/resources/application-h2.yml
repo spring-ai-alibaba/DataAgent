@@ -33,10 +33,27 @@ spring:
         checkpoint:
           type: memory
         vector-store:
-          table-topk-limit: 10
+          table-topk-limit: ${DATA_AGENT_TABLE_TOPK_LIMIT:50}
+          schema-recall-max-retries: ${DATA_AGENT_SCHEMA_RECALL_MAX_RETRIES:2}
+          schema-recall-retry-backoff: ${DATA_AGENT_SCHEMA_RECALL_RETRY_BACKOFF:500ms}
           table-similarity-threshold: 0.2
           default-topk-limit: 8
           default-similarity-threshold: 0.4
+        lineage:
+          enabled: ${DATA_AGENT_LINEAGE_ENABLED:true}
+          max-source-rows: ${DATA_AGENT_LINEAGE_MAX_SOURCE_ROWS:100}
+          file-name-columns: ${DATA_AGENT_LINEAGE_FILE_NAME_COLUMNS:source_file_name,source_filename}
+          file-hash-columns: ${DATA_AGENT_LINEAGE_FILE_HASH_COLUMNS:source_file_sha256}
+          sheet-columns: ${DATA_AGENT_LINEAGE_SHEET_COLUMNS:source_sheet}
+          imported-at-columns: ${DATA_AGENT_LINEAGE_IMPORTED_AT_COLUMNS:source_imported_at,imported_at,created_at}
+          platform-columns: ${DATA_AGENT_LINEAGE_PLATFORM_COLUMNS:source_platform}
+          source-type-columns: ${DATA_AGENT_LINEAGE_SOURCE_TYPE_COLUMNS:source_type}
+          uri-columns: ${DATA_AGENT_LINEAGE_URI_COLUMNS:source_uri,source_url}
+          resource-id-columns: ${DATA_AGENT_LINEAGE_RESOURCE_ID_COLUMNS:source_resource_id}
+          version-columns: ${DATA_AGENT_LINEAGE_VERSION_COLUMNS:source_version}
+          acquired-at-columns: ${DATA_AGENT_LINEAGE_ACQUIRED_AT_COLUMNS:source_acquired_at,acquired_at}
+          artifact-format-columns: ${DATA_AGENT_LINEAGE_ARTIFACT_FORMAT_COLUMNS:artifact_format,source_format}
+          ingestion-tool-columns: ${DATA_AGENT_LINEAGE_INGESTION_TOOL_COLUMNS:ingestion_tool}
         llm-service-type: stream
         code-executor:
           # 运行Python代码的环境（生产环境建议使用docker，不建议使用local）
