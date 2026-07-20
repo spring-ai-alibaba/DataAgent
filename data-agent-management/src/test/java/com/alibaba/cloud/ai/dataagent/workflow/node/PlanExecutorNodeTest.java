@@ -272,6 +272,26 @@ class PlanExecutorNodeTest {
 	}
 
 	@Test
+	void reportOnlyPlan_returnsValidationError() throws Exception {
+		OverAllState state = createTestState();
+		ExecutionStep step = new ExecutionStep();
+		step.setStep(1);
+		step.setToolToUse(REPORT_GENERATOR_NODE);
+		ExecutionStep.ToolParameters parameters = new ExecutionStep.ToolParameters();
+		parameters.setSummaryAndRecommendations("请用户补充分析目标和时间范围");
+		step.setToolParameters(parameters);
+		Plan plan = new Plan();
+		plan.setThoughtProcess("当前信息不足，先要求用户补充条件");
+		plan.setExecutionPlan(List.of(step));
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planToJson(plan), PLAN_CURRENT_STEP, 1));
+
+		Map<String, Object> result = planExecutorNode.apply(state);
+
+		assertFalse((Boolean) result.get(PLAN_VALIDATION_STATUS));
+		assertTrue(((String) result.get(PLAN_VALIDATION_ERROR)).contains("must include at least one SQL_GENERATE_NODE"));
+	}
+
+	@Test
 	void validationFailure_incrementsRepairCount() throws Exception {
 		OverAllState state = createTestState();
 		Plan emptyPlan = new Plan();

@@ -21,7 +21,6 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.alibaba.cloud.ai.dataagent.constant.Constant.CLARIFICATION_NODE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.FEASIBILITY_ASSESSMENT_NODE_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLANNER_NODE;
 import static com.alibaba.cloud.ai.graph.StateGraph.END;
@@ -54,8 +53,8 @@ public class FeasibilityAssessmentDispatcher implements EdgeAction {
 			return PLANNER_NODE;
 		}
 		if (FeasibilityAssessmentOutputDTO.NEED_CLARIFICATION.equalsIgnoreCase(requestType)) {
-			log.info("[FeasibilityAssessmentDispatcher] requestType=NEED_CLARIFICATION, routing to ClarificationNode");
-			return CLARIFICATION_NODE;
+			log.info("[FeasibilityAssessmentDispatcher] legacy requestType=NEED_CLARIFICATION, routing to PlannerNode");
+			return PLANNER_NODE;
 		}
 
 		log.info("[FeasibilityAssessmentDispatcher] requestType={}, routing to END", requestType);

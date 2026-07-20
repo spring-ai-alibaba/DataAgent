@@ -68,14 +68,14 @@ class QueryEnhanceNodeTest {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(INPUT_KEY, "查询所有用户", EVIDENCE, "用户表包含id和name字段"));
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"canonical_query\":\"查询所有用户信息\"}")));
 
 		Map<String, Object> result = queryEnhanceNode.apply(state);
 
 		assertNotNull(result);
 		assertTrue(result.containsKey(QUERY_ENHANCE_NODE_OUTPUT));
-		verify(llmService).callUser(anyString());
+		verify(llmService).callUser(anyString(), org.mockito.ArgumentMatchers.any());
 	}
 
 	@Test
@@ -83,7 +83,7 @@ class QueryEnhanceNodeTest {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(INPUT_KEY, "查询所有用户", EVIDENCE, "test evidence", MULTI_TURN_CONTEXT, "之前查询了订单表"));
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"canonical_query\":\"查询所有用户信息\"}")));
 
 		Map<String, Object> result = queryEnhanceNode.apply(state);
@@ -97,7 +97,7 @@ class QueryEnhanceNodeTest {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(INPUT_KEY, "查询用户信息", EVIDENCE, "evidence data"));
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"canonical_query\":\"查询用户信息\"}")));
 
 		Map<String, Object> result = queryEnhanceNode.apply(state);
@@ -111,7 +111,7 @@ class QueryEnhanceNodeTest {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(INPUT_KEY, "查询用户", EVIDENCE, "evidence"));
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"canonical_query\":"),
 					ChatResponseUtil.createPureResponse("\"查询所有用户\"}")));
 
@@ -134,7 +134,7 @@ class QueryEnhanceNodeTest {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(INPUT_KEY, "长查询内容测试", EVIDENCE, "evidence data"));
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("response text")));
 
 		Map<String, Object> result = queryEnhanceNode.apply(state);

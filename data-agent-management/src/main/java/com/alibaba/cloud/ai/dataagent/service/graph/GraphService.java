@@ -44,6 +44,12 @@ public interface GraphService {
 	void graphStreamProcess(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest);
 
 	/**
+	 * 标记流连接已断开，允许在短时间内重连恢复。
+	 * @param threadId 线程ID
+	 */
+	void disconnectStream(String threadId);
+
+	/**
 	 * 停止指定 threadId 的流式处理
 	 * @param threadId 线程ID
 	 */

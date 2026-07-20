@@ -108,7 +108,7 @@ public class PythonGenerateNode implements NodeAction {
 					objectMapper.writeValueAsString(sqlResults.stream().limit(SAMPLE_DATA_NUMBER).toList()),
 					"plan_description", objectMapper.writeValueAsString(toolParameters)));
 
-		Flux<ChatResponse> pythonGenerateFlux = llmService.call(systemPrompt, userPrompt);
+		Flux<ChatResponse> pythonGenerateFlux = llmService.call(systemPrompt, userPrompt, state);
 
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, aiResponse -> {

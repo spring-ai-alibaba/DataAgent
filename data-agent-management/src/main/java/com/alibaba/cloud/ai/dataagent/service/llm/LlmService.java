@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.service.llm;
 
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.graph.OverAllState;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 
@@ -23,22 +24,21 @@ public interface LlmService {
 
 	Flux<ChatResponse> call(String system, String user);
 
-	/**
-	 * Call the model with system and user messages plus Spring AI structured-output
-	 * validation.
-	 */
-	Flux<ChatResponse> call(String system, String user, Class<?> outputType);
-
 	Flux<ChatResponse> callSystem(String system);
 
 	Flux<ChatResponse> callUser(String user);
 
-	/**
-	 * Call the model with Spring AI's structured-output validation advisor. The advisor
-	 * validates the response against the schema derived from {@code outputType} and asks
-	 * the model to repair invalid output.
-	 */
-	Flux<ChatResponse> callUser(String user, Class<?> outputType);
+	default Flux<ChatResponse> call(String system, String user, OverAllState state) {
+		return call(system, user);
+	}
+
+	default Flux<ChatResponse> callSystem(String system, OverAllState state) {
+		return callSystem(system);
+	}
+
+	default Flux<ChatResponse> callUser(String user, OverAllState state) {
+		return callUser(user);
+	}
 
 	@Deprecated
 	default String blockToString(Flux<ChatResponse> responseFlux) {

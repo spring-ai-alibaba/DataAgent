@@ -44,8 +44,17 @@ public class GraphRequest {
 
 	private String resumeMode;
 
+	@Builder.Default
+	private boolean reconnect = false;
+
+	private Long lastSequence;
+
 	private boolean rejectedPlan;
 
 	private boolean nl2sqlOnly;
+
+	private Boolean thinkingEnabled;
+
+	private String reasoningEffort;
 
 }

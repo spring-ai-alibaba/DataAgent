@@ -23,10 +23,11 @@ import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.Disposable;
 import reactor.core.publisher.Sinks;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
 
 /**
  * 流式处理上下文，封装每个 threadId 的所有相关状态
@@ -37,8 +38,6 @@ import java.util.Objects;
 @Data
 public class StreamContext {
 
-	private String conversationId;
-
 	private Disposable disposable;
 
 	private Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink;
@@ -47,26 +46,25 @@ public class StreamContext {
 
 	private TextType textType;
 
-	private String finalAnswer;
+	private String agentId;
 
-	private final Map<String, Integer> nodeAttempts = new HashMap<>();
+	private String threadId;
 
-	private String activeNode;
+	private final long workflowStartedAt = System.currentTimeMillis();
 
-	private String activeStepId;
+	private String activeNodeName;
 
-	private int activeAttempt;
+	private long activeNodeStartedAt;
 
-	private int stepSequence;
+	private volatile long disconnectedAt = -1L;
 
-	public synchronized StepIdentity resolveStep(String nodeName) {
-		if (!Objects.equals(activeNode, nodeName)) {
-			activeNode = nodeName;
-			activeAttempt = nodeAttempts.merge(nodeName, 1, Integer::sum);
-			activeStepId = nodeName + "-" + (++stepSequence);
-		}
-		return new StepIdentity(activeStepId, activeAttempt);
-	}
+	private volatile boolean awaitingReconnect = false;
+
+	private volatile ScheduledFuture<?> cleanupFuture;
+
+	private final AtomicLong sequenceCounter = new AtomicLong(0);
+
+	private final List<GraphNodeResponse> replayBuffer = new ArrayList<>();
 
 	/**
 	 * 收集流式输出内容，用于 Langfuse 上报
@@ -79,6 +77,44 @@ public class StreamContext {
 
 	public String getCollectedOutput() {
 		return outputCollector.toString();
+	}
+
+	public long nextSequence() {
+		return sequenceCounter.incrementAndGet();
+	}
+
+	public long currentSequence() {
+		return sequenceCounter.get();
+	}
+
+	public synchronized void cacheResponse(GraphNodeResponse response) {
+		replayBuffer.add(response);
+	}
+
+	public synchronized List<GraphNodeResponse> getReplayResponsesAfter(long lastSequence) {
+		return replayBuffer.stream()
+			.filter(response -> {
+				Long sequence = response.getSequence();
+				return sequence != null && sequence > lastSequence;
+			})
+			.toList();
+	}
+
+	public synchronized void attachSink(Sinks.Many<ServerSentEvent<GraphNodeResponse>> newSink) {
+		this.sink = newSink;
+		this.awaitingReconnect = false;
+		this.disconnectedAt = -1L;
+		ScheduledFuture<?> future = this.cleanupFuture;
+		if (future != null) {
+			future.cancel(false);
+			this.cleanupFuture = null;
+		}
+	}
+
+	public synchronized void markDisconnected() {
+		this.awaitingReconnect = true;
+		this.disconnectedAt = System.currentTimeMillis();
+		this.sink = null;
 	}
 
 	/**
@@ -116,6 +152,12 @@ public class StreamContext {
 				// 忽略清理过程中的异常
 			}
 		}
+
+		ScheduledFuture<?> future = cleanupFuture;
+		if (future != null) {
+			future.cancel(false);
+			cleanupFuture = null;
+		}
 	}
 
 	/**
@@ -123,9 +165,6 @@ public class StreamContext {
 	 */
 	public boolean isCleaned() {
 		return cleaned.get();
-	}
-
-	public record StepIdentity(String stepId, int attempt) {
 	}
 
 }

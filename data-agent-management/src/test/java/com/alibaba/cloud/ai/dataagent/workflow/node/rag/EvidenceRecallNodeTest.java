@@ -108,7 +108,7 @@ class EvidenceRecallNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(LLM_REWRITE_RESPONSE)));
 
 		List<Document> businessDocs = List.of(createBusinessTermDocument("销售额=sum(order_amount)"));
@@ -130,7 +130,7 @@ class EvidenceRecallNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(LLM_REWRITE_RESPONSE)));
 
 		List<Document> businessDocs = List.of(createBusinessTermDocument("PV=页面浏览量"));
@@ -162,7 +162,7 @@ class EvidenceRecallNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(LLM_REWRITE_RESPONSE)));
 
 		Document faqDoc = createAgentKnowledgeDocument("退款怎么算", 2, KnowledgeType.FAQ.getCode());
@@ -191,7 +191,7 @@ class EvidenceRecallNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(LLM_REWRITE_RESPONSE)));
 
 		Document docKnowledge = createAgentKnowledgeDocument("华东地区销售数据增长20%", 3, KnowledgeType.DOCUMENT.getCode());
@@ -221,7 +221,7 @@ class EvidenceRecallNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString())).thenThrow(new RuntimeException("LLM timeout"));
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any())).thenThrow(new RuntimeException("LLM timeout"));
 
 		assertThrows(RuntimeException.class, () -> evidenceRecallNode.apply(state));
 	}
@@ -231,7 +231,7 @@ class EvidenceRecallNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(LLM_REWRITE_RESPONSE)));
 
 		when(vectorStoreService.getDocumentsForAgent(anyString(), anyString(), anyString()))
@@ -248,7 +248,7 @@ class EvidenceRecallNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("not valid json at all")));
 
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class)))
@@ -265,7 +265,7 @@ class EvidenceRecallNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(LLM_REWRITE_RESPONSE)));
 
 		when(vectorStoreService.getDocumentsForAgent(anyString(), anyString(), anyString()))
@@ -283,7 +283,7 @@ class EvidenceRecallNodeTest {
 		setupBasicState(state);
 		state.updateState(Map.of(MULTI_TURN_CONTEXT, "user: 查询PV, assistant: PV是页面浏览量"));
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(LLM_REWRITE_RESPONSE)));
 
 		when(vectorStoreService.getDocumentsForAgent(anyString(), anyString(), anyString()))
@@ -300,7 +300,7 @@ class EvidenceRecallNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(LLM_REWRITE_RESPONSE)));
 
 		List<Document> businessDocs = List.of(createBusinessTermDocument("GMV=总成交额"));

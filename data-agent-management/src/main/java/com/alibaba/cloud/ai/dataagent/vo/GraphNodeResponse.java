@@ -46,6 +46,24 @@ public class GraphNodeResponse {
 
 	private String text;
 
+	private Long sequence;
+
+	/** Workflow start time in epoch milliseconds. */
+	private Long workflowStartedAt;
+
+	/** Current node start time in epoch milliseconds. */
+	private Long nodeStartedAt;
+
+	/** Final or currently observed node duration in milliseconds. */
+	private Long nodeElapsedMs;
+
+	/** Final or currently observed workflow duration in milliseconds. */
+	private Long totalElapsedMs;
+
+	/** Indicates that this event only updates timing metadata. */
+	@Builder.Default
+	private boolean timingOnly = false;
+
 	@Builder.Default
 	private String interactionType = "normal";
 

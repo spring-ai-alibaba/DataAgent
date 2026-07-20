@@ -68,16 +68,16 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 			log.debug("Using SQL error fixer for existing SQL: {}", sql);
 			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(sqlGenerationDTO);
 			log.debug("SQL error fixer prompt as follows \n {} \n", errorFixerPrompt);
-			newSqlFlux = llmService.toStringFlux(llmService.callUser(errorFixerPrompt));
-			log.info("SQL error fixing completed");
+			newSqlFlux = llmService.toStringFlux(llmService.callUser(errorFixerPrompt))
+				.doOnComplete(() -> log.info("SQL error fixing completed"));
 		}
 		else {
 			// Normal SQL generation process
 			log.debug("Generating new SQL from scratch");
 			String prompt = PromptHelper.buildNewSqlGeneratorPrompt(sqlGenerationDTO);
 			log.debug("New SQL generator prompt as follows \n {} \n", prompt);
-			newSqlFlux = llmService.toStringFlux(llmService.callSystem(prompt));
-			log.info("New SQL generation completed");
+			newSqlFlux = llmService.toStringFlux(llmService.callSystem(prompt))
+				.doOnComplete(() -> log.info("New SQL generation completed"));
 		}
 
 		return newSqlFlux;

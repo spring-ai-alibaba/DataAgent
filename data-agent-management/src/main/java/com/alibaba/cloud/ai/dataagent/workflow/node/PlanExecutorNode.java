@@ -73,6 +73,15 @@ public class PlanExecutorNode implements NodeAction {
 				return buildValidationResult(state, false, validationResult);
 			}
 		}
+		boolean hasSqlStep = plan.getExecutionPlan()
+			.stream()
+			.anyMatch(step -> SQL_GENERATE_NODE.equals(step.getToolToUse()));
+		if (!hasSqlStep) {
+			return buildValidationResult(state, false,
+					"Validation failed: A data analysis plan must include at least one SQL_GENERATE_NODE. "
+							+ "Do not ask the user for clarification or create a report-only plan; use the available schema "
+							+ "to query an entity list and basic data overview.");
+		}
 
 		log.info("Plan validation successful.");
 		// 2. If开启人工复核，则在执行前暂停，跳转到human_feedback节点

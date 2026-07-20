@@ -16,20 +16,16 @@
 package com.alibaba.cloud.ai.dataagent.service.graph;
 
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
-import com.alibaba.cloud.ai.dataagent.enums.GraphEventType;
+import com.alibaba.cloud.ai.dataagent.service.graph.Context.ClarificationContextManager;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.MultiTurnContextManager;
 import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
-import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.alibaba.cloud.ai.graph.StateGraph;
-import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
-import com.alibaba.cloud.ai.graph.checkpoint.Checkpoint;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import io.opentelemetry.api.trace.Span;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,9 +39,9 @@ import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
-import java.time.Duration;
-import java.util.List;
 import java.util.Optional;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -56,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -81,9 +78,6 @@ class GraphServiceImplTest {
 	private LangfuseService langfuseReporter;
 
 	@Mock
-	private BaseCheckpointSaver checkpointSaver;
-
-	@Mock
 	private Span mockSpan;
 
 	private GraphServiceImpl graphService;
@@ -97,9 +91,8 @@ class GraphServiceImplTest {
 		StateGraph mockStateGraph = mock(StateGraph.class);
 		when(mockStateGraph.compile(any())).thenReturn(compiledGraph);
 
-		CompileConfig compileConfig = CompileConfig.builder().build();
-		graphService = new GraphServiceImpl(mockStateGraph, compileConfig, checkpointSaver, executor,
-				multiTurnContextManager, langfuseReporter);
+		graphService = new GraphServiceImpl(mockStateGraph, executor, multiTurnContextManager,
+				clarificationContextManager, langfuseReporter);
 
 		when(langfuseReporter.startLLMSpan(anyString(), any())).thenReturn(mockSpan);
 		when(mockSpan.isRecording()).thenReturn(true);
@@ -121,16 +114,7 @@ class GraphServiceImplTest {
 		String result = graphService.nl2sql("show all users", "1");
 
 		assertEquals("SELECT * FROM users", result);
-		var configCaptor = org.mockito.ArgumentCaptor.forClass(RunnableConfig.class);
-		verify(compiledGraph).invoke(anyMap(), configCaptor.capture());
-		assertTrue(configCaptor.getValue().threadId().isPresent());
-		assertNotEquals(BaseCheckpointSaver.THREAD_ID_DEFAULT, configCaptor.getValue().threadId().orElseThrow());
-		try {
-			verify(checkpointSaver).release(configCaptor.getValue());
-		}
-		catch (Exception e) {
-			fail(e);
-		}
+		verify(compiledGraph).invoke(anyMap(), any(RunnableConfig.class));
 	}
 
 	@Test
@@ -146,11 +130,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_newProcess_setsThreadIdIfMissing() {
-		GraphRequest request = GraphRequest.builder()
-			.agentId("1")
-			.conversationId("conversation-1")
-			.query("test query")
-			.build();
+		GraphRequest request = GraphRequest.builder().agentId("1").query("test query").build();
 
 		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().multicast().onBackpressureBuffer();
 
@@ -160,11 +140,10 @@ class GraphServiceImplTest {
 
 		assertNotNull(request.getThreadId());
 		assertFalse(request.getThreadId().isEmpty());
-		assertNotEquals(request.getConversationId(), request.getThreadId());
 	}
 
 	@Test
-	void graphStreamProcess_legacyThreadId_startsFreshRunAndKeepsConversationIdentity() {
+	void graphStreamProcess_withThreadId_usesExistingThreadId() {
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.threadId("existing-thread")
@@ -177,172 +156,48 @@ class GraphServiceImplTest {
 
 		graphService.graphStreamProcess(sink, request);
 
-		assertEquals("existing-thread", request.getConversationId());
-		assertNotEquals("existing-thread", request.getThreadId());
+		assertEquals("existing-thread", request.getThreadId());
 	}
 
 	@Test
-	void graphStreamProcess_humanFeedback_reusesInterruptedRunId() throws Exception {
+	void graphStreamProcess_emitsNodeAndTotalTiming() throws InterruptedException {
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
-			.conversationId("conversation-1")
-			.threadId("interrupted-run")
+			.threadId("timing-thread")
 			.query("test query")
-			.humanFeedback(true)
-			.humanFeedbackContent("approve")
 			.build();
-		RunnableConfig updatedConfig = RunnableConfig.builder().threadId("interrupted-run").build();
-		when(compiledGraph.updateState(any(RunnableConfig.class), anyMap())).thenReturn(updatedConfig);
-		when(compiledGraph.stream(isNull(), any(RunnableConfig.class))).thenReturn(Flux.empty());
-
-		graphService.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), request);
-
-		var configCaptor = org.mockito.ArgumentCaptor.forClass(RunnableConfig.class);
-		verify(compiledGraph).updateState(configCaptor.capture(), anyMap());
-		assertEquals("interrupted-run", configCaptor.getValue().threadId().orElseThrow());
-		assertEquals("interrupted-run", request.getThreadId());
-	}
-
-	@Test
-	void graphStreamProcess_interruptedForHumanFeedback_emitsRequiredEventAndRetainsCheckpoint() throws Exception {
-		Checkpoint checkpoint = Checkpoint.builder()
-			.nodeId("PLANNER_NODE")
-			.nextNodeId("HUMAN_FEEDBACK_NODE")
-			.state(java.util.Map.of())
-			.build();
-		when(checkpointSaver.get(any(RunnableConfig.class))).thenReturn(Optional.of(checkpoint));
-		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.empty());
-
-		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
-		var responsesFuture = sink.asFlux().map(ServerSentEvent::data).collectList().toFuture();
-		GraphRequest request = GraphRequest.builder()
-			.agentId("1")
-			.conversationId("conversation-1")
-			.query("review this plan")
-			.humanFeedback(true)
-			.build();
-
-		graphService.graphStreamProcess(sink, request);
-		List<GraphNodeResponse> responses = responsesFuture.get(Duration.ofSeconds(2).toMillis(),
-				TimeUnit.MILLISECONDS);
-
-		assertTrue(
-				responses.stream()
-					.anyMatch(response -> "HUMAN_FEEDBACK_REQUIRED".equals(response.getEventType().name())),
-				responses.toString());
-		verify(checkpointSaver, never()).release(any(RunnableConfig.class));
-	}
-
-	@Test
-	void graphStreamProcess_completedBeforeHumanFeedback_doesNotEmitRequiredEventAndReleasesCheckpoint()
-			throws Exception {
-		Checkpoint checkpoint = Checkpoint.builder()
-			.nodeId("SCHEMA_RECALL_NODE")
-			.nextNodeId("__END__")
-			.state(java.util.Map.of())
-			.build();
-		when(checkpointSaver.get(any(RunnableConfig.class))).thenReturn(Optional.of(checkpoint));
-		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.empty());
-
-		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
-		var responsesFuture = sink.asFlux().map(ServerSentEvent::data).collectList().toFuture();
-		GraphRequest request = GraphRequest.builder()
-			.agentId("1")
-			.conversationId("conversation-1")
-			.query("query without available schema")
-			.humanFeedback(true)
-			.build();
-
-		graphService.graphStreamProcess(sink, request);
-		List<GraphNodeResponse> responses = responsesFuture.get(Duration.ofSeconds(2).toMillis(),
-				TimeUnit.MILLISECONDS);
-
-		assertFalse(
-				responses.stream()
-					.anyMatch(response -> "HUMAN_FEEDBACK_REQUIRED".equals(response.getEventType().name())),
-				responses.toString());
-		verify(checkpointSaver).release(any(RunnableConfig.class));
-	}
-
-	@Test
-	void graphStreamProcess_rejectedFeedbackInterruptedAgain_emitsRequiredEventAndRetainsCheckpoint() throws Exception {
-		Checkpoint checkpoint = Checkpoint.builder()
-			.nodeId("PLANNER_NODE")
-			.nextNodeId("HUMAN_FEEDBACK_NODE")
-			.state(java.util.Map.of())
-			.build();
-		when(checkpointSaver.get(any(RunnableConfig.class))).thenReturn(Optional.of(checkpoint));
-		when(compiledGraph.updateState(any(RunnableConfig.class), anyMap()))
-			.thenReturn(RunnableConfig.builder().threadId("interrupted-run").build());
-		when(compiledGraph.stream(isNull(), any(RunnableConfig.class))).thenReturn(Flux.empty());
-
-		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
-		var responsesFuture = sink.asFlux().map(ServerSentEvent::data).collectList().toFuture();
-		GraphRequest request = GraphRequest.builder()
-			.agentId("1")
-			.conversationId("conversation-1")
-			.threadId("interrupted-run")
-			.query("review this plan")
-			.humanFeedback(true)
-			.humanFeedbackContent("please revise")
-			.rejectedPlan(true)
-			.build();
-
-		graphService.graphStreamProcess(sink, request);
-		List<GraphNodeResponse> responses = responsesFuture.get(Duration.ofSeconds(2).toMillis(),
-				TimeUnit.MILLISECONDS);
-
-		assertTrue(
-				responses.stream()
-					.anyMatch(response -> GraphEventType.HUMAN_FEEDBACK_REQUIRED.equals(response.getEventType())),
-				responses.toString());
-		verify(checkpointSaver, never()).release(any(RunnableConfig.class));
-	}
-
-	@Test
-	void graphStreamProcess_emitsStepIdentityAndTypedFinalAnswer() throws Exception {
-		OverAllState regularState = new OverAllState();
-		regularState.registerKeyAndStrategy("final_answer", new ReplaceStrategy());
-		OverAllState finalState = new OverAllState();
-		finalState.registerKeyAndStrategy("final_answer", new ReplaceStrategy());
-		finalState.updateState(java.util.Map.of("final_answer", "请补充时间范围"));
-
-		StreamingOutput<?> first = streamingOutput("IntentRecognitionNode", "first", regularState);
-		StreamingOutput<?> second = streamingOutput("IntentRecognitionNode", "second", regularState);
-		StreamingOutput<?> other = streamingOutput("QueryEnhanceNode", "other", regularState);
-		StreamingOutput<?> retry = streamingOutput("IntentRecognitionNode", "retry", finalState);
+		OverAllState state = mock(OverAllState.class);
 		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class)))
-			.thenReturn(Flux.just(first, second, other, retry));
+			.thenReturn(Flux.just(new StreamingOutput<>("first", "NodeA", "", state),
+					new StreamingOutput<>("second", "NodeB", "", state)));
 
-		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
-		var responsesFuture = sink.asFlux().map(ServerSentEvent::data).collectList().toFuture();
-		GraphRequest request = GraphRequest.builder().agentId("1").threadId("run-1").query("test query").build();
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().multicast().onBackpressureBuffer();
+		List<GraphNodeResponse> responses = new CopyOnWriteArrayList<>();
+		CountDownLatch completed = new CountDownLatch(1);
+		sink.asFlux().subscribe(event -> responses.add(event.data()), error -> completed.countDown(),
+				completed::countDown);
 
 		graphService.graphStreamProcess(sink, request);
-		List<GraphNodeResponse> responses = responsesFuture.get(Duration.ofSeconds(2).toMillis(),
-				java.util.concurrent.TimeUnit.MILLISECONDS);
 
-		List<GraphNodeResponse> nodeEvents = responses.stream()
-			.filter(response -> response.getEventType() == GraphEventType.NODE_OUTPUT && !response.isComplete())
-			.toList();
-		assertEquals(nodeEvents.get(0).getStepId(), nodeEvents.get(1).getStepId());
-		assertNotEquals(nodeEvents.get(1).getStepId(), nodeEvents.get(2).getStepId());
-		assertNotEquals(nodeEvents.get(0).getStepId(), nodeEvents.get(3).getStepId());
-		assertEquals(1, nodeEvents.get(0).getAttempt());
-		assertEquals(2, nodeEvents.get(3).getAttempt());
-		assertTrue(responses.stream()
-			.anyMatch(response -> response.getEventType() == GraphEventType.FINAL_ANSWER
-					&& "请补充时间范围".equals(response.getText())),
-				responses.toString());
-	}
+		assertTrue(completed.await(5, TimeUnit.SECONDS));
+		GraphNodeResponse nodeATiming = responses.stream()
+			.filter(response -> response.isTimingOnly() && "NodeA".equals(response.getNodeName()))
+			.findFirst()
+			.orElseThrow();
+		GraphNodeResponse nodeBTiming = responses.stream()
+			.filter(response -> response.isTimingOnly() && "NodeB".equals(response.getNodeName()))
+			.findFirst()
+			.orElseThrow();
+		GraphNodeResponse completeResponse = responses.stream()
+			.filter(GraphNodeResponse::isComplete)
+			.findFirst()
+			.orElseThrow();
 
-	@SuppressWarnings("unchecked")
-	private StreamingOutput<?> streamingOutput(String node, String chunk, OverAllState state) {
-		StreamingOutput<Object> output = mock(StreamingOutput.class);
-		when(output.node()).thenReturn(node);
-		when(output.chunk()).thenReturn(chunk);
-		when(output.state()).thenReturn(state);
-		return output;
+		assertNotNull(nodeATiming.getNodeStartedAt());
+		assertNotNull(nodeATiming.getNodeElapsedMs());
+		assertNotNull(nodeBTiming.getNodeElapsedMs());
+		assertNotNull(completeResponse.getWorkflowStartedAt());
+		assertNotNull(completeResponse.getTotalElapsedMs());
 	}
 
 	@Test
@@ -361,7 +216,6 @@ class GraphServiceImplTest {
 	void stopStreamProcessing_existingThread_cleansUp() {
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
-			.conversationId("conversation-to-stop")
 			.threadId("thread-to-stop")
 			.query("test query")
 			.build();
@@ -370,7 +224,6 @@ class GraphServiceImplTest {
 		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.never());
 
 		graphService.graphStreamProcess(sink, request);
-		String runId = request.getThreadId();
 
 		try {
 			Thread.sleep(100);
@@ -379,39 +232,8 @@ class GraphServiceImplTest {
 			Thread.currentThread().interrupt();
 		}
 
-		graphService.stopStreamProcessing(runId);
-		verify(multiTurnContextManager).discardPending("conversation-to-stop");
-	}
-
-	@Test
-	void stopStreamProcessingByConversationId_cancelsActiveGraphSubscription() throws Exception {
-		GraphRequest request = GraphRequest.builder()
-			.agentId("1")
-			.conversationId("conversation-to-cancel")
-			.query("test query")
-			.build();
-		CountDownLatch subscribed = new CountDownLatch(1);
-		CountDownLatch cancelled = new CountDownLatch(1);
-		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class)))
-			.thenReturn(Flux.<com.alibaba.cloud.ai.graph.NodeOutput>never()
-				.doOnSubscribe(ignored -> subscribed.countDown())
-				.doOnCancel(cancelled::countDown));
-
-		graphService.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), request);
-
-		assertTrue(subscribed.await(2, TimeUnit.SECONDS));
-		graphService.stopStreamProcessingByConversationId("conversation-to-cancel");
-
-		assertTrue(cancelled.await(2, TimeUnit.SECONDS));
-		verify(multiTurnContextManager).discardPending("conversation-to-cancel");
-		var configCaptor = org.mockito.ArgumentCaptor.forClass(RunnableConfig.class);
-		try {
-			verify(checkpointSaver).release(configCaptor.capture());
-		}
-		catch (Exception e) {
-			fail(e);
-		}
-		assertEquals(request.getThreadId(), configCaptor.getValue().threadId().orElseThrow());
+		graphService.stopStreamProcessing("thread-to-stop");
+		verify(multiTurnContextManager).discardPending("thread-to-stop");
 	}
 
 	@Test
