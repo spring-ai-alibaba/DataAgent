@@ -79,19 +79,19 @@ const cssVars = computed(() => ({
 	width: 100%;
 	height: 100vh;
 	overflow: hidden;
-	background-color: #f8fafc;
+	background: transparent;
 }
 
 .base-drawer__left {
 	width: var(--drawer-width);
 	height: 100%;
-	background-color: #1e293b;
-	color: #e2e8f0;
+	background: rgb(249 239 223 / 94%);
+	color: var(--domus-ink);
 	transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	border-right: 1px solid rgba(255, 255, 255, 0.05);
+	border-right: 1px solid var(--domus-line);
 	flex-shrink: 0;
 	white-space: nowrap;
 }
@@ -109,9 +109,10 @@ const cssVars = computed(() => ({
 }
 
 .base-drawer__header {
-	height: 56px;
-	border-bottom: 1px solid #e2e8f0;
-	background-color: #ffffff;
+	height: 64px;
+	border-bottom: 1px solid var(--domus-line);
+	background: rgb(244 234 220 / 90%);
+	backdrop-filter: blur(16px);
 	display: flex;
 	align-items: center;
 	padding: 0 16px;
@@ -124,20 +125,16 @@ const cssVars = computed(() => ({
 	position: relative;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
 	.base-drawer__left {
 		position: absolute;
 		inset: 0 auto 0 0;
-		z-index: 100;
-		box-shadow: 8px 0 24px rgba(15, 23, 42, 0.2);
+		z-index: 50;
+		box-shadow: 18px 0 50px rgb(32 24 18 / 18%);
 	}
 
 	.base-drawer__left--closed {
 		box-shadow: none;
-	}
-
-	.base-drawer__right {
-		width: 100%;
 	}
 }
 </style>

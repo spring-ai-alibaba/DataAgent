@@ -17,7 +17,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
 	compatibilityDate: '2025-07-15',
-	devtools: { enabled: true },
+	devtools: { enabled: false },
 	modules: ['vuetify-nuxt-module', '@pinia/nuxt', '@nuxt/eslint'],
 	//基于组件名称自动导入
 	components: [
@@ -38,8 +38,30 @@ export default defineNuxtConfig({
 	},
 	vuetify: {
 		vuetifyOptions: {
+			theme: {
+				defaultTheme: 'domus',
+				themes: {
+					domus: {
+						dark: false,
+						colors: {
+							background: '#F4EADC',
+							surface: '#FFF6E8',
+							primary: '#8D5633',
+							secondary: '#C7832F',
+							info: '#77695C',
+							success: '#4F704B',
+							warning: '#A96B21',
+							error: '#A44C3E',
+						},
+					},
+				},
+			},
 			defaults: {
-				VBtn: { variant: 'outlined' },
+				VBtn: { variant: 'outlined', rounded: 'pill' },
+				VCard: { rounded: 'lg' },
+				VTextField: { color: 'primary' },
+				VSelect: { color: 'primary' },
+				VTextarea: { color: 'primary' },
 			},
 		},
 	},
@@ -68,6 +90,11 @@ export default defineNuxtConfig({
 	},
 	//全局动画配置
 	app: {
+		head: {
+			title: 'Domus 智能问数控制台',
+			meta: [{ name: 'theme-color', content: '#F4EADC' }],
+			link: [{ rel: 'icon', type: 'image/png', href: '/logo.png' }],
+		},
 		pageTransition: { name: 'page', mode: 'out-in' },
 	},
 	css: ['@/assets/css/main.css'],

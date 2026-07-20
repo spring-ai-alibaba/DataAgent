@@ -1,18 +1,11 @@
-/*
- * Copyright 2026 the original author or authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* * Copyright 2026 the original author or authors. * * Licensed under the
+Apache License, Version 2.0 (the "License"); * you may not use this file except
+in compliance with the License. * You may obtain a copy of the License at * *
+https://www.apache.org/licenses/LICENSE-2.0 * * Unless required by applicable
+law or agreed to in writing, software * distributed under the License is
+distributed on an "AS IS" BASIS, * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+either express or implied. * See the License for the specific language governing
+permissions and * limitations under the License. */
 
 <template>
 	<div class="workflow-timeline">
@@ -24,6 +17,9 @@
 				>
 				任务开始
 			</v-card-title>
+			<span v-if="totalDurationMs !== null" class="total-duration">
+				总用时 {{ formatDuration(totalDurationMs) }}
+			</span>
 			<v-btn
 				variant="outlined"
 				size="x-small"
@@ -43,13 +39,13 @@
 		<v-timeline density="compact" side="end" truncate-line="both">
 			<v-timeline-item
 				v-for="step in timelineSteps"
-				:key="step.stepId"
+				:key="step.nodeName"
 				:dot-color="dotColor(step.status)"
 				:icon="dotIcon(step.status)"
 				size="small"
 			>
 				<!-- Step header: clickable to toggle -->
-				<div class="step-header" @click="toggleStep(step)">
+				<div class="step-header" @click="toggleStep(step.nodeName)">
 					<div class="step-header-left">
 						<span class="step-label">{{ step.label }}</span>
 						<span v-if="step.status === 'active'" class="step-badge active">
@@ -58,6 +54,9 @@
 						<span v-else-if="step.status === 'done'" class="step-badge done"
 							>完成</span
 						>
+						<span v-if="getStepDurationMs(step) !== null" class="step-duration">
+							耗时 {{ formatDuration(getStepDurationMs(step)) }}
+						</span>
 					</div>
 					<v-icon size="16" color="#94a3b8">
 						{{ step.expanded ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
@@ -71,8 +70,16 @@
 						class="step-content"
 						:class="{ 'is-muted': step.status === 'done' && !step.isReport }"
 					>
+						<!-- Result Set -->
+						<template v-if="findResultSet(step.block)">
+							<ChatResultSet
+								v-if="props.showResultSets"
+								:data="findResultSet(step.block)"
+								:page-size="10"
+							/>
+						</template>
 						<!-- Report node: show brief status, not full content -->
-						<div v-if="step.isReport" class="text-body report-brief">
+						<div v-else-if="step.isReport" class="text-body report-brief">
 							<v-icon size="14" color="#16a34a" class="mr-1"
 								>mdi-file-chart-outline</v-icon
 							>
@@ -82,22 +89,38 @@
 							<span v-else>报告已生成完毕，查看下方报告卡片</span>
 						</div>
 						<!-- Pure code block (all items share same code type) -->
-						<div
-							v-else-if="isPureCodeBlock(step.contentBlock)"
-							v-html="renderCode(step.contentBlock)"
-						/>
+						<div v-else-if="isPureCodeBlock(step.block)" class="step-output">
+							<div class="step-output-scroll" v-html="renderCode(step.block)" />
+							<button
+								type="button"
+								class="step-resize-handle"
+								title="拖拽调整高度"
+								aria-label="调整节点输出高度"
+								@pointerdown="startOutputResize"
+								@keydown.up.prevent="resizeOutputByKeyboard($event, -40)"
+								@keydown.down.prevent="resizeOutputByKeyboard($event, 40)"
+							>
+								<v-icon size="16">mdi-drag-horizontal</v-icon>
+							</button>
+						</div>
 						<!-- Mixed content: text with possible embedded JSON/code -->
-						<div
-							v-else-if="step.contentBlock.length"
-							class="text-body"
-							v-html="renderTextWithJsonDetection(step.contentBlock)"
-						/>
-						<!-- RESULT_SET arrives as another block from the same node. -->
-						<ChatResultSet
-							v-if="step.resultSetText && store.requestOptions.showSqlResults"
-							:data="safeParseJson(step.resultSetText)"
-							:page-size="10"
-						/>
+						<div v-else class="step-output text-body">
+							<div
+								class="step-output-scroll"
+								v-html="renderTextWithJsonDetection(step.block)"
+							/>
+							<button
+								type="button"
+								class="step-resize-handle"
+								title="拖拽调整高度"
+								aria-label="调整节点输出高度"
+								@pointerdown="startOutputResize"
+								@keydown.up.prevent="resizeOutputByKeyboard($event, -40)"
+								@keydown.down.prevent="resizeOutputByKeyboard($event, 40)"
+							>
+								<v-icon size="16">mdi-drag-horizontal</v-icon>
+							</button>
+						</div>
 					</div>
 				</v-expand-transition>
 			</v-timeline-item>
@@ -106,28 +129,34 @@
 </template>
 
 <script setup lang="ts">
+import hljs from 'highlight.js';
 import DOMPurify from 'dompurify';
-import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
-import { hljs } from '~/utils/markdown/markdown-plugin-highlight';
-import { TextType, type GraphNodeResponse } from '~/services/graph/index';
+import type { GraphNodeResponse } from '~/services/graph/index';
 import type { ResultData } from '~/services/resultSet/index';
 import ChatResultSet from './ChatResultSet.vue';
-import { useChatStore } from '~/stores/chat';
-import { groupWorkflowTimeline } from '~/utils/workflowTimeline';
-
-const store = useChatStore();
 
 const props = withDefaults(
 	defineProps<{
 		nodeBlocks: GraphNodeResponse[][];
 		completed?: boolean;
+		showResultSets?: boolean;
 	}>(),
 	{
 		completed: false,
+		showResultSets: true,
 	},
 );
 
 const expandedSteps = ref<Record<string, boolean>>({});
+
+function findResultSet(block: GraphNodeResponse[]): ResultData | null {
+	for (const response of block) {
+		if (response.textType !== 'RESULT_SET' || !response.text) continue;
+		const parsed = safeParseJson(response.text);
+		if (parsed?.resultSet) return parsed;
+	}
+	return null;
+}
 
 const allExpanded = computed(() => {
 	const steps = timelineSteps.value;
@@ -138,14 +167,14 @@ const allExpanded = computed(() => {
 function toggleAll() {
 	const shouldExpand = !allExpanded.value;
 	for (const step of timelineSteps.value) {
-		expandedSteps.value[step.stepId] = shouldExpand;
+		expandedSteps.value[step.nodeName] = shouldExpand;
 	}
 }
 
-function toggleStep(step: TimelineStep) {
-	const defaultExpanded = getDefaultExpanded(step.nodeName);
-	expandedSteps.value[step.stepId] = !(
-		expandedSteps.value[step.stepId] ?? defaultExpanded
+function toggleStep(nodeName: string) {
+	const defaultExpanded = getDefaultExpanded(nodeName);
+	expandedSteps.value[nodeName] = !(
+		expandedSteps.value[nodeName] ?? defaultExpanded
 	);
 }
 
@@ -245,11 +274,8 @@ const NODE_LABEL_MAP: Record<string, NodeDef> = {
 };
 
 interface TimelineStep extends NodeDef {
-	stepId: string;
-	attempt: number;
 	status: 'pending' | 'active' | 'done';
-	contentBlock: GraphNodeResponse[];
-	resultSetText?: string;
+	block: GraphNodeResponse[];
 	expanded: boolean;
 	isReport: boolean;
 }
@@ -269,6 +295,10 @@ function normalizeBlock(block: GraphNodeResponse[]): GraphNodeResponse[] {
 			last.complete = item.complete;
 			last.error = item.error;
 			last.threadId = item.threadId;
+			last.workflowStartedAt = item.workflowStartedAt;
+			last.nodeStartedAt = item.nodeStartedAt;
+			last.nodeElapsedMs = item.nodeElapsedMs;
+			last.totalElapsedMs = item.totalElapsedMs;
 		} else {
 			merged.push({ ...item });
 		}
@@ -281,23 +311,27 @@ const normalizedNodeBlocks = computed(() =>
 );
 
 const timelineSteps = computed<TimelineStep[]>(() => {
-	const groups = groupWorkflowTimeline(props.nodeBlocks);
-	if (groups.length === 0) return [];
-	const lastIdx = groups.length - 1;
+	const seen = new Set<string>();
+	const orderedNodeNames: string[] = [];
+	for (const block of normalizedNodeBlocks.value) {
+		const name = block[0]?.nodeName;
+		if (name && !seen.has(name)) {
+			seen.add(name);
+			orderedNodeNames.push(name);
+		}
+	}
 
-	return groups.map((group, idx) => {
-		const { nodeName, stepId, attempt, items: block } = group;
+	if (orderedNodeNames.length === 0) return [];
+	const lastIdx = orderedNodeNames.length - 1;
+
+	return orderedNodeNames.map((nodeName, idx) => {
 		const def = NODE_LABEL_MAP[nodeName] || {
 			nodeName,
 			label: nodeName,
 			icon: 'mdi-lightning-bolt',
 		};
-		const contentBlock = block.filter(
-			(item) => item.textType !== TextType.RESULT_SET,
-		);
-		const resultSetText = [...block].reverse().find(
-			(item) => item.textType === TextType.RESULT_SET && item.text,
-		)?.text;
+		const block =
+			normalizedNodeBlocks.value.find((b) => b[0]?.nodeName === nodeName) || [];
 		const isReport = nodeName === 'ReportGeneratorNode';
 
 		let status: 'pending' | 'active' | 'done' = 'pending';
@@ -309,16 +343,62 @@ const timelineSteps = computed<TimelineStep[]>(() => {
 
 		return {
 			...def,
-			stepId,
-			attempt,
-			label: attempt > 1 ? `${def.label}（第 ${attempt} 次）` : def.label,
 			status,
-			contentBlock,
-			resultSetText,
-			expanded: expandedSteps.value[stepId] ?? getDefaultExpanded(nodeName),
+			block,
+			expanded: expandedSteps.value[nodeName] ?? getDefaultExpanded(nodeName),
 			isReport,
 		};
 	});
+});
+
+const nowMs = ref(Date.now());
+let elapsedTimer: ReturnType<typeof setInterval> | null = null;
+
+const totalDurationMs = computed<number | null>(() => {
+	const responses = normalizedNodeBlocks.value.flat();
+	const finalElapsed = responses.reduce<number | null>((latest, response) => {
+		if (typeof response.totalElapsedMs !== 'number') return latest;
+		return latest === null
+			? response.totalElapsedMs
+			: Math.max(latest, response.totalElapsedMs);
+	}, null);
+	if (props.completed) return finalElapsed;
+	const startedAt = responses.find(
+		(response) => typeof response.workflowStartedAt === 'number',
+	)?.workflowStartedAt;
+	return typeof startedAt === 'number'
+		? Math.max(finalElapsed || 0, nowMs.value - startedAt)
+		: finalElapsed;
+});
+
+function getStepDurationMs(step: TimelineStep): number | null {
+	const timing = step.block[0];
+	if (!timing) return null;
+	if (step.status === 'active' && typeof timing.nodeStartedAt === 'number') {
+		return Math.max(
+			timing.nodeElapsedMs || 0,
+			nowMs.value - timing.nodeStartedAt,
+		);
+	}
+	return typeof timing.nodeElapsedMs === 'number' ? timing.nodeElapsedMs : null;
+}
+
+function formatDuration(milliseconds: number | null): string {
+	const totalSeconds = Math.max(0, milliseconds || 0) / 1000;
+	if (totalSeconds < 10) return `${totalSeconds.toFixed(1)} 秒`;
+	if (totalSeconds < 60) return `${Math.round(totalSeconds)} 秒`;
+	const wholeSeconds = Math.round(totalSeconds);
+	const hours = Math.floor(wholeSeconds / 3600);
+	const minutes = Math.floor((wholeSeconds % 3600) / 60);
+	const seconds = wholeSeconds % 60;
+	if (hours > 0) return `${hours} 时 ${minutes} 分 ${seconds} 秒`;
+	return `${minutes} 分 ${seconds.toString().padStart(2, '0')} 秒`;
+}
+
+onMounted(() => {
+	if (!props.completed) {
+		elapsedTimer = setInterval(() => (nowMs.value = Date.now()), 250);
+	}
 });
 
 function dotColor(status: string): string {
@@ -351,7 +431,10 @@ const MIN_OUTPUT_HEIGHT = 44;
 let stopActiveOutputResize: (() => void) | null = null;
 
 function clampOutputHeight(height: number): number {
-	return Math.min(Math.max(height, MIN_OUTPUT_HEIGHT), window.innerHeight * 0.7);
+	return Math.min(
+		Math.max(height, MIN_OUTPUT_HEIGHT),
+		window.innerHeight * 0.7,
+	);
 }
 
 function startOutputResize(event: PointerEvent) {
@@ -391,7 +474,10 @@ function resizeOutputByKeyboard(event: KeyboardEvent, delta: number) {
 	output.style.height = `${clampOutputHeight(output.getBoundingClientRect().height + delta)}px`;
 }
 
-onBeforeUnmount(() => stopActiveOutputResize?.());
+onBeforeUnmount(() => {
+	stopActiveOutputResize?.();
+	if (elapsedTimer) clearInterval(elapsedTimer);
+});
 
 const CODE_TEXT_TYPES = new Set(['SQL', 'PYTHON', 'JSON']);
 
@@ -413,7 +499,11 @@ function getBlockText(block: GraphNodeResponse[]): string {
 	return block.map((n) => n.text).join('');
 }
 
-function getBlockCacheKey(prefix: string, block: GraphNodeResponse[], text: string) {
+function getBlockCacheKey(
+	prefix: string,
+	block: GraphNodeResponse[],
+	text: string,
+) {
 	return [
 		prefix,
 		block[0]?.nodeName || '',
@@ -445,16 +535,16 @@ function renderCode(block: GraphNodeResponse[]): string {
 		return setCachedRender(
 			cacheKey,
 			DOMPurify.sanitize(
-			`<pre class="tl-code"><code class="hljs ${lang}">${h.value}</code></pre>`,
-			SANITIZE_OPTIONS,
+				`<pre class="tl-code"><code class="hljs ${lang}">${h.value}</code></pre>`,
+				SANITIZE_OPTIONS,
 			) as string,
 		);
 	} catch {
 		return setCachedRender(
 			cacheKey,
 			DOMPurify.sanitize(
-			`<pre class="tl-code"><code>${escapeHtml(code)}</code></pre>`,
-			SANITIZE_OPTIONS,
+				`<pre class="tl-code"><code>${escapeHtml(code)}</code></pre>`,
+				SANITIZE_OPTIONS,
 			) as string,
 		);
 	}
@@ -553,6 +643,15 @@ function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
 	line-height: 1;
 }
 
+.total-duration {
+	margin-left: auto;
+	margin-right: 10px;
+	font-size: 12px;
+	font-weight: 600;
+	color: #475569;
+	white-space: nowrap;
+}
+
 .toggle-all-btn {
 	font-size: 11px !important;
 	text-transform: none !important;
@@ -579,6 +678,13 @@ function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
 	font-size: 13px;
 	font-weight: 600;
 	color: #1e293b;
+}
+
+.step-duration {
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	color: #64748b;
+	white-space: nowrap;
 }
 
 /* ── Badge ───────────────────────────────────────────────────────────────────── */
@@ -636,9 +742,9 @@ function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
 	min-height: 44px;
 	height: clamp(140px, 25vh, 220px);
 	max-height: 70vh;
-	border: 1px solid #e2e8f0;
+	border: 1px solid var(--domus-line);
 	border-radius: 6px;
-	background: #f8fafc;
+	background: rgb(255 246 232 / 72%);
 	overflow: hidden;
 }
 
@@ -698,19 +804,23 @@ function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
 }
 
 :deep(.tl-code) {
-	background: transparent;
-	border: 0;
-	border-radius: 0;
-	padding: 0;
+	margin: 0;
+	padding: 12px 14px;
+	border: 1px solid var(--domus-line);
+	border-radius: 6px;
+	background: var(--domus-bg) !important;
+	color: var(--domus-ink);
 	font-size: 12.5px;
 	overflow: visible;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 	word-break: break-word;
-	margin: 0;
 }
 
 :deep(.tl-code code) {
+	display: block;
+	background: transparent !important;
+	color: inherit;
 	white-space: inherit;
 	overflow-wrap: inherit;
 	word-break: inherit;

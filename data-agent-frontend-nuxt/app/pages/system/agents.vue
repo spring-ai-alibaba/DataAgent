@@ -141,7 +141,7 @@
 								v-for="(tag, index) in parseTags(item.tags).slice(0, 4)"
 								:key="index"
 								size="small"
-								color="blue"
+								color="secondary"
 								variant="tonal"
 							>
 								{{ tag }}
@@ -183,7 +183,7 @@
 							icon="mdi-pencil-outline"
 							variant="text"
 							size="small"
-							color="blue-darken-1"
+							color="primary"
 							@click="handleEdit(item)"
 						>
 							<v-icon size="20" />
@@ -242,7 +242,7 @@
 			<v-card rounded="lg">
 				<v-card-title class="d-flex align-center justify-space-between px-6 pt-6 pb-4">
 					<div class="d-flex align-center">
-						<v-icon icon="mdi-pencil-circle" color="blue-darken-1" class="mr-3" size="28" />
+						<v-icon icon="mdi-pencil-circle" color="primary" class="mr-3" size="28" />
 						<span class="text-h6 font-weight-bold">编辑智能体</span>
 					</div>
 					<v-btn icon="mdi-close" variant="text" size="small" @click="closeEditDialog" />
@@ -318,7 +318,7 @@
 				<v-card-actions class="pa-4 d-flex justify-end ga-2">
 					<v-btn variant="outlined" class="text-none px-6" @click="closeEditDialog">取消</v-btn>
 					<v-btn
-						color="blue-darken-3"
+						color="primary"
 						class="text-none px-6"
 						elevation="0"
 						:loading="saveLoading"
@@ -335,7 +335,7 @@
 			<v-card rounded="lg">
 				<v-card-title class="d-flex align-center justify-space-between px-6 pt-6 pb-4">
 					<div class="d-flex align-center">
-						<v-icon icon="mdi-tag-multiple" color="blue" class="mr-3" size="24" />
+						<v-icon icon="mdi-tag-multiple" color="secondary" class="mr-3" size="24" />
 						<span class="text-h6 font-weight-bold">全部标签</span>
 					</div>
 					<v-btn icon="mdi-close" variant="text" size="small" @click="tagsDialog = false" />
@@ -348,7 +348,7 @@
 							v-for="(tag, index) in currentTags"
 							:key="index"
 							size="default"
-							color="blue"
+							color="secondary"
 							variant="tonal"
 						>
 							{{ tag }}
@@ -561,24 +561,56 @@ onMounted(() => { loadAgents(); });
 
 <style scoped>
 .agents-container {
-	background-color: #f8fafc;
+	background: transparent;
 	min-height: 100%;
 }
 
 .text-slate-900 {
-	color: #0f172a;
+	color: var(--domus-ink);
 }
 
 .filter-toggle {
-	background-color: #f1f5f9 !important;
-	padding: 4px !important;
+	padding: 5px !important;
+	border: 1px solid var(--domus-line) !important;
+	background: rgb(249 239 223 / 78%) !important;
 }
 
 .filter-toggle .v-btn {
 	text-transform: none !important;
+	color: var(--domus-muted) !important;
+	background: transparent !important;
+	border: 0 !important;
+}
+
+.filter-toggle .v-btn--active {
+	color: var(--domus-paper) !important;
+	background: var(--domus-dark) !important;
+}
+
+.filter-toggle :deep(.v-chip) {
+	color: var(--domus-ink) !important;
+	background: rgb(199 131 47 / 13%) !important;
+}
+
+.filter-toggle .v-btn--active :deep(.v-chip) {
+	color: var(--domus-paper) !important;
+	background: rgb(255 246 232 / 18%) !important;
 }
 
 .search-field {
-	border-color: #e2e8f0;
+	border-color: var(--domus-line);
+}
+
+@media (max-width: 900px) {
+	.filter-toggle {
+		display: flex;
+		width: 100%;
+		overflow-x: auto;
+	}
+
+	.filter-toggle .v-btn {
+		flex: 1 0 auto;
+		padding-inline: 14px !important;
+	}
 }
 </style>

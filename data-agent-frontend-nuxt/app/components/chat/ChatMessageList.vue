@@ -1,18 +1,11 @@
-/*
- * Copyright 2026 the original author or authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* * Copyright 2026 the original author or authors. * * Licensed under the
+Apache License, Version 2.0 (the "License"); * you may not use this file except
+in compliance with the License. * You may obtain a copy of the License at * *
+https://www.apache.org/licenses/LICENSE-2.0 * * Unless required by applicable
+law or agreed to in writing, software * distributed under the License is
+distributed on an "AS IS" BASIS, * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+either express or implied. * See the License for the specific language governing
+permissions and * limitations under the License. */
 
 <template>
 	<div class="message-list-shell">
@@ -48,12 +41,7 @@
 
 							<!-- ── AI messages ──────────────────────────────────── -->
 							<div v-else class="row ai-row">
-								<v-avatar
-									color="blue-darken-3"
-									size="34"
-									rounded="lg"
-									class="avatar"
-								>
+								<v-avatar color="primary" size="34" rounded="lg" class="avatar">
 									<v-icon size="18" color="white">mdi-robot</v-icon>
 								</v-avatar>
 
@@ -96,7 +84,32 @@
 									<ChatWorkflowTimeline
 										:node-blocks="safeParseBlocks(message.content)"
 										:completed="true"
+										:show-result-sets="false"
 									/>
+									<div
+										v-if="
+											store.requestOptions.showSqlResults &&
+											extractResultSets(message.content).length
+										"
+										class="timeline-results"
+									>
+										<div class="timeline-results__title">
+											<v-icon size="16">mdi-table-eye</v-icon>
+											<span>查询明细</span>
+										</div>
+										<div
+											v-for="(result, resultIndex) in extractResultSets(
+												message.content,
+											)"
+											:key="resultIndex"
+											class="timeline-result"
+										>
+											<ChatResultSet
+												:data="result"
+												:page-size="store.requestOptions.pageSize"
+											/>
+										</div>
+									</div>
 								</v-card>
 
 								<!-- Warning (user stopped) -->
@@ -137,7 +150,7 @@
 						>
 							<div class="row ai-row">
 								<v-avatar
-									color="blue-darken-3"
+									color="primary"
 									size="34"
 									rounded="lg"
 									class="avatar"
@@ -157,16 +170,36 @@
 						v-if="store.isStreaming && store.nodeBlocks.length > 0"
 						class="row ai-row"
 					>
-						<v-avatar
-							color="blue-darken-3"
-							size="34"
-							rounded="lg"
-							class="avatar"
-						>
+						<v-avatar color="primary" size="34" rounded="lg" class="avatar">
 							<v-icon size="18" color="white">mdi-robot</v-icon>
 						</v-avatar>
 						<v-card class="ai-card timeline-card" elevation="1">
-							<ChatWorkflowTimeline :node-blocks="store.nodeBlocks" />
+							<ChatWorkflowTimeline
+								:node-blocks="store.nodeBlocks"
+								:show-result-sets="false"
+							/>
+							<div
+								v-if="
+									store.requestOptions.showSqlResults &&
+									streamingResultSets.length
+								"
+								class="timeline-results"
+							>
+								<div class="timeline-results__title">
+									<v-icon size="16">mdi-table-eye</v-icon>
+									<span>查询明细</span>
+								</div>
+								<div
+									v-for="(result, resultIndex) in streamingResultSets"
+									:key="resultIndex"
+									class="timeline-result"
+								>
+									<ChatResultSet
+										:data="result"
+										:page-size="store.requestOptions.pageSize"
+									/>
+								</div>
+							</div>
 						</v-card>
 					</div>
 
@@ -176,7 +209,7 @@
 						class="row ai-row"
 					>
 						<v-avatar
-							color="blue-darken-3"
+							color="primary"
 							size="34"
 							rounded="lg"
 							class="avatar"
@@ -192,12 +225,7 @@
 						v-else-if="store.isStreaming && store.nodeBlocks.length === 0"
 						class="row ai-row"
 					>
-						<v-avatar
-							color="blue-darken-3"
-							size="34"
-							rounded="lg"
-							class="avatar"
-						>
+						<v-avatar color="primary" size="34" rounded="lg" class="avatar">
 							<v-icon size="18" color="white">mdi-robot</v-icon>
 						</v-avatar>
 						<v-card class="ai-card" elevation="1">
@@ -256,6 +284,10 @@ const showJumpToLatestButton = computed(
 	() => showJumpToLatest.value && store.currentMessages.length > 0,
 );
 
+const streamingResultSets = computed(() =>
+	extractResultSetsFromBlocks(store.nodeBlocks),
+);
+
 const filteredMessages = computed<ChatMessage[]>(() => {
 	const msgs = store.currentMessages;
 	if (!msgs.length) return msgs;
@@ -264,6 +296,13 @@ const filteredMessages = computed<ChatMessage[]>(() => {
 	for (let i = 0; i < msgs.length; i++) {
 		const msg = msgs[i];
 		if (!msg) continue;
+		if (
+			msg.role === 'assistant' &&
+			msg.messageType === 'result-set' &&
+			!store.requestOptions.showSqlResults
+		) {
+			continue;
+		}
 		if (
 			msg.role === 'assistant' &&
 			TIMELINE_ABSORBED_TYPES.has(msg.messageType)
@@ -317,6 +356,37 @@ function safeParseBlocks(content: string) {
 	} catch {
 		return [];
 	}
+}
+
+function extractResultSets(timelineJson: string): ResultData[] {
+	return extractResultSetsFromBlocks(safeParseBlocks(timelineJson));
+}
+
+function extractResultSetsFromBlocks(
+	blocks: import('~/services/graph/index').GraphNodeResponse[][],
+): ResultData[] {
+	const results: ResultData[] = [];
+	const seen = new Set<string>();
+
+	for (const block of blocks) {
+		for (const response of block) {
+			if (response.textType !== 'RESULT_SET' || !response.text) continue;
+
+			try {
+				const parsed = JSON.parse(response.text) as Partial<ResultData>;
+				if (!parsed.resultSet || typeof parsed.resultSet !== 'object') continue;
+
+				const key = JSON.stringify(parsed);
+				if (seen.has(key)) continue;
+				seen.add(key);
+				results.push(parsed as ResultData);
+			} catch {
+				/* Ignore incomplete streaming payloads until valid JSON arrives. */
+			}
+		}
+	}
+
+	return results;
 }
 
 function extractReportContent(timelineJson: string): string | null {
@@ -589,6 +659,33 @@ onUnmounted(() => {
 	max-width: 100% !important;
 	flex: 1;
 	min-width: 0;
+}
+
+.timeline-results {
+	margin-top: 16px;
+	padding-top: 14px;
+	border-top: 1px solid var(--domus-line, #d8c7b2);
+}
+
+.timeline-results__title {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	margin-bottom: 10px;
+	color: var(--domus-copper, #8d5633);
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.timeline-result {
+	overflow: hidden;
+	border: 1px solid var(--domus-line, #d8c7b2);
+	border-radius: 8px;
+	background: var(--domus-paper, #fff6e8);
+}
+
+.timeline-result + .timeline-result {
+	margin-top: 12px;
 }
 
 /* ── Thinking dots ───────────────────────────────────────────────────────────── */

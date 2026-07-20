@@ -1,18 +1,11 @@
-/*
- * Copyright 2026 the original author or authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* * Copyright 2026 the original author or authors. * * Licensed under the
+Apache License, Version 2.0 (the "License"); * you may not use this file except
+in compliance with the License. * You may obtain a copy of the License at * *
+https://www.apache.org/licenses/LICENSE-2.0 * * Unless required by applicable
+law or agreed to in writing, software * distributed under the License is
+distributed on an "AS IS" BASIS, * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+either express or implied. * See the License for the specific language governing
+permissions and * limitations under the License. */
 
 <template>
 	<div
@@ -126,20 +119,6 @@
 				</v-btn>
 			</div>
 		</div>
-
-		<!-- Collapsed FAB: floats at top-left of chat area -->
-		<v-btn
-			v-show="store.chatSidebarCollapsed"
-			icon
-			variant="tonal"
-			color="primary"
-			size="small"
-			class="expand-fab"
-			title="展开历史会话"
-			@click="store.chatSidebarCollapsed = false"
-		>
-			<v-icon size="18">mdi-chevron-right</v-icon>
-		</v-btn>
 	</div>
 
 	<!-- Confirm Dialog -->
@@ -174,13 +153,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useChatStore, type ExtendedChatSession } from '~/stores/chat';
 import type { ChatSession } from '~/services/chat/index';
 
 const store = useChatStore();
 const showDeleteConfirm = ref(false);
 let sessionToDelete: ChatSession | null = null;
+
+function closeMobileSidebar() {
+	if (window.matchMedia('(max-width: 800px)').matches) {
+		store.chatSidebarCollapsed = true;
+	}
+}
+
+onMounted(closeMobileSidebar);
 
 function formatTime(time: Date | string | undefined): string {
 	if (!time) return '';
@@ -200,15 +187,20 @@ async function handleCreateNewSession() {
 	if (!store.currentAgentId) return;
 	try {
 		await store.createNewSession(store.currentAgentId);
+		closeMobileSidebar();
 	} catch (e) {
 		console.error('创建会话失败', e);
 	}
 }
 
 async function handleSelectSession(session: ChatSession) {
-	if (store.currentSession?.id === session.id) return;
+	if (store.currentSession?.id === session.id) {
+		closeMobileSidebar();
+		return;
+	}
 	try {
 		await store.selectSession(session);
+		closeMobileSidebar();
 	} catch (e) {
 		console.error('切换会话失败', e);
 	}
@@ -447,15 +439,6 @@ async function confirmDelete() {
 	font-size: 14px !important;
 	border-style: dashed !important;
 	border-radius: 10px !important;
-}
-
-/* ── Collapsed expand FAB ────────────────────────────────────────────────────── */
-.expand-fab {
-	position: absolute;
-	top: 10px;
-	left: 8px;
-	z-index: 10;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────────── */

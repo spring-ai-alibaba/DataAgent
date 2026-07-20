@@ -15,16 +15,29 @@
  */
 
 <template>
-	<v-app id="app">
+	<v-app id="app" class="domus-admin-app">
 		<v-main>
 			<BaseDrawer v-model="drawer" :drawer-width="280">
 				<template #drawer>
 					<div class="d-flex flex-column h-100">
 						<div class="pa-4 border-b border-white-5">
 							<div class="d-flex align-center mb-3">
-								<v-avatar color="primary" size="36" class="mr-3 rounded-lg">
-									<v-icon icon="mdi-robot" color="white" size="22" />
-								</v-avatar>
+								<a
+									href="https://www.domus.cn/"
+									target="_blank"
+									rel="noopener noreferrer"
+									class="brand-site-link mr-3"
+									aria-label="访问 Domus 官网"
+									title="访问 Domus 官网"
+								>
+									<v-img
+										src="/logo-mark.png"
+										alt="Domus"
+										width="36"
+										height="36"
+										class="flex-grow-0"
+									/>
+								</a>
 								<div>
 									<div class="text-subtitle-2 font-weight-bold text-white">
 										智能问数
@@ -32,7 +45,7 @@
 									<div
 										class="text-caption text-blue-lighten-3 font-weight-bold brand-subtitle"
 									>
-										DATA AGENT
+										Domus
 									</div>
 								</div>
 							</div>
@@ -54,12 +67,11 @@
 									placeholder="请选择智能体"
 									class="agent-switcher"
 									menu-icon="mdi-chevron-down"
-									theme="dark"
 									:menu-props="{
 										contentClass: 'agent-switcher-menu',
 										offset: [0, 8],
 									}"
-									:list-props="{ bgColor: '#1e293b', theme: 'dark' }"
+									:list-props="{ bgColor: '#FFF6E8', theme: 'light' }"
 									item-color="blue-lighten-2"
 									@update:model-value="handleAgentSwitch"
 								>
@@ -145,7 +157,7 @@
 							density="compact"
 							nav
 							class="flex-grow-1 pa-2 px-4 custom-scrollbar bg-transparent"
-							theme="dark"
+							theme="light"
 						>
 							<v-list-item
 								prepend-icon="mdi-chat-processing-outline"
@@ -290,7 +302,7 @@
 						variant="outlined"
 						color="primary"
 						class="font-weight-bold"
-						>智能问数</v-chip
+						>Domus-智能问数</v-chip
 					>
 				</template>
 
@@ -365,7 +377,7 @@ const currentRouteTitle = computed(() => {
 	if (route.path.startsWith('/agent/') && route.path !== '/agent/new') {
 		return '智能体详情';
 	}
-	return routeTitleMap[route.path] || 'Data Agent';
+	return routeTitleMap[route.path] || 'Domus Agent';
 });
 
 function parseRouteAgentId() {
@@ -414,6 +426,7 @@ function applyAgentToCurrentRoute(agentId: number, replace = false) {
 }
 
 function navigateToPath(path: string) {
+	if (window.matchMedia('(max-width: 900px)').matches) drawer.value = false;
 	if (path === '/agent/new') {
 		if (route.path !== path) router.push({ path });
 		return;
@@ -483,6 +496,7 @@ function syncSelectedFromRoute() {
 }
 
 onMounted(async () => {
+	if (window.matchMedia('(max-width: 900px)').matches) drawer.value = false;
 	await loadGlobalModelName();
 	await loadAgents();
 	syncSelectedFromRoute();
@@ -502,6 +516,17 @@ watch(
 </script>
 
 <style scoped>
+.brand-site-link {
+	display: inline-flex;
+	flex: 0 0 auto;
+	border-radius: 6px;
+	transition: transform 0.18s ease;
+}
+
+.brand-site-link:hover {
+	transform: scale(1.06);
+}
+
 .border-white-5 {
 	border-color: rgba(255, 255, 255, 0.05) !important;
 }

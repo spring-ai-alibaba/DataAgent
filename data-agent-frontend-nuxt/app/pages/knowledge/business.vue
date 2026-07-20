@@ -333,6 +333,15 @@
 								hide-details="auto"
 							/>
 						</div>
+
+						<v-switch
+							v-model="knowledgeForm.isRecall"
+							label="允许问答召回"
+							color="blue-darken-2"
+							inset
+							hide-details
+							class="mt-4"
+						/>
 					</v-form>
 				</v-card-text>
 
@@ -369,6 +378,9 @@ import businessKnowledgeService, {
 } from '~/services/businessKnowledge/index';
 import { useCrudPage } from '~/composables/useCrudPage/index';
 
+type UpdateBusinessKnowledgeForm = UpdateBusinessKnowledgeDTO &
+	Pick<BusinessKnowledgeVO, 'isRecall'>;
+
 // ——— 常量 ———
 const DEFAULT_AGENT_ID = 0;
 
@@ -404,7 +416,7 @@ const {
 } = useCrudPage<
 	BusinessKnowledgeVO,
 	CreateBusinessKnowledgeDTO,
-	UpdateBusinessKnowledgeDTO
+	UpdateBusinessKnowledgeForm
 >({
 	loadFn: () =>
 		businessKnowledgeService.list(
@@ -416,15 +428,17 @@ const {
 		return true;
 	},
 	updateFn: async (id, data) => {
-		const r = await businessKnowledgeService.update(id, data);
-		return r != null;
+		const { isRecall, ...knowledge } = data;
+		const updated = await businessKnowledgeService.update(id, knowledge);
+		if (!updated) return false;
+		return businessKnowledgeService.recallKnowledge(id, isRecall);
 	},
 	deleteFn: (id) => businessKnowledgeService.delete(id),
 	defaultFormFactory: () => ({
 		businessTerm: '',
 		description: '',
 		synonyms: '',
-		isRecall: false,
+		isRecall: true,
 		agentId: agentId.value,
 	}),
 });
@@ -501,10 +515,11 @@ async function saveKnowledge() {
 		isRecall: knowledgeForm.value.isRecall,
 		agentId: agentId.value,
 	};
-	const updateData: UpdateBusinessKnowledgeDTO = {
+	const updateData: UpdateBusinessKnowledgeForm = {
 		businessTerm: knowledgeForm.value.businessTerm,
 		description: knowledgeForm.value.description,
 		synonyms: knowledgeForm.value.synonyms,
+		isRecall: knowledgeForm.value.isRecall,
 		agentId: agentId.value,
 	};
 	const ok = await saveItem(createData, updateData, currentEditId.value);

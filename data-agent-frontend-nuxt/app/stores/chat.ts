@@ -22,7 +22,6 @@ import chatService, {
 import graphService, {
 	type GraphRequest,
 	type GraphNodeResponse,
-	GraphEventType,
 	TextType,
 } from '~/services/graph/index';
 import agentDatasourceService from '~/services/agentDatasource/index';
@@ -45,6 +44,8 @@ export interface ChatRequestOptions {
 	humanFeedback: boolean;
 	nl2sqlOnly: boolean;
 	showSqlResults: boolean;
+	thinkingEnabled: boolean;
+	reasoningEffort: 'high' | 'max';
 	pageSize: number;
 }
 
@@ -71,6 +72,8 @@ export const useChatStore = defineStore('chat', () => {
 		humanFeedback: false,
 		nl2sqlOnly: false,
 		showSqlResults: false,
+		thinkingEnabled: false,
+		reasoningEffort: 'high',
 		pageSize: 20,
 	});
 
@@ -109,6 +112,8 @@ export const useChatStore = defineStore('chat', () => {
 		syncStateToView,
 		saveViewToState,
 		deleteSessionState,
+		persistSessionState,
+		clearPersistedSessionState,
 	} = useSessionStateManager();
 
 	// ── Session stream ──────────────────────────────────────────────────────────
@@ -183,6 +188,7 @@ export const useChatStore = defineStore('chat', () => {
 			if (active) {
 				activeModelConfig.value = active;
 				activeChatModel.value = active.modelName;
+				applyModelThinkingDefaults(active);
 			}
 		} catch {
 			/* ignore */
@@ -226,10 +232,16 @@ export const useChatStore = defineStore('chat', () => {
 			if (active) {
 				activeModelConfig.value = active;
 				activeChatModel.value = active.modelName;
+				applyModelThinkingDefaults(active);
 			}
 		} catch (e) {
 			console.error('切换模型失败', e);
 		}
+	}
+
+	function applyModelThinkingDefaults(model: ModelConfig) {
+		requestOptions.value.thinkingEnabled = Boolean(model.thinkingEnabled);
+		requestOptions.value.reasoningEffort = model.reasoningEffort || 'high';
 	}
 
 	async function createNewSession(agentId: number) {
@@ -239,7 +251,9 @@ export const useChatStore = defineStore('chat', () => {
 		return newSession;
 	}
 
-	function resetClarificationState(sessionState?: ReturnType<typeof getSessionState>) {
+	function resetClarificationState(
+		sessionState?: ReturnType<typeof getSessionState>,
+	) {
 		awaitingClarification.value = false;
 		clarificationQuestion.value = '';
 		clarificationCount.value = 0;
@@ -264,10 +278,16 @@ export const useChatStore = defineStore('chat', () => {
 		}
 	}
 
-	function restoreClarificationStateFromMessages(sessionState: ReturnType<typeof getSessionState>) {
+	function restoreClarificationStateFromMessages(
+		sessionState: ReturnType<typeof getSessionState>,
+	) {
 		resetClarificationState(sessionState);
 		const lastMessage = currentMessages.value[currentMessages.value.length - 1];
-		if (!lastMessage || lastMessage.role !== 'assistant' || lastMessage.messageType !== 'clarification') {
+		if (
+			!lastMessage ||
+			lastMessage.role !== 'assistant' ||
+			lastMessage.messageType !== 'clarification'
+		) {
 			return;
 		}
 
@@ -277,7 +297,8 @@ export const useChatStore = defineStore('chat', () => {
 		}
 
 		awaitingClarification.value = true;
-		clarificationQuestion.value = metadata.clarificationQuestion || lastMessage.content || '';
+		clarificationQuestion.value =
+			metadata.clarificationQuestion || lastMessage.content || '';
 		clarificationCount.value = metadata.clarificationCount || 0;
 		sessionState.awaitingClarification = true;
 		sessionState.clarificationQuestion = clarificationQuestion.value;
@@ -292,6 +313,8 @@ export const useChatStore = defineStore('chat', () => {
 			resumeMode: null,
 			rejectedPlan: false,
 			nl2sqlOnly: requestOptions.value.nl2sqlOnly,
+			thinkingEnabled: requestOptions.value.thinkingEnabled,
+			reasoningEffort: requestOptions.value.reasoningEffort,
 		};
 		lastRequest.value = sessionState.lastRequest;
 	}
@@ -301,24 +324,35 @@ export const useChatStore = defineStore('chat', () => {
 		if (currentSession.value) {
 			saveViewToState(currentSession.value.id, {
 				isStreaming,
+				isReportStreaming,
 				nodeBlocks,
+				streamingReportContent,
 				awaitingClarification,
 				clarificationQuestion,
 				clarificationCount,
+				showHumanFeedback,
+				feedbackContent,
 			});
 		}
 		currentSession.value = session;
 		syncStateToView(session.id, {
 			isStreaming,
+			isReportStreaming,
 			nodeBlocks,
+			streamingReportContent,
 			awaitingClarification,
 			clarificationQuestion,
 			clarificationCount,
+			showHumanFeedback,
+			feedbackContent,
 		});
 		currentMessages.value = await chatService.getSessionMessages(session.id);
 		const sessionState = getSessionState(session.id);
-		restoreClarificationStateFromMessages(sessionState);
 		lastRequest.value = sessionState.lastRequest;
+		if (sessionState.isStreaming && sessionState.lastRequest?.threadId) {
+			await reconnectStreamingSession(session.id);
+		}
+		restoreClarificationStateFromMessages(sessionState);
 	}
 
 	async function renameSession(session: ExtendedChatSession, newTitle: string) {
@@ -358,6 +392,46 @@ export const useChatStore = defineStore('chat', () => {
 		resetClarificationState();
 	}
 
+	function appendTransientAssistantMessage(
+		sessionId: string,
+		messageType: string,
+		content: string,
+	) {
+		if (currentSession.value?.id !== sessionId) return;
+		currentMessages.value.push({
+			id: -Date.now(),
+			sessionId,
+			role: 'assistant',
+			content,
+			messageType,
+		});
+	}
+
+	async function reconnectStreamingSession(sessionId: string) {
+		const sessionState = getSessionState(sessionId);
+		const request = sessionState.lastRequest;
+		if (
+			!request ||
+			!sessionState.threadId ||
+			!sessionState.isStreaming ||
+			!currentSession.value ||
+			currentSession.value.id !== sessionId
+		) {
+			return;
+		}
+
+		await _sendGraphRequest(
+			{
+				...request,
+				threadId: sessionState.threadId,
+				reconnect: true,
+				lastSequence: sessionState.lastSequence,
+			},
+			false,
+			{ reconnect: true },
+		);
+	}
+
 	// ── Message send & stream ───────────────────────────────────────────────────
 	async function sendMessage(query: string) {
 		if (!currentSession.value) return;
@@ -378,55 +452,88 @@ export const useChatStore = defineStore('chat', () => {
 		);
 		currentMessages.value.push(saved);
 
+		const sessionState = getSessionState(currentSession.value.id);
+		const isClarificationReply = sessionState.awaitingClarification;
+		const previousClarificationCount = sessionState.clarificationCount;
 		const request: GraphRequest = {
 			agentId: String(currentAgentId.value || ''),
-			conversationId: currentSession.value.id,
 			query,
 			humanFeedback: requestOptions.value.humanFeedback,
 			nl2sqlOnly: requestOptions.value.nl2sqlOnly,
+			thinkingEnabled: requestOptions.value.thinkingEnabled,
+			reasoningEffort: requestOptions.value.reasoningEffort,
 			rejectedPlan: false,
 			humanFeedbackContent: undefined,
-			// A normal message starts a fresh graph run. The backend returns its run ID
-			// and submitFeedback reuses it only when resuming an interrupted graph.
-			threadId: undefined,
+			threadId: sessionState.lastRequest?.threadId,
+			clarificationAnswer: isClarificationReply ? query : undefined,
+			resumeMode: isClarificationReply ? 'clarification' : null,
 		};
 		if (isClarificationReply) {
 			resetClarificationState(sessionState);
 		}
 
-		await _sendGraphRequest(request);
+		await _sendGraphRequest(request, true, {
+			isClarificationReply,
+			previousClarificationCount,
+		});
 	}
 
-	async function _sendGraphRequest(request: GraphRequest) {
+	async function _sendGraphRequest(
+		request: GraphRequest,
+		_rejectedPlan: boolean,
+		options: {
+			isClarificationReply?: boolean;
+			previousClarificationCount?: number;
+			reconnect?: boolean;
+		} = {},
+	) {
 		const session = currentSession.value;
 		if (!session) return;
 
 		const sessionId = session.id;
 		const sessionTitle = session.title;
 		const sessionState = getSessionState(sessionId);
+		const isReconnect = options.reconnect === true;
 
 		lastRequest.value = request;
-		isStreaming.value = true;
-		nodeBlocks.value = [];
-
-		sessionState.isStreaming = true;
-		sessionState.nodeBlocks = [];
 		sessionState.lastRequest = request;
-		sessionState.htmlReportContent = '';
-		sessionState.htmlReportSize = 0;
-		sessionState.markdownReportContent = '';
-		sessionState.awaitingClarification = false;
-		sessionState.clarificationQuestion = '';
-		if (!options.isClarificationReply) {
-			sessionState.clarificationCount = 0;
-		}
-		streamingReportContent.value = '';
-		isReportStreaming.value = false;
+		sessionState.agentId = request.agentId;
+		sessionState.threadId = request.threadId || sessionState.threadId;
+		sessionState.showHumanFeedback = false;
+		sessionState.feedbackContent = '';
+		sessionState.isStreaming = true;
+		isStreaming.value = true;
+		showHumanFeedback.value = false;
+		feedbackContent.value = '';
 
-		let currentStepId: string | null = null;
+		if (!isReconnect) {
+			nodeBlocks.value = [];
+			sessionState.nodeBlocks = [];
+			sessionState.htmlReportContent = '';
+			sessionState.htmlReportSize = 0;
+			sessionState.markdownReportContent = '';
+			sessionState.awaitingClarification = false;
+			sessionState.clarificationQuestion = '';
+			sessionState.isReportStreaming = false;
+			sessionState.lastSequence = 0;
+			if (!options.isClarificationReply) {
+				sessionState.clarificationCount = 0;
+			}
+			streamingReportContent.value = '';
+			isReportStreaming.value = false;
+		} else {
+			nodeBlocks.value = [...sessionState.nodeBlocks];
+			streamingReportContent.value = sessionState.markdownReportContent;
+			isReportStreaming.value = !!sessionState.markdownReportContent;
+			sessionState.isReportStreaming = isReportStreaming.value;
+		}
+		persistSessionState(sessionId);
+
+		let currentNodeName: string | null = null;
 		let currentBlockIndex = -1;
-		let finalReply: string | null = null;
-		let awaitingHumanFeedback = false;
+		let isClarificationStream = false;
+		let streamedClarificationText = '';
+		let streamedClarificationCount = 0;
 
 		function appendToCurrentBlock(response: GraphNodeResponse) {
 			const currentBlock =
@@ -457,12 +564,30 @@ export const useChatStore = defineStore('chat', () => {
 			}
 		}
 
+		function applyTimingUpdate(response: GraphNodeResponse) {
+			if (!response.nodeName) return;
+			const block = [...sessionState.nodeBlocks]
+				.reverse()
+				.find((item) => item[0]?.nodeName === response.nodeName);
+			const target = block?.[0];
+			if (!target) return;
+			if (typeof response.workflowStartedAt === 'number')
+				target.workflowStartedAt = response.workflowStartedAt;
+			if (typeof response.nodeStartedAt === 'number')
+				target.nodeStartedAt = response.nodeStartedAt;
+			if (typeof response.nodeElapsedMs === 'number')
+				target.nodeElapsedMs = response.nodeElapsedMs;
+			if (typeof response.totalElapsedMs === 'number')
+				target.totalElapsedMs = response.totalElapsedMs;
+		}
+
 		let viewSyncTimer: ReturnType<typeof setTimeout> | null = null;
 		const VIEW_SYNC_INTERVAL = 120;
 		function scheduleViewSync() {
 			if (viewSyncTimer) return;
 			viewSyncTimer = setTimeout(() => {
 				viewSyncTimer = null;
+				persistSessionState(sessionId);
 				if (currentSession.value?.id === sessionId) {
 					nodeBlocks.value = [...sessionState.nodeBlocks];
 				}
@@ -478,6 +603,8 @@ export const useChatStore = defineStore('chat', () => {
 			if (reportSyncTimer) return;
 			reportSyncTimer = setTimeout(() => {
 				reportSyncTimer = null;
+				sessionState.isReportStreaming = true;
+				persistSessionState(sessionId);
 				if (currentSession.value?.id === sessionId) {
 					isReportStreaming.value = true;
 					streamingReportContent.value = sessionState.markdownReportContent;
@@ -501,57 +628,123 @@ export const useChatStore = defineStore('chat', () => {
 					streamingReportContent.value = sessionState.markdownReportContent;
 				}
 			}
+			sessionState.isReportStreaming = !!sessionState.markdownReportContent;
+			persistSessionState(sessionId);
 		}
 
 		const closeStream = await graphService.streamSearch(
 			request,
 			async (response: GraphNodeResponse) => {
 				if (response.error) return;
+				sessionState.threadId = response.threadId || sessionState.threadId;
+				if (typeof response.sequence === 'number') {
+					sessionState.lastSequence = response.sequence;
+				}
 				if (sessionState.lastRequest) {
 					sessionState.lastRequest.threadId = response.threadId;
-				if (response.eventType === GraphEventType.FINAL_ANSWER) {
-					finalReply = response.text?.trim() || null;
+					lastRequest.value = sessionState.lastRequest;
+				}
+				if (response.timingOnly || response.complete) {
+					applyTimingUpdate(response);
+					scheduleViewSync();
 					return;
 				}
-				if (response.eventType === GraphEventType.HUMAN_FEEDBACK_REQUIRED) {
-					awaitingHumanFeedback = true;
-					return;
+				if (response.interactionType === 'clarification') {
+					isClarificationStream = true;
+					streamedClarificationText += response.text;
+					if (response.awaitingInput) {
+						streamedClarificationCount = options.isClarificationReply
+							? (options.previousClarificationCount || 0) + 1
+							: 1;
+					}
 				}
-
-				const responseStepId =
-					response.stepId || `${response.nodeName}:${response.attempt || 1}`;
-				const isNewStep = currentStepId !== responseStepId;
-				if (isNewStep) {
-					sessionState.nodeBlocks.push([{ ...response }]);
-					currentBlockIndex = sessionState.nodeBlocks.length - 1;
-					currentStepId = responseStepId;
-				}
-				const currentBlock = sessionState.nodeBlocks[currentBlockIndex];
 
 				if (response.nodeName === 'ReportGeneratorNode') {
+					const isNewNode =
+						currentNodeName === null || response.nodeName !== currentNodeName;
+					if (isNewNode) {
+						sessionState.nodeBlocks.push([{ ...response }]);
+						currentBlockIndex = sessionState.nodeBlocks.length - 1;
+						currentNodeName = response.nodeName;
+					}
 					if (response.textType === 'HTML') {
 						sessionState.htmlReportContent += response.text;
 						sessionState.htmlReportSize = sessionState.htmlReportContent.length;
-						const rn = currentBlock;
+						const rn = sessionState.nodeBlocks.find(
+							(b) =>
+								b.length > 0 &&
+								b[0].nodeName === 'ReportGeneratorNode' &&
+								b[0].textType === 'HTML',
+						);
 						if (rn)
 							rn[0].text = `正在收集HTML报告... 已收集 ${sessionState.htmlReportSize} 字节`;
+						else
+							sessionState.nodeBlocks.push([
+								{ ...response, text: `正在收集HTML报告...` },
+							]);
 					} else if (response.textType === 'MARK_DOWN') {
 						sessionState.markdownReportContent += response.text;
 						scheduleReportSync();
-						const rn = currentBlock;
+						const rn = sessionState.nodeBlocks.find(
+							(b) =>
+								b.length > 0 &&
+								b[0].nodeName === 'ReportGeneratorNode' &&
+								b[0].textType === 'MARK_DOWN',
+						);
 						if (rn) rn[0].text = sessionState.markdownReportContent;
+						else
+							sessionState.nodeBlocks.push([
+								{ ...response, text: response.text },
+							]);
 					}
 				} else if (response.textType === TextType.RESULT_SET) {
-					if (!isNewStep && currentBlock) currentBlock.push({ ...response });
-				} else if (!isNewStep && currentBlock) {
-					currentBlock.push({ ...response });
+					currentNodeName = 'result_set';
+					sessionState.nodeBlocks.push([{ ...response }]);
+					currentBlockIndex = sessionState.nodeBlocks.length - 1;
+				} else {
+					const isNewNode =
+						currentNodeName === null || response.nodeName !== currentNodeName;
+					if (isNewNode) {
+						sessionState.nodeBlocks.push([{ ...response }]);
+						currentBlockIndex = sessionState.nodeBlocks.length - 1;
+						currentNodeName = response.nodeName;
+					} else {
+						appendToCurrentBlock(response);
+					}
 				}
 
+				applyTimingUpdate(response);
 				scheduleViewSync();
 			},
 			async (error: Error) => {
 				console.error('Stream error:', error);
 				flushPendingSync();
+
+				if (options.reconnect) {
+					sessionState.isStreaming = false;
+					sessionState.closeStream = null;
+					sessionState.isReportStreaming = false;
+					currentNodeName = null;
+					clearPersistedSessionState(sessionId);
+					if (currentSession.value?.id === sessionId) {
+						isStreaming.value = false;
+						isReportStreaming.value = false;
+						if (sessionState.nodeBlocks.length > 0) {
+							appendTransientAssistantMessage(
+								sessionId,
+								'timeline',
+								JSON.stringify(sessionState.nodeBlocks),
+							);
+						}
+						appendTransientAssistantMessage(
+							sessionId,
+							'warning',
+							error.message || '流式任务连接已中断，请重新发起任务。',
+						);
+						nodeBlocks.value = [];
+					}
+					return;
+				}
 
 				if (!isClarificationStream && sessionState.nodeBlocks.length > 0) {
 					const msg: ChatMessage = {
@@ -578,7 +771,9 @@ export const useChatStore = defineStore('chat', () => {
 
 				sessionState.isStreaming = false;
 				sessionState.closeStream = null;
-				currentStepId = null;
+				sessionState.isReportStreaming = false;
+				currentNodeName = null;
+				clearPersistedSessionState(sessionId);
 				if (currentSession.value?.id === sessionId) {
 					isStreaming.value = false;
 					isReportStreaming.value = false;
@@ -589,8 +784,15 @@ export const useChatStore = defineStore('chat', () => {
 			},
 			async () => {
 				flushPendingSync();
-				if (sessionState.nodeBlocks.length > 0) {
-					const timelineMsg: ChatMessage = {
+
+				if (isClarificationStream) {
+					const question = streamedClarificationText.trim();
+					const count =
+						streamedClarificationCount ||
+						(options.isClarificationReply
+							? (options.previousClarificationCount || 0) + 1
+							: 1);
+					const clarificationMsg: ChatMessage = {
 						sessionId,
 						role: 'assistant',
 						content: question,
@@ -602,32 +804,18 @@ export const useChatStore = defineStore('chat', () => {
 							threadId: sessionState.lastRequest?.threadId || request.threadId,
 						}),
 					};
-					const savedTimeline = await chatService
-						.saveMessage(sessionId, timelineMsg)
-						.catch((e) => {
-							console.error(e);
-							return null;
-						});
-					if (savedTimeline && currentSession.value?.id === sessionId)
-						currentMessages.value.push(savedTimeline);
-				}
-
-				if (finalReply) {
-					const replyMessage: ChatMessage = {
-						sessionId,
-						role: 'assistant',
-						content: finalReply,
-						messageType: 'text',
-					};
 					await chatService
-						.saveMessage(sessionId, replyMessage)
+						.saveMessage(sessionId, clarificationMsg)
 						.catch((e) => console.error(e));
-				}
-
-				if (awaitingHumanFeedback && !finalReply) {
-					showHumanFeedback.value = true;
-				} else {
+					sessionState.awaitingClarification = true;
+					sessionState.clarificationQuestion = question;
+					sessionState.clarificationCount = count;
+					sessionState.isReportStreaming = false;
+					awaitingClarification.value = true;
+					clarificationQuestion.value = question;
+					clarificationCount.value = count;
 					sessionState.isStreaming = false;
+					persistSessionState(sessionId);
 					if (currentSession.value?.id === sessionId) isStreaming.value = false;
 				} else {
 					if (sessionState.nodeBlocks.length > 0) {
@@ -649,10 +837,17 @@ export const useChatStore = defineStore('chat', () => {
 
 					resetClarificationState(sessionState);
 					if (requestOptions.value.humanFeedback && _rejectedPlan) {
+						sessionState.showHumanFeedback = true;
+						sessionState.feedbackContent = feedbackContent.value;
+						sessionState.isStreaming = false;
+						persistSessionState(sessionId);
 						showHumanFeedback.value = true;
 					} else {
 						sessionState.isStreaming = false;
-						if (currentSession.value?.id === sessionId) isStreaming.value = false;
+						sessionState.isReportStreaming = false;
+						clearPersistedSessionState(sessionId);
+						if (currentSession.value?.id === sessionId)
+							isStreaming.value = false;
 					}
 				}
 
@@ -661,18 +856,21 @@ export const useChatStore = defineStore('chat', () => {
 					streamingReportContent.value = '';
 				}
 
-				currentStepId = null;
-				await closeStream();
-				sessionState.closeStream = null;
+				currentNodeName = null;
+				closeStream();
 				if (currentSession.value?.id === sessionId) {
 					currentMessages.value =
 						await chatService.getSessionMessages(sessionId);
 					nodeBlocks.value = [];
 				}
+				if (!showHumanFeedback.value) {
+					clearPersistedSessionState(sessionId);
+				}
 				console.log(`会话[${sessionTitle}]处理完成`);
 			},
 		);
 		sessionState.closeStream = closeStream;
+		persistSessionState(sessionId);
 	}
 
 	async function stopStreaming() {
@@ -681,15 +879,22 @@ export const useChatStore = defineStore('chat', () => {
 		const sessionState = getSessionState(sessionId);
 		if (!sessionState.closeStream) return;
 
-		try {
-			await sessionState.closeStream(true);
-		} catch (error) {
-			console.error('停止后端图任务失败:', error);
+		const threadId =
+			sessionState.threadId || sessionState.lastRequest?.threadId;
+		if (threadId) {
+			await graphService.stopStream(threadId).catch((e) => console.error(e));
 		}
+		sessionState.closeStream();
 		sessionState.closeStream = null;
 		sessionState.isStreaming = false;
+		sessionState.isReportStreaming = false;
 		sessionState.nodeBlocks = [];
+		sessionState.markdownReportContent = '';
+		sessionState.lastSequence = 0;
+		sessionState.showHumanFeedback = false;
+		sessionState.feedbackContent = '';
 		resetClarificationState(sessionState);
+		clearPersistedSessionState(sessionId);
 
 		// Save user-terminated warning message
 		const warningMsg: ChatMessage = {
@@ -720,7 +925,7 @@ export const useChatStore = defineStore('chat', () => {
 			rejectedPlan: rejected,
 			humanFeedbackContent: content || 'Accept',
 		};
-		await _sendGraphRequest(newRequest);
+		await _sendGraphRequest(newRequest, rejected);
 	}
 
 	// ── Report utils ────────────────────────────────────────────────────────────
