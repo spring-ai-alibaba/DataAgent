@@ -20,18 +20,14 @@ import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
 import com.alibaba.cloud.ai.dataagent.service.llm.impls.BlockLlmService;
 import com.alibaba.cloud.ai.dataagent.service.llm.impls.StreamLlmService;
 import lombok.AllArgsConstructor;
-import org.springframework.beans.factory.FactoryBean;
-import org.springframework.stereotype.Component;
 
-@Component
 @AllArgsConstructor
-public class LlmServiceFactory implements FactoryBean<LlmService> {
+public class LlmServiceFactory {
 
 	private final DataAgentProperties properties;
 
 	private final AiModelRegistry aiModelRegistry;
 
-	@Override
 	public LlmService getObject() {
 		if (LlmServiceEnum.BLOCK.equals(properties.getLlmServiceType())) {
 			return new BlockLlmService(aiModelRegistry);
@@ -41,7 +37,6 @@ public class LlmServiceFactory implements FactoryBean<LlmService> {
 		}
 	}
 
-	@Override
 	public Class<?> getObjectType() {
 		return LlmService.class;
 	}

@@ -114,6 +114,11 @@
             <version>3.1.3</version>
             <scope>runtime</scope>
             <exclusions>
+                <!-- JDBC 客户端不需要 Hive LLAP 服务端，且其 HBase 链路会引入已失效的 java.net 仓库 -->
+                <exclusion>
+                    <groupId>org.apache.hive</groupId>
+                    <artifactId>hive-llap-server</artifactId>
+                </exclusion>
                 <!-- 排除 Jetty 相关依赖，避免与 Tomcat 冲突 -->
                 <exclusion>
                     <groupId>org.eclipse.jetty.aggregate</groupId>
@@ -264,6 +269,10 @@
             <artifactId>spring-ai-alibaba-graph-core</artifactId>
             <version>${spring-ai-alibaba.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-chat-memory-repository-jdbc</artifactId>
+        </dependency>
         <!--文本分割策略:递归和句子分割-->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
@@ -294,7 +303,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.atlassian.commonmark</groupId>
+            <groupId>org.commonmark</groupId>
             <artifactId>commonmark</artifactId>
         </dependency>
 
@@ -313,18 +322,17 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-vector-store-elasticsearch</artifactId>
         </dependency>
-        <!-- 显式添加Elasticsearch Java客户端依赖以解决DenseVectorSimilarity类缺失问题 -->
+        <!-- Milvus 向量数据库 -->
         <dependency>
-            <groupId>co.elastic.clients</groupId>
-            <artifactId>elasticsearch-java</artifactId>
-            <version>${elasticsearch-client.version}</version>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-vector-store-milvus</artifactId>
         </dependency>
+        <!-- Protobuf for Milvus -->
         <dependency>
-            <groupId>org.elasticsearch.client</groupId>
-            <artifactId>elasticsearch-rest-client</artifactId>
-            <version>${elasticsearch-client.version}</version>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>3.25.5</version>
         </dependency>
-
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
@@ -394,6 +402,7 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco-maven-plugin.version}</version>
                 <configuration>
+                    <skip>${skipTests}</skip>
                     <excludes>
                         <exclude>**/excel/**/*.class</exclude>
                         <exclude>**/*.xlsx</exclude>

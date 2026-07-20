@@ -24,7 +24,9 @@
 export interface GraphRequest {
   /** 智能体 ID */
   agentId: string;
-  /** 会话线程 ID */
+  /** 聊天记忆会话 ID */
+  conversationId: string;
+  /** Graph 运行 ID，仅在人工反馈恢复时复用 */
   threadId?: string;
   /** 用户查询语句 */
   query: string;
@@ -48,6 +50,12 @@ export interface GraphNodeResponse {
   agentId: string;
   /** 线程 ID */
   threadId: string;
+  /** 事件语义；历史消息可能不存在 */
+  eventType?: GraphEventType;
+  /** 单次节点执行 ID；历史消息可能不存在 */
+  stepId?: string;
+  /** 同名节点在本次运行中的执行次数 */
+  attempt?: number;
   /** 当前执行的节点名称 */
   nodeName: string;
   /** 文本内容类型 */
@@ -60,6 +68,12 @@ export interface GraphNodeResponse {
   error: boolean;
   /** 是否已完成 */
   complete: boolean;
+}
+
+export enum GraphEventType {
+  NODE_OUTPUT = "NODE_OUTPUT",
+  FINAL_ANSWER = "FINAL_ANSWER",
+  HUMAN_FEEDBACK_REQUIRED = "HUMAN_FEEDBACK_REQUIRED",
 }
 
 /**
@@ -94,16 +108,17 @@ class GraphService {
    * @param {(response: GraphNodeResponse) => Promise<void>} onMessage - 收到消息时的回调
    * @param {(error: Error) => Promise<void>} [onError] - 发生错误时的回调
    * @param {() => Promise<void>} [onComplete] - 搜索完成时的回调
-   * @returns {Promise<() => void>} 返回一个用于手动关闭流连接的函数
+   * @returns {Promise<(cancelRun?: boolean) => Promise<void>>} 返回一个用于关闭流连接并按需取消后端任务的函数
    */
   async streamSearch(
     request: GraphRequest,
     onMessage: (response: GraphNodeResponse) => Promise<void>,
     onError?: (error: Error) => Promise<void>,
     onComplete?: () => Promise<void>,
-  ): Promise<() => void> {
+  ): Promise<(cancelRun?: boolean) => Promise<void>> {
     const params = new URLSearchParams();
     params.append("agentId", request.agentId);
+    params.append("conversationId", request.conversationId);
     if (request.threadId) {
       params.append("threadId", request.threadId);
     }
@@ -126,9 +141,15 @@ class GraphService {
 
     const eventSource = new EventSource(url);
 
+    let latestThreadId = request.threadId;
+
     eventSource.onmessage = async (event) => {
       try {
         const nodeResponse: GraphNodeResponse = JSON.parse(event.data);
+        latestThreadId = nodeResponse.threadId || latestThreadId;
+        console.log(
+          `Node: ${nodeResponse.nodeName}, message: ${nodeResponse.text}, type: ${nodeResponse.textType}`,
+        );
         await onMessage(nodeResponse);
       } catch (parseError) {
         console.error("Failed to parse SSE data:", parseError);
@@ -141,7 +162,21 @@ class GraphService {
     let isCompleted = false;
     let isFailed = false;
 
-    eventSource.onerror = async (errorEvent) => {
+    eventSource.addEventListener("error", async (event) => {
+      if (!(event instanceof MessageEvent) || !event.data || isCompleted) return;
+      isCompleted = true;
+      eventSource.close();
+      try {
+        const response = JSON.parse(event.data) as GraphNodeResponse;
+        if (onError) {
+          await onError(new Error(response.text || "Stream processing failed"));
+        }
+      } catch {
+        if (onError) await onError(new Error("Stream processing failed"));
+      }
+    });
+
+    eventSource.onerror = async (_error) => {
       // If already completed or the connection was intentionally closed, ignore
       if (isCompleted || isFailed) {
         return;
@@ -180,8 +215,22 @@ class GraphService {
       }
     });
 
-    return () => {
+    return async (cancelRun = false) => {
+      isCompleted = true;
       eventSource.close();
+      if (!cancelRun) return;
+
+      const stopParams = new URLSearchParams({
+        conversationId: request.conversationId,
+      });
+      if (latestThreadId) stopParams.append("threadId", latestThreadId);
+      const response = await fetch(
+        `${API_BASE_URL}/stream/stop?${stopParams.toString()}`,
+        { method: "POST", keepalive: true },
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to stop graph run: HTTP ${response.status}`);
+      }
     };
   }
 }

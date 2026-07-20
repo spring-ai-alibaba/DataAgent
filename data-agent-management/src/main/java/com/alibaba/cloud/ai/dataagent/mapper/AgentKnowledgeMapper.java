@@ -113,6 +113,20 @@ public interface AgentKnowledgeMapper {
 	List<Integer> selectRecalledKnowledgeIds(@Param("agentId") Integer agentId);
 
 	/**
+	 * Query all agent knowledge records that are pending embedding and marked for recall.
+	 * Used by startup auto-embedding to fix seed data inserted via data.sql with
+	 * embedding_status='PENDING'.
+	 */
+	@Select("""
+			SELECT * FROM agent_knowledge
+			WHERE embedding_status = 'PENDING'
+			  AND is_recall = 1
+			  AND is_deleted = 0
+			ORDER BY id
+			""")
+	List<AgentKnowledge> selectPendingAndRecalled();
+
+	/**
 	 * 查询待清理的“僵尸”记录 条件：is_deleted = 1 AND is_resource_cleaned = 0 AND updated_time <(当前时间
 	 * - N分钟)
 	 */

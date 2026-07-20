@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.nl2sql;
 
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyOutputDTO;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.prompt.PromptHelper;
@@ -52,7 +53,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 	public Flux<ChatResponse> performSemanticConsistency(SemanticConsistencyDTO semanticConsistencyDTO) {
 		String semanticConsistencyPrompt = PromptHelper.buildSemanticConsistenPrompt(semanticConsistencyDTO);
 		log.debug("semanticConsistencyPrompt as follows \n {} \n", semanticConsistencyPrompt);
-		return llmService.callUser(semanticConsistencyPrompt);
+		return llmService.callUser(semanticConsistencyPrompt, SemanticConsistencyOutputDTO.class);
 	}
 
 	@Override

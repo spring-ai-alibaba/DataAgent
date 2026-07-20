@@ -49,4 +49,10 @@ public interface GraphService {
 	 */
 	void stopStreamProcessing(String threadId);
 
+	/**
+	 * 停止指定会话当前仍在运行的图任务。用于客户端尚未收到 threadId 时的取消兜底。
+	 * @param conversationId 会话ID
+	 */
+	void stopStreamProcessingByConversationId(String conversationId);
+
 }

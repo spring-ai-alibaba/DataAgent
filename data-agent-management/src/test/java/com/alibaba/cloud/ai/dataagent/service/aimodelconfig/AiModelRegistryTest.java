@@ -199,30 +199,31 @@ class AiModelRegistryTest {
 	}
 
 	@Test
-	void dummyEmbeddingModel_embedTextReturnsEmpty() {
+	void dummyEmbeddingModel_embedTextThrowsClearException() {
 		when(modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING)).thenReturn(null);
 
 		EmbeddingModel dummy = registry.getEmbeddingModel();
 
-		assertEquals(0, dummy.embed("text").length);
+		IllegalStateException error = assertThrows(IllegalStateException.class, () -> dummy.embed("text"));
+		assertTrue(error.getMessage().contains("No active EMBEDDING model"));
 	}
 
 	@Test
-	void dummyEmbeddingModel_embedListReturnsEmpty() {
+	void dummyEmbeddingModel_embedListThrowsClearException() {
 		when(modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING)).thenReturn(null);
 
 		EmbeddingModel dummy = registry.getEmbeddingModel();
 
-		assertTrue(dummy.embed(java.util.List.of("text")).isEmpty());
+		assertThrows(IllegalStateException.class, () -> dummy.embed(java.util.List.of("text")));
 	}
 
 	@Test
-	void dummyEmbeddingModel_embedForResponseReturnsNull() {
+	void dummyEmbeddingModel_embedForResponseThrowsClearException() {
 		when(modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING)).thenReturn(null);
 
 		EmbeddingModel dummy = registry.getEmbeddingModel();
 
-		assertNull(dummy.embedForResponse(java.util.List.of("text")));
+		assertThrows(IllegalStateException.class, () -> dummy.embedForResponse(java.util.List.of("text")));
 	}
 
 }

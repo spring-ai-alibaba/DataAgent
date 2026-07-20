@@ -22,28 +22,14 @@ import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
-public class FeasibilityAssessmentOutputDTO {
+public class SemanticConsistencyOutputDTO {
 
-	@JsonProperty("requirementType")
-	@JsonPropertyDescription("Requirement type: DATA_ANALYSIS, NEED_CLARIFICATION, or FREE_CHAT")
-	private RequirementType requirementType;
+	@JsonProperty("passed")
+	@JsonPropertyDescription("Whether the SQL is semantically consistent with the current execution step")
+	private boolean passed;
 
-	@JsonProperty("language")
-	@JsonPropertyDescription("Language used for the response, for example zh-CN or en-US")
-	private String language;
-
-	@JsonProperty("content")
-	@JsonPropertyDescription("Normalized analysis requirement, clarification question, or chat response")
-	private String content;
-
-	public enum RequirementType {
-
-		DATA_ANALYSIS,
-
-		NEED_CLARIFICATION,
-
-		FREE_CHAT
-
-	}
+	@JsonProperty("reason")
+	@JsonPropertyDescription("Concise validation result or failure reason")
+	private String reason;
 
 }

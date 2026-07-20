@@ -8,7 +8,6 @@ spring:
     username: root
     password: root
     driver-class-name: org.h2.Driver
-    type: com.alibaba.druid.pool.DruidDataSource
   sql:
     init:
       mode: always
@@ -31,6 +30,8 @@ spring:
       type: simple
     alibaba:
       data-agent:
+        checkpoint:
+          type: memory
         vector-store:
           table-topk-limit: 10
           table-similarity-threshold: 0.2

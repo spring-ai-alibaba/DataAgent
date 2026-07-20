@@ -20,7 +20,9 @@ import type { GraphNodeResponse, GraphRequest } from '~/services/graph/index';
 export interface SessionRuntimeState {
   isStreaming: boolean;
   nodeBlocks: GraphNodeResponse[][];
-  closeStream: (() => void) | null;
+  /** 关闭流的回调函数 */
+  closeStream: ((cancelRun?: boolean) => Promise<void>) | null;
+  /** 最后一次请求参数 */
   lastRequest: GraphRequest | null;
   htmlReportContent: string;
   htmlReportSize: number;
@@ -80,7 +82,7 @@ export function useSessionStateManager() {
   const deleteSessionState = (sessionId: string) => {
     const state = sessionStates.value.get(sessionId);
     if (state?.closeStream) {
-      state.closeStream();
+      void state.closeStream(true);
     }
     sessionStates.value.delete(sessionId);
   };

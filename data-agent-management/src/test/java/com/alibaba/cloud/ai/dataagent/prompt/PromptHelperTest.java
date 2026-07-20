@@ -261,6 +261,7 @@ class PromptHelperTest {
 		assertNotNull(result);
 		assertTrue(result.contains("previous context"));
 		assertTrue(result.contains("What is the total sales?"));
+		assertTrue(result.contains("response"));
 	}
 
 	@Test

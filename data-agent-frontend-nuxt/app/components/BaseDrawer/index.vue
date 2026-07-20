@@ -123,4 +123,21 @@ const cssVars = computed(() => ({
 	overflow: auto;
 	position: relative;
 }
+
+@media (max-width: 768px) {
+	.base-drawer__left {
+		position: absolute;
+		inset: 0 auto 0 0;
+		z-index: 100;
+		box-shadow: 8px 0 24px rgba(15, 23, 42, 0.2);
+	}
+
+	.base-drawer__left--closed {
+		box-shadow: none;
+	}
+
+	.base-drawer__right {
+		width: 100%;
+	}
+}
 </style>

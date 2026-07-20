@@ -472,4 +472,10 @@ async function confirmDelete() {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
 	background: #94a3b8;
 }
+
+@media (max-width: 768px) {
+	.sidebar-wrapper {
+		display: none;
+	}
+}
 </style>

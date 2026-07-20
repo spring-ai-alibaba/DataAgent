@@ -15,7 +15,30 @@
  */
 
 import { nextTick, onBeforeUnmount } from 'vue';
-import * as echarts from 'echarts';
+import * as echarts from 'echarts/core';
+import { BarChart, LineChart, PieChart } from 'echarts/charts';
+import {
+	DatasetComponent,
+	GridComponent,
+	LegendComponent,
+	TitleComponent,
+	TooltipComponent,
+} from 'echarts/components';
+import { LabelLayout } from 'echarts/features';
+import { CanvasRenderer } from 'echarts/renderers';
+
+echarts.use([
+	BarChart,
+	LineChart,
+	PieChart,
+	DatasetComponent,
+	GridComponent,
+	LegendComponent,
+	TitleComponent,
+	TooltipComponent,
+	LabelLayout,
+	CanvasRenderer,
+]);
 
 const EXTENDED_COLORS = [
 	'#5584FF',
@@ -127,11 +150,10 @@ export function useEchartsRenderer() {
 			const code = decodeChartConfig(rawConfig);
 			if (!code.trim()) return;
 
-			const options = new Function(`return (${code})`)() as Record<
-				string,
-				unknown
-			>;
-			if (!options.color) options.color = EXTENDED_COLORS;
+			const options = JSON.parse(code) as Record<string, unknown>;
+			if (!options.color) {
+				options.color = EXTENDED_COLORS;
+			}
 
 			const chart = echarts.getInstanceByDom(element) || echarts.init(element);
 			chart.setOption(options, true);

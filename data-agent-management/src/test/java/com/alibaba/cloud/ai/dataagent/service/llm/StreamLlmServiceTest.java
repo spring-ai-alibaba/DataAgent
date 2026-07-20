@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.llm;
 
+import com.alibaba.cloud.ai.dataagent.dto.prompt.FeasibilityAssessmentOutputDTO;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
 import com.alibaba.cloud.ai.dataagent.service.llm.impls.StreamLlmService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
@@ -26,11 +27,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,6 +54,9 @@ class StreamLlmServiceTest {
 	@Mock
 	private ChatClient.StreamResponseSpec streamResponseSpec;
 
+	@Mock
+	private ChatClient.CallResponseSpec callResponseSpec;
+
 	private StreamLlmService streamLlmService;
 
 	private ChatResponse mockResponse;
@@ -59,10 +67,13 @@ class StreamLlmServiceTest {
 		when(chatClient.prompt()).thenReturn(requestSpec);
 		when(requestSpec.system(anyString())).thenReturn(requestSpec);
 		when(requestSpec.user(anyString())).thenReturn(requestSpec);
+		when(requestSpec.advisors(any(Advisor[].class))).thenReturn(requestSpec);
 		when(requestSpec.stream()).thenReturn(streamResponseSpec);
+		when(requestSpec.call()).thenReturn(callResponseSpec);
 
 		mockResponse = ChatResponseUtil.createPureResponse("streamed output");
 		when(streamResponseSpec.chatResponse()).thenReturn(Flux.just(mockResponse));
+		when(callResponseSpec.chatResponse()).thenReturn(mockResponse);
 
 		streamLlmService = new StreamLlmService(registry);
 	}
@@ -92,6 +103,31 @@ class StreamLlmServiceTest {
 		StepVerifier.create(result)
 			.expectNextMatches(r -> ChatResponseUtil.getText(r).equals("streamed output"))
 			.verifyComplete();
+	}
+
+	@Test
+	void callUser_structuredOutput_usesBlockingAdvisorBecauseValidationDoesNotSupportStreaming() {
+		Flux<ChatResponse> result = streamLlmService.callUser("Hello", FeasibilityAssessmentOutputDTO.class);
+
+		StepVerifier.create(result)
+			.expectNextMatches(r -> ChatResponseUtil.getText(r).equals("streamed output"))
+			.verifyComplete();
+		verify(requestSpec).advisors(any(Advisor[].class));
+		verify(requestSpec).call();
+		verify(requestSpec, never()).stream();
+	}
+
+	@Test
+	void call_structuredOutput_preservesSystemRoleAndUsesValidationAdvisor() {
+		Flux<ChatResponse> result = streamLlmService.call("system", "user", FeasibilityAssessmentOutputDTO.class);
+
+		StepVerifier.create(result)
+			.expectNextMatches(r -> ChatResponseUtil.getText(r).equals("streamed output"))
+			.verifyComplete();
+		verify(requestSpec).system("system");
+		verify(requestSpec).user("user");
+		verify(requestSpec).advisors(any(Advisor[].class));
+		verify(requestSpec).call();
 	}
 
 }

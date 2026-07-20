@@ -206,12 +206,20 @@
 				<template #no-data>
 					<div class="text-center py-16">
 						<v-icon icon="mdi-robot-confused-outline" size="64" color="grey-lighten-2" class="mb-4" />
-						<h3 class="text-h6 font-weight-medium text-grey-darken-1">暂无智能体</h3>
+						<h3 class="text-h6 font-weight-medium text-grey-darken-1">
+							{{ debouncedSearch.trim() ? '未找到匹配的智能体' : '暂无智能体' }}
+						</h3>
 						<p class="text-body-2 text-grey mb-6">
-							{{ activeFilter === 'all' ? '您还没有创建任何智能体' : '该分类下暂无智能体' }}
+							{{
+								debouncedSearch.trim()
+									? `没有与“${debouncedSearch.trim()}”匹配的结果，请调整搜索条件`
+									: activeFilter === 'all'
+										? '您还没有创建任何智能体'
+										: '该分类下暂无智能体'
+							}}
 						</p>
 						<v-btn
-							v-if="activeFilter === 'all'"
+							v-if="activeFilter === 'all' && !debouncedSearch.trim()"
 							color="black"
 							variant="flat"
 							prepend-icon="mdi-plus"

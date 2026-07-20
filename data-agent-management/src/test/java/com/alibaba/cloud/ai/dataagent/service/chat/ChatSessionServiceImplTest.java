@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.ai.chat.memory.ChatMemory;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,9 +39,12 @@ class ChatSessionServiceImplTest {
 	@Mock
 	private ChatSessionMapper chatSessionMapper;
 
+	@Mock
+	private ChatMemory chatMemory;
+
 	@BeforeEach
 	void setUp() {
-		service = new ChatSessionServiceImpl(chatSessionMapper);
+		service = new ChatSessionServiceImpl(chatSessionMapper, chatMemory);
 	}
 
 	@Test
@@ -113,11 +117,16 @@ class ChatSessionServiceImplTest {
 
 	@Test
 	void clearSessionsByAgentId_callsSoftDelete() {
+		when(chatSessionMapper.selectByAgentId(1))
+			.thenReturn(List.of(ChatSession.builder().id("session-1").build(),
+					ChatSession.builder().id("session-2").build()));
 		when(chatSessionMapper.softDeleteByAgentId(eq(1), any(LocalDateTime.class))).thenReturn(3);
 
 		service.clearSessionsByAgentId(1);
 
 		verify(chatSessionMapper).softDeleteByAgentId(eq(1), any(LocalDateTime.class));
+		verify(chatMemory).clear("session-1");
+		verify(chatMemory).clear("session-2");
 	}
 
 	@Test
@@ -146,6 +155,7 @@ class ChatSessionServiceImplTest {
 		service.deleteSession("session-1");
 
 		verify(chatSessionMapper).softDeleteById(eq("session-1"), any(LocalDateTime.class));
+		verify(chatMemory).clear("session-1");
 	}
 
 }

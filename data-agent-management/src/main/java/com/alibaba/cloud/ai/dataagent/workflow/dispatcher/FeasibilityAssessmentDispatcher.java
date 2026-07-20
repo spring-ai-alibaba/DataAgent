@@ -31,10 +31,20 @@ public class FeasibilityAssessmentDispatcher implements EdgeAction {
 
 	@Override
 	public String apply(OverAllState state) throws Exception {
+		if (state.value(FEASIBILITY_ASSESSMENT_NODE_OUTPUT).isEmpty()) {
+			log.warn("Feasibility assessment result is missing, returning END");
+			return END;
+		}
 		FeasibilityAssessmentOutputDTO result = StateUtil.getObjectValue(state, FEASIBILITY_ASSESSMENT_NODE_OUTPUT,
-				FeasibilityAssessmentOutputDTO.class, (FeasibilityAssessmentOutputDTO) null);
-		if (result == null || result.getRequestType() == null || result.getRequestType().trim().isEmpty()) {
-			log.warn("Feasibility assessment result is null or empty, defaulting to END");
+				FeasibilityAssessmentOutputDTO.class);
+
+		if (result != null
+				&& result.getRequirementType() == FeasibilityAssessmentOutputDTO.RequirementType.DATA_ANALYSIS) {
+			log.info("[FeasibilityAssessmentNodeDispatcher]需求类型为数据分析，进入PlannerNode节点");
+			return PLANNER_NODE;
+		}
+		else {
+			log.info("[FeasibilityAssessmentNodeDispatcher]需求类型非数据分析，返回END节点");
 			return END;
 		}
 

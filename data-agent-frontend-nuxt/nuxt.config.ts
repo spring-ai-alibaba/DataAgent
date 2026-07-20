@@ -43,6 +43,20 @@ export default defineNuxtConfig({
 			},
 		},
 	},
+	vite: {
+		build: {
+			rollupOptions: {
+				output: {
+					manualChunks(id) {
+						if (id.includes('/node_modules/zrender/')) return 'vendor-zrender';
+						if (id.includes('/node_modules/echarts/')) return 'vendor-echarts';
+						if (id.includes('/node_modules/highlight.js/'))
+							return 'vendor-highlight';
+					},
+				},
+			},
+		},
+	},
 	//全局关闭ssr
 	ssr: false,
 	// /路由重定向到/create-agent

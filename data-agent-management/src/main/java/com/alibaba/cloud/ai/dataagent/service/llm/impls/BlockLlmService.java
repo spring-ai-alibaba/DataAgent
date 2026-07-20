@@ -18,9 +18,11 @@ package com.alibaba.cloud.ai.dataagent.service.llm.impls;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import lombok.AllArgsConstructor;
+import org.springframework.ai.chat.client.advisor.StructuredOutputValidationAdvisor;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @AllArgsConstructor
 public class BlockLlmService implements LlmService {
@@ -35,6 +37,24 @@ public class BlockLlmService implements LlmService {
 	}
 
 	@Override
+	public Flux<ChatResponse> call(String system, String user, Class<?> outputType) {
+		StructuredOutputValidationAdvisor advisor = StructuredOutputValidationAdvisor.builder()
+			.outputType(outputType)
+			.maxRepeatAttempts(2)
+			.build();
+		return Mono
+			.fromCallable(() -> registry.getChatClient()
+				.prompt()
+				.system(system)
+				.user(user)
+				.advisors(advisor)
+				.call()
+				.chatResponse())
+			.subscribeOn(Schedulers.boundedElastic())
+			.flux();
+	}
+
+	@Override
 	public Flux<ChatResponse> callSystem(String system) {
 		return Mono.fromCallable(() -> registry.getChatClient().prompt().system(system).call().chatResponse()).flux();
 	}
@@ -42,6 +62,17 @@ public class BlockLlmService implements LlmService {
 	@Override
 	public Flux<ChatResponse> callUser(String user) {
 		return Mono.fromCallable(() -> registry.getChatClient().prompt().user(user).call().chatResponse()).flux();
+	}
+
+	@Override
+	public Flux<ChatResponse> callUser(String user, Class<?> outputType) {
+		StructuredOutputValidationAdvisor advisor = StructuredOutputValidationAdvisor.builder()
+			.outputType(outputType)
+			.maxRepeatAttempts(2)
+			.build();
+		return Mono
+			.fromCallable(() -> registry.getChatClient().prompt().user(user).advisors(advisor).call().chatResponse())
+			.flux();
 	}
 
 }

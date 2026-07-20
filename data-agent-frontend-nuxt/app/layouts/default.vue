@@ -314,13 +314,23 @@
 import BaseDrawer from '../components/BaseDrawer/index.vue';
 import agentService from '~/services/agent/index';
 import modelConfigService from '~/services/modelConfig/index';
+import { useDisplay } from 'vuetify';
 
 const { dialogState, handleGlobalConfirm } = useConfirm();
 const drawer = ref(true);
+const { mobile } = useDisplay();
 const router = useRouter();
 const route = useRoute();
 // 默认都展开
 const openedGroups = ref(['knowledge', 'system']);
+
+watch(
+	mobile,
+	(isMobile) => {
+		if (isMobile) drawer.value = false;
+	},
+	{ immediate: true },
+);
 
 type DrawerAgentOption = {
 	id: number;

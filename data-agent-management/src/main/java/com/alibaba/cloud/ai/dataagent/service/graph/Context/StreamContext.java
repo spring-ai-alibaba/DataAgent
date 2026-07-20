@@ -24,6 +24,9 @@ import reactor.core.Disposable;
 import reactor.core.publisher.Sinks;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * 流式处理上下文，封装每个 threadId 的所有相关状态
@@ -34,6 +37,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Data
 public class StreamContext {
 
+	private String conversationId;
+
 	private Disposable disposable;
 
 	private Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink;
@@ -41,6 +46,27 @@ public class StreamContext {
 	private Span span;
 
 	private TextType textType;
+
+	private String finalAnswer;
+
+	private final Map<String, Integer> nodeAttempts = new HashMap<>();
+
+	private String activeNode;
+
+	private String activeStepId;
+
+	private int activeAttempt;
+
+	private int stepSequence;
+
+	public synchronized StepIdentity resolveStep(String nodeName) {
+		if (!Objects.equals(activeNode, nodeName)) {
+			activeNode = nodeName;
+			activeAttempt = nodeAttempts.merge(nodeName, 1, Integer::sum);
+			activeStepId = nodeName + "-" + (++stepSequence);
+		}
+		return new StepIdentity(activeStepId, activeAttempt);
+	}
 
 	/**
 	 * 收集流式输出内容，用于 Langfuse 上报
@@ -97,6 +123,9 @@ public class StreamContext {
 	 */
 	public boolean isCleaned() {
 		return cleaned.get();
+	}
+
+	public record StepIdentity(String stepId, int attempt) {
 	}
 
 }

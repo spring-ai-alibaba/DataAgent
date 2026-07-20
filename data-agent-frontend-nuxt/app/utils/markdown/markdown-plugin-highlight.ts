@@ -27,6 +27,8 @@ hljs.registerLanguage('json', Json);
 hljs.registerLanguage('python', Python);
 hljs.registerLanguage('javascript', JavaScript);
 
+export { hljs };
+
 declare global {
 	interface Window {
 		copyCodeBlock?: (btn: HTMLElement) => void;

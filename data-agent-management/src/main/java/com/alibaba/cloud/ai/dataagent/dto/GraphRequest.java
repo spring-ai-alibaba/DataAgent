@@ -28,6 +28,10 @@ public class GraphRequest {
 
 	private String agentId;
 
+	/** Stable chat-memory conversation identifier. */
+	private String conversationId;
+
+	/** Graph run identifier. Reused only when resuming human feedback. */
 	private String threadId;
 
 	private String query;

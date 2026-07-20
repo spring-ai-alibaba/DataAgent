@@ -56,6 +56,7 @@ class Nl2SqlServiceImplTest {
 
 		ChatResponse mockResponse = ChatResponseUtil.createPureResponse("test response");
 		when(llmService.callUser(anyString())).thenReturn(Flux.just(mockResponse));
+		when(llmService.callUser(anyString(), any())).thenReturn(Flux.just(mockResponse));
 		when(llmService.callSystem(anyString())).thenReturn(Flux.just(mockResponse));
 		when(llmService.toStringFlux(any())).thenReturn(Flux.just("SELECT * FROM users"));
 	}
@@ -82,7 +83,7 @@ class Nl2SqlServiceImplTest {
 		Flux<ChatResponse> result = nl2SqlService.performSemanticConsistency(dto);
 
 		StepVerifier.create(result).expectNextCount(1).verifyComplete();
-		verify(llmService).callUser(anyString());
+		verify(llmService).callUser(anyString(), any());
 	}
 
 	@Test
@@ -171,7 +172,7 @@ class Nl2SqlServiceImplTest {
 			.build();
 
 		nl2SqlService.performSemanticConsistency(dto);
-		verify(llmService).callUser(anyString());
+		verify(llmService).callUser(anyString(), any());
 	}
 
 	@Test

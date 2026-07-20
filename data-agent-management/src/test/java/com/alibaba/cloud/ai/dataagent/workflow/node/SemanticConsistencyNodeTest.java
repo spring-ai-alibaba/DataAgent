@@ -91,7 +91,7 @@ class SemanticConsistencyNodeTest {
 		setupBasicState(state, "SELECT * FROM users");
 
 		when(nl2SqlService.performSemanticConsistency(any(SemanticConsistencyDTO.class)))
-			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("通过：SQL语义一致")));
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"passed\":true,\"reason\":\"SQL语义一致\"}")));
 
 		Map<String, Object> result = semanticConsistencyNode.apply(state);
 
@@ -106,7 +106,7 @@ class SemanticConsistencyNodeTest {
 		setupBasicState(state, "SELECT * FROM nonexistent");
 
 		when(nl2SqlService.performSemanticConsistency(any(SemanticConsistencyDTO.class)))
-			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("不通过：表不存在")));
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"passed\":false,\"reason\":\"表不存在\"}")));
 
 		Map<String, Object> result = semanticConsistencyNode.apply(state);
 
@@ -139,8 +139,9 @@ class SemanticConsistencyNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state, "SELECT id, name FROM users WHERE age > 18");
 
-		when(nl2SqlService.performSemanticConsistency(any(SemanticConsistencyDTO.class))).thenReturn(
-				Flux.just(ChatResponseUtil.createPureResponse("通过："), ChatResponseUtil.createPureResponse("SQL查询合理")));
+		when(nl2SqlService.performSemanticConsistency(any(SemanticConsistencyDTO.class)))
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"passed\":true,"),
+					ChatResponseUtil.createPureResponse("\"reason\":\"SQL查询合理\"}")));
 
 		Map<String, Object> result = semanticConsistencyNode.apply(state);
 
@@ -158,7 +159,7 @@ class SemanticConsistencyNodeTest {
 				PLANNER_NODE_OUTPUT, planJson, PLAN_CURRENT_STEP, 1));
 
 		when(nl2SqlService.performSemanticConsistency(any(SemanticConsistencyDTO.class)))
-			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("通过")));
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"passed\":true,\"reason\":\"通过\"}")));
 
 		Map<String, Object> result = semanticConsistencyNode.apply(state);
 

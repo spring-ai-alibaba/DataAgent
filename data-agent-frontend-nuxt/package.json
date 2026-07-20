@@ -7,6 +7,7 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
+    "test:unit": "nuxt prepare && vitest run",
     "postinstall": "nuxt prepare",
     "gen:ctx": "node scripts/gen-ai-context.mjs"
   },
@@ -38,6 +39,7 @@
     "globby": "^16.1.0",
     "ts-morph": "^27.0.2",
     "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
     "vue-docgen-api": "^4.79.2"
   }
 }

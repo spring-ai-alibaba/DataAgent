@@ -569,24 +569,19 @@ onUnmounted(() => document.removeEventListener('click', closeMenus));
 	opacity: 0.85;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-	transition: opacity 0.15s;
-}
+/* ── Transitions ─────────────────────────────────────────────────────────────── */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.15s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+.slide-up-enter-active, .slide-up-leave-active { transition: all 0.2s ease; }
+.slide-up-enter-from, .slide-up-leave-to { transform: translateY(10px); opacity: 0; }
 
-.fade-enter-from,
-.fade-leave-to {
-	opacity: 0;
-}
+@media (max-width: 768px) {
+	.input-area {
+		padding: 10px 12px 12px;
+	}
 
-.slide-up-enter-active,
-.slide-up-leave-active {
-	transition: all 0.2s ease;
-}
-
-.slide-up-enter-from,
-.slide-up-leave-to {
-	transform: translateY(10px);
-	opacity: 0;
+	.chip-dropdown {
+		max-width: calc(100vw - 24px);
+	}
 }
 </style>

@@ -36,6 +36,8 @@ public final class Constant {
 
 	public static final String RESULT = "result";
 
+	public static final String FINAL_ANSWER = "final_answer";
+
 	public static final String NL2SQL_GRAPH_NAME = "nl2sqlGraph";
 
 	public static final String INTENT_RECOGNITION_NODE_OUTPUT = "INTENT_RECOGNITION_NODE_OUTPUT";

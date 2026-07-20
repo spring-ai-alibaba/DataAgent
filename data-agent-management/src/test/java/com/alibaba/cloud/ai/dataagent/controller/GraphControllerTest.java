@@ -16,6 +16,8 @@
 package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
+import com.alibaba.cloud.ai.dataagent.enums.GraphEventType;
+import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.service.graph.GraphService;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,6 +33,8 @@ import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.http.HttpHeaders;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
+
+import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -61,8 +65,8 @@ class GraphControllerTest {
 	void streamSearch_validRequest_invokesGraphServiceAndReturnsFlux() {
 		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
-		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "thread-1",
-				"show me sales data", false, null, null, null, false, false, serverHttpResponse);
+		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-1",
+				"thread-1", "show me sales data", false, null, false, false, serverHttpResponse);
 
 		assertNotNull(result);
 
@@ -71,6 +75,7 @@ class GraphControllerTest {
 
 		GraphRequest captured = requestCaptor.getValue();
 		assertEquals("agent-1", captured.getAgentId());
+		assertEquals("conversation-1", captured.getConversationId());
 		assertEquals("thread-1", captured.getThreadId());
 		assertEquals("show me sales data", captured.getQuery());
 		assertFalse(captured.isHumanFeedback());
@@ -80,8 +85,8 @@ class GraphControllerTest {
 	void streamSearch_humanFeedback_passesHumanFeedbackParams() {
 		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
-		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "thread-2",
-				"approve this plan", true, "looks good", null, null, false, false, serverHttpResponse);
+		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-2",
+				"thread-2", "approve this plan", true, "looks good", false, false, serverHttpResponse);
 
 		assertNotNull(result);
 
@@ -98,8 +103,8 @@ class GraphControllerTest {
 	void streamSearch_nl2sqlOnly_setsNl2sqlOnlyFlag() {
 		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
-		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", null, "SELECT query",
-				false, null, null, null, false, true, serverHttpResponse);
+		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-3",
+				null, "SELECT query", false, null, false, true, serverHttpResponse);
 
 		assertNotNull(result);
 
@@ -112,18 +117,46 @@ class GraphControllerTest {
 	}
 
 	@Test
-	void streamSearch_clarificationResume_passesClarificationParams() {
-		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
+	void streamSearch_protocolEventWithoutText_isNotFilteredOut() {
+		doAnswer(invocation -> {
+			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = invocation.getArgument(0);
+			sink.tryEmitNext(ServerSentEvent
+				.builder(GraphNodeResponse.builder()
+					.agentId("agent-1")
+					.threadId("run-1")
+					.eventType(GraphEventType.HUMAN_FEEDBACK_REQUIRED)
+					.textType(TextType.TEXT)
+					.build())
+				.build());
+			sink.tryEmitComplete();
+			return null;
+		}).when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
-		graphController.streamSearch("agent-1", "thread-3", "华东区", false, null, "华东区", "clarification", false,
-				false, serverHttpResponse);
+		GraphNodeResponse response = graphController
+			.streamSearch("agent-1", "conversation-1", null, "review the plan", true, null, false, false,
+					serverHttpResponse)
+			.map(ServerSentEvent::data)
+			.blockFirst(Duration.ofSeconds(1));
 
-		ArgumentCaptor<GraphRequest> requestCaptor = ArgumentCaptor.forClass(GraphRequest.class);
-		verify(graphService).graphStreamProcess(any(Sinks.Many.class), requestCaptor.capture());
+		assertNotNull(response);
+		assertEquals(GraphEventType.HUMAN_FEEDBACK_REQUIRED, response.getEventType());
+		assertNull(response.getText());
+	}
 
-		GraphRequest captured = requestCaptor.getValue();
-		assertEquals("华东区", captured.getClarificationAnswer());
-		assertEquals("clarification", captured.getResumeMode());
+	@Test
+	void stopStream_withRunId_stopsExactGraphRun() {
+		graphController.stopStream("conversation-4", "run-4");
+
+		verify(graphService).stopStreamProcessing("run-4");
+		verify(graphService, never()).stopStreamProcessingByConversationId(anyString());
+	}
+
+	@Test
+	void stopStream_withoutRunId_stopsConversationRun() {
+		graphController.stopStream("conversation-5", null);
+
+		verify(graphService).stopStreamProcessingByConversationId("conversation-5");
+		verify(graphService, never()).stopStreamProcessing(anyString());
 	}
 
 }

@@ -65,6 +65,11 @@ public class MockLlmService implements LlmService {
 	}
 
 	@Override
+	public Flux<ChatResponse> call(String system, String user, Class<?> outputType) {
+		return call(system, user);
+	}
+
+	@Override
 	public Flux<ChatResponse> callSystem(String system) {
 		String response = findResponse(system);
 		return Flux.just(ChatResponseUtil.createPureResponse(response));
@@ -74,6 +79,11 @@ public class MockLlmService implements LlmService {
 	public Flux<ChatResponse> callUser(String user) {
 		String response = findResponse(user);
 		return Flux.just(ChatResponseUtil.createPureResponse(response));
+	}
+
+	@Override
+	public Flux<ChatResponse> callUser(String user, Class<?> outputType) {
+		return callUser(user);
 	}
 
 }

@@ -21,18 +21,15 @@ import com.alibaba.cloud.ai.dataagent.service.code.impls.AiSimulationCodeExecuto
 import com.alibaba.cloud.ai.dataagent.service.code.impls.LocalCodePoolExecutorService;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import lombok.AllArgsConstructor;
-import org.springframework.beans.factory.FactoryBean;
-import org.springframework.stereotype.Component;
 
 /**
- * 运行Python任务的容器池（工厂Bean）
+ * 运行 Python 任务的容器池实现选择器
  *
  * @author vlsmb
  * @since 2025/7/28
  */
-@Component
 @AllArgsConstructor
-public class CodePoolExecutorServiceFactory implements FactoryBean<CodePoolExecutorService> {
+public class CodePoolExecutorServiceFactory {
 
 	private final CodeExecutorProperties properties;
 
@@ -40,7 +37,6 @@ public class CodePoolExecutorServiceFactory implements FactoryBean<CodePoolExecu
 
 	private final DockerExecutorFactory dockerExecutorFactory;
 
-	@Override
 	public CodePoolExecutorService getObject() {
 		return switch (properties.getCodePoolExecutor()) {
 			case DOCKER -> dockerExecutorFactory.create(properties);
@@ -51,7 +47,6 @@ public class CodePoolExecutorServiceFactory implements FactoryBean<CodePoolExecu
 		};
 	}
 
-	@Override
 	public Class<?> getObjectType() {
 		return CodePoolExecutorService.class;
 	}

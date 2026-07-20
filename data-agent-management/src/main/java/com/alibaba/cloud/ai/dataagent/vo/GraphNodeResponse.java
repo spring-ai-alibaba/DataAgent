@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.vo;
 
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.enums.GraphEventType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -30,6 +31,13 @@ public class GraphNodeResponse {
 	private String agentId;
 
 	private String threadId;
+
+	@Builder.Default
+	private GraphEventType eventType = GraphEventType.NODE_OUTPUT;
+
+	private String stepId;
+
+	private Integer attempt;
 
 	// 使用Constant常量
 	private String nodeName;
@@ -66,6 +74,16 @@ public class GraphNodeResponse {
 			.threadId(threadId)
 			.complete(true)
 			.textType(TextType.TEXT)
+			.build();
+	}
+
+	public static GraphNodeResponse finalAnswer(String agentId, String threadId, String text) {
+		return GraphNodeResponse.builder()
+			.agentId(agentId)
+			.threadId(threadId)
+			.eventType(GraphEventType.FINAL_ANSWER)
+			.textType(TextType.TEXT)
+			.text(text)
 			.build();
 	}
 

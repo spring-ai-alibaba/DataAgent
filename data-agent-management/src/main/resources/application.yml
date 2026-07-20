@@ -18,7 +18,6 @@ spring:
     username: ${DATA_AGENT_DATASOURCE_USERNAME:root}
     password: ${DATA_AGENT_DATASOURCE_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
-    type: com.alibaba.druid.pool.DruidDataSource
   sql:
     init:
       mode: ${DATA_AGENT_DATASOURCE_SQL_INIT:never}
@@ -28,11 +27,11 @@ spring:
       separator: ;
       encoding: utf-8
   ai:
-    mcp:
-      server:
-        protocol: STREAMABLE
-        streamable-http:
-          mcp-endpoint: /mcp
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: always
     vectorstore:
       type: elasticsearch
       elasticsearch:
@@ -94,8 +93,3 @@ logging:
     com.alibaba.cloud.ai.dataagent.workflow.node: debug
     com.alibaba.cloud.ai.mapper: debug
     org.springframework.jdbc: debug
-
-
-
-# 前端打包： npm run dev -- --host 0.0.0.0
-# npm.cmd run generate

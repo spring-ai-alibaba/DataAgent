@@ -228,6 +228,14 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 				.map(DocumentConverterUtil::convertBusinessKnowledgeToDocument)
 				.toList();
 			agentVectorStoreService.addDocuments(agentId, documents);
+
+			// 批量更新 embedding_status 为 COMPLETED，避免前端一直显示"等待中"
+			for (BusinessKnowledge knowledge : recalledKnowledge) {
+				knowledge.setEmbeddingStatus(EmbeddingStatus.COMPLETED);
+				knowledge.setErrorMsg(null);
+				businessKnowledgeMapper.updateById(knowledge);
+			}
+			log.info("Updated {} business knowledge records to COMPLETED status", recalledKnowledge.size());
 		}
 	}
 

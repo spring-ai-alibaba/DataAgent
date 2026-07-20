@@ -805,4 +805,17 @@ onUnmounted(() => {
 	border: 1px solid #fca5a5;
 	color: #991b1b;
 }
+
+@media (max-width: 768px) {
+	.messages-inner {
+		padding: 16px 12px;
+		gap: 14px;
+	}
+
+	.user-card,
+	.ai-card,
+	.status-banner {
+		max-width: calc(100% - 38px);
+	}
+}
 </style>

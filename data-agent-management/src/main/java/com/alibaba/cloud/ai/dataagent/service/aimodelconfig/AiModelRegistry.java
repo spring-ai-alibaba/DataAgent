@@ -125,33 +125,37 @@ public class AiModelRegistry {
 
 		@Override
 		public EmbeddingResponse call(EmbeddingRequest request) {
-			throw new RuntimeException("No active EMBEDDING model. Please configure it first!");
+			throw noActiveEmbeddingModel();
 		}
 
 		@Override
 		public float[] embed(Document document) {
-			return new float[0];
+			throw noActiveEmbeddingModel();
 		}
 
 		@Override
 		public float[] embed(String text) {
-			return new float[0];
+			throw noActiveEmbeddingModel();
 		}
 
 		@Override
 		public List<float[]> embed(List<String> texts) {
-			return List.of();
+			throw noActiveEmbeddingModel();
 		}
 
 		@Override
 		public EmbeddingResponse embedForResponse(List<String> texts) {
-			return null;
+			throw noActiveEmbeddingModel();
 		}
 
 		// 关键：返回一个常用维度 (1536是OpenAI的维度)，骗过向量库的初始化检查
 		@Override
 		public int dimensions() {
 			return 1536;
+		}
+
+		private RuntimeException noActiveEmbeddingModel() {
+			return new IllegalStateException("No active EMBEDDING model. Please configure it first!");
 		}
 
 	}

@@ -19,10 +19,16 @@ import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.memory.ChatMemoryRepository;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.MessageType;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -39,8 +45,9 @@ public class MultiTurnContextManager {
 
 	private final DataAgentProperties properties;
 
-	// todo：考虑持久化存储
-	private final Map<String, Deque<ConversationTurn>> history = new ConcurrentHashMap<>();
+	private final ChatMemory chatMemory;
+
+	private final ChatMemoryRepository chatMemoryRepository;
 
 	private final Map<String, PendingTurn> pendingTurns = new ConcurrentHashMap<>();
 
@@ -87,13 +94,7 @@ public class MultiTurnContextManager {
 		}
 
 		String trimmedPlan = StringUtils.abbreviate(plan, properties.getMaxplanlength());
-		Deque<ConversationTurn> deque = history.computeIfAbsent(threadId, k -> new ArrayDeque<>());
-		synchronized (deque) {
-			while (deque.size() >= properties.getMaxturnhistory()) {
-				deque.pollFirst();
-			}
-			deque.addLast(new ConversationTurn(pending.userQuestion, trimmedPlan));
-		}
+		chatMemory.add(threadId, List.of(new UserMessage(pending.userQuestion), new AssistantMessage(trimmedPlan)));
 	}
 
 	/**
@@ -111,17 +112,21 @@ public class MultiTurnContextManager {
 	 * @param threadId conversation thread id
 	 */
 	public void restartLastTurn(String threadId) {
-		Deque<ConversationTurn> deque = history.get(threadId);
-		if (deque == null || deque.isEmpty()) {
+		List<Message> messages = new ArrayList<>(chatMemoryRepository.findByConversationId(threadId));
+		int lastUserIndex = -1;
+		for (int i = messages.size() - 1; i >= 0; i--) {
+			if (messages.get(i).getMessageType() == MessageType.USER) {
+				lastUserIndex = i;
+				break;
+			}
+		}
+		if (lastUserIndex < 0) {
 			return;
 		}
-		ConversationTurn lastTurn;
-		synchronized (deque) {
-			lastTurn = deque.pollLast();
-		}
-		if (lastTurn != null) {
-			pendingTurns.put(threadId, new PendingTurn(lastTurn.userQuestion()));
-		}
+
+		Message lastUserMessage = messages.get(lastUserIndex);
+		chatMemoryRepository.saveAll(threadId, messages.subList(0, lastUserIndex));
+		pendingTurns.put(threadId, new PendingTurn(lastUserMessage.getText()));
 	}
 
 	/**
@@ -130,16 +135,21 @@ public class MultiTurnContextManager {
 	 * @return formatted history string
 	 */
 	public String buildContext(String threadId) {
-		Deque<ConversationTurn> deque = history.get(threadId);
-		if (deque == null || deque.isEmpty()) {
+		List<Message> messages = chatMemory.get(threadId);
+		if (messages.isEmpty()) {
 			return "(无)";
 		}
-		return deque.stream()
-			.map(turn -> "用户: " + turn.userQuestion() + "\nAI计划: " + turn.plan())
+		String context = messages.stream()
+			.filter(message -> message.getMessageType() == MessageType.USER
+					|| message.getMessageType() == MessageType.ASSISTANT)
+			.map(message -> formatMessage(message))
 			.collect(Collectors.joining("\n"));
+		return StringUtils.defaultIfBlank(context, "(无)");
 	}
 
-	private record ConversationTurn(String userQuestion, String plan) {
+	private String formatMessage(Message message) {
+		String prefix = message.getMessageType() == MessageType.USER ? "用户: " : "AI计划: ";
+		return prefix + message.getText();
 	}
 
 	private static class PendingTurn {

@@ -3,11 +3,11 @@
 
 -- 智能体示例数据（必须先插入，因为其他表依赖它）
 INSERT INTO agent (id, name, description, avatar, status, api_key, api_key_enabled, prompt, category, admin_id, tags, create_time, update_time) VALUES
-(1, '中国人口GDP数据智能体', '专门处理中国人口和GDP相关数据查询分析的智能体', '/avatars/china-gdp-agent.png', 'draft', NULL, 0, '你是一个专业的数据分析助手，专门处理中国人口和GDP相关的数据查询。请根据用户的问题，生成准确的SQL查询语句。', '数据分析', 2100246635, '人口数据,GDP分析,经济统计', NOW(), NOW()),
-(2, '销售数据分析智能体', '专注于销售数据分析和业务指标计算的智能体', '/avatars/sales-agent.png', 'draft', NULL, 0, '你是一个销售数据分析专家，能够帮助用户分析销售趋势、客户行为和业务指标。', '业务分析', 2100246635, '销售分析,业务指标,客户分析', NOW(), NOW()),
-(3, '财务报表智能体', '专门处理财务数据和报表分析的智能体', '/avatars/finance-agent.png', 'draft', NULL, 0, '你是一个财务分析专家，专门处理财务数据查询和报表生成。', '财务分析', 2100246635, '财务数据,报表分析,会计', NOW(), NOW()),
-(4, '库存管理智能体', '专注于库存数据管理和供应链分析的智能体', '/avatars/inventory-agent.png', 'draft', NULL, 0, '你是一个库存管理专家，能够帮助用户查询库存状态、分析供应链数据。', '供应链', 2100246635, '库存管理,供应链,物流', NOW(), NOW())
-ON DUPLICATE KEY UPDATE name=VALUES(name);
+(1, '电商订单分析智能体', '基于用户、商品、订单和分类数据进行查询与经营分析', NULL, 'draft', NULL, 0, '你是一个电商运营数据分析助手。请仅基于已连接数据库中的用户、商品、订单、订单明细和分类数据回答问题，生成与真实字段一致的SQL。', '电商分析', 2100246635, '订单分析,商品分析,用户分析', NOW(), NOW()),
+(2, '销售数据分析智能体', '专注于销售数据分析和业务指标计算的智能体', NULL, 'draft', NULL, 0, '你是一个销售数据分析专家，能够帮助用户分析销售趋势、客户行为和业务指标。', '业务分析', 2100246635, '销售分析,业务指标,客户分析', NOW(), NOW()),
+(3, '财务报表智能体', '专门处理财务数据和报表分析的智能体', NULL, 'draft', NULL, 0, '你是一个财务分析专家，专门处理财务数据查询和报表生成。', '财务分析', 2100246635, '财务数据,报表分析,会计', NOW(), NOW()),
+(4, '库存管理智能体', '专注于库存数据管理和供应链分析的智能体', NULL, 'draft', NULL, 0, '你是一个库存管理专家，能够帮助用户查询库存状态、分析供应链数据。', '供应链', 2100246635, '库存管理,供应链,物流', NOW(), NOW())
+ON DUPLICATE KEY UPDATE name=VALUES(name), description=VALUES(description), avatar=VALUES(avatar), prompt=VALUES(prompt), category=VALUES(category), tags=VALUES(tags);
 
 -- 数据源示例数据（必须先插入，因为其他表依赖它）
 -- 示例数据源可以运行docker-compose-datasource.yml建立，或者手动修改为自己的数据源
@@ -19,32 +19,32 @@ ON DUPLICATE KEY UPDATE name=VALUES(name);
 
 -- 业务知识示例数据（依赖 agent）
 INSERT INTO business_knowledge (id, business_term, description, synonyms, is_recall, agent_id, created_time, updated_time) VALUES
-(1, 'Customer Satisfaction', 'Measures how satisfied customers are with the service or product.', 'customer happiness, client contentment', 0, 1, NOW(), NOW()),
-(2, 'Net Promoter Score', 'A measure of the likelihood of customers recommending a company to others.', 'NPS, customer loyalty score', 0, 1, NOW(), NOW()),
+(1, '成交金额', '成交金额为 status = ''completed'' 的订单 total_amount 之和。', '销售额, 成交额, 已完成订单金额', 1, 1, NOW(), NOW()),
+(2, '订单用户', '订单通过 orders.user_id = users.id 关联用户。', '客户, 买家, 下单用户', 1, 1, NOW(), NOW()),
 (3, 'Customer Retention Rate', 'The percentage of customers who continue to use a service over a given period.', 'retention, customer loyalty', 0, 2, NOW(), NOW())
 ON DUPLICATE KEY UPDATE business_term=VALUES(business_term);
 
 -- 语义模型示例数据（依赖 agent 和 datasource）
 INSERT INTO semantic_model (id, agent_id, datasource_id, table_name, column_name, business_name, synonyms, business_description, column_comment, data_type, created_time, updated_time, status) VALUES
-(1, 1, 2, 'customer_feedback', 'csat_score', 'customerSatisfactionScore', 'satisfaction score, customer rating', 'Customer satisfaction rating from 1-10', '客户满意度评分', 'integer', NOW(), NOW(), 0),
-(2, 1, 2, 'customer_feedback', 'nps_value', 'netPromoterScore', 'NPS, promoter score', 'Net Promoter Score from -100 to 100', '净推荐值', 'integer', NOW(), NOW(), 0),
+(1, 1, 3, 'orders', 'total_amount', '订单金额', '销售额, 成交金额, 支付金额', '订单总金额，统计成交额时应过滤 status = completed。', '订单总金额', 'decimal(10,2)', NOW(), NOW(), 1),
+(2, 1, 3, 'orders', 'status', '订单状态', '状态, order_status', '订单状态为 pending、completed 或 cancelled。', '订单状态', 'varchar(20)', NOW(), NOW(), 1),
 (3, 2, 1, 'customer_metrics', 'retention_pct', 'customerRetentionRate', 'retention rate, loyalty rate', 'Percentage of retained customers', '客户保留率', 'decimal', NOW(), NOW(), 0)
 ON DUPLICATE KEY UPDATE business_name=VALUES(business_name);
 
 -- 智能体知识示例数据（依赖 agent）
-INSERT INTO agent_knowledge (id, agent_id, title, content, type, is_recall, embedding_status, file_type, created_time, updated_time) VALUES 
-(1, 1, '中国人口统计数据说明', '中国人口统计数据包含了历年的人口总数、性别比例、年龄结构、城乡分布等详细信息。数据来源于国家统计局，具有权威性和准确性。查询时请注意数据的时间范围和统计口径。', 'DOCUMENT', 1, 'PENDING', 'text', NOW(), NOW()),
-(2, 1, 'GDP数据使用指南', 'GDP（国内生产总值）数据反映了国家经济发展水平。包含名义GDP、实际GDP、GDP增长率等指标。数据按季度和年度进行统计，支持按地区、行业进行分类查询。', 'DOCUMENT', 1, 'PENDING', 'text', NOW(), NOW()),
-(3, 1, '常见查询问题', '问：如何查询2023年的人口数据？\n答：可以使用"SELECT * FROM population WHERE year = 2023"进行查询。\n\n问：如何计算GDP增长率？\n答：GDP增长率 = (当年GDP - 上年GDP) / 上年GDP * 100%', 'QA', 1, 'PENDING', 'text', NOW(), NOW()),
-(4, 2, '销售数据字段说明', '销售数据表包含以下关键字段：\n- sales_amount：销售金额\n- customer_id：客户ID\n- product_id：产品ID\n- sales_date：销售日期\n- region：销售区域\n- sales_rep：销售代表', 'DOCUMENT', 1, 'PENDING', 'text', NOW(), NOW()),
-(5, 2, '客户分析指标体系', '客户分析包含多个维度：\n1. 客户价值分析：RFM模型（最近购买时间、购买频次、购买金额）\n2. 客户生命周期：新客户、活跃客户、流失客户\n3. 客户满意度：NPS评分、满意度调研\n4. 客户行为分析：购买偏好、渠道偏好', 'DOCUMENT', 1, 'PENDING', 'text', NOW(), NOW()),
-(6, 3, '财务报表模板', '标准财务报表包含：\n1. 资产负债表：反映企业财务状况\n2. 利润表：反映企业经营成果\n3. 现金流量表：反映企业现金流动情况\n4. 所有者权益变动表：反映股东权益变化', 'DOCUMENT', 1, 'PENDING', 'pdf', NOW(), NOW()),
-(7, 4, '库存管理最佳实践', '库存管理的核心要点：\n1. 安全库存设置：确保不断货\n2. ABC分类管理：重点管理A类物料\n3. 先进先出原则：避免库存积压\n4. 定期盘点：确保数据准确性\n5. 供应商管理：建立稳定供应关系', 'DOCUMENT', 1, 'PENDING', 'text', NOW(), NOW())
-ON DUPLICATE KEY UPDATE title=VALUES(title);
+INSERT INTO agent_knowledge (id, agent_id, title, content, type, is_recall, embedding_status, file_type, question, created_time, updated_time) VALUES
+(1, 1, '电商示例数据库表结构说明', '核心表包括 users、products、orders、order_items、categories 和 product_categories。orders.user_id 关联 users.id，order_items 关联订单和商品。', 'QA', 1, 'PENDING', 'text', '电商示例数据库有哪些核心表和关联关系？', NOW(), NOW()),
+(2, 1, '订单经营分析标准流程', '订单分析先按 status 过滤，再按 order_date 确定时间范围。成交金额使用 SUM(total_amount)，成交订单状态为 completed。', 'QA', 1, 'PENDING', 'text', '如何进行订单经营分析？', NOW(), NOW()),
+(3, 1, '统计已完成订单金额', 'SELECT SUM(total_amount) FROM orders WHERE status = ''completed''。', 'QA', 1, 'PENDING', 'text', '如何统计已完成订单金额？', NOW(), NOW()),
+(4, 2, '销售数据字段说明', '销售分析以真实 orders 字段为准：order_date、total_amount、status、user_id。商品维度通过 order_items 连接 products。', 'QA', 1, 'PENDING', 'text', '销售分析使用哪些真实字段？', NOW(), NOW()),
+(5, 2, '客户分析指标体系', '客户价值可按已完成订单金额、订单数和最近下单时间分析，使用 orders.user_id 关联 users.id。', 'FAQ', 1, 'PENDING', 'text', '如何基于订单分析客户价值？', NOW(), NOW()),
+(6, 3, '财务报表能力边界', '当前示例数据没有会计科目、凭证和现金流表，不能生成可靠财务报表；应先绑定包含财务数据的数据源。', 'FAQ', 1, 'PENDING', 'text', '当前示例库能否生成财务报表？', NOW(), NOW()),
+(7, 4, '库存分析能力边界', '当前示例库可使用 products.stock 查看商品库存，但没有入库、出库、仓库和供应商流水，无法完成完整供应链分析。', 'FAQ', 1, 'PENDING', 'text', '当前示例库支持哪些库存分析？', NOW(), NOW())
+ON DUPLICATE KEY UPDATE title=VALUES(title), content=VALUES(content), type=VALUES(type), file_type=VALUES(file_type), question=VALUES(question);
 
 -- 智能体数据源关联示例数据（依赖 agent 和 datasource）
 INSERT INTO agent_datasource (id, agent_id, datasource_id, is_active, create_time, update_time) VALUES 
-(1, 1, 2, 0, NOW(), NOW()),  -- 中国人口GDP数据智能体使用数据仓库
+(1, 1, 3, 1, NOW(), NOW()),  -- 电商订单分析智能体使用H2示例数据库
 (2, 2, 1, 0, NOW(), NOW()),  -- 销售数据分析智能体使用生产环境数据库
 (3, 3, 1, 0, NOW(), NOW()),  -- 财务报表智能体使用生产环境数据库
 (4, 4, 1, 0, NOW(), NOW())  -- 库存管理智能体使用生产环境数据库

@@ -43,13 +43,13 @@
 		<v-timeline density="compact" side="end" truncate-line="both">
 			<v-timeline-item
 				v-for="step in timelineSteps"
-				:key="step.nodeName"
+				:key="step.stepId"
 				:dot-color="dotColor(step.status)"
 				:icon="dotIcon(step.status)"
 				size="small"
 			>
 				<!-- Step header: clickable to toggle -->
-				<div class="step-header" @click="toggleStep(step.nodeName)">
+				<div class="step-header" @click="toggleStep(step)">
 					<div class="step-header-left">
 						<span class="step-label">{{ step.label }}</span>
 						<span v-if="step.status === 'active'" class="step-badge active">
@@ -71,16 +71,8 @@
 						class="step-content"
 						:class="{ 'is-muted': step.status === 'done' && !step.isReport }"
 					>
-						<!-- Result Set -->
-						<ChatResultSet
-							v-if="
-								step.block[0]?.textType === 'RESULT_SET' && step.block[0]?.text
-							"
-							:data="safeParseJson(step.block[0].text)"
-							:page-size="10"
-						/>
 						<!-- Report node: show brief status, not full content -->
-						<div v-else-if="step.isReport" class="text-body report-brief">
+						<div v-if="step.isReport" class="text-body report-brief">
 							<v-icon size="14" color="#16a34a" class="mr-1"
 								>mdi-file-chart-outline</v-icon
 							>
@@ -91,43 +83,21 @@
 						</div>
 						<!-- Pure code block (all items share same code type) -->
 						<div
-							v-else-if="isPureCodeBlock(step.block)"
-							class="step-output"
-						>
-							<div class="step-output-scroll" v-html="renderCode(step.block)" />
-							<button
-								type="button"
-								class="step-resize-handle"
-								title="拖拽调整高度"
-								aria-label="调整节点输出高度"
-								@pointerdown="startOutputResize"
-								@keydown.up.prevent="resizeOutputByKeyboard($event, -40)"
-								@keydown.down.prevent="resizeOutputByKeyboard($event, 40)"
-							>
-								<v-icon size="16">mdi-drag-horizontal</v-icon>
-							</button>
-						</div>
+							v-else-if="isPureCodeBlock(step.contentBlock)"
+							v-html="renderCode(step.contentBlock)"
+						/>
 						<!-- Mixed content: text with possible embedded JSON/code -->
 						<div
-							v-else
-							class="step-output text-body"
-						>
-							<div
-								class="step-output-scroll"
-								v-html="renderTextWithJsonDetection(step.block)"
-							/>
-							<button
-								type="button"
-								class="step-resize-handle"
-								title="拖拽调整高度"
-								aria-label="调整节点输出高度"
-								@pointerdown="startOutputResize"
-								@keydown.up.prevent="resizeOutputByKeyboard($event, -40)"
-								@keydown.down.prevent="resizeOutputByKeyboard($event, 40)"
-							>
-								<v-icon size="16">mdi-drag-horizontal</v-icon>
-							</button>
-						</div>
+							v-else-if="step.contentBlock.length"
+							class="text-body"
+							v-html="renderTextWithJsonDetection(step.contentBlock)"
+						/>
+						<!-- RESULT_SET arrives as another block from the same node. -->
+						<ChatResultSet
+							v-if="step.resultSetText && store.requestOptions.showSqlResults"
+							:data="safeParseJson(step.resultSetText)"
+							:page-size="10"
+						/>
 					</div>
 				</v-expand-transition>
 			</v-timeline-item>
@@ -136,11 +106,16 @@
 </template>
 
 <script setup lang="ts">
-import hljs from 'highlight.js';
 import DOMPurify from 'dompurify';
-import type { GraphNodeResponse } from '~/services/graph/index';
+import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
+import { hljs } from '~/utils/markdown/markdown-plugin-highlight';
+import { TextType, type GraphNodeResponse } from '~/services/graph/index';
 import type { ResultData } from '~/services/resultSet/index';
 import ChatResultSet from './ChatResultSet.vue';
+import { useChatStore } from '~/stores/chat';
+import { groupWorkflowTimeline } from '~/utils/workflowTimeline';
+
+const store = useChatStore();
 
 const props = withDefaults(
 	defineProps<{
@@ -163,14 +138,14 @@ const allExpanded = computed(() => {
 function toggleAll() {
 	const shouldExpand = !allExpanded.value;
 	for (const step of timelineSteps.value) {
-		expandedSteps.value[step.nodeName] = shouldExpand;
+		expandedSteps.value[step.stepId] = shouldExpand;
 	}
 }
 
-function toggleStep(nodeName: string) {
-	const defaultExpanded = getDefaultExpanded(nodeName);
-	expandedSteps.value[nodeName] = !(
-		expandedSteps.value[nodeName] ?? defaultExpanded
+function toggleStep(step: TimelineStep) {
+	const defaultExpanded = getDefaultExpanded(step.nodeName);
+	expandedSteps.value[step.stepId] = !(
+		expandedSteps.value[step.stepId] ?? defaultExpanded
 	);
 }
 
@@ -270,8 +245,11 @@ const NODE_LABEL_MAP: Record<string, NodeDef> = {
 };
 
 interface TimelineStep extends NodeDef {
+	stepId: string;
+	attempt: number;
 	status: 'pending' | 'active' | 'done';
-	block: GraphNodeResponse[];
+	contentBlock: GraphNodeResponse[];
+	resultSetText?: string;
 	expanded: boolean;
 	isReport: boolean;
 }
@@ -303,27 +281,23 @@ const normalizedNodeBlocks = computed(() =>
 );
 
 const timelineSteps = computed<TimelineStep[]>(() => {
-	const seen = new Set<string>();
-	const orderedNodeNames: string[] = [];
-	for (const block of normalizedNodeBlocks.value) {
-		const name = block[0]?.nodeName;
-		if (name && !seen.has(name)) {
-			seen.add(name);
-			orderedNodeNames.push(name);
-		}
-	}
+	const groups = groupWorkflowTimeline(props.nodeBlocks);
+	if (groups.length === 0) return [];
+	const lastIdx = groups.length - 1;
 
-	if (orderedNodeNames.length === 0) return [];
-	const lastIdx = orderedNodeNames.length - 1;
-
-	return orderedNodeNames.map((nodeName, idx) => {
+	return groups.map((group, idx) => {
+		const { nodeName, stepId, attempt, items: block } = group;
 		const def = NODE_LABEL_MAP[nodeName] || {
 			nodeName,
 			label: nodeName,
 			icon: 'mdi-lightning-bolt',
 		};
-		const block =
-			normalizedNodeBlocks.value.find((b) => b[0]?.nodeName === nodeName) || [];
+		const contentBlock = block.filter(
+			(item) => item.textType !== TextType.RESULT_SET,
+		);
+		const resultSetText = [...block].reverse().find(
+			(item) => item.textType === TextType.RESULT_SET && item.text,
+		)?.text;
 		const isReport = nodeName === 'ReportGeneratorNode';
 
 		let status: 'pending' | 'active' | 'done' = 'pending';
@@ -335,9 +309,13 @@ const timelineSteps = computed<TimelineStep[]>(() => {
 
 		return {
 			...def,
+			stepId,
+			attempt,
+			label: attempt > 1 ? `${def.label}（第 ${attempt} 次）` : def.label,
 			status,
-			block,
-			expanded: expandedSteps.value[nodeName] ?? getDefaultExpanded(nodeName),
+			contentBlock,
+			resultSetText,
+			expanded: expandedSteps.value[stepId] ?? getDefaultExpanded(nodeName),
 			isReport,
 		};
 	});

@@ -24,6 +24,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
+import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -41,7 +44,16 @@ class MultiTurnContextManagerTest {
 	void setUp() {
 		when(properties.getMaxturnhistory()).thenReturn(5);
 		when(properties.getMaxplanlength()).thenReturn(2000);
-		contextManager = new MultiTurnContextManager(properties);
+		contextManager = createContextManager(5);
+	}
+
+	private MultiTurnContextManager createContextManager(int maxTurns) {
+		InMemoryChatMemoryRepository repository = new InMemoryChatMemoryRepository();
+		ChatMemory chatMemory = MessageWindowChatMemory.builder()
+			.chatMemoryRepository(repository)
+			.maxMessages(maxTurns * 2)
+			.build();
+		return new MultiTurnContextManager(properties, chatMemory, repository);
 	}
 
 	@Test
@@ -146,7 +158,7 @@ class MultiTurnContextManagerTest {
 	@Test
 	void buildContext_exceedsMaxTurns_truncatesOldest() {
 		when(properties.getMaxturnhistory()).thenReturn(2);
-		MultiTurnContextManager mgr = new MultiTurnContextManager(properties);
+		MultiTurnContextManager mgr = createContextManager(2);
 
 		for (int i = 1; i <= 3; i++) {
 			mgr.beginTurn("thread-1", "Q" + i);

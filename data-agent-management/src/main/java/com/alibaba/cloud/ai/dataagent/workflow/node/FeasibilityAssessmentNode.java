@@ -32,10 +32,12 @@ import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.Map;
+import java.util.HashMap;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.EVIDENCE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.FEASIBILITY_ASSESSMENT_NODE_OUTPUT;
@@ -46,6 +48,9 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_OU
 @Component
 @AllArgsConstructor
 public class FeasibilityAssessmentNode implements NodeAction {
+
+	private static final BeanOutputConverter<FeasibilityAssessmentOutputDTO> OUTPUT_CONVERTER = new BeanOutputConverter<>(
+			FeasibilityAssessmentOutputDTO.class);
 
 	private final LlmService llmService;
 
@@ -62,15 +67,22 @@ public class FeasibilityAssessmentNode implements NodeAction {
 				multiTurn);
 		log.debug("Built feasibility assessment prompt as follows \n {} \n", prompt);
 
-		Flux<ChatResponse> responseFlux = llmService.callUser(prompt);
+		// 调用LLM进行可行性评估
+		Flux<ChatResponse> responseFlux = llmService.callUser(prompt, FeasibilityAssessmentOutputDTO.class);
 
-		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGenerator(this.getClass(), state,
-				responseFlux,
-				Flux.just(ChatResponseUtil.createResponse("正在进行可行性评估..."),
-						ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign())),
-				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
-						ChatResponseUtil.createResponse("\n可行性评估完成！")),
-				this::handleAssessmentResult);
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, "正在进行可行性评估...", "可行性评估完成！", llmOutput -> {
+					FeasibilityAssessmentOutputDTO assessmentResult = OUTPUT_CONVERTER.convert(llmOutput);
+					log.info("Feasibility assessment result: {}", assessmentResult);
+					Map<String, Object> output = new HashMap<>();
+					output.put(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, assessmentResult);
+					if (assessmentResult
+						.getRequirementType() != FeasibilityAssessmentOutputDTO.RequirementType.DATA_ANALYSIS
+							&& org.springframework.util.StringUtils.hasText(assessmentResult.getContent())) {
+						output.put(FINAL_ANSWER, assessmentResult.getContent().trim());
+					}
+					return output;
+				}, responseFlux);
 		return Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, generator);
 	}
 

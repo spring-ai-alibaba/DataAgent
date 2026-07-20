@@ -19,6 +19,7 @@ import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
 import com.alibaba.cloud.ai.dataagent.mapper.ChatSessionMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -31,6 +32,8 @@ import java.util.UUID;
 public class ChatSessionServiceImpl implements ChatSessionService {
 
 	private final ChatSessionMapper chatSessionMapper;
+
+	private final ChatMemory chatMemory;
 
 	/**
 	 * Get session list by agent ID
@@ -64,8 +67,10 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 	 */
 	@Override
 	public void clearSessionsByAgentId(Integer agentId) {
+		List<ChatSession> sessions = chatSessionMapper.selectByAgentId(agentId);
 		LocalDateTime now = LocalDateTime.now();
 		int updated = chatSessionMapper.softDeleteByAgentId(agentId, now);
+		sessions.forEach(session -> chatMemory.clear(session.getId()));
 		log.info("Cleared {} sessions for agent: {}", updated, agentId);
 	}
 
@@ -105,6 +110,7 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 	public void deleteSession(String sessionId) {
 		LocalDateTime now = LocalDateTime.now();
 		chatSessionMapper.softDeleteById(sessionId, now);
+		chatMemory.clear(sessionId);
 		log.info("Deleted session: {}", sessionId);
 	}
 

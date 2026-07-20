@@ -40,10 +40,8 @@ class FeasibilityAssessmentDispatcherTest {
 	@Test
 	void apply_dataAnalysisOutput_routesToPlannerNode() throws Exception {
 		OverAllState state = new OverAllState();
-		FeasibilityAssessmentOutputDTO dto = new FeasibilityAssessmentOutputDTO();
-		dto.setRequestType(FeasibilityAssessmentOutputDTO.DATA_ANALYSIS);
-		dto.setContent("查询销售额");
-		state.updateState(Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, dto));
+		state.updateState(Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT,
+				result(FeasibilityAssessmentOutputDTO.RequirementType.DATA_ANALYSIS)));
 
 		assertEquals(PLANNER_NODE, dispatcher.apply(state));
 	}
@@ -51,21 +49,8 @@ class FeasibilityAssessmentDispatcherTest {
 	@Test
 	void apply_needClarification_routesToClarificationNode() throws Exception {
 		OverAllState state = new OverAllState();
-		FeasibilityAssessmentOutputDTO dto = new FeasibilityAssessmentOutputDTO();
-		dto.setRequestType(FeasibilityAssessmentOutputDTO.NEED_CLARIFICATION);
-		dto.setContent("请问你想看哪个时间范围？");
-		state.updateState(Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, dto));
-
-		assertEquals(CLARIFICATION_NODE, dispatcher.apply(state));
-	}
-
-	@Test
-	void apply_chatOutput_routesToEnd() throws Exception {
-		OverAllState state = new OverAllState();
-		FeasibilityAssessmentOutputDTO dto = new FeasibilityAssessmentOutputDTO();
-		dto.setRequestType(FeasibilityAssessmentOutputDTO.CHIT_CHAT);
-		dto.setContent("你好");
-		state.updateState(Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, dto));
+		state.updateState(Map.of(FEASIBILITY_ASSESSMENT_NODE_OUTPUT,
+				result(FeasibilityAssessmentOutputDTO.RequirementType.FREE_CHAT)));
 
 		assertEquals(END, dispatcher.apply(state));
 	}
@@ -75,6 +60,12 @@ class FeasibilityAssessmentDispatcherTest {
 		OverAllState state = new OverAllState();
 
 		assertEquals(END, dispatcher.apply(state));
+	}
+
+	private FeasibilityAssessmentOutputDTO result(FeasibilityAssessmentOutputDTO.RequirementType type) {
+		FeasibilityAssessmentOutputDTO result = new FeasibilityAssessmentOutputDTO();
+		result.setRequirementType(type);
+		return result;
 	}
 
 }

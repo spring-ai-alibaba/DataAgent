@@ -1,0 +1,11 @@
+spring:
+  ai:
+    vectorstore:
+      type: milvus
+      milvus:
+        host: ${MILVUS_HOST:127.0.0.1}
+        port: ${MILVUS_PORT:19530}
+        database-name: ${MILVUS_DATABASE:default}
+        collection-name: ${MILVUS_COLLECTION:vector_store}
+        embedding-dimension: ${MILVUS_DIMENSION:1024}
+        initialize-schema: true
