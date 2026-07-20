@@ -298,15 +298,21 @@ public class SchemaServiceImpl implements SchemaService {
 
 		Filter.Expression filterExpression = DynamicFilterService.combineWithAnd(conditions);
 
-		// 执行向量检索
+		// 语义优先：按用户查询的向量相似度召回
 		SearchRequest searchRequest = SearchRequest.builder()
 			.query(query)
 			.topK(tableTopK)
 			.similarityThreshold(tableThreshold)
 			.filterExpression(filterExpression)
 			.build();
+		List<Document> results = agentVectorStoreService.similaritySearch(searchRequest);
 
-		return agentVectorStoreService.getDocumentsOnlyByFilter(filterExpression, tableTopK);
+		// 降级兜底：语义召回为空时，回退到全量元数据过滤
+		if (results.isEmpty()) {
+			log.info("Semantic recall returned empty for query [{}], falling back to metadata filter", query);
+			results = agentVectorStoreService.getDocumentsOnlyByFilter(filterExpression, tableTopK);
+		}
+		return results;
 	}
 
 	private List<String> getMissingTableNamesWithForeignKeySet(List<Document> tableDocuments,
