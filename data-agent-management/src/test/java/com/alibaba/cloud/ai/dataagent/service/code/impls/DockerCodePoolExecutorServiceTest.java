@@ -16,9 +16,8 @@
 package com.alibaba.cloud.ai.dataagent.service.code.impls;
 
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
-import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorService.TaskRequest;
-import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorService.TaskResponse;
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.model.HostConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,9 +25,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -62,14 +62,52 @@ class DockerCodePoolExecutorServiceTest {
 	}
 
 	@Test
-	void execute_missingContainerWorkDirectory_returnsSpecificFailure() {
+	void createHostConfig_withSecurityOpt_appliesIt() {
+		properties.setSecurityOpt("seccomp=unconfined");
 		DockerCodePoolExecutorService service = new DockerCodePoolExecutorService(properties, dockerClient, false);
 
-		TaskResponse response = service.execTaskInContainer(new TaskRequest("print(1)", "", ""), "missing");
+		HostConfig hostConfig = service.createHostConfig();
 
-		assertFalse(response.isSuccess());
-		assertEquals("An exception occurred while executing the task: Container 'missing' does not exist work dir",
-				response.exceptionMsg());
+		assertEquals(List.of("seccomp=unconfined"), hostConfig.getSecurityOpts());
+		service.close();
+	}
+
+	@Test
+	void createHostConfig_doesNotBindSharedTaskFiles() {
+		DockerCodePoolExecutorService service = new DockerCodePoolExecutorService(properties, dockerClient, false);
+
+		HostConfig hostConfig = service.createHostConfig();
+
+		assertEquals(0, hostConfig.getBinds().length);
+		service.close();
+	}
+
+	@Test
+	void singletonContainerName_isStableAcrossTasks() {
+		DockerCodePoolExecutorService service = new DockerCodePoolExecutorService(properties, dockerClient, false);
+
+		assertEquals("test-docker-singleton", service.singletonContainerName());
+		service.close();
+	}
+
+	@Test
+	void singletonContainerStartupCommand_createsTaskRootInsideTmpfs() {
+		DockerCodePoolExecutorService service = new DockerCodePoolExecutorService(properties, dockerClient, false);
+
+		assertEquals("mkdir -p /tmp/dataagent-tasks && while true; do sleep 3600; done",
+				service.singletonContainerStartupCommand());
+		service.close();
+	}
+
+	@Test
+	void taskCommand_installsDynamicDependenciesIntoTaskDirectory() {
+		DockerCodePoolExecutorService service = new DockerCodePoolExecutorService(properties, dockerClient, false);
+
+		String command = service.buildTaskCommand();
+
+		assertTrue(command.contains("--target packages"));
+		assertTrue(command.contains("PYTHONPATH=\"$PWD/packages"));
+		assertTrue(command.contains("python3 -u script.py < input_data.txt"));
 		service.close();
 	}
 

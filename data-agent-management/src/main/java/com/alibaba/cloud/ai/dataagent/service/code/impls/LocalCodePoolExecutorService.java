@@ -27,6 +27,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -46,7 +47,7 @@ public class LocalCodePoolExecutorService extends AbstractCodePoolExecutorServic
 
 	private final ConcurrentHashMap<String, Path> containers;
 
-	private static final List<String> PYTHON_NAMES = List.of("python3", "pypy3", "py3", "python", "pypy", "py");
+	private static final List<String> PYTHON_NAMES = List.of("python3", "pypy3", "py3", "python", "pypy");
 
 	private static final List<String> PIP_NAMES = List.of("pip3", "pip");
 
@@ -92,9 +93,10 @@ public class LocalCodePoolExecutorService extends AbstractCodePoolExecutorServic
 		Path stdinFile = container.resolve("stdin.txt");
 		Path requirementFile = container.resolve("requirements.txt");
 		try {
-			Files.write(scriptFile, Optional.ofNullable(request.code()).orElse("").getBytes());
-			Files.write(stdinFile, Optional.ofNullable(request.input()).orElse("").getBytes());
-			Files.write(requirementFile, Optional.ofNullable(request.requirement()).orElse("").getBytes());
+			Files.write(scriptFile, Optional.ofNullable(request.code()).orElse("").getBytes(StandardCharsets.UTF_8));
+			Files.write(stdinFile, Optional.ofNullable(request.input()).orElse("").getBytes(StandardCharsets.UTF_8));
+			Files.write(requirementFile,
+					Optional.ofNullable(request.requirement()).orElse("").getBytes(StandardCharsets.UTF_8));
 		}
 		catch (Exception e) {
 			log.error("Create temp file failed: {}", e.getMessage(), e);
@@ -137,6 +139,7 @@ public class LocalCodePoolExecutorService extends AbstractCodePoolExecutorServic
 			ProcessBuilder pb = new ProcessBuilder(this.pythonExecutable, scriptFile.toAbsolutePath().toString());
 			pb.directory(container.toFile());
 			pb.redirectInput(stdinFile.toFile());
+			pb.environment().put("PYTHONIOENCODING", StandardCharsets.UTF_8.name());
 			process = pb.start();
 
 			// 读取stdout和stderr
@@ -212,10 +215,35 @@ public class LocalCodePoolExecutorService extends AbstractCodePoolExecutorServic
 
 	private static LocalPrograms locatePrograms(ExecutableProgramLocator locator) {
 		String python = locator.findFirst(PYTHON_NAMES)
+			.filter(LocalCodePoolExecutorService::isPython3Executable)
 			.orElseThrow(() -> new IllegalStateException(
-					"No valid Python interpreter was found in PATH. Please install Python 3."));
+					"No valid Python 3 interpreter was found in PATH. Please install Python 3."));
 		String pip = locator.findFirst(PIP_NAMES).orElse(null);
 		return new LocalPrograms(python, pip);
+	}
+
+	private static boolean isPython3Executable(String executable) {
+		try {
+			Process process = new ProcessBuilder(executable, "--version").start();
+			boolean completed = process.waitFor(5, TimeUnit.SECONDS);
+			if (!completed) {
+				process.destroyForcibly();
+				return false;
+			}
+
+			String version;
+			try (BufferedReader stdout = new BufferedReader(
+					new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
+					BufferedReader stderr = new BufferedReader(
+							new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
+				version = stdout.lines().findFirst().orElseGet(() -> stderr.lines().findFirst().orElse(""));
+			}
+
+			return process.exitValue() == 0 && version.matches("(?i).*(python|pypy)\\s+3(\\.|\\s|$).*");
+		}
+		catch (Exception e) {
+			return false;
+		}
 	}
 
 	private record LocalPrograms(String pythonExecutable, String pipExecutable) {

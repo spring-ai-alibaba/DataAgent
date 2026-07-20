@@ -80,6 +80,12 @@ public class CodeExecutorProperties {
 	Integer maxThreadSize = 5;
 
 	/**
+	 * Maximum number of concurrent Python exec sessions in the singleton Docker
+	 * container.
+	 */
+	Integer maxConcurrentTasks = 3;
+
+	/**
 	 * Survival time of temporary containers, in minutes
 	 */
 	Integer tempContainerAliveTime = 5;
@@ -118,6 +124,11 @@ public class CodeExecutorProperties {
 	 * Container network mode
 	 */
 	String networkMode = "none";
+
+	/**
+	 * Optional Docker security option, for example seccomp=unconfined
+	 */
+	String securityOpt = null;
 
 	/**
 	 * Python执行的最大重试次数

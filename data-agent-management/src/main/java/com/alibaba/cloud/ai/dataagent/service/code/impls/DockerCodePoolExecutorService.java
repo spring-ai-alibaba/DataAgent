@@ -18,268 +18,349 @@ package com.alibaba.cloud.ai.dataagent.service.code.impls;
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorService;
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.async.ResultCallback;
-import com.github.dockerjava.api.model.AccessMode;
-import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.command.ExecCreateCmdResponse;
+import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.command.InspectExecResponse;
 import com.github.dockerjava.api.model.Capability;
+import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Frame;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.StreamType;
-import com.github.dockerjava.api.model.Volume;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.UUID;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.github.dockerjava.api.model.HostConfig.newHostConfig;
 
 /**
- * 运行Python任务的容器池（Docker实现类）
+ * Runs concurrent Python tasks in one long-lived Docker container. Each task uses a
+ * UUID-scoped working directory and a dedicated Docker exec session.
  *
  * @author vlsmb
  * @since 2025/7/12
  */
 @Slf4j
-public class DockerCodePoolExecutorService extends AbstractCodePoolExecutorService implements CodePoolExecutorService {
+public class DockerCodePoolExecutorService implements CodePoolExecutorService, AutoCloseable {
+
+	private static final int MAX_LOG_SIZE = 5 * 1024 * 1024;
+
+	private static final String CONTAINER_TASK_ROOT = "/tmp/dataagent-tasks";
+
+	private final CodeExecutorProperties properties;
 
 	private final DockerClient dockerClient;
 
 	private final boolean isRemote;
 
-	private final ConcurrentHashMap<String, Path> containerTempPath;
+	private final Semaphore executionSlots;
+
+	private final Object containerLock = new Object();
+
+	private final AtomicBoolean closed = new AtomicBoolean();
+
+	private volatile String singletonContainerId;
 
 	public DockerCodePoolExecutorService(CodeExecutorProperties properties, DockerClient dockerClient,
 			boolean isRemote) {
-		super(properties);
+		this.properties = Objects.requireNonNull(properties, "properties");
 		this.dockerClient = Objects.requireNonNull(dockerClient, "dockerClient");
 		this.isRemote = isRemote;
-		this.containerTempPath = new ConcurrentHashMap<>();
-		log.info("Docker Code Pool initialized. Mode: {}",
-				this.isRemote ? "Remote (Copy Files)" : "Local (Bind Mounts)");
+		this.executionSlots = new Semaphore(Math.max(1, properties.getMaxConcurrentTasks()), true);
+		log.info("Docker singleton executor initialized. Mode: {}, maxConcurrentTasks={}",
+				this.isRemote ? "Remote" : "Local", Math.max(1, properties.getMaxConcurrentTasks()));
 	}
 
-	/**
-	 * Create container's HostConfig
-	 */
-	private HostConfig createHostConfig(Path tempDir) {
+	HostConfig createHostConfig() {
 		HostConfig config = newHostConfig().withMemory(this.properties.getLimitMemory() * 1024L * 1024L)
 			.withCpuCount(this.properties.getCpuCore())
 			.withCapDrop(Capability.ALL)
 			.withAutoRemove(false)
 			.withTmpFs(Map.of("/tmp", ""))
 			.withNetworkMode(this.properties.getNetworkMode());
-
-		if (!this.isRemote) {
-			List<Bind> binds = new ArrayList<>();
-			binds.add(new Bind(tempDir.resolve("script.py").toAbsolutePath().toString(), new Volume("/app/script.py"),
-					AccessMode.ro));
-			binds.add(new Bind(tempDir.resolve("requirements.txt").toAbsolutePath().toString(),
-					new Volume("/app/requirements.txt"), AccessMode.ro));
-			binds.add(new Bind(tempDir.resolve("input_data.txt").toAbsolutePath().toString(),
-					new Volume("/app/input_data.txt"), AccessMode.ro));
-			config.withBinds(binds.toArray(new Bind[0]));
+		if (StringUtils.hasText(this.properties.getSecurityOpt())) {
+			config.withSecurityOpts(List.of(this.properties.getSecurityOpt()));
 		}
 		return config;
 	}
 
-	/**
-	 * Clean up existing container with same name
-	 */
-	private void cleanupExistingResources(String containName) {
-		try {
-			// Try to delete container with same name
-			dockerClient.removeContainerCmd(containName).withForce(true).exec();
-			log.info("Removed existing container: {}", containName);
-		}
-		catch (Exception e) {
-			log.warn("Failed to remove container {}: {}", containName, e.getMessage());
-		}
-	}
-
 	@Override
-	protected String createNewContainer() throws Exception {
-		String containerName = this.generateContainerName();
-		// First clean up possibly existing container with same name
-		this.cleanupExistingResources(containerName);
-
-		// Generate temporary directory and files
-		Path tempDir = Files.createTempDirectory(containerName);
-		Files.createFile(tempDir.resolve("requirements.txt"));
-		Files.createFile(tempDir.resolve("script.py"));
-		Files.createFile(tempDir.resolve("input_data.txt"));
-
-		// Create container
-		HostConfig hostConfig = this.createHostConfig(tempDir);
-		String cmd = this.buildExecutionCommand(tempDir);
-
-		CreateContainerResponse container = dockerClient.createContainerCmd(properties.getImageName())
-			.withName(containerName)
-			.withWorkingDir("/app")
-			.withHostConfig(hostConfig)
-			.withCmd("sh", "-c", cmd)
-			.exec();
-		String containerId = container.getId();
-		// Save temporary directory object
-		this.containerTempPath.put(containerId, tempDir);
-		return containerId;
-	}
-
-	@Override
-	protected TaskResponse execTaskInContainer(TaskRequest request, String containerId) {
-		// Get temporary directory object
-		Path tempDir = this.containerTempPath.get(containerId);
-		if (tempDir == null) {
-			log.error("Container '{}' does not exist work dir", containerId);
-			return TaskResponse.exception("Container '" + containerId + "' does not exist work dir");
+	public TaskResponse runTask(TaskRequest request) {
+		if (closed.get()) {
+			return TaskResponse.exception("Docker code executor is closed");
 		}
 
+		boolean acquired = false;
 		try {
-			// 1. Prepare files
-			this.writeContextFiles(tempDir, request);
-			this.uploadFilesIfRemote(containerId, tempDir);
-
-			// 2. Start container and wait
-			dockerClient.startContainerCmd(containerId).exec();
-			dockerClient.waitContainerCmd(containerId)
-				.start()
-				.awaitCompletion(this.properties.getContainerTimeout(), TimeUnit.SECONDS);
-
-			// 3. Fetch logs
-			LogResult logs = this.fetchExecutionLogs(containerId, tempDir);
-			String stdout = logs.stdout;
-			String stderr = logs.stderr;
-
-			// 4. Check exit code
-			InspectContainerResponse inspectResponse = dockerClient.inspectContainerCmd(containerId).exec();
-			int exitCode = Objects.requireNonNull(inspectResponse.getState().getExitCodeLong()).intValue();
-			if (exitCode != 0) {
-				String errorMessage = "Docker exit code " + exitCode + ". Stderr: " + stderr + ". Stdout: " + stdout;
-				log.error("Error executing Docker container {}: {}", containerId, errorMessage);
-				return TaskResponse.failure(stdout, stderr);
+			executionSlots.acquire();
+			acquired = true;
+			if (closed.get()) {
+				return TaskResponse.exception("Docker code executor is closed");
 			}
-			return TaskResponse.success(stdout);
+			String containerId = ensureSingletonContainer();
+			return executeTask(request, containerId);
 		}
-		catch (Exception e) {
-			log.error("Error executing task in container: {}", e.getMessage());
-			return TaskResponse.exception(e.getMessage());
+		catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			return TaskResponse.exception("Interrupted while waiting to execute Python code");
+		}
+		catch (Exception exception) {
+			log.error("Error executing Docker task: {}", exception.getMessage(), exception);
+			invalidateContainerIfStopped();
+			return TaskResponse.exception(exception.getMessage());
+		}
+		finally {
+			if (acquired) {
+				executionSlots.release();
+			}
 		}
 	}
 
-	// --- Helper Methods ---
+	private String ensureSingletonContainer() {
+		String current = singletonContainerId;
+		if (isContainerRunning(current)) {
+			return current;
+		}
 
-	private String buildExecutionCommand(Path tempDir) {
+		synchronized (containerLock) {
+			current = singletonContainerId;
+			if (isContainerRunning(current)) {
+				return current;
+			}
+			removeContainerQuietly(current);
+			cleanupContainersFromPreviousProcesses();
+
+			CreateContainerResponse container = dockerClient.createContainerCmd(properties.getImageName())
+				.withName(singletonContainerName())
+				.withWorkingDir("/")
+				.withHostConfig(createHostConfig())
+				.withCmd("sh", "-c", singletonContainerStartupCommand())
+				.exec();
+			dockerClient.startContainerCmd(container.getId()).exec();
+			singletonContainerId = container.getId();
+			log.info("Started Docker singleton container. containerId={}, name={}", container.getId(),
+					singletonContainerName());
+			return container.getId();
+		}
+	}
+
+	private TaskResponse executeTask(TaskRequest request, String containerId) throws Exception {
+		String executionId = UUID.randomUUID().toString();
+		String containerTaskDir = CONTAINER_TASK_ROOT + "/" + executionId;
+		try {
+			runControlCommand(containerId, "mkdir -p " + containerTaskDir);
+			writeContainerFile(containerId, containerTaskDir, "script.py", request.code());
+			writeContainerFile(containerId, containerTaskDir, "requirements.txt", request.requirement());
+			writeContainerFile(containerId, containerTaskDir, "input_data.txt", request.input());
+			log.info("Executing Python task. containerId={}, executionId={}, inputBytes={}", containerId, executionId,
+					request.input() == null ? 0 : request.input().getBytes(StandardCharsets.UTF_8).length);
+
+			ExecResult result = runExec(containerId, containerTaskDir, buildTaskCommand());
+			if (result.exitCode() != 0) {
+				log.error("Python task failed. containerId={}, executionId={}, exitCode={}, stderr={}", containerId,
+						executionId, result.exitCode(), result.stderr());
+				return TaskResponse.failure(result.stdout(), result.stderr());
+			}
+			return TaskResponse.success(result.stdout());
+		}
+		finally {
+			try {
+				runControlCommand(containerId, "rm -rf " + containerTaskDir);
+			}
+			catch (Exception cleanupFailure) {
+				log.warn("Failed to remove container task directory {}: {}", containerTaskDir,
+						cleanupFailure.getMessage());
+			}
+		}
+	}
+
+	String buildTaskCommand() {
 		return String.format(
-				"if [ -s requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt > /dev/null; fi && timeout -s SIGKILL %s python3 -u script.py < input_data.txt",
+				"if [ -s requirements.txt ]; then mkdir -p packages && pip3 install --no-cache-dir --target packages -r requirements.txt > /dev/null; fi && "
+						+ "PYTHONPATH=\"$PWD/packages${PYTHONPATH:+:$PYTHONPATH}\" timeout -s SIGKILL %s python3 -u script.py < input_data.txt",
 				properties.getCodeTimeout());
 	}
 
-	private void writeContextFiles(Path tempDir, TaskRequest request) throws IOException {
-		Files.write(tempDir.resolve("script.py"),
-				StringUtils.hasText(request.code()) ? request.code().getBytes() : "".getBytes());
-		Files.write(tempDir.resolve("requirements.txt"),
-				StringUtils.hasText(request.requirement()) ? request.requirement().getBytes() : "".getBytes());
-		Files.write(tempDir.resolve("input_data.txt"),
-				StringUtils.hasText(request.input()) ? request.input().getBytes() : "".getBytes());
+	private void writeContainerFile(String containerId, String taskDir, String fileName, String content)
+			throws InterruptedException {
+		byte[] bytes = Objects.requireNonNullElse(content, "").getBytes(StandardCharsets.UTF_8);
+		String command = bytes.length == 0 ? ": > " + fileName : "head -c " + bytes.length + " > " + fileName;
+		ExecResult result = runExec(containerId, taskDir, command, bytes.length == 0 ? null : bytes);
+		if (result.exitCode() != 0) {
+			throw new IllegalStateException("Failed to write " + fileName + ": " + result.stderr());
+		}
 	}
 
-	private void uploadFilesIfRemote(String containerId, Path tempDir) {
-		if (!this.isRemote) {
+	private ExecResult runExec(String containerId, String workingDir, String command) throws InterruptedException {
+		return runExec(containerId, workingDir, command, null);
+	}
+
+	private ExecResult runExec(String containerId, String workingDir, String command, byte[] stdin)
+			throws InterruptedException {
+		ExecCreateCmdResponse exec = dockerClient.execCreateCmd(containerId)
+			.withAttachStdout(true)
+			.withAttachStderr(true)
+			.withAttachStdin(stdin != null)
+			.withWorkingDir(workingDir)
+			.withCmd("sh", "-c", command)
+			.exec();
+
+		StringBuilder stdout = new StringBuilder();
+		StringBuilder stderr = new StringBuilder();
+		ResultCallback.Adapter<Frame> callback = new ResultCallback.Adapter<>() {
+			@Override
+			public void onNext(Frame frame) {
+				String payload = new String(frame.getPayload(), StandardCharsets.UTF_8);
+				if (frame.getStreamType() == StreamType.STDERR) {
+					appendWithLimit(stderr, payload, MAX_LOG_SIZE);
+				}
+				else {
+					appendWithLimit(stdout, payload, MAX_LOG_SIZE);
+				}
+			}
+		};
+
+		var startCommand = dockerClient.execStartCmd(exec.getId());
+		if (stdin != null) {
+			startCommand.withStdIn(new ByteArrayInputStream(stdin));
+		}
+		boolean completed = startCommand.exec(callback)
+			.awaitCompletion(properties.getContainerTimeout(), TimeUnit.SECONDS);
+		if (!completed) {
+			try {
+				callback.close();
+			}
+			catch (IOException closeFailure) {
+				log.debug("Failed to close timed-out Docker exec callback: {}", closeFailure.getMessage());
+			}
+			throw new IllegalStateException("Docker exec timed out");
+		}
+
+		InspectExecResponse inspect = dockerClient.inspectExecCmd(exec.getId()).exec();
+		Long exitCode = inspect.getExitCodeLong();
+		if (exitCode == null) {
+			throw new IllegalStateException("Docker exec completed without an exit code");
+		}
+		return new ExecResult(exitCode.intValue(), stdout.toString(), stderr.toString());
+	}
+
+	private void runControlCommand(String containerId, String command) throws InterruptedException {
+		ExecResult result = runExec(containerId, "/", command);
+		if (result.exitCode() != 0) {
+			throw new IllegalStateException("Container command failed: " + result.stderr());
+		}
+	}
+
+	private boolean isContainerRunning(String containerId) {
+		if (!StringUtils.hasText(containerId)) {
+			return false;
+		}
+		try {
+			InspectContainerResponse response = dockerClient.inspectContainerCmd(containerId).exec();
+			return Boolean.TRUE.equals(response.getState().getRunning());
+		}
+		catch (RuntimeException exception) {
+			return false;
+		}
+	}
+
+	private void invalidateContainerIfStopped() {
+		String current = singletonContainerId;
+		if (!isContainerRunning(current)) {
+			synchronized (containerLock) {
+				if (Objects.equals(singletonContainerId, current)) {
+					removeContainerQuietly(current);
+					singletonContainerId = null;
+				}
+			}
+		}
+	}
+
+	private void cleanupContainersFromPreviousProcesses() {
+		List<Container> containers = dockerClient.listContainersCmd()
+			.withShowAll(true)
+			.withNameFilter(List.of(properties.getContainerNamePrefix()))
+			.exec();
+		for (Container container : containers) {
+			if (hasManagedName(container)) {
+				removeContainerQuietly(container.getId());
+			}
+		}
+	}
+
+	private boolean hasManagedName(Container container) {
+		if (container.getNames() == null) {
+			return false;
+		}
+		String expectedPrefix = "/" + properties.getContainerNamePrefix();
+		for (String name : container.getNames()) {
+			if (name.startsWith(expectedPrefix)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	String singletonContainerName() {
+		return properties.getContainerNamePrefix() + "singleton";
+	}
+
+	String singletonContainerStartupCommand() {
+		return "mkdir -p " + CONTAINER_TASK_ROOT + " && while true; do sleep 3600; done";
+	}
+
+	private void removeContainerQuietly(String containerId) {
+		if (!StringUtils.hasText(containerId)) {
 			return;
 		}
-		String[] files = { "script.py", "requirements.txt", "input_data.txt" };
-		for (String file : files) {
-			dockerClient.copyArchiveToContainerCmd(containerId)
-				.withHostResource(tempDir.resolve(file).toString())
-				.withRemotePath("/app/")
-				.exec();
+		try {
+			dockerClient.removeContainerCmd(containerId).withForce(true).exec();
+			log.info("Removed Docker container: {}", containerId);
 		}
-	}
-
-	private record LogResult(String stdout, String stderr) {
-	}
-
-	private LogResult fetchExecutionLogs(String containerId, Path tempDir) throws InterruptedException {
-		StringBuilder stdoutBuilder = new StringBuilder();
-		StringBuilder stderrBuilder = new StringBuilder();
-
-		final int MAX_LOG_SIZE = 5 * 1024 * 1024; // 5MB limit
-		dockerClient.logContainerCmd(containerId)
-			.withStdOut(true)
-			.withStdErr(true)
-			.exec(new ResultCallback.Adapter<Frame>() {
-				@Override
-				public void onNext(Frame item) {
-					String payload = new String(item.getPayload(), StandardCharsets.UTF_8);
-					if (item.getStreamType() == StreamType.STDOUT) {
-						appendWithLimit(stdoutBuilder, payload, MAX_LOG_SIZE);
-					}
-					else if (item.getStreamType() == StreamType.STDERR) {
-						appendWithLimit(stderrBuilder, payload, MAX_LOG_SIZE);
-					}
-				}
-			})
-			.awaitCompletion();
-
-		return new LogResult(stdoutBuilder.toString(), stderrBuilder.toString());
+		catch (RuntimeException exception) {
+			log.debug("Container {} could not be removed: {}", containerId, exception.getMessage());
+		}
 	}
 
 	private void appendWithLimit(StringBuilder builder, String payload, int limit) {
-		if (builder.length() < limit) {
-			builder.append(payload);
+		int remaining = limit - builder.length();
+		if (remaining > 0) {
+			builder.append(payload, 0, Math.min(payload.length(), remaining));
 		}
-		else if (builder.length() == limit) {
-			builder.append("\n...[Output truncated due to size limit]...");
-			builder.append(" "); // Prevent re-entry
-		}
-	}
-
-	@Override
-	protected void stopContainer(String containerId) throws Exception {
-		try {
-			this.dockerClient.stopContainerCmd(containerId).exec();
-			log.info("Successfully stopped container: {}", containerId);
-		}
-		catch (Exception e) {
-			log.warn("Failed to stop container: {}, message: {}", containerId, e.getMessage());
+		if (payload.length() > remaining && !builder.toString().endsWith("...[Output truncated]")) {
+			builder.append("\n...[Output truncated]");
 		}
 	}
 
 	@Override
-	protected void removeContainer(String containerId) throws Exception {
-		try {
-			this.dockerClient.removeContainerCmd(containerId).withForce(true).exec();
-			Path tempDir = containerTempPath.get(containerId);
-			if (tempDir != null) {
-				this.clearTempDir(tempDir);
-			}
-			containerTempPath.remove(containerId);
-			log.info("Successfully removed container: {}", containerId);
+	public void close() {
+		if (!closed.compareAndSet(false, true)) {
+			return;
 		}
-		catch (Exception e) {
-			log.warn("Failed to remove container: {}, message: {}", containerId, e.getMessage());
+		synchronized (containerLock) {
+			removeContainerQuietly(singletonContainerId);
+			singletonContainerId = null;
+		}
+		try {
+			dockerClient.close();
+		}
+		catch (IOException exception) {
+			throw new IllegalStateException("Failed to close Docker client", exception);
 		}
 	}
 
-	@Override
-	protected void shutdownPool() throws Exception {
-		try {
-			super.shutdownPool();
-			this.dockerClient.close();
-		}
-		catch (IOException ignored) {
-
-		}
+	private record ExecResult(int exitCode, String stdout, String stderr) {
 	}
 
 }
