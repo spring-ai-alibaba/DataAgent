@@ -1,18 +1,42 @@
 <template>
-	<v-app>
-		<v-navigation-drawer v-model="drawer" :width="272" color="#111827">
-			<div class="user-shell__brand">
-				<v-avatar color="primary" size="38" rounded="lg">
-					<v-icon icon="mdi-chart-box-outline" color="white" />
-				</v-avatar>
-				<div>
-					<div class="user-shell__brand-name">智能问数</div>
-					<div class="user-shell__brand-subtitle">DATA AGENT</div>
-				</div>
-			</div>
+	<v-app class="domus-app">
+		<header class="product-header">
+			<a
+				class="brand-lockup"
+				href="https://www.domus.cn/"
+				target="_blank"
+				rel="noopener noreferrer"
+				aria-label="访问 Domus 官网"
+				title="访问 Domus 官网"
+			>
+				<img src="/logo.png" alt="Domus" class="brand-mark" />
+				<span class="brand-name">Domus</span>
+				<span class="brand-product">智能问数</span>
+			</a>
 
-			<div class="user-shell__agent">
-				<div class="user-shell__label">当前智能体</div>
+			<nav class="product-nav" aria-label="产品导航">
+				<button
+					type="button"
+					class="product-nav__item"
+					:class="{ 'product-nav__item--active': route.path === '/chat' }"
+					@click="navigate('/chat')"
+				>
+					<v-icon icon="mdi-chat-processing-outline" size="17" />
+					<span>智能问数</span>
+				</button>
+				<button
+					type="button"
+					class="product-nav__item"
+					:class="{ 'product-nav__item--active': route.path === '/model-config' }"
+					@click="navigate('/model-config')"
+				>
+					<v-icon icon="mdi-cpu-64-bit" size="17" />
+					<span>模型服务</span>
+				</button>
+			</nav>
+
+			<div class="agent-control">
+				<span class="agent-control__label">当前智能体</span>
 				<v-select
 					v-model="selectedAgentId"
 					:items="agentOptions"
@@ -23,37 +47,19 @@
 					variant="outlined"
 					density="compact"
 					hide-details
-					placeholder="请选择智能体"
+					placeholder="选择智能体"
 					class="agent-switcher"
 					menu-icon="mdi-chevron-down"
-					theme="dark"
-					:menu-props="{
-						contentClass: 'agent-switcher-menu',
-						offset: [0, 8],
-					}"
-					:list-props="{ bgColor: '#1e293b', theme: 'dark' }"
-					item-color="blue-lighten-2"
+					:menu-props="{ contentClass: 'agent-switcher-menu', offset: [0, 8] }"
 					@update:model-value="handleAgentSwitch"
 				>
 					<template #selection="{ item }">
-						<div class="agent-option agent-option--selection d-flex align-center w-100">
-							<v-avatar size="24" class="mr-2 agent-option__avatar">
+						<div class="agent-option agent-option--selection">
+							<v-avatar size="25" class="agent-option__avatar">
 								<v-img v-if="item.raw.avatar" :src="item.raw.avatar" cover />
-								<v-icon
-									v-else
-									icon="mdi-robot"
-									size="14"
-									color="blue-lighten-3"
-								/>
+								<img v-else src="/logo-mark.png" alt="" />
 							</v-avatar>
-							<div class="agent-option__text">
-								<div class="agent-option__title agent-option__title--active">
-									{{ item.raw.title }}
-								</div>
-								<div v-if="item.raw.subtitle" class="agent-option__subtitle">
-									{{ item.raw.subtitle }}
-								</div>
-							</div>
+							<span class="agent-option__title">{{ item.raw.title }}</span>
 						</div>
 					</template>
 					<template #item="{ props, item }">
@@ -62,65 +68,28 @@
 							:title="undefined"
 							:subtitle="undefined"
 							class="agent-option"
-							:class="{
-								'agent-option--active': item.raw.value === selectedAgentId,
-							}"
+							:class="{ 'agent-option--active': item.raw.value === selectedAgentId }"
 						>
 							<template #prepend>
-								<v-avatar size="28" class="mr-2 agent-option__avatar">
+								<v-avatar size="30" class="agent-option__avatar">
 									<v-img v-if="item.raw.avatar" :src="item.raw.avatar" cover />
-									<v-icon
-										v-else
-										icon="mdi-robot"
-										size="15"
-										color="blue-lighten-3"
-									/>
+									<img v-else src="/logo-mark.png" alt="" />
 								</v-avatar>
 							</template>
-							<v-list-item-title class="agent-option__title">
-								{{ item.raw.title }}
-							</v-list-item-title>
+							<v-list-item-title class="agent-option__title">{{ item.raw.title }}</v-list-item-title>
 							<v-list-item-subtitle v-if="item.raw.subtitle" class="agent-option__subtitle">
-								<span class="agent-tags-text">{{ item.raw.subtitle }}</span>
+								{{ item.raw.subtitle }}
 							</v-list-item-subtitle>
 							<template #append>
-								<v-icon
-									v-if="item.raw.value === selectedAgentId"
-									icon="mdi-check"
-									color="blue-lighten-2"
-									size="16"
-								/>
+								<v-icon v-if="item.raw.value === selectedAgentId" icon="mdi-check" color="primary" size="17" />
 							</template>
 						</v-list-item>
 					</template>
 				</v-select>
 			</div>
+		</header>
 
-			<v-list nav density="comfortable" bg-color="transparent" class="user-shell__nav">
-				<v-list-item
-					prepend-icon="mdi-chat-processing-outline"
-					title="数据问答"
-					:active="route.path === '/chat'"
-					@click="navigate('/chat')"
-				/>
-				<v-list-item
-					prepend-icon="mdi-cpu-64-bit"
-					title="模型配置"
-					:active="route.path === '/model-config'"
-					@click="navigate('/model-config')"
-				/>
-			</v-list>
-
-		</v-navigation-drawer>
-
-		<v-app-bar flat border density="comfortable">
-			<v-app-bar-nav-icon @click="drawer = !drawer" />
-			<v-app-bar-title>{{ pageTitle }}</v-app-bar-title>
-			<v-chip size="small" color="primary" variant="tonal">智能问数</v-chip>
-			<div class="mr-4" />
-		</v-app-bar>
-
-		<v-main>
+		<v-main class="product-main">
 			<slot />
 		</v-main>
 
@@ -150,14 +119,9 @@ type AgentOption = {
 const { dialogState, handleGlobalConfirm } = useConfirm();
 const route = useRoute();
 const router = useRouter();
-const drawer = ref(true);
 const loadingAgents = ref(false);
 const selectedAgentId = ref<number>();
 const agentOptions = ref<AgentOption[]>([]);
-
-const pageTitle = computed(() =>
-	route.path === '/model-config' ? '模型配置' : '数据问答',
-);
 
 function routeAgentId() {
 	const value = Number(route.query.agentId);
@@ -165,9 +129,7 @@ function routeAgentId() {
 }
 
 function navigate(path: string) {
-	const query = selectedAgentId.value
-		? { agentId: String(selectedAgentId.value) }
-		: undefined;
+	const query = selectedAgentId.value ? { agentId: String(selectedAgentId.value) } : undefined;
 	router.push({ path, query });
 }
 
@@ -192,12 +154,8 @@ async function loadPublishedAgents() {
 			}));
 
 		const requestedId = routeAgentId();
-		const requestedExists = agentOptions.value.some(
-			(agent) => agent.value === requestedId,
-		);
-		selectedAgentId.value = requestedExists
-			? requestedId
-			: agentOptions.value[0]?.value;
+		const requestedExists = agentOptions.value.some((agent) => agent.value === requestedId);
+		selectedAgentId.value = requestedExists ? requestedId : agentOptions.value[0]?.value;
 
 		if (selectedAgentId.value !== requestedId) {
 			await router.replace({
@@ -226,123 +184,228 @@ watch(
 </script>
 
 <style scoped>
-.user-shell__brand {
+.product-header {
+	position: fixed;
+	inset: 0 0 auto;
+	z-index: 1005;
+	display: grid;
+	grid-template-columns: minmax(220px, 1fr) auto minmax(260px, 1fr);
+	align-items: center;
+	gap: 24px;
+	height: var(--domus-header-height);
+	padding: 10px clamp(20px, 4vw, 58px);
+	background: rgb(244 234 220 / 92%);
+	border-bottom: 1px solid var(--domus-line);
+	backdrop-filter: blur(16px);
+}
+
+.brand-lockup {
+	display: inline-flex;
+	align-items: center;
+	justify-self: start;
+	gap: 10px;
+	min-width: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+	color: inherit;
+	text-decoration: none;
+}
+
+.brand-lockup:hover .brand-mark {
+	transform: scale(1.04);
+}
+
+.brand-mark {
+	width: 54px;
+	height: 54px;
+	object-fit: contain;
+	transition: transform 0.18s ease;
+}
+
+.brand-name {
+	font-size: 27px;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.brand-product {
+	padding-left: 10px;
+	border-left: 1px solid var(--domus-line-strong);
+	color: var(--domus-muted);
+	font-size: 12px;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.product-nav {
+	display: flex;
+	gap: 4px;
+	padding: 6px;
+	border: 1px solid var(--domus-line);
+	border-radius: 999px;
+	background: rgb(255 246 232 / 42%);
+}
+
+.product-nav__item {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 38px;
+	padding: 0 16px;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--domus-muted);
+	font-size: 14px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.product-nav__item:hover,
+.product-nav__item--active {
+	background: rgb(37 27 21 / 7%);
+	color: var(--domus-ink);
+}
+
+.product-nav__item--active {
+	font-weight: 700;
+}
+
+.agent-control {
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding: 22px 20px 18px;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	justify-self: end;
+	gap: 10px;
+	min-width: 0;
 }
 
-.user-shell__brand-name {
-	color: #fff;
-	font-size: 15px;
-	font-weight: 700;
-}
-
-.user-shell__brand-subtitle,
-.user-shell__label {
-	color: #94a3b8;
+.agent-control__label {
+	color: var(--domus-muted);
 	font-size: 11px;
-}
-
-.user-shell__brand-subtitle {
-	margin-top: 2px;
-}
-
-.user-shell__agent {
-	padding: 18px 16px 10px;
-}
-
-.user-shell__label {
-	margin: 0 4px 8px;
 	font-weight: 700;
-	color: #bfdbfe;
+	white-space: nowrap;
+}
+
+.agent-switcher {
+	width: min(230px, 20vw);
 }
 
 .agent-switcher :deep(.v-field) {
-	background: rgba(30, 41, 59, 0.8);
-	border-radius: 8px;
+	border-radius: 999px;
+	background: var(--domus-paper);
 }
 
-.agent-switcher :deep(.v-field__input),
-.agent-switcher :deep(.v-field-label),
-.agent-switcher :deep(.v-icon) {
-	color: #dbeafe;
+.agent-switcher :deep(.v-field__outline) {
+	--v-field-border-opacity: 0.2;
 }
 
-:deep(.agent-switcher-menu) {
-	background: #1e293b !important;
-	border: 1px solid rgba(59, 130, 246, 0.3) !important;
-	border-radius: 8px !important;
-	overflow: hidden;
+.agent-option {
+	color: var(--domus-ink);
 }
 
-:deep(.agent-switcher-menu .v-list) {
-	background: transparent !important;
-	padding: 4px !important;
-}
-
-:deep(.agent-switcher-menu .v-list-item) {
-	min-height: 48px !important;
-	margin-bottom: 2px !important;
-	border-radius: 6px !important;
-}
-
-:deep(.agent-switcher-menu .v-list-item:hover),
-:deep(.agent-switcher-menu .agent-option--active) {
-	background: rgba(59, 130, 246, 0.12) !important;
+.agent-option--selection {
+	display: flex;
+	align-items: center;
+	min-width: 0;
 }
 
 .agent-option__avatar {
-	border: 1px solid rgba(255, 255, 255, 0.12);
-	background: rgba(51, 65, 85, 0.9);
+	margin-right: 8px;
+	border: 1px solid var(--domus-line);
+	background: var(--domus-cream);
 }
 
-.agent-option__text {
-	min-width: 0;
-	flex: 1;
+.agent-option__avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 }
 
 .agent-option__title {
-	max-width: 170px;
 	overflow: hidden;
+	color: var(--domus-ink);
 	font-size: 13px;
-	font-weight: 600;
-	line-height: 1.2;
+	font-weight: 700;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-.agent-option__title--active {
-	color: #60a5fa;
 }
 
 .agent-option__subtitle {
-	max-width: 170px;
-	margin-top: 2px;
-	overflow: hidden;
-	color: #94a3b8;
-	font-size: 10px;
-	line-height: 1.2;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	color: var(--domus-muted);
+	font-size: 11px;
 }
 
-.agent-tags-text {
-	padding: 1px 6px;
-	border-radius: 4px;
-	background: rgba(59, 130, 246, 0.15);
-	color: #93c5fd;
+.product-main {
+	padding-top: var(--domus-header-height);
+	background: transparent;
 }
 
-.user-shell__nav {
-	padding: 10px 12px;
+@media (max-width: 900px) {
+	.product-header {
+		grid-template-columns: auto 1fr auto;
+		gap: 10px;
+		padding-inline: 14px;
+	}
+
+	.brand-name,
+	.brand-product,
+	.agent-control__label {
+		display: none;
+	}
+
+	.brand-mark {
+		width: 42px;
+		height: 42px;
+	}
+
+	.product-nav {
+		justify-self: center;
+	}
+
+	.product-nav__item {
+		padding-inline: 11px;
+	}
+
+	.product-nav__item .v-icon {
+		display: none;
+	}
+
+	.agent-switcher {
+		width: 48px;
+	}
+
+	.agent-switcher :deep(.v-field__input) {
+		padding-inline-start: 8px;
+	}
+
+	.agent-option__title,
+	.agent-switcher :deep(.v-field__append-inner) {
+		display: none;
+	}
+
+	.agent-option__avatar {
+		margin-right: 0;
+	}
 }
 
-.user-shell__nav :deep(.v-list-item) {
-	margin-bottom: 4px;
-	border-radius: 6px;
-}
+@media (max-width: 430px) {
+	.product-header {
+		grid-template-columns: 1fr auto;
+		height: 72px;
+	}
 
+	.brand-lockup {
+		display: none;
+	}
+
+	.product-nav {
+		justify-self: start;
+	}
+
+	.product-main {
+		padding-top: 72px;
+	}
+}
 </style>

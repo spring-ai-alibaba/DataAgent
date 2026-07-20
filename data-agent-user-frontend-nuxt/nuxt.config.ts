@@ -1,6 +1,6 @@
 export default defineNuxtConfig({
 	compatibilityDate: '2025-07-15',
-	devtools: { enabled: true },
+	devtools: { enabled: false },
 	modules: ['vuetify-nuxt-module', '@pinia/nuxt', '@nuxt/eslint'],
 	components: [
 		{
@@ -11,8 +11,30 @@ export default defineNuxtConfig({
 	],
 	vuetify: {
 		vuetifyOptions: {
+			theme: {
+				defaultTheme: 'domus',
+				themes: {
+					domus: {
+						dark: false,
+						colors: {
+							background: '#F4EADC',
+							surface: '#FFF6E8',
+							primary: '#8D5633',
+							secondary: '#C7832F',
+							info: '#77695C',
+							success: '#4F704B',
+							warning: '#A96B21',
+							error: '#A44C3E',
+						},
+					},
+				},
+			},
 			defaults: {
-				VBtn: { variant: 'outlined' },
+				VBtn: { variant: 'outlined', rounded: 'pill' },
+				VCard: { rounded: 'lg' },
+				VTextField: { color: 'primary' },
+				VSelect: { color: 'primary' },
+				VTextarea: { color: 'primary' },
 			},
 		},
 	},
@@ -28,6 +50,11 @@ export default defineNuxtConfig({
 		'/nl2sql/**': { proxy: 'http://localhost:8065/nl2sql/**' },
 	},
 	app: {
+		head: {
+			title: 'Domus 智能问数',
+			meta: [{ name: 'theme-color', content: '#F4EADC' }],
+			link: [{ rel: 'icon', type: 'image/png', href: '/logo.png' }],
+		},
 		pageTransition: { name: 'page', mode: 'out-in' },
 	},
 	css: ['~/assets/css/main.css'],

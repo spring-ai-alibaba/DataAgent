@@ -49,7 +49,7 @@
 							<!-- ── AI messages ──────────────────────────────────── -->
 							<div v-else class="row ai-row">
 								<v-avatar
-									color="blue-darken-3"
+									color="primary"
 									size="34"
 									rounded="lg"
 									class="avatar"
@@ -137,7 +137,7 @@
 						>
 							<div class="row ai-row">
 								<v-avatar
-									color="blue-darken-3"
+									color="primary"
 									size="34"
 									rounded="lg"
 									class="avatar"
@@ -158,7 +158,7 @@
 						class="row ai-row"
 					>
 						<v-avatar
-							color="blue-darken-3"
+							color="primary"
 							size="34"
 							rounded="lg"
 							class="avatar"
@@ -176,7 +176,7 @@
 						class="row ai-row"
 					>
 						<v-avatar
-							color="blue-darken-3"
+							color="primary"
 							size="34"
 							rounded="lg"
 							class="avatar"
@@ -193,7 +193,7 @@
 						class="row ai-row"
 					>
 						<v-avatar
-							color="blue-darken-3"
+							color="primary"
 							size="34"
 							rounded="lg"
 							class="avatar"

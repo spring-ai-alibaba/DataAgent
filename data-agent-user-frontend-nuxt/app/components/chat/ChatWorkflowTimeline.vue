@@ -24,6 +24,9 @@
 				>
 				任务开始
 			</v-card-title>
+			<span v-if="totalDurationMs !== null" class="total-duration">
+				总用时 {{ formatDuration(totalDurationMs) }}
+			</span>
 			<v-btn
 				variant="outlined"
 				size="x-small"
@@ -58,6 +61,12 @@
 						<span v-else-if="step.status === 'done'" class="step-badge done"
 							>完成</span
 						>
+						<span
+							v-if="getStepDurationMs(step) !== null"
+							class="step-duration"
+						>
+							耗时 {{ formatDuration(getStepDurationMs(step)) }}
+						</span>
 					</div>
 					<v-icon size="16" color="#94a3b8">
 						{{ step.expanded ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
@@ -291,6 +300,10 @@ function normalizeBlock(block: GraphNodeResponse[]): GraphNodeResponse[] {
 			last.complete = item.complete;
 			last.error = item.error;
 			last.threadId = item.threadId;
+			last.workflowStartedAt = item.workflowStartedAt;
+			last.nodeStartedAt = item.nodeStartedAt;
+			last.nodeElapsedMs = item.nodeElapsedMs;
+			last.totalElapsedMs = item.totalElapsedMs;
 		} else {
 			merged.push({ ...item });
 		}
@@ -341,6 +354,53 @@ const timelineSteps = computed<TimelineStep[]>(() => {
 			isReport,
 		};
 	});
+});
+
+const nowMs = ref(Date.now());
+let elapsedTimer: ReturnType<typeof setInterval> | null = null;
+
+const totalDurationMs = computed<number | null>(() => {
+	const responses = normalizedNodeBlocks.value.flat();
+	const finalElapsed = responses.reduce<number | null>((latest, response) => {
+		if (typeof response.totalElapsedMs !== 'number') return latest;
+		return latest === null
+			? response.totalElapsedMs
+			: Math.max(latest, response.totalElapsedMs);
+	}, null);
+	if (props.completed) return finalElapsed;
+	const startedAt = responses.find(
+		(response) => typeof response.workflowStartedAt === 'number',
+	)?.workflowStartedAt;
+	return typeof startedAt === 'number'
+		? Math.max(finalElapsed || 0, nowMs.value - startedAt)
+		: finalElapsed;
+});
+
+function getStepDurationMs(step: TimelineStep): number | null {
+	const timing = step.block[0];
+	if (!timing) return null;
+	if (step.status === 'active' && typeof timing.nodeStartedAt === 'number') {
+		return Math.max(timing.nodeElapsedMs || 0, nowMs.value - timing.nodeStartedAt);
+	}
+	return typeof timing.nodeElapsedMs === 'number' ? timing.nodeElapsedMs : null;
+}
+
+function formatDuration(milliseconds: number | null): string {
+	const totalSeconds = Math.max(0, milliseconds || 0) / 1000;
+	if (totalSeconds < 10) return `${totalSeconds.toFixed(1)} 秒`;
+	if (totalSeconds < 60) return `${Math.round(totalSeconds)} 秒`;
+	const wholeSeconds = Math.round(totalSeconds);
+	const hours = Math.floor(wholeSeconds / 3600);
+	const minutes = Math.floor((wholeSeconds % 3600) / 60);
+	const seconds = wholeSeconds % 60;
+	if (hours > 0) return `${hours} 时 ${minutes} 分 ${seconds} 秒`;
+	return `${minutes} 分 ${seconds.toString().padStart(2, '0')} 秒`;
+}
+
+onMounted(() => {
+	if (!props.completed) {
+		elapsedTimer = setInterval(() => (nowMs.value = Date.now()), 250);
+	}
 });
 
 function dotColor(status: string): string {
@@ -413,7 +473,10 @@ function resizeOutputByKeyboard(event: KeyboardEvent, delta: number) {
 	output.style.height = `${clampOutputHeight(output.getBoundingClientRect().height + delta)}px`;
 }
 
-onBeforeUnmount(() => stopActiveOutputResize?.());
+onBeforeUnmount(() => {
+	stopActiveOutputResize?.();
+	if (elapsedTimer) clearInterval(elapsedTimer);
+});
 
 const CODE_TEXT_TYPES = new Set(['SQL', 'PYTHON', 'JSON']);
 
@@ -575,6 +638,15 @@ function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
 	line-height: 1;
 }
 
+.total-duration {
+	margin-left: auto;
+	margin-right: 10px;
+	font-size: 12px;
+	font-weight: 600;
+	color: #475569;
+	white-space: nowrap;
+}
+
 .toggle-all-btn {
 	font-size: 11px !important;
 	text-transform: none !important;
@@ -601,6 +673,13 @@ function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
 	font-size: 13px;
 	font-weight: 600;
 	color: #1e293b;
+}
+
+.step-duration {
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	color: #64748b;
+	white-space: nowrap;
 }
 
 /* ── Badge ───────────────────────────────────────────────────────────────────── */
@@ -658,9 +737,9 @@ function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
 	min-height: 44px;
 	height: clamp(140px, 25vh, 220px);
 	max-height: 70vh;
-	border: 1px solid #e2e8f0;
+	border: 1px solid var(--domus-line);
 	border-radius: 6px;
-	background: #f8fafc;
+	background: rgb(255 246 232 / 72%);
 	overflow: hidden;
 }
 
@@ -720,19 +799,23 @@ function renderTextWithJsonDetection(block: GraphNodeResponse[]): string {
 }
 
 :deep(.tl-code) {
-	background: transparent;
-	border: 0;
-	border-radius: 0;
-	padding: 0;
+	margin: 0;
+	padding: 12px 14px;
+	border: 1px solid var(--domus-line);
+	border-radius: 6px;
+	background: var(--domus-bg) !important;
+	color: var(--domus-ink);
 	font-size: 12.5px;
 	overflow: visible;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 	word-break: break-word;
-	margin: 0;
 }
 
 :deep(.tl-code code) {
+	display: block;
+	background: transparent !important;
+	color: inherit;
 	white-space: inherit;
 	overflow-wrap: inherit;
 	word-break: inherit;

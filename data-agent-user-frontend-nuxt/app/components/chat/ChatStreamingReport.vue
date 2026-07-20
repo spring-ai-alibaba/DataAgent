@@ -27,21 +27,24 @@
 				<span class="typing-dot typing-dot--3" />
 			</span>
 		</div>
-		<div class="report-body">
+		<div ref="reportBodyRef" class="report-body">
 			<div class="markdown-body streaming" v-html="renderedHtml" />
 		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue';
+import { ref, watch, onBeforeUnmount, nextTick } from 'vue';
 import DOMPurify from 'dompurify';
 import { renderMarkdownContent } from '~/utils/markdown';
 import { useTypewriter } from '~/composables/useTypewriter';
+import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
 
 const props = defineProps<{ content: string }>();
 
 const { displayedText, append, reset } = useTypewriter();
+const reportBodyRef = ref<HTMLElement | null>(null);
+const { renderECharts } = useEchartsRenderer();
 
 // Track what we've already fed to the typewriter
 let lastFedLength = 0;
@@ -85,6 +88,7 @@ function renderDisplayedText() {
 				SANITIZE_OPTIONS,
 			) as string)
 		: '';
+	nextTick(() => renderECharts(reportBodyRef.value));
 }
 
 watch(
@@ -104,18 +108,22 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .streaming-report {
-	background: white;
+	color: var(--domus-ink);
+	background: var(--domus-paper);
+	border: 1px solid var(--domus-line);
+	border-radius: 8px;
+	overflow: hidden;
 }
 
 .report-header {
 	display: flex;
 	align-items: center;
 	padding: 10px 14px;
-	background: #f8fafc;
-	border-bottom: 1px solid #e8edf2;
+	background: var(--domus-cream);
+	border-bottom: 1px solid var(--domus-line);
 	font-size: 13.5px;
 	font-weight: 600;
-	color: #1e293b;
+	color: var(--domus-copper);
 }
 
 .typing-indicator {
@@ -128,7 +136,7 @@ onBeforeUnmount(() => {
 .typing-dot {
 	width: 4px;
 	height: 4px;
-	background: #3b82f6;
+	background: var(--domus-amber);
 	border-radius: 50%;
 	animation: typingBounce 1.2s infinite;
 }
@@ -154,6 +162,8 @@ onBeforeUnmount(() => {
 .report-body {
 	padding: 16px;
 	position: relative;
+	color: var(--domus-ink);
+	background: var(--domus-paper);
 }
 
 /* Blinking dot cursor — appended after last inline content via CSS ::after
@@ -166,7 +176,7 @@ onBeforeUnmount(() => {
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background: #3b82f6;
+	background: var(--domus-amber);
 	margin-left: 3px;
 	vertical-align: middle;
 	animation: cursorDotBlink 0.7s step-end infinite;
@@ -187,7 +197,7 @@ onBeforeUnmount(() => {
 .markdown-body :deep(h3) {
 	font-weight: 700;
 	margin: 14px 0 6px;
-	color: #0f172a;
+	color: var(--domus-ink);
 }
 .markdown-body :deep(h1) {
 	font-size: 20px;
@@ -201,7 +211,7 @@ onBeforeUnmount(() => {
 .markdown-body :deep(p) {
 	margin-bottom: 10px;
 	line-height: 1.75;
-	color: #374151;
+	color: var(--domus-ink);
 	font-size: 14px;
 }
 .markdown-body :deep(ul),
@@ -212,15 +222,15 @@ onBeforeUnmount(() => {
 .markdown-body :deep(li) {
 	line-height: 1.7;
 	font-size: 14px;
-	color: #374151;
+	color: var(--domus-ink);
 }
 .markdown-body :deep(code:not(pre code)) {
-	background: #f6f8fa;
-	border: 1px solid #e1e4e8;
+	background: var(--domus-cream);
+	border: 1px solid var(--domus-line);
 	padding: 2px 5px;
 	border-radius: 3px;
 	font-size: 12.5px;
-	color: #e83e8c;
+	color: var(--domus-copper);
 }
 .markdown-body :deep(table) {
 	width: 100%;
@@ -241,9 +251,9 @@ onBeforeUnmount(() => {
 }
 .markdown-body :deep(th) {
 	display: table-cell;
-	background: #f1f5f9;
+	background: var(--domus-cream);
 	padding: 8px 12px;
-	border: 1px solid #e2e8f0;
+	border: 1px solid var(--domus-line);
 	font-weight: 600;
 	font-size: 13px;
 	text-align: left;
@@ -251,19 +261,19 @@ onBeforeUnmount(() => {
 .markdown-body :deep(td) {
 	display: table-cell;
 	padding: 8px 12px;
-	border: 1px solid #e8edf2;
+	border: 1px solid var(--domus-line);
 	font-size: 13px;
 }
 .markdown-body :deep(tr:nth-child(even) td) {
-	background: #f8fafc;
+	background: rgb(244 234 220 / 52%);
 }
 .markdown-body :deep(blockquote) {
-	border-left: 3px solid #3b82f6;
+	border-left: 3px solid var(--domus-amber);
 	padding: 8px 14px;
 	margin-left: 0;
-	background: #eff6ff;
+	background: var(--domus-cream);
 	border-radius: 0 6px 6px 0;
-	color: #374151;
+	color: var(--domus-ink);
 }
 
 /* ── Code block with header ─────────────────────────────────────────────────── */

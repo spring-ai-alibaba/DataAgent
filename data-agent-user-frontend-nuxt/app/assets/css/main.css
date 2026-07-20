@@ -14,77 +14,547 @@
  * limitations under the License.
  */
 
-/* 页面淡入淡出且轻微位移 */
+:root {
+	--domus-bg: #f4eadc;
+	--domus-paper: #fff6e8;
+	--domus-cream: #f9efdf;
+	--domus-ink: #201812;
+	--domus-dark: #251b15;
+	--domus-muted: #77695c;
+	--domus-amber: #c7832f;
+	--domus-copper: #8d5633;
+	--domus-clay: #b46b50;
+	--domus-line: rgb(45 33 22 / 16%);
+	--domus-line-strong: rgb(45 33 22 / 28%);
+	--domus-success: #4f704b;
+	--domus-warning: #a96b21;
+	--domus-error: #a44c3e;
+	--domus-serif: Canela, 'Times New Roman', 'Songti SC', serif;
+	--domus-sans: 'Neue Haas Grotesk Display Pro', Inter, 'PingFang SC',
+		'Hiragino Sans GB', sans-serif;
+	--domus-header-height: 82px;
+	--domus-shadow: 0 18px 48px rgb(63 45 34 / 10%);
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+	letter-spacing: 0;
+}
+
+html,
+body,
+#__nuxt {
+	min-height: 100%;
+	margin: 0;
+}
+
+body {
+	color: var(--domus-ink);
+	font-family: var(--domus-sans);
+	background:
+		radial-gradient(circle at 15% 0%, rgb(199 131 47 / 20%), transparent 30%),
+		radial-gradient(circle at 88% 8%, rgb(180 107 80 / 10%), transparent 28%),
+		linear-gradient(rgb(45 33 22 / 4%) 1px, transparent 1px),
+		linear-gradient(90deg, rgb(45 33 22 / 4%) 1px, transparent 1px),
+		var(--domus-bg);
+	background-attachment: fixed;
+	background-size: auto, auto, 34px 34px, 34px 34px, auto;
+}
+
+button,
+input,
+textarea,
+select {
+	font: inherit;
+}
+
+button,
+a,
+[role='button'] {
+	-webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+	outline: 3px solid rgb(199 131 47 / 42%);
+	outline-offset: 2px;
+}
+
+::selection {
+	color: var(--domus-paper);
+	background: var(--domus-copper);
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	border: 2px solid transparent;
+	border-radius: 999px;
+	background: rgb(119 105 92 / 42%);
+	background-clip: padding-box;
+}
+
+.domus-app,
+.v-application,
+.v-main {
+	color: var(--domus-ink) !important;
+	font-family: var(--domus-sans) !important;
+	background: transparent !important;
+}
+
+.v-card,
+.v-dialog > .v-overlay__content > .v-card {
+	color: var(--domus-ink) !important;
+	background: var(--domus-paper) !important;
+	border-color: var(--domus-line) !important;
+	box-shadow: none !important;
+}
+
+.v-dialog > .v-overlay__content > .v-card {
+	border: 1px solid var(--domus-line-strong) !important;
+	border-radius: 8px !important;
+	box-shadow: var(--domus-shadow) !important;
+}
+
+.v-btn {
+	text-transform: none !important;
+	letter-spacing: 0 !important;
+}
+
+.v-btn.bg-primary,
+.v-btn.text-primary:not(.v-btn--variant-text),
+.v-btn[style*='background-color: rgb(37, 99, 235)'] {
+	color: var(--domus-paper) !important;
+	background: var(--domus-dark) !important;
+}
+
+.v-field {
+	color: var(--domus-ink) !important;
+	background: rgb(255 246 232 / 72%);
+}
+
+.v-field__outline {
+	--v-field-border-color: 45, 33, 22;
+	--v-field-border-opacity: 0.22;
+}
+
+.v-field--focused .v-field__outline {
+	--v-field-border-color: 141, 86, 51;
+	--v-field-border-opacity: 0.8;
+}
+
+.v-label,
+.v-field__input::placeholder,
+.text-medium-emphasis {
+	color: var(--domus-muted) !important;
+}
+
+.v-menu > .v-overlay__content,
+.agent-switcher-menu {
+	border: 1px solid var(--domus-line) !important;
+	border-radius: 8px !important;
+	background: var(--domus-paper) !important;
+	box-shadow: var(--domus-shadow) !important;
+	overflow: hidden;
+}
+
+.v-menu .v-list,
+.agent-switcher-menu .v-list {
+	color: var(--domus-ink) !important;
+	background: var(--domus-paper) !important;
+}
+
+.v-list-item--active,
+.agent-option--active {
+	color: var(--domus-ink) !important;
+	background: rgb(199 131 47 / 13%) !important;
+}
+
+.v-chip {
+	border-color: var(--domus-line-strong) !important;
+}
+
+.custom-label {
+	display: block;
+	margin-bottom: 7px;
+	color: var(--domus-muted);
+	font-size: 11px;
+	font-weight: 800;
+	text-transform: uppercase;
+}
+
 .page-enter-active,
 .page-leave-active {
-	transition: all 0.3s ease;
+	transition: opacity 0.22s ease, transform 0.22s ease;
 }
 
 .page-enter-from {
 	opacity: 0;
-	transform: translateY(10px); /* 从下方一点点浮现 */
+	transform: translateY(8px);
 }
 
 .page-leave-to {
 	opacity: 0;
-	transform: translateY(-10px); /* 向上方一点点消失 */
-}
-
-/* ── 公共页面样式 ──────────────────────────────────────────────────────────── */
-
-.page-shell {
-	padding: 32px;
-}
-
-.search-field .v-field__outline {
-	--v-field-border-color: #e2e8f0;
-}
-
-.custom-label {
-	font-size: 0.75rem;
-	font-weight: 600;
-	color: #64748b;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	margin-bottom: 6px;
-	display: block;
+	transform: translateY(-8px);
 }
 
 .breathing-dot {
-	width: 8px;
-	height: 8px;
-	background-color: #10b981;
-	border-radius: 50%;
+	display: inline-block;
+	width: 7px;
+	height: 7px;
 	margin-right: 6px;
-	display: inline-block;
-	animation: breathe 2s infinite ease-in-out;
-}
-
-.breathing-dot-green {
-	width: 8px;
-	height: 8px;
-	background-color: #10b981;
 	border-radius: 50%;
-	margin-right: 8px;
-	display: inline-block;
-	box-shadow: 0 0 0 rgba(16, 185, 129, 0.4);
-	animation: breathe 2s infinite ease-in-out;
+	background: var(--domus-success);
+	animation: domus-breathe 2s ease-in-out infinite;
 }
 
-@keyframes breathe {
-	0% {
-		transform: scale(0.9);
-		opacity: 0.7;
-		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+/* Chat workspace */
+.chat-page .sidebar-wrapper {
+	width: 276px !important;
+	min-width: 276px !important;
+}
+
+.chat-page .sidebar-wrapper.collapsed {
+	width: 0 !important;
+	min-width: 0 !important;
+}
+
+.chat-page .chat-sidebar {
+	width: 276px !important;
+	color: var(--domus-ink) !important;
+	background: rgb(249 239 223 / 88%) !important;
+	border-right: 1px solid var(--domus-line) !important;
+}
+
+.chat-page .sidebar-header,
+.chat-page .sidebar-bottom,
+.chat-page .input-area,
+.chat-page .report-header,
+.chat-page .result-header {
+	border-color: var(--domus-line) !important;
+}
+
+.chat-page .sidebar-title,
+.chat-page .session-item-title,
+.chat-page .chat-textarea,
+.chat-page .report-title,
+.chat-page .result-title,
+.chat-page .step-title {
+	color: var(--domus-ink) !important;
+}
+
+.chat-page .session-group-label,
+.chat-page .session-item-time,
+.chat-page .empty-sessions,
+.chat-page .total-duration,
+.chat-page .step-duration,
+.chat-page .report-subtitle {
+	color: var(--domus-muted) !important;
+}
+
+.chat-page .session-item:hover,
+.chat-page .session-item.active {
+	background: rgb(199 131 47 / 12%) !important;
+}
+
+.chat-page .session-item.active {
+	box-shadow: inset 3px 0 0 var(--domus-amber);
+}
+
+.chat-page .session-item.active .session-item-title,
+.chat-page .action-btn--edit:hover,
+.chat-page .toggle-btn:hover {
+	color: var(--domus-copper) !important;
+}
+
+.chat-page .session-rename-input {
+	color: var(--domus-ink) !important;
+	background: var(--domus-paper) !important;
+	border-color: var(--domus-copper) !important;
+}
+
+.chat-page .new-session-btn,
+.chat-page .expand-fab {
+	color: var(--domus-copper) !important;
+	border-color: var(--domus-copper) !important;
+	background: var(--domus-paper) !important;
+}
+
+.chat-page .messages-inner {
+	max-width: 1120px;
+	margin-inline: auto;
+	padding: 28px clamp(20px, 4vw, 52px) !important;
+}
+
+.chat-page .user-card {
+	max-width: min(68%, 720px) !important;
+	color: var(--domus-paper) !important;
+	background: var(--domus-dark) !important;
+	border-radius: 8px 8px 2px 8px !important;
+	box-shadow: 5px 6px 0 rgb(141 86 51 / 10%);
+}
+
+.chat-page .ai-card {
+	max-width: min(82%, 860px) !important;
+	color: var(--domus-ink) !important;
+	background: rgb(255 246 232 / 88%) !important;
+	border: 1px solid var(--domus-line) !important;
+	border-radius: 2px 8px 8px 8px !important;
+}
+
+.chat-page .report-card,
+.chat-page .timeline-card {
+	max-width: 100% !important;
+	background: var(--domus-paper) !important;
+}
+
+.chat-page .jump-to-latest-btn,
+.chat-page .send-btn {
+	color: var(--domus-paper) !important;
+	background: var(--domus-dark) !important;
+	border-color: var(--domus-dark) !important;
+	box-shadow: none !important;
+}
+
+.chat-page .input-area {
+	padding: 13px clamp(18px, 4vw, 52px) 17px !important;
+	background: rgb(255 246 232 / 94%) !important;
+	box-shadow: 0 -16px 40px rgb(63 45 34 / 5%);
+}
+
+.chat-page .status-chip,
+.chat-page .option-chip {
+	color: var(--domus-muted) !important;
+	background: rgb(244 234 220 / 74%) !important;
+	border-color: var(--domus-line) !important;
+}
+
+.chat-page .status-chip:hover:not(.disabled),
+.chat-page .option-chip:hover,
+.chat-page .option-chip.active,
+.chat-page .status-chip--model {
+	color: var(--domus-copper) !important;
+	background: rgb(199 131 47 / 10%) !important;
+	border-color: rgb(141 86 51 / 42%) !important;
+}
+
+.chat-page .chip-dropdown {
+	color: var(--domus-ink) !important;
+	background: var(--domus-paper) !important;
+	border-color: var(--domus-line) !important;
+	box-shadow: var(--domus-shadow) !important;
+}
+
+.chat-page .chip-dropdown-item,
+.chat-page .item-tag {
+	color: var(--domus-ink) !important;
+}
+
+.chat-page .chip-dropdown-item:hover,
+.chat-page .chip-dropdown-item.active,
+.chat-page .item-tag {
+	background: rgb(199 131 47 / 10%) !important;
+}
+
+.chat-page .chip-dropdown-item.active {
+	color: var(--domus-copper) !important;
+}
+
+.chat-page .textarea-wrap {
+	max-width: 1120px;
+	margin-inline: auto;
+	background: rgb(249 239 223 / 68%) !important;
+	border-color: var(--domus-line-strong) !important;
+	border-radius: 8px !important;
+}
+
+.chat-page .textarea-wrap:focus-within {
+	background: var(--domus-paper) !important;
+	border-color: var(--domus-copper) !important;
+	box-shadow: 0 0 0 3px rgb(199 131 47 / 12%);
+}
+
+.chat-page .status-bar,
+.chat-page .action-bar {
+	width: min(1120px, 100%);
+	margin-inline: auto;
+}
+
+.chat-page .chat-textarea::placeholder {
+	color: rgb(119 105 92 / 72%) !important;
+}
+
+.chat-page .human-feedback-panel,
+.chat-page .clarification-tip {
+	color: #6e471b !important;
+	background: #fbebc9 !important;
+	border-color: rgb(169 107 33 / 35%) !important;
+}
+
+.chat-page .feedback-textarea {
+	color: var(--domus-ink) !important;
+	background: var(--domus-paper) !important;
+	border-color: rgb(169 107 33 / 35%) !important;
+}
+
+.chat-page .md-body blockquote,
+.chat-page .markdown-body blockquote {
+	color: var(--domus-muted) !important;
+	border-left-color: var(--domus-amber) !important;
+}
+
+.chat-page .md-body th,
+.chat-page .markdown-body th,
+.chat-page .result-table th {
+	color: var(--domus-ink) !important;
+	background: var(--domus-cream) !important;
+}
+
+.chat-page .md-body th,
+.chat-page .md-body td,
+.chat-page .markdown-body th,
+.chat-page .markdown-body td,
+.chat-page .result-table,
+.chat-page .result-table th,
+.chat-page .result-table td,
+.chat-page .code-block-wrapper,
+.chat-page .step-output {
+	border-color: var(--domus-line) !important;
+}
+
+.chat-page .md-body tr:nth-child(even),
+.chat-page .markdown-body tr:nth-child(even),
+.chat-page .result-table tr:nth-child(even),
+.chat-page .code-block-wrapper,
+.chat-page .code-block-header,
+.chat-page pre.hljs,
+.chat-page .step-output {
+	background: rgb(244 234 220 / 52%) !important;
+}
+
+.chat-page .md-body a,
+.chat-page .markdown-body a,
+.chat-page .step-badge.active {
+	color: var(--domus-copper) !important;
+}
+
+.chat-page .step-badge.active {
+	background: rgb(199 131 47 / 16%) !important;
+}
+
+.chat-page .step-badge.done {
+	color: var(--domus-success) !important;
+	background: rgb(79 112 75 / 14%) !important;
+}
+
+.domus-app .chat-page .user-card {
+	color: var(--domus-paper) !important;
+	background: var(--domus-copper) !important;
+	border: 1px solid #73452d !important;
+	box-shadow: 5px 6px 0 rgb(141 86 51 / 12%) !important;
+}
+
+.domus-app .chat-page .user-card::selection,
+.domus-app .chat-page .user-card ::selection {
+	color: var(--domus-ink);
+	background: #f4c76a;
+}
+
+.domus-app .chat-page .timeline-card {
+	color: var(--domus-ink) !important;
+	background: var(--domus-cream) !important;
+	border: 1px solid var(--domus-line-strong) !important;
+	box-shadow: 6px 8px 0 rgb(141 86 51 / 7%) !important;
+}
+
+.domus-app .chat-page .timeline-title {
+	color: var(--domus-copper) !important;
+}
+
+.domus-app .chat-page .step-label,
+.domus-app .chat-page .step-content {
+	color: var(--domus-ink) !important;
+}
+
+.domus-app .chat-page .step-badge.active {
+	color: var(--domus-copper) !important;
+	background: rgb(199 131 47 / 16%) !important;
+}
+
+.domus-app .chat-page .badge-dot {
+	background: var(--domus-amber) !important;
+}
+
+.domus-app .chat-page .step-output,
+.domus-app .chat-page .step-resize-handle {
+	background: rgb(255 246 232 / 75%) !important;
+	border-color: var(--domus-line) !important;
+}
+
+@media (max-width: 800px) {
+	.chat-page .sidebar-wrapper:not(.collapsed) {
+		position: absolute !important;
+		inset: 0 auto 0 0;
+		z-index: 40;
+		width: min(84vw, 300px) !important;
+		min-width: min(84vw, 300px) !important;
+		box-shadow: 18px 0 50px rgb(32 24 18 / 18%);
 	}
+
+	.chat-page .chat-sidebar {
+		width: min(84vw, 300px) !important;
+	}
+
+	.chat-page .messages-inner {
+		padding: 22px 14px !important;
+	}
+
+	.chat-page .user-card,
+	.chat-page .ai-card {
+		max-width: 88% !important;
+	}
+
+	.chat-page .input-area {
+		padding: 10px 12px 12px !important;
+	}
+
+	.chat-page .action-bar {
+		align-items: flex-end !important;
+		gap: 8px;
+	}
+
+	.chat-page .extra-options {
+		gap: 4px !important;
+	}
+
+	.chat-page .option-chip {
+		padding-inline: 7px !important;
+		font-size: 11px !important;
+	}
+}
+
+@keyframes domus-breathe {
 	50% {
-		transform: scale(1.1);
-		opacity: 1;
-		box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+		transform: scale(1.18);
+		box-shadow: 0 0 0 5px rgb(79 112 75 / 0%);
 	}
-	100% {
-		transform: scale(0.9);
-		opacity: 0.7;
-		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		scroll-behavior: auto !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
 	}
 }

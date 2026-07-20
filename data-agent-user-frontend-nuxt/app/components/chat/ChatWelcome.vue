@@ -1,91 +1,123 @@
-/*
- * Copyright 2026 the original author or authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+<!--
+ Copyright 2026 the original author or authors.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      https://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
 
 <template>
 	<div class="welcome-wrap">
-		<!-- Agent Avatar -->
+		<p class="welcome-eyebrow">BUSINESS WORK, NOT TOOL LEARNING</p>
 		<div class="agent-avatar-wrap">
 			<v-avatar
 				:image="store.currentAgentAvatar || undefined"
-				:color="store.currentAgentAvatar ? undefined : 'grey-lighten-3'"
-				size="80"
-				rounded="xl"
+				:color="store.currentAgentAvatar ? undefined : 'transparent'"
+				size="84"
+				rounded="lg"
 				class="agent-avatar"
 			>
-				<span v-if="!store.currentAgentAvatar" class="agent-avatar-emoji">🤖</span>
+				<img
+					v-if="!store.currentAgentAvatar"
+					src="/logo.png"
+					alt="Domus"
+					class="agent-avatar-fallback"
+				/>
 			</v-avatar>
 		</div>
 
-		<!-- Agent Name -->
 		<h2 class="welcome-title">
 			您好，我是 <span class="agent-name">{{ store.currentAgentName || '数据助手' }}</span>
 		</h2>
-
-		<!-- Agent Description -->
 		<p class="welcome-desc">
-			{{ store.currentAgentDescription || '我可以为您分析数据库中的表结构、生成 SQL 或可视化图表。' }}
+			{{ store.currentAgentDescription || '告诉我你想了解的数据，我会完成查询、分析并整理成清晰的结果。' }}
 		</p>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { useChatStore } from '~/stores/chat';
+
 const store = useChatStore();
 </script>
 
 <style scoped>
 .welcome-wrap {
 	display: flex;
+	flex: 1;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	flex: 1;
-	padding: 40px 24px;
+	padding: clamp(44px, 8vh, 92px) 24px 36px;
 	text-align: center;
 }
 
+.welcome-eyebrow {
+	margin: 0 0 20px;
+	color: var(--domus-copper);
+	font-size: 11px;
+	font-weight: 800;
+	text-transform: uppercase;
+}
+
 .agent-avatar-wrap {
-	margin-bottom: 24px;
+	margin-bottom: 26px;
 }
 
 .agent-avatar {
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+	border: 1px solid var(--domus-line);
+	background: rgb(255 246 232 / 82%) !important;
+	box-shadow: 8px 10px 0 rgb(141 86 51 / 10%);
 }
 
-.agent-avatar-emoji {
-	font-size: 36px;
-	line-height: 1;
+.agent-avatar-fallback {
+	width: 66%;
+	height: 66%;
+	object-fit: contain;
 }
 
 .welcome-title {
-	font-size: 26px;
+	max-width: 760px;
+	margin: 0 0 18px;
+	color: var(--domus-ink);
+	font-family: var(--domus-serif);
+	font-size: clamp(36px, 5vw, 68px);
 	font-weight: 700;
-	color: #0f172a;
-	margin-bottom: 12px;
-	letter-spacing: -0.3px;
+	line-height: 1.06;
 }
 
 .agent-name {
-	color: #1e293b;
+	color: var(--domus-copper);
 }
 
 .welcome-desc {
-	font-size: 14.5px;
-	color: #64748b;
-	max-width: 480px;
-	line-height: 1.7;
+	max-width: 620px;
+	margin: 0;
+	color: var(--domus-muted);
+	font-size: 15px;
+	line-height: 1.8;
+}
+
+@media (max-width: 600px) {
+	.welcome-wrap {
+		justify-content: flex-start;
+		padding: 46px 18px 24px;
+	}
+
+	.welcome-eyebrow {
+		font-size: 10px;
+	}
+
+	.welcome-title {
+		font-size: 38px;
+	}
 }
 </style>
