@@ -275,7 +275,7 @@ class SqlExecuteNodeTest {
 
 		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
 		when(properties.isEnableSqlResultChart()).thenReturn(true);
-		when(llmService.call(anyString(), anyString())).thenThrow(new RuntimeException("LLM timeout"));
+		when(llmService.callWithState(anyString(), anyString(), org.mockito.ArgumentMatchers.any())).thenThrow(new RuntimeException("LLM timeout"));
 
 		Map<String, Object> result = sqlExecuteNode.apply(state);
 		assertNotNull(result);

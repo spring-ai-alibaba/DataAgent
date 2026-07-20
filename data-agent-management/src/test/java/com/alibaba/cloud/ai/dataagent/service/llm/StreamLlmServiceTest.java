@@ -111,7 +111,7 @@ class StreamLlmServiceTest {
 		when(state.value("THINKING_ENABLED")).thenReturn(Optional.of(true));
 		when(state.value("REASONING_EFFORT")).thenReturn(Optional.of("high"));
 
-		streamLlmService.callUser("Hello", state).blockLast();
+		streamLlmService.callUserWithState("Hello", state).blockLast();
 
 		ArgumentCaptor<OpenAiChatOptions> captor = ArgumentCaptor.forClass(OpenAiChatOptions.class);
 		verify(requestSpec).options(captor.capture());
@@ -124,7 +124,7 @@ class StreamLlmServiceTest {
 		OverAllState state = org.mockito.Mockito.mock(OverAllState.class);
 		when(state.value("THINKING_ENABLED")).thenReturn(Optional.of(false));
 
-		streamLlmService.callUser("Hello", state).blockLast();
+		streamLlmService.callUserWithState("Hello", state).blockLast();
 
 		ArgumentCaptor<OpenAiChatOptions> captor = ArgumentCaptor.forClass(OpenAiChatOptions.class);
 		verify(requestSpec).options(captor.capture());

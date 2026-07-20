@@ -62,7 +62,7 @@ public class FeasibilityAssessmentNode implements NodeAction {
 				multiTurn);
 		log.debug("Built feasibility assessment prompt as follows \n {} \n", prompt);
 
-		Flux<ChatResponse> responseFlux = llmService.callUser(prompt, state);
+		Flux<ChatResponse> responseFlux = llmService.callUserWithState(prompt, state);
 
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGenerator(this.getClass(), state,
 				responseFlux,

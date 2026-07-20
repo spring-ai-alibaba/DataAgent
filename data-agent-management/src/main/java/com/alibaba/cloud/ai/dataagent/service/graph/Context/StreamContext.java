@@ -50,6 +50,8 @@ public class StreamContext {
 
 	private String threadId;
 
+	private String conversationId;
+
 	private final long workflowStartedAt = System.currentTimeMillis();
 
 	private String activeNodeName;

@@ -77,7 +77,7 @@ public class EvidenceRecallNode implements NodeAction {
 		log.debug("Built evidence-query-rewrite prompt as follows \n {} \n", prompt);
 
 		// 调用LLM进行查询重写
-		Flux<ChatResponse> responseFlux = llmService.callUser(prompt, state);
+		Flux<ChatResponse> responseFlux = llmService.callUserWithState(prompt, state);
 		Sinks.Many<String> evidenceDisplaySink = Sinks.many().multicast().onBackpressureBuffer();
 
 		final Map<String, Object> resultMap = new HashMap<>();

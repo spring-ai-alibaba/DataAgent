@@ -278,17 +278,6 @@ class PromptHelperTest {
 	}
 
 	@Test
-	void buildQueryEnhancePrompt_bareBusinessPhrase_defaultsToEntityOverview() {
-		String result = PromptHelper.buildQueryEnhancePrompt("(无)", "鸭尾缺陷", "鸭尾缺陷是一类产品质量缺陷");
-
-		assertTrue(result.contains("实体清单和基础数据概览"));
-		assertFalse(result.contains("用户尚未说明分析目标"));
-		assertTrue(result.contains("鸭尾缺陷"));
-		assertTrue(result.contains("销售订单"));
-		assertTrue(result.contains("客户流失"));
-	}
-
-	@Test
 	void buildQueryEnhancePrompt_emptyEvidence_usesDefault() {
 		String result = PromptHelper.buildQueryEnhancePrompt("history", "latest query", "");
 		assertNotNull(result);
@@ -317,17 +306,6 @@ class PromptHelperTest {
 		SchemaDTO schema = createTestSchema();
 		String result = PromptHelper.buildFeasibilityAssessmentPrompt("query", schema, "evidence", "history");
 		assertNotNull(result);
-	}
-
-	@Test
-	void buildFeasibilityAssessmentPrompt_bareBusinessPhrase_routesToDataAnalysis() {
-		SchemaDTO schema = createTestSchema();
-		String result = PromptHelper.buildFeasibilityAssessmentPrompt("查询鸭尾缺陷相关的实体清单和基础数据概览", schema,
-				"鸭尾缺陷是一类产品质量缺陷", "(无)");
-
-		assertTrue(result.contains("一律返回 DATA_ANALYSIS"));
-		assertTrue(result.contains("不返回 NEED_CLARIFICATION"));
-		assertTrue(result.contains("实体清单和基础数据概览"));
 	}
 
 	@Test

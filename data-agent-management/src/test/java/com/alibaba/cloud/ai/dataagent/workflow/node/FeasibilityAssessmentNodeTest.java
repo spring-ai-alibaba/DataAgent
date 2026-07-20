@@ -83,14 +83,14 @@ class FeasibilityAssessmentNodeTest {
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, TABLE_RELATION_OUTPUT, createSimpleSchema(), EVIDENCE,
 				"用户表有id, name字段"));
 
-		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
+		when(llmService.callUserWithState(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("可行：可以通过SQL查询用户数量")));
 
 		Map<String, Object> result = feasibilityAssessmentNode.apply(state);
 
 		assertNotNull(result);
 		assertTrue(result.containsKey(FEASIBILITY_ASSESSMENT_NODE_OUTPUT));
-		verify(llmService).callUser(anyString(), org.mockito.ArgumentMatchers.any());
+		verify(llmService).callUserWithState(anyString(), org.mockito.ArgumentMatchers.any());
 	}
 
 	@Test
@@ -100,7 +100,7 @@ class FeasibilityAssessmentNodeTest {
 		state.updateState(
 				Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, TABLE_RELATION_OUTPUT, createSimpleSchema(), EVIDENCE, "无相关数据"));
 
-		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
+		when(llmService.callUserWithState(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("不可行：该查询与数据库无关")));
 
 		Map<String, Object> result = feasibilityAssessmentNode.apply(state);
@@ -116,7 +116,7 @@ class FeasibilityAssessmentNodeTest {
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, TABLE_RELATION_OUTPUT, createSimpleSchema(), EVIDENCE,
 				"evidence", MULTI_TURN_CONTEXT, "之前查询了用户列表"));
 
-		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("可行")));
+		when(llmService.callUserWithState(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("可行")));
 
 		Map<String, Object> result = feasibilityAssessmentNode.apply(state);
 
@@ -131,7 +131,7 @@ class FeasibilityAssessmentNodeTest {
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, TABLE_RELATION_OUTPUT, createSimpleSchema(), EVIDENCE,
 				"sales table exists"));
 
-		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("可行："),
+		when(llmService.callUserWithState(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("可行："),
 				ChatResponseUtil.createPureResponse("可以查询销售额数据")));
 
 		Map<String, Object> result = feasibilityAssessmentNode.apply(state);

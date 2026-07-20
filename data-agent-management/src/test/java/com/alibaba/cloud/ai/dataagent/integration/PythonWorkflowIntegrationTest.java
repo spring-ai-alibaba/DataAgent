@@ -115,7 +115,7 @@ class PythonWorkflowIntegrationTest {
 		setupWorkflowState(state);
 
 		String generatedCode = "import pandas as pd\ndf = pd.DataFrame(data)\nprint(df.describe().to_json())";
-		when(llmService.call(anyString(), anyString(), org.mockito.ArgumentMatchers.any()))
+		when(llmService.callWithState(anyString(), anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(generatedCode)));
 
 		Map<String, Object> generateResult = pythonGenerateNode.apply(state);
@@ -135,16 +135,16 @@ class PythonWorkflowIntegrationTest {
 		state.updateState(Map.of(PYTHON_EXECUTE_NODE_OUTPUT, executionOutput, PYTHON_IS_SUCCESS, true));
 
 		String analysisResponse = "数据分析结果：共3条记录，平均金额200.0元";
-		when(llmService.callSystem(anyString(), org.mockito.ArgumentMatchers.any()))
+		when(llmService.callSystemWithState(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(analysisResponse)));
 
 		Map<String, Object> analyzeResult = pythonAnalyzeNode.apply(state);
 		assertNotNull(analyzeResult);
 		assertTrue(analyzeResult.containsKey(PYTHON_ANALYSIS_NODE_OUTPUT));
 
-		verify(llmService).call(anyString(), anyString(), org.mockito.ArgumentMatchers.any());
+		verify(llmService).callWithState(anyString(), anyString(), org.mockito.ArgumentMatchers.any());
 		verify(codePoolExecutor).runTask(any());
-		verify(llmService).callSystem(anyString(), org.mockito.ArgumentMatchers.any());
+		verify(llmService).callSystemWithState(anyString(), org.mockito.ArgumentMatchers.any());
 	}
 
 }

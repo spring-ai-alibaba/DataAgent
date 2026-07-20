@@ -135,6 +135,7 @@ public class GraphServiceImpl implements GraphService {
 		context.attachSink(sink);
 		context.setAgentId(graphRequest.getAgentId());
 		context.setThreadId(threadId);
+		context.setConversationId(graphRequest.getConversationId());
 
 		if (StringUtils.hasText(graphRequest.getHumanFeedbackContent())) {
 			handleHumanFeedback(graphRequest);
@@ -187,6 +188,18 @@ public class GraphServiceImpl implements GraphService {
 		}
 	}
 
+	@Override
+	public void stopStreamProcessingByConversationId(String conversationId) {
+		if (!StringUtils.hasText(conversationId)) {
+			return;
+		}
+		streamContextMap.forEach((threadId, context) -> {
+			if (conversationId.equals(context.getConversationId())) {
+				stopStreamProcessing(threadId);
+			}
+		});
+	}
+
 	private void emitReconnectFailure(Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink, GraphRequest graphRequest) {
 		GraphNodeResponse response = GraphNodeResponse.error(graphRequest.getAgentId(), graphRequest.getThreadId(),
 				"未找到可恢复的运行上下文，请重新发起任务。");
@@ -199,6 +212,7 @@ public class GraphServiceImpl implements GraphService {
 		context.attachSink(sink);
 		context.setAgentId(request.getAgentId());
 		context.setThreadId(request.getThreadId());
+		context.setConversationId(request.getConversationId());
 		long lastSequence = Optional.ofNullable(request.getLastSequence()).orElse(0L);
 		for (GraphNodeResponse response : context.getReplayResponsesAfter(lastSequence)) {
 			sink.tryEmitNext(ServerSentEvent.builder(response).build());

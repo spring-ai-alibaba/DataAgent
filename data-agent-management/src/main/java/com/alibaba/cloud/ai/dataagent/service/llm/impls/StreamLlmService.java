@@ -22,9 +22,12 @@ import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import lombok.AllArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.StructuredOutputValidationAdvisor;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
 
@@ -42,6 +45,23 @@ public class StreamLlmService implements LlmService {
 	}
 
 	@Override
+	public Flux<ChatResponse> call(String system, String user, Class<?> outputType) {
+		StructuredOutputValidationAdvisor advisor = StructuredOutputValidationAdvisor.builder()
+			.outputType(outputType)
+			.maxRepeatAttempts(2)
+			.build();
+		return Mono.fromCallable(() -> registry.getChatClient()
+			.prompt()
+			.system(system)
+			.user(user)
+			.advisors(advisor)
+			.call()
+			.chatResponse())
+			.subscribeOn(Schedulers.boundedElastic())
+			.flux();
+	}
+
+	@Override
 	public Flux<ChatResponse> callSystem(String system) {
 		return registry.getChatClient().prompt().system(system).stream().chatResponse();
 	}
@@ -52,17 +72,29 @@ public class StreamLlmService implements LlmService {
 	}
 
 	@Override
-	public Flux<ChatResponse> call(String system, String user, OverAllState state) {
+	public Flux<ChatResponse> callUser(String user, Class<?> outputType) {
+		StructuredOutputValidationAdvisor advisor = StructuredOutputValidationAdvisor.builder()
+			.outputType(outputType)
+			.maxRepeatAttempts(2)
+			.build();
+		return Mono
+			.fromCallable(() -> registry.getChatClient().prompt().user(user).advisors(advisor).call().chatResponse())
+			.subscribeOn(Schedulers.boundedElastic())
+			.flux();
+	}
+
+	@Override
+	public Flux<ChatResponse> callWithState(String system, String user, OverAllState state) {
 		return applyThinkingOptions(registry.getChatClient().prompt(), state).system(system).user(user).stream().chatResponse();
 	}
 
 	@Override
-	public Flux<ChatResponse> callSystem(String system, OverAllState state) {
+	public Flux<ChatResponse> callSystemWithState(String system, OverAllState state) {
 		return applyThinkingOptions(registry.getChatClient().prompt(), state).system(system).stream().chatResponse();
 	}
 
 	@Override
-	public Flux<ChatResponse> callUser(String user, OverAllState state) {
+	public Flux<ChatResponse> callUserWithState(String user, OverAllState state) {
 		return applyThinkingOptions(registry.getChatClient().prompt(), state).user(user).stream().chatResponse();
 	}
 

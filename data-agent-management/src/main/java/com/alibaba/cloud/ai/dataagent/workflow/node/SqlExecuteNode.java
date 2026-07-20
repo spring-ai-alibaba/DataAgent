@@ -277,7 +277,7 @@ public class SqlExecuteNode implements NodeAction {
 			log.debug("Built chart config generation user prompt as follows \n {} \n", userPrompt);
 
 			// 调用LLM生成图表配置（使用系统提示词和用户提示词）
-			String chartConfigJson = llmService.toStringFlux(llmService.call(systemPrompt, userPrompt, state))
+			String chartConfigJson = llmService.toStringFlux(llmService.callWithState(systemPrompt, userPrompt, state))
 				.collect(StringBuilder::new, StringBuilder::append)
 				.map(StringBuilder::toString)
 				.block(Duration.ofMillis(properties.getEnrichSqlResultTimeout()));

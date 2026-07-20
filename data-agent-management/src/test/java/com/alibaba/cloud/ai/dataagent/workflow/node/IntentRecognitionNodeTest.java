@@ -79,7 +79,7 @@ class IntentRecognitionNodeTest {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(INPUT_KEY, CHAT_QUERY, MULTI_TURN_CONTEXT, "(无)"));
 
-		when(llmService.callUser(any(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createResponse("正在进行意图识别..."),
+		when(llmService.callUserWithState(any(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createResponse("正在进行意图识别..."),
 				ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()),
 				ChatResponseUtil.createPureResponse(JSON_ANALYSIS),
 				ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
@@ -96,7 +96,7 @@ class IntentRecognitionNodeTest {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(INPUT_KEY, "你好", MULTI_TURN_CONTEXT, "(无)"));
 
-		when(llmService.callUser(any(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createResponse("正在进行意图识别..."),
+		when(llmService.callUserWithState(any(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createResponse("正在进行意图识别..."),
 				ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()),
 				ChatResponseUtil.createPureResponse("""
 						{
@@ -124,7 +124,7 @@ class IntentRecognitionNodeTest {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(INPUT_KEY, CHAT_QUERY, MULTI_TURN_CONTEXT, "(无)"));
 
-		when(llmService.callUser(any(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createResponse("正在进行意图识别..."),
+		when(llmService.callUserWithState(any(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createResponse("正在进行意图识别..."),
 				ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()),
 				ChatResponseUtil.createPureResponse("invalid json"),
 				ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
@@ -140,7 +140,7 @@ class IntentRecognitionNodeTest {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(INPUT_KEY, CHAT_QUERY, MULTI_TURN_CONTEXT, "(无)"));
 
-		when(llmService.callUser(any(), org.mockito.ArgumentMatchers.any())).thenThrow(new RuntimeException("LLM service unavailable"));
+		when(llmService.callUserWithState(any(), org.mockito.ArgumentMatchers.any())).thenThrow(new RuntimeException("LLM service unavailable"));
 
 		assertThrows(RuntimeException.class, () -> intentRecognitionNode.apply(state));
 	}
@@ -151,7 +151,7 @@ class IntentRecognitionNodeTest {
 		String context = "user: 查询PV，assistant: 已提供数据";
 		state.updateState(Map.of(INPUT_KEY, CHAT_QUERY, MULTI_TURN_CONTEXT, context));
 
-		when(llmService.callUser(any(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createResponse("正在进行意图识别..."),
+		when(llmService.callUserWithState(any(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createResponse("正在进行意图识别..."),
 				ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()),
 				ChatResponseUtil.createPureResponse(JSON_ANALYSIS),
 				ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
@@ -162,7 +162,7 @@ class IntentRecognitionNodeTest {
 		assertNotNull(result);
 		assertTrue(result.containsKey(INTENT_RECOGNITION_NODE_OUTPUT));
 
-		verify(llmService).callUser(any(), org.mockito.ArgumentMatchers.any());
+		verify(llmService).callUserWithState(any(), org.mockito.ArgumentMatchers.any());
 	}
 
 	@Test
@@ -174,7 +174,7 @@ class IntentRecognitionNodeTest {
 		}
 		state.updateState(Map.of(INPUT_KEY, longInput.toString(), MULTI_TURN_CONTEXT, "(无)"));
 
-		when(llmService.callUser(any(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createResponse("正在进行意图识别..."),
+		when(llmService.callUserWithState(any(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createResponse("正在进行意图识别..."),
 				ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()),
 				ChatResponseUtil.createPureResponse(JSON_ANALYSIS),
 				ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),

@@ -25,7 +25,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -40,13 +39,13 @@ class LocalCodePoolExecutorServiceTest {
 	private final ExecutionTimeoutParser timeoutParser = new ExecutionTimeoutParser();
 
 	@Test
-	void constructor_pythonAvailable_constructsWithoutInspectingMachinePath() {
+	void constructor_nonPythonExecutable_throwsSpecificConfigurationFailure() {
 		when(programLocator.findFirst(anyList())).thenReturn(Optional.of("python-test"), Optional.empty());
 
-		LocalCodePoolExecutorService service =
-				new LocalCodePoolExecutorService(properties(), programLocator, timeoutParser);
+		IllegalStateException error = assertThrows(IllegalStateException.class,
+				() -> new LocalCodePoolExecutorService(properties(), programLocator, timeoutParser));
 
-		assertDoesNotThrow(service::close);
+		assertTrue(error.getMessage().contains("Python 3"));
 	}
 
 	@Test

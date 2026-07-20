@@ -46,19 +46,6 @@ public class FeasibilityAssessmentDispatcher implements EdgeAction {
 			log.info("[FeasibilityAssessmentNodeDispatcher]需求类型非数据分析，返回END节点");
 			return END;
 		}
-
-		String requestType = result.getRequestType().trim();
-		if (FeasibilityAssessmentOutputDTO.DATA_ANALYSIS.equalsIgnoreCase(requestType)) {
-			log.info("[FeasibilityAssessmentDispatcher] requestType=DATA_ANALYSIS, routing to PlannerNode");
-			return PLANNER_NODE;
-		}
-		if (FeasibilityAssessmentOutputDTO.NEED_CLARIFICATION.equalsIgnoreCase(requestType)) {
-			log.info("[FeasibilityAssessmentDispatcher] legacy requestType=NEED_CLARIFICATION, routing to PlannerNode");
-			return PLANNER_NODE;
-		}
-
-		log.info("[FeasibilityAssessmentDispatcher] requestType={}, routing to END", requestType);
-		return END;
 	}
 
 }

@@ -24,22 +24,26 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class FeasibilityAssessmentOutputDTO {
 
-	public static final String DATA_ANALYSIS = "DATA_ANALYSIS";
-
-	public static final String NEED_CLARIFICATION = "NEED_CLARIFICATION";
-
-	public static final String CHIT_CHAT = "CHIT_CHAT";
-
-	@JsonProperty("request_type")
-	@JsonPropertyDescription("需求类型，可选值：DATA_ANALYSIS、CHIT_CHAT")
-	private String requestType;
+	@JsonProperty("requirementType")
+	@JsonPropertyDescription("Requirement type: DATA_ANALYSIS, NEED_CLARIFICATION, or FREE_CHAT")
+	private RequirementType requirementType;
 
 	@JsonProperty("language")
-	@JsonPropertyDescription("用户问题的语言，例如中文、英文")
+	@JsonPropertyDescription("Language used for the response, for example zh-CN or en-US")
 	private String language;
 
 	@JsonProperty("content")
-	@JsonPropertyDescription("如果是数据分析，则填写规范化后的需求内容；如果是闲聊，则填写简短回复")
+	@JsonPropertyDescription("Normalized analysis requirement, clarification question, or chat response")
 	private String content;
+
+	public enum RequirementType {
+
+		DATA_ANALYSIS,
+
+		NEED_CLARIFICATION,
+
+		FREE_CHAT
+
+	}
 
 }

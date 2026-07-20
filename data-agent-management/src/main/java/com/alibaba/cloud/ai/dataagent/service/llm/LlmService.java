@@ -24,19 +24,23 @@ public interface LlmService {
 
 	Flux<ChatResponse> call(String system, String user);
 
+	Flux<ChatResponse> call(String system, String user, Class<?> outputType);
+
 	Flux<ChatResponse> callSystem(String system);
 
 	Flux<ChatResponse> callUser(String user);
 
-	default Flux<ChatResponse> call(String system, String user, OverAllState state) {
+	Flux<ChatResponse> callUser(String user, Class<?> outputType);
+
+	default Flux<ChatResponse> callWithState(String system, String user, OverAllState state) {
 		return call(system, user);
 	}
 
-	default Flux<ChatResponse> callSystem(String system, OverAllState state) {
+	default Flux<ChatResponse> callSystemWithState(String system, OverAllState state) {
 		return callSystem(system);
 	}
 
-	default Flux<ChatResponse> callUser(String user, OverAllState state) {
+	default Flux<ChatResponse> callUserWithState(String user, OverAllState state) {
 		return callUser(user);
 	}
 

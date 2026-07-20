@@ -126,7 +126,7 @@ class PythonGenerateNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.call(anyString(), anyString()))
+		when(llmService.callWithState(anyString(), anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("import pandas as pd\nprint('hello')")));
 
 		Map<String, Object> result = pythonGenerateNode.apply(state);
@@ -140,7 +140,7 @@ class PythonGenerateNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.call(anyString(), anyString()))
+		when(llmService.callWithState(anyString(), anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("print('with schema')")));
 
 		Map<String, Object> result = pythonGenerateNode.apply(state);
@@ -154,7 +154,7 @@ class PythonGenerateNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.call(anyString(), anyString())).thenThrow(new RuntimeException("LLM service unavailable"));
+		when(llmService.callWithState(anyString(), anyString(), org.mockito.ArgumentMatchers.any())).thenThrow(new RuntimeException("LLM service unavailable"));
 
 		assertThrows(RuntimeException.class, () -> pythonGenerateNode.apply(state));
 	}
@@ -166,7 +166,7 @@ class PythonGenerateNodeTest {
 		state.updateState(Map.of(PYTHON_IS_SUCCESS, false, PYTHON_GENERATE_NODE_OUTPUT, "import pandas\nprint(df)",
 				PYTHON_EXECUTE_NODE_OUTPUT, "NameError: name 'df' is not defined", PYTHON_TRIES_COUNT, 1));
 
-		when(llmService.call(anyString(), anyString()))
+		when(llmService.callWithState(anyString(), anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("import pandas as pd\ndf = pd.DataFrame()")));
 
 		Map<String, Object> result = pythonGenerateNode.apply(state);
@@ -182,7 +182,7 @@ class PythonGenerateNodeTest {
 		state.updateState(Map.of(PYTHON_IS_SUCCESS, false, PYTHON_GENERATE_NODE_OUTPUT, "bad code",
 				PYTHON_EXECUTE_NODE_OUTPUT, "SyntaxError", PYTHON_TRIES_COUNT, 10));
 
-		when(llmService.call(anyString(), anyString()))
+		when(llmService.callWithState(anyString(), anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("print('retry')")));
 
 		Map<String, Object> result = pythonGenerateNode.apply(state);
@@ -196,7 +196,7 @@ class PythonGenerateNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.call(anyString(), anyString()))
+		when(llmService.callWithState(anyString(), anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("```python\nprint('hello')\n```")));
 
 		Map<String, Object> result = pythonGenerateNode.apply(state);
@@ -214,7 +214,7 @@ class PythonGenerateNodeTest {
 		sqlResults.add(Map.of("name", "Bob", "sales", "200"));
 		state.updateState(Map.of(SQL_RESULT_LIST_MEMORY, sqlResults));
 
-		when(llmService.call(anyString(), anyString()))
+		when(llmService.callWithState(anyString(), anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("import json\nprint(json.dumps(result))")));
 
 		Map<String, Object> result = pythonGenerateNode.apply(state);
@@ -228,7 +228,7 @@ class PythonGenerateNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.call(anyString(), anyString())).thenReturn(Flux.just(ChatResponseUtil
+		when(llmService.callWithState(anyString(), anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil
 			.createPureResponse("import pandas as pd\nimport numpy as np\nprint(np.mean([1,2,3]))")));
 
 		Map<String, Object> result = pythonGenerateNode.apply(state);
@@ -241,7 +241,7 @@ class PythonGenerateNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.call(anyString(), anyString()))
+		when(llmService.callWithState(anyString(), anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("print('safe output only')")));
 
 		Map<String, Object> result = pythonGenerateNode.apply(state);

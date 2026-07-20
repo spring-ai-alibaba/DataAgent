@@ -90,14 +90,14 @@ class ReportGeneratorNodeTest {
 
 		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), eq(1L)))
 			.thenReturn(Collections.emptyList());
-		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
+		when(llmService.callUserWithState(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("<h1>用户数据分析报告</h1>")));
 
 		Map<String, Object> result = reportGeneratorNode.apply(state);
 
 		assertNotNull(result);
 		assertTrue(result.containsKey(RESULT));
-		verify(llmService).callUser(anyString(), org.mockito.ArgumentMatchers.any());
+		verify(llmService).callUserWithState(anyString(), org.mockito.ArgumentMatchers.any());
 	}
 
 	@Test
@@ -112,7 +112,7 @@ class ReportGeneratorNodeTest {
 
 		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), eq(2L)))
 			.thenReturn(Collections.emptyList());
-		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("暂无数据可分析")));
+		when(llmService.callUserWithState(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("暂无数据可分析")));
 
 		Map<String, Object> result = reportGeneratorNode.apply(state);
 
@@ -137,7 +137,7 @@ class ReportGeneratorNodeTest {
 
 		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), eq(3L)))
 			.thenReturn(Collections.emptyList());
-		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
+		when(llmService.callUserWithState(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("<h1>综合报告</h1>")));
 
 		Map<String, Object> result = reportGeneratorNode.apply(state);
@@ -153,7 +153,7 @@ class ReportGeneratorNodeTest {
 
 		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), eq(1L)))
 			.thenReturn(Collections.emptyList());
-		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any())).thenThrow(new RuntimeException("LLM unavailable"));
+		when(llmService.callUserWithState(anyString(), org.mockito.ArgumentMatchers.any())).thenThrow(new RuntimeException("LLM unavailable"));
 
 		assertThrows(RuntimeException.class, () -> reportGeneratorNode.apply(state));
 	}
@@ -170,7 +170,7 @@ class ReportGeneratorNodeTest {
 
 		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), isNull()))
 			.thenReturn(Collections.emptyList());
-		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("report")));
+		when(llmService.callUserWithState(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("report")));
 
 		Map<String, Object> result = reportGeneratorNode.apply(state);
 
@@ -216,7 +216,7 @@ class ReportGeneratorNodeTest {
 
 		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), eq(4L)))
 			.thenReturn(Collections.emptyList());
-		when(llmService.callUser(anyString(), org.mockito.ArgumentMatchers.any()))
+		when(llmService.callUserWithState(anyString(), org.mockito.ArgumentMatchers.any()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("<p>分析完成</p>")));
 
 		Map<String, Object> result = reportGeneratorNode.apply(state);
