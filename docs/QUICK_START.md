@@ -32,6 +32,12 @@ mysql -u root -p your_database < data-agent-management/src/main/resources/sql/pr
 mysql -u root -p your_database < data-agent-management/src/main/resources/sql/product_data.sql
 ```
 
+如果是从旧版本升级，并且 `chat_message.content` 无法写入 Emoji，请执行字符集升级脚本。脚本会先处理 `chat_message.session_id` 的外键，再将会话表和消息表一起转换为 `utf8mb4`：
+
+```bash
+mysql -u root -p your_database < data-agent-management/src/main/resources/sql/migration/upgrade-chat-utf8mb4.sql
+```
+
 ## ⚙️ 2. 配置
 
 ### 2.1 配置management数据库

@@ -32,6 +32,12 @@ mysql -u root -p your_database < data-agent-management/src/main/resources/sql/pr
 mysql -u root -p your_database < data-agent-management/src/main/resources/sql/product_data.sql
 ```
 
+When upgrading an existing installation, run the charset migration if `chat_message.content` cannot store emoji. The script handles the `chat_message.session_id` foreign key before converting both chat tables to `utf8mb4`:
+
+```bash
+mysql -u root -p your_database < data-agent-management/src/main/resources/sql/migration/upgrade-chat-utf8mb4.sql
+```
+
 ## 2. Configuration
 
 ### 2.1 Configure Management Database

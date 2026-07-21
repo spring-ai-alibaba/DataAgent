@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS chat_session (
   INDEX idx_is_pinned (is_pinned),
   INDEX idx_create_time (create_time),
   FOREIGN KEY (agent_id) REFERENCES agent(id) ON DELETE CASCADE
-) ENGINE = InnoDB COMMENT = '聊天会话表';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '聊天会话表';
 
 -- 消息表
 CREATE TABLE IF NOT EXISTS chat_message (
@@ -183,8 +183,8 @@ CREATE TABLE IF NOT EXISTS chat_message (
   INDEX idx_role (role),
   INDEX idx_message_type (message_type),
   INDEX idx_create_time (create_time),
-  FOREIGN KEY (session_id) REFERENCES chat_session(id) ON DELETE CASCADE
-) ENGINE = InnoDB COMMENT = '聊天消息表';
+  CONSTRAINT fk_chat_message_session FOREIGN KEY (session_id) REFERENCES chat_session(id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '聊天消息表';
 
 -- 用户Prompt配置表
 CREATE TABLE IF NOT EXISTS user_prompt_config (
