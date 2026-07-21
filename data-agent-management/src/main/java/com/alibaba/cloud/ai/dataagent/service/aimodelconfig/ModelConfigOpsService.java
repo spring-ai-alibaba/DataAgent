@@ -15,9 +15,12 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
-import com.alibaba.cloud.ai.dataagent.enums.ModelType;
+import com.alibaba.cloud.ai.dataagent.converter.ModelConfigConverter;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
+import com.alibaba.cloud.ai.dataagent.enums.ModelType;
+import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
@@ -98,6 +101,14 @@ public class ModelConfigOpsService {
 	/**
 	 * 测试连接逻辑 注意：这里创建的模型是“临时”的，用完即丢，不会影响当前系统正在运行的模型
 	 */
+	public void testConnection(Integer id) {
+		ModelConfig entity = modelConfigDataService.findById(id);
+		if (entity == null) {
+			throw new IllegalArgumentException("Model configuration not found: " + id);
+		}
+		testConnection(ModelConfigConverter.toDTO(entity));
+	}
+
 	public void testConnection(ModelConfigDTO config) {
 		String modelType = config.getModelType();
 
@@ -161,20 +172,70 @@ public class ModelConfigOpsService {
 	 * 辅助方法：提取更友好的错误信息 Spring AI 抛出的异常有时候嵌套很深
 	 */
 	private String parseErrorMessage(Exception e) {
+		String providerError = extractProviderError(e);
+		if (StringUtils.hasText(providerError)) {
+			return providerError;
+		}
+
+		String message = findMostSpecificMessage(e);
 		// 如果是 401，通常是 Key 错
-		if (e.getMessage().contains("401")) {
+		if (message.contains("401")) {
 			return "鉴权失败 (401)，请检查 API Key 是否正确。";
 		}
 		// 如果是 404，通常是 BaseUrl 或 Path 错
-		if (e.getMessage().contains("404")) {
+		if (message.contains("404")) {
 			return "接口未找到 (404)，请检查 Base URL 或者路径配置地址。";
 		}
 		// 如果是 429，额度没了
-		if (e.getMessage().contains("429")) {
+		if (message.contains("429")) {
 			return "请求过多或余额不足 (429)，请检查厂商额度。";
 		}
 		// 其他错误直接返回原样
-		return e.getMessage();
+		return message;
+	}
+
+	private String extractProviderError(Throwable error) {
+		for (Throwable current = error; current != null; current = current.getCause()) {
+			String message = current.getMessage();
+			if (!StringUtils.hasText(message)) {
+				continue;
+			}
+			int jsonStart = message.indexOf('{');
+			if (jsonStart < 0) {
+				continue;
+			}
+			try {
+				JsonNode errorNode = JsonUtil.getObjectMapper().readTree(message.substring(jsonStart)).path("error");
+				if (errorNode.isMissingNode() || errorNode.isNull()) {
+					continue;
+				}
+				String providerMessage = errorNode.path("message").asText("");
+				String providerCode = errorNode.path("code").asText("");
+				if (StringUtils.hasText(providerMessage) && StringUtils.hasText(providerCode)) {
+					return providerMessage + " (" + providerCode + ")";
+				}
+				if (StringUtils.hasText(providerMessage)) {
+					return providerMessage;
+				}
+				if (StringUtils.hasText(providerCode)) {
+					return providerCode;
+				}
+			}
+			catch (Exception parseException) {
+				log.debug("Failed to parse structured model provider error", parseException);
+			}
+		}
+		return null;
+	}
+
+	private String findMostSpecificMessage(Throwable error) {
+		String message = "Model connection test failed";
+		for (Throwable current = error; current != null; current = current.getCause()) {
+			if (StringUtils.hasText(current.getMessage())) {
+				message = current.getMessage();
+			}
+		}
+		return message;
 	}
 
 }
