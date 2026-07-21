@@ -149,6 +149,7 @@ class DocumentConverterUtilTest {
 		assertTrue(doc.getText().contains("Gross Merchandise Value"));
 		assertEquals(DocumentMetadataConstant.BUSINESS_TERM,
 				doc.getMetadata().get(DocumentMetadataConstant.VECTOR_TYPE));
+		assertEquals("1", doc.getMetadata().get(DocumentMetadataConstant.DB_BUSINESS_TERM_ID));
 	}
 
 	@Test
