@@ -19,8 +19,11 @@ import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
 import com.alibaba.cloud.ai.dataagent.workflow.node.SqlGenerateNode;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,6 +33,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import reactor.core.publisher.Flux;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -220,6 +224,33 @@ class SqlGenerateNodeTest {
 		Map<String, Object> result = sqlGenerateNode.apply(state);
 		assertNotNull(result);
 		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void apply_executionRetryReturnsSameSql_stopsRetryLoop() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		state.updateState(Map.of(SQL_REGENERATE_REASON, SqlRetryDto.sqlExecute("same database error"),
+				SQL_GENERATE_OUTPUT, "SELECT * FROM users;"));
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM users"));
+		when(nl2SqlService.sqlTrim(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Map<String, Object> result = sqlGenerateNode.apply(state);
+		Flux<GraphResponse<StreamingOutput>> generator = (Flux<GraphResponse<StreamingOutput>>) result
+			.get(SQL_GENERATE_OUTPUT);
+		List<GraphResponse<StreamingOutput>> responses = generator.collectList().block(Duration.ofSeconds(2));
+
+		assertNotNull(responses);
+		Map<String, Object> finalResult = responses.stream()
+			.filter(GraphResponse::isDone)
+			.findFirst()
+			.flatMap(GraphResponse::resultValue)
+			.map(value -> (Map<String, Object>) value)
+			.orElseThrow();
+		assertEquals(StateGraph.END, finalResult.get(SQL_GENERATE_OUTPUT));
 	}
 
 	@Test
