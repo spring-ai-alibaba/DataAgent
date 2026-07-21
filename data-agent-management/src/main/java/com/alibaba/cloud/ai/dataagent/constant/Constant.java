@@ -77,6 +77,8 @@ public final class Constant {
 
 	public static final String SQL_EXECUTE_NODE_OUTPUT = "SQL_EXECUTE_NODE_OUTPUT";
 
+	public static final String SQL_QUERY_EMPTY = "SQL_QUERY_EMPTY";
+
 	public static final String DATA_LINEAGE_SOURCES = "DATA_LINEAGE_SOURCES";
 
 	// dialect

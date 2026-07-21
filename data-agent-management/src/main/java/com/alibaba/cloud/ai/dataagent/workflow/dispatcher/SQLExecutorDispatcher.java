@@ -22,6 +22,7 @@ import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.graph.StateGraph.END;
 
 /**
  * @author zhangshenghang
@@ -35,6 +36,10 @@ public class SQLExecutorDispatcher implements EdgeAction {
 		if (retryDto.sqlExecuteFail()) {
 			log.warn("SQL运行失败，需要重新生成！");
 			return SQL_GENERATE_NODE;
+		}
+		else if (StateUtil.getObjectValue(state, SQL_QUERY_EMPTY, Boolean.class, false)) {
+			log.info("SQL查询无结果，结束当前问答流程。");
+			return END;
 		}
 		else {
 			log.info("SQL运行成功，返回PlanExecutorNode。");

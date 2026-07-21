@@ -25,6 +25,7 @@ import java.util.Map;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static com.alibaba.cloud.ai.graph.StateGraph.END;
 
 class SQLExecutorDispatcherTest {
 
@@ -49,6 +50,14 @@ class SQLExecutorDispatcherTest {
 		state.updateState(Map.of(SQL_REGENERATE_REASON, SqlRetryDto.empty()));
 
 		assertEquals(PLAN_EXECUTOR_NODE, dispatcher.apply(state));
+	}
+
+	@Test
+	void apply_emptyQueryResult_routesToEnd() {
+		OverAllState state = new OverAllState();
+		state.updateState(Map.of(SQL_REGENERATE_REASON, SqlRetryDto.empty(), SQL_QUERY_EMPTY, true));
+
+		assertEquals(END, dispatcher.apply(state));
 	}
 
 	@Test

@@ -23,7 +23,7 @@ class TextTypeTest {
 
 	@Test
 	void enumValues_haveCorrectCount() {
-		assertEquals(6, TextType.values().length);
+		assertEquals(7, TextType.values().length);
 	}
 
 	@Test
@@ -69,6 +69,7 @@ class TextTypeTest {
 		assertEquals(TextType.SQL, TextType.getType(TextType.TEXT, "$$$sql"));
 		assertEquals(TextType.MARK_DOWN, TextType.getType(TextType.TEXT, "$$$markdown-report"));
 		assertEquals(TextType.RESULT_SET, TextType.getType(TextType.TEXT, "$$$result_set"));
+		assertEquals(TextType.FINAL_ANSWER, TextType.getType(TextType.TEXT, "$$$final_answer"));
 	}
 
 	@Test
@@ -83,6 +84,7 @@ class TextTypeTest {
 		assertEquals(TextType.TEXT, TextType.getType(TextType.SQL, "$$$"));
 		assertEquals(TextType.TEXT, TextType.getType(TextType.MARK_DOWN, "$$$/markdown-report"));
 		assertEquals(TextType.TEXT, TextType.getType(TextType.RESULT_SET, "$$$"));
+		assertEquals(TextType.TEXT, TextType.getType(TextType.FINAL_ANSWER, "$$$/final_answer"));
 	}
 
 	@Test
@@ -98,6 +100,7 @@ class TextTypeTest {
 		assertEquals(TextType.SQL, TextType.getTypeByStratSign("$$$sql"));
 		assertEquals(TextType.MARK_DOWN, TextType.getTypeByStratSign("$$$markdown-report"));
 		assertEquals(TextType.RESULT_SET, TextType.getTypeByStratSign("$$$result_set"));
+		assertEquals(TextType.FINAL_ANSWER, TextType.getTypeByStratSign("$$$final_answer"));
 	}
 
 	@Test

@@ -20,6 +20,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.DATA_LINEAGE_SOUR
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_COUNT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_QUERY_EMPTY;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_REGENERATE_REASON;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_RESULT_LIST_MEMORY;
 
@@ -93,6 +94,8 @@ public class SqlExecuteNode implements NodeAction {
 
 	private static final int SAMPLE_DATA_NUMBER = 20;
 
+	private static final String EMPTY_QUERY_MESSAGE = "当前查询未找到相关数据，请调整查询条件后重试。";
+
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
@@ -155,6 +158,16 @@ public class SqlExecuteNode implements NodeAction {
 			try {
 				// Execute SQL query and get results immediately
 				ResultSetBO resultSetBO = dbAccessor.executeSqlAndReturnObject(dbConfig, dbQueryParameter);
+				List<Map<String, String>> queryData = Optional.ofNullable(resultSetBO.getData()).orElseGet(List::of);
+				if (queryData.isEmpty()) {
+					emitter.next(ChatResponseUtil.createPureResponse(TextType.FINAL_ANSWER.getStartSign()));
+					emitter.next(ChatResponseUtil.createResponse(EMPTY_QUERY_MESSAGE));
+					emitter.next(ChatResponseUtil.createPureResponse(TextType.FINAL_ANSWER.getEndSign()));
+					result.putAll(Map.of(SQL_REGENERATE_REASON, SqlRetryDto.empty(), SQL_RESULT_LIST_MEMORY,
+							queryData, SQL_QUERY_EMPTY, true, SQL_GENERATE_COUNT, 0));
+					return;
+				}
+
 				// 调用大模型获取图表配置信息并填充到ResultSetBO中
 				DisplayStyleBO displayStyleBO = enrichResultSetWithChartConfig(state, resultSetBO);
 				resultBO.setResultSet(resultSetBO);
@@ -196,8 +209,8 @@ public class SqlExecuteNode implements NodeAction {
 				// Store List of SQL query results for use by code execution node
 				// Reset sql generate count retry times when sql execute success
 				result.putAll(Map.of(SQL_EXECUTE_NODE_OUTPUT, updatedResults, SQL_REGENERATE_REASON,
-						SqlRetryDto.empty(), SQL_RESULT_LIST_MEMORY, resultSetBO.getData(), PLAN_CURRENT_STEP,
-						currentStep + 1, SQL_GENERATE_COUNT, 0));
+						SqlRetryDto.empty(), SQL_RESULT_LIST_MEMORY, queryData, SQL_QUERY_EMPTY, false,
+						PLAN_CURRENT_STEP, currentStep + 1, SQL_GENERATE_COUNT, 0));
 			}
 			catch (Exception e) {
 				String errorMessage = e.getMessage();

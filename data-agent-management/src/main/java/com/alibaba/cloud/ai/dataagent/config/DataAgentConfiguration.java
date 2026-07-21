@@ -205,6 +205,7 @@ public class DataAgentConfiguration implements DisposableBean {
 			keyStrategyHashMap.put(PLAN_REPAIR_COUNT, KeyStrategy.REPLACE);
 			// SQL Execute 节点输出
 			keyStrategyHashMap.put(SQL_EXECUTE_NODE_OUTPUT, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(SQL_QUERY_EMPTY, KeyStrategy.REPLACE);
 			keyStrategyHashMap.put(DATA_LINEAGE_SOURCES, KeyStrategy.REPLACE);
 			// Python代码运行相关
 			keyStrategyHashMap.put(SQL_RESULT_LIST_MEMORY, KeyStrategy.REPLACE);
@@ -302,7 +303,7 @@ public class DataAgentConfiguration implements DisposableBean {
 			.addConditionalEdges(SEMANTIC_CONSISTENCY_NODE, edge_async(new SemanticConsistenceDispatcher()),
 					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, SQL_EXECUTE_NODE, SQL_EXECUTE_NODE))
 			.addConditionalEdges(SQL_EXECUTE_NODE, edge_async(new SQLExecutorDispatcher()),
-					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, PLAN_EXECUTOR_NODE, PLAN_EXECUTOR_NODE));
+					Map.of(SQL_GENERATE_NODE, SQL_GENERATE_NODE, PLAN_EXECUTOR_NODE, PLAN_EXECUTOR_NODE, END, END));
 
 		GraphRepresentation graphRepresentation = stateGraph.getGraph(GraphRepresentation.Type.PLANTUML,
 				"workflow graph");

@@ -535,6 +535,8 @@ export const useChatStore = defineStore('chat', () => {
 		let isClarificationStream = false;
 		let streamedClarificationText = '';
 		let streamedClarificationCount = 0;
+		let streamedFinalAnswerText = '';
+		const transientFinalAnswerId = -Date.now();
 
 		function appendToCurrentBlock(response: GraphNodeResponse) {
 			const currentBlock =
@@ -658,6 +660,26 @@ export const useChatStore = defineStore('chat', () => {
 							? (options.previousClarificationCount || 0) + 1
 							: 1;
 					}
+				}
+				if (response.textType === TextType.FINAL_ANSWER) {
+					streamedFinalAnswerText += response.text;
+					if (currentSession.value?.id === sessionId) {
+						const existing = currentMessages.value.find(
+							(message) => message.id === transientFinalAnswerId,
+						);
+						if (existing) {
+							existing.content = streamedFinalAnswerText;
+						} else {
+							currentMessages.value.push({
+								id: transientFinalAnswerId,
+								sessionId,
+								role: 'assistant',
+								content: streamedFinalAnswerText,
+								messageType: 'text',
+							});
+						}
+					}
+					return;
 				}
 
 				if (response.nodeName === 'ReportGeneratorNode') {
@@ -834,6 +856,18 @@ export const useChatStore = defineStore('chat', () => {
 							});
 						if (savedTimeline && currentSession.value?.id === sessionId)
 							currentMessages.value.push(savedTimeline);
+					}
+					const finalAnswer = streamedFinalAnswerText.trim();
+					if (finalAnswer) {
+						const finalAnswerMsg: ChatMessage = {
+							sessionId,
+							role: 'assistant',
+							content: finalAnswer,
+							messageType: 'text',
+						};
+						await chatService
+							.saveMessage(sessionId, finalAnswerMsg)
+							.catch((e) => console.error(e));
 					}
 
 					resetClarificationState(sessionState);

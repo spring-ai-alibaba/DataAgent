@@ -19,12 +19,14 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -111,6 +113,7 @@ class SqlExecuteNodeTest {
 		state.registerKeyAndStrategy(PLANNER_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PLAN_CURRENT_STEP, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(SQL_QUERY_EMPTY, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_REGENERATE_REASON, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_RESULT_LIST_MEMORY, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_GENERATE_COUNT, new ReplaceStrategy());
@@ -222,11 +225,19 @@ class SqlExecuteNodeTest {
 		resultSetBO.setData(new ArrayList<>());
 
 		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
+		when(properties.isEnableSqlResultChart()).thenReturn(true);
 
 		Map<String, Object> result = sqlExecuteNode.apply(state);
 		assertNotNull(result);
 		assertTrue(result.containsKey(SQL_EXECUTE_NODE_OUTPUT));
 		assertNotNull(result.get(SQL_EXECUTE_NODE_OUTPUT));
+		List<com.alibaba.cloud.ai.graph.GraphResponse<com.alibaba.cloud.ai.graph.streaming.StreamingOutput>> responses = consumeStreamingResult(
+				result);
+		Map<String, Object> completionResult = getCompletionResult(responses);
+		assertEquals(true, completionResult.get(SQL_QUERY_EMPTY));
+		assertFalse(completionResult.containsKey(PLAN_CURRENT_STEP));
+		assertTrue(getStreamedText(responses).contains("当前查询未找到相关数据，请调整查询条件后重试。"));
+		verifyNoInteractions(llmService, lineageQueryService);
 	}
 
 	@Test
@@ -244,6 +255,31 @@ class SqlExecuteNodeTest {
 		assertNotNull(result);
 		assertTrue(result.containsKey(SQL_EXECUTE_NODE_OUTPUT));
 		assertNotNull(result.get(SQL_EXECUTE_NODE_OUTPUT));
+		List<com.alibaba.cloud.ai.graph.GraphResponse<com.alibaba.cloud.ai.graph.streaming.StreamingOutput>> responses = consumeStreamingResult(
+				result);
+		assertEquals(true, getCompletionResult(responses).get(SQL_QUERY_EMPTY));
+		assertTrue(getStreamedText(responses).contains("当前查询未找到相关数据，请调整查询条件后重试。"));
+	}
+
+	@SuppressWarnings("unchecked")
+	private List<com.alibaba.cloud.ai.graph.GraphResponse<com.alibaba.cloud.ai.graph.streaming.StreamingOutput>> consumeStreamingResult(
+			Map<String, Object> result) {
+		return ((reactor.core.publisher.Flux<com.alibaba.cloud.ai.graph.GraphResponse<com.alibaba.cloud.ai.graph.streaming.StreamingOutput>>) result
+			.get(SQL_EXECUTE_NODE_OUTPUT)).collectList().block();
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> getCompletionResult(
+			List<com.alibaba.cloud.ai.graph.GraphResponse<com.alibaba.cloud.ai.graph.streaming.StreamingOutput>> responses) {
+		return (Map<String, Object>) responses.get(responses.size() - 1).resultValue().orElseThrow();
+	}
+
+	private String getStreamedText(
+			List<com.alibaba.cloud.ai.graph.GraphResponse<com.alibaba.cloud.ai.graph.streaming.StreamingOutput>> responses) {
+		return responses.stream()
+			.filter(response -> !response.isDone())
+			.map(response -> response.getOutput().join().chunk())
+			.collect(Collectors.joining());
 	}
 
 	@Test

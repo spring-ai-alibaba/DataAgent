@@ -33,6 +33,8 @@ public enum TextType {
 
 	RESULT_SET("$$$result_set", "$$$"),
 
+	FINAL_ANSWER("$$$final_answer", "$$$/final_answer"),
+
 	TEXT(null, null);
 
 	private final String startSign;
