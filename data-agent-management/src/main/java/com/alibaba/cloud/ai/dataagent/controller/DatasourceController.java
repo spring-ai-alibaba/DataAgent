@@ -63,7 +63,8 @@ public class DatasourceController {
 		// 定义标准的 JDBC 数据源类型
 		List<BizDataSourceTypeEnum> standardTypes = Arrays.asList(BizDataSourceTypeEnum.MYSQL,
 				BizDataSourceTypeEnum.POSTGRESQL, BizDataSourceTypeEnum.DAMENG, BizDataSourceTypeEnum.SQL_SERVER,
-				BizDataSourceTypeEnum.ORACLE, BizDataSourceTypeEnum.HIVE);
+				BizDataSourceTypeEnum.ORACLE, BizDataSourceTypeEnum.HIVE, BizDataSourceTypeEnum.CLICKHOUSE,
+				BizDataSourceTypeEnum.DORIS, BizDataSourceTypeEnum.STARROCKS);
 
 		List<DatasourceTypeDTO> types = standardTypes.stream()
 			.map(type -> DatasourceTypeDTO.builder()

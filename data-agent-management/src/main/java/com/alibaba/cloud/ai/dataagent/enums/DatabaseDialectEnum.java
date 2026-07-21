@@ -33,7 +33,13 @@ public enum DatabaseDialectEnum {
 
 	ORACLE("Oracle"),
 
-	HIVE("Hive");
+	HIVE("Hive"),
+
+	CLICKHOUSE("ClickHouse"),
+
+	DORIS("Doris"),
+
+	STARROCKS("StarRocks");
 
 	public final String code;
 

@@ -52,6 +52,11 @@ public class OracleJdbcConnectionPool extends AbstractDBConnectionPool {
 	}
 
 	@Override
+	protected String getValidationQuery() {
+		return "SELECT 1 FROM DUAL";
+	}
+
+	@Override
 	public boolean supportedDataSourceType(String type) {
 		return BizDataSourceTypeEnum.ORACLE.getTypeName().equals(type);
 	}

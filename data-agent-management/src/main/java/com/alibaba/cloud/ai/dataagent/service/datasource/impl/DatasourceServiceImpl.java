@@ -194,6 +194,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 		config.setUrl(originalUrl);
 		config.setUsername(datasource.getUsername());
 		config.setPassword(datasource.getPassword());
+		config.setDatabaseName(datasource.getDatabaseName());
 
 		DBConnectionPool pool = poolFactory.getPoolByDbType(datasource.getType());
 
