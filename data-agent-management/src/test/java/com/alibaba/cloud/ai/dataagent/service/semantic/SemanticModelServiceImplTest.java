@@ -146,9 +146,18 @@ class SemanticModelServiceImplTest {
 
 	@Test
 	void search_delegatesToMapper() {
-		when(semanticModelMapper.searchByKeyword("test")).thenReturn(List.of());
+		when(semanticModelMapper.searchByKeyword("test", null)).thenReturn(List.of());
 		List<SemanticModel> result = service.search("test");
 		assertTrue(result.isEmpty());
+		verify(semanticModelMapper).searchByKeyword("test", null);
+	}
+
+	@Test
+	void search_withAgentId_delegatesToMapper() {
+		when(semanticModelMapper.searchByKeyword("machine", 5L)).thenReturn(List.of());
+		List<SemanticModel> result = service.search("machine", 5L);
+		assertTrue(result.isEmpty());
+		verify(semanticModelMapper).searchByKeyword("machine", 5L);
 	}
 
 	@Test

@@ -61,7 +61,8 @@ public class SemanticModelController {
 			@RequestParam(value = "agentId", required = false) Long agentId) {
 		List<SemanticModel> result;
 		if (keyword != null && !keyword.trim().isEmpty()) {
-			result = semanticModelService.search(keyword);
+			// keyword 搜索支持表名/字段名/业务名等；有 agentId 时限定当前智能体范围
+			result = semanticModelService.search(keyword.trim(), agentId);
 		}
 		else if (agentId != null) {
 			result = semanticModelService.getByAgentId(agentId);
