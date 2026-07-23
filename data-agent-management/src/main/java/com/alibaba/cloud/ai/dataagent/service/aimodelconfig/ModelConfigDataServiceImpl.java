@@ -15,11 +15,13 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
+import com.alibaba.cloud.ai.dataagent.config.EncryptionProperties;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.converter.ModelConfigConverter;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
 import com.alibaba.cloud.ai.dataagent.mapper.ModelConfigMapper;
+import com.alibaba.cloud.ai.dataagent.util.CryptoUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,9 +41,15 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 
 	private final ModelConfigMapper modelConfigMapper;
 
+	private final EncryptionProperties encryptionProperties;
+
 	@Override
 	public ModelConfig findById(Integer id) {
-		return modelConfigMapper.findById(id);
+		ModelConfig config = modelConfigMapper.findById(id);
+		if (config != null) {
+			decryptModelConfig(config);
+		}
+		return config;
 	}
 
 	@Transactional(rollbackFor = Exception.class)
@@ -61,14 +69,21 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 
 	@Override
 	public List<ModelConfigDTO> listConfigs() {
-		return modelConfigMapper.findAll().stream().map(ModelConfigConverter::toMaskedDTO).collect(Collectors.toList());
+		return modelConfigMapper.findAll()
+			.stream()
+			.peek(this::decryptModelConfig)
+			.map(ModelConfigConverter::toDTO)
+			.collect(Collectors.toList());
 	}
 
 	@Override
 	public void addConfig(ModelConfigDTO dto) {
 		clean(dto);
+		// Encrypt sensitive fields before saving
+		ModelConfig entity = toEntity(dto);
+		encryptModelConfig(entity);
 		// 只存库，不切换
-		modelConfigMapper.insert(toEntity(dto));
+		modelConfigMapper.insert(entity);
 	}
 
 	private void clean(ModelConfigDTO dto) {
@@ -106,7 +121,10 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		mergeDtoToEntity(dto, entity);
 		entity.setUpdatedTime(LocalDateTime.now());
 
-		// 3. 更新数据库
+		// 3. Encrypt sensitive fields before updating
+		encryptModelConfig(entity);
+
+		// 4. 更新数据库
 		modelConfigMapper.updateById(entity);
 
 		return entity;
@@ -164,7 +182,67 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 			log.warn("Activation model configuration of type [{}] not found, attempting to downgrade...", modelType);
 			return null;
 		}
+		decryptModelConfig(entity);
 		return toDTO(entity);
+	}
+
+	/**
+	 * Encrypt sensitive fields of a model config before persisting.
+	 *
+	 * <p>
+	 * This method is called during add/update operations. When encryption is enabled,
+	 * apiKey and proxyPassword are encrypted before being saved to database.
+	 * </p>
+	 * @param config the model config to encrypt
+	 * @see CryptoUtil#encrypt(String, String)
+	 */
+	private void encryptModelConfig(ModelConfig config) {
+		if (!encryptionProperties.isEncryptionEnabled()) {
+			// Encryption not configured, skip (backward compatible)
+			return;
+		}
+		String key = encryptionProperties.getEncryptKey();
+		if (config.getApiKey() != null && !config.getApiKey().isEmpty()) {
+			config.setApiKey(CryptoUtil.encrypt(config.getApiKey(), key));
+		}
+		if (config.getProxyPassword() != null && !config.getProxyPassword().isEmpty()) {
+			config.setProxyPassword(CryptoUtil.encrypt(config.getProxyPassword(), key));
+		}
+	}
+
+	/**
+	 * Decrypt sensitive fields of a model config after loading from database.
+	 *
+	 * <p>
+	 * <strong>Backward Compatibility:</strong> Uses
+	 * {@link CryptoUtil#decryptOrReturn(String, String)} to handle both encrypted and
+	 * plaintext data gracefully:
+	 * </p>
+	 * <ul>
+	 * <li>If data is encrypted (Base64 with valid GCM structure) → decrypt it</li>
+	 * <li>If data is plaintext (legacy unencrypted) → return as-is</li>
+	 * <li>If encryption is not configured → skip decryption entirely</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * This ensures a smooth upgrade path: after enabling encryption, existing plaintext
+	 * data remains readable, and new data will be encrypted on write.
+	 * </p>
+	 * @param config the model config to decrypt
+	 * @see CryptoUtil#decryptOrReturn(String, String)
+	 */
+	private void decryptModelConfig(ModelConfig config) {
+		if (!encryptionProperties.isEncryptionEnabled()) {
+			// Encryption not configured, data is plaintext, skip
+			return;
+		}
+		String key = encryptionProperties.getEncryptKey();
+		if (config.getApiKey() != null && !config.getApiKey().isEmpty()) {
+			config.setApiKey(CryptoUtil.decryptOrReturn(config.getApiKey(), key));
+		}
+		if (config.getProxyPassword() != null && !config.getProxyPassword().isEmpty()) {
+			config.setProxyPassword(CryptoUtil.decryptOrReturn(config.getProxyPassword(), key));
+		}
 	}
 
 }

@@ -15,11 +15,14 @@
  */
 package com.alibaba.cloud.ai.dataagent;
 
+import com.alibaba.cloud.ai.dataagent.config.EncryptionProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @EnableScheduling
+@EnableConfigurationProperties(EncryptionProperties.class)
 @SpringBootApplication
 public class DataAgentApplication {
 

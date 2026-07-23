@@ -55,6 +55,9 @@ spring:
             endpoint: ${OSS_ENDPOINT:}
             bucket-name: ${OSS_BUCKET_NAME:}
             custom-domain: ${OSS_CUSTOM_DOMAIN:}
+        # 敏感数据加密密钥（AES-256-GCM，Base64编码的32字节密钥）
+        # 开发环境使用默认测试密钥，生产环境必须通过环境变量设置
+        encrypt-key: ${DATA_AGENT_ENCRYPT_KEY:dGVzdEVuY3J5cHRpb25LZXlGb3JEZXYxMjM0NTY3ODkw}
         max-sql-retry-count: 10
         # Langfuse 可观测性配置
         langfuse:

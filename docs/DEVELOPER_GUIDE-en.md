@@ -379,6 +379,80 @@ Environment variables: `LANGFUSE_ENABLED`, `LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY
 
 > For detailed usage, refer to [Advanced Features - Langfuse Observability](ADVANCED_FEATURES-en.md#langfuse-observability).
 
+### 12. Data Encryption Configuration
+
+Configuration prefix: `spring.ai.alibaba.data-agent`
+
+The system supports AES-256-GCM encryption for sensitive information (datasource passwords, API keys, etc.).
+
+| Configuration Item | Description | Default Value |
+|-------------------|-------------|---------------|
+| `encrypt-key` | AES-256 encryption key (Base64-encoded 32-byte key) | Empty (no encryption) |
+
+Environment variable: `DATA_AGENT_ENCRYPT_KEY`
+
+#### Protected Fields
+
+| Database Table | Field | Description |
+|----------------|-------|-------------|
+| `datasource` | `password` | Database connection password |
+| `datasource` | `connection_url` | Database connection URL (may contain password) |
+| `model_config` | `api_key` | LLM API key |
+| `model_config` | `proxy_password` | Proxy server password |
+
+#### Usage
+
+1. **Generate encryption key**
+   ```bash
+   # Option 1: Use built-in utility (requires Java 17+)
+   java -cp data-agent-management/target/spring-ai-alibaba-data-agent-management-${revision}.jar.original com.alibaba.cloud.ai.dataagent.util.CryptoUtil
+
+   # Option 2: Use OpenSSL (Recommended)
+   openssl rand -base64 32
+   ```
+
+   > `${revision}` is the project version, currently `1.0.0-SNAPSHOT`. See `<revision>` property in `pom.xml`.
+
+2. **Set environment variable**
+   ```bash
+   # Linux/Mac
+   export DATA_AGENT_ENCRYPT_KEY=<generated-base64-key>
+   
+   # Windows PowerShell
+   $env:DATA_AGENT_ENCRYPT_KEY="<generated-base64-key>"
+   ```
+
+3. **Docker deployment**
+   ```yaml
+   # docker-compose.yml
+   services:
+     data-agent:
+       environment:
+         - DATA_AGENT_ENCRYPT_KEY=<generated-base64-key>
+   ```
+
+#### Backward Compatibility
+
+The system uses a **transparent compatibility** strategy, supporting coexistence of historical unencrypted data and newly encrypted data:
+
+| Scenario | Behavior |
+|----------|----------|
+| Read encrypted data | Decrypt normally |
+| Read unencrypted data (historical) | Return as-is, no decryption |
+| Write new data | Auto-encrypt (requires key configured) |
+| No key configured | All data remains plaintext (backward compatible) |
+
+> 💡 **No data migration needed**: After configuring the encryption key, the system automatically encrypts new data. Historical data remains usable as-is. As data gets updated, historical data will be gradually encrypted.
+
+#### Notes
+
+- ⚠️ **Production environments MUST configure encryption key**, otherwise sensitive data will be stored in plaintext
+- 🔑 **Do not change the key lightly** once configured, otherwise encrypted data cannot be decrypted
+- 🔄 **Data cannot be recovered if key is lost**, please backup the key properly
+- 📝 **Development environment** (H2) uses a built-in test key, no additional configuration needed
+- 🛡️ Encryption algorithm: AES-256-GCM (with integrity check), random IV generated for each encryption
+- 🔄 **Smooth upgrade**: Historical unencrypted data can be read normally, no downtime migration required
+
 ## Learning Resources
 
 ### Official Documentation
