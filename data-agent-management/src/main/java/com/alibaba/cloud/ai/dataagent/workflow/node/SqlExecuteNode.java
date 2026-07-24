@@ -48,7 +48,9 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -179,7 +181,12 @@ public class SqlExecuteNode implements NodeAction {
 		String strResultSetJson = JsonUtil.getObjectMapper().writeValueAsString(resultSetBO);
 
 		result.put(SQL_REGENERATE_REASON, SqlRetryDto.empty());
-		result.put(SQL_RESULT_LIST_MEMORY, resultSetBO.getData());
+		List<Map<String, String>> accumulatedRows = StateUtil.hasValue(state, SQL_RESULT_LIST_MEMORY)
+				? new ArrayList<>(StateUtil.getListValue(state, SQL_RESULT_LIST_MEMORY)) : new ArrayList<>();
+		if (resultSetBO.getData() != null) {
+			accumulatedRows.addAll(resultSetBO.getData());
+		}
+		result.put(SQL_RESULT_LIST_MEMORY, accumulatedRows);
 		result.put(PLAN_CURRENT_STEP, currentStep + 1);
 		result.put(SQL_GENERATE_COUNT, 0);
 

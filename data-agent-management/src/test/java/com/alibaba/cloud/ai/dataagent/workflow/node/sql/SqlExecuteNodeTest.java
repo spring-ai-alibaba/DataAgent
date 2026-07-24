@@ -283,6 +283,24 @@ class SqlExecuteNodeTest {
 	}
 
 	@Test
+	void apply_multipleSqlSteps_accumulatesResultsForPython() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		setupBasicMocks();
+		List<Map<String, String>> previousRows = List.of(Map.of("department", "sales"));
+		state.updateState(Map.of(SQL_RESULT_LIST_MEMORY, previousRows));
+
+		ResultSetBO resultSetBO = new ResultSetBO();
+		resultSetBO.setData(List.of(Map.of("department", "engineering")));
+		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
+
+		SqlExecution execution = subscribeToExecution(state);
+
+		assertEquals(List.of(Map.of("department", "sales"), Map.of("department", "engineering")),
+				execution.finalResult().get(SQL_RESULT_LIST_MEMORY));
+	}
+
+	@Test
 	void apply_nullResultSet_handlesGracefully() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
