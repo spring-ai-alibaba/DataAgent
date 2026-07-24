@@ -24,6 +24,10 @@
 {question}
 {evidence}
 
+## 6. 前序步骤执行结果 (多步骤依赖)
+{previous_step_results}
+*如果原 SQL 含有依赖前序查询的占位符，请使用以上真实结果完成替换。*
+
 # 修复策略
 ## 方言纠正：严格检查是否使用了不符合 {dialect} 的函数或语法（例如引号用法、日期处理、分页）。
 ## Schema 对齐：如果报错提示“Column not found”，请在 Schema 中寻找最接近的正确列名。
