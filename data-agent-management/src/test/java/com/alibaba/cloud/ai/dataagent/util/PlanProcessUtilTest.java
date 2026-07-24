@@ -43,6 +43,18 @@ class PlanProcessUtilTest {
 	}
 
 	@Test
+	void getPlan_withConcatenatedPlans_returnsLastCompletePlan() {
+		String plannerOutput = TestFixtures.createSingleSqlPlanJson() + TestFixtures.createMultiStepPlanJson();
+		OverAllState state = TestFixtures.createStateWith(Map.of(PLANNER_NODE_OUTPUT, plannerOutput));
+
+		Plan plan = PlanProcessUtil.getPlan(state);
+
+		assertEquals("Multi-step analysis", plan.getThoughtProcess());
+		assertEquals(3, plan.getExecutionPlan().size());
+		assertEquals(REPORT_GENERATOR_NODE, plan.getExecutionPlan().get(2).getToolToUse());
+	}
+
+	@Test
 	void getPlan_withEmptyState_throwsException() {
 		OverAllState state = TestFixtures.createStateWith(PLANNER_NODE_OUTPUT);
 
