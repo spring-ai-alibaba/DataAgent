@@ -26,12 +26,14 @@ import com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.BatchingStrategy;
+import org.springframework.ai.vectorstore.SearchRequest;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -211,11 +213,20 @@ class SchemaServiceImplTest {
 	}
 
 	@Test
-	void getTableDocumentsByDatasource_delegates() {
-		when(agentVectorStoreService.getDocumentsOnlyByFilter(any(), anyInt())).thenReturn(List.of());
+	void getTableDocumentsByDatasource_usesSemanticSearchRequest() {
+		when(agentVectorStoreService.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
 
 		List<Document> result = schemaService.getTableDocumentsByDatasource(1, "test query");
+
 		assertNotNull(result);
+		ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
+		verify(agentVectorStoreService).similaritySearch(requestCaptor.capture());
+		SearchRequest request = requestCaptor.getValue();
+		assertEquals("test query", request.getQuery());
+		assertEquals(10, request.getTopK());
+		assertEquals(0.5, request.getSimilarityThreshold());
+		assertNotNull(request.getFilterExpression());
+		verify(agentVectorStoreService, never()).getDocumentsOnlyByFilter(any(), anyInt());
 	}
 
 	@Test

@@ -92,6 +92,12 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	}
 
 	@Override
+	public List<Document> similaritySearch(SearchRequest searchRequest) {
+		Assert.notNull(searchRequest, "searchRequest cannot be null");
+		return vectorStore.similaritySearch(searchRequest);
+	}
+
+	@Override
 	public Boolean deleteDocumentsByVectorType(String agentId, String vectorType) throws Exception {
 		Assert.notNull(agentId, "AgentId cannot be null.");
 		Assert.notNull(vectorType, "VectorType cannot be null.");

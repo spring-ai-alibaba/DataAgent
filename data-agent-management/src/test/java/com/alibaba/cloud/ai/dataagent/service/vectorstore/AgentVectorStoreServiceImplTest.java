@@ -114,6 +114,21 @@ class AgentVectorStoreServiceImplTest {
 	}
 
 	@Test
+	void similaritySearch_delegatesRequestToVectorStore() {
+		SearchRequest request = SearchRequest.builder().query("schema query").topK(5).build();
+		List<Document> documents = List.of(new Document("orders"));
+		when(vectorStore.similaritySearch(request)).thenReturn(documents);
+
+		assertSame(documents, service.similaritySearch(request));
+		verify(vectorStore).similaritySearch(request);
+	}
+
+	@Test
+	void similaritySearch_nullRequest_throws() {
+		assertThrows(IllegalArgumentException.class, () -> service.similaritySearch(null));
+	}
+
+	@Test
 	void addDocuments_nullAgentId_throws() {
 		assertThrows(IllegalArgumentException.class, () -> service.addDocuments(null, List.of(new Document("test"))));
 	}
