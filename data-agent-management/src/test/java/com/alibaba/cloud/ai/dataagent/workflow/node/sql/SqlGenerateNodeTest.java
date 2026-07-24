@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node.sql;
 
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.workflow.node.SqlGenerateNode;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -39,6 +41,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -109,6 +112,7 @@ class SqlGenerateNodeTest {
 		state.registerKeyAndStrategy(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(DB_DIALECT_TYPE, new ReplaceStrategy());
 		state.registerKeyAndStrategy(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
 		return state;
 	}
 
@@ -220,6 +224,41 @@ class SqlGenerateNodeTest {
 		Map<String, Object> result = sqlGenerateNode.apply(state);
 		assertNotNull(result);
 		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	void apply_laterStep_includesPreviousSqlResults() throws Exception {
+		OverAllState state = createTestState();
+		String multiStepPlan = """
+				{
+				  "thought_process": "先查用户再查订单",
+				  "execution_plan": [
+				    {
+				      "step": 1,
+				      "tool_to_use": "sql_generate_node",
+				      "tool_parameters": {"instruction": "查询目标用户"}
+				    },
+				    {
+				      "step": 2,
+				      "tool_to_use": "sql_generate_node",
+				      "tool_parameters": {"instruction": "根据用户ID查询订单"}
+				    }
+				  ]
+				}
+				""";
+		state.updateState(Map.of(SQL_GENERATE_COUNT, 0, PLANNER_NODE_OUTPUT, multiStepPlan, PLAN_CURRENT_STEP, 2,
+				EVIDENCE, "test evidence", DB_DIALECT_TYPE, "mysql", QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE,
+				TABLE_RELATION_OUTPUT, TEST_SCHEMA, SQL_EXECUTE_NODE_OUTPUT,
+				Map.of("step_1", "{\"data\":[{\"passport_id\":\"P100\"}]}")));
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM orders"));
+
+		sqlGenerateNode.apply(state);
+
+		ArgumentCaptor<SqlGenerationDTO> requestCaptor = ArgumentCaptor.forClass(SqlGenerationDTO.class);
+		verify(nl2SqlService).generateSql(requestCaptor.capture());
+		assertTrue(requestCaptor.getValue().getPreviousStepResults().contains("step_1"));
+		assertTrue(requestCaptor.getValue().getPreviousStepResults().contains("P100"));
 	}
 
 	@Test
