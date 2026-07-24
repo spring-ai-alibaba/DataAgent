@@ -69,6 +69,15 @@ class ReportTemplateUtilTest {
 	}
 
 	@Test
+	void testGetFooter_recognizesCommonEchartsFenceLanguages() {
+		ReportTemplateUtil footerUtil = new ReportTemplateUtil(dataAgentProperties);
+		String footer = footerUtil.getFooter();
+		assertTrue(footer.contains("'javascript'"));
+		assertTrue(footer.contains("'js'"));
+		assertTrue(footer.contains("toLowerCase()"));
+	}
+
+	@Test
 	void testCleanJsonExample_notNull() {
 		assertNotNull(ReportTemplateUtil.cleanJsonExample);
 		assertTrue(ReportTemplateUtil.cleanJsonExample.contains("title"));
