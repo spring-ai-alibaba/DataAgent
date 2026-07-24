@@ -126,7 +126,7 @@ public class ModelConfigOpsService {
 				config.getModelName());
 
 		// 1. 创建临时模型
-		ChatModel tempModel = modelFactory.createChatModel(config);
+		ChatModel tempModel = modelFactory.createChatModel(config, DynamicModelFactory.NO_RETRY_TEMPLATE);
 
 		// 2. 发起最轻量的请求
 		String promptText = "Hello";
@@ -145,7 +145,7 @@ public class ModelConfigOpsService {
 		log.info("Testing Embedding Model connection, provider: {} modelName: {}", config.getProvider(),
 				config.getModelName());
 		// 1. 创建临时模型
-		EmbeddingModel tempModel = modelFactory.createEmbeddingModel(config);
+		EmbeddingModel tempModel = modelFactory.createEmbeddingModel(config, DynamicModelFactory.NO_RETRY_TEMPLATE);
 
 		// 2. 发起请求
 		float[] embedding = tempModel.embed("Test");
