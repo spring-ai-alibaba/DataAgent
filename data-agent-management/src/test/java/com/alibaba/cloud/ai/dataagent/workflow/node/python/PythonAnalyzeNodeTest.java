@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -36,8 +37,10 @@ import org.mockito.quality.Strictness;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.workflow.node.PythonAnalyzeNode;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 
 import reactor.core.publisher.Flux;
 
@@ -163,6 +166,31 @@ class PythonAnalyzeNodeTest {
 		assertNotNull(result);
 		assertTrue(result.containsKey(PYTHON_ANALYSIS_NODE_OUTPUT));
 		assertNotNull(result.get(PYTHON_ANALYSIS_NODE_OUTPUT));
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void apply_preservesPythonOutputForReport() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		when(llmService.callSystem(anyString()))
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("销售数据分析完成")));
+
+		Map<String, Object> result = pythonAnalyzeNode.apply(state);
+		Flux<GraphResponse<StreamingOutput>> generator = (Flux<GraphResponse<StreamingOutput>>) result
+			.get(PYTHON_ANALYSIS_NODE_OUTPUT);
+		Map<String, Object> finalResult = generator.collectList()
+			.block(Duration.ofSeconds(2))
+			.stream()
+			.filter(GraphResponse::isDone)
+			.findFirst()
+			.flatMap(GraphResponse::resultValue)
+			.map(value -> (Map<String, Object>) value)
+			.orElseThrow();
+		Map<String, String> executionResults = (Map<String, String>) finalResult.get(SQL_EXECUTE_NODE_OUTPUT);
+
+		assertEquals("{\"total_sales\": 15000, \"avg_sales\": 3000}",
+				executionResults.get("step_1_python_output"));
 	}
 
 	@Test
