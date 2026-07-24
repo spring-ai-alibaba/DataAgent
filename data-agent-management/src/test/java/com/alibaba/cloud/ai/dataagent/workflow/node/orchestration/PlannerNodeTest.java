@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.workflow.node.orchestration;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -144,7 +145,7 @@ class PlannerNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), eq(Plan.class)))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(VALID_PLAN_JSON)));
 
 		Map<String, Object> result = plannerNode.apply(state);
@@ -158,7 +159,7 @@ class PlannerNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), eq(Plan.class)))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(MULTI_STEP_PLAN_JSON)));
 
 		Map<String, Object> result = plannerNode.apply(state);
@@ -198,7 +199,8 @@ class PlannerNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString())).thenThrow(new RuntimeException("LLM service unavailable"));
+		when(llmService.callUser(anyString(), eq(Plan.class)))
+			.thenThrow(new RuntimeException("LLM service unavailable"));
 
 		assertThrows(RuntimeException.class, () -> plannerNode.apply(state));
 	}
@@ -208,7 +210,7 @@ class PlannerNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), eq(Plan.class)))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("this is not valid json at all")));
 
 		Map<String, Object> result = plannerNode.apply(state);
@@ -223,7 +225,7 @@ class PlannerNodeTest {
 		setupBasicState(state);
 		state.updateState(Map.of(PLAN_VALIDATION_ERROR, "请不要使用Python分析，直接用SQL", PLANNER_NODE_OUTPUT, VALID_PLAN_JSON));
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), eq(Plan.class)))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(VALID_PLAN_JSON)));
 
 		Map<String, Object> result = plannerNode.apply(state);
@@ -238,7 +240,7 @@ class PlannerNodeTest {
 		setupBasicState(state);
 		state.updateState(Map.of(GENEGRATED_SEMANTIC_MODEL_PROMPT, "语义模型定义：PV表示页面浏览量"));
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), eq(Plan.class)))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(VALID_PLAN_JSON)));
 
 		Map<String, Object> result = plannerNode.apply(state);
@@ -253,7 +255,7 @@ class PlannerNodeTest {
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE, TABLE_RELATION_OUTPUT, TEST_SCHEMA,
 				EVIDENCE, "", GENEGRATED_SEMANTIC_MODEL_PROMPT, ""));
 
-		when(llmService.callUser(anyString()))
+		when(llmService.callUser(anyString(), eq(Plan.class)))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(VALID_PLAN_JSON)));
 
 		Map<String, Object> result = plannerNode.apply(state);
