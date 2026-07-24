@@ -35,6 +35,25 @@
 			</div>
 			<v-divider class="mb-4" />
 
+			<v-text-field
+				v-if="!loadingTables && !fetchError && allTables.length > 0"
+				v-model="searchQuery"
+				label="搜索数据表"
+				placeholder="输入表名"
+				prepend-inner-icon="mdi-magnify"
+				variant="outlined"
+				density="compact"
+				clearable
+				hide-details
+				class="mb-4 table-search"
+			>
+				<template #append-inner>
+					<span class="text-caption text-medium-emphasis text-no-wrap">
+						{{ filteredTables.length }} / {{ allTables.length }}
+					</span>
+				</template>
+			</v-text-field>
+
 			<div v-if="loadingTables" class="d-flex justify-center py-8">
 				<v-progress-circular indeterminate color="primary" size="32" />
 			</div>
@@ -46,9 +65,9 @@
 				<v-btn color="primary" variant="outlined" size="small" @click="$emit('retry')">重试</v-btn>
 			</div>
 
-			<div v-else class="table-grid">
+			<div v-else-if="filteredTables.length > 0" class="table-grid">
 				<v-checkbox
-					v-for="tbl in allTables"
+					v-for="tbl in filteredTables"
 					:key="tbl"
 					v-model="selectedTables"
 					:label="tbl"
@@ -57,6 +76,11 @@
 					density="compact"
 					color="primary"
 				/>
+			</div>
+
+			<div v-if="!loadingTables && !fetchError && allTables.length > 0 && filteredTables.length === 0" class="empty-state">
+				<v-icon size="40" color="grey" class="mb-2">mdi-table-search</v-icon>
+				<p class="text-body-2 text-medium-emphasis">没有匹配“{{ searchQuery.trim() }}”的数据表</p>
 			</div>
 
 			<div v-if="!loadingTables && !fetchError && allTables.length === 0" class="empty-state">
@@ -68,7 +92,10 @@
 </template>
 
 <script setup lang="ts">
+import { filterTableNames } from '../../../utils/tableSearch';
+
 const selectedTables = defineModel<string[]>('selectedTables', { default: () => [] });
+const searchQuery = ref('');
 
 const props = defineProps<{
 	allTables: string[];
@@ -82,8 +109,14 @@ defineEmits<{
 	retry: [];
 }>();
 
+const filteredTables = computed(() =>
+	filterTableNames(props.allTables, searchQuery.value),
+);
+
 function selectAll() {
-	selectedTables.value = [...props.allTables];
+	selectedTables.value = [
+		...new Set([...selectedTables.value, ...filteredTables.value]),
+	];
 }
 
 function clearAll() {
