@@ -29,6 +29,7 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class SimpleVectorStorePersistenceIntegrationTest {
 
@@ -57,6 +58,57 @@ class SimpleVectorStorePersistenceIntegrationTest {
 				restored.similaritySearch(SearchRequest.builder().query("订单").topK(1).similarityThreshold(0.8).build()))
 			.extracting(Document::getText)
 			.containsExactly("订单销售数据");
+	}
+
+	@Test
+	void applicationRunnerSkipsAMissingPersistenceFile() {
+		Path storeFile = tempDirectory.resolve("missing/vectorstore.json");
+		DataAgentProperties properties = propertiesFor(storeFile);
+		SimpleVectorStore store = SimpleVectorStore.builder(new KeywordEmbeddingModel()).build();
+
+		assertThatCode(() -> new SimpleVectorStoreInitialization(store, properties).run(null))
+			.doesNotThrowAnyException();
+		assertThat(storeFile).doesNotExist();
+	}
+
+	@Test
+	void corruptPersistenceFileDoesNotPreventStartup() throws Exception {
+		Path storeFile = tempDirectory.resolve("corrupt.json");
+		Files.writeString(storeFile, "{not-json");
+		DataAgentProperties properties = propertiesFor(storeFile);
+		SimpleVectorStore store = SimpleVectorStore.builder(new KeywordEmbeddingModel()).build();
+
+		assertThatCode(() -> new SimpleVectorStoreInitialization(store, properties).load()).doesNotThrowAnyException();
+	}
+
+	@Test
+	void disposableBeanPersistsTheStore() {
+		Path storeFile = tempDirectory.resolve("destroy/vectorstore.json");
+		DataAgentProperties properties = propertiesFor(storeFile);
+		SimpleVectorStore store = SimpleVectorStore.builder(new KeywordEmbeddingModel()).build();
+		store.add(List.of(new Document("订单销售数据")));
+
+		new SimpleVectorStoreInitialization(store, properties).destroy();
+
+		assertThat(storeFile).exists();
+	}
+
+	@Test
+	void persistenceFailureIsContained() throws Exception {
+		Path regularFile = tempDirectory.resolve("not-a-directory");
+		Files.writeString(regularFile, "blocker");
+		Path storeFile = regularFile.resolve("vectorstore.json");
+		DataAgentProperties properties = propertiesFor(storeFile);
+		SimpleVectorStore store = SimpleVectorStore.builder(new KeywordEmbeddingModel()).build();
+
+		assertThatCode(() -> new SimpleVectorStoreInitialization(store, properties).save()).doesNotThrowAnyException();
+		assertThat(Files.readString(regularFile)).isEqualTo("blocker");
+	}
+
+	private DataAgentProperties propertiesFor(Path storeFile) {
+		DataAgentProperties properties = new DataAgentProperties();
+		properties.getVectorStore().setFilePath(storeFile.toString());
+		return properties;
 	}
 
 }
