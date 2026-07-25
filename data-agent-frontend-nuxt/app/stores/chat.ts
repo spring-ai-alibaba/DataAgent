@@ -33,6 +33,7 @@ import modelConfigService, {
 import datasourceService, {
 	type Datasource as BaseDatasource,
 } from '~/services/datasource/index';
+import { resolveActiveDatasource } from '~/utils/datasourceSelection';
 
 export type Datasource = BaseDatasource & { isActive?: boolean };
 
@@ -164,13 +165,23 @@ export const useChatStore = defineStore('chat', () => {
 		} else {
 			await createNewSession(agentId);
 		}
-		// Load global datasources (active)
+		// Load active global datasources, then resolve the binding for this agent.
 		try {
 			const list = await datasourceService.getAllDatasource('active');
-			allDatasources.value = list;
-			activeDatasource.value = list[0] || null;
+			let activeDatasourceId: number | undefined;
+			try {
+				const agentDatasource =
+					await agentDatasourceService.getActiveAgentDatasource(agentId);
+				activeDatasourceId = agentDatasource.datasourceId;
+			} catch {
+				// An unbound agent can still select from the global datasource list.
+			}
+			const resolved = resolveActiveDatasource(list, activeDatasourceId);
+			allDatasources.value = resolved.datasources;
+			activeDatasource.value = resolved.activeDatasource;
 		} catch {
-			/* ignore */
+			allDatasources.value = [];
+			activeDatasource.value = null;
 		}
 		// Load chat models
 		try {
