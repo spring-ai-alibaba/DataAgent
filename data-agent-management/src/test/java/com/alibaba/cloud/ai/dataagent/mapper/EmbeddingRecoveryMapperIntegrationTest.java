@@ -74,26 +74,29 @@ class EmbeddingRecoveryMapperIntegrationTest {
 	}
 
 	private void insertRecoveryFixtures(String table, LocalDateTime now) {
-		jdbcTemplate.update("INSERT INTO " + table
-				+ " (id, embedding_status, updated_time, is_deleted) VALUES (?, 'PROCESSING', ?, 0)", 1,
-				now.minusMinutes(20));
-		jdbcTemplate.update("INSERT INTO " + table
-				+ " (id, embedding_status, updated_time, is_deleted) VALUES (?, 'PROCESSING', ?, 0)", 2,
-				now.minusMinutes(2));
-		jdbcTemplate.update("INSERT INTO " + table
-				+ " (id, embedding_status, updated_time, is_deleted) VALUES (?, 'PROCESSING', ?, 1)", 3,
-				now.minusMinutes(20));
+		jdbcTemplate.update(
+				"INSERT INTO " + table
+						+ " (id, embedding_status, updated_time, is_deleted) VALUES (?, 'PROCESSING', ?, 0)",
+				1, now.minusMinutes(20));
+		jdbcTemplate.update(
+				"INSERT INTO " + table
+						+ " (id, embedding_status, updated_time, is_deleted) VALUES (?, 'PROCESSING', ?, 0)",
+				2, now.minusMinutes(2));
+		jdbcTemplate.update(
+				"INSERT INTO " + table
+						+ " (id, embedding_status, updated_time, is_deleted) VALUES (?, 'PROCESSING', ?, 1)",
+				3, now.minusMinutes(20));
 	}
 
 	private void assertRecoveryResult(String table) {
-		assertThat(jdbcTemplate.queryForObject("SELECT embedding_status FROM " + table + " WHERE id = 1",
-				String.class)).isEqualTo("PENDING");
+		assertThat(jdbcTemplate.queryForObject("SELECT embedding_status FROM " + table + " WHERE id = 1", String.class))
+			.isEqualTo("PENDING");
 		assertThat(jdbcTemplate.queryForObject("SELECT error_msg FROM " + table + " WHERE id = 1", String.class))
 			.isEqualTo("Recovered stale PROCESSING job");
-		assertThat(jdbcTemplate.queryForObject("SELECT embedding_status FROM " + table + " WHERE id = 2",
-				String.class)).isEqualTo("PROCESSING");
-		assertThat(jdbcTemplate.queryForObject("SELECT embedding_status FROM " + table + " WHERE id = 3",
-				String.class)).isEqualTo("PROCESSING");
+		assertThat(jdbcTemplate.queryForObject("SELECT embedding_status FROM " + table + " WHERE id = 2", String.class))
+			.isEqualTo("PROCESSING");
+		assertThat(jdbcTemplate.queryForObject("SELECT embedding_status FROM " + table + " WHERE id = 3", String.class))
+			.isEqualTo("PROCESSING");
 	}
 
 }

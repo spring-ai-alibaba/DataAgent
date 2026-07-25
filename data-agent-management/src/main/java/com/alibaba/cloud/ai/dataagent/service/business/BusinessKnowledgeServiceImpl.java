@@ -225,10 +225,8 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 			List<Document> documents = recalledKnowledge.stream()
 				.map(DocumentConverterUtil::convertBusinessKnowledgeToDocument)
 				.toList();
-			agentVectorStoreService.replaceDocumentsByMetadata(
-					Map.of(Constant.AGENT_ID, agentId, DocumentMetadataConstant.VECTOR_TYPE,
-							DocumentMetadataConstant.BUSINESS_TERM),
-					documents);
+			agentVectorStoreService.replaceDocumentsByMetadata(Map.of(Constant.AGENT_ID, agentId,
+					DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM), documents);
 
 			// 批量更新 embedding_status 为 COMPLETED，避免前端一直显示"等待中"
 			for (BusinessKnowledge knowledge : recalledKnowledge) {

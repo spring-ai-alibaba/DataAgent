@@ -75,12 +75,10 @@ class MilvusVectorStoreIntegrationTest {
 
 	@Test
 	void addSearchFilterAndDeleteUseTheRealMilvusServer() {
-		Document order = new Document("订单销售数据",
-				Map.of(Constant.AGENT_ID, "42", DocumentMetadataConstant.VECTOR_TYPE,
-						DocumentMetadataConstant.AGENT_KNOWLEDGE));
-		Document user = new Document("用户注册信息",
-				Map.of(Constant.AGENT_ID, "99", DocumentMetadataConstant.VECTOR_TYPE,
-						DocumentMetadataConstant.AGENT_KNOWLEDGE));
+		Document order = new Document("订单销售数据", Map.of(Constant.AGENT_ID, "42", DocumentMetadataConstant.VECTOR_TYPE,
+				DocumentMetadataConstant.AGENT_KNOWLEDGE));
+		Document user = new Document("用户注册信息", Map.of(Constant.AGENT_ID, "99", DocumentMetadataConstant.VECTOR_TYPE,
+				DocumentMetadataConstant.AGENT_KNOWLEDGE));
 		vectorStore.add(List.of(order, user));
 
 		FilterExpressionBuilder filters = new FilterExpressionBuilder();
@@ -91,8 +89,7 @@ class MilvusVectorStoreIntegrationTest {
 			.filterExpression(filters.eq(Constant.AGENT_ID, "42").build())
 			.build();
 
-		assertThat(vectorStore.similaritySearch(request)).extracting(Document::getText)
-			.containsExactly("订单销售数据");
+		assertThat(vectorStore.similaritySearch(request)).extracting(Document::getText).containsExactly("订单销售数据");
 		AgentVectorStoreService service = new AgentVectorStoreServiceImpl(vectorStore, Optional.empty(),
 				new DataAgentProperties(), new DynamicFilterService(null, null),
 				new MetadataDocumentRetriever(new StandardEnvironment()));

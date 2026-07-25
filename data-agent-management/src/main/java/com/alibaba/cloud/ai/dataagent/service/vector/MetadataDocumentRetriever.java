@@ -61,12 +61,11 @@ public class MetadataDocumentRetriever {
 		if (vectorStore instanceof ElasticsearchVectorStore elasticsearchVectorStore) {
 			return findInElasticsearch(elasticsearchVectorStore, filterExpression, limit);
 		}
-		throw new IllegalArgumentException("Exact metadata retrieval is not supported for "
-				+ vectorStore.getClass().getName());
+		throw new IllegalArgumentException(
+				"Exact metadata retrieval is not supported for " + vectorStore.getClass().getName());
 	}
 
-	private List<Document> findInMilvus(MilvusVectorStore vectorStore, Filter.Expression filterExpression,
-			int limit) {
+	private List<Document> findInMilvus(MilvusVectorStore vectorStore, Filter.Expression filterExpression, int limit) {
 		VectorStoreObservationContext context = vectorStore.createObservationContextBuilder("metadata-query").build();
 		String idField = environment.getProperty("spring.ai.vectorstore.milvus.id-field-name",
 				MilvusVectorStore.DOC_ID_FIELD_NAME);
@@ -101,16 +100,21 @@ public class MetadataDocumentRetriever {
 		}).toList();
 	}
 
-	private List<Document> findInElasticsearch(ElasticsearchVectorStore vectorStore,
-			Filter.Expression filterExpression, int limit) {
+	private List<Document> findInElasticsearch(ElasticsearchVectorStore vectorStore, Filter.Expression filterExpression,
+			int limit) {
 		var client = vectorStore.<co.elastic.clients.elasticsearch.ElasticsearchClient>getNativeClient()
 			.orElseThrow(() -> new IllegalStateException("Elasticsearch native client is unavailable"));
 		String indexName = vectorStore.createObservationContextBuilder("metadata-query").build().getCollectionName();
 		String query = new ElasticsearchAiSearchFilterExpressionConverter().convertExpression(filterExpression);
 		try {
-			return client.search(search -> search.index(indexName)
-				.query(q -> q.queryString(qs -> qs.query(query)))
-				.size(limit), Document.class).hits().hits().stream().map(hit -> hit.source()).filter(Objects::nonNull)
+			return client
+				.search(search -> search.index(indexName).query(q -> q.queryString(qs -> qs.query(query))).size(limit),
+						Document.class)
+				.hits()
+				.hits()
+				.stream()
+				.map(hit -> hit.source())
+				.filter(Objects::nonNull)
 				.toList();
 		}
 		catch (IOException ex) {

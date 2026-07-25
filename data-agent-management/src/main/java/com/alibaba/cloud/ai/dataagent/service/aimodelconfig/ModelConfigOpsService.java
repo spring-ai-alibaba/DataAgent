@@ -41,6 +41,7 @@ public class ModelConfigOpsService {
 	private final AiModelRegistry aiModelRegistry;
 
 	private final EmbeddingModelCompatibilityValidator embeddingModelCompatibilityValidator;
+
 	/**
 	 * 专门处理：更新配置并热刷新的聚合逻辑
 	 */

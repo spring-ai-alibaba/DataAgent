@@ -53,11 +53,10 @@ class SimpleVectorStorePersistenceIntegrationTest {
 		SimpleVectorStore restored = SimpleVectorStore.builder(new KeywordEmbeddingModel()).build();
 		new SimpleVectorStoreInitialization(restored, properties).load();
 
-		assertThat(restored.similaritySearch(SearchRequest.builder()
-			.query("订单")
-			.topK(1)
-			.similarityThreshold(0.8)
-			.build())).extracting(Document::getText).containsExactly("订单销售数据");
+		assertThat(
+				restored.similaritySearch(SearchRequest.builder().query("订单").topK(1).similarityThreshold(0.8).build()))
+			.extracting(Document::getText)
+			.containsExactly("订单销售数据");
 	}
 
 }

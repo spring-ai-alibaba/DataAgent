@@ -58,7 +58,9 @@ public interface AgentVectorStoreService {
 	// 通过元数据过滤精确查找
 	List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK);
 
-	/** @deprecated use {@link #hasTableDocuments(Integer, List)}. */
+	/**
+	 * @deprecated use {@link #hasTableDocuments(Integer, List)}.
+	 */
 	@Deprecated
 	boolean hasSchemaDocuments(String datasourceId);
 

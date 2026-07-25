@@ -39,8 +39,7 @@ public final class MetadataAwareSimpleVectorStore extends SimpleVectorStore {
 
 	private final SpelExpressionParser expressionParser = new SpelExpressionParser();
 
-	private final SimpleVectorStoreFilterExpressionConverter filterConverter =
-			new SimpleVectorStoreFilterExpressionConverter();
+	private final SimpleVectorStoreFilterExpressionConverter filterConverter = new SimpleVectorStoreFilterExpressionConverter();
 
 	public MetadataAwareSimpleVectorStore(EmbeddingModel embeddingModel) {
 		super(SimpleVectorStore.builder(embeddingModel));
@@ -62,7 +61,8 @@ public final class MetadataAwareSimpleVectorStore extends SimpleVectorStore {
 			StandardEvaluationContext context = new StandardEvaluationContext();
 			context.setVariable("metadata", content.getMetadata());
 			return Boolean.TRUE.equals(expression.getValue(context, Boolean.class));
-		}).limit(limit)
+		})
+			.limit(limit)
 			.map(content -> Document.builder()
 				.id(content.getId())
 				.text(content.getText())

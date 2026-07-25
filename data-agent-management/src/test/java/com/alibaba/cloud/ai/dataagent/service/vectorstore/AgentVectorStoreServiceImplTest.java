@@ -202,4 +202,5 @@ class AgentVectorStoreServiceImplTest {
 	void getDocumentsOnlyByFilter_nullFilter_throws() {
 		assertThrows(IllegalArgumentException.class, () -> service.getDocumentsOnlyByFilter(null, 10));
 	}
+
 }

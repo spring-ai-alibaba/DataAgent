@@ -81,9 +81,8 @@ class SchemaVectorRecallIntegrationTest {
 	}
 
 	private Document tableDocument(String name, String text) {
-		return new Document(text,
-				Map.of(Constant.DATASOURCE_ID, "7", DocumentMetadataConstant.VECTOR_TYPE,
-						DocumentMetadataConstant.TABLE, DocumentMetadataConstant.NAME, name));
+		return new Document(text, Map.of(Constant.DATASOURCE_ID, "7", DocumentMetadataConstant.VECTOR_TYPE,
+				DocumentMetadataConstant.TABLE, DocumentMetadataConstant.NAME, name));
 	}
 
 }

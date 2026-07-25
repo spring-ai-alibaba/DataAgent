@@ -68,9 +68,11 @@ class VectorReplacementIntegrationTest {
 	void failedReplacementKeepsTheOldVectorAvailable() {
 		embeddingModel.failAfterSuccessfulCalls(1);
 
-		assertThatThrownBy(() -> service.replaceDocumentsByMetadata(identityMetadata,
-				List.of(new Document("stable-old-id", "用户新定义", identityMetadata),
-						new Document("用户补充定义", identityMetadata))))
+		assertThatThrownBy(
+				() -> service
+					.replaceDocumentsByMetadata(identityMetadata,
+							List.of(new Document("stable-old-id", "用户新定义", identityMetadata),
+									new Document("用户补充定义", identityMetadata))))
 			.isInstanceOf(IllegalStateException.class);
 
 		embeddingModel.disableFailure();
@@ -88,12 +90,8 @@ class VectorReplacementIntegrationTest {
 
 	private List<Document> search(String query) {
 		Filter.Expression filter = new FilterExpressionBuilder().eq(Constant.AGENT_ID, "1").build();
-		return vectorStore.similaritySearch(SearchRequest.builder()
-			.query(query)
-			.topK(5)
-			.similarityThreshold(0.8)
-			.filterExpression(filter)
-			.build());
+		return vectorStore.similaritySearch(
+				SearchRequest.builder().query(query).topK(5).similarityThreshold(0.8).filterExpression(filter).build());
 	}
 
 	private static final class FailAfterEmbeddingModel implements EmbeddingModel {

@@ -260,8 +260,8 @@ public class SchemaServiceImpl implements SchemaService {
 		if (replacementDocuments.isEmpty()) {
 			throw new IllegalStateException("Refusing to replace existing schema vectors with an empty schema");
 		}
-		agentVectorStoreService.replaceDocumentsByMetadata(
-				Map.of(Constant.DATASOURCE_ID, datasourceId.toString()), replacementDocuments);
+		agentVectorStoreService.replaceDocumentsByMetadata(Map.of(Constant.DATASOURCE_ID, datasourceId.toString()),
+				replacementDocuments);
 	}
 
 	protected Map<String, List<String>> buildForeignKeyMap(List<ForeignKeyInfoBO> foreignKeys) {

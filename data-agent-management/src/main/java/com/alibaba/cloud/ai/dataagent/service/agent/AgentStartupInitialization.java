@@ -182,7 +182,8 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 			}
 
 			if (isAlreadyInitialized(datasourceId, tables)) {
-				log.info("Datasource {} already has all selected schema vectors, skipping initialization", datasourceId);
+				log.info("Datasource {} already has all selected schema vectors, skipping initialization",
+						datasourceId);
 				return true;
 			}
 

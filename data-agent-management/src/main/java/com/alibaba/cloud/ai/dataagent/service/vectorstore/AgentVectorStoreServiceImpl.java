@@ -222,7 +222,8 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 		int totalDeleted = 0;
 
 		do {
-			batch = metadataDocumentRetriever.find(vectorStore, new FilterExpressionTextParser().parse(filterExpression),
+			batch = metadataDocumentRetriever.find(vectorStore,
+					new FilterExpressionTextParser().parse(filterExpression),
 					dataAgentProperties.getVectorStore().getBatchDelTopkLimit());
 
 			// 过滤掉已经处理过的文档，只删除未处理的文档
@@ -325,7 +326,8 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 		List<Document> oldDocuments = getDocumentsOnlyByFilter(new FilterExpressionTextParser().parse(filterExpression),
 				dataAgentProperties.getVectorStore().getBatchDelTopkLimit());
 		if (oldDocuments.size() >= dataAgentProperties.getVectorStore().getBatchDelTopkLimit()) {
-			throw new IllegalStateException("Too many existing vector documents to replace safely; increase batch-del-topk-limit");
+			throw new IllegalStateException(
+					"Too many existing vector documents to replace safely; increase batch-del-topk-limit");
 		}
 
 		Object ownerId = metadata.getOrDefault(Constant.AGENT_ID, metadata.get(Constant.DATASOURCE_ID));
