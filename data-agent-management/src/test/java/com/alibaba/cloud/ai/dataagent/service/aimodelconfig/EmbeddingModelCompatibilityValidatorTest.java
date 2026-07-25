@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.support.KeywordEmbeddingModel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -63,6 +64,36 @@ class EmbeddingModelCompatibilityValidatorTest {
 		target.setApiKey("new-key");
 
 		assertThatCode(() -> validator.validateModelChange(current, target)).doesNotThrowAnyException();
+	}
+
+	@Test
+	void embeddingModelIsValidatedOnceAgainstTheConfiguredDimension() {
+		DataAgentProperties properties = new DataAgentProperties();
+		properties.getVectorStore().setEmbeddingDimension(3);
+		EmbeddingModelCompatibilityValidator dimensionValidator = new EmbeddingModelCompatibilityValidator(properties);
+		KeywordEmbeddingModel model = new KeywordEmbeddingModel();
+
+		assertThatCode(() -> {
+			dimensionValidator.validateModel(model);
+			dimensionValidator.validateModel(model);
+		}).doesNotThrowAnyException();
+	}
+
+	@Test
+	void disabledDimensionValidationDoesNotInspectTheModel() {
+		DataAgentProperties properties = new DataAgentProperties();
+		properties.getVectorStore().setEmbeddingDimension(0);
+		EmbeddingModelCompatibilityValidator dimensionValidator = new EmbeddingModelCompatibilityValidator(properties);
+
+		assertThatCode(() -> dimensionValidator.validateModel(null)).doesNotThrowAnyException();
+	}
+
+	@Test
+	void missingEmbeddingConfigurationsDoNotTriggerAHotSwitchFailure() {
+		ModelConfigDTO target = embeddingConfig("provider", "https://one", "embedding-a");
+
+		assertThatCode(() -> validator.validateModelChange(null, target)).doesNotThrowAnyException();
+		assertThatCode(() -> validator.validateModelChange(target, null)).doesNotThrowAnyException();
 	}
 
 	private ModelConfigDTO embeddingConfig(String provider, String baseUrl, String modelName) {
