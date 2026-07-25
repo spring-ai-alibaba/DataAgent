@@ -17,7 +17,10 @@ package com.alibaba.cloud.ai.dataagent.service.integration;
 
 import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
+import com.alibaba.cloud.ai.dataagent.entity.AgentKnowledge;
+import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeResourceManager;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreServiceImpl;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.MetadataAwareSimpleVectorStore;
@@ -86,6 +89,24 @@ class VectorReplacementIntegrationTest {
 
 		assertThat(search("用户查询")).extracting(Document::getText).containsExactly("用户新定义");
 		assertThat(search("订单查询")).isEmpty();
+	}
+
+	@Test
+	void qaKnowledgeReembeddingUsesTheRealAtomicReplacementPath() throws Exception {
+		AgentKnowledge knowledge = new AgentKnowledge();
+		knowledge.setId(11);
+		knowledge.setAgentId(1);
+		knowledge.setType(KnowledgeType.QA);
+		knowledge.setQuestion("用户旧问题");
+		AgentKnowledgeResourceManager resourceManager = new AgentKnowledgeResourceManager(null, null, service);
+
+		resourceManager.doEmbedingToVectorStore(knowledge);
+		knowledge.setQuestion("订单新问题");
+		resourceManager.doEmbedingToVectorStore(knowledge);
+
+		Filter.Expression filter = new FilterExpressionBuilder().eq(DocumentMetadataConstant.DB_AGENT_KNOWLEDGE_ID, 11)
+			.build();
+		assertThat(service.getDocumentsOnlyByFilter(filter, 5)).extracting(Document::getText).containsExactly("订单新问题");
 	}
 
 	private List<Document> search(String query) {
