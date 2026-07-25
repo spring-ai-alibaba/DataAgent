@@ -29,9 +29,9 @@
 					variant="outlined"
 					prepend-icon="mdi-refresh"
 					:loading="loading"
-					@click="fetchConfigs"
 					class="text-none"
 					style="border-color: #e2e8f0"
+					@click="fetchConfigs"
 				>
 					刷新
 				</v-btn>
@@ -184,8 +184,8 @@
 											size="small"
 											class="text-none"
 											style="border-color: #e2e8f0"
-											@click="handleTestConnection(model)"
 											:loading="testingId === model.id"
+											@click="handleTestConnection(model)"
 										>
 											测试连接
 										</v-btn>
@@ -287,11 +287,11 @@
 									v-model="form.apiKey"
 									:type="showApiKey ? 'text' : 'password'"
 									:append-inner-icon="showApiKey ? 'mdi-eye-off' : 'mdi-eye'"
-									@click:append-inner="showApiKey = !showApiKey"
 									placeholder="sk-..."
 									variant="outlined"
 									density="compact"
 									:rules="form.provider === 'custom' ? [] : [rules.required]"
+									@click:append-inner="showApiKey = !showApiKey"
 								/>
 							</v-col>
 							<v-col cols="12">
@@ -306,7 +306,7 @@
 							</v-col>
 
 							<!-- Extra fields from original but styled like new -->
-							<v-col cols="12" v-if="form.modelType === 'CHAT'">
+							<v-col v-if="form.modelType === 'CHAT'" cols="12">
 								<span class="custom-label">Completions 路径</span>
 								<v-text-field
 									v-model="form.completionsPath"
@@ -316,7 +316,7 @@
 								/>
 							</v-col>
 
-							<v-col cols="12" v-if="form.modelType === 'EMBEDDING'">
+							<v-col v-if="form.modelType === 'EMBEDDING'" cols="12">
 								<span class="custom-label">Embeddings 路径</span>
 								<v-text-field
 									v-model="form.embeddingsPath"
