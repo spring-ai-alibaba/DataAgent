@@ -278,9 +278,21 @@ public class DataAgentProperties {
 		private int batchDelTopkLimit = 5000;
 
 		/**
+		 * Expected embedding dimension for the configured persistent vector store. A
+		 * value of 0 disables the check, which is useful for the development-only simple
+		 * store.
+		 */
+		private int embeddingDimension = 0;
+
+		/**
 		 * 是否启用混合搜索
 		 */
 		private boolean enableHybridSearch = false;
+
+		/**
+		 * Maximum wait for each hybrid retrieval branch.
+		 */
+		private long hybridSearchTimeoutMs = 3000;
 
 		/**
 		 * Elasticsearch最小分数阈值，用于es执行关键词搜索时过滤相关性较低的文档

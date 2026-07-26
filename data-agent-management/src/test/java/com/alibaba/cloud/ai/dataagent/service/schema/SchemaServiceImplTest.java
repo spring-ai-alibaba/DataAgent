@@ -212,7 +212,7 @@ class SchemaServiceImplTest {
 
 	@Test
 	void getTableDocumentsByDatasource_delegates() {
-		when(agentVectorStoreService.getDocumentsOnlyByFilter(any(), anyInt())).thenReturn(List.of());
+		when(agentVectorStoreService.similaritySearch(anyString(), any(), anyInt(), anyDouble())).thenReturn(List.of());
 
 		List<Document> result = schemaService.getTableDocumentsByDatasource(1, "test query");
 		assertNotNull(result);

@@ -15,35 +15,54 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.vectorstore;
 
+import com.alibaba.cloud.ai.dataagent.service.vector.MetadataDocumentRetriever;
+import com.alibaba.cloud.ai.dataagent.support.KeywordEmbeddingModel;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.vectorstore.SimpleVectorStore;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
+import org.springframework.core.env.StandardEnvironment;
 
 import java.util.List;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.when;
 
 class MetadataAwareSimpleVectorStoreTest {
 
 	@Test
-	void deleteByMetadata_doesNotInvokeEmbeddingModel() {
-		EmbeddingModel embeddingModel = mock(EmbeddingModel.class);
-		when(embeddingModel.dimensions()).thenReturn(2);
-		when(embeddingModel.embed(any(Document.class))).thenReturn(new float[] { 1.0f, 0.0f });
-		MetadataAwareSimpleVectorStore store = new MetadataAwareSimpleVectorStore(embeddingModel);
+	void deleteByMetadata_removesOnlyExactMetadataMatches() {
+		MetadataAwareSimpleVectorStore store = new MetadataAwareSimpleVectorStore(new KeywordEmbeddingModel());
 		store.add(List.of(new Document("one", Map.of("agentId", "1")), new Document("two", Map.of("agentId", "2"))));
-
-		reset(embeddingModel);
-		when(embeddingModel.dimensions()).thenThrow(new IllegalStateException("embedding unavailable"));
 
 		assertEquals(1, store.deleteByMetadata(Map.of("agentId", 1)));
 		assertEquals(0, store.deleteByMetadata(Map.of("agentId", "1")));
 		assertEquals(1, store.deleteByMetadata(Map.of("agentId", "2")));
+	}
+
+	@Test
+	void exactMetadataRetrievalDoesNotRequireAQueryEmbedding() {
+		MetadataAwareSimpleVectorStore store = new MetadataAwareSimpleVectorStore(new KeywordEmbeddingModel());
+		store.add(List.of(new Document("first order", Map.of("agentId", "1")),
+				new Document("second order", Map.of("agentId", "1")),
+				new Document("other order", Map.of("agentId", "2"))));
+		var filter = new FilterExpressionBuilder().eq("agentId", "1").build();
+		MetadataDocumentRetriever retriever = new MetadataDocumentRetriever(new StandardEnvironment());
+
+		assertThat(retriever.find(store, filter, 1)).hasSize(1)
+			.allSatisfy(document -> assertThat(document.getMetadata()).containsEntry("agentId", "1"));
+	}
+
+	@Test
+	void unsupportedStoresFailInsteadOfFallingBackToSyntheticSimilaritySearch() {
+		SimpleVectorStore store = SimpleVectorStore.builder(new KeywordEmbeddingModel()).build();
+		var filter = new FilterExpressionBuilder().eq("agentId", "1").build();
+		MetadataDocumentRetriever retriever = new MetadataDocumentRetriever(new StandardEnvironment());
+
+		assertThatThrownBy(() -> retriever.find(store, filter, 1)).isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("Exact metadata retrieval is not supported");
 	}
 
 }

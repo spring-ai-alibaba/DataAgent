@@ -35,6 +35,7 @@ import com.alibaba.cloud.ai.dataagent.splitter.ParagraphTextSplitter;
 import com.alibaba.cloud.ai.dataagent.util.McpServerToolUtil;
 import com.alibaba.cloud.ai.dataagent.util.NodeBeanUtil;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
+import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.EmbeddingModelCompatibilityValidator;
 import com.alibaba.cloud.ai.dataagent.strategy.EnhancedTokenCountBatchingStrategy;
 import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.*;
 import com.alibaba.cloud.ai.dataagent.workflow.node.*;
@@ -405,7 +406,8 @@ public class DataAgentConfiguration implements DisposableBean {
 	 */
 	@Bean
 	@Primary
-	public EmbeddingModel embeddingModel(AiModelRegistry registry) {
+	public EmbeddingModel embeddingModel(AiModelRegistry registry,
+			EmbeddingModelCompatibilityValidator embeddingModelCompatibilityValidator) {
 
 		// 1. 定义目标源 (TargetSource)
 		TargetSource targetSource = new TargetSource() {
@@ -423,7 +425,9 @@ public class DataAgentConfiguration implements DisposableBean {
 			@Override
 			public Object getTarget() {
 				// 每次方法调用，都去注册表拿最新的
-				return registry.getEmbeddingModel();
+				EmbeddingModel model = registry.getEmbeddingModel();
+				embeddingModelCompatibilityValidator.validateModel(model);
+				return model;
 			}
 
 			@Override
