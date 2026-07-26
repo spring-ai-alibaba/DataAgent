@@ -36,7 +36,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
@@ -194,7 +193,7 @@ public class SqlGenerateNode implements NodeAction {
 		for (int step = 1; step < currentStep; step++) {
 			String stepKey = "step_" + step;
 			String stepResult = executionResults.get(stepKey);
-			if (!StringUtils.hasText(stepResult)) {
+			if (StringUtils.isBlank(stepResult)) {
 				continue;
 			}
 
