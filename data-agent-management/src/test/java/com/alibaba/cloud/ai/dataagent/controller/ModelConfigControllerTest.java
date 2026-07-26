@@ -110,8 +110,7 @@ class ModelConfigControllerTest {
 
 	@Test
 	void testSavedConnection_missingConfig_returnsError() {
-		doThrow(new IllegalArgumentException("Model configuration not found: 999"))
-			.when(modelConfigOpsService)
+		doThrow(new IllegalArgumentException("Model configuration not found: 999")).when(modelConfigOpsService)
 			.testConnection(999);
 
 		ApiResponse<String> result = modelConfigController.testSavedConnection(999);
