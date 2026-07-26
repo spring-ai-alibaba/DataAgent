@@ -59,6 +59,8 @@ import static com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil.getCurrentExec
 @AllArgsConstructor
 public class SqlGenerateNode implements NodeAction {
 
+	private static final int PREVIOUS_RESULTS_MAX_CHARS = 8_000;
+
 	private final Nl2SqlService nl2SqlService;
 
 	private final DataAgentProperties properties;
@@ -158,11 +160,13 @@ public class SqlGenerateNode implements NodeAction {
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 		String userQuery = StateUtil.getCanonicalQuery(state);
 		String dialect = StateUtil.getStringValue(state, DB_DIALECT_TYPE);
+		String previousStepResults = buildPreviousStepResults(state);
 
 		SqlGenerationDTO sqlGenerationDTO = SqlGenerationDTO.builder()
 			.evidence(evidence)
 			.query(userQuery)
 			.schemaDTO(schemaDTO)
+			.previousStepResults(previousStepResults)
 			.sql(originalSql)
 			.exceptionMessage(errorMsg)
 			.executionDescription(executionDescription)
@@ -174,6 +178,34 @@ public class SqlGenerateNode implements NodeAction {
 
 	private Flux<String> handleGenerateSql(OverAllState state, String executionDescription) {
 		return handleRetryGenerateSql(state, null, null, executionDescription);
+	}
+
+	@SuppressWarnings("unchecked")
+	private String buildPreviousStepResults(OverAllState state) {
+		int currentStep = PlanProcessUtil.getCurrentStepNumber(state);
+		if (currentStep <= 1) {
+			return "无";
+		}
+
+		Map<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
+				new HashMap<>());
+		StringBuilder context = new StringBuilder();
+		for (int step = 1; step < currentStep; step++) {
+			String stepKey = "step_" + step;
+			String stepResult = executionResults.get(stepKey);
+			if (StringUtils.isBlank(stepResult)) {
+				continue;
+			}
+
+			String section = stepKey + ":\n" + stepResult.trim() + "\n";
+			int remaining = PREVIOUS_RESULTS_MAX_CHARS - context.length();
+			if (section.length() > remaining) {
+				context.append(section, 0, Math.max(remaining, 0)).append("\n...(历史结果已截断)");
+				break;
+			}
+			context.append(section);
+		}
+		return context.isEmpty() ? "无" : context.toString().trim();
 	}
 
 }

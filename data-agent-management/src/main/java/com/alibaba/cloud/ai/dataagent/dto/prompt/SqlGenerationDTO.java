@@ -31,6 +31,8 @@ public class SqlGenerationDTO {
 
 	private SchemaDTO schemaDTO;
 
+	private String previousStepResults;
+
 	private String sql;
 
 	private String exceptionMessage;
