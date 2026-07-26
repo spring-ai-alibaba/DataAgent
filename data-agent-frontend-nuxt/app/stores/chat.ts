@@ -34,6 +34,7 @@ import datasourceService, {
 	type Datasource as BaseDatasource,
 } from '~/services/datasource/index';
 import { resolveActiveDatasource } from '~/utils/datasourceSelection';
+import { applyReportContent } from '~/utils/reportTimeline';
 
 export type Datasource = BaseDatasource & { isActive?: boolean };
 
@@ -434,8 +435,11 @@ export const useChatStore = defineStore('chat', () => {
 					} else if (response.textType === 'MARK_DOWN') {
 						sessionState.markdownReportContent += response.text;
 						scheduleReportSync();
-						const rn = currentBlock;
-						if (rn) rn[0].text = sessionState.markdownReportContent;
+						applyReportContent(
+							currentBlock,
+							sessionState.markdownReportContent,
+							TextType.MARK_DOWN,
+						);
 					}
 				} else if (response.textType === TextType.RESULT_SET) {
 					if (!isNewStep && currentBlock) currentBlock.push({ ...response });
