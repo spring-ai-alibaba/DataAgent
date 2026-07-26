@@ -33,6 +33,7 @@ import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -89,16 +90,15 @@ public class SqlGenerateNode implements NodeAction {
 		Flux<String> sqlFlux;
 		SqlRetryDto retryDto = StateUtil.getObjectValue(state, SQL_REGENERATE_REASON, SqlRetryDto.class,
 				SqlRetryDto.empty());
+		String failedSql = StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT, "");
 
 		if (retryDto.sqlExecuteFail()) {
 			displayMessage = "检测到SQL执行异常，开始重新生成SQL...";
-			sqlFlux = handleRetryGenerateSql(state, StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT, ""),
-					retryDto.reason(), promptForSql);
+			sqlFlux = handleRetryGenerateSql(state, failedSql, retryDto.reason(), promptForSql);
 		}
 		else if (retryDto.semanticFail()) {
 			displayMessage = "语义一致性校验未通过，开始重新生成SQL...";
-			sqlFlux = handleRetryGenerateSql(state, StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT, ""),
-					retryDto.reason(), promptForSql);
+			sqlFlux = handleRetryGenerateSql(state, failedSql, retryDto.reason(), promptForSql);
 		}
 		else {
 			displayMessage = "开始生成SQL...";
@@ -115,17 +115,41 @@ public class SqlGenerateNode implements NodeAction {
 				ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign()));
 		Flux<ChatResponse> displayFlux = preFlux
 			.concatWith(sqlFlux.doOnNext(sqlCollector::append).map(ChatResponseUtil::createPureResponse))
-			.concatWith(Flux.just(ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()),
-					ChatResponseUtil.createResponse("SQL生成完成，准备执行")));
+			.concatWith(Flux.defer(() -> {
+				String generatedSql = nl2SqlService.sqlTrim(sqlCollector.toString());
+				String completionMessage = isUnchangedExecutionRetry(retryDto, failedSql, generatedSql)
+						? "SQL 修复结果与失败 SQL 相同，已停止重试，避免重复执行。" : "SQL生成完成，准备执行";
+				return Flux.just(ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign()),
+						ChatResponseUtil.createResponse(completionMessage));
+			}));
 
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, v -> {
 					String sql = nl2SqlService.sqlTrim(sqlCollector.toString());
-					result.put(SQL_GENERATE_OUTPUT, sql);
+					if (isUnchangedExecutionRetry(retryDto, failedSql, sql)) {
+						log.warn("Regenerated SQL is unchanged after execution failure; stopping retry loop");
+						result.put(SQL_GENERATE_OUTPUT, StateGraph.END);
+					}
+					else {
+						result.put(SQL_GENERATE_OUTPUT, sql);
+					}
 					return result;
 				}, displayFlux);
 
 		return Map.of(SQL_GENERATE_OUTPUT, generator);
+	}
+
+	private boolean isUnchangedExecutionRetry(SqlRetryDto retryDto, String failedSql, String generatedSql) {
+		return retryDto.sqlExecuteFail() && StringUtils.isNotBlank(failedSql) && StringUtils.isNotBlank(generatedSql)
+				&& normalizeSql(failedSql).equals(normalizeSql(generatedSql));
+	}
+
+	private String normalizeSql(String sql) {
+		String normalized = StringUtils.defaultString(sql).strip();
+		while (normalized.endsWith(";")) {
+			normalized = normalized.substring(0, normalized.length() - 1).stripTrailing();
+		}
+		return normalized;
 	}
 
 	private Flux<String> handleRetryGenerateSql(OverAllState state, String originalSql, String errorMsg,
