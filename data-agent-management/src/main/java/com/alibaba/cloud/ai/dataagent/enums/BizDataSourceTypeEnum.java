@@ -159,6 +159,10 @@ public enum BizDataSourceTypeEnum {
 		return isDialect(typeName, DatabaseDialectEnum.ORACLE.getCode());
 	}
 
+	public static boolean isHiveDialect(String typeName) {
+		return isDialect(typeName, DatabaseDialectEnum.HIVE.getCode());
+	}
+
 	public static boolean isAdbPg(String typeName) {
 		BizDataSourceTypeEnum te = fromTypeName(typeName);
 		if (te == null) {

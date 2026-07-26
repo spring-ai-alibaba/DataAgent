@@ -147,6 +147,16 @@ class BizDataSourceTypeEnumTest {
 	}
 
 	@Test
+	void isHiveDialect_trueForHive() {
+		assertTrue(BizDataSourceTypeEnum.isHiveDialect("hive"));
+	}
+
+	@Test
+	void isHiveDialect_falseForOthers() {
+		assertFalse(BizDataSourceTypeEnum.isHiveDialect("mysql"));
+	}
+
+	@Test
 	void isAdbPg_trueForAdgPg() {
 		assertTrue(BizDataSourceTypeEnum.isAdbPg("adg_pg"));
 	}

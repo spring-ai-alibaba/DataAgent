@@ -15,7 +15,11 @@
  */
 package com.alibaba.cloud.ai.dataagent.util;
 
+import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -71,6 +75,83 @@ class SqlUtilTest {
 	@Test
 	void buildSelectSql_emptyTableName_throwsException() {
 		assertThrows(IllegalArgumentException.class, () -> SqlUtil.buildSelectSql("mysql", "", "*", 10));
+	}
+
+	@Test
+	void buildColumnsSql_mysql_appendsLimit() {
+		List<ColumnInfoBO> columnInfoBOS = Arrays.asList(
+				new ColumnInfoBO("id", "users", "id", "int", true, true, null),
+				new ColumnInfoBO("name", "users", "name", "varchar", false, false, null),
+				new ColumnInfoBO("desc", "users", "desc", "varchar", false, false, null)
+		);
+		String sql = SqlUtil.buildColumnsSql("mysql", columnInfoBOS);
+		assertEquals("`id`, `name`, `desc`", sql);
+	}
+	@Test
+	void buildColumnsSql_hive_appendsLimit() {
+		List<ColumnInfoBO> columnInfoBOS = Arrays.asList(
+				new ColumnInfoBO("id", "users", "id", "int", true, true, null),
+				new ColumnInfoBO("name", "users", "name", "varchar", false, false, null),
+				new ColumnInfoBO("desc", "users", "desc", "varchar", false, false, null)
+		);
+		String sql = SqlUtil.buildColumnsSql("hive", columnInfoBOS);
+		assertEquals("`id`, `name`, `desc`", sql);
+	}
+
+	@Test
+	void buildColumnsSql_postgresql_appendsLimit() {
+		List<ColumnInfoBO> columnInfoBOS = Arrays.asList(
+				new ColumnInfoBO("id", "users", "id", "int", true, true, null),
+				new ColumnInfoBO("name", "users", "name", "varchar", false, false, null),
+				new ColumnInfoBO("desc", "users", "desc", "varchar", false, false, null)
+		);
+		String sql = SqlUtil.buildColumnsSql("postgresql", columnInfoBOS);
+		assertEquals("\"id\", \"name\", \"desc\"", sql);
+	}
+
+	@Test
+	void buildColumnsSql_h2_appendsLimit() {
+		List<ColumnInfoBO> columnInfoBOS = Arrays.asList(
+				new ColumnInfoBO("id", "users", "id", "int", true, true, null),
+				new ColumnInfoBO("name", "users", "name", "varchar", false, false, null),
+				new ColumnInfoBO("desc", "users", "desc", "varchar", false, false, null)
+		);
+		String sql = SqlUtil.buildColumnsSql("h2", columnInfoBOS);
+		assertEquals("\"id\", \"name\", \"desc\"", sql);
+	}
+
+	@Test
+	void buildColumnsSql_sqlserver_prependsTop() {
+		List<ColumnInfoBO> columnInfoBOS = Arrays.asList(
+				new ColumnInfoBO("id", "users", "id", "int", true, true, null),
+				new ColumnInfoBO("name", "users", "name", "varchar", false, false, null),
+				new ColumnInfoBO("desc", "users", "desc", "varchar", false, false, null)
+		);
+		String sql = SqlUtil.buildColumnsSql("sqlserver", columnInfoBOS);
+		assertEquals("\"id\", \"name\", \"desc\"", sql);
+	}
+
+	@Test
+	void buildColumnsSql_oracle_appendsFetchFirst() {
+		List<ColumnInfoBO> columnInfoBOS = Arrays.asList(
+				new ColumnInfoBO("id", "users", "id", "int", true, true, null),
+				new ColumnInfoBO("name", "users", "name", "varchar", false, false, null),
+				new ColumnInfoBO("desc", "users", "desc", "varchar", false, false, null)
+		);
+		String sql = SqlUtil.buildColumnsSql("oracle", columnInfoBOS);
+		assertEquals("\"id\", \"name\", \"desc\"", sql);
+	}
+
+	@Test
+	void buildColumnsSql_nullColumnNames_defaultsToStar() {
+		String sql = SqlUtil.buildColumnsSql("mysql", null);
+		assertEquals("*", sql);
+	}
+
+	@Test
+	void buildColumnsSql_emptyColumnNames_defaultsToStar() {
+		String sql = SqlUtil.buildColumnsSql("mysql", Arrays.asList());
+		assertEquals("*", sql);
 	}
 
 }
