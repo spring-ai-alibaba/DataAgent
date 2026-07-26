@@ -90,8 +90,7 @@ class SqlUtilTest {
 
 	@Test
 	void findGeneratedSqlValidationError_postgresJsonOperator_isValid() {
-		var error = SqlUtil.findGeneratedSqlValidationError("SELECT payload ? 'customer_id' FROM events",
-				"PostgreSQL");
+		var error = SqlUtil.findGeneratedSqlValidationError("SELECT payload ? 'customer_id' FROM events", "PostgreSQL");
 
 		assertTrue(error.isEmpty());
 	}
