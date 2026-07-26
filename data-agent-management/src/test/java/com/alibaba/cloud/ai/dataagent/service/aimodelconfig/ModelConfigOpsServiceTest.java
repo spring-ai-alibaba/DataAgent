@@ -111,63 +111,84 @@ class ModelConfigOpsServiceTest {
 	}
 
 	@Test
-	void testTestConnection_chat() {
-		ModelConfigDTO dto = new ModelConfigDTO();
-		dto.setModelType("CHAT");
-		dto.setProvider("openai");
-		dto.setModelName("gpt-4");
+	void testTestConnection_chat_usesStoredApiKey() {
+		ModelConfig entity = new ModelConfig();
+		entity.setId(1);
+		entity.setModelType(ModelType.CHAT);
+		entity.setProvider("openai");
+		entity.setModelName("gpt-4");
+		entity.setApiKey("stored-api-key");
+		when(modelConfigDataService.findById(1)).thenReturn(entity);
 
 		ChatModel chatModel = mock(ChatModel.class);
-		when(modelFactory.createChatModel(dto)).thenReturn(chatModel);
+		when(modelFactory.createChatModel(argThat(config -> "stored-api-key".equals(config.getApiKey()))))
+			.thenReturn(chatModel);
 		when(chatModel.call("Hello")).thenReturn("Hi there");
 
-		assertDoesNotThrow(() -> service.testConnection(dto));
+		assertDoesNotThrow(() -> service.testConnection(1));
 	}
 
 	@Test
 	void testTestConnection_embedding() {
-		ModelConfigDTO dto = new ModelConfigDTO();
-		dto.setModelType("EMBEDDING");
-		dto.setProvider("openai");
-		dto.setModelName("text-embedding");
+		ModelConfig entity = new ModelConfig();
+		entity.setId(2);
+		entity.setModelType(ModelType.EMBEDDING);
+		entity.setProvider("openai");
+		entity.setModelName("text-embedding");
+		when(modelConfigDataService.findById(2)).thenReturn(entity);
 
 		EmbeddingModel embeddingModel = mock(EmbeddingModel.class);
-		when(modelFactory.createEmbeddingModel(dto)).thenReturn(embeddingModel);
+		when(modelFactory.createEmbeddingModel(any(ModelConfigDTO.class))).thenReturn(embeddingModel);
 		when(embeddingModel.embed("Test")).thenReturn(new float[] { 0.1f, 0.2f });
 
-		assertDoesNotThrow(() -> service.testConnection(dto));
+		assertDoesNotThrow(() -> service.testConnection(2));
 	}
 
 	@Test
 	void testTestConnection_unknownType() {
-		ModelConfigDTO dto = new ModelConfigDTO();
-		dto.setModelType("UNKNOWN");
+		ModelConfig entity = new ModelConfig();
+		entity.setId(3);
+		entity.setModelType(null);
+		when(modelConfigDataService.findById(3)).thenReturn(entity);
 
-		assertThrows(RuntimeException.class, () -> service.testConnection(dto));
+		assertThrows(RuntimeException.class, () -> service.testConnection(3));
+	}
+
+	@Test
+	void testTestConnection_notFound() {
+		when(modelConfigDataService.findById(99)).thenReturn(null);
+
+		RuntimeException exception = assertThrows(RuntimeException.class, () -> service.testConnection(99));
+
+		assertEquals("配置不存在", exception.getMessage());
 	}
 
 	@Test
 	void testTestConnection_chatReturnsEmpty() {
-		ModelConfigDTO dto = new ModelConfigDTO();
-		dto.setModelType("CHAT");
+		ModelConfig entity = new ModelConfig();
+		entity.setId(4);
+		entity.setModelType(ModelType.CHAT);
+		when(modelConfigDataService.findById(4)).thenReturn(entity);
 
 		ChatModel chatModel = mock(ChatModel.class);
-		when(modelFactory.createChatModel(dto)).thenReturn(chatModel);
+		when(modelFactory.createChatModel(any(ModelConfigDTO.class))).thenReturn(chatModel);
 		when(chatModel.call("Hello")).thenReturn("");
 
-		assertThrows(RuntimeException.class, () -> service.testConnection(dto));
+		assertThrows(RuntimeException.class, () -> service.testConnection(4));
 	}
 
 	@Test
 	void testTestConnection_embeddingReturnsEmpty() {
-		ModelConfigDTO dto = new ModelConfigDTO();
-		dto.setModelType("EMBEDDING");
+		ModelConfig entity = new ModelConfig();
+		entity.setId(5);
+		entity.setModelType(ModelType.EMBEDDING);
+		when(modelConfigDataService.findById(5)).thenReturn(entity);
 
 		EmbeddingModel embeddingModel = mock(EmbeddingModel.class);
-		when(modelFactory.createEmbeddingModel(dto)).thenReturn(embeddingModel);
+		when(modelFactory.createEmbeddingModel(any(ModelConfigDTO.class))).thenReturn(embeddingModel);
 		when(embeddingModel.embed("Test")).thenReturn(new float[0]);
 
-		assertThrows(RuntimeException.class, () -> service.testConnection(dto));
+		assertThrows(RuntimeException.class, () -> service.testConnection(5));
 	}
 
 }

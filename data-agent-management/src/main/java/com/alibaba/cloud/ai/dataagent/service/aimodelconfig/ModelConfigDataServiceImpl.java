@@ -24,6 +24,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -130,7 +131,7 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		}
 
 		// 只有当前端传来的 Key 不包含 "****" 时，才说明用户真的改了 Key，否则保持原样
-		if (dto.getApiKey() != null && !dto.getApiKey().contains("****")) {
+		if (StringUtils.hasText(dto.getApiKey()) && !dto.getApiKey().contains("****")) {
 			oldEntity.setApiKey(dto.getApiKey());
 		}
 	}

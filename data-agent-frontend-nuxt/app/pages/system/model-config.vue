@@ -286,12 +286,34 @@
 								<v-text-field
 									v-model="form.apiKey"
 									:type="showApiKey ? 'text' : 'password'"
-									:append-inner-icon="showApiKey ? 'mdi-eye-off' : 'mdi-eye'"
-									placeholder="sk-..."
+									:append-inner-icon="
+										form.apiKey
+											? showApiKey
+												? 'mdi-eye-off'
+												: 'mdi-eye'
+											: undefined
+									"
+									:placeholder="
+										dialog.mode === 'edit'
+											? `${storedApiKeyMask} 已保存，留空表示不修改`
+											: 'sk-...'
+									"
+									:hint="
+										dialog.mode === 'edit'
+											? '出于安全考虑，已保存的完整密钥不会回显；输入新密钥可进行替换。'
+											: undefined
+									"
+									:persistent-hint="dialog.mode === 'edit'"
 									variant="outlined"
 									density="compact"
-									:rules="form.provider === 'custom' ? [] : [rules.required]"
-									@click:append-inner="showApiKey = !showApiKey"
+									:rules="
+										form.provider === 'custom' || dialog.mode === 'edit'
+											? []
+											: [rules.required]
+									"
+									@click:append-inner="
+										form.apiKey && (showApiKey = !showApiKey)
+									"
 								/>
 							</v-col>
 							<v-col cols="12">
@@ -407,6 +429,7 @@ const activatingId = ref<number | null>(null);
 const deletingId = ref<number | null>(null);
 const saving = ref(false);
 const showApiKey = ref(false);
+const storedApiKeyMask = ref('');
 
 const formRef = ref<VForm | null>(null);
 const formValid = ref(false);
@@ -457,6 +480,8 @@ const providerLabel = (value: string) => {
 };
 
 const resetForm = (type: ModelType) => {
+	storedApiKeyMask.value = '';
+	showApiKey.value = false;
 	form.provider = providerOptions[0]?.value || 'deepseek';
 	form.apiKey = '';
 	form.baseUrl = providerBaseUrlMap[form.provider] || '';
@@ -497,12 +522,15 @@ const handleEdit = (model: ModelConfig) => {
 	dialog.mode = 'edit';
 	dialog.visible = true;
 	dialog.presetTab = model.modelType;
-	Object.assign(form, model);
+	storedApiKeyMask.value = model.apiKey || '';
+	showApiKey.value = false;
+	Object.assign(form, model, { apiKey: '' });
 };
 
 const closeDialog = () => {
 	dialog.visible = false;
 	showApiKey.value = false;
+	storedApiKeyMask.value = '';
 };
 
 const submitConfig = async (isUpdate: boolean) => {
@@ -596,9 +624,13 @@ const handleActivate = async (model: ModelConfig) => {
 };
 
 const handleTestConnection = async (model: ModelConfig) => {
-	testingId.value = model.id ?? null;
+	if (!model.id) {
+		$tip('模型ID不存在', { icon: 'mdi-alert-circle', color: 'error' });
+		return;
+	}
+	testingId.value = model.id;
 	try {
-		const result = await modelConfigService.testConnection(model);
+		const result = await modelConfigService.testConnection(model.id);
 		if (result.success) {
 			$tip(result.message || '连接测试成功');
 		} else {
