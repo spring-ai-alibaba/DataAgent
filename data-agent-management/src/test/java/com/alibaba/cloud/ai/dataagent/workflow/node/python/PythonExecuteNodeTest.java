@@ -19,16 +19,16 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -69,6 +69,7 @@ class PythonExecuteNodeTest {
 		state.registerKeyAndStrategy(PYTHON_TRIES_COUNT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PYTHON_FALLBACK_MODE, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_RESULT_LIST_MEMORY, new ReplaceStrategy());
+		state.registerKeyAndStrategy(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
 		return state;
 	}
 
@@ -184,13 +185,12 @@ class PythonExecuteNodeTest {
 	}
 
 	@Test
-	void apply_withSqlResultsAsCSV_passesCorrectly() throws Exception {
+	void apply_withMultipleSqlResults_passesOrderedResultSetsToPython() throws Exception {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(PYTHON_GENERATE_NODE_OUTPUT, "print('processed')"));
-		List<Map<String, String>> sqlResults = new ArrayList<>();
-		sqlResults.add(Map.of("name", "Alice", "amount", "100"));
-		sqlResults.add(Map.of("name", "Bob", "amount", "200"));
-		state.updateState(Map.of(SQL_RESULT_LIST_MEMORY, sqlResults));
+		state.updateState(Map.of(SQL_EXECUTE_NODE_OUTPUT,
+				Map.of("step_2", "{\"data\":[{\"department\":\"engineering\",\"headcount\":\"20\"}]}", "step_1",
+						"{\"data\":[{\"department\":\"sales\",\"revenue\":\"100\"}]}")));
 
 		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success("processed"));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
@@ -199,6 +199,14 @@ class PythonExecuteNodeTest {
 		assertNotNull(result);
 		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
 		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
+
+		ArgumentCaptor<CodePoolExecutorService.TaskRequest> request = ArgumentCaptor
+			.forClass(CodePoolExecutorService.TaskRequest.class);
+		verify(codePoolExecutor).runTask(request.capture());
+		String input = request.getValue().input();
+		assertTrue(input.startsWith("[[{"));
+		assertTrue(input.indexOf("sales") < input.indexOf("engineering"));
+		assertTrue(input.endsWith("}]]"));
 	}
 
 	@Test
