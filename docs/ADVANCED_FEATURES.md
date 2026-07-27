@@ -382,15 +382,10 @@ WHERE u.name = '张三'
 
 ## 🐍 Python 执行环境配置
 
-### 执行器类型
+Python 统一通过 Spring AI Alibaba Sandbox 在任务级独立容器中执行，不再提供宿主机
+Local、旧 Docker 容器池或 AI Simulation 执行器。
 
-系统支持三种Python执行器：
-
-1. **Docker Executor** (推荐)
-2. **Local Executor**
-3. **AI Simulation Executor**
-
-### Docker 执行器配置
+### SAA 沙盒配置
 
 ```yaml
 spring:
@@ -398,41 +393,27 @@ spring:
     alibaba:
       data-agent:
         code-executor:
-          type: docker
-          docker:
-            image: continuumio/anaconda3:latest
-            timeout: 300000  # 5分钟超时
-            memory-limit: 512m
-            cpu-limit: 1.0
+          code-timeout: 60s
+          limit-memory: 500
+          cpu-core: 1
+          sandbox:
+            image-name: ${DATAAGENT_SANDBOX_IMAGE}
+            max-concurrency: 4
+            queue-capacity: 10
+            package-index-url: ${DATAAGENT_PYPI_INDEX_URL:https://pypi.org/simple}
+            dependency-install-timeout: 3m
 ```
 
-### Local 执行器配置
+### 动态依赖
 
-```yaml
-spring:
-  ai:
-    alibaba:
-      data-agent:
-        code-executor:
-          type: local
-          local:
-            python-path: /usr/bin/python3
-            timeout: 300000
-            work-dir: /tmp/dataagent
+```python
+# /// script
+# dependencies = ["pandas>=2,<3"]
+# ///
 ```
 
-### AI 模拟执行器
-
-用于测试环境，不实际执行Python代码，而是通过AI模拟执行结果：
-
-```yaml
-spring:
-  ai:
-    alibaba:
-      data-agent:
-        code-executor:
-          type: ai-simulation
-```
+依赖由固定的后端命令在当前任务沙盒内安装。模型不能指定仓库、URL、文件路径、pip 参数
+或 shell 命令。生产环境应将包索引配置为企业私有 PyPI 代理。
 
 ## ⚙️ 高级配置选项
 

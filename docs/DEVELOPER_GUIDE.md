@@ -353,19 +353,18 @@ public class AgentVectorStoreService {
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
-| `code-pool-executor` | 执行器类型 (DOCKER/LOCAL) | DOCKER (application.yml中默认为local) |
-| `image-name` | Docker镜像名称 | continuumio/anaconda3:latest |
-| `container-name-prefix` | 容器名称前缀 | nl2sql-python-exec- |
-| `host` | 服务主机地址 | null |
-| `task-queue-size` | 任务阻塞队列大小 | 5 |
-| `core-container-num` | 核心容器数量最大值 | 2 |
-| `temp-container-num` | 临时容器数量最大值 | 2 |
-| `core-thread-size` | 线程池核心线程数 | 5 |
-| `max-thread-size` | 线程池最大线程数 | 5 |
 | `code-timeout` | Python代码执行超时时间 | 60s |
-| `container-timeout` | 容器最大运行时长 | 3000 (ms) |
 | `limit-memory` | 容器内存限制 (MB) | 500 |
 | `cpu-core` | 容器CPU核数 | 1 |
+| `python-max-tries-count` | Python执行最大重试次数 | 5 |
+| `sandbox.image-name` | SAA基础镜像 | AgentScope runtime sandbox base |
+| `sandbox.max-concurrency` | 最大并发沙盒数 | 4 |
+| `sandbox.queue-capacity` | 有界等待队列大小 | 10 |
+| `sandbox.package-index-url` | 动态依赖包索引 | https://pypi.org/simple |
+| `sandbox.dependency-install-timeout` | 依赖安装超时 | 3m |
+
+第三方依赖必须在生成脚本的 PEP 723 `dependencies` 中声明。系统不再提供宿主机 Local、
+旧 Docker 容器池或 AI Simulation 执行器。
 
 ### 6. 文件存储配置 (File Storage)
 

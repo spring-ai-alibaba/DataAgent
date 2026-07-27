@@ -103,7 +103,7 @@ public class PythonGenerateNode implements NodeAction {
 		// Load Python code generation template
 		String systemPrompt = PromptConstant.getPythonGeneratorPromptTemplate()
 			.render(Map.of("python_memory", codeExecutorProperties.getLimitMemory().toString(), "python_timeout",
-					codeExecutorProperties.getCodeTimeout(), "database_schema",
+					codeExecutorProperties.getCodeTimeout().toSeconds() + "s", "database_schema",
 					objectMapper.writeValueAsString(schemaDTO), "sample_input",
 					objectMapper.writeValueAsString(sqlResults.stream().limit(SAMPLE_DATA_NUMBER).toList()),
 					"plan_description", objectMapper.writeValueAsString(toolParameters)));

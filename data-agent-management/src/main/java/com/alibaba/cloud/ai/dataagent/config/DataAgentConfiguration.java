@@ -19,9 +19,6 @@ import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
-import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorService;
-import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorServiceFactory;
-import com.alibaba.cloud.ai.dataagent.service.code.docker.DockerExecutorFactory;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageServiceFactory;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
@@ -125,13 +122,6 @@ public class DataAgentConfiguration implements DisposableBean {
 	public FileStorageService fileStorageService(FileStorageProperties properties,
 			OssStorageProperties ossStorageProperties) {
 		return new FileStorageServiceFactory(properties, ossStorageProperties).getObject();
-	}
-
-	@Bean
-	@ConditionalOnMissingBean(CodePoolExecutorService.class)
-	public CodePoolExecutorService codePoolExecutorService(CodeExecutorProperties properties, LlmService llmService,
-			DockerExecutorFactory dockerExecutorFactory) {
-		return new CodePoolExecutorServiceFactory(properties, llmService, dockerExecutorFactory).getObject();
 	}
 
 	@Bean

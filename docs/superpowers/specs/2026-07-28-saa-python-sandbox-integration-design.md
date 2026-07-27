@@ -1,0 +1,302 @@
+# SAA 1.1.2.2 Python 沙盒接入方案
+
+## 1. 结论与范围
+
+本次只改造 Python 生成与执行链路：
+
+- Spring AI Alibaba 升级到 `1.1.2.2`
+- Spring AI 对齐到 `1.1.2`
+- Python 统一通过 `spring-ai-alibaba-sandbox` 执行
+- 支持模型用 PEP 723 声明依赖，并在任务沙盒内动态安装
+- 删除本地进程、自建 Docker 容器池和 AI Simulation 执行器
+- SQL 生成、校验和执行链路不做改动
+
+不存在本地执行或旧 Docker 执行器的回退。SAA 启动、依赖安装或代码执行失败时，结果直接
+进入现有 Python 重试与降级分支。
+
+## 2. 改造后的链路
+
+```mermaid
+flowchart LR
+    PG["PythonGenerateNode<br/>生成代码和 PEP 723 元数据"]
+    PE["PythonExecuteNode<br/>解析依赖并组装 stdin JSON"]
+    PARSER["PythonDependencyMetadataParser"]
+    POLICY["PythonDependencyPolicy"]
+    EXEC["PythonCodeExecutorService<br/>并发、队列、大小和总超时"]
+    RUNTIME["SaaSandboxRuntime<br/>SandboxService"]
+    SB["一次任务一个 BaseSandbox"]
+    INSTALL["固定 bootstrap<br/>python -m pip install"]
+    RUN["固定 bootstrap<br/>python -c generated.py"]
+    RESULT["结构化结果 envelope"]
+    EXISTING["现有重试 / 降级 / SSE / 报告"]
+
+    PG --> PE
+    PE --> PARSER --> POLICY
+    POLICY --> EXEC
+    PE --> EXEC
+    EXEC --> RUNTIME --> SB
+    SB --> INSTALL --> RUN --> RESULT
+    RESULT --> PE --> EXISTING
+```
+
+保持不变的业务协议：
+
+1. 生成代码仍通过 `json.load(sys.stdin)` 读取 SQL 结果 JSON。
+2. 业务结果仍从 stdout 返回，并由 `PythonExecuteNode` 做现有 JSON 解析。
+3. Python 失败仍进入现有重试，超过次数仍走现有降级逻辑。
+4. StateGraph 节点关系和 SSE 事件协议不变。
+
+## 3. 动态依赖协议
+
+生成代码使用标准 PEP 723 `script` 元数据块：
+
+```python
+# /// script
+# dependencies = ["pandas>=2,<3", "numpy>=1.24,<3"]
+# ///
+
+import json
+import sys
+import pandas as pd
+```
+
+处理规则：
+
+1. 脚本最多包含一个 `# /// script` 块。
+2. 后端使用 TOML Parser 读取 `dependencies` 和 `requires-python`。
+3. 最多允许 20 个直接依赖，元数据最大 8 KiB。
+4. 允许 PyPI 包名、extras 和版本约束。
+5. 拒绝 URL、VCS、文件路径、`@`、环境标记和任何 pip 参数。
+6. 模型不能提供 index、证书、命令、安装目录或 shell 片段。
+
+依赖声明只是一组结构化包规格，不是命令字符串：
+
+```text
+TaskRequest
+├── code
+├── input
+└── dependencies: List<String>
+```
+
+## 4. 受控动态安装
+
+依赖和业务代码在同一个任务级 Sandbox 中分两阶段执行：
+
+```mermaid
+sequenceDiagram
+    participant E as PythonCodeExecutorService
+    participant S as SAA BaseSandbox
+    participant P as Fixed Installer Bootstrap
+    participant C as Fixed Code Bootstrap
+
+    E->>S: 创建独立 Sandbox
+    E->>P: Base64 依赖清单 + 固定 index
+    P->>P: python -m pip install --target /tmp/dataagent-deps
+    P-->>E: 安装结果 envelope
+    E->>C: Base64 代码 + Base64 stdin
+    C->>C: PYTHONPATH=/tmp/dataagent-deps
+    C->>C: python -c code，stdin=input
+    C-->>E: stdout/stderr/error envelope
+    E->>S: close，停止并删除容器
+```
+
+固定安装命令由后端生成：
+
+```text
+python -m pip install
+  --disable-pip-version-check
+  --no-input
+  --no-cache-dir
+  --target /tmp/dataagent-deps
+  --index-url <服务端配置>
+  <校验后的依赖清单>
+```
+
+关键边界：
+
+- 不使用 shell。
+- 代码、stdin、依赖和 index 均先 Base64 编码，避免字符串拼接注入。
+- 安装目录只存在于本次容器，任务结束即删除。
+- 安装超时和代码超时分开控制。
+- 安装失败不会继续执行业务代码。
+- 每次调用创建新 Sandbox，不跨 Agent、会话或重试复用可写状态。
+
+## 5. SAA 框架接入
+
+直接使用 1.1.2.2 提供的对象：
+
+- `SandboxService`
+- `ManagerConfig`
+- `DockerClientStarter`
+- `BaseSandbox`
+- `SaaBasePythonRunner`
+- `RunPythonToolRequest` / `RunPythonToolResponse`
+
+`SaaSandboxRuntime` 懒启动单例 `SandboxService`，避免普通 Spring 单元测试要求 Docker
+在线；应用关闭时统一调用 `cleanupAllSandboxes()` 和 `close()`。
+
+每次任务创建新的 `BaseSandbox` 和新的 `SaaBasePythonRunner`。Runner 持有可变 Sandbox
+引用，不能作为单例跨线程复用。
+
+当前 SAA 1.1.2.2 的 Docker runtime config 可落地：
+
+| 参数 | 默认值 |
+|---|---:|
+| 内存 | 500 MiB |
+| CPU | 1 核 |
+| nofile | 4096 |
+| privileged | `false` |
+| 代码超时 | 60 秒 |
+| 依赖安装超时 | 3 分钟 |
+| 最大并发 | 4 |
+| 等待队列 | 10 |
+
+`nofile` 不能沿用原方案的 256。官方基础镜像中的 supervisord 要求至少 1024；本方案使用
+4096，并通过真实容器启动测试验证。
+
+SAA 的 `SandboxConfig.timeout` 同时约束依赖安装和代码执行时的 HTTP 调用，不能只设置为
+`code-timeout`。本方案按 `dependency-install-timeout + code-timeout + 30 秒通信余量`
+计算 Sandbox 请求超时，避免 pandas 等较大依赖仍在安装时连接被提前关闭。
+
+## 6. 输入输出协议
+
+SAA Runner 只有 `code` 字段，没有独立 stdin 字段，因此使用固定 bootstrap 适配：
+
+1. Java 校验代码和输入大小。
+2. Java 对代码和 stdin 做 UTF-8 Base64。
+3. Sandbox 内用固定 `subprocess.run([python, "-c", code])` 执行。
+4. stdin 通过 subprocess 的 `input` 参数传入。
+5. stdout、stderr、异常类型和错误信息封装为 JSON，再以固定 marker + Base64 返回。
+6. Java 从 SAA 的原始响应中定位 marker 并反序列化。
+
+结果协议：
+
+```json
+{
+  "success": true,
+  "stdout": "{\"result\":42}\n",
+  "stderr": "",
+  "errorType": null,
+  "errorMessage": null
+}
+```
+
+映射规则：
+
+| Sandbox 结果 | 工作流结果 |
+|---|---|
+| `success=true` | `TaskResponse.success(stdout)` |
+| Python 非零退出 | `TaskResponse.failure(stdout, stderr)` |
+| 依赖安装失败 | `TaskResponse.failure(install stdout, install stderr)` |
+| 响应协议错误、Docker 或通信异常 | `TaskResponse.exception(...)` |
+| 外层任务超时 | 取消任务并返回 timeout exception |
+
+## 7. 大小与并发限制
+
+| 内容 | 默认上限 |
+|---|---:|
+| Python 源码 | 256 KiB |
+| stdin JSON | 10 MiB |
+| stdout | 1 MiB |
+| stderr | 256 KiB |
+| PEP 723 元数据 | 8 KiB |
+| 直接依赖 | 20 |
+| 并发 Sandbox | 4 |
+| 等待队列 | 10 |
+
+代码和 stdin 超限时不创建 Sandbox。stdout/stderr 在返回 envelope 前截断，Java 再校验
+envelope 总大小。队列满时快速失败，不无限堆积请求。
+
+完整工作流时间线会包含生成代码、安装日志和执行结果。WebFlux 请求缓冲上限设置为
+`spring.codec.max-in-memory-size: 10MB`，保证浏览器保存这一时间线时不会因默认缓冲上限
+触发 HTTP 413；Python stdout/stderr 仍受上表的独立沙盒限制。
+
+## 8. 配置
+
+```yaml
+spring:
+  ai:
+    alibaba:
+      data-agent:
+        code-executor:
+          python-max-tries-count: 5
+          code-timeout: 60s
+          limit-memory: 500
+          cpu-core: 1
+          sandbox:
+            docker-host: ${DATAAGENT_SANDBOX_DOCKER_HOST:unix:///var/run/docker.sock}
+            image-name: ${DATAAGENT_SANDBOX_IMAGE:agentscope-registry.ap-southeast-1.cr.aliyuncs.com/agentscope/runtime-sandbox-base:latest}
+            max-concurrency: 4
+            queue-capacity: 10
+            package-index-url: ${DATAAGENT_PYPI_INDEX_URL:https://pypi.org/simple}
+            dependency-install-timeout: 3m
+```
+
+开发环境可以使用公网 PyPI 完成端到端验证。生产环境必须通过环境变量切到企业私有 PyPI
+代理和固定镜像 digest。
+
+## 9. 删除项
+
+以下实现不再保留：
+
+- `CodePoolExecutorServiceFactory`
+- `CodePoolExecutorEnum`
+- `AbstractCodePoolExecutorService`
+- `LocalCodePoolExecutorService`
+- `DockerCodePoolExecutorService`
+- `AiSimulationCodeExecutorService`
+- 自建 docker-java client、image、host 和 pool 辅助类
+- 对应单元测试和旧 Docker 集成测试
+
+新的稳定边界为 `PythonCodeExecutorService`，当前只有
+`SaaSandboxPythonCodeExecutorService` 一个实现。
+
+## 10. 安全边界与生产加固
+
+当前版本已经具备：
+
+- 独立任务容器
+- 非 privileged
+- CPU、内存、nofile、超时、并发和输入输出限制
+- 依赖声明策略
+- 固定 pip 命令
+- 任务完成后删除容器
+- 不回退到宿主机执行
+
+需要明确：动态安装要求 Sandbox 在安装阶段能访问包仓库，而 SAA 1.1.2.2 没有公开
+“安装后立即断开容器网络”的 API。因此当前实现适用于本地和受控测试环境；生产上线还需
+补齐基础设施级网络控制：
+
+1. 仅允许访问私有 PyPI 代理，禁止访问其他公网和业务内网。
+2. 固定基础镜像 digest，镜像内使用非 root 用户。
+3. 不向 Sandbox 注入数据库、模型、OSS 或 Docker Socket 等业务凭据。
+4. 私有代理增加恶意包、CVE 和许可证扫描。
+5. 后续可增加 wheel-only、hash lock 和只读 wheel 缓存；这些是生产加固项，不作为
+   当前代码已实现能力描述。
+
+## 11. 验收
+
+| 场景 | 验收条件 |
+|---|---|
+| 动态依赖 | PEP 723 声明的包在任务 Sandbox 内安装成功 |
+| stdin | 生成代码能通过 `json.load(sys.stdin)` 读取 SQL 结果 |
+| stdout | JSON 结果保持现有工作流协议 |
+| Python 异常 | 进入现有重试或降级分支 |
+| 超时/超限 | 返回明确失败并释放 Sandbox |
+| 隔离 | 两次执行不复用可写运行态 |
+| 清理 | 成功和失败后均无残留 `dataagent-sandbox-*` 容器 |
+| 端到端 | 浏览器发起真实分析后出现最终报告且 SSE 收到 `event:complete` |
+
+验证分层：
+
+1. Parser、依赖策略、bootstrap、响应映射和执行器单元测试。
+2. 真实 Docker 集成测试：SAA 创建容器、动态安装 `six==1.17.0`、读取 stdin、输出
+   JSON、停止并删除容器。
+3. 完整后端测试与格式检查。
+4. 本地启动 Milvus、后端和前端，使用浏览器完成真实 StateGraph 请求。
+
+## 12. 参考
+
+- [Spring AI Alibaba v1.1.2.2 releases](https://github.com/alibaba/spring-ai-alibaba/releases)
+- [Spring AI Alibaba Sandbox example](https://github.com/spring-ai-alibaba/examples/tree/main/spring-ai-alibaba-sandbox-example/sandbox-simple-tool)
+- [PEP 723 – Inline script metadata](https://peps.python.org/pep-0723/)

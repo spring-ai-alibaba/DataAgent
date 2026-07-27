@@ -32,7 +32,7 @@ flowchart LR
     ModelRegistry[AiModelRegistry]
     VectorSvc[AgentVectorStoreService]
     Hybrid[HybridRetrievalStrategy]
-    CodePool[CodePoolExecutorService]
+    CodeExec[PythonCodeExecutorService]
     McpSvc[McpServerService]
   end
 
@@ -657,8 +657,9 @@ sequenceDiagram
 #### Key Points
 
 - **Code Generation**: `PythonGenerateNode` generates Python based on plan and SQL results
-- **Code Execution**: `PythonExecuteNode` uses `CodePoolExecutorService` (Docker/Local/AI simulation)
-- **Execution Configuration**: `spring.ai.alibaba.data-agent.code-executor.*` (default Docker image `continuumio/anaconda3:latest`)
+- **Code Execution**: `PythonExecuteNode` uses `PythonCodeExecutorService` and always runs in a task-scoped SAA sandbox
+- **Dynamic Dependencies**: Generated code declares dependencies with PEP 723; a fixed bootstrap installs them inside the sandbox
+- **Execution Configuration**: `spring.ai.alibaba.data-agent.code-executor.*`
 - **Result Return**: Execution results are written back to `PYTHON_EXECUTE_NODE_OUTPUT`, `PythonAnalyzeNode` summarizes and writes to `SQL_EXECUTE_NODE_OUTPUT` for final report
 
 #### Architecture Diagram
@@ -666,14 +667,13 @@ sequenceDiagram
 ```mermaid
 flowchart LR
   PyGen[PythonGenerateNode] --> PyExec[PythonExecuteNode]
-  PyExec --> ExecSvc[CodePoolExecutorService]
-  ExecSvc --> Queue[Task Queue]
-  ExecSvc --> Pool[Container Pool]
-  Pool --> Docker[Docker Executor]
-  Pool --> Local[Local Executor]
-  Pool --> AISim[AI Simulation Executor]
-  Docker --> TempFiles[Temp Files]
-  TempFiles --> StdIO[Stdout Stderr]
+  PyExec --> Parser[PEP 723 Parser]
+  Parser --> ExecSvc[PythonCodeExecutorService]
+  ExecSvc --> Queue[Bounded Queue]
+  Queue --> SAA[SAA SandboxService]
+  SAA --> Install[Controlled Dependency Install]
+  Install --> Run[Python Subprocess]
+  Run --> StdIO[Stdout Stderr]
   StdIO --> JsonParse[JsonParseUtil]
   JsonParse --> PyAnalyze[PythonAnalyzeNode]
   PyAnalyze --> Report[ReportGeneratorNode]
@@ -683,8 +683,8 @@ flowchart LR
   classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
 
   class PyGen,PyExec,PyAnalyze,Report service
-  class ExecSvc,Pool,Docker,Local,AISim exec
-  class Queue,TempFiles,StdIO,JsonParse data
+  class ExecSvc,SAA,Install,Run exec
+  class Parser,Queue,StdIO,JsonParse data
 ```
 
 #### Flow Diagram
@@ -697,19 +697,20 @@ sequenceDiagram
   participant G as PythonGenerateNode
   participant L as LlmService
   participant E as PythonExecuteNode
-  participant CP as CodePoolExecutorService
-  participant D as Docker Executor
+  participant CP as PythonCodeExecutorService
+  participant S as SAA Sandbox
   participant J as JsonParseUtil
   participant A as PythonAnalyzeNode
   participant R as ReportGeneratorNode
 
   P->>G: Enter Python step with instructions
   G->>L: generate python code
-  L-->>G: python code
+  L-->>G: python code + PEP 723
   G->>E: pass code and sql results
   E->>CP: runTask
-  CP->>D: execute in container
-  D-->>CP: stdout stderr
+  CP->>S: create sandbox and install dependencies
+  S->>S: execute with stdin
+  S-->>CP: stdout stderr
   CP-->>E: task response
   E->>J: parse stdout json
   J-->>E: normalized output

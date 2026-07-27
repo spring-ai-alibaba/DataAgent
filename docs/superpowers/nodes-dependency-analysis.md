@@ -14,7 +14,7 @@
 | PlannerNode | LlmService | TABLE_RELATION_OUTPUT, EVIDENCE, GENEGRATED_SEMANTIC_MODEL_PROMPT, PLAN_VALIDATION_ERROR, IS_ONLY_NL2SQL, QUERY_ENHANCE_NODE_OUTPUT | PLANNER_NODE_OUTPUT | Medium |
 | EvidenceRecallNode | LlmService, AgentVectorStoreService, JsonParseUtil, AgentKnowledgeMapper | INPUT_KEY, AGENT_ID, MULTI_TURN_CONTEXT | EVIDENCE | High |
 | PythonGenerateNode | CodeExecutorProperties, LlmService | TABLE_RELATION_OUTPUT, SQL_RESULT_LIST_MEMORY, PYTHON_IS_SUCCESS, PYTHON_TRIES_COUNT, QUERY_ENHANCE_NODE_OUTPUT | PYTHON_GENERATE_NODE_OUTPUT, PYTHON_TRIES_COUNT | Medium |
-| PythonExecuteNode | CodePoolExecutorService, JsonParseUtil, CodeExecutorProperties | PYTHON_GENERATE_NODE_OUTPUT, SQL_RESULT_LIST_MEMORY, PYTHON_TRIES_COUNT | PYTHON_EXECUTE_NODE_OUTPUT, PYTHON_IS_SUCCESS, PYTHON_FALLBACK_MODE | Medium |
+| PythonExecuteNode | PythonCodeExecutorService, PythonDependencyMetadataParser, JsonParseUtil, CodeExecutorProperties | PYTHON_GENERATE_NODE_OUTPUT, SQL_RESULT_LIST_MEMORY, PYTHON_TRIES_COUNT | PYTHON_EXECUTE_NODE_OUTPUT, PYTHON_IS_SUCCESS, PYTHON_FALLBACK_MODE | Medium |
 | PythonAnalyzeNode | LlmService | PYTHON_EXECUTE_NODE_OUTPUT, SQL_EXECUTE_NODE_OUTPUT, PLAN_CURRENT_STEP, PYTHON_FALLBACK_MODE, QUERY_ENHANCE_NODE_OUTPUT | SQL_EXECUTE_NODE_OUTPUT, PLAN_CURRENT_STEP, PYTHON_ANALYSIS_NODE_OUTPUT | Low |
 | SemanticConsistencyNode | Nl2SqlService | EVIDENCE, TABLE_RELATION_OUTPUT, DB_DIALECT_TYPE, SQL_GENERATE_OUTPUT, QUERY_ENHANCE_NODE_OUTPUT | SEMANTIC_CONSISTENCY_NODE_OUTPUT, SQL_REGENERATE_REASON | Low |
 | PlanExecutorNode | None | PLANNER_NODE_OUTPUT, PLAN_CURRENT_STEP, IS_ONLY_NL2SQL, PLAN_REPAIR_COUNT, HUMAN_REVIEW_ENABLED | PLAN_VALIDATION_STATUS, PLAN_VALIDATION_ERROR, PLAN_NEXT_NODE, PLAN_CURRENT_STEP, PLAN_REPAIR_COUNT | Very Low |
@@ -95,16 +95,17 @@
   - Timeout handling
 
 #### PythonExecuteNode
-- **Purpose**: Execute Python code via code pool
-- **Dependencies**: 3
-  - `CodePoolExecutorService.runTask(TaskRequest)` - Returns `TaskResponse`
+- **Purpose**: Parse PEP 723 dependencies and execute Python in SAA Sandbox
+- **Dependencies**: 4
+  - `PythonCodeExecutorService.runTask(TaskRequest)` - Returns `TaskResponse`
+  - `PythonDependencyMetadataParser.parse()` - Validates dynamic dependencies
   - `JsonParseUtil.tryConvertToObject()` - For parsing JSON output
   - `CodeExecutorProperties.getPythonMaxTriesCount()` - Max retries
 - **Logic Flow**:
   1. Get code from `PYTHON_GENERATE_NODE_OUTPUT`
   2. Get SQL results from `SQL_RESULT_LIST_MEMORY`
   3. Check retry count
-  4. Execute via code pool
+  4. Parse dependencies and execute via SAA Sandbox
   5. Parse JSON output (handle Unicode escape)
   6. Return streaming generator with output markers
 - **Test Scenarios**:

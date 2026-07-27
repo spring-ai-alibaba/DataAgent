@@ -13,17 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.code.local;
+package com.alibaba.cloud.ai.dataagent.service.code.sandbox;
 
-import java.util.List;
-import java.util.Optional;
-
-/**
- * Finds the first available executable from an ordered candidate list.
- */
-@FunctionalInterface
-public interface ExecutableProgramLocator {
-
-	Optional<String> findFirst(List<String> programNames);
+public record SandboxExecutionResult(boolean success, String stdout, String stderr, String errorType,
+		String errorMessage) {
 
 }

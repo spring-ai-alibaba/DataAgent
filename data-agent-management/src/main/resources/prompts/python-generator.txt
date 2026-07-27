@@ -16,7 +16,10 @@
        traceback.print_exc(file=sys.stderr)
        sys.exit(1)
    ```
-5. **依赖限制**：所有使用的库必须是`continuumio/anaconda3`默认安装的库，如`pandas`, `numpy`, `json`, `sys`等。
+5. **动态依赖**：
+   - 所有非标准库依赖必须在脚本顶部使用 [PEP 723] 的 `# /// script` 元数据声明，执行器会在隔离沙盒中动态安装。
+   - `dependencies` 只能填写 PyPI 包名及版本约束，例如 `"pandas>=2,<3"`；禁止 URL、VCS、文件路径、环境标记和 pip 参数。
+   - 每一个非标准库 `import` 都必须有对应的依赖声明；只使用标准库时可以省略元数据块。
 6. **动态处理**：禁止硬编码列名/值，所有逻辑基于输入数据动态构建。
 7. **安全限制**：禁止以下操作：
    - 任何文件/网络操作（open/requests等）。
@@ -32,6 +35,10 @@
 以下是生成代码的模板，请根据具体需求填充逻辑：
 
 ```python
+# /// script
+# dependencies = ["pandas>=2,<3"]
+# ///
+
 import sys
 import json
 import traceback
@@ -94,6 +101,10 @@ except Exception:
 假设用户需求是“统计每个渠道的线索数量和转化率”，生成的代码可能如下：
 
 ```python
+# /// script
+# dependencies = ["pandas>=2,<3"]
+# ///
+
 import sys
 import json
 import traceback

@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.Duration;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -98,7 +99,7 @@ class PythonGenerateNodeTest {
 	@BeforeEach
 	void setUp() {
 		when(codeExecutorProperties.getLimitMemory()).thenReturn(500L);
-		when(codeExecutorProperties.getCodeTimeout()).thenReturn("60s");
+		when(codeExecutorProperties.getCodeTimeout()).thenReturn(Duration.ofSeconds(60));
 		pythonGenerateNode = new PythonGenerateNode(codeExecutorProperties, llmService);
 	}
 
