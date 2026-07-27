@@ -114,21 +114,6 @@ class AgentVectorStoreServiceImplTest {
 	}
 
 	@Test
-	void similaritySearch_delegatesRequestToVectorStore() {
-		SearchRequest request = SearchRequest.builder().query("schema query").topK(5).build();
-		List<Document> documents = List.of(new Document("orders"));
-		when(vectorStore.similaritySearch(request)).thenReturn(documents);
-
-		assertSame(documents, service.similaritySearch(request));
-		verify(vectorStore).similaritySearch(request);
-	}
-
-	@Test
-	void similaritySearch_nullRequest_throws() {
-		assertThrows(IllegalArgumentException.class, () -> service.similaritySearch(null));
-	}
-
-	@Test
 	void addDocuments_nullAgentId_throws() {
 		assertThrows(IllegalArgumentException.class, () -> service.addDocuments(null, List.of(new Document("test"))));
 	}
@@ -216,31 +201,6 @@ class AgentVectorStoreServiceImplTest {
 	@Test
 	void getDocumentsOnlyByFilter_nullFilter_throws() {
 		assertThrows(IllegalArgumentException.class, () -> service.getDocumentsOnlyByFilter(null, 10));
-	}
-
-	@Test
-	void getDocumentsOnlyByFilter_nullTopK_usesDefault() {
-		FilterExpressionBuilder b = new FilterExpressionBuilder();
-		Filter.Expression filter = b.eq("agentId", "1").build();
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
-
-		List<Document> result = service.getDocumentsOnlyByFilter(filter, null);
-		assertNotNull(result);
-	}
-
-	@Test
-	void hasSchemaDocuments_withDocs_returnsTrue() {
-		Document doc = new Document("content", Map.of("agentId", "1"));
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(doc));
-
-		assertTrue(service.hasSchemaDocuments("1"));
-	}
-
-	@Test
-	void hasSchemaDocuments_noDocs_returnsFalse() {
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(Collections.emptyList());
-
-		assertFalse(service.hasSchemaDocuments("1"));
 	}
 
 }

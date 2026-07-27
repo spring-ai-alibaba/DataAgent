@@ -96,12 +96,12 @@ public class ModelConfigController {
 	}
 
 	/**
-	 * 6. 连通性测试 接收前端表单里的配置参数，尝试发起一次真实调用
+	 * 6. 连通性测试 根据配置 ID 从服务端读取完整配置，避免前端回传脱敏凭据
 	 */
-	@PostMapping("/test")
-	public ApiResponse<String> testConnection(@Valid @RequestBody ModelConfigDTO config) {
+	@PostMapping("/test/{id}")
+	public ApiResponse<String> testConnection(@PathVariable Integer id) {
 		try {
-			modelConfigOpsService.testConnection(config);
+			modelConfigOpsService.testConnection(id);
 			return ApiResponse.success("连接测试成功！模型可用。");
 		}
 		catch (Exception e) {

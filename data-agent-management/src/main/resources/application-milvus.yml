@@ -10,3 +10,7 @@ spring:
         collection-name: ${MILVUS_COLLECTION:vector_store}
         embedding-dimension: ${MILVUS_DIMENSION:1024}
         initialize-schema: true
+    alibaba:
+      data-agent:
+        vector-store:
+          embedding-dimension: ${MILVUS_DIMENSION:1024}

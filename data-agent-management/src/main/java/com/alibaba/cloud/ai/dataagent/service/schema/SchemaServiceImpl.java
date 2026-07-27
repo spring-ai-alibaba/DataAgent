@@ -39,7 +39,6 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.BatchingStrategy;
-import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Service;
@@ -138,11 +137,6 @@ public class SchemaServiceImpl implements SchemaService {
 			// 根据当前DbConfig获取Accessor
 			Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(config);
 
-			// 清理旧数据
-			log.info("Clearing existing schema data for datasource: {}", datasourceId);
-			clearSchemaDataForDatasource(datasourceId);
-			log.debug("Successfully cleared existing schema data for datasource: {}", datasourceId);
-
 			// 处理外键
 			log.debug("Fetching foreign keys for datasource: {}", datasourceId);
 			List<ForeignKeyInfoBO> foreignKeys = dbAccessor.showForeignKeys(config, dqp);
@@ -176,7 +170,7 @@ public class SchemaServiceImpl implements SchemaService {
 			// 存储文档
 			log.info("Storing  columns and {} tables for datasource: {}", columnDocs.size(), tableDocs.size(),
 					datasourceId);
-			storeSchemaDocuments(datasourceId, columnDocs, tableDocs);
+			replaceSchemaDocuments(datasourceId, columnDocs, tableDocs);
 			log.info("Successfully stored all documents for datasource: {}", datasourceId);
 			return true;
 		}
@@ -259,6 +253,17 @@ public class SchemaServiceImpl implements SchemaService {
 
 	}
 
+	protected void replaceSchemaDocuments(Integer datasourceId, List<Document> columns, List<Document> tables) {
+		List<Document> replacementDocuments = new ArrayList<>(columns.size() + tables.size());
+		replacementDocuments.addAll(columns);
+		replacementDocuments.addAll(tables);
+		if (replacementDocuments.isEmpty()) {
+			throw new IllegalStateException("Refusing to replace existing schema vectors with an empty schema");
+		}
+		agentVectorStoreService.replaceDocumentsByMetadata(Map.of(Constant.DATASOURCE_ID, datasourceId.toString()),
+				replacementDocuments);
+	}
+
 	protected Map<String, List<String>> buildForeignKeyMap(List<ForeignKeyInfoBO> foreignKeys) {
 		Map<String, List<String>> map = new HashMap<>();
 		for (ForeignKeyInfoBO fk : foreignKeys) {
@@ -298,15 +303,7 @@ public class SchemaServiceImpl implements SchemaService {
 
 		Filter.Expression filterExpression = DynamicFilterService.combineWithAnd(conditions);
 
-		// 执行向量检索
-		SearchRequest searchRequest = SearchRequest.builder()
-			.query(query)
-			.topK(tableTopK)
-			.similarityThreshold(tableThreshold)
-			.filterExpression(filterExpression)
-			.build();
-
-		return agentVectorStoreService.similaritySearch(searchRequest);
+		return agentVectorStoreService.similaritySearch(query, filterExpression, tableTopK, tableThreshold);
 	}
 
 	private List<String> getMissingTableNamesWithForeignKeySet(List<Document> tableDocuments,

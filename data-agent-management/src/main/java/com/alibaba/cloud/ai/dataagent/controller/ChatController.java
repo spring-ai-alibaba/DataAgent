@@ -71,10 +71,14 @@ public class ChatController {
 	public ResponseEntity<ChatSession> createSession(@PathVariable(value = "id") Integer id,
 			@RequestBody(required = false) Map<String, Object> request) {
 		String title = request != null ? (String) request.get("title") : null;
-		Long userId = request != null ? (Long) request.get("userId") : null;
+		Long userId = request != null ? toUserId(request.get("userId")) : null;
 
 		ChatSession session = chatSessionService.createSession(id, title, userId);
 		return ResponseEntity.ok(session);
+	}
+
+	static Long toUserId(Object value) {
+		return value instanceof Number number ? number.longValue() : null;
 	}
 
 	/**

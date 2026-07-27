@@ -53,9 +53,6 @@ public class AgentKnowledgeResourceManager {
 	}
 
 	public void doEmbedingToVectorStore(AgentKnowledge agentKnowledge) throws Exception {
-		// delete old data
-		this.deleteFromVectorStore(agentKnowledge.getAgentId(), agentKnowledge.getId());
-
 		if (KnowledgeType.QA.equals(agentKnowledge.getType()) || KnowledgeType.FAQ.equals(agentKnowledge.getType())) {
 			processQaKnowledge(agentKnowledge);
 		}
@@ -69,7 +66,7 @@ public class AgentKnowledgeResourceManager {
 
 	private void processQaKnowledge(AgentKnowledge knowledge) {
 		Document document = DocumentConverterUtil.convertQaFaqKnowledgeToDocument(knowledge);
-		agentVectorStoreService.addDocuments(knowledge.getAgentId().toString(), List.of(document));
+		agentVectorStoreService.replaceDocumentsByMetadata(replacementMetadata(knowledge), List.of(document));
 		log.info("Successfully vectorized AgentKnowledge: id={}, type={}", knowledge.getId(), knowledge.getType());
 	}
 
@@ -88,10 +85,18 @@ public class AgentKnowledgeResourceManager {
 			.convertAgentKnowledgeDocumentsWithMetadata(documents, knowledge);
 
 		// 添加到向量存储
-		agentVectorStoreService.addDocuments(knowledge.getAgentId().toString(), documentsWithMetadata);
+		agentVectorStoreService.replaceDocumentsByMetadata(replacementMetadata(knowledge), documentsWithMetadata);
 		log.info("Successfully vectorized DOCUMENT knowledge: id={}, filePath={}, documentCount={}, splitterType={}",
 				knowledge.getId(), knowledge.getFilePath(), documentsWithMetadata.size(), knowledge.getSplitterType());
 
+	}
+
+	private Map<String, Object> replacementMetadata(AgentKnowledge knowledge) {
+		Map<String, Object> metadata = new HashMap<>();
+		metadata.put(Constant.AGENT_ID, knowledge.getAgentId().toString());
+		metadata.put(DocumentMetadataConstant.DB_AGENT_KNOWLEDGE_ID, knowledge.getId());
+		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.AGENT_KNOWLEDGE);
+		return metadata;
 	}
 
 	private List<Document> getAndSplitDocument(String filePath, String splitterType) {
@@ -121,7 +126,6 @@ public class AgentKnowledgeResourceManager {
 			Map<String, Object> metadata = new HashMap<>();
 			metadata.put(Constant.AGENT_ID, agentId.toString());
 			metadata.put(DocumentMetadataConstant.DB_AGENT_KNOWLEDGE_ID, knowledgeId);
-
 			if (!Boolean.TRUE.equals(agentVectorStoreService.deleteDocumentsByMetadata(agentId.toString(), metadata))) {
 				return false;
 			}

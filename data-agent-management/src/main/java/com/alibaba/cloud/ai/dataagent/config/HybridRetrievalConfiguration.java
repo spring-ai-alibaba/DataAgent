@@ -47,7 +47,7 @@ public class HybridRetrievalConfiguration {
 			FusionStrategy fusionStrategy, DataAgentProperties properties,
 			@Value("${spring.ai.vectorstore.elasticsearch.index-name:spring-ai-document-index}") String indexName) {
 		ElasticsearchHybridRetrievalStrategy strategy = new ElasticsearchHybridRetrievalStrategy(executorService,
-				vectorStore, fusionStrategy);
+				vectorStore, fusionStrategy, properties.getVectorStore().getHybridSearchTimeoutMs());
 		strategy.setIndexName(indexName);
 		strategy.setMinScore(properties.getVectorStore().getElasticsearchMinScore());
 		return strategy;

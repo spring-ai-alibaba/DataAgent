@@ -17,7 +17,6 @@ package com.alibaba.cloud.ai.dataagent.service.vectorstore;
 
 import com.alibaba.cloud.ai.dataagent.dto.search.AgentSearchRequest;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.filter.Filter;
 
 import java.util.List;
@@ -30,14 +29,17 @@ public interface AgentVectorStoreService {
 	 */
 	List<Document> search(AgentSearchRequest searchRequest);
 
-	/**
-	 * Execute a preconfigured similarity search.
-	 */
-	List<Document> similaritySearch(SearchRequest searchRequest);
-
 	Boolean deleteDocumentsByVectorType(String agentId, String vectorType) throws Exception;
 
 	Boolean deleteDocumentsByMetadata(String agentId, Map<String, Object> metadata);
+
+	/**
+	 * @deprecated use {@link #deleteDocumentsByMetadata(String, Map)}.
+	 */
+	@Deprecated
+	default Boolean deleteDocumentsByMetedata(String agentId, Map<String, Object> metadata) {
+		return deleteDocumentsByMetadata(agentId, metadata);
+	}
 
 	Boolean deleteDocumentsByMetadata(Map<String, Object> metadata);
 
@@ -48,10 +50,30 @@ public interface AgentVectorStoreService {
 
 	List<Document> getDocumentsForAgent(String agentId, String query, String vectorType, int topK, double threshold);
 
+	/**
+	 * Execute a semantic search with an already-built metadata filter.
+	 */
+	List<Document> similaritySearch(String query, Filter.Expression filterExpression, int topK, double threshold);
+
 	// 通过元数据过滤精确查找
 	List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK);
 
+	/**
+	 * @deprecated use {@link #hasTableDocuments(Integer, List)}.
+	 */
+	@Deprecated
 	boolean hasSchemaDocuments(String datasourceId);
+
+	/**
+	 * Check whether all selected tables have schema vectors for the datasource.
+	 */
+	boolean hasTableDocuments(Integer datasourceId, List<String> tableNames);
+
+	/**
+	 * Replace all documents selected by metadata without deleting the currently usable
+	 * documents before the new vectors have been written successfully.
+	 */
+	void replaceDocumentsByMetadata(Map<String, Object> metadata, List<Document> documents);
 
 	void addDocuments(String agentId, List<Document> documents);
 

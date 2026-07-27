@@ -182,6 +182,27 @@ class ModelConfigDataServiceImplTest {
 	}
 
 	@Test
+	void updateConfigInDb_blankApiKey_preservesOldKey() {
+		ModelConfig existing = new ModelConfig();
+		existing.setId(1);
+		existing.setModelType(ModelType.CHAT);
+		existing.setApiKey("real-secret-key");
+		when(modelConfigMapper.findById(1)).thenReturn(existing);
+
+		ModelConfigDTO dto = new ModelConfigDTO();
+		dto.setId(1);
+		dto.setModelType("CHAT");
+		dto.setModelName("model");
+		dto.setBaseUrl("http://example.com");
+		dto.setApiKey("  ");
+		dto.setProvider("openai");
+
+		ModelConfig result = service.updateConfigInDb(dto);
+
+		assertEquals("real-secret-key", result.getApiKey());
+	}
+
+	@Test
 	void updateConfigInDb_maskedProxyPassword_preservesOldPassword() {
 		ModelConfig existing = new ModelConfig();
 		existing.setId(1);

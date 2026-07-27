@@ -67,10 +67,12 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 			// Create SchemaInitRequest
 			SchemaInitRequest schemaInitRequest = new SchemaInitRequest();
 			schemaInitRequest.setDbConfig(dbConfig);
-			schemaInitRequest.setTables(tables);
+			List<String> sharedTables = tablesMapper.getSelectedTablesByDatasourceId(datasourceId);
+			List<String> tablesToInitialize = sharedTables.isEmpty() ? tables : sharedTables;
+			schemaInitRequest.setTables(tablesToInitialize);
 
 			log.info("Created SchemaInitRequest for agent: {}, datasource: {}, tableCount: {}", agentIdStr,
-					datasourceId, tables.size());
+					datasourceId, tablesToInitialize.size());
 
 			// Call the original initialization method
 			return schemaService.schema(datasourceId, schemaInitRequest);

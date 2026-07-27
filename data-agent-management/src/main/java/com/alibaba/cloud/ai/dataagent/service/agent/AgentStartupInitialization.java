@@ -26,6 +26,7 @@ import com.alibaba.cloud.ai.dataagent.service.business.BusinessKnowledgeService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -34,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -67,12 +69,7 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 			// 因为异步可以让初始化过程在后台运行，不会阻塞Spring启动主线程，提高启动速度和响应性；即使初始化很耗时也不会影响主程序正常启动。
 			CompletableFuture.runAsync(() -> {
 				initializePublishedAgents();
-				if (!hasActiveEmbeddingModel()) {
-					log.warn("No active EMBEDDING model configured; pending knowledge will remain pending");
-					return;
-				}
-				embedPendingBusinessKnowledge();
-				embedPendingAgentKnowledge();
+				recoverPendingEmbeddings();
 			}, executorService).exceptionally(throwable -> {
 				log.error("Error during agent initialization: {}", throwable.getMessage());
 				return null;
@@ -82,6 +79,28 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 		catch (Exception e) {
 			log.error("Failed to start agent initialization process", e);
 		}
+	}
+
+	/**
+	 * Recover events lost after transaction commit and jobs left in PROCESSING by a
+	 * process crash. The age guard prevents competing with healthy in-flight work.
+	 */
+	@Scheduled(initialDelayString = "${spring.ai.alibaba.data-agent.embedding-recovery.initial-delay-ms:300000}",
+			fixedDelayString = "${spring.ai.alibaba.data-agent.embedding-recovery.fixed-delay-ms:300000}")
+	public void recoverPendingEmbeddings() {
+		if (!hasActiveEmbeddingModel()) {
+			log.warn("No active EMBEDDING model configured; pending knowledge will remain pending");
+			return;
+		}
+		LocalDateTime staleBefore = LocalDateTime.now().minusMinutes(10);
+		int recoveredBusinessJobs = businessKnowledgeMapper.resetStaleProcessing(staleBefore);
+		int recoveredAgentJobs = agentKnowledgeMapper.resetStaleProcessing(staleBefore);
+		if (recoveredBusinessJobs + recoveredAgentJobs > 0) {
+			log.warn("Recovered {} stale business and {} stale agent embedding jobs", recoveredBusinessJobs,
+					recoveredAgentJobs);
+		}
+		embedPendingBusinessKnowledge();
+		embedPendingAgentKnowledge();
 	}
 
 	private boolean hasActiveEmbeddingModel() {
@@ -155,17 +174,17 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 			}
 
 			Integer datasourceId = activeDatasource.getDatasourceId();
-			if (isAlreadyInitialized(datasourceId)) {
-				log.info("Datasource {} already has schema vector data, skipping initialization for agent {}",
-						datasourceId, agentId);
-				return true;
-			}
-
 			List<String> tables = activeDatasource.getSelectTables();
 
 			if (tables.isEmpty()) {
 				log.warn("Datasource {} has no tables available for agent {}", datasourceId, agentId);
 				return false;
+			}
+
+			if (isAlreadyInitialized(datasourceId, tables)) {
+				log.info("Datasource {} already has all selected schema vectors, skipping initialization",
+						datasourceId);
+				return true;
 			}
 
 			log.info("Initializing agent {} with datasource {} and {} tables", agentId, datasourceId, tables.size());
@@ -189,12 +208,12 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 		}
 	}
 
-	private boolean isAlreadyInitialized(Integer datasourceId) {
+	private boolean isAlreadyInitialized(Integer datasourceId, List<String> tableNames) {
 		try {
-			return agentVectorStoreService.hasSchemaDocuments(String.valueOf(datasourceId));
+			return agentVectorStoreService.hasTableDocuments(datasourceId, tableNames);
 		}
 		catch (Exception e) {
-			log.error("Failed to check initialization status for datasource: {}, assuming not initialized",
+			log.error("Failed to check schema vector initialization for datasource: {}, assuming not initialized",
 					datasourceId, e);
 			return false;
 		}
