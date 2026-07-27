@@ -5,7 +5,7 @@
 **请严格遵循以下规范生成代码**：
 1. **纯净输出**：只输出可执行的Python代码，禁止包含任何额外说明或自然语言。在代码内部需要有适量的注释方便阅读。
    - **特别注意**：模型输出的文本直接接入Python解释器运行，因此不要添加任何额外符号，**比如Markdown的代码块标记符号**！
-2. **输入规范**：从`sys.stdin`读取JSON数据（List[Dict]），使用`json.load(sys.stdin)`。
+2. **输入规范**：从`sys.stdin`读取JSON数组（List[List[Dict]]），其中数组的每个元素对应计划中一个步骤的SQL查询结果，使用`json.load(sys.stdin)`。
 3. **输出规范**：最终结果必须是JSON对象（Dict），通过`print(json.dumps(result, ensure_ascii=False))`输出，JSON字段可以自定义，但要满足用户需求。
 4. **错误处理**：使用以下结构捕获所有异常：
    ```python
@@ -42,13 +42,6 @@ try:
     # 从stdin读取输入数据
     input_data = json.load(sys.stdin)
 
-    # 将输入数据转换为DataFrame以便于分析
-    df = pd.DataFrame(input_data)
-
-    # 自动类型推断：将字符串形式的数值转换为实际数值类型（解决后端统一返回字符串的问题）
-    for col in df.columns:
-        df[col] = pd.to_numeric(df[col], errors='ignore')
-
     # 动态分析逻辑
     # 示例：计算某些统计指标
     result = \{
@@ -56,18 +49,40 @@ try:
         "details": []
     \}
 
-    # 示例逻辑：计算每列的平均值（可根据需求调整）
-    for column in df.columns:
-        if pd.api.types.is_numeric_dtype(df[column]):
-            result["summary"][column] = \{
-                "mean": df[column].mean(),
-                "min": df[column].min(),
-                "max": df[column].max()
-            \}
+    # 处理每个步骤的数据
+    for step_index, step_data in enumerate(input_data):
+        if not step_data:
+            continue
 
-    # 示例逻辑：将原始数据分组并统计（可根据需求调整）
-    grouped = df.groupby(list(df.columns[:2])).size().reset_index(name="count")
-    result["details"] = grouped.to_dict(orient="records")
+        step_df = pd.DataFrame(step_data)
+        # 自动类型推断：将字符串形式的数值转换为实际数值类型（解决后端统一返回字符串的问题）
+        for col in step_df.columns:
+            step_df[col] = pd.to_numeric(step_df[col], errors='ignore')
+
+        step_result = \{
+            "step_number": step_index + 1,
+            "statistics": \{\}
+        \}
+
+        # 计算数值字段的统计指标
+        for col in step_df.columns:
+            if pd.api.types.is_numeric_dtype(step_df[col]):
+                step_result["statistics"][col] = \{
+                    "mean": step_df[col].mean(),
+                    "min": step_df[col].min(),
+                    "max": step_df[col].max(),
+                    "std": step_df[col].std()
+                \}
+
+        # 计算分类字段的频率分布
+        for col in step_df.columns:
+            if not pd.api.types.is_numeric_dtype(step_df[col]):
+                frequency = step_df[col].value_counts().to_dict()
+                step_result["statistics"][col] = \{
+                    "frequency": frequency
+                \}
+
+        result["step_analyses"].append(step_result)
 
     # 输出结果为JSON对象
     print(json.dumps(result, ensure_ascii=False))
@@ -103,26 +118,30 @@ try:
     # 从stdin读取输入数据
     input_data = json.load(sys.stdin)
 
-    # 转换为DataFrame
-    df = pd.DataFrame(input_data)
-
-    # 自动类型推断：将字符串形式的数值转换为实际数值类型
-    for col in df.columns:
-        df[col] = pd.to_numeric(df[col], errors='ignore')
-
     # 动态分析逻辑
     result = \{
-        "channel_stats": []
-    \}
+        "channel_stats": [],
+        "conversion_stats": []
+   \}
 
-    # 计算每个渠道的线索数量和转化率
-    if "channel" in df.columns and "conversion" in df.columns:
-        grouped = df.groupby("channel").agg(
-            lead_count=("conversion", "size"),
-            conversion_rate=("conversion", "mean")
-        ).reset_index()
+    # 处理第一个步骤的渠道数据
+    if input_data and input_data[0]:
+        channel_df = pd.DataFrame(input_data[0])
+        # 自动类型推断：将字符串形式的数值转换为实际数值类型
+        for col in channel_df.columns:
+            channel_df[col] = pd.to_numeric(channel_df[col], errors='ignore')
 
-        result["channel_stats"] = grouped.to_dict(orient="records")
+        if "channel" in channel_df.columns and "lead_count" in channel_df.columns:
+            result["channel_stats"] = channel_df.to_dict(orient="records")
+
+    # 处理第二个步骤的转化率数据
+    if len(input_data) > 1 and input_data[1]:
+        conversion_df = pd.DataFrame(input_data[1])
+        # 自动类型推断：将字符串形式的数值转换为实际数值类型
+        for col in conversion_df.columns:
+            conversion_df[col] = pd.to_numeric(conversion_df[col], errors='ignore')
+        if "channel" in conversion_df.columns and "conversion_rate" in conversion_df.columns:
+            result["conversion_stats"] = conversion_df.to_dict(orient="records")
 
     # 输出结果为JSON对象
     print(json.dumps(result, ensure_ascii=False))

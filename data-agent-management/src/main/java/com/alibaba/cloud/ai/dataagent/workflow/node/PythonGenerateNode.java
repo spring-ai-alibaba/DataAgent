@@ -37,7 +37,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -72,8 +72,11 @@ public class PythonGenerateNode implements NodeAction {
 
 		// Get context
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
-		List<Map<String, String>> sqlResults = StateUtil.hasValue(state, SQL_RESULT_LIST_MEMORY)
-				? StateUtil.getListValue(state, SQL_RESULT_LIST_MEMORY) : new ArrayList<>();
+		HashMap<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT,
+				HashMap.class, new HashMap<>());
+		List<List<Map<String, String>>> sqlResultsLimit = PlanProcessUtil
+			.convertExecutionResultsToList(executionResults, SAMPLE_DATA_NUMBER);
+
 		boolean codeRunSuccess = StateUtil.getObjectValue(state, PYTHON_IS_SUCCESS, Boolean.class, true);
 		int triesCount = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
 
@@ -105,8 +108,8 @@ public class PythonGenerateNode implements NodeAction {
 			.render(Map.of("python_memory", codeExecutorProperties.getLimitMemory().toString(), "python_timeout",
 					codeExecutorProperties.getCodeTimeout(), "database_schema",
 					objectMapper.writeValueAsString(schemaDTO), "sample_input",
-					objectMapper.writeValueAsString(sqlResults.stream().limit(SAMPLE_DATA_NUMBER).toList()),
-					"plan_description", objectMapper.writeValueAsString(toolParameters)));
+					objectMapper.writeValueAsString(sqlResultsLimit), "plan_description",
+					objectMapper.writeValueAsString(toolParameters)));
 
 		Flux<ChatResponse> pythonGenerateFlux = llmService.call(systemPrompt, userPrompt);
 
