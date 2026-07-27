@@ -173,8 +173,7 @@ class PythonAnalyzeNodeTest {
 	void apply_preservesPythonOutputForReport() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
-		when(llmService.callSystem(anyString()))
-			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("销售数据分析完成")));
+		when(llmService.callSystem(anyString())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("销售数据分析完成")));
 
 		Map<String, Object> result = pythonAnalyzeNode.apply(state);
 		Flux<GraphResponse<StreamingOutput>> generator = (Flux<GraphResponse<StreamingOutput>>) result
@@ -189,8 +188,7 @@ class PythonAnalyzeNodeTest {
 			.orElseThrow();
 		Map<String, String> executionResults = (Map<String, String>) finalResult.get(SQL_EXECUTE_NODE_OUTPUT);
 
-		assertEquals("{\"total_sales\": 15000, \"avg_sales\": 3000}",
-				executionResults.get("step_1_python_output"));
+		assertEquals("{\"total_sales\": 15000, \"avg_sales\": 3000}", executionResults.get("step_1_python_output"));
 	}
 
 	@Test
