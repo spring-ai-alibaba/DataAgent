@@ -551,8 +551,16 @@ watch(
 	padding: 10px 12px;
 	font-size: 12.5px;
 	overflow-x: auto;
-	white-space: pre;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 	margin: 4px 0 0;
+}
+
+:deep(.tl-code code) {
+	white-space: inherit;
+	overflow-wrap: inherit;
+	word-break: inherit;
 }
 
 /* ── Markdown inside step content ────────────────────────────────────────────── */
