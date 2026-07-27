@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -188,7 +189,8 @@ class PythonExecuteNodeTest {
 	void apply_withMultipleSqlResults_passesOrderedResultSetsToPython() throws Exception {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(PYTHON_GENERATE_NODE_OUTPUT, "print('processed')"));
-		state.updateState(Map.of(SQL_EXECUTE_NODE_OUTPUT,
+		state.updateState(Map.of(SQL_RESULT_LIST_MEMORY,
+				List.of(Map.of("department", "engineering", "headcount", "20")), SQL_EXECUTE_NODE_OUTPUT,
 				Map.of("step_2", "{\"data\":[{\"department\":\"engineering\",\"headcount\":\"20\"}]}", "step_1",
 						"{\"data\":[{\"department\":\"sales\",\"revenue\":\"100\"}]}")));
 
@@ -204,9 +206,10 @@ class PythonExecuteNodeTest {
 			.forClass(CodePoolExecutorService.TaskRequest.class);
 		verify(codePoolExecutor).runTask(request.capture());
 		String input = request.getValue().input();
-		assertTrue(input.startsWith("[[{"));
-		assertTrue(input.indexOf("sales") < input.indexOf("engineering"));
-		assertTrue(input.endsWith("}]]"));
+		String message = "Expected ordered sales and engineering result sets, but Python received: " + input;
+		assertTrue(input.startsWith("[[{"), message);
+		assertTrue(input.indexOf("sales") < input.indexOf("engineering"), message);
+		assertTrue(input.endsWith("}]]"), message);
 	}
 
 	@Test
