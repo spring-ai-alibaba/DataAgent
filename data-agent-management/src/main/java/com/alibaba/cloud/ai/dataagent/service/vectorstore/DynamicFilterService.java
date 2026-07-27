@@ -73,14 +73,17 @@ public class DynamicFilterService {
 					return null;
 				}
 				else {
-					String[] stringIds = recalledBusinessKnowledgeIds.stream().map(String::valueOf).toArray(String[]::new);
+					String[] stringIds = recalledBusinessKnowledgeIds.stream()
+						.map(String::valueOf)
+						.toArray(String[]::new);
 					Filter.Expression stringIdFilter = b
 						.in(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, (Object[]) stringIds)
 						.build();
 					Filter.Expression legacyNumericIdFilter = b
 						.in(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, recalledBusinessKnowledgeIds.toArray())
 						.build();
-					conditions.add(new Filter.Expression(Filter.ExpressionType.OR, stringIdFilter, legacyNumericIdFilter));
+					conditions
+						.add(new Filter.Expression(Filter.ExpressionType.OR, stringIdFilter, legacyNumericIdFilter));
 				}
 				break;
 

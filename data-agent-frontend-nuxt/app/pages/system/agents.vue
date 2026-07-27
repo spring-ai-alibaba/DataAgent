@@ -29,9 +29,9 @@
 					variant="outlined"
 					prepend-icon="mdi-refresh"
 					:loading="loading"
-					@click="loadAgents"
 					class="text-none"
 					style="border-color: #e2e8f0"
+					@click="loadAgents"
 				>
 					刷新
 				</v-btn>

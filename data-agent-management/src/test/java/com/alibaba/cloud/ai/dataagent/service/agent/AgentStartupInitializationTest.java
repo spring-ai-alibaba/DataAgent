@@ -118,7 +118,7 @@ class AgentStartupInitializationTest {
 		datasource.setSelectTables(List.of("orders"));
 		when(agentService.findByStatus("published")).thenReturn(List.of(agent));
 		when(agentDatasourceService.getCurrentAgentDatasource(1L)).thenReturn(datasource);
-		when(agentVectorStoreService.hasSchemaDocuments("3")).thenReturn(true);
+		when(agentVectorStoreService.hasTableDocuments(3, List.of("orders"))).thenReturn(true);
 		when(modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING)).thenReturn(null);
 
 		initialization.run(applicationArguments);
@@ -134,7 +134,7 @@ class AgentStartupInitializationTest {
 		datasource.setSelectTables(List.of("orders"));
 		when(agentService.findByStatus("published")).thenReturn(List.of(agent));
 		when(agentDatasourceService.getCurrentAgentDatasource(1L)).thenReturn(datasource);
-		when(agentVectorStoreService.hasSchemaDocuments("3")).thenReturn(false);
+		when(agentVectorStoreService.hasTableDocuments(3, List.of("orders"))).thenReturn(false);
 		when(agentDatasourceService.initializeSchemaForAgentWithDatasource(1L, 3, List.of("orders"))).thenReturn(true);
 		when(modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING)).thenReturn(null);
 

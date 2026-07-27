@@ -135,15 +135,12 @@ class ModelConfigService {
 
   /**
    * @description 测试模型配置的连接有效性
-   * @param {Omit<ModelConfig, "id">} config - 配置信息
+   * @param {number} id - 已保存的模型配置 ID
    * @returns {Promise<ApiResponse<string>>} 测试结果消息
    */
-  async testConnection(
-    config: Omit<ModelConfig, "id">,
-  ): Promise<ApiResponse<string>> {
+  async testConnection(id: number): Promise<ApiResponse<string>> {
     const response = await axios.post<ApiResponse<string>>(
-      `${API_BASE_URL}/test`,
-      config,
+      `${API_BASE_URL}/test/${id}`,
     );
     return response.data;
   }

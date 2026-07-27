@@ -157,12 +157,8 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 	 * 更新向量库中的知识向量
 	 */
 	private void syncToVectorStore(BusinessKnowledge knowledge) {
-		// 先删除旧的向量数据
-		this.doDelVector(knowledge);
-
-		// 添加新的向量数据
 		Document newDocument = DocumentConverterUtil.convertBusinessKnowledgeToDocument(knowledge);
-		agentVectorStoreService.addDocuments(knowledge.getAgentId().toString(), List.of(newDocument));
+		agentVectorStoreService.replaceDocumentsByMetadata(vectorMetadata(knowledge), List.of(newDocument));
 
 		log.info("Successfully updated vector store for knowledge id: {}", knowledge.getId());
 	}
@@ -188,35 +184,38 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 	}
 
 	private void doDelVector(BusinessKnowledge knowledge) {
-		Map<String, Object> baseMetadata = new HashMap<>();
-		baseMetadata.put(Constant.AGENT_ID, knowledge.getAgentId().toString());
-		baseMetadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM);
-
-		Map<String, Object> stringMetadata = new HashMap<>(baseMetadata);
-		stringMetadata.put(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, knowledge.getId().toString());
-		boolean stringMetadataDeleted = deleteDocumentsByMetadata(knowledge, stringMetadata);
+		Map<String, Object> metadata = vectorMetadata(knowledge);
+		boolean currentMetadataDeleted = deleteDocumentsByMetadata(knowledge, metadata);
 
 		// Compatibility cleanup for documents embedded before businessTermId was
 		// normalized to String metadata.
-		Map<String, Object> legacyNumericMetadata = new HashMap<>(baseMetadata);
+		Map<String, Object> legacyNumericMetadata = new HashMap<>(metadata);
 		legacyNumericMetadata.put(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, knowledge.getId());
 		boolean legacyNumericMetadataDeleted = deleteDocumentsByMetadata(knowledge, legacyNumericMetadata);
 
-		if (!stringMetadataDeleted && !legacyNumericMetadataDeleted) {
+		if (!currentMetadataDeleted && !legacyNumericMetadataDeleted) {
 			throw new IllegalStateException(
 					"Failed to delete business knowledge from vector store: " + knowledge.getId());
 		}
 	}
 
+	private Map<String, Object> vectorMetadata(BusinessKnowledge knowledge) {
+		Map<String, Object> metadata = new HashMap<>();
+		metadata.put(Constant.AGENT_ID, knowledge.getAgentId().toString());
+		metadata.put(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, knowledge.getId().toString());
+		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM);
+		return metadata;
+	}
+
 	private boolean deleteDocumentsByMetadata(BusinessKnowledge knowledge, Map<String, Object> metadata) {
 		try {
-			return Boolean.TRUE.equals(
-					agentVectorStoreService.deleteDocumentsByMetadata(knowledge.getAgentId().toString(), metadata));
+			return Boolean.TRUE
+				.equals(agentVectorStoreService.deleteDocumentsByMetadata(knowledge.getAgentId().toString(), metadata));
 		}
 		catch (RuntimeException ex) {
 			Object businessTermId = metadata.get(DocumentMetadataConstant.DB_BUSINESS_TERM_ID);
-			log.debug("Vector store rejected businessTermId metadata type {}", businessTermId.getClass().getSimpleName(),
-					ex);
+			log.debug("Vector store rejected businessTermId metadata type {}",
+					businessTermId.getClass().getSimpleName(), ex);
 			return false;
 		}
 	}
@@ -238,8 +237,6 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 
 	@Override
 	public void refreshAllKnowledgeToVectorStore(String agentId) throws Exception {
-		agentVectorStoreService.deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.BUSINESS_TERM);
-
 		// 获取所有 isRecall 等于 1 且未逻辑删除的 BusinessKnowledge
 		List<BusinessKnowledge> allKnowledge = businessKnowledgeMapper.selectAll();
 		List<BusinessKnowledge> recalledKnowledge = allKnowledge.stream()
@@ -253,7 +250,8 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 			List<Document> documents = recalledKnowledge.stream()
 				.map(DocumentConverterUtil::convertBusinessKnowledgeToDocument)
 				.toList();
-			agentVectorStoreService.addDocuments(agentId, documents);
+			agentVectorStoreService.replaceDocumentsByMetadata(Map.of(Constant.AGENT_ID, agentId,
+					DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM), documents);
 
 			// 批量更新 embedding_status 为 COMPLETED，避免前端一直显示"等待中"
 			for (BusinessKnowledge knowledge : recalledKnowledge) {
@@ -262,6 +260,9 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 				businessKnowledgeMapper.updateById(knowledge);
 			}
 			log.info("Updated {} business knowledge records to COMPLETED status", recalledKnowledge.size());
+		}
+		else {
+			agentVectorStoreService.deleteDocumentsByVectorType(agentId, DocumentMetadataConstant.BUSINESS_TERM);
 		}
 	}
 

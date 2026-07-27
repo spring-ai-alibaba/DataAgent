@@ -67,6 +67,12 @@ public class ElasticsearchHybridRetrievalStrategy extends AbstractHybridRetrieva
 		this.indexName = "spring-ai-document-index"; // 默认索引名称
 	}
 
+	public ElasticsearchHybridRetrievalStrategy(ExecutorService executorService, VectorStore vectorStore,
+			FusionStrategy fusionStrategy, long timeoutMs) {
+		super(executorService, vectorStore, fusionStrategy, timeoutMs);
+		this.indexName = "spring-ai-document-index";
+	}
+
 	@Override
 	public List<Document> getDocumentsByKeywords(HybridSearchRequest request) {
 		if (!StringUtils.hasText(request.getQuery())) {

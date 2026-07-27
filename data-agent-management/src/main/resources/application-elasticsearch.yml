@@ -10,3 +10,7 @@ spring:
         index-name: ${ELASTICSEARCH_INDEX_NAME:spring-ai-document-index}
         dimensions: ${ELASTICSEARCH_DIMENSIONS:1024}
         initialize-schema: ${ELASTICSEARCH_INITIALIZE_SCHEMA:true}
+    alibaba:
+      data-agent:
+        vector-store:
+          embedding-dimension: ${ELASTICSEARCH_DIMENSIONS:1024}

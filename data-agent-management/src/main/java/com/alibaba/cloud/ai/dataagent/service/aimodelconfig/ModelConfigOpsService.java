@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
+import com.alibaba.cloud.ai.dataagent.converter.ModelConfigConverter;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
 import lombok.AllArgsConstructor;
@@ -25,6 +26,8 @@ import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -37,11 +40,20 @@ public class ModelConfigOpsService {
 
 	private final AiModelRegistry aiModelRegistry;
 
+	private final EmbeddingModelCompatibilityValidator embeddingModelCompatibilityValidator;
+
 	/**
 	 * 专门处理：更新配置并热刷新的聚合逻辑
 	 */
 	@Transactional(rollbackFor = Exception.class)
 	public void updateAndRefresh(ModelConfigDTO dto) {
+		ModelConfigDTO currentEmbedding = null;
+		if (ModelType.EMBEDDING.getCode().equalsIgnoreCase(dto.getModelType())) {
+			currentEmbedding = modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING);
+			if (currentEmbedding != null && Objects.equals(currentEmbedding.getId(), dto.getId())) {
+				embeddingModelCompatibilityValidator.validateModelChange(currentEmbedding, dto);
+			}
+		}
 		// 1. 更新数据库
 		ModelConfig entity = modelConfigDataService.updateConfigInDb(dto);
 
@@ -68,6 +80,11 @@ public class ModelConfigOpsService {
 		ModelConfig entity = modelConfigDataService.findById(id);
 		if (entity == null) {
 			throw new RuntimeException("配置不存在");
+		}
+		if (ModelType.EMBEDDING.equals(entity.getModelType())) {
+			ModelConfigDTO current = modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING);
+			ModelConfigDTO target = ModelConfigConverter.toDTO(entity);
+			embeddingModelCompatibilityValidator.validateModelChange(current, target);
 		}
 
 		// 2. 先更新数据库状态，避免缓存清空后并发请求重新加载旧配置
@@ -98,7 +115,15 @@ public class ModelConfigOpsService {
 	/**
 	 * 测试连接逻辑 注意：这里创建的模型是“临时”的，用完即丢，不会影响当前系统正在运行的模型
 	 */
-	public void testConnection(ModelConfigDTO config) {
+	public void testConnection(Integer id) {
+		ModelConfig entity = modelConfigDataService.findById(id);
+		if (entity == null) {
+			throw new IllegalArgumentException("配置不存在");
+		}
+		testConnection(ModelConfigConverter.toDTO(entity));
+	}
+
+	private void testConnection(ModelConfigDTO config) {
 		String modelType = config.getModelType();
 
 		try {
@@ -154,6 +179,7 @@ public class ModelConfigOpsService {
 		if (embedding == null || embedding.length == 0) {
 			throw new RuntimeException("模型生成的向量为空");
 		}
+		embeddingModelCompatibilityValidator.validateDimension(embedding.length);
 		log.info("Embedding Model test passed. Dimension: {}", embedding.length);
 	}
 
