@@ -69,6 +69,15 @@ class ReportTemplateUtilTest {
 	}
 
 	@Test
+	void testGetFooter_preventsDefaultTitleLegendOverlap() {
+		ReportTemplateUtil footerUtil = new ReportTemplateUtil(dataAgentProperties);
+		String footer = footerUtil.getFooter();
+		assertTrue(footer.contains("normalizeChartLayout"));
+		assertTrue(footer.contains("legend.top = titles.length > 0 ? 50 : 10"));
+		assertTrue(footer.contains("grid.containLabel = true"));
+	}
+
+	@Test
 	void testCleanJsonExample_notNull() {
 		assertNotNull(ReportTemplateUtil.cleanJsonExample);
 		assertTrue(ReportTemplateUtil.cleanJsonExample.contains("title"));
