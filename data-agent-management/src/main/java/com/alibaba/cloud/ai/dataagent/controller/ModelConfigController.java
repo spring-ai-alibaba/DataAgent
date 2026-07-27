@@ -96,32 +96,16 @@ public class ModelConfigController {
 	}
 
 	/**
-	 * 6. 连通性测试 接收前端表单里的配置参数，尝试发起一次真实调用
-	 */
-	@PostMapping("/test")
-	public ApiResponse<String> testConnection(@Valid @RequestBody ModelConfigDTO config) {
-		try {
-			modelConfigOpsService.testConnection(config);
-			return ApiResponse.success("连接测试成功！模型可用。");
-		}
-		catch (Exception e) {
-			// 捕获具体的错误信息（如 401 Invalid Key, 404 Not Found 等）返回给前端
-			return ApiResponse.error("连接测试失败: " + e.getMessage());
-		}
-	}
-
-	/**
-	 * Test a saved model configuration using credentials loaded on the server. This
-	 * avoids sending masked credentials from the configuration list back to the model
-	 * provider.
+	 * 6. 连通性测试 根据配置 ID 从服务端读取完整配置，避免前端回传脱敏凭据
 	 */
 	@PostMapping("/test/{id}")
-	public ApiResponse<String> testSavedConnection(@PathVariable Integer id) {
+	public ApiResponse<String> testConnection(@PathVariable Integer id) {
 		try {
 			modelConfigOpsService.testConnection(id);
 			return ApiResponse.success("连接测试成功！模型可用。");
 		}
 		catch (Exception e) {
+			// 捕获具体的错误信息（如 401 Invalid Key, 404 Not Found 等）返回给前端
 			return ApiResponse.error("连接测试失败: " + e.getMessage());
 		}
 	}

@@ -201,6 +201,7 @@ import DOMPurify from 'dompurify';
 import { renderMarkdownContent } from '~/utils/markdown';
 import { useEchartsRenderer } from '~/composables/useEchartsRenderer';
 import { useChatStore } from '~/stores/chat';
+import { extractReportContent } from '~/utils/reportTimeline';
 import type { ResultData } from '~/services/resultSet/index';
 import type { ChatMessage } from '~/services/chat/index';
 import ChatWelcome from './ChatWelcome.vue';
@@ -280,26 +281,6 @@ function safeParseBlocks(content: string) {
 	} catch {
 		return [];
 	}
-}
-
-function extractReportContent(timelineJson: string): string | null {
-	try {
-		const blocks = JSON.parse(
-			timelineJson,
-		) as import('~/services/graph/index').GraphNodeResponse[][];
-		for (const block of blocks) {
-			if (
-				block[0]?.nodeName === 'ReportGeneratorNode' &&
-				block[0]?.textType === 'MARK_DOWN' &&
-				block[0]?.text
-			) {
-				return block[0].text;
-			}
-		}
-	} catch {
-		/* ignore */
-	}
-	return null;
 }
 
 function escapeHtml(text: string): string {

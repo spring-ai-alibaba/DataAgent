@@ -16,7 +16,12 @@
 package com.alibaba.cloud.ai.dataagent.service.vectorstore;
 
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
+import org.springframework.ai.vectorstore.filter.Filter;
+import org.springframework.ai.vectorstore.filter.converter.SimpleVectorStoreFilterExpressionConverter;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 
 import java.util.List;
 import java.util.Map;
@@ -32,6 +37,10 @@ import java.util.Map;
  */
 public final class MetadataAwareSimpleVectorStore extends SimpleVectorStore {
 
+	private final SpelExpressionParser expressionParser = new SpelExpressionParser();
+
+	private final SimpleVectorStoreFilterExpressionConverter filterConverter = new SimpleVectorStoreFilterExpressionConverter();
+
 	public MetadataAwareSimpleVectorStore(EmbeddingModel embeddingModel) {
 		super(SimpleVectorStore.builder(embeddingModel));
 	}
@@ -44,6 +53,22 @@ public final class MetadataAwareSimpleVectorStore extends SimpleVectorStore {
 			.toList();
 		doDelete(ids);
 		return ids.size();
+	}
+
+	public List<Document> findByFilter(Filter.Expression filterExpression, int limit) {
+		var expression = expressionParser.parseExpression(filterConverter.convertExpression(filterExpression));
+		return store.values().stream().filter(content -> {
+			StandardEvaluationContext context = new StandardEvaluationContext();
+			context.setVariable("metadata", content.getMetadata());
+			return Boolean.TRUE.equals(expression.getValue(context, Boolean.class));
+		})
+			.limit(limit)
+			.map(content -> Document.builder()
+				.id(content.getId())
+				.text(content.getText())
+				.metadata(content.getMetadata())
+				.build())
+			.toList();
 	}
 
 	private boolean matches(Map<String, Object> documentMetadata, Map<String, Object> expectedMetadata) {

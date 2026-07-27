@@ -21,12 +21,16 @@ import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.dto.search.AgentSearchRequest;
 import com.alibaba.cloud.ai.dataagent.dto.search.HybridSearchRequest;
 import com.alibaba.cloud.ai.dataagent.service.hybrid.retrieval.HybridRetrievalStrategy;
+import com.alibaba.cloud.ai.dataagent.service.vector.MetadataDocumentRetriever;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.Filter;
+import org.springframework.ai.vectorstore.filter.FilterExpressionTextParser;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
@@ -38,8 +42,6 @@ import static com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterSe
 @Service
 public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
-	private static final String DEFAULT = "default";
-
 	private final VectorStore vectorStore;
 
 	private final Optional<HybridRetrievalStrategy> hybridRetrievalStrategy;
@@ -48,14 +50,24 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 	private final DynamicFilterService dynamicFilterService;
 
+	private final MetadataDocumentRetriever metadataDocumentRetriever;
+
+	@Autowired
 	public AgentVectorStoreServiceImpl(VectorStore vectorStore,
 			Optional<HybridRetrievalStrategy> hybridRetrievalStrategy, DataAgentProperties dataAgentProperties,
-			DynamicFilterService dynamicFilterService) {
+			DynamicFilterService dynamicFilterService, MetadataDocumentRetriever metadataDocumentRetriever) {
 		this.vectorStore = vectorStore;
 		this.hybridRetrievalStrategy = hybridRetrievalStrategy;
 		this.dataAgentProperties = dataAgentProperties;
 		this.dynamicFilterService = dynamicFilterService;
+		this.metadataDocumentRetriever = metadataDocumentRetriever;
 		log.info("VectorStore type: {}", vectorStore.getClass().getSimpleName());
+	}
+
+	AgentVectorStoreServiceImpl(VectorStore vectorStore, Optional<HybridRetrievalStrategy> hybridRetrievalStrategy,
+			DataAgentProperties dataAgentProperties, DynamicFilterService dynamicFilterService) {
+		this(vectorStore, hybridRetrievalStrategy, dataAgentProperties, dynamicFilterService,
+				new MetadataDocumentRetriever(new StandardEnvironment()));
 	}
 
 	@Override
@@ -106,7 +118,11 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	public void addDocuments(String agentId, List<Document> documents) {
 		Assert.notNull(agentId, "AgentId cannot be null.");
 		Assert.notEmpty(documents, "Documents cannot be empty.");
+		validateDocumentMetadata(agentId, documents);
+		vectorStore.add(documents);
+	}
 
+	private void validateDocumentMetadata(String ownerId, List<Document> documents) {
 		// 验证文档中 metadata 的一致性
 		for (Document document : documents) {
 			Assert.notNull(document.getMetadata(), "Document metadata cannot be null.");
@@ -119,16 +135,17 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 				// 表和列必须包含 datasourceId
 				Assert.isTrue(document.getMetadata().containsKey(Constant.DATASOURCE_ID),
 						"Document metadata must contain datasourceId for TABLE/COLUMN type.");
+				Assert.isTrue(ownerId.equals(document.getMetadata().get(Constant.DATASOURCE_ID).toString()),
+						"Document metadata datasourceId does not match.");
 			}
 			else {
 				// 知识库和业务术语必须包含 agentId
 				Assert.isTrue(document.getMetadata().containsKey(Constant.AGENT_ID),
 						"Document metadata must contain agentId.");
-				Assert.isTrue(document.getMetadata().get(Constant.AGENT_ID).equals(agentId),
+				Assert.isTrue(document.getMetadata().get(Constant.AGENT_ID).equals(ownerId),
 						"Document metadata agentId does not match.");
 			}
 		}
-		vectorStore.add(documents);
 	}
 
 	@Override
@@ -205,12 +222,9 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 		int totalDeleted = 0;
 
 		do {
-			batch = vectorStore.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
-				.query(DEFAULT)// 使用默认的查询字符串，因为有的嵌入模型不支持空字符串
-				.filterExpression(filterExpression)
-				.similarityThreshold(0.0)// 设置最低相似度阈值以获取元数据匹配的所有文档
-				.topK(dataAgentProperties.getVectorStore().getBatchDelTopkLimit())
-				.build());
+			batch = metadataDocumentRetriever.find(vectorStore,
+					new FilterExpressionTextParser().parse(filterExpression),
+					dataAgentProperties.getVectorStore().getBatchDelTopkLimit());
 
 			// 过滤掉已经处理过的文档，只删除未处理的文档
 			List<String> idsToDelete = new ArrayList<>();
@@ -259,29 +273,119 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 	}
 
 	@Override
-	public List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK) {
-		Assert.notNull(filterExpression, "filterExpression cannot be null.");
-		if (topK == null)
-			topK = dataAgentProperties.getVectorStore().getDefaultTopkLimit();
+	public List<Document> similaritySearch(String query, Filter.Expression filterExpression, int topK,
+			double threshold) {
+		Assert.hasText(query, "Query cannot be empty.");
+		Assert.notNull(filterExpression, "Filter expression cannot be null.");
+		Assert.isTrue(topK > 0, "TopK must be greater than zero.");
+		Assert.isTrue(threshold >= 0.0 && threshold <= 1.0, "Similarity threshold must be between 0 and 1.");
+
 		SearchRequest searchRequest = SearchRequest.builder()
-			.query(DEFAULT)
+			.query(query)
 			.topK(topK)
 			.filterExpression(filterExpression)
-			.similarityThreshold(0.0)
+			.similarityThreshold(threshold)
 			.build();
 		return vectorStore.similaritySearch(searchRequest);
 	}
 
 	@Override
+	public List<Document> getDocumentsOnlyByFilter(Filter.Expression filterExpression, Integer topK) {
+		Assert.notNull(filterExpression, "filterExpression cannot be null.");
+		if (topK == null)
+			topK = dataAgentProperties.getVectorStore().getDefaultTopkLimit();
+		return metadataDocumentRetriever.find(vectorStore, filterExpression, topK);
+	}
+
+	@Override
 	public boolean hasSchemaDocuments(String datasourceId) {
-		// 类似 MySQL 的 LIMIT 1,只检查是否存在文档
-		List<Document> docs = vectorStore.similaritySearch(org.springframework.ai.vectorstore.SearchRequest.builder()
-			.query(DEFAULT)// 使用默认的查询字符串，因为有的嵌入模型不支持空字符串
-			.filterExpression(buildFilterExpressionString(Map.of(Constant.DATASOURCE_ID, datasourceId)))
-			.topK(1) // 只获取1个文档
-			.similarityThreshold(0.0)
-			.build());
-		return !docs.isEmpty();
+		Filter.Expression filter = new FilterExpressionTextParser()
+			.parse(buildFilterExpressionString(Map.of(Constant.DATASOURCE_ID, datasourceId)));
+		return !getDocumentsOnlyByFilter(filter, 1).isEmpty();
+	}
+
+	@Override
+	public boolean hasTableDocuments(Integer datasourceId, List<String> tableNames) {
+		Assert.notNull(datasourceId, "DatasourceId cannot be null.");
+		Assert.notEmpty(tableNames, "Table names cannot be empty.");
+		Filter.Expression filter = DynamicFilterService.buildFilterExpressionForSearchTables(datasourceId, tableNames);
+		List<Document> documents = getDocumentsOnlyByFilter(filter, tableNames.size() + 5);
+		Set<String> storedTableNames = documents.stream()
+			.map(document -> document.getMetadata().get(DocumentMetadataConstant.NAME))
+			.filter(Objects::nonNull)
+			.map(Object::toString)
+			.collect(java.util.stream.Collectors.toSet());
+		return storedTableNames.containsAll(tableNames);
+	}
+
+	@Override
+	public void replaceDocumentsByMetadata(Map<String, Object> metadata, List<Document> documents) {
+		Assert.notEmpty(metadata, "Metadata cannot be empty.");
+		Assert.notEmpty(documents, "Replacement documents cannot be empty.");
+		String filterExpression = buildFilterExpressionString(metadata);
+		List<Document> oldDocuments = getDocumentsOnlyByFilter(new FilterExpressionTextParser().parse(filterExpression),
+				dataAgentProperties.getVectorStore().getBatchDelTopkLimit());
+		if (oldDocuments.size() >= dataAgentProperties.getVectorStore().getBatchDelTopkLimit()) {
+			throw new IllegalStateException(
+					"Too many existing vector documents to replace safely; increase batch-del-topk-limit");
+		}
+
+		Object ownerId = metadata.getOrDefault(Constant.AGENT_ID, metadata.get(Constant.DATASOURCE_ID));
+		Assert.notNull(ownerId, "Replacement metadata must contain agentId or datasourceId.");
+		validateReplacementMetadata(metadata, documents);
+		validateDocumentMetadata(ownerId.toString(), documents);
+		Set<String> oldDocumentIdSet = oldDocuments.stream()
+			.map(Document::getId)
+			.collect(java.util.stream.Collectors.toSet());
+		List<Document> replacementDocuments = ensureFreshDocumentIds(documents, oldDocumentIdSet);
+		List<String> newDocumentIds = replacementDocuments.stream().map(Document::getId).toList();
+		Set<String> newDocumentIdSet = new HashSet<>(newDocumentIds);
+		try {
+			vectorStore.add(replacementDocuments);
+			List<String> oldDocumentIds = oldDocuments.stream()
+				.map(Document::getId)
+				.filter(id -> !newDocumentIdSet.contains(id))
+				.toList();
+			if (!oldDocumentIds.isEmpty()) {
+				vectorStore.delete(oldDocumentIds);
+			}
+		}
+		catch (Exception replacementFailure) {
+			try {
+				if (!newDocumentIds.isEmpty()) {
+					vectorStore.delete(newDocumentIds);
+				}
+			}
+			catch (Exception rollbackFailure) {
+				replacementFailure.addSuppressed(rollbackFailure);
+			}
+			throw replacementFailure;
+		}
+	}
+
+	private void validateReplacementMetadata(Map<String, Object> identityMetadata, List<Document> documents) {
+		for (Document document : documents) {
+			for (Map.Entry<String, Object> identity : identityMetadata.entrySet()) {
+				Assert.isTrue(Objects.equals(identity.getValue(), document.getMetadata().get(identity.getKey())),
+						"Replacement document metadata does not match identity key: " + identity.getKey());
+			}
+		}
+	}
+
+	private List<Document> ensureFreshDocumentIds(List<Document> documents, Set<String> oldDocumentIds) {
+		Set<String> assignedIds = new HashSet<>();
+		return documents.stream().map(document -> {
+			String id = document.getId();
+			if (oldDocumentIds.contains(id) || !assignedIds.add(id)) {
+				String freshId;
+				do {
+					freshId = UUID.randomUUID().toString();
+				}
+				while (oldDocumentIds.contains(freshId) || !assignedIds.add(freshId));
+				return document.mutate().id(freshId).build();
+			}
+			return document;
+		}).toList();
 	}
 
 }

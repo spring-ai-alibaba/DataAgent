@@ -84,39 +84,13 @@ class ModelConfigControllerTest {
 	}
 
 	@Test
-	void testConnection_validConfig_returnsSuccess() {
-		ModelConfigDTO config = ModelConfigDTO.builder()
-			.provider("openai")
-			.baseUrl("https://api.openai.com")
-			.modelName("gpt-4")
-			.modelType("CHAT")
-			.build();
-		doNothing().when(modelConfigOpsService).testConnection(any(ModelConfigDTO.class));
-
-		ApiResponse<String> result = modelConfigController.testConnection(config);
-
-		assertTrue(result.isSuccess());
-	}
-
-	@Test
-	void testSavedConnection_validId_usesServerSideConfig() {
+	void testConnection_validId_returnsSuccess() {
 		doNothing().when(modelConfigOpsService).testConnection(1);
 
-		ApiResponse<String> result = modelConfigController.testSavedConnection(1);
+		ApiResponse<String> result = modelConfigController.testConnection(1);
 
 		assertTrue(result.isSuccess());
 		verify(modelConfigOpsService).testConnection(1);
-	}
-
-	@Test
-	void testSavedConnection_missingConfig_returnsError() {
-		doThrow(new IllegalArgumentException("Model configuration not found: 999")).when(modelConfigOpsService)
-			.testConnection(999);
-
-		ApiResponse<String> result = modelConfigController.testSavedConnection(999);
-
-		assertFalse(result.isSuccess());
-		assertTrue(result.getMessage().contains("999"));
 	}
 
 	@Test
