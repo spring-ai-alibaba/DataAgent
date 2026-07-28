@@ -46,6 +46,31 @@ flowchart LR
 3. Python 失败仍进入现有重试，超过次数仍走现有降级逻辑。
 4. StateGraph 节点关系和 SSE 事件协议不变。
 
+### 2.1 包边界
+
+`sandbox` 顶层只保留对外执行服务，内部按变化原因拆分：
+
+```text
+service/code/sandbox
+├── SaaSandboxPythonCodeExecutorService.java
+├── dependency
+│   ├── PythonDependencyMetadata.java
+│   ├── PythonDependencyMetadataParser.java
+│   └── PythonDependencyPolicy.java
+├── execution
+│   ├── PythonSandboxBootstrapBuilder.java
+│   ├── SandboxExecutionResult.java
+│   └── SandboxExecutionResultParser.java
+└── runtime
+    ├── SaaSandboxRuntime.java
+    └── SaaSandboxTaskRunner.java
+```
+
+- `dependency` 只负责 PEP 723 和依赖策略，不感知 SAA。
+- `execution` 只负责固定 Python bootstrap 与结果协议，不管理容器。
+- `runtime` 只负责 SAA 服务、任务 Sandbox 和 Runner 生命周期。
+- 顶层服务只负责输入限制、并发队列和任务总超时。
+
 ## 3. 动态依赖协议
 
 生成代码使用标准 PEP 723 `script` 元数据块：

@@ -37,8 +37,8 @@ class VectorStoreConfigurationTest {
 	private final YamlPropertySourceLoader loader = new YamlPropertySourceLoader();
 
 	@Test
-	void vectorStoreProfiles_useExplicitSpringAiStarterTypes() throws Exception {
-		assertThat(property("application.yml", "spring.ai.vectorstore.type")).isEqualTo("milvus");
+	void vectorStoreProfiles_declareExpectedTypes() throws Exception {
+		assertThat(property("application.yml", "spring.ai.vectorstore.type")).isEqualTo("simple");
 		assertThat(property("application-milvus.yml", "spring.ai.vectorstore.type")).isEqualTo("milvus");
 		assertThat(property("application-elasticsearch.yml", "spring.ai.vectorstore.type")).isEqualTo("elasticsearch");
 	}

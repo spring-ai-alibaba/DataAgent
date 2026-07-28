@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.code.sandbox;
+package com.alibaba.cloud.ai.dataagent.service.code.sandbox.dependency;
 
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import org.springframework.stereotype.Component;

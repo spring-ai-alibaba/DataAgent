@@ -36,8 +36,8 @@ import org.mockito.quality.Strictness;
 
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.service.code.PythonCodeExecutorService;
-import com.alibaba.cloud.ai.dataagent.service.code.sandbox.PythonDependencyMetadata;
-import com.alibaba.cloud.ai.dataagent.service.code.sandbox.PythonDependencyMetadataParser;
+import com.alibaba.cloud.ai.dataagent.service.code.sandbox.dependency.PythonDependencyMetadata;
+import com.alibaba.cloud.ai.dataagent.service.code.sandbox.dependency.PythonDependencyMetadataParser;
 import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.dataagent.workflow.node.PythonExecuteNode;
 import com.alibaba.cloud.ai.graph.OverAllState;
