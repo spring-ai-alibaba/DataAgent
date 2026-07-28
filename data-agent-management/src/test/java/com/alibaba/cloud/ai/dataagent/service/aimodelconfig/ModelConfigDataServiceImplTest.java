@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
+import com.alibaba.cloud.ai.dataagent.config.EncryptionProperties;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
 import com.alibaba.cloud.ai.dataagent.enums.ModelType;
@@ -30,6 +31,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ModelConfigDataServiceImplTest {
@@ -39,9 +41,14 @@ class ModelConfigDataServiceImplTest {
 	@Mock
 	private ModelConfigMapper modelConfigMapper;
 
+	@Mock
+	private EncryptionProperties encryptionProperties;
+
 	@BeforeEach
 	void setUp() {
-		service = new ModelConfigDataServiceImpl(modelConfigMapper);
+		// Disable encryption by default in tests
+		lenient().when(encryptionProperties.isEncryptionEnabled()).thenReturn(false);
+		service = new ModelConfigDataServiceImpl(modelConfigMapper, encryptionProperties);
 	}
 
 	@Test

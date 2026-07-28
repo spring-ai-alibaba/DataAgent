@@ -56,7 +56,23 @@ Auto initialization is enabled by default (`spring.sql.init.mode: always`).
 
 > For information on how to disable auto initialization, please refer to [Developer Guide - Database Initialization Configuration](DEVELOPER_GUIDE-en.md#8-database-initialization).
 
-### 2.3 Configure Model
+### 2.3 Configure Sensitive Data Encryption (Recommended)
+
+> ⚠️ **Production environments are strongly recommended to enable encryption**
+
+The system supports encrypted storage for sensitive information like database passwords and API keys. Configure the encryption key:
+
+```bash
+# Generate encryption key
+openssl rand -base64 32
+
+# Set environment variable
+export DATA_AGENT_ENCRYPT_KEY=<generated-key>
+```
+
+> For detailed configuration, refer to [Developer Guide - Data Encryption Configuration](DEVELOPER_GUIDE-en.md#12-data-encryption-configuration).
+
+### 2.4 Configure Model
 
 > If you need to manually manage model dependencies (not using default Starter), please refer to [Developer Guide - Dependency Extension Configuration](DEVELOPER_GUIDE-en.md#9-dependency-extension).
 
@@ -75,15 +91,15 @@ Start the project, click on Model Configuration, add a new model and fill in you
 3. Troubleshooting: If the configuration doesn't work after setup, we recommend first using Postman to test your interface address to confirm network connectivity and parameter format are correct.
 
 
-### 2.4 Embedding Model Batch Processing Strategy Configuration
+### 2.5 Embedding Model Batch Processing Strategy Configuration
 
 > For detailed configuration parameters, please refer to [Developer Guide - Development Configuration Manual](DEVELOPER_GUIDE-en.md#development-configuration-manual).
 
-### 2.5 Vector Store Configuration
+### 2.6 Vector Store Configuration
 
 The system uses an in-memory vector store by default, and also provides hybrid search support for Elasticsearch.
 
-#### 2.5.1 Vector Store Dependency Import
+#### 2.6.1 Vector Store Dependency Import
 
 You can import your preferred persistent vector store. You just need to provide a bean of type org.springframework.ai.vectorstore.VectorStore to the IoC container. For example, directly import the PGvector starter:
 
@@ -96,7 +112,7 @@ You can import your preferred persistent vector store. You just need to provide 
 
 For detailed vector store documentation, refer to: https://springdoc.cn/spring-ai/api/vectordbs.html
 
-#### 2.5.2 Vector Store Schema Setup
+#### 2.6.2 Vector Store Schema Setup
 
 Below is the ES schema structure. For other vector stores like Milvus, PG, etc., you can create your own schema based on this ES structure. Pay special attention to the data type of each field in metadata.
 
@@ -175,15 +191,15 @@ Below is the ES schema structure. For other vector stores like Milvus, PG, etc.,
 }
 ```
 
-#### 2.5.3 Vector Store Configuration Parameters
+#### 2.6.3 Vector Store Configuration Parameters
 
 > For detailed configuration parameters, please refer to [Developer Guide - Development Configuration Manual](DEVELOPER_GUIDE-en.md#development-configuration-manual).
 
-### 2.6 Retrieval Fusion Strategy
+### 2.7 Retrieval Fusion Strategy
 
 > For detailed configuration parameters, please refer to [Developer Guide - Development Configuration Manual](DEVELOPER_GUIDE-en.md#development-configuration-manual).
 
-### 2.7 Replace Vector Store Implementation
+### 2.8 Replace Vector Store Implementation
 
 > For information on how to replace the default in-memory vector store (e.g., using PGVector, Milvus, etc.), please refer to [Developer Guide - Dependency Extension Configuration](DEVELOPER_GUIDE-en.md#9-dependency-extension).
 

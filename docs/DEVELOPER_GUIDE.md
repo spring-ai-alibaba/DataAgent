@@ -432,6 +432,80 @@ public class AgentVectorStoreService {
 
 > 详细使用说明请参考 [高级功能 - Langfuse 可观测性](ADVANCED_FEATURES.md#-langfuse-可观测性)。
 
+### 12. 敏感数据加密配置 (Data Encryption)
+
+配置前缀: `spring.ai.alibaba.data-agent`
+
+系统支持对敏感信息（数据源密码、API密钥等）进行 AES-256-GCM 加密存储。
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `encrypt-key` | AES-256 加密密钥（Base64编码的32字节密钥） | 空（不加密） |
+
+对应环境变量: `DATA_AGENT_ENCRYPT_KEY`
+
+#### 受保护字段
+
+| 数据库表 | 字段 | 说明 |
+|----------|------|------|
+| `datasource` | `password` | 数据库连接密码 |
+| `datasource` | `connection_url` | 数据库连接URL（可能包含密码） |
+| `model_config` | `api_key` | LLM API密钥 |
+| `model_config` | `proxy_password` | 代理服务器密码 |
+
+#### 使用方式
+
+1. **生成加密密钥**
+   ```bash
+   # 方式一：使用系统内置工具生成（需要 Java 17+）
+   java -cp data-agent-management/target/spring-ai-alibaba-data-agent-management-${revision}.jar.original com.alibaba.cloud.ai.dataagent.util.CryptoUtil
+
+   # 方式二：使用 OpenSSL 生成（推荐）
+   openssl rand -base64 32
+   ```
+
+   > 其中 `${revision}` 为项目版本号，当前为 `1.0.0-SNAPSHOT`，详见 `pom.xml` 中的 `<revision>` 属性。
+
+2. **配置环境变量**
+   ```bash
+   # Linux/Mac
+   export DATA_AGENT_ENCRYPT_KEY=<生成的Base64密钥>
+   
+   # Windows PowerShell
+   $env:DATA_AGENT_ENCRYPT_KEY="<生成的Base64密钥>"
+   ```
+
+3. **Docker 部署**
+   ```yaml
+   # docker-compose.yml
+   services:
+     data-agent:
+       environment:
+         - DATA_AGENT_ENCRYPT_KEY=<生成的Base64密钥>
+   ```
+
+#### 历史数据兼容性
+
+系统采用**透明兼容**策略，支持历史未加密数据与新加密数据共存：
+
+| 场景 | 行为 |
+|------|------|
+| 读取已加密数据 | 正常解密 |
+| 读取未加密数据（历史） | 原样返回，不解密 |
+| 写入新数据 | 自动加密（需配置密钥） |
+| 未配置密钥 | 所有数据保持明文（向后兼容） |
+
+> 💡 **无需数据迁移**：配置加密密钥后，系统会自动处理新数据加密，历史数据保持原样可正常使用。随着数据更新，历史数据会逐步被加密覆盖。
+
+#### 注意事项
+
+- ⚠️ **生产环境必须配置加密密钥**，否则敏感信息将以明文存储
+- 🔑 **密钥一旦配置不要轻易更换**，否则已加密的数据将无法解密
+- 🔄 **密钥丢失后无法恢复数据**，请妥善备份密钥
+- 📝 **开发环境**（H2）使用内置测试密钥，无需额外配置
+- 🛡️ 加密算法: AES-256-GCM（带完整性校验），每次加密生成随机IV
+- 🔄 **平滑升级**：历史未加密数据可正常读取，无需停机迁移
+
 ## 📚 学习资源
 
 ### 官方文档

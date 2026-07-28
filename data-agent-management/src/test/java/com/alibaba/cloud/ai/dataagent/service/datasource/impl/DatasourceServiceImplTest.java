@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.datasource.impl;
 
+import com.alibaba.cloud.ai.dataagent.config.EncryptionProperties;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dataagent.connector.pool.DBConnectionPool;
 import com.alibaba.cloud.ai.dataagent.connector.pool.DBConnectionPoolFactory;
@@ -38,6 +39,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class DatasourceServiceImplTest {
@@ -68,10 +70,15 @@ class DatasourceServiceImplTest {
 	@Mock
 	private DBConnectionPool dbConnectionPool;
 
+	@Mock
+	private EncryptionProperties encryptionProperties;
+
 	@BeforeEach
 	void setUp() {
+		// Disable encryption by default in tests
+		lenient().when(encryptionProperties.isEncryptionEnabled()).thenReturn(false);
 		datasourceService = new DatasourceServiceImpl(datasourceMapper, agentDatasourceMapper, logicalRelationMapper,
-				poolFactory, accessorFactory, handlerRegistry);
+				poolFactory, accessorFactory, handlerRegistry, encryptionProperties);
 	}
 
 	@Test

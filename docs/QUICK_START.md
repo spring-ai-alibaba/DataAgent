@@ -56,7 +56,23 @@ spring:
 
 > 关于如何关闭自动初始化，请参考 [开发者指南 - 数据库初始化配置](DEVELOPER_GUIDE.md#8-数据库初始化配置-database-initialization)。
 
-### 2.3 配置模型
+### 2.3 配置敏感数据加密（推荐）
+
+> ⚠️ **生产环境强烈建议启用加密功能**
+
+系统支持对数据源密码、API密钥等敏感信息进行加密存储。配置加密密钥：
+
+```bash
+# 生成加密密钥
+openssl rand -base64 32
+
+# 设置环境变量
+export DATA_AGENT_ENCRYPT_KEY=<生成的密钥>
+```
+
+> 详细配置请参考 [开发者指南 - 敏感数据加密配置](DEVELOPER_GUIDE.md#12-敏感数据加密配置-data-encryption)。
+
+### 2.4 配置模型
 
 > 如果涉及手动管理模型依赖（非默认 Starter），请参考 [开发者指南 - 扩展依赖配置](DEVELOPER_GUIDE.md#9-扩展依赖配置-dependency-extension)。
 
@@ -75,15 +91,15 @@ spring:
 3. 故障排查 如发现配置后无法调用，建议优先使用 Postman 对接您的接口地址进行测试，确认网络连通性及参数格式无误。
 
 
-### 2.4 嵌入模型批处理策略配置
+### 2.5 嵌入模型批处理策略配置
 
 > 详细配置参数请参考 [开发者指南 - 开发配置手册](DEVELOPER_GUIDE.md#⚙️-开发配置手册)。
 
-### 2.5 向量库配置
+### 2.6 向量库配置
 
 系统默认使用内存向量库，同时系统提供了对es的混合检索支持。
 
-#### 2.5.1 向量库依赖引入
+#### 2.6.1 向量库依赖引入
 
 您可以自行引入你想要的持久化向量库，只需要往ioc容器提供一个org.springframework.ai.vectorstore.VectorStore类型的bean即可。例如直接引入PGvector的starter
 
@@ -96,7 +112,7 @@ spring:
 
 详细对应的向量库参考文档：https://springdoc.cn/spring-ai/api/vectordbs.html
 
-#### 2.5.2 向量库schema设置
+#### 2.6.2 向量库schema设置
 
 以下为es的schema结构，其他向量库如milvus，pg等自行可根据如下的es的结构建立自己的schema。尤其要注意metadata中的每个字段的数据类型。
 
@@ -175,15 +191,15 @@ spring:
 }
 ```
 
-#### 2.5.3 向量库配置参数
+#### 2.6.3 向量库配置参数
 
 > 详细配置参数请参考 [开发者指南 - 开发配置手册](DEVELOPER_GUIDE.md#⚙️-开发配置手册)。
 
-### 2.6 检索融合策略
+### 2.7 检索融合策略
 
 > 详细配置参数请参考 [开发者指南 - 开发配置手册](DEVELOPER_GUIDE.md#⚙️-开发配置手册)。
 
-### 2.7 替换vector-store的实现类
+### 2.8 替换vector-store的实现类
 
 > 关于如何替换默认的内存向量库（如使用 PGVector, Milvus 等），请参考 [开发者指南 - 扩展依赖配置](DEVELOPER_GUIDE.md#9-扩展依赖配置-dependency-extension)。
 

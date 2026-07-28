@@ -23,6 +23,7 @@ import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dataagent.connector.pool.DBConnectionPool;
 import com.alibaba.cloud.ai.dataagent.connector.pool.DBConnectionPoolFactory;
+import com.alibaba.cloud.ai.dataagent.config.EncryptionProperties;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
 import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
@@ -32,6 +33,7 @@ import com.alibaba.cloud.ai.dataagent.mapper.LogicalRelationMapper;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeHandler;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.registry.DatasourceTypeHandlerRegistry;
+import com.alibaba.cloud.ai.dataagent.util.CryptoUtil;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -63,24 +65,36 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 	private final DatasourceTypeHandlerRegistry datasourceTypeHandlerRegistry;
 
+	private final EncryptionProperties encryptionProperties;
+
 	@Override
 	public List<Datasource> getAllDatasource() {
-		return datasourceMapper.selectAll();
+		List<Datasource> list = datasourceMapper.selectAll();
+		list.forEach(this::decryptDatasourcePassword);
+		return list;
 	}
 
 	@Override
 	public List<Datasource> getDatasourceByStatus(String status) {
-		return datasourceMapper.selectByStatus(status);
+		List<Datasource> list = datasourceMapper.selectByStatus(status);
+		list.forEach(this::decryptDatasourcePassword);
+		return list;
 	}
 
 	@Override
 	public List<Datasource> getDatasourceByType(String type) {
-		return datasourceMapper.selectByType(type);
+		List<Datasource> list = datasourceMapper.selectByType(type);
+		list.forEach(this::decryptDatasourcePassword);
+		return list;
 	}
 
 	@Override
 	public Datasource getDatasourceById(Integer id) {
-		return datasourceMapper.selectById(id);
+		Datasource datasource = datasourceMapper.selectById(id);
+		if (datasource != null) {
+			decryptDatasourcePassword(datasource);
+		}
+		return datasource;
 	}
 
 	@Override
@@ -107,6 +121,9 @@ public class DatasourceServiceImpl implements DatasourceService {
 		if (datasource.getUsername() == null) {
 			datasource.setUsername("");
 		}
+
+		// Encrypt sensitive fields before saving
+		encryptDatasource(datasource);
 
 		datasourceMapper.insert(datasource);
 		return datasource;
@@ -137,6 +154,9 @@ public class DatasourceServiceImpl implements DatasourceService {
 		if (datasource.getUsername() == null) {
 			datasource.setUsername("");
 		}
+
+		// Encrypt sensitive fields before updating
+		encryptDatasource(datasource);
 
 		datasourceMapper.updateById(datasource);
 		return datasource;
@@ -440,6 +460,65 @@ public class DatasourceServiceImpl implements DatasourceService {
 				insertedCount, updatedCount, deletedCount);
 
 		return logicalRelationMapper.selectByDatasourceId(datasourceId);
+	}
+
+	/**
+	 * Encrypt sensitive fields of a datasource before persisting.
+	 *
+	 * <p>
+	 * This method is called during create/update operations. When encryption is enabled,
+	 * password and connectionUrl are encrypted before being saved to database.
+	 * </p>
+	 * @param datasource the datasource to encrypt
+	 * @see CryptoUtil#encrypt(String, String)
+	 */
+	private void encryptDatasource(Datasource datasource) {
+		if (!encryptionProperties.isEncryptionEnabled()) {
+			// Encryption not configured, skip (backward compatible)
+			return;
+		}
+		String key = encryptionProperties.getEncryptKey();
+		if (datasource.getPassword() != null && !datasource.getPassword().isEmpty()) {
+			datasource.setPassword(CryptoUtil.encrypt(datasource.getPassword(), key));
+		}
+		if (datasource.getConnectionUrl() != null && !datasource.getConnectionUrl().isEmpty()) {
+			datasource.setConnectionUrl(CryptoUtil.encrypt(datasource.getConnectionUrl(), key));
+		}
+	}
+
+	/**
+	 * Decrypt sensitive fields of a datasource after loading from database.
+	 *
+	 * <p>
+	 * <strong>Backward Compatibility:</strong> Uses
+	 * {@link CryptoUtil#decryptOrReturn(String, String)} to handle both encrypted and
+	 * plaintext data gracefully:
+	 * </p>
+	 * <ul>
+	 * <li>If data is encrypted (Base64 with valid GCM structure) → decrypt it</li>
+	 * <li>If data is plaintext (legacy unencrypted) → return as-is</li>
+	 * <li>If encryption is not configured → skip decryption entirely</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * This ensures a smooth upgrade path: after enabling encryption, existing plaintext
+	 * data remains readable, and new data will be encrypted on write.
+	 * </p>
+	 * @param datasource the datasource to decrypt
+	 * @see CryptoUtil#decryptOrReturn(String, String)
+	 */
+	private void decryptDatasourcePassword(Datasource datasource) {
+		if (!encryptionProperties.isEncryptionEnabled()) {
+			// Encryption not configured, data is plaintext, skip
+			return;
+		}
+		String key = encryptionProperties.getEncryptKey();
+		if (datasource.getPassword() != null && !datasource.getPassword().isEmpty()) {
+			datasource.setPassword(CryptoUtil.decryptOrReturn(datasource.getPassword(), key));
+		}
+		if (datasource.getConnectionUrl() != null && !datasource.getConnectionUrl().isEmpty()) {
+			datasource.setConnectionUrl(CryptoUtil.decryptOrReturn(datasource.getConnectionUrl(), key));
+		}
 	}
 
 }
