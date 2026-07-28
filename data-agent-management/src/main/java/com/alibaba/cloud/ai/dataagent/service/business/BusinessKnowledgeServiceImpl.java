@@ -184,40 +184,15 @@ public class BusinessKnowledgeServiceImpl implements BusinessKnowledgeService {
 	}
 
 	private void doDelVector(BusinessKnowledge knowledge) {
-		Map<String, Object> metadata = vectorMetadata(knowledge);
-		boolean currentMetadataDeleted = deleteDocumentsByMetadata(knowledge, metadata);
-
-		// Compatibility cleanup for documents embedded before businessTermId was
-		// normalized to String metadata.
-		Map<String, Object> legacyNumericMetadata = new HashMap<>(metadata);
-		legacyNumericMetadata.put(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, knowledge.getId());
-		boolean legacyNumericMetadataDeleted = deleteDocumentsByMetadata(knowledge, legacyNumericMetadata);
-
-		if (!currentMetadataDeleted && !legacyNumericMetadataDeleted) {
-			throw new IllegalStateException(
-					"Failed to delete business knowledge from vector store: " + knowledge.getId());
-		}
+		agentVectorStoreService.deleteDocumentsByMetadata(knowledge.getAgentId().toString(), vectorMetadata(knowledge));
 	}
 
 	private Map<String, Object> vectorMetadata(BusinessKnowledge knowledge) {
 		Map<String, Object> metadata = new HashMap<>();
 		metadata.put(Constant.AGENT_ID, knowledge.getAgentId().toString());
-		metadata.put(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, knowledge.getId().toString());
+		metadata.put(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, knowledge.getId());
 		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM);
 		return metadata;
-	}
-
-	private boolean deleteDocumentsByMetadata(BusinessKnowledge knowledge, Map<String, Object> metadata) {
-		try {
-			return Boolean.TRUE
-				.equals(agentVectorStoreService.deleteDocumentsByMetadata(knowledge.getAgentId().toString(), metadata));
-		}
-		catch (RuntimeException ex) {
-			Object businessTermId = metadata.get(DocumentMetadataConstant.DB_BUSINESS_TERM_ID);
-			log.debug("Vector store rejected businessTermId metadata type {}",
-					businessTermId.getClass().getSimpleName(), ex);
-			return false;
-		}
 	}
 
 	@Override

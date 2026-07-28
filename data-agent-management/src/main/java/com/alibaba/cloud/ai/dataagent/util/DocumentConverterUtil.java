@@ -116,7 +116,7 @@ public class DocumentConverterUtil {
 		Map<String, Object> metadata = new HashMap<>();
 		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.BUSINESS_TERM);
 		metadata.put(Constant.AGENT_ID, businessKnowledge.getAgentId().toString());
-		metadata.put(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, businessKnowledge.getId().toString());
+		metadata.put(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, businessKnowledge.getId());
 
 		return new Document(content, metadata);
 	}
