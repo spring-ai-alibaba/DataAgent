@@ -211,9 +211,9 @@ class PythonExecuteNodeTest {
 		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
 		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
 
-		ArgumentCaptor<CodePoolExecutorService.TaskRequest> request = ArgumentCaptor
-			.forClass(CodePoolExecutorService.TaskRequest.class);
-		verify(codePoolExecutor).runTask(request.capture());
+		ArgumentCaptor<PythonCodeExecutorService.TaskRequest> request = ArgumentCaptor
+			.forClass(PythonCodeExecutorService.TaskRequest.class);
+		verify(pythonCodeExecutor).runTask(request.capture());
 		String input = request.getValue().input();
 		String message = "Expected ordered sales and engineering result sets, but Python received: " + input;
 		assertTrue(input.startsWith("[[{"), message);
