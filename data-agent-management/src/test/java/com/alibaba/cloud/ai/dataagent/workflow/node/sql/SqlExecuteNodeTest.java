@@ -283,6 +283,46 @@ class SqlExecuteNodeTest {
 	}
 
 	@Test
+	void apply_multipleSqlSteps_keepsCurrentMemoryAndStepHistorySeparate() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		setupBasicMocks();
+		List<Map<String, String>> previousRows = List.of(Map.of("department", "sales"));
+		String twoStepPlan = """
+				{
+				  "thought_process": "查询两个部门",
+				  "execution_plan": [
+				    {
+				      "step": 1,
+				      "tool_to_use": "sql_execute_node",
+				      "tool_parameters": {"instruction": "查询销售部门"}
+				    },
+				    {
+				      "step": 2,
+				      "tool_to_use": "sql_execute_node",
+				      "tool_parameters": {"instruction": "查询工程部门"}
+				    }
+				  ]
+				}
+				""";
+		state.updateState(Map.of(SQL_RESULT_LIST_MEMORY, previousRows, SQL_EXECUTE_NODE_OUTPUT,
+				Map.of("step_1", "{\"data\":[{\"department\":\"sales\"}]}"), PLAN_CURRENT_STEP, 2, PLANNER_NODE_OUTPUT,
+				twoStepPlan));
+
+		ResultSetBO resultSetBO = new ResultSetBO();
+		resultSetBO.setData(List.of(Map.of("department", "engineering")));
+		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
+
+		SqlExecution execution = subscribeToExecution(state);
+
+		assertEquals(List.of(Map.of("department", "engineering")), execution.finalResult().get(SQL_RESULT_LIST_MEMORY));
+		Map<String, String> stepResults = (Map<String, String>) execution.finalResult().get(SQL_EXECUTE_NODE_OUTPUT);
+		assertEquals(2, stepResults.size());
+		assertTrue(stepResults.get("step_1").contains("sales"));
+		assertTrue(stepResults.get("step_2").contains("engineering"));
+	}
+
+	@Test
 	void apply_nullResultSet_handlesGracefully() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);

@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.workflow.node.python;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -111,6 +113,7 @@ class PythonGenerateNodeTest {
 		state.registerKeyAndStrategy(PYTHON_TRIES_COUNT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_RESULT_LIST_MEMORY, new ReplaceStrategy());
+		state.registerKeyAndStrategy(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PLANNER_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PLAN_CURRENT_STEP, new ReplaceStrategy());
@@ -207,13 +210,12 @@ class PythonGenerateNodeTest {
 	}
 
 	@Test
-	void apply_withSqlResults_includesResultsInPrompt() throws Exception {
+	void apply_withMultipleSqlResults_includesOrderedStepSamplesInPrompt() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
-		List<Map<String, String>> sqlResults = new ArrayList<>();
-		sqlResults.add(Map.of("name", "Alice", "sales", "100"));
-		sqlResults.add(Map.of("name", "Bob", "sales", "200"));
-		state.updateState(Map.of(SQL_RESULT_LIST_MEMORY, sqlResults));
+		state.updateState(Map.of(SQL_EXECUTE_NODE_OUTPUT,
+				Map.of("step_2", "{\"data\":[{\"department\":\"engineering\",\"headcount\":\"20\"}]}", "step_1",
+						"{\"data\":[{\"department\":\"sales\",\"revenue\":\"100\"}]}")));
 
 		when(llmService.call(anyString(), anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("import json\nprint(json.dumps(result))")));
@@ -222,6 +224,14 @@ class PythonGenerateNodeTest {
 		assertNotNull(result);
 		assertTrue(result.containsKey(PYTHON_GENERATE_NODE_OUTPUT));
 		assertNotNull(result.get(PYTHON_GENERATE_NODE_OUTPUT));
+
+		ArgumentCaptor<String> systemPrompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).call(systemPrompt.capture(), anyString());
+		String prompt = systemPrompt.getValue();
+		assertTrue(prompt.contains("[[{"));
+		assertTrue(prompt.indexOf("sales") < prompt.indexOf("engineering"));
+		assertTrue(prompt.contains("revenue"));
+		assertTrue(prompt.contains("headcount"));
 	}
 
 	@Test
