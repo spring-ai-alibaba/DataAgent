@@ -73,17 +73,10 @@ public class DynamicFilterService {
 					return null;
 				}
 				else {
-					String[] stringIds = recalledBusinessKnowledgeIds.stream()
-						.map(String::valueOf)
-						.toArray(String[]::new);
-					Filter.Expression stringIdFilter = b
-						.in(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, (Object[]) stringIds)
-						.build();
-					Filter.Expression legacyNumericIdFilter = b
-						.in(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, recalledBusinessKnowledgeIds.toArray())
-						.build();
+					// 添加 ID 过滤
 					conditions
-						.add(new Filter.Expression(Filter.ExpressionType.OR, stringIdFilter, legacyNumericIdFilter));
+						.add(b.in(DocumentMetadataConstant.DB_BUSINESS_TERM_ID, recalledBusinessKnowledgeIds.toArray())
+							.build());
 				}
 				break;
 

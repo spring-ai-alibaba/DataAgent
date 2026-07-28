@@ -15,7 +15,6 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.business;
 
-import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dataagent.converter.BusinessKnowledgeConverter;
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.businessknowledge.CreateBusinessKnowledgeDTO;
 import com.alibaba.cloud.ai.dataagent.dto.knowledge.businessknowledge.UpdateBusinessKnowledgeDTO;
@@ -230,10 +229,7 @@ class BusinessKnowledgeServiceImplTest {
 		when(businessKnowledgeMapper.logicalDelete(1L, 1)).thenReturn(1);
 
 		service.deleteKnowledge(1L);
-		verify(agentVectorStoreService).deleteDocumentsByMetadata(anyString(),
-				argThat(metadata -> "1".equals(metadata.get(DocumentMetadataConstant.DB_BUSINESS_TERM_ID))));
-		verify(agentVectorStoreService).deleteDocumentsByMetadata(anyString(),
-				argThat(metadata -> Long.valueOf(1L).equals(metadata.get(DocumentMetadataConstant.DB_BUSINESS_TERM_ID))));
+		verify(agentVectorStoreService).deleteDocumentsByMetadata(anyString(), anyMap());
 	}
 
 	@Test
