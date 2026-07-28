@@ -63,6 +63,27 @@ pre code { background: transparent; color: inherit; padding: 0; }
 <div id="render-target" class="markdown-body"></div>
 </div>
 <script>
+function normalizeChartLayout(option) {
+  var titles = option.title ? (Array.isArray(option.title) ? option.title : [option.title]) : [];
+  var legends = option.legend ? (Array.isArray(option.legend) ? option.legend : [option.legend]) : [];
+  titles.forEach(function(title) {
+    if (title && title.top == null) title.top = 10;
+  });
+  legends.forEach(function(legend) {
+    if (legend && legend.top == null) legend.top = titles.length > 0 ? 50 : 10;
+  });
+
+  var reservedTop = titles.length > 0 && legends.length > 0 ? 90
+    : (titles.length > 0 || legends.length > 0 ? 60 : 40);
+  var grids = option.grid ? (Array.isArray(option.grid) ? option.grid : [option.grid]) : [{}];
+  grids.forEach(function(grid) {
+    if (grid.top == null) grid.top = reservedTop;
+    if (grid.containLabel == null) grid.containLabel = true;
+  });
+  option.grid = Array.isArray(option.grid) ? grids : grids[0];
+  return option;
+}
+
 window.onload = function() {
   if (typeof marked === 'undefined') {
     document.getElementById('render-target').innerHTML = '<p style="color:red;">Marked库加载失败，请检查网络</p>';
@@ -84,7 +105,7 @@ window.onload = function() {
     document.querySelectorAll('.chart-box').forEach(function(box) {
       try {
         var code = decodeURIComponent(box.getAttribute('data-option'));
-        var option = new Function('return ' + code)();
+        var option = normalizeChartLayout(new Function('return ' + code)());
         var myChart = echarts.init(box);
         myChart.setOption(option);
         window.addEventListener('resize', function() { myChart.resize(); });
