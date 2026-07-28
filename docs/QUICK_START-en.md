@@ -8,8 +8,9 @@ This document will guide you through the installation, configuration, and first 
 
 - **JDK**: 17 or higher
 - **MySQL**: 5.7 or higher
-- **Node.js**: 16 or higher
-- **Docker**: (Optional) For Python code execution
+- **Node.js**: 22 or higher
+- **pnpm**: 11 or higher
+- **Docker**: Required when a workflow executes Python steps; optional for SQL-only analysis
 - **Vector Database**: (Optional) Uses in-memory vector store by default
 
 ## 1. Business Database Preparation
@@ -38,23 +39,25 @@ mysql -u root -p your_database < data-agent-management/src/main/resources/sql/pr
 
 Configure your MySQL database connection in `data-agent-management/src/main/resources/application.yml`.
 
-> Initialization Behavior: Auto table creation and sample data insertion is enabled by default (`spring.sql.init.mode: always`). For production environments, it's recommended to disable this to avoid sample data overwriting your business data.
+> Initialization behavior: the default is `spring.sql.init.mode: never`, so DataAgent does not
+> create tables or insert sample data automatically. Run the SQL files above before the first
+> start, or set `DATA_AGENT_DATASOURCE_SQL_INIT=always` only when sample initialization is
+> explicitly required.
 
 ```yaml
 spring:
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/saa_data_agent?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai
-    username: ${MYSQL_USERNAME:root}
-    password: ${MYSQL_PASSWORD:root}
+    username: ${DATA_AGENT_DATASOURCE_USERNAME:root}
+    password: ${DATA_AGENT_DATASOURCE_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
-    type: com.alibaba.druid.pool.DruidDataSource
 ```
 
 ### 2.2 Data Initialization Configuration
 
-Auto initialization is enabled by default (`spring.sql.init.mode: always`).
+Auto initialization is disabled by default (`spring.sql.init.mode: never`).
 
-> For information on how to disable auto initialization, please refer to [Developer Guide - Database Initialization Configuration](DEVELOPER_GUIDE-en.md#8-database-initialization).
+> To change initialization behavior, see [Developer Guide - Database Initialization](DEVELOPER_GUIDE-en.md#8-database-initialization).
 
 ### 2.3 Configure Model
 
@@ -77,7 +80,7 @@ Start the project, click on Model Configuration, add a new model and fill in you
 
 ### 2.4 Embedding Model Batch Processing Strategy Configuration
 
-> For detailed configuration parameters, please refer to [Developer Guide - Development Configuration Manual](DEVELOPER_GUIDE-en.md#development-configuration-manual).
+> For detailed configuration parameters, see [Developer Guide - Embedding Batch Configuration](DEVELOPER_GUIDE-en.md#2-embedding-batch-configuration).
 
 ### 2.5 Vector Store Configuration
 
@@ -177,52 +180,92 @@ Below is the ES schema structure. For other vector stores like Milvus, PG, etc.,
 
 #### 2.5.3 Vector Store Configuration Parameters
 
-> For detailed configuration parameters, please refer to [Developer Guide - Development Configuration Manual](DEVELOPER_GUIDE-en.md#development-configuration-manual).
+> For detailed configuration parameters, see [Developer Guide - Vector Store Configuration](DEVELOPER_GUIDE-en.md#3-vector-store-configuration).
 
 ### 2.6 Retrieval Fusion Strategy
 
-> For detailed configuration parameters, please refer to [Developer Guide - Development Configuration Manual](DEVELOPER_GUIDE-en.md#development-configuration-manual).
+> For detailed configuration parameters, see [Developer Guide - Vector Store Configuration](DEVELOPER_GUIDE-en.md#3-vector-store-configuration).
 
 ### 2.7 Replace Vector Store Implementation
 
-> For information on how to replace the default in-memory vector store (e.g., using PGVector, Milvus, etc.), please refer to [Developer Guide - Dependency Extension Configuration](DEVELOPER_GUIDE-en.md#9-dependency-extension).
+> To replace the default in-memory vector store (for example, with PGVector or Milvus), see [Developer Guide - Vector Store Dependency Extension](DEVELOPER_GUIDE-en.md#vector-store-dependency-extension).
+
+### 2.8 Configure the Python Sandbox
+
+DataAgent uses the Spring AI Alibaba `1.1.2.2` Sandbox to run generated Python code. Every
+execution gets a task-scoped container; dynamic dependency installation, code execution, and
+container cleanup all happen inside that task.
+
+Confirm that Docker is available:
+
+```bash
+docker info
+```
+
+The default configuration uses local Docker discovery, public PyPI, and the AgentScope base
+image. Development normally needs no override. To select a Docker endpoint, image, or private
+package index, set:
+
+```bash
+export DATAAGENT_SANDBOX_DOCKER_HOST=unix:///var/run/docker.sock
+export DATAAGENT_SANDBOX_IMAGE=agentscope-registry.ap-southeast-1.cr.aliyuncs.com/agentscope/runtime-sandbox-base:latest
+export DATAAGENT_PYPI_INDEX_URL=https://pypi.org/simple
+```
+
+Production should use a pinned image digest and an enterprise PyPI proxy, with infrastructure
+network policy that allows the sandbox to reach only that proxy. See
+[Advanced Features - Python Execution Environment Configuration](ADVANCED_FEATURES-en.md#python-execution-environment-configuration)
+for the full configuration, dependency contract, and troubleshooting guidance.
 
 ## 3. Start Management Backend
 
-In the `data-agent-management` directory, run the `DataAgentApplication.java` class.
+Run the following command from the project root:
 
 ```bash
-cd data-agent-management
-./mvnw spring-boot:run
+./mvnw -pl data-agent-management spring-boot:run
 ```
 
 Or run `DataAgentApplication.java` directly in your IDE.
 
 ## 4. Start Web Frontend
 
-Navigate to the `data-agent-frontend` directory
+Navigate to the `data-agent-frontend-nuxt` directory.
 
 ### 4.1 Install Dependencies
 
 ```bash
-# Using npm
-npm install
-
-# Or using yarn
-yarn install
+pnpm install
 ```
 
 ### 4.2 Start Service
 
 ```bash
-# Using npm
-npm run dev
-
-# Or using yarn
-yarn dev
+pnpm dev
 ```
 
 After successful startup, access http://localhost:3000
+
+### 4.3 Verify Dynamic Python Dependencies
+
+After configuring the agent, models, and data source, submit a request that explicitly includes a
+Python step:
+
+```text
+Query the raw status and total_amount rows from orders, then aggregate them with Python.
+Declare and import six==1.17.0 through PEP 723, and report the six version and status totals.
+```
+
+A successful timeline contains “Python Generation”, “Python Execution”, “Python Analysis”, and a
+final report. The Python output should contain `six_version: 1.17.0`. No task container should
+remain after completion:
+
+```bash
+docker ps --format '{{.Names}}' | grep '^dataagent-sandbox-'
+```
+
+No output means the task sandbox was removed. If dependency installation fails, the workflow
+feeds the error into the next Python generation attempt. After the configured retry limit, it
+enters the existing fallback or termination path.
 
 ## 5. System Experience
 

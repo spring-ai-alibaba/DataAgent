@@ -8,8 +8,9 @@
 
 - **JDK**: 17 或更高版本
 - **MySQL**: 5.7 或更高版本
-- **Node.js**: 16 或更高版本
-- **Docker**: (可选) 用于Python代码执行
+- **Node.js**: 22 或更高版本
+- **pnpm**: 11 或更高版本
+- **Docker**: 工作流需要执行 Python 步骤时必需；仅使用 SQL 分析时可不启动
 - **向量数据库**: (可选) 默认使用内存向量库
 
 ## 🗄️ 1. 业务数据库准备
@@ -38,27 +39,28 @@ mysql -u root -p your_database < data-agent-management/src/main/resources/sql/pr
 
 在`data-agent-management/src/main/resources/application.yml`中配置你的MySQL数据库连接信息。
 
-> 初始化行为说明：默认开启自动创建表并插入示例数据（`spring.sql.init.mode: always`）。生产环境建议关闭，避免示例数据回填覆盖你的业务数据。
+> 初始化行为说明：默认配置为 `spring.sql.init.mode: never`，不会自动创建表或插入示例数据。
+> 首次启动前请先执行上面的 SQL 文件，或在明确需要示例数据时通过环境变量
+> `DATA_AGENT_DATASOURCE_SQL_INIT=always` 开启初始化。
 
 ```yaml
 spring:
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/saa_data_agent?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowMultiQueries=true&allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=Asia/Shanghai
-    username: ${MYSQL_USERNAME:root}
-    password: ${MYSQL_PASSWORD:root}
+    username: ${DATA_AGENT_DATASOURCE_USERNAME:root}
+    password: ${DATA_AGENT_DATASOURCE_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
-    type: com.alibaba.druid.pool.DruidDataSource
 ```
 
 ### 2.2 数据初始化配置
 
-默认开启自动初始化 (`spring.sql.init.mode: always`)。
+默认关闭自动初始化（`spring.sql.init.mode: never`）。
 
-> 关于如何关闭自动初始化，请参考 [开发者指南 - 数据库初始化配置](DEVELOPER_GUIDE.md#8-数据库初始化配置-database-initialization)。
+> 关于如何调整初始化行为，请参考 [开发者指南 - 数据库初始化配置](DEVELOPER_GUIDE.md#8-数据库初始化配置-database-initialization)。
 
 ### 2.3 配置模型
 
-> 如果涉及手动管理模型依赖（非默认 Starter），请参考 [开发者指南 - 扩展依赖配置](DEVELOPER_GUIDE.md#9-扩展依赖配置-dependency-extension)。
+> 如果涉及手动管理模型依赖（非默认 Starter），请参考 [开发者指南 - 模型依赖手动管理](DEVELOPER_GUIDE.md#9-模型依赖手动管理-manual-model-dependency)。
 
 启动项目，点击模型配置，新增模型填写自己的apikey即可。
 
@@ -77,7 +79,7 @@ spring:
 
 ### 2.4 嵌入模型批处理策略配置
 
-> 详细配置参数请参考 [开发者指南 - 开发配置手册](DEVELOPER_GUIDE.md#⚙️-开发配置手册)。
+> 详细配置参数请参考 [开发者指南 - 嵌入模型批处理策略](DEVELOPER_GUIDE.md#2-嵌入模型批处理策略-embedding-batch)。
 
 ### 2.5 向量库配置
 
@@ -177,52 +179,86 @@ spring:
 
 #### 2.5.3 向量库配置参数
 
-> 详细配置参数请参考 [开发者指南 - 开发配置手册](DEVELOPER_GUIDE.md#⚙️-开发配置手册)。
+> 详细配置参数请参考 [开发者指南 - 向量库配置](DEVELOPER_GUIDE.md#3-向量库配置-vector-store)。
 
 ### 2.6 检索融合策略
 
-> 详细配置参数请参考 [开发者指南 - 开发配置手册](DEVELOPER_GUIDE.md#⚙️-开发配置手册)。
+> 详细配置参数请参考 [开发者指南 - 向量库配置](DEVELOPER_GUIDE.md#3-向量库配置-vector-store)。
 
 ### 2.7 替换vector-store的实现类
 
-> 关于如何替换默认的内存向量库（如使用 PGVector, Milvus 等），请参考 [开发者指南 - 扩展依赖配置](DEVELOPER_GUIDE.md#9-扩展依赖配置-dependency-extension)。
+> 关于如何替换默认的内存向量库（如使用 PGVector、Milvus 等），请参考 [开发者指南 - 向量库依赖扩展](DEVELOPER_GUIDE.md#向量库依赖扩展)。
+
+### 2.8 配置 Python 沙盒
+
+DataAgent 使用 Spring AI Alibaba `1.1.2.2` 的 Sandbox 运行生成的 Python 代码。每次
+执行都会创建一个任务级容器，动态依赖安装、业务代码执行和容器清理都在该任务内完成。
+
+先确认 Docker 可用：
+
+```bash
+docker info
+```
+
+默认配置使用本地 Docker socket、公网 PyPI 和 AgentScope 基础镜像。开发环境通常无需
+修改；如需指定 Docker 地址、镜像或私有包索引，可设置：
+
+```bash
+export DATAAGENT_SANDBOX_DOCKER_HOST=unix:///var/run/docker.sock
+export DATAAGENT_SANDBOX_IMAGE=agentscope-registry.ap-southeast-1.cr.aliyuncs.com/agentscope/runtime-sandbox-base:latest
+export DATAAGENT_PYPI_INDEX_URL=https://pypi.org/simple
+```
+
+生产环境应使用固定镜像 digest 和企业私有 PyPI 代理，并在基础设施层限制沙盒只能访问
+包代理。完整配置、依赖协议和故障处理见
+[高级功能 - Python 执行环境配置](ADVANCED_FEATURES.md#-python-执行环境配置)。
 
 ## 🚀 3. 启动管理端
 
-在`data-agent-management`目录下，运行 `DataAgentApplication.java` 类。
+在项目根目录运行：
 
 ```bash
-cd data-agent-management
-./mvnw spring-boot:run
+./mvnw -pl data-agent-management spring-boot:run
 ```
 
 或者在IDE中直接运行 `DataAgentApplication.java`。
 
 ## 🌐 4. 启动WEB页面
 
-进入 `data-agent-frontend` 目录
+进入 `data-agent-frontend-nuxt` 目录
 
 ### 4.1 安装依赖
 
 ```bash
-# 使用 npm
-npm install
-
-# 或使用 yarn
-yarn install
+pnpm install
 ```
 
 ### 4.2 启动服务
 
 ```bash
-# 使用 npm
-npm run dev
-
-# 或使用 yarn
-yarn dev
+pnpm dev
 ```
 
 启动成功后，访问地址 http://localhost:3000
+
+### 4.3 验证 Python 动态依赖
+
+完成智能体、模型和数据源配置后，在数据问答页提交一个明确包含 Python 步骤的请求，例如：
+
+```text
+先查询 orders 表的 status 和 total_amount 原始数据，再使用 Python 聚合；
+Python 通过 PEP 723 声明并导入 six==1.17.0，最终输出 six 版本和各状态汇总。
+```
+
+成功时，时间线会依次出现“Python 生成”“Python 执行”“Python 分析”和最终报告，Python
+输出中应包含 `six_version: 1.17.0`。任务结束后不应存在残留容器：
+
+```bash
+docker ps --format '{{.Names}}' | grep '^dataagent-sandbox-'
+```
+
+命令无输出表示任务沙盒已经清理。若依赖安装失败，工作流会把错误反馈给下一次 Python
+生成尝试；达到最大重试次数后进入现有降级或终止分支。
 
 ## 🎯 5. 系统体验
 
