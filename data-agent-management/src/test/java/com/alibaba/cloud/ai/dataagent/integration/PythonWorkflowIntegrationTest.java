@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.Duration;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,7 +36,9 @@ import org.mockito.quality.Strictness;
 
 import com.alibaba.cloud.ai.dataagent.common.TestFixtures;
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
-import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorService;
+import com.alibaba.cloud.ai.dataagent.service.code.PythonCodeExecutorService;
+import com.alibaba.cloud.ai.dataagent.service.code.sandbox.dependency.PythonDependencyMetadata;
+import com.alibaba.cloud.ai.dataagent.service.code.sandbox.dependency.PythonDependencyMetadataParser;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
@@ -55,7 +58,10 @@ class PythonWorkflowIntegrationTest {
 	private LlmService llmService;
 
 	@Mock
-	private CodePoolExecutorService codePoolExecutor;
+	private PythonCodeExecutorService pythonCodeExecutor;
+
+	@Mock
+	private PythonDependencyMetadataParser dependencyMetadataParser;
 
 	@Mock
 	private JsonParseUtil jsonParseUtil;
@@ -72,11 +78,13 @@ class PythonWorkflowIntegrationTest {
 	@BeforeEach
 	void setUp() {
 		when(codeExecutorProperties.getLimitMemory()).thenReturn(500L);
-		when(codeExecutorProperties.getCodeTimeout()).thenReturn("60s");
+		when(codeExecutorProperties.getCodeTimeout()).thenReturn(Duration.ofSeconds(60));
 		when(codeExecutorProperties.getPythonMaxTriesCount()).thenReturn(5);
+		when(dependencyMetadataParser.parse(anyString())).thenReturn(PythonDependencyMetadata.empty());
 
 		pythonGenerateNode = new PythonGenerateNode(codeExecutorProperties, llmService);
-		pythonExecuteNode = new PythonExecuteNode(codePoolExecutor, jsonParseUtil, codeExecutorProperties);
+		pythonExecuteNode = new PythonExecuteNode(pythonCodeExecutor, dependencyMetadataParser, jsonParseUtil,
+				codeExecutorProperties);
 		pythonAnalyzeNode = new PythonAnalyzeNode(llmService);
 	}
 
@@ -125,7 +133,8 @@ class PythonWorkflowIntegrationTest {
 		state.updateState(Map.of(PYTHON_GENERATE_NODE_OUTPUT, generatedCode, PYTHON_TRIES_COUNT, 1));
 
 		String executionOutput = "{\"count\": 3, \"mean\": 200.0}";
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success(executionOutput));
+		when(pythonCodeExecutor.runTask(any()))
+			.thenReturn(PythonCodeExecutorService.TaskResponse.success(executionOutput));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
 
 		Map<String, Object> executeResult = pythonExecuteNode.apply(state);
@@ -143,7 +152,7 @@ class PythonWorkflowIntegrationTest {
 		assertTrue(analyzeResult.containsKey(PYTHON_ANALYSIS_NODE_OUTPUT));
 
 		verify(llmService).call(anyString(), anyString());
-		verify(codePoolExecutor).runTask(any());
+		verify(pythonCodeExecutor).runTask(any());
 		verify(llmService).callSystem(anyString());
 	}
 

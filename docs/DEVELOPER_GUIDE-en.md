@@ -300,19 +300,18 @@ Configuration prefix: `spring.ai.alibaba.data-agent.code-executor`
 
 | Configuration Item | Description | Default Value |
 |-------------------|-------------|---------------|
-| `code-pool-executor` | Executor type (DOCKER/LOCAL) | DOCKER (default is local in application.yml) |
-| `image-name` | Docker image name | continuumio/anaconda3:latest |
-| `container-name-prefix` | Container name prefix | nl2sql-python-exec- |
-| `host` | Service host address | null |
-| `task-queue-size` | Task blocking queue size | 5 |
-| `core-container-num` | Maximum core container count | 2 |
-| `temp-container-num` | Maximum temporary container count | 2 |
-| `core-thread-size` | Thread pool core thread count | 5 |
-| `max-thread-size` | Thread pool maximum thread count | 5 |
 | `code-timeout` | Python code execution timeout | 60s |
-| `container-timeout` | Maximum container runtime | 3000 (ms) |
 | `limit-memory` | Container memory limit (MB) | 500 |
 | `cpu-core` | Container CPU cores | 1 |
+| `python-max-tries-count` | Maximum Python execution retries | 5 |
+| `sandbox.image-name` | SAA base image | AgentScope runtime sandbox base |
+| `sandbox.max-concurrency` | Maximum concurrent sandboxes | 4 |
+| `sandbox.queue-capacity` | Bounded wait queue size | 10 |
+| `sandbox.package-index-url` | Dynamic package index | https://pypi.org/simple |
+| `sandbox.dependency-install-timeout` | Dependency installation timeout | 3m |
+
+Third-party dependencies must be declared in the generated script's PEP 723 `dependencies`.
+Host-local, legacy Docker pool, and AI Simulation executors are no longer available.
 
 ### 6. File Storage Configuration
 

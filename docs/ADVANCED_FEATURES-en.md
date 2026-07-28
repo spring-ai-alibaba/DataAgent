@@ -383,15 +383,10 @@ WHERE u.name = 'Zhang San'
 
 ## Python Execution Environment Configuration
 
-### Executor Types
+Python always runs through Spring AI Alibaba Sandbox in a task-scoped container. Host-local,
+legacy Docker-pool, and AI Simulation executors are no longer available.
 
-The system supports three Python executors:
-
-1. **Docker Executor** (Recommended)
-2. **Local Executor**
-3. **AI Simulation Executor**
-
-### Docker Executor Configuration
+### SAA Sandbox Configuration
 
 ```yaml
 spring:
@@ -399,41 +394,28 @@ spring:
     alibaba:
       data-agent:
         code-executor:
-          type: docker
-          docker:
-            image: continuumio/anaconda3:latest
-            timeout: 300000  # 5 minute timeout
-            memory-limit: 512m
-            cpu-limit: 1.0
+          code-timeout: 60s
+          limit-memory: 500
+          cpu-core: 1
+          sandbox:
+            image-name: ${DATAAGENT_SANDBOX_IMAGE}
+            max-concurrency: 4
+            queue-capacity: 10
+            package-index-url: ${DATAAGENT_PYPI_INDEX_URL:https://pypi.org/simple}
+            dependency-install-timeout: 3m
 ```
 
-### Local Executor Configuration
+### Dynamic Dependencies
 
-```yaml
-spring:
-  ai:
-    alibaba:
-      data-agent:
-        code-executor:
-          type: local
-          local:
-            python-path: /usr/bin/python3
-            timeout: 300000
-            work-dir: /tmp/dataagent
+```python
+# /// script
+# dependencies = ["pandas>=2,<3"]
+# ///
 ```
 
-### AI Simulation Executor
-
-Used for testing environments, doesn't actually execute Python code, but simulates execution results through AI:
-
-```yaml
-spring:
-  ai:
-    alibaba:
-      data-agent:
-        code-executor:
-          type: ai-simulation
-```
+Dependencies are installed inside the task sandbox by a fixed backend command. The model cannot
+specify repositories, URLs, file paths, pip options, or shell commands. Production should use an
+enterprise private PyPI proxy.
 
 ## Advanced Configuration Options
 

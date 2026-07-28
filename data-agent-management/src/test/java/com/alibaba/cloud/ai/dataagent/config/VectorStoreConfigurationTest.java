@@ -15,12 +15,9 @@
  */
 package com.alibaba.cloud.ai.dataagent.config;
 
-import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
-import com.alibaba.cloud.ai.dataagent.service.code.docker.DockerExecutorFactory;
-import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.bind.Binder;
@@ -40,7 +37,7 @@ class VectorStoreConfigurationTest {
 	private final YamlPropertySourceLoader loader = new YamlPropertySourceLoader();
 
 	@Test
-	void vectorStoreProfiles_useExplicitSpringAiStarterTypes() throws Exception {
+	void vectorStoreProfiles_declareExpectedTypes() throws Exception {
 		assertThat(property("application.yml", "spring.ai.vectorstore.type")).isEqualTo("simple");
 		assertThat(property("application-milvus.yml", "spring.ai.vectorstore.type")).isEqualTo("milvus");
 		assertThat(property("application-elasticsearch.yml", "spring.ai.vectorstore.type")).isEqualTo("elasticsearch");
@@ -67,8 +64,6 @@ class VectorStoreConfigurationTest {
 	void replaceableRuntimeServices_areConditionalOnMissingBean() throws Exception {
 		assertConditional("llmService", AiModelRegistry.class);
 		assertConditional("fileStorageService", FileStorageProperties.class, OssStorageProperties.class);
-		assertConditional("codePoolExecutorService", CodeExecutorProperties.class, LlmService.class,
-				DockerExecutorFactory.class);
 	}
 
 	private Object property(String resource, String name) throws Exception {

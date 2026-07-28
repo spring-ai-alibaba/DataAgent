@@ -32,7 +32,7 @@ flowchart LR
     ModelRegistry[AiModelRegistry]
     VectorSvc[AgentVectorStoreService]
     Hybrid[HybridRetrievalStrategy]
-    CodePool[CodePoolExecutorService]
+    CodeExec[PythonCodeExecutorService]
     McpSvc[McpServerService]
     LangfuseSvc[LangfuseService]
   end
@@ -666,8 +666,9 @@ sequenceDiagram
 #### 说明要点
 
 - **代码生成**: `PythonGenerateNode` 根据计划与 SQL 结果生成 Python
-- **代码执行**: `PythonExecuteNode` 使用 `CodePoolExecutorService`（Docker/Local/AI 模拟）
-- **执行配置**: `spring.ai.alibaba.data-agent.code-executor.*`（默认 Docker 镜像 `continuumio/anaconda3:latest`）
+- **代码执行**: `PythonExecuteNode` 使用 `PythonCodeExecutorService`，统一进入任务级 SAA 沙盒
+- **动态依赖**: 生成代码通过 PEP 723 声明依赖，由固定 bootstrap 在沙盒内受控安装
+- **执行配置**: `spring.ai.alibaba.data-agent.code-executor.*`
 - **结果回传**: 执行结果写回 `PYTHON_EXECUTE_NODE_OUTPUT`，`PythonAnalyzeNode` 汇总后写入 `SQL_EXECUTE_NODE_OUTPUT`，用于最终报告
 
 #### 架构图
@@ -675,14 +676,13 @@ sequenceDiagram
 ```mermaid
 flowchart LR
   PyGen[PythonGenerateNode] --> PyExec[PythonExecuteNode]
-  PyExec --> ExecSvc[CodePoolExecutorService]
-  ExecSvc --> Queue[Task Queue]
-  ExecSvc --> Pool[Container Pool]
-  Pool --> Docker[Docker Executor]
-  Pool --> Local[Local Executor]
-  Pool --> AISim[AI Simulation Executor]
-  Docker --> TempFiles[Temp Files]
-  TempFiles --> StdIO[Stdout Stderr]
+  PyExec --> Parser[PEP 723 Parser]
+  Parser --> ExecSvc[PythonCodeExecutorService]
+  ExecSvc --> Queue[Bounded Queue]
+  Queue --> SAA[SAA SandboxService]
+  SAA --> Install[Controlled Dependency Install]
+  Install --> Run[Python Subprocess]
+  Run --> StdIO[Stdout Stderr]
   StdIO --> JsonParse[JsonParseUtil]
   JsonParse --> PyAnalyze[PythonAnalyzeNode]
   PyAnalyze --> Report[ReportGeneratorNode]
@@ -692,8 +692,8 @@ flowchart LR
   classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
 
   class PyGen,PyExec,PyAnalyze,Report service
-  class ExecSvc,Pool,Docker,Local,AISim exec
-  class Queue,TempFiles,StdIO,JsonParse data
+  class ExecSvc,SAA,Install,Run exec
+  class Parser,Queue,StdIO,JsonParse data
 ```
 
 #### 流程图
@@ -706,19 +706,20 @@ sequenceDiagram
   participant G as PythonGenerateNode
   participant L as LlmService
   participant E as PythonExecuteNode
-  participant CP as CodePoolExecutorService
-  participant D as Docker Executor
+  participant CP as PythonCodeExecutorService
+  participant S as SAA Sandbox
   participant J as JsonParseUtil
   participant A as PythonAnalyzeNode
   participant R as ReportGeneratorNode
 
   P->>G: 进入Python步骤并传入指令
   G->>L: generate python code
-  L-->>G: python code
+  L-->>G: python code + PEP 723
   G->>E: pass code and sql results
   E->>CP: runTask
-  CP->>D: execute in container
-  D-->>CP: stdout stderr
+  CP->>S: create sandbox and install dependencies
+  S->>S: execute with stdin
+  S-->>CP: stdout stderr
   CP-->>E: task response
   E->>J: parse stdout json
   J-->>E: normalized output

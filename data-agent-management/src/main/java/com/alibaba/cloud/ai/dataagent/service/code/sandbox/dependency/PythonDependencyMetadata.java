@@ -13,16 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.code.docker;
+package com.alibaba.cloud.ai.dataagent.service.code.sandbox.dependency;
 
-import com.github.dockerjava.api.DockerClient;
+import java.util.List;
 
-/**
- * Creates a Docker client for one endpoint without probing the daemon.
- */
-@FunctionalInterface
-public interface DockerClientConnector {
+public record PythonDependencyMetadata(List<String> dependencies, String requiresPython) {
 
-	DockerClient connect(String host);
+	public static PythonDependencyMetadata empty() {
+		return new PythonDependencyMetadata(List.of(), null);
+	}
+
+	public PythonDependencyMetadata {
+		dependencies = dependencies == null ? List.of() : List.copyOf(dependencies);
+	}
 
 }

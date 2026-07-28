@@ -29,12 +29,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
-import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorService;
+import com.alibaba.cloud.ai.dataagent.service.code.PythonCodeExecutorService;
+import com.alibaba.cloud.ai.dataagent.service.code.sandbox.dependency.PythonDependencyMetadata;
+import com.alibaba.cloud.ai.dataagent.service.code.sandbox.dependency.PythonDependencyMetadataParser;
 import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.dataagent.workflow.node.PythonExecuteNode;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -45,7 +48,10 @@ import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 class PythonExecuteNodeTest {
 
 	@Mock
-	private CodePoolExecutorService codePoolExecutor;
+	private PythonCodeExecutorService pythonCodeExecutor;
+
+	@Mock
+	private PythonDependencyMetadataParser dependencyMetadataParser;
 
 	@Mock
 	private JsonParseUtil jsonParseUtil;
@@ -58,7 +64,9 @@ class PythonExecuteNodeTest {
 	@BeforeEach
 	void setUp() {
 		when(codeExecutorProperties.getPythonMaxTriesCount()).thenReturn(5);
-		pythonExecuteNode = new PythonExecuteNode(codePoolExecutor, jsonParseUtil, codeExecutorProperties);
+		when(dependencyMetadataParser.parse(anyString())).thenReturn(PythonDependencyMetadata.empty());
+		pythonExecuteNode = new PythonExecuteNode(pythonCodeExecutor, dependencyMetadataParser, jsonParseUtil,
+				codeExecutorProperties);
 	}
 
 	private OverAllState createTestState() {
@@ -81,7 +89,8 @@ class PythonExecuteNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success("hello world"));
+		when(pythonCodeExecutor.runTask(any()))
+			.thenReturn(PythonCodeExecutorService.TaskResponse.success("hello world"));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
 
 		Map<String, Object> result = pythonExecuteNode.apply(state);
@@ -96,7 +105,7 @@ class PythonExecuteNodeTest {
 		state.updateState(Map.of(PYTHON_GENERATE_NODE_OUTPUT, "import json\nprint(json.dumps({'key': 'value'}))"));
 
 		String jsonOutput = "{\"key\": \"value\"}";
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success(jsonOutput));
+		when(pythonCodeExecutor.runTask(any())).thenReturn(PythonCodeExecutorService.TaskResponse.success(jsonOutput));
 
 		Map<String, Object> parsed = Map.of("key", "value");
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(parsed);
@@ -113,8 +122,8 @@ class PythonExecuteNodeTest {
 		setupBasicState(state);
 		state.updateState(Map.of(PYTHON_TRIES_COUNT, 1));
 
-		when(codePoolExecutor.runTask(any()))
-			.thenReturn(CodePoolExecutorService.TaskResponse.failure("", "NameError: name 'x' is not defined"));
+		when(pythonCodeExecutor.runTask(any()))
+			.thenReturn(PythonCodeExecutorService.TaskResponse.failure("", "NameError: name 'x' is not defined"));
 
 		Map<String, Object> result = pythonExecuteNode.apply(state);
 		assertNotNull(result);
@@ -128,8 +137,8 @@ class PythonExecuteNodeTest {
 		setupBasicState(state);
 		state.updateState(Map.of(PYTHON_TRIES_COUNT, 6));
 
-		when(codePoolExecutor.runTask(any()))
-			.thenReturn(CodePoolExecutorService.TaskResponse.failure("", "SyntaxError"));
+		when(pythonCodeExecutor.runTask(any()))
+			.thenReturn(PythonCodeExecutorService.TaskResponse.failure("", "SyntaxError"));
 
 		Map<String, Object> result = pythonExecuteNode.apply(state);
 		assertNotNull(result);
@@ -143,7 +152,7 @@ class PythonExecuteNodeTest {
 		setupBasicState(state);
 
 		String rawOutput = "not json content";
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success(rawOutput));
+		when(pythonCodeExecutor.runTask(any())).thenReturn(PythonCodeExecutorService.TaskResponse.success(rawOutput));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
 
 		Map<String, Object> result = pythonExecuteNode.apply(state);
@@ -158,7 +167,8 @@ class PythonExecuteNodeTest {
 		state.updateState(Map.of(PYTHON_GENERATE_NODE_OUTPUT, "print('你好世界')"));
 
 		String unicodeOutput = "{\"message\": \"\\u4f60\\u597d\\u4e16\\u754c\"}";
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success(unicodeOutput));
+		when(pythonCodeExecutor.runTask(any()))
+			.thenReturn(PythonCodeExecutorService.TaskResponse.success(unicodeOutput));
 
 		Map<String, Object> parsed = Map.of("message", "你好世界");
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(parsed);
@@ -174,7 +184,7 @@ class PythonExecuteNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success(""));
+		when(pythonCodeExecutor.runTask(any())).thenReturn(PythonCodeExecutorService.TaskResponse.success(""));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
 
 		Map<String, Object> result = pythonExecuteNode.apply(state);
@@ -192,7 +202,7 @@ class PythonExecuteNodeTest {
 		sqlResults.add(Map.of("name", "Bob", "amount", "200"));
 		state.updateState(Map.of(SQL_RESULT_LIST_MEMORY, sqlResults));
 
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success("processed"));
+		when(pythonCodeExecutor.runTask(any())).thenReturn(PythonCodeExecutorService.TaskResponse.success("processed"));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
 
 		Map<String, Object> result = pythonExecuteNode.apply(state);
@@ -211,14 +221,37 @@ class PythonExecuteNodeTest {
 			largeOutput.append("line ").append(i).append(": data_value_").append(i).append("\n");
 		}
 
-		when(codePoolExecutor.runTask(any()))
-			.thenReturn(CodePoolExecutorService.TaskResponse.success(largeOutput.toString()));
+		when(pythonCodeExecutor.runTask(any()))
+			.thenReturn(PythonCodeExecutorService.TaskResponse.success(largeOutput.toString()));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
 
 		Map<String, Object> result = pythonExecuteNode.apply(state);
 		assertNotNull(result);
 		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
 		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
+	}
+
+	@Test
+	void apply_pep723Dependencies_passesStructuredDependenciesToSandbox() throws Exception {
+		OverAllState state = createTestState();
+		String code = """
+				# /// script
+				# dependencies = ["pandas>=2,<3"]
+				# ///
+				print("{}")
+				""";
+		state.updateState(Map.of(PYTHON_GENERATE_NODE_OUTPUT, code));
+		when(dependencyMetadataParser.parse(code))
+			.thenReturn(new PythonDependencyMetadata(List.of("pandas>=2,<3"), null));
+		when(pythonCodeExecutor.runTask(any())).thenReturn(PythonCodeExecutorService.TaskResponse.success("{}"));
+		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
+
+		pythonExecuteNode.apply(state);
+
+		ArgumentCaptor<PythonCodeExecutorService.TaskRequest> requestCaptor = ArgumentCaptor
+			.forClass(PythonCodeExecutorService.TaskRequest.class);
+		org.mockito.Mockito.verify(pythonCodeExecutor).runTask(requestCaptor.capture());
+		assertEquals(List.of("pandas>=2,<3"), requestCaptor.getValue().dependencies());
 	}
 
 }

@@ -441,7 +441,8 @@ class PythonGenerateNodeTest {
 ### PythonExecuteNode
 
 **Dependencies:**
-- `CodePoolExecutorService codePoolExecutor` - Code execution
+- `PythonCodeExecutorService pythonCodeExecutor` - SAA Sandbox execution
+- `PythonDependencyMetadataParser dependencyMetadataParser` - PEP 723 dependency parsing
 - `JsonParseUtil jsonParseUtil` - JSON parsing
 - `CodeExecutorProperties codeExecutorProperties` - Config
 
@@ -453,7 +454,10 @@ class PythonGenerateNodeTest {
 class PythonExecuteNodeTest {
 
     @Mock
-    private CodePoolExecutorService codePoolExecutor;
+    private PythonCodeExecutorService pythonCodeExecutor;
+
+    @Mock
+    private PythonDependencyMetadataParser dependencyMetadataParser;
 
     @Mock
     private JsonParseUtil jsonParseUtil;
@@ -465,8 +469,10 @@ class PythonExecuteNodeTest {
 
     @BeforeEach
     void setUp() {
+        when(dependencyMetadataParser.parse(anyString()))
+            .thenReturn(PythonDependencyMetadata.empty());
         pythonExecuteNode = new PythonExecuteNode(
-            codePoolExecutor, jsonParseUtil, codeExecutorProperties);
+            pythonCodeExecutor, dependencyMetadataParser, jsonParseUtil, codeExecutorProperties);
     }
 
     @Test
@@ -481,11 +487,11 @@ class PythonExecuteNodeTest {
             PYTHON_TRIES_COUNT, 0
         ));
 
-        // Mock code pool executor - successful execution
+        // Mock SAA Sandbox execution
         String jsonOutput = "{\"result\": \"hello\"}";
-        CodePoolExecutorService.TaskResponse taskResponse =
-            new CodePoolExecutorService.TaskResponse(true, jsonOutput, "", "");
-        when(codePoolExecutor.runTask(any())).thenReturn(taskResponse);
+        PythonCodeExecutorService.TaskResponse taskResponse =
+            PythonCodeExecutorService.TaskResponse.success(jsonOutput);
+        when(pythonCodeExecutor.runTask(any())).thenReturn(taskResponse);
         when(codeExecutorProperties.getPythonMaxTriesCount()).thenReturn(3);
         when(jsonParseUtil.tryConvertToObject(any(), any())).thenReturn(Map.of("result", "hello"));
 

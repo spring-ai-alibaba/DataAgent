@@ -15,7 +15,6 @@
  */
 package com.alibaba.cloud.ai.dataagent.config;
 
-import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorServiceFactory;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageServiceFactory;
 import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
@@ -34,9 +33,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DataAgentConfigurationTest {
 
 	@Test
-	void runtimeServiceFactories_arePlainSelectorsInsteadOfSpringFactoryBeans() {
+	void fileStorageServiceFactory_isPlainSelectorInsteadOfSpringFactoryBean() {
 		assertThat(FactoryBean.class.isAssignableFrom(FileStorageServiceFactory.class)).isFalse();
-		assertThat(FactoryBean.class.isAssignableFrom(CodePoolExecutorServiceFactory.class)).isFalse();
 	}
 
 	@Test
