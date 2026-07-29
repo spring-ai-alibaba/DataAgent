@@ -114,8 +114,7 @@ public class SessionTitleService {
 					<user_message>
 					%s
 					</user_message>
-					"""
-				.formatted(userMessage);
+					""".formatted(userMessage);
 			Flux<String> responseFlux = llmService.toStringFlux(llmService.call(systemPrompt, userPrompt));
 			return responseFlux.collect(StringBuilder::new, StringBuilder::append)
 				.map(StringBuilder::toString)

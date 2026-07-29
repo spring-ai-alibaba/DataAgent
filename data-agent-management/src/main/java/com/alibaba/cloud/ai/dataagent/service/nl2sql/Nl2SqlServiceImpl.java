@@ -114,8 +114,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 
 				# 输出
 				只输出 JSON 字符串数组，例如 ["a","b"]；不要输出 Markdown、解释或其他内容。
-				"""
-			.formatted(sqlGenerateSchemaMissingAdvice, schemaInfo);
+				""".formatted(sqlGenerateSchemaMissingAdvice, schemaInfo);
 		log.debug("Built table selection with advice prompt as follows \n {} \n", prompt);
 		StringBuilder sb = new StringBuilder();
 		return llmService.callUser(prompt).doOnNext(r -> {

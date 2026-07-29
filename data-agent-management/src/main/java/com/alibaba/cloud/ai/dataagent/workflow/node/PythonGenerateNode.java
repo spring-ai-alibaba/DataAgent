@@ -84,8 +84,7 @@ public class PythonGenerateNode implements NodeAction {
 				<user_query>
 				%s
 				</user_query>
-				"""
-			.formatted(StateUtil.getCanonicalQuery(state));
+				""".formatted(StateUtil.getCanonicalQuery(state));
 		if (!codeRunSuccess) {
 			// Last generated Python code failed to run, inform AI model of this
 			// information
