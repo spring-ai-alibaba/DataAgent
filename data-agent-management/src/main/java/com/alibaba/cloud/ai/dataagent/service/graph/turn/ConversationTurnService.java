@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.memory;
+package com.alibaba.cloud.ai.dataagent.service.graph.turn;
 
 import com.alibaba.cloud.ai.dataagent.entity.*;
 import com.alibaba.cloud.ai.dataagent.enums.TurnArtifactType;
@@ -21,6 +21,9 @@ import com.alibaba.cloud.ai.dataagent.enums.TurnStatus;
 import com.alibaba.cloud.ai.dataagent.mapper.*;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.chat.SessionTitleService;
+import com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox.MemoryEventType;
+import com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox.MemoryOutboxService;
+import com.alibaba.cloud.ai.dataagent.service.memory.shortterm.ConversationMemoryGateway;
 import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -56,13 +60,15 @@ public class ConversationTurnService {
 
 	private final MemoryOutboxService outboxService;
 
+	private final ConversationMemoryGateway memoryGateway;
+
 	private final SessionTitleService sessionTitleService;
 
 	private final DataAgentProperties properties;
 
 	@Transactional
-	public String beginTurn(String conversationId, Integer agentId, String runId, String rawQuery,
-			boolean titleNeeded) {
+	public String beginTurn(String conversationId, Integer agentId, Integer datasourceId, String runId,
+			String rawQuery, boolean titleNeeded) {
 		chatSessionMapper.lockBySessionId(conversationId);
 		ChatSession session = chatSessionMapper.selectBySessionId(conversationId);
 		if (session == null) {
@@ -78,8 +84,9 @@ public class ConversationTurnService {
 			.id(turnId)
 			.conversationId(conversationId)
 			.agentId(agentId)
-			.ownerId(session.getUserId())
+			.ownerId(properties.getMemory().isUserScopeEnabled() ? session.getUserId() : null)
 			.acceptedRunId(runId)
+			.datasourceId(datasourceId)
 			.rawQuery(rawQuery.trim())
 			.status(TurnStatus.RUNNING)
 			.memoryEligible(false)
@@ -146,14 +153,14 @@ public class ConversationTurnService {
 			throw new IllegalStateException("Turn is already terminal: " + turnId);
 		}
 		String finalAnswer = StringUtils.defaultIfBlank(snapshot.getFinalAnswer(), reportContent);
-		String resultSummary = bounded(StringUtils.defaultIfBlank(finalAnswer, snapshot.resultArtifactJson()),
-				properties.getMemory().getMaxResultSummaryLength());
-		boolean memoryEligible = snapshot.hasVerifiedEvidence(reportContent);
+		boolean memoryEligible = snapshot.hasVerifiedEvidence();
+		String resultSummary = memoryEligible
+				? bounded(snapshot.resultArtifactJson(), properties.getMemory().getMaxResultSummaryLength()) : null;
 		LocalDateTime now = LocalDateTime.now();
 		ConversationTurn completed = ConversationTurn.builder()
 			.id(turnId)
 			.acceptedRunId(runId)
-			.datasourceId(snapshot.getDatasourceId())
+			.datasourceId(existing.getDatasourceId())
 			.canonicalQuery(StringUtils.defaultIfBlank(snapshot.getCanonicalQuery(), existing.getRawQuery()))
 			.queryFrame(snapshot.queryFrameJson())
 			.resultSummary(resultSummary)
@@ -176,13 +183,33 @@ public class ConversationTurnService {
 		storeArtifact(turnId, runId, TurnArtifactType.REPORT, finalAnswer);
 		storeArtifact(turnId, runId, TurnArtifactType.TIMELINE, timelineJson);
 		saveTimelineMessage(turnId, runId, timelineJson);
-		if (StringUtils.isNotBlank(snapshot.getFinalAnswer())) {
-			saveChatMessage(existing.getConversationId(), "assistant", snapshot.getFinalAnswer(), "text", turnId,
-					runId);
+		if (StringUtils.isNotBlank(finalAnswer)) {
+			saveChatMessage(existing.getConversationId(), "assistant", finalAnswer, "text", turnId, runId);
+			memoryGateway.commitSuccessfulTurn(existing.getConversationId(), existing.getRawQuery(), finalAnswer);
 		}
 		if (memoryEligible) {
 			outboxService.enqueue("CONVERSATION_TURN", turnId, MemoryEventType.TURN_SUCCEEDED, null);
 		}
+	}
+
+	public Integer getPinnedDatasourceId(String turnId) {
+		if (StringUtils.isBlank(turnId)) {
+			return null;
+		}
+		ConversationTurn turn = turnMapper.selectById(turnId);
+		if (turn == null) {
+			throw new IllegalArgumentException("Turn not found: " + turnId);
+		}
+		return turn.getDatasourceId();
+	}
+
+	@Transactional
+	public void deleteByConversation(String conversationId) {
+		List<ConversationTurn> turns = turnMapper.selectByConversationId(conversationId);
+		turns.forEach(turn -> outboxService.enqueue("CONVERSATION_TURN", turn.getId(),
+				MemoryEventType.TURN_INVALIDATED, null));
+		turnMapper.deleteByConversationId(conversationId);
+		chatMessageMapper.deleteBySessionId(conversationId);
 	}
 
 	@Transactional

@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.AGENT_ID;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.DATASOURCE_ID;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.DB_DIALECT_TYPE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.EVIDENCE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.GENEGRATED_SEMANTIC_MODEL_PROMPT;
@@ -30,11 +31,9 @@ import static com.alibaba.cloud.ai.dataagent.prompt.PromptHelper.buildSemanticMo
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
-import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.LogicalRelation;
 import com.alibaba.cloud.ai.dataagent.entity.SemanticModel;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
-import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
@@ -88,8 +87,6 @@ public class TableRelationNode implements NodeAction {
 
 	private final DatasourceService datasourceService;
 
-	private final AgentDatasourceService agentDatasourceService;
-
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
@@ -100,11 +97,14 @@ public class TableRelationNode implements NodeAction {
 		List<Document> tableDocuments = StateUtil.getDocumentList(state, TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT);
 		List<Document> columnDocuments = StateUtil.getDocumentList(state, COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT);
 		String agentIdStr = StateUtil.getStringValue(state, AGENT_ID);
+		Integer datasourceId = state.value(DATASOURCE_ID)
+			.map(value -> value instanceof Number number ? number.intValue() : Integer.valueOf(value.toString()))
+			.orElseThrow(() -> new IllegalStateException("Pinned datasource ID cannot be empty."));
 
 		// Execute business logic first - get final result immediately
-		DbConfigBO agentDbConfig = databaseUtil.getAgentDbConfig(Long.valueOf(agentIdStr));
+		DbConfigBO agentDbConfig = databaseUtil.getDatasourceDbConfig(datasourceId);
 
-		List<String> logicalForeignKeys = getLogicalForeignKeys(Long.valueOf(agentIdStr), tableDocuments);
+		List<String> logicalForeignKeys = getLogicalForeignKeys(datasourceId, tableDocuments);
 		log.info("Found {} logical foreign keys for agent: {}", logicalForeignKeys.size(), agentIdStr);
 
 		SchemaDTO initialSchema = buildInitialSchema(agentIdStr, columnDocuments, tableDocuments, agentDbConfig,
@@ -209,24 +209,15 @@ public class TableRelationNode implements NodeAction {
 	}
 
 	/** 获取逻辑外键信息，并过滤只保留与当前召回表相关的外键 */
-	private List<String> getLogicalForeignKeys(Long agentId, List<Document> tableDocuments) {
+	private List<String> getLogicalForeignKeys(Integer datasourceId, List<Document> tableDocuments) {
 		try {
-			// 获取当前 agent 激活的数据源
-			AgentDatasource agentDatasource = agentDatasourceService.getCurrentAgentDatasource(agentId);
-			if (agentDatasource == null || agentDatasource.getDatasourceId() == null) {
-				log.warn("No active datasource found for agent: {}", agentId);
-				return Collections.emptyList();
-			}
-
-			Integer datasourceId = agentDatasource.getDatasourceId();
-
 			// 从 tableDocuments 提取表名列表
 			Set<String> recalledTableNames = tableDocuments.stream()
 				.map(doc -> (String) doc.getMetadata().get("name"))
 				.filter(name -> name != null && !name.isEmpty())
 				.collect(Collectors.toSet());
 
-			log.info("Recalled table names for agent {}: {}", agentId, recalledTableNames);
+			log.info("Recalled table names for datasource {}: {}", datasourceId, recalledTableNames);
 
 			// 查询该数据源的所有逻辑外键
 			List<LogicalRelation> allLogicalRelations = datasourceService.getLogicalRelations(datasourceId);
@@ -245,7 +236,7 @@ public class TableRelationNode implements NodeAction {
 			return formattedForeignKeys;
 		}
 		catch (Exception e) {
-			log.error("Error fetching logical foreign keys for agent: {}", agentId, e);
+			log.error("Error fetching logical foreign keys for datasource: {}", datasourceId, e);
 			return Collections.emptyList();
 		}
 	}

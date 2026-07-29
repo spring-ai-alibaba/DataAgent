@@ -62,4 +62,6 @@ public final class DocumentMetadataConstant {
 
 	public static final String MEMORY_ITEM_ID = "memoryItemId";
 
+	public static final String MEMORY_SCOPE_TYPE = "memoryScopeType";
+
 }

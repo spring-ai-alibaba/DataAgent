@@ -47,6 +47,8 @@ import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.mysql.CreateOption;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.mysql.MysqlSaver;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
+import com.alibaba.cloud.ai.graph.store.Store;
+import com.alibaba.cloud.ai.graph.store.stores.DatabaseStore;
 import com.knuddels.jtokkit.api.EncodingType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.BatchingStrategy;
@@ -317,16 +319,30 @@ public class DataAgentConfiguration implements DisposableBean {
 		return MemorySaver.builder().build();
 	}
 
+	/**
+	 * Framework-owned cross-session store for exact-key memory projections. Semantic
+	 * Top-K recall remains on Spring AI {@link VectorStore}.
+	 */
 	@Bean
-	public CompileConfig nl2sqlGraphCompileConfig(BaseCheckpointSaver checkpointSaver) {
+	@ConditionalOnMissingBean(Store.class)
+	public Store graphMemoryStore(DataSource dataSource) {
+		return new DatabaseStore(dataSource, "spring_ai_dataagent_store");
+	}
+
+	@Bean
+	public CompileConfig nl2sqlGraphCompileConfig(BaseCheckpointSaver checkpointSaver, Store graphMemoryStore) {
 		SaverConfig saverConfig = SaverConfig.builder().register(checkpointSaver).build();
-		return CompileConfig.builder().saverConfig(saverConfig).interruptBefore(HUMAN_FEEDBACK_NODE).build();
+		return CompileConfig.builder()
+			.saverConfig(saverConfig)
+			.store(graphMemoryStore)
+			.interruptBefore(HUMAN_FEEDBACK_NODE)
+			.build();
 	}
 
 	@Bean
 	@ConditionalOnMissingBean(ChatMemory.class)
 	public ChatMemory chatMemory(ChatMemoryRepository chatMemoryRepository, DataAgentProperties properties) {
-		int maxMessages = Math.max(2, properties.getMaxturnhistory() * 2);
+		int maxMessages = Math.max(2, properties.resolveRecentTurns() * 2);
 		return MessageWindowChatMemory.builder()
 			.chatMemoryRepository(chatMemoryRepository)
 			.maxMessages(maxMessages)

@@ -13,22 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.memory;
+package com.alibaba.cloud.ai.dataagent.service.memory.shortterm;
 
-import com.alibaba.cloud.ai.dataagent.entity.ConversationSummary;
 import com.alibaba.cloud.ai.dataagent.entity.ConversationTurn;
 import com.alibaba.cloud.ai.dataagent.mapper.ChatSessionMapper;
-import com.alibaba.cloud.ai.dataagent.mapper.ConversationSummaryMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationTurnMapper;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
+import com.alibaba.cloud.ai.graph.store.Store;
+import com.alibaba.cloud.ai.graph.store.StoreItem;
+import com.alibaba.cloud.ai.graph.store.stores.MemoryStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -40,10 +41,9 @@ class ConversationSummaryServiceTest {
 	private ConversationTurnMapper turnMapper;
 
 	@Mock
-	private ConversationSummaryMapper summaryMapper;
-
-	@Mock
 	private ChatSessionMapper chatSessionMapper;
+
+	private Store store;
 
 	private ConversationSummaryService service;
 
@@ -51,7 +51,8 @@ class ConversationSummaryServiceTest {
 	void setUp() {
 		DataAgentProperties properties = new DataAgentProperties();
 		properties.getMemory().setRecentTurns(1);
-		service = new ConversationSummaryService(turnMapper, summaryMapper, chatSessionMapper, properties);
+		store = new MemoryStore();
+		service = new ConversationSummaryService(turnMapper, chatSessionMapper, properties, store);
 	}
 
 	@Test
@@ -62,11 +63,11 @@ class ConversationSummaryServiceTest {
 
 		service.rebuild("conversation-1");
 
-		ArgumentCaptor<ConversationSummary> captor = ArgumentCaptor.forClass(ConversationSummary.class);
-		verify(summaryMapper).insert(captor.capture());
-		assertThat(captor.getValue().getSummaryText()).contains("canonical one", "result one")
+		ConversationSummaryService.Summary summary = service.load("conversation-1");
+		assertThat(summary.summaryText()).contains("canonical one", "result one")
 			.doesNotContain("raw two", "result two");
-		assertThat(captor.getValue().getCoveredThroughTurnId()).isEqualTo("turn-1");
+		assertThat(summary.coveredThroughTurnId()).isEqualTo("turn-1");
+		assertThat(store.size()).isEqualTo(1);
 	}
 
 	@Test
@@ -74,7 +75,7 @@ class ConversationSummaryServiceTest {
 		DataAgentProperties properties = new DataAgentProperties();
 		properties.getMemory().setRecentTurns(1);
 		properties.getMemory().setMaxSummaryLength(500);
-		service = new ConversationSummaryService(turnMapper, summaryMapper, chatSessionMapper, properties);
+		service = new ConversationSummaryService(turnMapper, chatSessionMapper, properties, store);
 		when(turnMapper.selectAllSuccessful("conversation-1")).thenReturn(
 				List.of(turn("turn-1", "oldest", null, "a".repeat(700)), turn("turn-2", "older", null, "b".repeat(700)),
 						turn("turn-3", "newer historical", null, "c".repeat(700)),
@@ -82,25 +83,24 @@ class ConversationSummaryServiceTest {
 
 		service.rebuild("conversation-1");
 
-		ArgumentCaptor<ConversationSummary> captor = ArgumentCaptor.forClass(ConversationSummary.class);
-		verify(summaryMapper).insert(captor.capture());
-		assertThat(captor.getValue().getSummaryText()).contains("newer historical", "较早历史已因上下文预算省略")
+		ConversationSummaryService.Summary summary = service.load("conversation-1");
+		assertThat(summary.summaryText()).contains("newer historical", "较早历史已因上下文预算省略")
 			.doesNotContain("oldest");
-		assertThat(captor.getValue().getCoveredThroughTurnId()).isEqualTo("turn-3");
+		assertThat(summary.coveredThroughTurnId()).isEqualTo("turn-3");
 	}
 
 	@Test
-	void concurrentSummaryInsertFallsBackToUpdatingTheWinningRow() {
-		when(turnMapper.selectAllSuccessful("conversation-1")).thenReturn(List.of(
-				turn("turn-1", "raw one", "canonical one", "result one"),
-				turn("turn-2", "raw two", null, "result two")));
-		doThrow(new org.springframework.dao.DuplicateKeyException("concurrent insert"))
-			.when(summaryMapper)
-			.insert(any(ConversationSummary.class));
+	void summaryUsesFrameworkStoreUpsertAndCanBeDeletedWhenNoHistoryNeedsSummarizing() {
+		store.putItem(StoreItem.of(ConversationSummaryService.summaryNamespace("conversation-1"),
+				ConversationSummaryService.SUMMARY_KEY,
+				Map.of("summaryText", "stale", "coveredThroughTurnId", "turn-0")));
+		when(turnMapper.selectAllSuccessful("conversation-1"))
+			.thenReturn(List.of(turn("turn-1", "latest", null, "latest result")));
 
 		service.rebuild("conversation-1");
 
-		verify(summaryMapper).update(argThat(summary -> "turn-1".equals(summary.getCoveredThroughTurnId())));
+		assertThat(service.load("conversation-1")).isNull();
+		assertThat(store.isEmpty()).isTrue();
 	}
 
 	private ConversationTurn turn(String id, String rawQuery, String canonicalQuery, String result) {

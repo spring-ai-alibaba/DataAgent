@@ -16,7 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.service.graph.Context;
 
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
-import com.alibaba.cloud.ai.dataagent.service.memory.TurnMemorySnapshot;
+import com.alibaba.cloud.ai.dataagent.service.graph.turn.TurnMemorySnapshot;
 import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import io.opentelemetry.api.trace.Span;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.memory;
+package com.alibaba.cloud.ai.dataagent.service.memory.longterm;
 
 import com.alibaba.cloud.ai.dataagent.entity.ConversationTurn;
 import com.alibaba.cloud.ai.dataagent.entity.MemoryItem;
@@ -22,11 +22,16 @@ import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationTurnMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.MemoryItemMapper;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox.MemoryEventType;
+import com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox.MemoryOutboxService;
+import com.alibaba.cloud.ai.dataagent.service.memory.semantic.MemoryVectorIndexService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -232,6 +237,18 @@ class LongTermMemoryServiceTest {
 		assertThat(candidate.getOwnerId()).isNull();
 		assertThat(candidate.getDatasourceId()).isNull();
 		assertThat(candidate.getIdentityHash()).hasSize(64).isNotEqualTo("forged-client-value");
+	}
+
+	@Test
+	void deletingConversationTombstonesMemoryIndexesBeforeRowsAreRemoved() {
+		when(mapper.selectByConversationId("conversation-1"))
+			.thenReturn(List.of(MemoryItem.builder().id(9L).build(), MemoryItem.builder().id(10L).build()));
+
+		service.deleteByConversation("conversation-1");
+
+		verify(outboxService).enqueue("MEMORY_ITEM", "9", MemoryEventType.MEMORY_INVALIDATED, null);
+		verify(outboxService).enqueue("MEMORY_ITEM", "10", MemoryEventType.MEMORY_INVALIDATED, null);
+		verify(mapper).deleteByConversationId("conversation-1");
 	}
 
 	private MemoryItem item(MemoryScopeType scopeType) {

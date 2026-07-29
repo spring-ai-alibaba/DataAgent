@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.memory;
+package com.alibaba.cloud.ai.dataagent.service.graph.turn;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import org.junit.jupiter.api.Test;
@@ -36,7 +36,7 @@ class TurnMemorySnapshotTest {
 
 		snapshot.capture(state, "QueryEnhanceNode");
 
-		assertThat(snapshot.hasVerifiedEvidence(null)).isFalse();
+		assertThat(snapshot.hasVerifiedEvidence()).isFalse();
 	}
 
 	@Test
@@ -48,8 +48,19 @@ class TurnMemorySnapshotTest {
 
 		snapshot.capture(state, "SqlExecuteNode");
 
-		assertThat(snapshot.hasVerifiedEvidence(null)).isTrue();
+		assertThat(snapshot.hasVerifiedEvidence()).isTrue();
 		assertThat(snapshot.resultArtifactJson()).contains("\"revenue\":100");
+	}
+
+	@Test
+	void generatedReportWithoutExecutionResultIsNotVerifiedEvidence() {
+		TurnMemorySnapshot snapshot = new TurnMemorySnapshot();
+		OverAllState state = emptyState();
+		doReturn(Optional.of("看起来收入增长了 20%")).when(state).value(FINAL_ANSWER);
+
+		snapshot.capture(state, "ReportGeneratorNode");
+
+		assertThat(snapshot.hasVerifiedEvidence()).isFalse();
 	}
 
 	private OverAllState emptyState() {

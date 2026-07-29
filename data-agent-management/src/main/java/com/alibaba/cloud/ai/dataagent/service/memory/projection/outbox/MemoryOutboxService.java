@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.memory;
+package com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox;
 
 import com.alibaba.cloud.ai.dataagent.entity.MemoryOutboxEvent;
 import com.alibaba.cloud.ai.dataagent.mapper.MemoryOutboxMapper;

@@ -57,9 +57,15 @@ public class DataAgentProperties {
 	private TextSplitter textSplitter = new TextSplitter();
 
 	/**
-	 * 最多保留的对话轮数
+	 * Legacy short-term window setting. New deployments should use
+	 * {@code memory.recent-turns}.
 	 */
-	private int maxturnhistory = 5;
+	@Deprecated
+	private Integer maxturnhistory;
+
+	public int resolveRecentTurns() {
+		return maxturnhistory != null ? Math.max(1, maxturnhistory) : Math.max(1, memory.getRecentTurns());
+	}
 
 	/**
 	 * 单次规划最大长度限制
@@ -258,7 +264,8 @@ public class DataAgentProperties {
 	public static class MemoryProperties {
 
 		/**
-		 * Number of successful structured turns kept verbatim in prompt context.
+		 * Number of accepted user/assistant turns kept by framework ChatMemory. The
+		 * deterministic summary starts before this window.
 		 */
 		private int recentTurns = 3;
 
@@ -268,7 +275,8 @@ public class DataAgentProperties {
 		private int maxSummaryLength = 4000;
 
 		/**
-		 * Maximum characters copied from a result/report into prompt-facing memory.
+		 * Maximum characters copied from verified execution results into prompt-facing
+		 * memory.
 		 */
 		private int maxResultSummaryLength = 2000;
 

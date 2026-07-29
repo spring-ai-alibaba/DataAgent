@@ -21,9 +21,15 @@ import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
 import com.alibaba.cloud.ai.graph.checkpoint.Checkpoint;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
+import com.alibaba.cloud.ai.graph.store.Store;
+import com.alibaba.cloud.ai.graph.store.StoreItem;
+import com.alibaba.cloud.ai.graph.store.stores.DatabaseStore;
+import com.alibaba.cloud.ai.graph.store.stores.MemoryStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.FactoryBean;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -38,10 +44,29 @@ class DataAgentConfigurationTest {
 	}
 
 	@Test
+	void graphMemoryStore_usesFrameworkDatabaseStoreAndPersistsAcrossInstances() {
+		DataAgentConfiguration configuration = new DataAgentConfiguration();
+		String databaseName = "graph-memory-" + UUID.randomUUID();
+		DriverManagerDataSource dataSource = new DriverManagerDataSource(
+				"jdbc:h2:mem:" + databaseName + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
+		List<String> namespace = List.of("data-agent", "conversation-summary", "conversation-1");
+
+		Store first = configuration.graphMemoryStore(dataSource);
+		first.putItem(StoreItem.of(namespace, "rolling-summary", Map.of("summaryText", "verified summary")));
+		Store second = configuration.graphMemoryStore(dataSource);
+
+		assertThat(first).isInstanceOf(DatabaseStore.class);
+		assertThat(second.getItem(namespace, "rolling-summary")).isPresent()
+			.get()
+			.satisfies(item -> assertThat(item.getValue()).containsEntry("summaryText", "verified summary"));
+	}
+
+	@Test
 	void nl2sqlGraphCompileConfig_usesProvidedFrameworkSaver() throws Exception {
 		DataAgentConfiguration configuration = new DataAgentConfiguration();
 		BaseCheckpointSaver configuredSaver = configuration.memoryCheckpointSaver();
-		CompileConfig compileConfig = configuration.nl2sqlGraphCompileConfig(configuredSaver);
+		Store configuredStore = new MemoryStore();
+		CompileConfig compileConfig = configuration.nl2sqlGraphCompileConfig(configuredSaver, configuredStore);
 		BaseCheckpointSaver checkpointSaver = compileConfig.checkpointSaver().orElseThrow();
 		RunnableConfig runnableConfig = RunnableConfig.builder().threadId("chat-session-1").build();
 		Checkpoint checkpoint = Checkpoint.builder()
@@ -54,6 +79,7 @@ class DataAgentConfigurationTest {
 		checkpointSaver.put(runnableConfig, checkpoint);
 
 		assertThat(checkpointSaver).isInstanceOf(MemorySaver.class);
+		assertThat(compileConfig.getStore()).isSameAs(configuredStore);
 		assertThat(compileConfig.interruptsBefore()).contains(HUMAN_FEEDBACK_NODE);
 		assertThat(checkpointSaver.get(runnableConfig)).isPresent();
 		checkpointSaver.release(runnableConfig);

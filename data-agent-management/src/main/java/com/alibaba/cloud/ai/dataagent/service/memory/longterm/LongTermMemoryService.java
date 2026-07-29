@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.memory;
+package com.alibaba.cloud.ai.dataagent.service.memory.longterm;
 
 import com.alibaba.cloud.ai.dataagent.entity.MemoryItem;
 import com.alibaba.cloud.ai.dataagent.entity.ConversationTurn;
@@ -25,6 +25,9 @@ import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationTurnMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.MemoryItemMapper;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox.MemoryEventType;
+import com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox.MemoryOutboxService;
+import com.alibaba.cloud.ai.dataagent.service.memory.semantic.MemoryVectorIndexService;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -158,6 +161,14 @@ public class LongTermMemoryService {
 		semantic.forEach(item -> merged.put(item.getId(), item));
 		relational.forEach(item -> merged.putIfAbsent(item.getId(), item));
 		return merged.values().stream().limit(Math.max(1, limit)).toList();
+	}
+
+	@Transactional
+	public void deleteByConversation(String conversationId) {
+		List<MemoryItem> items = mapper.selectByConversationId(conversationId);
+		items.forEach(item -> outboxService.enqueue("MEMORY_ITEM", item.getId().toString(),
+				MemoryEventType.MEMORY_INVALIDATED, null));
+		mapper.deleteByConversationId(conversationId);
 	}
 
 	private MemoryItem requireItem(Long id) {

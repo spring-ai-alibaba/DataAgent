@@ -85,7 +85,7 @@ class TextToSqlWorkflowIntegrationTest {
 		OverAllState state = new OverAllState();
 		String[] keys = { SQL_GENERATE_OUTPUT, SQL_GENERATE_COUNT, SQL_REGENERATE_REASON, PLANNER_NODE_OUTPUT,
 				PLAN_CURRENT_STEP, EVIDENCE, TABLE_RELATION_OUTPUT, DB_DIALECT_TYPE, QUERY_ENHANCE_NODE_OUTPUT,
-				AGENT_ID, SQL_EXECUTE_NODE_OUTPUT, SQL_RESULT_LIST_MEMORY, TRACE_THREAD_ID };
+				AGENT_ID, DATASOURCE_ID, SQL_EXECUTE_NODE_OUTPUT, SQL_RESULT_LIST_MEMORY, TRACE_THREAD_ID };
 		for (String key : keys) {
 			state.registerKeyAndStrategy(key, new ReplaceStrategy());
 		}
@@ -98,7 +98,7 @@ class TextToSqlWorkflowIntegrationTest {
 
 		state.updateState(Map.of(SQL_GENERATE_COUNT, 0, PLANNER_NODE_OUTPUT, TEST_PLAN_JSON, PLAN_CURRENT_STEP, 1,
 				EVIDENCE, "用户表包含id, name, email", DB_DIALECT_TYPE, "mysql", QUERY_ENHANCE_NODE_OUTPUT, queryEnhance,
-				TABLE_RELATION_OUTPUT, schema, AGENT_ID, "1"));
+				TABLE_RELATION_OUTPUT, schema, AGENT_ID, "1", DATASOURCE_ID, 100));
 	}
 
 	@Test
@@ -117,8 +117,8 @@ class TextToSqlWorkflowIntegrationTest {
 
 		DbConfigBO dbConfig = new DbConfigBO();
 		dbConfig.setSchema("test_db");
-		when(databaseUtil.getAgentDbConfig(1L)).thenReturn(dbConfig);
-		when(databaseUtil.getAgentAccessor(1L)).thenReturn(accessor);
+		when(databaseUtil.getDatasourceDbConfig(100)).thenReturn(dbConfig);
+		when(databaseUtil.getAccessor(dbConfig)).thenReturn(accessor);
 
 		ResultSetBO resultSetBO = new ResultSetBO();
 		List<Map<String, String>> data = new ArrayList<>();
@@ -152,8 +152,8 @@ class TextToSqlWorkflowIntegrationTest {
 
 		DbConfigBO dbConfig = new DbConfigBO();
 		dbConfig.setSchema("test_db");
-		when(databaseUtil.getAgentDbConfig(1L)).thenReturn(dbConfig);
-		when(databaseUtil.getAgentAccessor(1L)).thenReturn(accessor);
+		when(databaseUtil.getDatasourceDbConfig(100)).thenReturn(dbConfig);
+		when(databaseUtil.getAccessor(dbConfig)).thenReturn(accessor);
 		when(accessor.executeSqlAndReturnObject(any(DbConfigBO.class), any()))
 			.thenThrow(new RuntimeException("Table 'nonexistent_table' doesn't exist"));
 

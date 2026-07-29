@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.memory;
+package com.alibaba.cloud.ai.dataagent.service.memory.semantic;
 
 import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
@@ -71,17 +71,20 @@ public class MemoryVectorIndexService {
 	}
 
 	public void indexMemoryItem(MemoryItem item) {
-		// User-scoped memories are deliberately kept out of the shared vector index until
-		// the application provides an authenticated owner identity.
-		if (!enabled() || item.getScopeType() == MemoryScopeType.USER_AGENT) {
+		if (!enabled() || (item.getScopeType() == MemoryScopeType.USER_AGENT
+				&& (!properties.getMemory().isUserScopeEnabled() || item.getOwnerId() == null))) {
 			return;
 		}
 		Map<String, Object> metadata = new HashMap<>();
 		metadata.put(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.LONG_TERM_MEMORY);
 		metadata.put(Constant.AGENT_ID, item.getAgentId().toString());
 		metadata.put(DocumentMetadataConstant.MEMORY_ITEM_ID, item.getId());
+		metadata.put(DocumentMetadataConstant.MEMORY_SCOPE_TYPE, item.getScopeType().name());
 		if (item.getDatasourceId() != null) {
 			metadata.put(Constant.DATASOURCE_ID, item.getDatasourceId().toString());
+		}
+		if (item.getOwnerId() != null) {
+			metadata.put(DocumentMetadataConstant.MEMORY_OWNER_ID, item.getOwnerId().toString());
 		}
 		replace(new Document(ITEM_DOCUMENT_PREFIX + item.getId(), item.getMemoryKey() + "\n" + item.getValueJson(),
 				metadata));
@@ -105,7 +108,7 @@ public class MemoryVectorIndexService {
 		if (!enabled() || StringUtils.isBlank(query)) {
 			return List.of();
 		}
-		Filter.Expression filter = scopedFilter(DocumentMetadataConstant.LONG_TERM_MEMORY, null, agentId, null);
+		Filter.Expression filter = longTermFilter(ownerId, agentId, datasourceId);
 		List<Long> ids = new ArrayList<>();
 		for (Document document : search(query, filter, topK)) {
 			Object id = document.getMetadata().get(DocumentMetadataConstant.MEMORY_ITEM_ID);
@@ -158,6 +161,33 @@ public class MemoryVectorIndexService {
 			result = new Filter.Expression(Filter.ExpressionType.AND, result, filters.get(i));
 		}
 		return result;
+	}
+
+	private Filter.Expression longTermFilter(Long ownerId, Integer agentId, Integer datasourceId) {
+		FilterExpressionBuilder builder = new FilterExpressionBuilder();
+		Filter.Expression base = and(
+				builder.eq(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.LONG_TERM_MEMORY).build(),
+				builder.eq(Constant.AGENT_ID, agentId.toString()).build());
+		Filter.Expression allowedScopes = builder
+			.eq(DocumentMetadataConstant.MEMORY_SCOPE_TYPE, MemoryScopeType.AGENT.name())
+			.build();
+		if (datasourceId != null) {
+			Filter.Expression datasourceScope = and(
+					builder.eq(DocumentMetadataConstant.MEMORY_SCOPE_TYPE, MemoryScopeType.DATASOURCE.name()).build(),
+					builder.eq(Constant.DATASOURCE_ID, datasourceId.toString()).build());
+			allowedScopes = new Filter.Expression(Filter.ExpressionType.OR, allowedScopes, datasourceScope);
+		}
+		if (properties.getMemory().isUserScopeEnabled() && ownerId != null) {
+			Filter.Expression userScope = and(
+					builder.eq(DocumentMetadataConstant.MEMORY_SCOPE_TYPE, MemoryScopeType.USER_AGENT.name()).build(),
+					builder.eq(DocumentMetadataConstant.MEMORY_OWNER_ID, ownerId.toString()).build());
+			allowedScopes = new Filter.Expression(Filter.ExpressionType.OR, allowedScopes, userScope);
+		}
+		return and(base, allowedScopes);
+	}
+
+	private Filter.Expression and(Filter.Expression left, Filter.Expression right) {
+		return new Filter.Expression(Filter.ExpressionType.AND, left, right);
 	}
 
 	private void replace(Document document) {

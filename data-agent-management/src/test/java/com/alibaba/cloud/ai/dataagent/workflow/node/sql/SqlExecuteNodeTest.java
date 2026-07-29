@@ -112,6 +112,7 @@ class SqlExecuteNodeTest {
 		OverAllState state = new OverAllState();
 		state.registerKeyAndStrategy(SQL_GENERATE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(AGENT_ID, new ReplaceStrategy());
+		state.registerKeyAndStrategy(DATASOURCE_ID, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PLANNER_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PLAN_CURRENT_STEP, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
@@ -125,15 +126,16 @@ class SqlExecuteNodeTest {
 
 	private void setupBasicState(OverAllState state) {
 		state.updateState(Map.of(SQL_GENERATE_OUTPUT, "SELECT * FROM users", AGENT_ID, "1", PLANNER_NODE_OUTPUT,
-				TEST_PLAN_JSON, PLAN_CURRENT_STEP, 1, QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE));
+				TEST_PLAN_JSON, PLAN_CURRENT_STEP, 1, QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE, DATASOURCE_ID,
+				100));
 	}
 
 	private void setupBasicMocks() {
 		DbConfigBO dbConfig = new DbConfigBO();
 		dbConfig.setSchema("test_schema");
 		when(nl2SqlService.sqlTrim(any())).thenAnswer(inv -> inv.getArgument(0));
-		when(databaseUtil.getAgentDbConfig(1L)).thenReturn(dbConfig);
-		when(databaseUtil.getAgentAccessor(1L)).thenReturn(accessor);
+		when(databaseUtil.getDatasourceDbConfig(100)).thenReturn(dbConfig);
+		when(databaseUtil.getAccessor(dbConfig)).thenReturn(accessor);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -196,8 +198,8 @@ class SqlExecuteNodeTest {
 		resultSetBO.setData(new ArrayList<>());
 
 		when(nl2SqlService.sqlTrim(any())).thenReturn("SELECT * FROM users");
-		when(databaseUtil.getAgentDbConfig(1L)).thenReturn(dbConfig);
-		when(databaseUtil.getAgentAccessor(1L)).thenReturn(accessor);
+		when(databaseUtil.getDatasourceDbConfig(100)).thenReturn(dbConfig);
+		when(databaseUtil.getAccessor(dbConfig)).thenReturn(accessor);
 		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
 
 		Map<String, Object> result = sqlExecuteNode.apply(state);
@@ -208,9 +210,10 @@ class SqlExecuteNodeTest {
 	@Test
 	void queryWithMultipleColumns_executesSuccessfully_returnsAllColumns() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(
-				Map.of(SQL_GENERATE_OUTPUT, "SELECT id, name, age FROM users", AGENT_ID, "1", PLANNER_NODE_OUTPUT,
-						TEST_PLAN_JSON, PLAN_CURRENT_STEP, 1, QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE));
+			state.updateState(
+					Map.of(SQL_GENERATE_OUTPUT, "SELECT id, name, age FROM users", AGENT_ID, "1", PLANNER_NODE_OUTPUT,
+							TEST_PLAN_JSON, PLAN_CURRENT_STEP, 1, QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE,
+							DATASOURCE_ID, 100));
 
 		DbConfigBO dbConfig = new DbConfigBO();
 		dbConfig.setSchema("test_schema");
@@ -219,8 +222,8 @@ class SqlExecuteNodeTest {
 		resultSetBO.setData(new ArrayList<>());
 
 		when(nl2SqlService.sqlTrim(any())).thenReturn("SELECT id, name, age FROM users");
-		when(databaseUtil.getAgentDbConfig(1L)).thenReturn(dbConfig);
-		when(databaseUtil.getAgentAccessor(1L)).thenReturn(accessor);
+		when(databaseUtil.getDatasourceDbConfig(100)).thenReturn(dbConfig);
+		when(databaseUtil.getAccessor(dbConfig)).thenReturn(accessor);
 		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
 
 		Map<String, Object> result = sqlExecuteNode.apply(state);
@@ -249,7 +252,7 @@ class SqlExecuteNodeTest {
 		setupBasicState(state);
 
 		when(nl2SqlService.sqlTrim(any())).thenAnswer(inv -> inv.getArgument(0));
-		when(databaseUtil.getAgentDbConfig(1L)).thenThrow(new RuntimeException("Connection refused"));
+		when(databaseUtil.getDatasourceDbConfig(100)).thenThrow(new RuntimeException("Connection refused"));
 
 		assertThrows(RuntimeException.class, () -> sqlExecuteNode.apply(state));
 	}

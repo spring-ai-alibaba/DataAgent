@@ -15,7 +15,6 @@
  */
 package com.alibaba.cloud.ai.dataagent.mapper;
 
-import com.alibaba.cloud.ai.dataagent.entity.ConversationSummary;
 import com.alibaba.cloud.ai.dataagent.entity.ConversationTurn;
 import com.alibaba.cloud.ai.dataagent.entity.MemoryItem;
 import com.alibaba.cloud.ai.dataagent.entity.MemoryOutboxEvent;
@@ -42,9 +41,6 @@ class MemoryMapperIntegrationTest {
 	private ConversationTurnMapper turnMapper;
 
 	@Autowired
-	private ConversationSummaryMapper summaryMapper;
-
-	@Autowired
 	private MemoryItemMapper memoryItemMapper;
 
 	@Autowired
@@ -58,7 +54,6 @@ class MemoryMapperIntegrationTest {
 		jdbcTemplate.execute("DROP TABLE IF EXISTS memory_outbox");
 		jdbcTemplate.execute("DROP TABLE IF EXISTS memory_item");
 		jdbcTemplate.execute("DROP TABLE IF EXISTS turn_run");
-		jdbcTemplate.execute("DROP TABLE IF EXISTS conversation_summary");
 		jdbcTemplate.execute("DROP TABLE IF EXISTS conversation_turn");
 		jdbcTemplate.execute("""
 				CREATE TABLE conversation_turn (
@@ -82,16 +77,6 @@ class MemoryMapperIntegrationTest {
 				  update_time TIMESTAMP
 					)
 					""");
-		jdbcTemplate.execute("""
-				CREATE TABLE conversation_summary (
-				  conversation_id VARCHAR(36) PRIMARY KEY,
-				  summary_text TEXT NOT NULL,
-				  covered_through_turn_id VARCHAR(36),
-				  version BIGINT NOT NULL,
-				  create_time TIMESTAMP,
-				  update_time TIMESTAMP
-				)
-				""");
 		jdbcTemplate.execute("""
 				CREATE TABLE turn_run (
 				  run_id VARCHAR(36) PRIMARY KEY,
@@ -189,7 +174,7 @@ class MemoryMapperIntegrationTest {
 			.build();
 		memoryItemMapper.insert(item);
 
-		assertThat(turnMapper.selectRecentSuccessful("conversation-1", 3)).singleElement()
+		assertThat(turnMapper.selectAllSuccessful("conversation-1")).singleElement()
 			.extracting(ConversationTurn::getStatus)
 			.isEqualTo(TurnStatus.SUCCEEDED);
 		assertThat(memoryItemMapper.selectConfirmedForContext(null, 7, 3, 5)).singleElement()
@@ -223,27 +208,6 @@ class MemoryMapperIntegrationTest {
 			.build())).isZero();
 		assertThat(turnRunMapper.markSucceeded("run-1")).isZero();
 		assertThat(turnMapper.selectById("turn-1").getStatus()).isEqualTo(TurnStatus.CANCELLED);
-	}
-
-	@Test
-	void summaryInsertAndUpdateAreVersioned() {
-		ConversationSummary first = ConversationSummary.builder()
-			.conversationId("conversation-1")
-			.summaryText("first")
-			.coveredThroughTurnId("turn-1")
-			.build();
-		ConversationSummary second = ConversationSummary.builder()
-			.conversationId("conversation-1")
-			.summaryText("second")
-			.coveredThroughTurnId("turn-2")
-			.build();
-
-		assertThat(summaryMapper.insert(first)).isEqualTo(1);
-		assertThat(summaryMapper.update(second)).isEqualTo(1);
-		assertThat(summaryMapper.selectByConversationId("conversation-1"))
-			.extracting(ConversationSummary::getSummaryText, ConversationSummary::getCoveredThroughTurnId,
-					ConversationSummary::getVersion)
-			.containsExactly("second", "turn-2", 2L);
 	}
 
 	@Test

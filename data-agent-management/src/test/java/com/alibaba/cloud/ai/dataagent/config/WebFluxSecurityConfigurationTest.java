@@ -130,4 +130,18 @@ class WebFluxSecurityConfigurationTest {
 		webTestClient.post().uri("/api/agents/7/memories").exchange().expectStatus().isUnauthorized();
 	}
 
+	@Test
+	void memoryMutationCannotBypassAuthenticationWhenAgentApiKeyIsDisabled() {
+		when(agentMapper.findById(7L)).thenReturn(Agent.builder().id(7L).apiKeyEnabled(0).build());
+
+		webTestClient.post().uri("/api/agents/7/memories").exchange().expectStatus().isUnauthorized();
+	}
+
+	@Test
+	void memoryPathIdentityCannotBeOverriddenByQueryParameter() {
+		when(agentMapper.findById(7L)).thenReturn(Agent.builder().id(7L).apiKeyEnabled(0).build());
+
+		webTestClient.post().uri("/api/agents/7/memories?agentId=8").exchange().expectStatus().isUnauthorized();
+	}
+
 }

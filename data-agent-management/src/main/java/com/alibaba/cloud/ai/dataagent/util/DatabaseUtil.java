@@ -18,42 +18,31 @@ package com.alibaba.cloud.ai.dataagent.util;
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
-import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
+import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
  * Utility class for processing database.
  */
-@Slf4j
 @Component
 @AllArgsConstructor
 public class DatabaseUtil {
 
 	private final AccessorFactory accessorFactory;
 
-	private final AgentDatasourceService agentDatasourceService;
-
 	private final DatasourceService datasourceService;
 
-	public DbConfigBO getAgentDbConfig(Long agentId) {
-		log.info("Getting datasource config for agent: {}", agentId);
-
-		// Get the enabled data source for the agent
-		AgentDatasource activeDatasource = agentDatasourceService.getCurrentAgentDatasource(agentId);
-		// Convert to DbConfig
-		DbConfigBO dbConfig = datasourceService.getDbConfig(activeDatasource.getDatasource());
-		log.info("Successfully created DbConfig for agent {}: schema={}, type={}", agentId, dbConfig.getSchema(),
-				dbConfig.getDialectType());
-
-		return dbConfig;
+	public DbConfigBO getDatasourceDbConfig(Integer datasourceId) {
+		Datasource datasource = datasourceService.getDatasourceById(datasourceId);
+		if (datasource == null) {
+			throw new IllegalStateException("Datasource not found: " + datasourceId);
+		}
+		return datasourceService.getDbConfig(datasource);
 	}
 
-	public Accessor getAgentAccessor(Long agentId) {
-		DbConfigBO dbConfig = getAgentDbConfig(agentId);
+	public Accessor getAccessor(DbConfigBO dbConfig) {
 		return accessorFactory.getAccessorByDbConfig(dbConfig);
 	}
 

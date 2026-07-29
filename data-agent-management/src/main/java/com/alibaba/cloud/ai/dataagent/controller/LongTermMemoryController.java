@@ -18,7 +18,7 @@ package com.alibaba.cloud.ai.dataagent.controller;
 import com.alibaba.cloud.ai.dataagent.dto.memory.CreateMemoryItemRequest;
 import com.alibaba.cloud.ai.dataagent.entity.MemoryItem;
 import com.alibaba.cloud.ai.dataagent.enums.MemoryStatus;
-import com.alibaba.cloud.ai.dataagent.service.memory.LongTermMemoryService;
+import com.alibaba.cloud.ai.dataagent.service.memory.longterm.LongTermMemoryService;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

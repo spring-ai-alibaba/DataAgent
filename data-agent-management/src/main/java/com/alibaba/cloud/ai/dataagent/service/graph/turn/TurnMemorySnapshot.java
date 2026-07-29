@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.memory;
+package com.alibaba.cloud.ai.dataagent.service.graph.turn;
 
 import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
@@ -38,8 +38,6 @@ public class TurnMemorySnapshot {
 
 	private String canonicalQuery;
 
-	private Integer datasourceId;
-
 	private String schemaFingerprint;
 
 	private String plannerJson;
@@ -58,9 +56,6 @@ public class TurnMemorySnapshot {
 			.map(QueryEnhanceOutputDTO::getCanonicalQuery)
 			.filter(StringUtils::isNotBlank)
 			.ifPresent(value -> this.canonicalQuery = value);
-		state.value(DATASOURCE_ID)
-			.map(value -> value instanceof Number number ? number.intValue() : Integer.valueOf(value.toString()))
-			.ifPresent(value -> this.datasourceId = value);
 		state.value(SCHEMA_FINGERPRINT)
 			.map(Object::toString)
 			.filter(StringUtils::isNotBlank)
@@ -134,10 +129,6 @@ public class TurnMemorySnapshot {
 		return canonicalQuery;
 	}
 
-	public synchronized Integer getDatasourceId() {
-		return datasourceId;
-	}
-
 	public synchronized String getSchemaFingerprint() {
 		return schemaFingerprint;
 	}
@@ -150,8 +141,8 @@ public class TurnMemorySnapshot {
 		return finalAnswer;
 	}
 
-	public synchronized boolean hasVerifiedEvidence(String reportContent) {
-		return StringUtils.isNotBlank(reportContent) || !executionResults.isEmpty();
+	public synchronized boolean hasVerifiedEvidence() {
+		return !executionResults.isEmpty();
 	}
 
 }

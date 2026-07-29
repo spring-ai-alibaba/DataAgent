@@ -13,35 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.entity;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
+package com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox;
 
 /**
- * Rebuildable summary of successful turns older than the recent-turn window.
+ * Durable projection events.
  */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class ConversationSummary {
+public final class MemoryEventType {
 
-	private String conversationId;
+	public static final String TURN_SUCCEEDED = "TURN_SUCCEEDED";
 
-	private String summaryText;
+	public static final String TURN_INVALIDATED = "TURN_INVALIDATED";
 
-	private String coveredThroughTurnId;
+	public static final String MEMORY_CONFIRMED = "MEMORY_CONFIRMED";
 
-	@Builder.Default
-	private Long version = 1L;
+	public static final String MEMORY_INVALIDATED = "MEMORY_INVALIDATED";
 
-	private LocalDateTime createTime;
-
-	private LocalDateTime updateTime;
+	private MemoryEventType() {
+	}
 
 }

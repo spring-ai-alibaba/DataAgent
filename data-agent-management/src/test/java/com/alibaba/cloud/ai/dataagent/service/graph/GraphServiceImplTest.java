@@ -17,9 +17,10 @@ package com.alibaba.cloud.ai.dataagent.service.graph;
 
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.enums.GraphEventType;
+import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
+import com.alibaba.cloud.ai.dataagent.service.graph.turn.ConversationTurnService;
 import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
-import com.alibaba.cloud.ai.dataagent.service.memory.ConversationContextAssembler;
-import com.alibaba.cloud.ai.dataagent.service.memory.ConversationTurnService;
+import com.alibaba.cloud.ai.dataagent.service.memory.context.ConversationContextAssembler;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.CompileConfig;
@@ -70,6 +71,9 @@ class GraphServiceImplTest {
 	private ConversationTurnService turnService;
 
 	@Mock
+	private AgentDatasourceMapper agentDatasourceMapper;
+
+	@Mock
 	private LangfuseService langfuseReporter;
 
 	@Mock
@@ -91,13 +95,18 @@ class GraphServiceImplTest {
 
 		CompileConfig compileConfig = CompileConfig.builder().build();
 		graphService = new GraphServiceImpl(mockStateGraph, compileConfig, checkpointSaver, executor, contextAssembler,
-				turnService, langfuseReporter);
+				turnService, agentDatasourceMapper, langfuseReporter);
 
 		when(langfuseReporter.startLLMSpan(anyString(), any())).thenReturn(mockSpan);
 		when(mockSpan.isRecording()).thenReturn(true);
-		when(contextAssembler.build(anyString(), anyInt(), nullable(String.class))).thenReturn("(无)");
-		when(turnService.beginTurn(anyString(), anyInt(), anyString(), anyString(), anyBoolean())).thenReturn("turn-1");
+		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(anyLong())).thenReturn(3);
+		when(contextAssembler.build(anyString(), anyInt(), nullable(String.class), nullable(Integer.class)))
+			.thenReturn("(无)");
+		when(turnService.beginTurn(anyString(), anyInt(), nullable(Integer.class), anyString(), anyString(),
+				anyBoolean()))
+			.thenReturn("turn-1");
 		when(turnService.resumeTurn(nullable(String.class), anyString(), anyBoolean())).thenReturn("turn-1");
+		when(turnService.getPinnedDatasourceId("turn-1")).thenReturn(3);
 	}
 
 	@AfterEach
@@ -154,6 +163,12 @@ class GraphServiceImplTest {
 		assertNotNull(request.getThreadId());
 		assertFalse(request.getThreadId().isEmpty());
 		assertNotEquals(request.getConversationId(), request.getThreadId());
+		@SuppressWarnings("unchecked")
+		var inputCaptor = (org.mockito.ArgumentCaptor<java.util.Map<String, Object>>) (org.mockito.ArgumentCaptor<?>) org.mockito.ArgumentCaptor
+			.forClass(java.util.Map.class);
+		verify(compiledGraph).stream(inputCaptor.capture(), any(RunnableConfig.class));
+		assertEquals(3, inputCaptor.getValue().get("datasourceId"));
+		verify(turnService).beginTurn("conversation-1", 1, 3, request.getThreadId(), "test query", false);
 	}
 
 	@Test
@@ -264,7 +279,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_startupFailureMarksDurableTurnFailedAndReleasesCheckpoint() throws Exception {
-		when(contextAssembler.build("conversation-1", 1, "test query"))
+		when(contextAssembler.build("conversation-1", 1, "test query", 3))
 			.thenThrow(new IllegalStateException("context unavailable"));
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")

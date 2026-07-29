@@ -18,9 +18,7 @@ package com.alibaba.cloud.ai.dataagent.util;
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
-import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,52 +39,46 @@ class DatabaseUtilTest {
 	private AccessorFactory accessorFactory;
 
 	@Mock
-	private AgentDatasourceService agentDatasourceService;
-
-	@Mock
 	private DatasourceService datasourceService;
 
 	@InjectMocks
 	private DatabaseUtil databaseUtil;
 
 	@Test
-	void getAgentDbConfig_success() {
+	void getDatasourceDbConfig_usesPinnedDatasourceId() {
 		Datasource datasource = new Datasource();
-		AgentDatasource agentDatasource = new AgentDatasource();
-		agentDatasource.setDatasource(datasource);
 
 		DbConfigBO expectedConfig = new DbConfigBO();
 		expectedConfig.setUrl("jdbc:mysql://localhost:3306/test");
 		expectedConfig.setSchema("test");
 		expectedConfig.setDialectType("mysql");
 
-		when(agentDatasourceService.getCurrentAgentDatasource(1L)).thenReturn(agentDatasource);
+		when(datasourceService.getDatasourceById(3)).thenReturn(datasource);
 		when(datasourceService.getDbConfig(datasource)).thenReturn(expectedConfig);
 
-		DbConfigBO result = databaseUtil.getAgentDbConfig(1L);
+		DbConfigBO result = databaseUtil.getDatasourceDbConfig(3);
 
 		assertNotNull(result);
 		assertEquals("jdbc:mysql://localhost:3306/test", result.getUrl());
-		verify(agentDatasourceService).getCurrentAgentDatasource(1L);
+		verify(datasourceService).getDatasourceById(3);
 		verify(datasourceService).getDbConfig(datasource);
 	}
 
 	@Test
-	void getAgentAccessor_success() {
-		Datasource datasource = new Datasource();
-		AgentDatasource agentDatasource = new AgentDatasource();
-		agentDatasource.setDatasource(datasource);
+	void getDatasourceDbConfig_missingDatasourceFailsClosed() {
+		when(datasourceService.getDatasourceById(3)).thenReturn(null);
 
+		assertThrows(IllegalStateException.class, () -> databaseUtil.getDatasourceDbConfig(3));
+		verify(datasourceService, never()).getDbConfig(any());
+	}
+
+	@Test
+	void getAccessor_usesProvidedPinnedConfiguration() {
 		DbConfigBO config = new DbConfigBO();
-		config.setUrl("jdbc:mysql://localhost:3306/test");
-
 		Accessor mockAccessor = mock(Accessor.class);
-
-		when(agentDatasourceService.getCurrentAgentDatasource(1L)).thenReturn(agentDatasource);
-		when(datasourceService.getDbConfig(datasource)).thenReturn(config);
 		when(accessorFactory.getAccessorByDbConfig(config)).thenReturn(mockAccessor);
 
-		Accessor result = databaseUtil.getAgentAccessor(1L);
+		Accessor result = databaseUtil.getAccessor(config);
 
 		assertNotNull(result);
 		assertSame(mockAccessor, result);

@@ -16,7 +16,6 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
-import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
@@ -57,8 +56,6 @@ public class SchemaRecallNode implements NodeAction {
 
 	private final SchemaService schemaService;
 
-	private final AgentDatasourceMapper agentDatasourceMapper;
-
 	@Override
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
@@ -67,9 +64,9 @@ public class SchemaRecallNode implements NodeAction {
 				QueryEnhanceOutputDTO.class);
 		String input = queryEnhanceOutputDTO.getCanonicalQuery();
 		String agentId = StateUtil.getStringValue(state, AGENT_ID);
-
-		// 查询 Agent 的激活数据源
-		Integer datasourceId = agentDatasourceMapper.selectActiveDatasourceIdByAgentId(Long.valueOf(agentId));
+		Integer datasourceId = state.value(DATASOURCE_ID)
+			.map(value -> value instanceof Number number ? number.intValue() : Integer.valueOf(value.toString()))
+			.orElse(null);
 
 		if (datasourceId == null) {
 			log.warn("Agent {} has no active datasource", agentId);

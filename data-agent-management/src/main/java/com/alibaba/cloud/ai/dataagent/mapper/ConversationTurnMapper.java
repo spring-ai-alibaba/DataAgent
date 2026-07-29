@@ -26,10 +26,10 @@ public interface ConversationTurnMapper {
 
 	@Insert("""
 			INSERT INTO conversation_turn
-			    (id, conversation_id, agent_id, owner_id, accepted_run_id, raw_query, status,
+			    (id, conversation_id, agent_id, owner_id, accepted_run_id, datasource_id, raw_query, status,
 			     memory_eligible, create_time, update_time)
 			VALUES
-			    (#{id}, #{conversationId}, #{agentId}, #{ownerId}, #{acceptedRunId}, #{rawQuery},
+			    (#{id}, #{conversationId}, #{agentId}, #{ownerId}, #{acceptedRunId}, #{datasourceId}, #{rawQuery},
 			     #{status}, #{memoryEligible}, NOW(), NOW())
 			""")
 	int insert(ConversationTurn turn);
@@ -41,18 +41,9 @@ public interface ConversationTurnMapper {
 	List<ConversationTurn> selectByConversationId(@Param("conversationId") String conversationId);
 
 	@Select("""
-			SELECT * FROM conversation_turn
-			WHERE conversation_id = #{conversationId}
-			  AND status = 'SUCCEEDED'
-			  AND memory_eligible = 1
-			ORDER BY observed_at DESC, create_time DESC, id DESC
-			LIMIT #{limit}
-			""")
-	List<ConversationTurn> selectRecentSuccessful(@Param("conversationId") String conversationId,
-			@Param("limit") int limit);
-
-	@Select("""
-			SELECT * FROM conversation_turn
+			SELECT id, conversation_id, agent_id, owner_id, raw_query, canonical_query, result_summary,
+			       datasource_id, schema_fingerprint, status, memory_eligible, observed_at, completed_at, create_time
+			FROM conversation_turn
 			WHERE conversation_id = #{conversationId}
 			  AND status = 'SUCCEEDED'
 			  AND memory_eligible = 1

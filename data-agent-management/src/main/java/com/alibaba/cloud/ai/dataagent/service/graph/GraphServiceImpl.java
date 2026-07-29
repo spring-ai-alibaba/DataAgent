@@ -18,10 +18,11 @@ package com.alibaba.cloud.ai.dataagent.service.graph;
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.enums.GraphEventType;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.StreamContext;
+import com.alibaba.cloud.ai.dataagent.service.graph.turn.ConversationTurnService;
 import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
-import com.alibaba.cloud.ai.dataagent.service.memory.ConversationContextAssembler;
-import com.alibaba.cloud.ai.dataagent.service.memory.ConversationTurnService;
+import com.alibaba.cloud.ai.dataagent.service.memory.context.ConversationContextAssembler;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import com.alibaba.cloud.ai.dataagent.workflow.node.ReportGeneratorNode;
 import com.alibaba.cloud.ai.graph.*;
@@ -63,16 +64,20 @@ public class GraphServiceImpl implements GraphService {
 
 	private final ConversationTurnService turnService;
 
+	private final AgentDatasourceMapper agentDatasourceMapper;
+
 	private final LangfuseService langfuseReporter;
 
 	public GraphServiceImpl(StateGraph stateGraph, CompileConfig compileConfig, BaseCheckpointSaver checkpointSaver,
 			ExecutorService executorService, ConversationContextAssembler contextAssembler,
-			ConversationTurnService turnService, LangfuseService langfuseReporter) throws GraphStateException {
+			ConversationTurnService turnService, AgentDatasourceMapper agentDatasourceMapper,
+			LangfuseService langfuseReporter) throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(compileConfig);
 		this.checkpointSaver = checkpointSaver;
 		this.executor = executorService;
 		this.contextAssembler = contextAssembler;
 		this.turnService = turnService;
+		this.agentDatasourceMapper = agentDatasourceMapper;
 		this.langfuseReporter = langfuseReporter;
 	}
 
@@ -80,9 +85,15 @@ public class GraphServiceImpl implements GraphService {
 	public String nl2sql(String naturalQuery, String agentId) throws GraphRunnerException {
 		RunnableConfig config = RunnableConfig.builder().threadId(UUID.randomUUID().toString()).build();
 		try {
-			OverAllState state = compiledGraph
-				.invoke(Map.of(IS_ONLY_NL2SQL, true, INPUT_KEY, naturalQuery, AGENT_ID, agentId), config)
-				.orElseThrow();
+			Map<String, Object> input = new HashMap<>();
+			input.put(IS_ONLY_NL2SQL, true);
+			input.put(INPUT_KEY, naturalQuery);
+			input.put(AGENT_ID, agentId);
+			Integer datasourceId = resolveActiveDatasourceId(Integer.valueOf(agentId));
+			if (datasourceId != null) {
+				input.put(DATASOURCE_ID, datasourceId);
+			}
+			OverAllState state = compiledGraph.invoke(input, config).orElseThrow();
 			return state.value(SQL_GENERATE_OUTPUT, "");
 		}
 		finally {
@@ -195,14 +206,23 @@ public class GraphServiceImpl implements GraphService {
 		context.setSpan(span);
 
 		Integer numericAgentId = Integer.valueOf(agentId);
-		String turnId = turnService.beginTurn(conversationId, numericAgentId, threadId, query,
+		Integer datasourceId = resolveActiveDatasourceId(numericAgentId);
+		String turnId = turnService.beginTurn(conversationId, numericAgentId, datasourceId, threadId, query,
 				graphRequest.isTitleNeeded());
 		graphRequest.setTurnId(turnId);
 		context.setTurnId(turnId);
-		String multiTurnContext = contextAssembler.build(conversationId, numericAgentId, query);
-		Flux<NodeOutput> nodeOutputFlux = compiledGraph.stream(
-				Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED,
-						humanReviewEnabled, MULTI_TURN_CONTEXT, multiTurnContext, TRACE_THREAD_ID, threadId),
+		String multiTurnContext = contextAssembler.build(conversationId, numericAgentId, query, datasourceId);
+		Map<String, Object> input = new HashMap<>();
+		input.put(IS_ONLY_NL2SQL, nl2sqlOnly);
+		input.put(INPUT_KEY, query);
+		input.put(AGENT_ID, agentId);
+		input.put(HUMAN_REVIEW_ENABLED, humanReviewEnabled);
+		input.put(MULTI_TURN_CONTEXT, multiTurnContext);
+		input.put(TRACE_THREAD_ID, threadId);
+		if (datasourceId != null) {
+			input.put(DATASOURCE_ID, datasourceId);
+		}
+		Flux<NodeOutput> nodeOutputFlux = compiledGraph.stream(input,
 				RunnableConfig.builder().threadId(threadId).build());
 		subscribeToFlux(context, nodeOutputFlux, graphRequest, agentId, threadId);
 	}
@@ -230,13 +250,18 @@ public class GraphServiceImpl implements GraphService {
 		String turnId = turnService.resumeTurn(graphRequest.getTurnId(), threadId, graphRequest.isRejectedPlan());
 		graphRequest.setTurnId(turnId);
 		context.setTurnId(turnId);
+		Integer datasourceId = turnService.getPinnedDatasourceId(turnId);
 
 		Map<String, Object> feedbackData = Map.of("feedback", !graphRequest.isRejectedPlan(), "feedback_content",
 				feedbackContent);
 		Map<String, Object> stateUpdate = new HashMap<>();
 		stateUpdate.put(HUMAN_FEEDBACK_DATA, feedbackData);
 		stateUpdate.put(MULTI_TURN_CONTEXT,
-				contextAssembler.build(conversationId, Integer.valueOf(agentId), graphRequest.getQuery()));
+				contextAssembler.build(conversationId, Integer.valueOf(agentId), graphRequest.getQuery(),
+						datasourceId));
+		if (datasourceId != null) {
+			stateUpdate.put(DATASOURCE_ID, datasourceId);
+		}
 
 		RunnableConfig baseConfig = RunnableConfig.builder().threadId(threadId).build();
 		RunnableConfig updatedConfig;
@@ -527,6 +552,10 @@ public class GraphServiceImpl implements GraphService {
 		catch (Exception e) {
 			log.warn("Unable to release checkpoint for threadId: {}", config.threadId().orElse("unknown"), e);
 		}
+	}
+
+	private Integer resolveActiveDatasourceId(Integer agentId) {
+		return agentDatasourceMapper.selectActiveDatasourceIdByAgentId(agentId.longValue());
 	}
 
 }

@@ -13,98 +13,93 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.service.memory;
+package com.alibaba.cloud.ai.dataagent.service.memory.shortterm;
 
-import com.alibaba.cloud.ai.dataagent.entity.ConversationSummary;
 import com.alibaba.cloud.ai.dataagent.entity.ConversationTurn;
 import com.alibaba.cloud.ai.dataagent.mapper.ChatSessionMapper;
-import com.alibaba.cloud.ai.dataagent.mapper.ConversationSummaryMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationTurnMapper;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
+import com.alibaba.cloud.ai.graph.store.Store;
+import com.alibaba.cloud.ai.graph.store.StoreItem;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
- * Deterministically rebuilds a bounded summary from authoritative successful turns.
+ * Deterministically rebuilds a bounded summary from authoritative successful turns and
+ * persists that cross-session projection through the framework {@link Store}.
  */
 @Service
 @RequiredArgsConstructor
 public class ConversationSummaryService {
 
-	private final ConversationTurnMapper turnMapper;
+	static final String SUMMARY_KEY = "rolling-summary";
 
-	private final ConversationSummaryMapper summaryMapper;
+	private final ConversationTurnMapper turnMapper;
 
 	private final ChatSessionMapper chatSessionMapper;
 
 	private final DataAgentProperties properties;
 
+	private final Store store;
+
 	@Transactional
 	public void rebuild(String conversationId) {
 		chatSessionMapper.lockBySessionId(conversationId);
-		ConversationSummary current = summaryMapper.selectByConversationId(conversationId);
+		Summary current = load(conversationId);
 		List<ConversationTurn> turns = turnMapper.selectAllSuccessful(conversationId);
 		rebuildFrom(conversationId, turns, current);
 	}
 
-	/**
-	 * Loads the summary and recent turns from one authoritative snapshot. Rebuilding on
-	 * demand closes the short interval between committing a turn and asynchronously
-	 * projecting its outbox event.
-	 */
-	@Transactional
-	public ContextWindow loadWindow(String conversationId) {
-		chatSessionMapper.lockBySessionId(conversationId);
-		ConversationSummary current = summaryMapper.selectByConversationId(conversationId);
-		List<ConversationTurn> turns = turnMapper.selectAllSuccessful(conversationId);
-		return rebuildFrom(conversationId, turns, current);
+	public Summary load(String conversationId) {
+		if (StringUtils.isBlank(conversationId)) {
+			return null;
+		}
+		return store.getItem(summaryNamespace(conversationId), SUMMARY_KEY).map(StoreItem::getValue).map(value -> {
+			String summaryText = Objects.toString(value.get("summaryText"), null);
+			String coveredThroughTurnId = Objects.toString(value.get("coveredThroughTurnId"), null);
+			if (StringUtils.isBlank(summaryText) || StringUtils.isBlank(coveredThroughTurnId)) {
+				return null;
+			}
+			return new Summary(summaryText, coveredThroughTurnId);
+		}).orElse(null);
 	}
 
-	private ContextWindow rebuildFrom(String conversationId, List<ConversationTurn> turns,
-			ConversationSummary current) {
-		int recentTurns = Math.max(1, properties.getMemory().getRecentTurns());
+	public void delete(String conversationId) {
+		if (StringUtils.isNotBlank(conversationId)) {
+			store.deleteItem(summaryNamespace(conversationId), SUMMARY_KEY);
+		}
+	}
+
+	private Summary rebuildFrom(String conversationId, List<ConversationTurn> turns, Summary current) {
+		int recentTurns = properties.resolveRecentTurns();
 		int summarizedCount = Math.max(0, turns.size() - recentTurns);
-		List<ConversationTurn> recent = List.copyOf(turns.subList(summarizedCount, turns.size()));
 		if (summarizedCount == 0) {
 			if (current != null) {
-				summaryMapper.deleteByConversationId(conversationId);
+				delete(conversationId);
 			}
-			return new ContextWindow(null, recent);
+			return null;
 		}
 
 		List<ConversationTurn> summarizedTurns = turns.subList(0, summarizedCount);
 		String boundedSummary = buildBoundedSummary(summarizedTurns);
-		ConversationSummary value = ConversationSummary.builder()
-			.conversationId(conversationId)
-			.summaryText(boundedSummary)
-			.coveredThroughTurnId(summarizedTurns.get(summarizedTurns.size() - 1).getId())
-			.build();
-		if (current == null || !Objects.equals(current.getSummaryText(), value.getSummaryText())
-				|| !Objects.equals(current.getCoveredThroughTurnId(), value.getCoveredThroughTurnId())) {
-			save(value, current);
+		Summary value = new Summary(boundedSummary, summarizedTurns.get(summarizedTurns.size() - 1).getId());
+		if (!Objects.equals(current, value)) {
+			store.putItem(StoreItem.of(summaryNamespace(conversationId), SUMMARY_KEY,
+					Map.of("summaryText", value.summaryText(), "coveredThroughTurnId", value.coveredThroughTurnId())));
 		}
-		return new ContextWindow(value, recent);
+		return value;
 	}
 
-	private void save(ConversationSummary value, ConversationSummary current) {
-		if (current != null) {
-			summaryMapper.update(value);
-			return;
-		}
-		try {
-			summaryMapper.insert(value);
-		}
-		catch (DuplicateKeyException concurrentInsert) {
-			summaryMapper.update(value);
-		}
+	static List<String> summaryNamespace(String conversationId) {
+		return List.of("data-agent", "conversation-summary", conversationId);
 	}
 
 	private String buildBoundedSummary(List<ConversationTurn> summarizedTurns) {
@@ -149,7 +144,7 @@ public class ConversationSummaryService {
 		return "- 问题：" + StringUtils.abbreviate(query, 500) + "\n  已验证结果：" + StringUtils.abbreviate(result, 800) + '\n';
 	}
 
-	public record ContextWindow(ConversationSummary summary, List<ConversationTurn> recentTurns) {
+	public record Summary(String summaryText, String coveredThroughTurnId) {
 	}
 
 }

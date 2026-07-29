@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS conversation_turn (
   INDEX idx_conversation_turn_status (status, memory_eligible),
   INDEX idx_conversation_turn_datasource (datasource_id),
   FOREIGN KEY (conversation_id) REFERENCES chat_session(id) ON DELETE CASCADE
-) ENGINE = InnoDB COMMENT = '逻辑对话轮次表';
+) ENGINE = InnoDB COMMENT = '对话轮次执行审计与可验证记忆事实源';
 
 CREATE TABLE IF NOT EXISTS turn_run (
   run_id VARCHAR(36) NOT NULL COMMENT 'Graph运行ID',
@@ -55,17 +55,6 @@ CREATE TABLE IF NOT EXISTS turn_artifact (
   INDEX idx_turn_artifact_turn (turn_id),
   FOREIGN KEY (turn_id) REFERENCES conversation_turn(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '对话轮次执行产物表';
-
-CREATE TABLE IF NOT EXISTS conversation_summary (
-  conversation_id VARCHAR(36) NOT NULL,
-  summary_text TEXT NOT NULL,
-  covered_through_turn_id VARCHAR(36) COMMENT '摘要处理到的最后轮次',
-  version BIGINT NOT NULL DEFAULT 1,
-  create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (conversation_id),
-  FOREIGN KEY (conversation_id) REFERENCES chat_session(id) ON DELETE CASCADE
-) ENGINE = InnoDB COMMENT = '会话滚动摘要表';
 
 CREATE TABLE IF NOT EXISTS memory_item (
   id BIGINT NOT NULL AUTO_INCREMENT,
