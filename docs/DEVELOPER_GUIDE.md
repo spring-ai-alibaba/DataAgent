@@ -165,7 +165,7 @@ public class AgentVectorStoreService {
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
-| `recent-turns` | 原样注入的最近成功轮次，也是 Spring AI ChatMemory 投影窗口 | 3 |
+| `recent-turns` | 从关系库事实源原样注入的最近成功轮次 | 3 |
 | `max-summary-length` | 可重建滚动摘要的最大字符数 | 4000 |
 | `max-result-summary-length` | 单轮结果摘要最大字符数 | 2000 |
 | `long-term-top-k` | 每次注入的已确认长期记忆上限 | 5 |
@@ -176,7 +176,10 @@ public class AgentVectorStoreService {
 | `outbox-batch-size` | 单批投影事件数量 | 20 |
 | `outbox-max-attempts` | 投影事件最大尝试次数 | 5 |
 
-已有 MySQL 环境升级时，需先执行更新后的 `data-agent-management/src/main/resources/sql/schema.sql`。短期和长期记忆表不存在时，Graph 请求不会降级为旧记忆实现。
+已有 MySQL 环境升级时，需先执行版本化脚本
+`data-agent-management/src/main/resources/sql/migration/V20260729_01__create_durable_memory.sql`；
+全新环境继续使用 `data-agent-management/src/main/resources/sql/schema.sql`。短期和长期记忆表不存在时，
+Graph 请求不会降级为旧记忆实现。
 
 ### 3. 嵌入模型批处理策略 (Embedding Batch)
 

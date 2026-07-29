@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.service.memory;
 import com.alibaba.cloud.ai.dataagent.entity.ConversationTurn;
 import com.alibaba.cloud.ai.dataagent.entity.MemoryItem;
 import com.alibaba.cloud.ai.dataagent.mapper.ChatMessageMapper;
+import com.alibaba.cloud.ai.dataagent.mapper.ChatSessionMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationSummaryMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationTurnMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.MemoryItemMapper;
@@ -51,6 +52,9 @@ class ConversationMemoryDeletionServiceTest {
 	private ChatMemory chatMemory;
 
 	@Mock
+	private ChatSessionMapper chatSessionMapper;
+
+	@Mock
 	private MemoryOutboxService outboxService;
 
 	private ConversationMemoryDeletionService service;
@@ -58,7 +62,7 @@ class ConversationMemoryDeletionServiceTest {
 	@BeforeEach
 	void setUp() {
 		service = new ConversationMemoryDeletionService(turnMapper, summaryMapper, memoryItemMapper, chatMessageMapper,
-				chatMemory, outboxService);
+				chatSessionMapper, chatMemory, outboxService);
 	}
 
 	@Test
@@ -70,6 +74,7 @@ class ConversationMemoryDeletionServiceTest {
 
 		service.forgetConversation("conversation-1");
 
+		verify(chatSessionMapper).lockBySessionId("conversation-1");
 		verify(outboxService).enqueue("CONVERSATION_TURN", "turn-1", MemoryEventType.TURN_INVALIDATED, null);
 		verify(outboxService).enqueue("MEMORY_ITEM", "10", MemoryEventType.MEMORY_INVALIDATED, null);
 		verify(memoryItemMapper).deleteByConversationId("conversation-1");

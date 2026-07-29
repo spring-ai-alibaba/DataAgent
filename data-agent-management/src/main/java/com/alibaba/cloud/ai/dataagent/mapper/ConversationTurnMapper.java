@@ -45,7 +45,7 @@ public interface ConversationTurnMapper {
 			WHERE conversation_id = #{conversationId}
 			  AND status = 'SUCCEEDED'
 			  AND memory_eligible = 1
-			ORDER BY observed_at DESC, create_time DESC
+			ORDER BY observed_at DESC, create_time DESC, id DESC
 			LIMIT #{limit}
 			""")
 	List<ConversationTurn> selectRecentSuccessful(@Param("conversationId") String conversationId,
@@ -56,7 +56,7 @@ public interface ConversationTurnMapper {
 			WHERE conversation_id = #{conversationId}
 			  AND status = 'SUCCEEDED'
 			  AND memory_eligible = 1
-			ORDER BY observed_at ASC, create_time ASC
+			ORDER BY observed_at ASC, create_time ASC, id ASC
 			""")
 	List<ConversationTurn> selectAllSuccessful(@Param("conversationId") String conversationId);
 
@@ -67,7 +67,7 @@ public interface ConversationTurnMapper {
 			  AND status = 'SUCCEEDED'
 			  AND memory_eligible = 1
 			  AND (#{datasourceId} IS NULL OR datasource_id = #{datasourceId})
-			ORDER BY observed_at DESC, create_time DESC
+			ORDER BY observed_at DESC, create_time DESC, id DESC
 			LIMIT #{limit}
 			""")
 	List<ConversationTurn> selectRecentSuccessfulByOwner(@Param("ownerId") Long ownerId,
@@ -88,8 +88,10 @@ public interface ConversationTurnMapper {
 
 	@Update("""
 			UPDATE conversation_turn
-			SET accepted_run_id = #{runId}, status = 'RUNNING', update_time = NOW()
+			SET status = 'RUNNING', update_time = NOW()
 			WHERE id = #{turnId}
+			  AND accepted_run_id = #{runId}
+			  AND status = 'WAITING_REVIEW'
 			""")
 	int markRunning(@Param("turnId") String turnId, @Param("runId") String runId);
 
@@ -97,8 +99,10 @@ public interface ConversationTurnMapper {
 			UPDATE conversation_turn
 			SET status = 'WAITING_REVIEW', update_time = NOW()
 			WHERE id = #{turnId}
+			  AND accepted_run_id = #{runId}
+			  AND status = 'RUNNING'
 			""")
-	int markWaitingReview(@Param("turnId") String turnId);
+	int markWaitingReview(@Param("turnId") String turnId, @Param("runId") String runId);
 
 	@Update("""
 			UPDATE conversation_turn
@@ -115,6 +119,8 @@ public interface ConversationTurnMapper {
 			    completed_at = #{completedAt},
 			    update_time = NOW()
 			WHERE id = #{id}
+			  AND accepted_run_id = #{acceptedRunId}
+			  AND status = 'RUNNING'
 			""")
 	int complete(ConversationTurn turn);
 
@@ -122,8 +128,11 @@ public interface ConversationTurnMapper {
 			UPDATE conversation_turn
 			SET status = #{status}, memory_eligible = 0, completed_at = NOW(), update_time = NOW()
 			WHERE id = #{turnId}
+			  AND accepted_run_id = #{runId}
+			  AND status IN ('RUNNING', 'WAITING_REVIEW')
 			""")
-	int markTerminal(@Param("turnId") String turnId, @Param("status") TurnStatus status);
+	int markTerminal(@Param("turnId") String turnId, @Param("runId") String runId,
+			@Param("status") TurnStatus status);
 
 	@Delete("DELETE FROM conversation_turn WHERE conversation_id = #{conversationId}")
 	int deleteByConversationId(@Param("conversationId") String conversationId);

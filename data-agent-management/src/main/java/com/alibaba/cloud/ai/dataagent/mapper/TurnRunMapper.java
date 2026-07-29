@@ -35,17 +35,38 @@ public interface TurnRunMapper {
 
 	@Update("""
 			UPDATE turn_run
-			SET status = #{status}, error_message = #{errorMessage}, update_time = NOW()
-			WHERE run_id = #{runId}
+			SET status = 'RUNNING', error_message = NULL, update_time = NOW()
+			WHERE run_id = #{runId} AND status = 'WAITING_REVIEW'
 			""")
-	int updateStatus(@Param("runId") String runId, @Param("status") TurnStatus status,
-			@Param("errorMessage") String errorMessage);
+	int resume(@Param("runId") String runId);
 
 	@Update("""
 			UPDATE turn_run
 			SET attempt = attempt + 1, status = 'RUNNING', error_message = NULL, update_time = NOW()
-			WHERE run_id = #{runId}
+			WHERE run_id = #{runId} AND status = 'WAITING_REVIEW'
 			""")
 	int incrementAttempt(@Param("runId") String runId);
+
+	@Update("""
+			UPDATE turn_run
+			SET status = 'WAITING_REVIEW', error_message = NULL, update_time = NOW()
+			WHERE run_id = #{runId} AND status = 'RUNNING'
+			""")
+	int markWaitingReview(@Param("runId") String runId);
+
+	@Update("""
+			UPDATE turn_run
+			SET status = 'SUCCEEDED', error_message = NULL, update_time = NOW()
+			WHERE run_id = #{runId} AND status = 'RUNNING'
+			""")
+	int markSucceeded(@Param("runId") String runId);
+
+	@Update("""
+			UPDATE turn_run
+			SET status = #{status}, error_message = #{errorMessage}, update_time = NOW()
+			WHERE run_id = #{runId} AND status IN ('RUNNING', 'WAITING_REVIEW')
+			""")
+	int markTerminal(@Param("runId") String runId, @Param("status") TurnStatus status,
+			@Param("errorMessage") String errorMessage);
 
 }

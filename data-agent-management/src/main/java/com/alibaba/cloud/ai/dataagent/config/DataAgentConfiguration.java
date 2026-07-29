@@ -326,7 +326,7 @@ public class DataAgentConfiguration implements DisposableBean {
 	@Bean
 	@ConditionalOnMissingBean(ChatMemory.class)
 	public ChatMemory chatMemory(ChatMemoryRepository chatMemoryRepository, DataAgentProperties properties) {
-		int maxMessages = Math.max(2, properties.getMemory().getRecentTurns() * 2);
+		int maxMessages = Math.max(2, properties.getMaxturnhistory() * 2);
 		return MessageWindowChatMemory.builder()
 			.chatMemoryRepository(chatMemoryRepository)
 			.maxMessages(maxMessages)

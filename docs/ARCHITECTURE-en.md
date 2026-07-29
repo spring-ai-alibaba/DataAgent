@@ -465,7 +465,7 @@ sequenceDiagram
 
 - **Streaming Output**: `GraphController` SSE + `GraphServiceImpl` streaming processing
 - **Text Markers**: `TextType` marks SQL/JSON/HTML/Markdown in the stream, frontend renders accordingly
-- **Short-term Memory**: `ConversationTurnService` commits only successful, verified turns; `ConversationContextAssembler` injects the rolling summary and recent successful turns
+- **Short-term Memory**: `ConversationTurnService` commits only successful, verified turns; `ConversationContextAssembler` synchronizes the rolling summary from relational truth and injects recent successful turns
 - **Long-term Memory**: `memory_item` uses a `CANDIDATE → CONFIRMED` review gate; MySQL is authoritative and the vector store is an optional index
 - **Isolation Keys**: `conversationId` identifies the stable chat, `threadId` identifies one graph run, and `turnId` identifies the logical turn
 - **Mode Switching**: `spring.ai.alibaba.data-agent.llm-service-type` supports `STREAM/BLOCK`
@@ -482,7 +482,7 @@ flowchart LR
   GraphSvc --> Turn[ConversationTurnService]
   Turn --> TurnDB[(conversation_turn)]
   Turn --> Outbox[(memory_outbox)]
-  Outbox --> Projection[Summary ChatMemory Vector Index]
+  Outbox --> Projection[Summary Vector Index]
   GraphSvc --> Graph[CompiledGraph]
   Graph --> LLM[LlmService Stream Block]
   Graph --> TextType[TextType Markers]

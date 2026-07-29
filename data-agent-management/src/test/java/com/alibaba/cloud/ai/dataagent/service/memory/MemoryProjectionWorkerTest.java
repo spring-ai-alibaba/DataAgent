@@ -49,21 +49,18 @@ class MemoryProjectionWorkerTest {
 	private ConversationSummaryService summaryService;
 
 	@Mock
-	private ShortTermMemoryProjectionService shortTermMemoryProjectionService;
-
-	@Mock
 	private MemoryVectorIndexService vectorIndexService;
 
 	private MemoryProjectionWorker worker;
 
 	@BeforeEach
 	void setUp() {
-		worker = new MemoryProjectionWorker(outboxMapper, turnMapper, memoryItemMapper, summaryService,
-				shortTermMemoryProjectionService, vectorIndexService, new DataAgentProperties());
+		worker = new MemoryProjectionWorker(outboxMapper, turnMapper, memoryItemMapper, summaryService, vectorIndexService,
+				new DataAgentProperties());
 	}
 
 	@Test
-	void successfulTurnEventRebuildsEveryProjectionAndIsMarkedDone() {
+	void successfulTurnEventRebuildsDerivedIndexesAndIsMarkedDone() {
 		MemoryOutboxEvent event = event(1L, MemoryEventType.TURN_SUCCEEDED, "turn-1");
 		ConversationTurn turn = ConversationTurn.builder()
 			.id("turn-1")
@@ -78,7 +75,6 @@ class MemoryProjectionWorkerTest {
 
 		verify(outboxMapper).recoverStale(any(LocalDateTime.class));
 		verify(summaryService).rebuild("conversation-1");
-		verify(shortTermMemoryProjectionService).rebuild("conversation-1");
 		verify(vectorIndexService).indexTurn(turn);
 		verify(outboxMapper).markDone(1L);
 		verify(outboxMapper, never()).markFailed(anyLong(), anyString(), any(LocalDateTime.class));

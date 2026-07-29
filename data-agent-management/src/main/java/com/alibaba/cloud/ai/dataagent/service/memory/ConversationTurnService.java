@@ -62,6 +62,7 @@ public class ConversationTurnService {
 
 	@Transactional
 	public String beginTurn(String conversationId, Integer agentId, String runId, String rawQuery, boolean titleNeeded) {
+		chatSessionMapper.lockBySessionId(conversationId);
 		ChatSession session = chatSessionMapper.selectBySessionId(conversationId);
 		if (session == null) {
 			log.debug("Conversation {} is not a persisted chat session; skipping durable turn creation", conversationId);
@@ -81,9 +82,9 @@ public class ConversationTurnService {
 			.status(TurnStatus.RUNNING)
 			.memoryEligible(false)
 			.build();
-			turnMapper.insert(turn);
-			runMapper.insert(TurnRun.builder().runId(runId).turnId(turnId).status(TurnStatus.RUNNING).build());
-			saveOrAttachUserMessage(conversationId, rawQuery, turnId, runId);
+		turnMapper.insert(turn);
+		runMapper.insert(TurnRun.builder().runId(runId).turnId(turnId).status(TurnStatus.RUNNING).build());
+		saveOrAttachUserMessage(conversationId, rawQuery, turnId, runId);
 		chatSessionMapper.updateSessionTime(conversationId, LocalDateTime.now());
 		if (titleNeeded) {
 			sessionTitleService.scheduleTitleGeneration(conversationId, rawQuery);
@@ -101,13 +102,13 @@ public class ConversationTurnService {
 		if (run == null || StringUtils.isBlank(resolvedTurnId) || !resolvedTurnId.equals(run.getTurnId())) {
 			throw new IllegalArgumentException("Run does not belong to turn " + turnId);
 		}
-		if (rejectedPlan) {
-			runMapper.incrementAttempt(runId);
+		if (turnMapper.markRunning(resolvedTurnId, runId) != 1) {
+			throw new IllegalStateException("Turn is no longer waiting for review: " + resolvedTurnId);
 		}
-		else {
-			runMapper.updateStatus(runId, TurnStatus.RUNNING, null);
+		int runUpdated = rejectedPlan ? runMapper.incrementAttempt(runId) : runMapper.resume(runId);
+		if (runUpdated != 1) {
+			throw new IllegalStateException("Run is no longer waiting for review: " + runId);
 		}
-		turnMapper.markRunning(resolvedTurnId, runId);
 		return resolvedTurnId;
 	}
 
@@ -116,8 +117,12 @@ public class ConversationTurnService {
 		if (StringUtils.isAnyBlank(turnId, runId)) {
 			return;
 		}
-		runMapper.updateStatus(runId, TurnStatus.WAITING_REVIEW, null);
-		turnMapper.markWaitingReview(turnId);
+		if (turnMapper.markWaitingReview(turnId, runId) != 1) {
+			throw new IllegalStateException("Turn is no longer running: " + turnId);
+		}
+		if (runMapper.markWaitingReview(runId) != 1) {
+			throw new IllegalStateException("Run is no longer running: " + runId);
+		}
 		storeArtifact(turnId, runId, TurnArtifactType.TIMELINE, timelineJson);
 		saveTimelineMessage(turnId, runId, timelineJson);
 	}
@@ -130,7 +135,13 @@ public class ConversationTurnService {
 		}
 		ConversationTurn existing = turnMapper.selectById(turnId);
 		if (existing == null) {
+			throw new IllegalStateException("Turn no longer exists: " + turnId);
+		}
+		if (existing.getStatus() == TurnStatus.SUCCEEDED && runId.equals(existing.getAcceptedRunId())) {
 			return;
+		}
+		if (existing.getStatus() == TurnStatus.FAILED || existing.getStatus() == TurnStatus.CANCELLED) {
+			throw new IllegalStateException("Turn is already terminal: " + turnId);
 		}
 		String finalAnswer = StringUtils.defaultIfBlank(snapshot.getFinalAnswer(), reportContent);
 		String resultSummary = bounded(StringUtils.defaultIfBlank(finalAnswer, snapshot.resultArtifactJson()),
@@ -151,8 +162,12 @@ public class ConversationTurnService {
 			.observedAt(now)
 			.completedAt(now)
 			.build();
-		turnMapper.complete(completed);
-		runMapper.updateStatus(runId, TurnStatus.SUCCEEDED, null);
+		if (turnMapper.complete(completed) != 1) {
+			throw new IllegalStateException("Turn is no longer active: " + turnId);
+		}
+		if (runMapper.markSucceeded(runId) != 1) {
+			throw new IllegalStateException("Run is no longer active: " + runId);
+		}
 		storeArtifact(turnId, runId, TurnArtifactType.PLAN, snapshot.getPlannerJson());
 		storeArtifact(turnId, runId, TurnArtifactType.SQL, snapshot.sqlArtifactJson());
 		storeArtifact(turnId, runId, TurnArtifactType.RESULT, snapshot.resultArtifactJson());
@@ -176,8 +191,13 @@ public class ConversationTurnService {
 				? StringUtils.abbreviate(StringUtils.defaultIfBlank(error.getMessage(), error.getClass().getSimpleName()),
 						4000)
 				: "Unknown graph error";
-		runMapper.updateStatus(runId, TurnStatus.FAILED, message);
-		turnMapper.markTerminal(turnId, TurnStatus.FAILED);
+		if (turnMapper.markTerminal(turnId, runId, TurnStatus.FAILED) != 1) {
+			log.debug("Ignoring failure for a stale or terminal turn: {}", turnId);
+			return;
+		}
+		if (runMapper.markTerminal(runId, TurnStatus.FAILED, message) != 1) {
+			throw new IllegalStateException("Run is no longer active: " + runId);
+		}
 		storeArtifact(turnId, runId, TurnArtifactType.TIMELINE, timelineJson);
 		ConversationTurn turn = turnMapper.selectById(turnId);
 		if (turn != null) {
@@ -191,8 +211,14 @@ public class ConversationTurnService {
 		if (StringUtils.isAnyBlank(turnId, runId)) {
 			return;
 		}
-		runMapper.updateStatus(runId, TurnStatus.CANCELLED, "Cancelled by user or disconnected client");
-		turnMapper.markTerminal(turnId, TurnStatus.CANCELLED);
+		String reason = "Cancelled by user or disconnected client";
+		if (turnMapper.markTerminal(turnId, runId, TurnStatus.CANCELLED) != 1) {
+			log.debug("Ignoring cancellation for a stale or terminal turn: {}", turnId);
+			return;
+		}
+		if (runMapper.markTerminal(runId, TurnStatus.CANCELLED, reason) != 1) {
+			throw new IllegalStateException("Run is no longer active: " + runId);
+		}
 		storeArtifact(turnId, runId, TurnArtifactType.TIMELINE, timelineJson);
 		ConversationTurn turn = turnMapper.selectById(turnId);
 		if (turn != null) {

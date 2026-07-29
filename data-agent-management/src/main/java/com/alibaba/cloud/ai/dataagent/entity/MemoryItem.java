@@ -51,6 +51,17 @@ public class MemoryItem {
 
 	private String valueJson;
 
+	/**
+	 * Stable hash of scope, kind and key. It is computed by the server and used to
+	 * enforce one active confirmed value per logical memory identity.
+	 */
+	private String identityHash;
+
+	/**
+	 * Equals {@link #identityHash} only while the item is CONFIRMED; otherwise null.
+	 */
+	private String activeIdentityHash;
+
 	private String sourceTurnId;
 
 	@Builder.Default

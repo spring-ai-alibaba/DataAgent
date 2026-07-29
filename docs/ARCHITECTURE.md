@@ -474,7 +474,7 @@ sequenceDiagram
 
 - **流式输出**: `GraphController` SSE + `GraphServiceImpl` 流式处理
 - **文本标记**: `TextType` 在流中标记 SQL/JSON/HTML/Markdown，前端据此渲染
-- **短期记忆**: `ConversationTurnService` 只提交成功且可验证的轮次；`ConversationContextAssembler` 注入滚动摘要和最近成功轮次
+- **短期记忆**: `ConversationTurnService` 只提交成功且可验证的轮次；`ConversationContextAssembler` 从关系库事实源同步校准滚动摘要并注入最近成功轮次
 - **长期记忆**: `memory_item` 采用 `CANDIDATE → CONFIRMED` 审核门，MySQL 是事实源，向量库只是可选索引
 - **隔离键**: `conversationId` 是稳定会话，`threadId` 是单次 Graph 运行，`turnId` 是逻辑对话轮次
 - **模式切换**: `spring.ai.alibaba.data-agent.llm-service-type` 支持 `STREAM/BLOCK`
@@ -491,7 +491,7 @@ flowchart LR
   GraphSvc --> Turn[ConversationTurnService]
   Turn --> TurnDB[(conversation_turn)]
   Turn --> Outbox[(memory_outbox)]
-  Outbox --> Projection[Summary ChatMemory Vector Index]
+  Outbox --> Projection[Summary Vector Index]
   GraphSvc --> Graph[CompiledGraph]
   Graph --> LLM[LlmService Stream Block]
   Graph --> TextType[TextType Markers]

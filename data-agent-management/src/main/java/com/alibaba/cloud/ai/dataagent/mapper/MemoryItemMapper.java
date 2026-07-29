@@ -27,18 +27,30 @@ public interface MemoryItemMapper {
 	@Insert("""
 			INSERT INTO memory_item
 			    (scope_type, owner_id, agent_id, datasource_id, memory_kind, memory_key, value_json,
-			     source_turn_id, status, confidence, schema_fingerprint, valid_until, supersedes_id,
+			     identity_hash, active_identity_hash, source_turn_id, status, confidence,
+			     schema_fingerprint, valid_until, supersedes_id,
 			     create_time, update_time)
 			VALUES
 			    (#{scopeType}, #{ownerId}, #{agentId}, #{datasourceId}, #{memoryKind}, #{memoryKey},
-			     #{valueJson}, #{sourceTurnId}, #{status}, #{confidence}, #{schemaFingerprint},
-			     #{validUntil}, #{supersedesId}, NOW(), NOW())
+			     #{valueJson}, #{identityHash}, #{activeIdentityHash}, #{sourceTurnId}, #{status},
+			     #{confidence}, #{schemaFingerprint}, #{validUntil}, #{supersedesId}, NOW(), NOW())
 			""")
 	@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
 	int insert(MemoryItem item);
 
 	@Select("SELECT * FROM memory_item WHERE id = #{id}")
 	MemoryItem selectById(@Param("id") Long id);
+
+	@Select("SELECT * FROM memory_item WHERE id = #{id} FOR UPDATE")
+	MemoryItem selectByIdForUpdate(@Param("id") Long id);
+
+	@Select("""
+			SELECT * FROM memory_item
+			WHERE active_identity_hash = #{identityHash}
+			LIMIT 1
+			FOR UPDATE
+			""")
+	MemoryItem selectConfirmedByIdentityHashForUpdate(@Param("identityHash") String identityHash);
 
 	@Select("""
 			<script>
@@ -92,17 +104,24 @@ public interface MemoryItemMapper {
 
 	@Update("""
 			UPDATE memory_item
-			SET status = #{status}, update_time = NOW()
-			WHERE id = #{id}
+			SET status = 'CONFIRMED', active_identity_hash = identity_hash, update_time = NOW()
+			WHERE id = #{id} AND status = 'CANDIDATE'
 			""")
-	int updateStatus(@Param("id") Long id, @Param("status") MemoryStatus status);
+	int confirmCandidate(@Param("id") Long id);
 
 	@Update("""
 			UPDATE memory_item
-			SET status = 'SUPERSEDED', update_time = NOW()
+			SET status = 'SUPERSEDED', active_identity_hash = NULL, update_time = NOW()
 			WHERE id = #{id} AND status = 'CONFIRMED'
 			""")
 	int markSuperseded(@Param("id") Long id);
+
+	@Update("""
+			UPDATE memory_item
+			SET status = 'INVALIDATED', active_identity_hash = NULL, update_time = NOW()
+			WHERE id = #{id} AND status IN ('CANDIDATE', 'CONFIRMED')
+			""")
+	int invalidate(@Param("id") Long id);
 
 	@Delete("DELETE FROM memory_item WHERE source_turn_id IN (SELECT id FROM conversation_turn WHERE conversation_id = #{conversationId})")
 	int deleteByConversationId(@Param("conversationId") String conversationId);

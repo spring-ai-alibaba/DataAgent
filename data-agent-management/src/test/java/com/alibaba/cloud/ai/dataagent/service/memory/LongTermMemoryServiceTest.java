@@ -28,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
@@ -63,13 +64,54 @@ class LongTermMemoryServiceTest {
 	@Test
 	void candidateIsNotPromptVisibleUntilExplicitConfirmation() {
 		MemoryItem candidate = item(MemoryScopeType.AGENT);
+		when(mapper.selectByIdForUpdate(10L)).thenReturn(candidate);
+		when(mapper.confirmCandidate(10L)).thenReturn(1);
 		when(mapper.selectById(10L)).thenReturn(candidate);
 
 		service.createCandidate(candidate);
 		service.confirm(10L);
 
-		verify(mapper).insert(argThat(item -> item.getStatus() == MemoryStatus.CANDIDATE));
-		verify(mapper).updateStatus(10L, MemoryStatus.CONFIRMED);
+		verify(mapper).insert(argThat(item -> item.getStatus() == MemoryStatus.CANDIDATE
+				&& item.getIdentityHash() != null && item.getActiveIdentityHash() == null));
+		verify(mapper).confirmCandidate(10L);
+		verify(outboxService).enqueue("MEMORY_ITEM", "10", MemoryEventType.MEMORY_CONFIRMED, null);
+	}
+
+	@Test
+	void confirmationRejectsAnotherActiveMemoryWithTheSameIdentity() {
+		MemoryItem candidate = item(MemoryScopeType.AGENT);
+		MemoryItem active = item(MemoryScopeType.AGENT);
+		active.setId(9L);
+		active.setStatus(MemoryStatus.CONFIRMED);
+		service.createCandidate(candidate);
+		when(mapper.selectByIdForUpdate(10L)).thenReturn(candidate);
+		when(mapper.selectConfirmedByIdentityHashForUpdate(candidate.getIdentityHash())).thenReturn(active);
+
+		assertThatThrownBy(() -> service.confirm(10L)).isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("already exists");
+		verify(mapper, never()).confirmCandidate(anyLong());
+	}
+
+	@Test
+	void explicitReplacementAtomicallySupersedesTheCurrentValue() {
+		MemoryItem candidate = item(MemoryScopeType.AGENT);
+		candidate.setSupersedesId(9L);
+		MemoryItem current = item(MemoryScopeType.AGENT);
+		current.setId(9L);
+		current.setStatus(MemoryStatus.CONFIRMED);
+		service.createCandidate(candidate);
+		when(mapper.selectByIdForUpdate(10L)).thenReturn(candidate);
+		when(mapper.selectConfirmedByIdentityHashForUpdate(candidate.getIdentityHash())).thenReturn(current);
+		when(mapper.selectByIdForUpdate(9L)).thenReturn(current);
+		when(mapper.markSuperseded(9L)).thenReturn(1);
+		when(mapper.confirmCandidate(10L)).thenReturn(1);
+		when(mapper.selectById(10L)).thenReturn(candidate);
+
+		service.confirm(10L);
+
+		verify(mapper).markSuperseded(9L);
+		verify(mapper).confirmCandidate(10L);
+		verify(outboxService).enqueue("MEMORY_ITEM", "9", MemoryEventType.MEMORY_INVALIDATED, null);
 		verify(outboxService).enqueue("MEMORY_ITEM", "10", MemoryEventType.MEMORY_CONFIRMED, null);
 	}
 
@@ -174,13 +216,27 @@ class LongTermMemoryServiceTest {
 		superseded.setId(9L);
 		superseded.setDatasourceId(4);
 		superseded.setStatus(MemoryStatus.CONFIRMED);
-		when(mapper.selectById(10L)).thenReturn(candidate);
-		when(mapper.selectById(9L)).thenReturn(superseded);
+		when(mapper.selectByIdForUpdate(10L)).thenReturn(candidate);
+		when(mapper.selectByIdForUpdate(9L)).thenReturn(superseded);
 
 		assertThatThrownBy(() -> service.confirm(10L))
 			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("same agent, scope and key");
+			.hasMessageContaining("same agent, scope, kind and key");
 		verify(mapper, never()).markSuperseded(anyLong());
+	}
+
+	@Test
+	void agentScopeNormalizesIrrelevantOwnerAndDatasourceBeforeHashing() {
+		MemoryItem candidate = item(MemoryScopeType.AGENT);
+		candidate.setOwnerId(99L);
+		candidate.setDatasourceId(3);
+		candidate.setIdentityHash("forged-client-value");
+
+		service.createCandidate(candidate);
+
+		assertThat(candidate.getOwnerId()).isNull();
+		assertThat(candidate.getDatasourceId()).isNull();
+		assertThat(candidate.getIdentityHash()).hasSize(64).isNotEqualTo("forged-client-value");
 	}
 
 	private MemoryItem item(MemoryScopeType scopeType) {

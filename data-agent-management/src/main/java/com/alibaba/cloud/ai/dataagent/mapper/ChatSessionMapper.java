@@ -44,6 +44,12 @@ public interface ChatSessionMapper {
 	ChatSession selectBySessionId(@Param("sessionId") String sessionId);
 
 	/**
+	 * Serialize derived-memory rebuilds for one persisted conversation.
+	 */
+	@Select("SELECT id FROM chat_session WHERE id = #{sessionId} FOR UPDATE")
+	String lockBySessionId(@Param("sessionId") String sessionId);
+
+	/**
 	 * Update session
 	 */
 	@Update("""

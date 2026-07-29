@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.service.memory;
 
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
+import com.alibaba.cloud.ai.dataagent.entity.ConversationSummary;
 import com.alibaba.cloud.ai.dataagent.entity.ConversationTurn;
 import com.alibaba.cloud.ai.dataagent.entity.MemoryItem;
 import com.alibaba.cloud.ai.dataagent.enums.MemoryKind;
@@ -60,8 +61,10 @@ class ConversationContextAssemblerTest {
 	@BeforeEach
 	void setUp() {
 		properties = new DataAgentProperties();
-		assembler = new ConversationContextAssembler(turnMapper, summaryMapper, chatSessionMapper, agentDatasourceMapper,
-				longTermMemoryService, vectorIndexService, properties);
+		ConversationSummaryService summaryService = new ConversationSummaryService(turnMapper, summaryMapper,
+				chatSessionMapper, properties);
+		assembler = new ConversationContextAssembler(turnMapper, chatSessionMapper, agentDatasourceMapper,
+				longTermMemoryService, vectorIndexService, summaryService, properties);
 	}
 
 	@Test
@@ -69,7 +72,7 @@ class ConversationContextAssemblerTest {
 		when(chatSessionMapper.selectBySessionId("conversation-1"))
 			.thenReturn(ChatSession.builder().id("conversation-1").userId(99L).build());
 		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(7L)).thenReturn(3);
-		when(turnMapper.selectRecentSuccessful("conversation-1", 3)).thenReturn(List.of(ConversationTurn.builder()
+		when(turnMapper.selectAllSuccessful("conversation-1")).thenReturn(List.of(ConversationTurn.builder()
 			.id("turn-1")
 			.rawQuery("sales")
 			.canonicalQuery("monthly sales")
@@ -95,7 +98,7 @@ class ConversationContextAssemblerTest {
 		when(chatSessionMapper.selectBySessionId("conversation-1"))
 			.thenReturn(ChatSession.builder().id("conversation-1").userId(99L).build());
 		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(7L)).thenReturn(3);
-		when(turnMapper.selectRecentSuccessful("conversation-1", 3)).thenReturn(List.of());
+		when(turnMapper.selectAllSuccessful("conversation-1")).thenReturn(List.of());
 		when(vectorIndexService.recallTurnIds("sales", 99L, 7, 3, 3))
 			.thenReturn(List.of("wrong-owner", "wrong-agent", "wrong-datasource", "valid"));
 		when(turnMapper.selectSuccessfulByIds(anyList())).thenReturn(List.of(
@@ -109,6 +112,35 @@ class ConversationContextAssemblerTest {
 
 		assertThat(context).contains("allowed-data")
 			.doesNotContain("private-owner-data", "private-agent-data", "private-datasource-data");
+	}
+
+	@Test
+	void staleSummaryCannotCreateAGapBeforeTheRecentWindow() {
+		when(chatSessionMapper.selectBySessionId("conversation-1"))
+			.thenReturn(ChatSession.builder().id("conversation-1").build());
+		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(7L)).thenReturn(3);
+		when(summaryMapper.selectByConversationId("conversation-1")).thenReturn(ConversationSummary.builder()
+			.conversationId("conversation-1")
+			.summaryText("turns 1 through 7")
+			.coveredThroughTurnId("turn-7")
+			.build());
+		when(turnMapper.selectAllSuccessful("conversation-1")).thenReturn(List.of(
+				episode("turn-1", "turn-1-result", null, 7, 3),
+				episode("turn-2", "turn-2-result", null, 7, 3),
+				episode("turn-3", "turn-3-result", null, 7, 3),
+				episode("turn-4", "turn-4-result", null, 7, 3),
+				episode("turn-5", "turn-5-result", null, 7, 3),
+				episode("turn-6", "turn-6-result", null, 7, 3),
+				episode("turn-7", "turn-7-result", null, 7, 3),
+				episode("turn-8", "turn-8-result", null, 7, 3),
+				episode("turn-9", "turn-9-result", null, 7, 3),
+				episode("turn-10", "turn-10-result", null, 7, 3),
+				episode("turn-11", "turn-11-result", null, 7, 3)));
+		when(longTermMemoryService.recallRelevant("sales", null, 7, 3, 5)).thenReturn(List.of());
+
+		String context = assembler.build("conversation-1", 7, "sales");
+
+		assertThat(context).contains("turn-8-result", "turn-9-result", "turn-10-result", "turn-11-result");
 	}
 
 	private ConversationTurn episode(String id, String result, Long ownerId, Integer agentId, Integer datasourceId) {

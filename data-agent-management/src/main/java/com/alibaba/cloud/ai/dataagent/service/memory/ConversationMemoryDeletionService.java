@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.service.memory;
 import com.alibaba.cloud.ai.dataagent.entity.ConversationTurn;
 import com.alibaba.cloud.ai.dataagent.entity.MemoryItem;
 import com.alibaba.cloud.ai.dataagent.mapper.ChatMessageMapper;
+import com.alibaba.cloud.ai.dataagent.mapper.ChatSessionMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationSummaryMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationTurnMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.MemoryItemMapper;
@@ -43,12 +44,15 @@ public class ConversationMemoryDeletionService {
 
 	private final ChatMessageMapper chatMessageMapper;
 
+	private final ChatSessionMapper chatSessionMapper;
+
 	private final ChatMemory chatMemory;
 
 	private final MemoryOutboxService outboxService;
 
 	@Transactional
 	public void forgetConversation(String conversationId) {
+		chatSessionMapper.lockBySessionId(conversationId);
 		List<ConversationTurn> turns = turnMapper.selectByConversationId(conversationId);
 		List<MemoryItem> memoryItems = memoryItemMapper.selectByConversationId(conversationId);
 		turns.forEach(turn -> outboxService.enqueue("CONVERSATION_TURN", turn.getId(),

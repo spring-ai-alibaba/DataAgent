@@ -265,7 +265,7 @@ CREATE TABLE IF NOT EXISTS turn_artifact (
 CREATE TABLE IF NOT EXISTS conversation_summary (
   conversation_id VARCHAR(36) NOT NULL,
   summary_text TEXT NOT NULL,
-  covered_through_turn_id VARCHAR(36) COMMENT '摘要覆盖到的最后轮次',
+  covered_through_turn_id VARCHAR(36) COMMENT '摘要处理到的最后轮次',
   version BIGINT NOT NULL DEFAULT 1,
   create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -282,6 +282,8 @@ CREATE TABLE IF NOT EXISTS memory_item (
   memory_kind VARCHAR(32) NOT NULL COMMENT 'PREFERENCE/CORRECTION/QUERY_PATTERN',
   memory_key VARCHAR(255) NOT NULL,
   value_json MEDIUMTEXT NOT NULL,
+  identity_hash CHAR(64) NOT NULL COMMENT '作用域、类型和键组成的稳定身份哈希',
+  active_identity_hash CHAR(64) COMMENT '仅CONFIRMED状态持有，用于保证单一有效值',
   source_turn_id VARCHAR(36) COMMENT '来源轮次',
   status VARCHAR(32) NOT NULL DEFAULT 'CANDIDATE' COMMENT 'CANDIDATE/CONFIRMED/SUPERSEDED/INVALIDATED',
   confidence DECIMAL(5,4) NOT NULL DEFAULT 1.0000,
@@ -291,9 +293,14 @@ CREATE TABLE IF NOT EXISTS memory_item (
   create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  UNIQUE KEY uk_memory_item_active_identity (active_identity_hash),
   INDEX idx_memory_item_scope (scope_type, owner_id, agent_id, datasource_id, status),
   INDEX idx_memory_item_key (memory_key),
   INDEX idx_memory_item_source_turn (source_turn_id),
+  CONSTRAINT chk_memory_item_active_identity CHECK (
+    (status = 'CONFIRMED' AND active_identity_hash IS NOT NULL AND active_identity_hash = identity_hash)
+    OR (status <> 'CONFIRMED' AND active_identity_hash IS NULL)
+  ),
   FOREIGN KEY (source_turn_id) REFERENCES conversation_turn(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '长期语义记忆表';
 

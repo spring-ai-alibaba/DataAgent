@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
 import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
+import com.alibaba.cloud.ai.dataagent.exception.MemoryConflictException;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -57,6 +58,12 @@ public class GlobalExceptionHandler {
 			log.warn("Request failed with status {}: {}", e.getStatusCode(), message);
 		}
 		return ResponseEntity.status(e.getStatusCode()).body(ApiResponse.error(message));
+	}
+
+	@ExceptionHandler(MemoryConflictException.class)
+	public ResponseEntity<ApiResponse<Object>> handleMemoryConflictException(MemoryConflictException e) {
+		log.warn("Memory conflict: {}", e.getMessage());
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(e.getMessage()));
 	}
 
 	@ExceptionHandler(Exception.class)

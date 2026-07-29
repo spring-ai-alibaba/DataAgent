@@ -20,18 +20,24 @@ import com.alibaba.cloud.ai.dataagent.entity.ConversationTurn;
 import com.alibaba.cloud.ai.dataagent.enums.MemoryScopeType;
 import com.alibaba.cloud.ai.dataagent.enums.MemoryStatus;
 import com.alibaba.cloud.ai.dataagent.enums.TurnStatus;
+import com.alibaba.cloud.ai.dataagent.exception.MemoryConflictException;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationTurnMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.MemoryItemMapper;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Review-gated source of truth for stable cross-session memories.
@@ -62,37 +68,64 @@ public class LongTermMemoryService {
 
 	@Transactional
 	public MemoryItem confirm(Long id) {
-		MemoryItem item = requireItem(id);
+		MemoryItem item = requireItemForUpdate(id);
 		if (item.getStatus() == MemoryStatus.CONFIRMED) {
 			return item;
 		}
 		if (item.getStatus() != MemoryStatus.CANDIDATE) {
-			throw new IllegalStateException("Only CANDIDATE memory can be confirmed");
+			throw new MemoryConflictException("Only CANDIDATE memory can be confirmed");
 		}
+		ensureIdentity(item);
+		MemoryItem active = mapper.selectConfirmedByIdentityHashForUpdate(item.getIdentityHash());
 		if (item.getSupersedesId() != null) {
-			MemoryItem superseded = requireItem(item.getSupersedesId());
+			MemoryItem superseded = requireItemForUpdate(item.getSupersedesId());
+			ensureIdentity(superseded);
 			if (superseded.getStatus() != MemoryStatus.CONFIRMED) {
 				throw new IllegalArgumentException("Superseded memory must be CONFIRMED");
 			}
-			if (!item.getAgentId().equals(superseded.getAgentId()) || !sameScope(item, superseded)
-					|| !item.getMemoryKey().equals(superseded.getMemoryKey())) {
-				throw new IllegalArgumentException("Superseded memory must have the same agent, scope and key");
+			if (!item.getIdentityHash().equals(superseded.getIdentityHash())) {
+				throw new IllegalArgumentException("Superseded memory must have the same agent, scope, kind and key");
 			}
-			mapper.markSuperseded(superseded.getId());
+			if (active != null && !active.getId().equals(superseded.getId())) {
+				throw new MemoryConflictException("Another confirmed memory already owns this identity");
+			}
+			if (mapper.markSuperseded(superseded.getId()) != 1) {
+				throw new MemoryConflictException("Superseded memory changed concurrently");
+			}
 			outboxService.enqueue("MEMORY_ITEM", superseded.getId().toString(),
 					MemoryEventType.MEMORY_INVALIDATED, null);
 		}
-		mapper.updateStatus(id, MemoryStatus.CONFIRMED);
+		else if (active != null) {
+			throw new MemoryConflictException("A confirmed memory already exists for this scope, kind and key");
+		}
+		try {
+			if (mapper.confirmCandidate(id) != 1) {
+				throw new MemoryConflictException("Memory candidate changed concurrently");
+			}
+		}
+		catch (DataIntegrityViolationException conflict) {
+			throw new MemoryConflictException("A confirmed memory already exists for this scope, kind and key",
+					conflict);
+		}
 		outboxService.enqueue("MEMORY_ITEM", id.toString(), MemoryEventType.MEMORY_CONFIRMED, null);
 		return mapper.selectById(id);
 	}
 
 	@Transactional
 	public MemoryItem invalidate(Long id) {
-		MemoryItem item = requireItem(id);
-		mapper.updateStatus(id, MemoryStatus.INVALIDATED);
+		MemoryItem item = requireItemForUpdate(id);
+		if (item.getStatus() == MemoryStatus.INVALIDATED) {
+			return item;
+		}
+		if (item.getStatus() == MemoryStatus.SUPERSEDED) {
+			throw new MemoryConflictException("SUPERSEDED memory cannot be invalidated");
+		}
+		if (mapper.invalidate(id) != 1) {
+			throw new MemoryConflictException("Memory changed concurrently");
+		}
 		outboxService.enqueue("MEMORY_ITEM", id.toString(), MemoryEventType.MEMORY_INVALIDATED, null);
 		item.setStatus(MemoryStatus.INVALIDATED);
+		item.setActiveIdentityHash(null);
 		return item;
 	}
 
@@ -135,6 +168,15 @@ public class LongTermMemoryService {
 		return item;
 	}
 
+	private MemoryItem requireItemForUpdate(Long id) {
+		Assert.notNull(id, "memory item id is required");
+		MemoryItem item = mapper.selectByIdForUpdate(id);
+		if (item == null) {
+			throw new IllegalArgumentException("Memory item not found: " + id);
+		}
+		return item;
+	}
+
 	private void validate(MemoryItem item) {
 		Assert.notNull(item, "memory item is required");
 		Assert.notNull(item.getScopeType(), "memory scope is required");
@@ -145,6 +187,7 @@ public class LongTermMemoryService {
 		if (item.getMemoryKey().length() > 255) {
 			throw new IllegalArgumentException("memory key must not exceed 255 characters");
 		}
+		item.setMemoryKey(item.getMemoryKey().trim());
 		if (item.getConfidence() == null) {
 			item.setConfidence(BigDecimal.ONE);
 		}
@@ -182,6 +225,7 @@ public class LongTermMemoryService {
 						"USER_AGENT memory requires a verified source turn with server-derived owner identity");
 			}
 			item.setOwnerId(source.getOwnerId());
+			item.setDatasourceId(null);
 		}
 		if (item.getScopeType() == MemoryScopeType.DATASOURCE && source != null) {
 			if (!item.getDatasourceId().equals(source.getDatasourceId())) {
@@ -191,6 +235,16 @@ public class LongTermMemoryService {
 				item.setSchemaFingerprint(source.getSchemaFingerprint());
 			}
 		}
+		if (item.getScopeType() == MemoryScopeType.AGENT) {
+			item.setOwnerId(null);
+			item.setDatasourceId(null);
+		}
+		else if (item.getScopeType() == MemoryScopeType.DATASOURCE) {
+			item.setOwnerId(null);
+		}
+		item.setIdentityHash(null);
+		ensureIdentity(item);
+		item.setActiveIdentityHash(null);
 	}
 
 	private boolean isAllowed(MemoryItem item, Long ownerId, Integer agentId, Integer datasourceId) {
@@ -204,15 +258,22 @@ public class LongTermMemoryService {
 		};
 	}
 
-	private boolean sameScope(MemoryItem first, MemoryItem second) {
-		if (first.getScopeType() != second.getScopeType()) {
-			return false;
+	private void ensureIdentity(MemoryItem item) {
+		if (StringUtils.isNotBlank(item.getIdentityHash())) {
+			return;
 		}
-		return switch (first.getScopeType()) {
-			case AGENT -> true;
-			case DATASOURCE -> java.util.Objects.equals(first.getDatasourceId(), second.getDatasourceId());
-			case USER_AGENT -> java.util.Objects.equals(first.getOwnerId(), second.getOwnerId());
-		};
+		String scopeOwner = item.getScopeType() == MemoryScopeType.USER_AGENT ? String.valueOf(item.getOwnerId()) : "-";
+		String scopeDatasource = item.getScopeType() == MemoryScopeType.DATASOURCE
+				? String.valueOf(item.getDatasourceId()) : "-";
+		String identity = item.getScopeType() + "|" + scopeOwner + "|" + item.getAgentId() + "|" + scopeDatasource + "|"
+				+ item.getMemoryKind() + "|" + item.getMemoryKey().trim().toLowerCase(Locale.ROOT);
+		try {
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			item.setIdentityHash(HexFormat.of().formatHex(digest.digest(identity.getBytes(StandardCharsets.UTF_8))));
+		}
+		catch (Exception e) {
+			throw new IllegalStateException("Failed to hash memory identity", e);
+		}
 	}
 
 }

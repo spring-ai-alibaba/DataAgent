@@ -260,6 +260,8 @@ CREATE TABLE IF NOT EXISTS memory_item (
   memory_kind VARCHAR(32) NOT NULL,
   memory_key VARCHAR(255) NOT NULL,
   value_json TEXT NOT NULL,
+  identity_hash CHAR(64) NOT NULL,
+  active_identity_hash CHAR(64),
   source_turn_id VARCHAR(36),
   status VARCHAR(32) NOT NULL DEFAULT 'CANDIDATE',
   confidence DECIMAL(5,4) NOT NULL DEFAULT 1.0000,
@@ -269,8 +271,13 @@ CREATE TABLE IF NOT EXISTS memory_item (
   create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  UNIQUE KEY uk_test_memory_item_active_identity (active_identity_hash),
   INDEX idx_test_memory_item_scope (scope_type, owner_id, agent_id, datasource_id, status),
   INDEX idx_test_memory_item_key (memory_key),
+  CONSTRAINT chk_test_memory_item_active_identity CHECK (
+    (status = 'CONFIRMED' AND active_identity_hash IS NOT NULL AND active_identity_hash = identity_hash)
+    OR (status <> 'CONFIRMED' AND active_identity_hash IS NULL)
+  ),
   FOREIGN KEY (source_turn_id) REFERENCES conversation_turn(id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
 

@@ -107,6 +107,8 @@ class ConversationTurnServiceTest {
 	void onlyVerifiedSuccessfulTurnEmitsProjectionEvent() {
 		when(turnMapper.selectById("turn-1"))
 			.thenReturn(ConversationTurn.builder().id("turn-1").conversationId("conversation-1").rawQuery("q").build());
+		when(turnMapper.complete(any())).thenReturn(1);
+		when(runMapper.markSucceeded("run-1")).thenReturn(1);
 		TurnMemorySnapshot snapshot = mock(TurnMemorySnapshot.class);
 		when(snapshot.getCanonicalQuery()).thenReturn("canonical");
 		when(snapshot.queryFrameJson()).thenReturn("{}");
@@ -125,6 +127,8 @@ class ConversationTurnServiceTest {
 	void finalTextWithoutExecutionEvidenceNeverEmitsProjectionEvent() {
 		when(turnMapper.selectById("turn-1"))
 			.thenReturn(ConversationTurn.builder().id("turn-1").conversationId("conversation-1").rawQuery("q").build());
+		when(turnMapper.complete(any())).thenReturn(1);
+		when(runMapper.markSucceeded("run-1")).thenReturn(1);
 		TurnMemorySnapshot snapshot = mock(TurnMemorySnapshot.class);
 		when(snapshot.getFinalAnswer()).thenReturn("请先配置数据源");
 		when(snapshot.getCanonicalQuery()).thenReturn("q");
@@ -141,22 +145,48 @@ class ConversationTurnServiceTest {
 	}
 
 	@Test
+	void lateCompletionCannotProjectAfterTheDatabaseRejectsTheTransition() {
+		when(turnMapper.selectById("turn-1")).thenReturn(ConversationTurn.builder()
+			.id("turn-1")
+			.conversationId("conversation-1")
+			.acceptedRunId("run-1")
+			.rawQuery("q")
+				.status(TurnStatus.CANCELLED)
+				.build());
+		TurnMemorySnapshot snapshot = mock(TurnMemorySnapshot.class);
+
+		org.assertj.core.api.Assertions
+			.assertThatThrownBy(() -> service.completeTurn("turn-1", "run-1", snapshot, "verified report", null))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("already terminal");
+
+		verifyNoInteractions(outboxService);
+		verifyNoInteractions(artifactMapper);
+		verify(runMapper, never()).markSucceeded("run-1");
+	}
+
+	@Test
 	void resumeTurnCanRecoverTurnIdFromDurableRun() {
 		when(runMapper.selectById("run-1")).thenReturn(TurnRun.builder().runId("run-1").turnId("turn-1").build());
+		when(runMapper.resume("run-1")).thenReturn(1);
+		when(turnMapper.markRunning("turn-1", "run-1")).thenReturn(1);
 
 		String turnId = service.resumeTurn(null, "run-1", false);
 
 		assertThat(turnId).isEqualTo("turn-1");
-		verify(runMapper).updateStatus("run-1", TurnStatus.RUNNING, null);
+		verify(runMapper).resume("run-1");
 		verify(turnMapper).markRunning("turn-1", "run-1");
 	}
 
 	@Test
 	void waitingForReviewNeverProjectsPlannerOutputAsMemory() {
+		when(turnMapper.markWaitingReview("turn-1", "run-1")).thenReturn(1);
+		when(runMapper.markWaitingReview("run-1")).thenReturn(1);
+
 		service.markWaitingReview("turn-1", "run-1", "[[]]");
 
-		verify(turnMapper).markWaitingReview("turn-1");
-		verify(runMapper).updateStatus("run-1", TurnStatus.WAITING_REVIEW, null);
+		verify(turnMapper).markWaitingReview("turn-1", "run-1");
+		verify(runMapper).markWaitingReview("run-1");
 		verifyNoInteractions(outboxService);
 	}
 

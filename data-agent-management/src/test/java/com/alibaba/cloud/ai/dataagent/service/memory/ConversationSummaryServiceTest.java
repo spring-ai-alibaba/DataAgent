@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.service.memory;
 
 import com.alibaba.cloud.ai.dataagent.entity.ConversationSummary;
 import com.alibaba.cloud.ai.dataagent.entity.ConversationTurn;
+import com.alibaba.cloud.ai.dataagent.mapper.ChatSessionMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationSummaryMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationTurnMapper;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
@@ -41,13 +42,16 @@ class ConversationSummaryServiceTest {
 	@Mock
 	private ConversationSummaryMapper summaryMapper;
 
+	@Mock
+	private ChatSessionMapper chatSessionMapper;
+
 	private ConversationSummaryService service;
 
 	@BeforeEach
 	void setUp() {
 		DataAgentProperties properties = new DataAgentProperties();
 		properties.getMemory().setRecentTurns(1);
-		service = new ConversationSummaryService(turnMapper, summaryMapper, properties);
+		service = new ConversationSummaryService(turnMapper, summaryMapper, chatSessionMapper, properties);
 	}
 
 	@Test
@@ -63,6 +67,41 @@ class ConversationSummaryServiceTest {
 		assertThat(captor.getValue().getSummaryText()).contains("canonical one", "result one")
 			.doesNotContain("raw two", "result two");
 		assertThat(captor.getValue().getCoveredThroughTurnId()).isEqualTo("turn-1");
+	}
+
+	@Test
+	void boundedSummaryKeepsTheNewestHistoricalTurnsAndMakesOmissionExplicit() {
+		DataAgentProperties properties = new DataAgentProperties();
+		properties.getMemory().setRecentTurns(1);
+		properties.getMemory().setMaxSummaryLength(500);
+		service = new ConversationSummaryService(turnMapper, summaryMapper, chatSessionMapper, properties);
+		when(turnMapper.selectAllSuccessful("conversation-1")).thenReturn(List.of(
+				turn("turn-1", "oldest", null, "a".repeat(700)),
+				turn("turn-2", "older", null, "b".repeat(700)),
+				turn("turn-3", "newer historical", null, "c".repeat(700)),
+				turn("turn-4", "latest", null, "latest result")));
+
+		service.rebuild("conversation-1");
+
+		ArgumentCaptor<ConversationSummary> captor = ArgumentCaptor.forClass(ConversationSummary.class);
+		verify(summaryMapper).insert(captor.capture());
+		assertThat(captor.getValue().getSummaryText()).contains("newer historical", "较早历史已因上下文预算省略")
+			.doesNotContain("oldest");
+		assertThat(captor.getValue().getCoveredThroughTurnId()).isEqualTo("turn-3");
+	}
+
+	@Test
+	void concurrentSummaryInsertFallsBackToUpdatingTheWinningRow() {
+		when(turnMapper.selectAllSuccessful("conversation-1")).thenReturn(List.of(
+				turn("turn-1", "raw one", "canonical one", "result one"),
+				turn("turn-2", "raw two", null, "result two")));
+		doThrow(new org.springframework.dao.DuplicateKeyException("concurrent insert"))
+			.when(summaryMapper)
+			.insert(any(ConversationSummary.class));
+
+		service.rebuild("conversation-1");
+
+		verify(summaryMapper).update(argThat(summary -> "turn-1".equals(summary.getCoveredThroughTurnId())));
 	}
 
 	private ConversationTurn turn(String id, String rawQuery, String canonicalQuery, String result) {

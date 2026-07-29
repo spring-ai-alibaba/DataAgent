@@ -165,7 +165,7 @@ Configuration prefix: `spring.ai.alibaba.data-agent.memory`
 
 | Configuration Item | Description | Default Value |
 |-------------------|-------------|---------------|
-| `recent-turns` | Recent successful turns kept verbatim and projected to Spring AI ChatMemory | 3 |
+| `recent-turns` | Recent successful turns read verbatim from the relational source of truth | 3 |
 | `max-summary-length` | Maximum length of the rebuildable rolling summary | 4000 |
 | `max-result-summary-length` | Maximum result-summary length per turn | 2000 |
 | `long-term-top-k` | Maximum confirmed long-term memories injected per request | 5 |
@@ -176,7 +176,11 @@ Configuration prefix: `spring.ai.alibaba.data-agent.memory`
 | `outbox-batch-size` | Projection events processed per batch | 20 |
 | `outbox-max-attempts` | Maximum projection attempts | 5 |
 
-For an existing MySQL installation, apply the updated `data-agent-management/src/main/resources/sql/schema.sql` before deployment. Graph requests do not fall back to the legacy memory implementation when the new tables are absent.
+For an existing MySQL installation, apply
+`data-agent-management/src/main/resources/sql/migration/V20260729_01__create_durable_memory.sql`
+before deployment. New installations continue to use
+`data-agent-management/src/main/resources/sql/schema.sql`. Graph requests do not fall back to the legacy memory
+implementation when the new tables are absent.
 
 ### 3. Embedding Batch Configuration
 

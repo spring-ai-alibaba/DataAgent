@@ -33,8 +33,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Idempotently projects durable turn and memory events into rebuildable summaries,
- * Spring AI ChatMemory and the optional vector index.
+ * Idempotently projects durable turn and memory events into rebuildable summaries and
+ * the optional vector index.
  */
 @Slf4j
 @Component
@@ -48,8 +48,6 @@ public class MemoryProjectionWorker {
 	private final MemoryItemMapper memoryItemMapper;
 
 	private final ConversationSummaryService summaryService;
-
-	private final ShortTermMemoryProjectionService shortTermMemoryProjectionService;
 
 	private final MemoryVectorIndexService vectorIndexService;
 
@@ -105,7 +103,6 @@ public class MemoryProjectionWorker {
 			return;
 		}
 		summaryService.rebuild(turn.getConversationId());
-		shortTermMemoryProjectionService.rebuild(turn.getConversationId());
 		vectorIndexService.indexTurn(turn);
 	}
 
