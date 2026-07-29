@@ -33,8 +33,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Idempotently projects durable turn and memory events into rebuildable summaries and
- * the optional vector index.
+ * Idempotently projects durable turn and memory events into rebuildable summaries and the
+ * optional vector index.
  */
 @Slf4j
 @Component
@@ -53,8 +53,7 @@ public class MemoryProjectionWorker {
 
 	private final DataAgentProperties properties;
 
-	@Scheduled(
-			initialDelayString = "${spring.ai.alibaba.data-agent.memory.outbox-initial-delay-ms:10000}",
+	@Scheduled(initialDelayString = "${spring.ai.alibaba.data-agent.memory.outbox-initial-delay-ms:10000}",
 			fixedDelayString = "${spring.ai.alibaba.data-agent.memory.outbox-poll-delay-ms:2000}")
 	public void projectReadyEvents() {
 		int maxAttempts = Math.max(1, properties.getMemory().getOutboxMaxAttempts());
@@ -78,8 +77,8 @@ public class MemoryProjectionWorker {
 			catch (RuntimeException e) {
 				int attempt = event.getAttemptCount() == null ? 1 : event.getAttemptCount() + 1;
 				long retryDelaySeconds = Math.min(300, 1L << Math.min(8, attempt));
-				String error = StringUtils.abbreviate(
-						StringUtils.defaultIfBlank(e.getMessage(), e.getClass().getSimpleName()), 4000);
+				String error = StringUtils
+					.abbreviate(StringUtils.defaultIfBlank(e.getMessage(), e.getClass().getSimpleName()), 4000);
 				outboxMapper.markFailed(event.getId(), error, LocalDateTime.now().plusSeconds(retryDelaySeconds));
 				log.warn("Memory projection event {} failed on attempt {}: {}", event.getId(), attempt, error);
 			}

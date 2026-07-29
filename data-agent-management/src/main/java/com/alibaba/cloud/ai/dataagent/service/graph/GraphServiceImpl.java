@@ -67,8 +67,7 @@ public class GraphServiceImpl implements GraphService {
 
 	public GraphServiceImpl(StateGraph stateGraph, CompileConfig compileConfig, BaseCheckpointSaver checkpointSaver,
 			ExecutorService executorService, ConversationContextAssembler contextAssembler,
-			ConversationTurnService turnService,
-			LangfuseService langfuseReporter) throws GraphStateException {
+			ConversationTurnService turnService, LangfuseService langfuseReporter) throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(compileConfig);
 		this.checkpointSaver = checkpointSaver;
 		this.executor = executorService;
@@ -312,9 +311,9 @@ public class GraphServiceImpl implements GraphService {
 			}
 			if (context.getSink() != null && context.getSink().currentSubscriberCount() > 0) {
 				context.getSink()
-						.tryEmitNext(ServerSentEvent
-							.builder(GraphNodeResponse.error(agentId, threadId, context.getTurnId(),
-									"Error in stream processing: " + error.getMessage()))
+					.tryEmitNext(ServerSentEvent
+						.builder(GraphNodeResponse.error(agentId, threadId, context.getTurnId(),
+								"Error in stream processing: " + error.getMessage()))
 						.event(STREAM_EVENT_ERROR)
 						.build());
 				context.getSink().tryEmitComplete();
@@ -366,27 +365,27 @@ public class GraphServiceImpl implements GraphService {
 				if (awaitingHumanFeedback) {
 					context.getSink()
 						.tryEmitNext(ServerSentEvent
-								.builder(GraphNodeResponse.builder()
-									.agentId(agentId)
-									.threadId(threadId)
-									.turnId(context.getTurnId())
+							.builder(GraphNodeResponse.builder()
+								.agentId(agentId)
+								.threadId(threadId)
+								.turnId(context.getTurnId())
 								.eventType(GraphEventType.HUMAN_FEEDBACK_REQUIRED)
 								.textType(TextType.TEXT)
 								.build())
 							.build());
 				}
-					if (StringUtils.hasText(context.getFinalAnswer())) {
-						context.getSink()
-							.tryEmitNext(ServerSentEvent
-								.builder(GraphNodeResponse.finalAnswer(agentId, threadId, context.getTurnId(),
-										context.getFinalAnswer()))
-								.build());
-					}
+				if (StringUtils.hasText(context.getFinalAnswer())) {
 					context.getSink()
 						.tryEmitNext(ServerSentEvent
-							.builder(GraphNodeResponse.complete(agentId, threadId, context.getTurnId()))
-							.event(STREAM_EVENT_COMPLETE)
+							.builder(GraphNodeResponse.finalAnswer(agentId, threadId, context.getTurnId(),
+									context.getFinalAnswer()))
 							.build());
+				}
+				context.getSink()
+					.tryEmitNext(
+							ServerSentEvent.builder(GraphNodeResponse.complete(agentId, threadId, context.getTurnId()))
+								.event(STREAM_EVENT_COMPLETE)
+								.build());
 				context.getSink().tryEmitComplete();
 			}
 			context.cleanup();

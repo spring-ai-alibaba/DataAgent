@@ -101,11 +101,11 @@ class ConversationContextAssemblerTest {
 		when(turnMapper.selectAllSuccessful("conversation-1")).thenReturn(List.of());
 		when(vectorIndexService.recallTurnIds("sales", 99L, 7, 3, 3))
 			.thenReturn(List.of("wrong-owner", "wrong-agent", "wrong-datasource", "valid"));
-		when(turnMapper.selectSuccessfulByIds(anyList())).thenReturn(List.of(
-				episode("wrong-owner", "private-owner-data", 100L, 7, 3),
-				episode("wrong-agent", "private-agent-data", 99L, 8, 3),
-				episode("wrong-datasource", "private-datasource-data", 99L, 7, 4),
-				episode("valid", "allowed-data", 99L, 7, 3)));
+		when(turnMapper.selectSuccessfulByIds(anyList()))
+			.thenReturn(List.of(episode("wrong-owner", "private-owner-data", 100L, 7, 3),
+					episode("wrong-agent", "private-agent-data", 99L, 8, 3),
+					episode("wrong-datasource", "private-datasource-data", 99L, 7, 4),
+					episode("valid", "allowed-data", 99L, 7, 3)));
 		when(longTermMemoryService.recallRelevant("sales", 99L, 7, 3, 5)).thenReturn(List.of());
 
 		String context = assembler.build("conversation-1", 7, "sales");

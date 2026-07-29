@@ -55,8 +55,8 @@ public class ConversationMemoryDeletionService {
 		chatSessionMapper.lockBySessionId(conversationId);
 		List<ConversationTurn> turns = turnMapper.selectByConversationId(conversationId);
 		List<MemoryItem> memoryItems = memoryItemMapper.selectByConversationId(conversationId);
-		turns.forEach(turn -> outboxService.enqueue("CONVERSATION_TURN", turn.getId(),
-				MemoryEventType.TURN_INVALIDATED, null));
+		turns.forEach(turn -> outboxService.enqueue("CONVERSATION_TURN", turn.getId(), MemoryEventType.TURN_INVALIDATED,
+				null));
 		memoryItems.forEach(item -> outboxService.enqueue("MEMORY_ITEM", item.getId().toString(),
 				MemoryEventType.MEMORY_INVALIDATED, null));
 		memoryItemMapper.deleteByConversationId(conversationId);

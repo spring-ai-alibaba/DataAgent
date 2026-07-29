@@ -70,7 +70,6 @@ public interface MemoryOutboxMapper {
 			SET status = 'FAILED', last_error = #{error}, available_at = #{availableAt}, update_time = NOW()
 			WHERE id = #{id}
 			""")
-	int markFailed(@Param("id") Long id, @Param("error") String error,
-			@Param("availableAt") LocalDateTime availableAt);
+	int markFailed(@Param("id") Long id, @Param("error") String error, @Param("availableAt") LocalDateTime availableAt);
 
 }

@@ -68,7 +68,8 @@ public class ConversationSummaryService {
 		return rebuildFrom(conversationId, turns, current);
 	}
 
-	private ContextWindow rebuildFrom(String conversationId, List<ConversationTurn> turns, ConversationSummary current) {
+	private ContextWindow rebuildFrom(String conversationId, List<ConversationTurn> turns,
+			ConversationSummary current) {
 		int recentTurns = Math.max(1, properties.getMemory().getRecentTurns());
 		int summarizedCount = Math.max(0, turns.size() - recentTurns);
 		List<ConversationTurn> recent = List.copyOf(turns.subList(summarizedCount, turns.size()));
@@ -145,8 +146,7 @@ public class ConversationSummaryService {
 	private String entry(ConversationTurn turn) {
 		String query = StringUtils.defaultIfBlank(turn.getCanonicalQuery(), turn.getRawQuery());
 		String result = StringUtils.defaultIfBlank(turn.getResultSummary(), "(无可用结果摘要)");
-		return "- 问题：" + StringUtils.abbreviate(query, 500) + "\n  已验证结果："
-				+ StringUtils.abbreviate(result, 800) + '\n';
+		return "- 问题：" + StringUtils.abbreviate(query, 500) + "\n  已验证结果：" + StringUtils.abbreviate(result, 800) + '\n';
 	}
 
 	public record ContextWindow(ConversationSummary summary, List<ConversationTurn> recentTurns) {

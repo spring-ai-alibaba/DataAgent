@@ -75,11 +75,10 @@ class ConversationSummaryServiceTest {
 		properties.getMemory().setRecentTurns(1);
 		properties.getMemory().setMaxSummaryLength(500);
 		service = new ConversationSummaryService(turnMapper, summaryMapper, chatSessionMapper, properties);
-		when(turnMapper.selectAllSuccessful("conversation-1")).thenReturn(List.of(
-				turn("turn-1", "oldest", null, "a".repeat(700)),
-				turn("turn-2", "older", null, "b".repeat(700)),
-				turn("turn-3", "newer historical", null, "c".repeat(700)),
-				turn("turn-4", "latest", null, "latest result")));
+		when(turnMapper.selectAllSuccessful("conversation-1")).thenReturn(
+				List.of(turn("turn-1", "oldest", null, "a".repeat(700)), turn("turn-2", "older", null, "b".repeat(700)),
+						turn("turn-3", "newer historical", null, "c".repeat(700)),
+						turn("turn-4", "latest", null, "latest result")));
 
 		service.rebuild("conversation-1");
 

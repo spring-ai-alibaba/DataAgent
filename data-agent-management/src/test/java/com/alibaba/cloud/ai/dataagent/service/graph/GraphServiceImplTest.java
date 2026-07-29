@@ -89,16 +89,15 @@ class GraphServiceImplTest {
 		StateGraph mockStateGraph = mock(StateGraph.class);
 		when(mockStateGraph.compile(any())).thenReturn(compiledGraph);
 
-			CompileConfig compileConfig = CompileConfig.builder().build();
-			graphService = new GraphServiceImpl(mockStateGraph, compileConfig, checkpointSaver, executor,
-					contextAssembler, turnService, langfuseReporter);
+		CompileConfig compileConfig = CompileConfig.builder().build();
+		graphService = new GraphServiceImpl(mockStateGraph, compileConfig, checkpointSaver, executor, contextAssembler,
+				turnService, langfuseReporter);
 
 		when(langfuseReporter.startLLMSpan(anyString(), any())).thenReturn(mockSpan);
 		when(mockSpan.isRecording()).thenReturn(true);
-			when(contextAssembler.build(anyString(), anyInt(), nullable(String.class))).thenReturn("(无)");
-			when(turnService.beginTurn(anyString(), anyInt(), anyString(), anyString(), anyBoolean()))
-				.thenReturn("turn-1");
-			when(turnService.resumeTurn(nullable(String.class), anyString(), anyBoolean())).thenReturn("turn-1");
+		when(contextAssembler.build(anyString(), anyInt(), nullable(String.class))).thenReturn("(无)");
+		when(turnService.beginTurn(anyString(), anyInt(), anyString(), anyString(), anyBoolean())).thenReturn("turn-1");
+		when(turnService.resumeTurn(nullable(String.class), anyString(), anyBoolean())).thenReturn("turn-1");
 	}
 
 	@AfterEach
@@ -283,8 +282,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_completionPersistenceFailureMarksTurnFailedAndEmitsError() throws Exception {
-		doThrow(new IllegalStateException("database unavailable"))
-			.when(turnService)
+		doThrow(new IllegalStateException("database unavailable")).when(turnService)
 			.completeTurn(eq("turn-1"), anyString(), any(), nullable(String.class), nullable(String.class));
 		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.empty());
 		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
@@ -299,11 +297,13 @@ class GraphServiceImplTest {
 		List<GraphNodeResponse> responses = responsesFuture.get(Duration.ofSeconds(2).toMillis(),
 				TimeUnit.MILLISECONDS);
 
-		assertTrue(responses.stream().anyMatch(response -> response.isError()
-				&& response.getText().contains("Failed to persist graph result")), responses.toString());
+		assertTrue(responses.stream()
+			.anyMatch(response -> response.isError() && response.getText().contains("Failed to persist graph result")),
+				responses.toString());
 		verify(turnService).failTurn(eq("turn-1"), eq(request.getThreadId()), any(IllegalStateException.class),
 				nullable(String.class));
-		verify(checkpointSaver).release(argThat(config -> request.getThreadId().equals(config.threadId().orElse(null))));
+		verify(checkpointSaver)
+			.release(argThat(config -> request.getThreadId().equals(config.threadId().orElse(null))));
 	}
 
 	@Test

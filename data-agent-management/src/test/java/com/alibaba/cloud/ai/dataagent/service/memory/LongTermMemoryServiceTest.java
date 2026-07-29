@@ -119,8 +119,7 @@ class LongTermMemoryServiceTest {
 	void userScopeIsRejectedWithoutTrustedServerIdentityFeature() {
 		MemoryItem item = item(MemoryScopeType.USER_AGENT);
 
-		assertThatThrownBy(() -> service.createCandidate(item))
-			.isInstanceOf(IllegalArgumentException.class)
+		assertThatThrownBy(() -> service.createCandidate(item)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("trusted server-derived owner identity");
 		verifyNoInteractions(mapper);
 	}
@@ -152,16 +151,14 @@ class LongTermMemoryServiceTest {
 		item.setSourceTurnId("turn-1");
 		when(agentDatasourceMapper.selectByAgentIdAndDatasourceId(7L, 3))
 			.thenReturn(new com.alibaba.cloud.ai.dataagent.entity.AgentDatasource(7L, 3));
-		when(turnMapper.selectById("turn-1"))
-			.thenReturn(ConversationTurn.builder()
-				.id("turn-1")
-				.agentId(8)
-				.status(TurnStatus.SUCCEEDED)
-				.memoryEligible(true)
-				.build());
+		when(turnMapper.selectById("turn-1")).thenReturn(ConversationTurn.builder()
+			.id("turn-1")
+			.agentId(8)
+			.status(TurnStatus.SUCCEEDED)
+			.memoryEligible(true)
+			.build());
 
-		assertThatThrownBy(() -> service.createCandidate(item))
-			.isInstanceOf(IllegalArgumentException.class)
+		assertThatThrownBy(() -> service.createCandidate(item)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("successful turn of the same agent");
 	}
 
@@ -202,8 +199,7 @@ class LongTermMemoryServiceTest {
 			.memoryEligible(true)
 			.build());
 
-		assertThatThrownBy(() -> service.createCandidate(item))
-			.isInstanceOf(IllegalArgumentException.class)
+		assertThatThrownBy(() -> service.createCandidate(item)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("source turn datasource");
 	}
 
@@ -219,8 +215,7 @@ class LongTermMemoryServiceTest {
 		when(mapper.selectByIdForUpdate(10L)).thenReturn(candidate);
 		when(mapper.selectByIdForUpdate(9L)).thenReturn(superseded);
 
-		assertThatThrownBy(() -> service.confirm(10L))
-			.isInstanceOf(IllegalArgumentException.class)
+		assertThatThrownBy(() -> service.confirm(10L)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("same agent, scope, kind and key");
 		verify(mapper, never()).markSuperseded(anyLong());
 	}

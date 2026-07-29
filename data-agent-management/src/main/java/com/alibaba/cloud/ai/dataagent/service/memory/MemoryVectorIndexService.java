@@ -147,8 +147,7 @@ public class MemoryVectorIndexService {
 		filters.add(new FilterExpressionBuilder().eq(DocumentMetadataConstant.VECTOR_TYPE, vectorType).build());
 		filters.add(new FilterExpressionBuilder().eq(Constant.AGENT_ID, agentId.toString()).build());
 		if (ownerId != null) {
-			filters.add(new FilterExpressionBuilder()
-				.eq(DocumentMetadataConstant.MEMORY_OWNER_ID, ownerId.toString())
+			filters.add(new FilterExpressionBuilder().eq(DocumentMetadataConstant.MEMORY_OWNER_ID, ownerId.toString())
 				.build());
 		}
 		if (datasourceId != null) {

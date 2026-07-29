@@ -61,11 +61,13 @@ public class ConversationTurnService {
 	private final DataAgentProperties properties;
 
 	@Transactional
-	public String beginTurn(String conversationId, Integer agentId, String runId, String rawQuery, boolean titleNeeded) {
+	public String beginTurn(String conversationId, Integer agentId, String runId, String rawQuery,
+			boolean titleNeeded) {
 		chatSessionMapper.lockBySessionId(conversationId);
 		ChatSession session = chatSessionMapper.selectBySessionId(conversationId);
 		if (session == null) {
-			log.debug("Conversation {} is not a persisted chat session; skipping durable turn creation", conversationId);
+			log.debug("Conversation {} is not a persisted chat session; skipping durable turn creation",
+					conversationId);
 			return null;
 		}
 		if (!agentId.equals(session.getAgentId())) {
@@ -175,7 +177,8 @@ public class ConversationTurnService {
 		storeArtifact(turnId, runId, TurnArtifactType.TIMELINE, timelineJson);
 		saveTimelineMessage(turnId, runId, timelineJson);
 		if (StringUtils.isNotBlank(snapshot.getFinalAnswer())) {
-			saveChatMessage(existing.getConversationId(), "assistant", snapshot.getFinalAnswer(), "text", turnId, runId);
+			saveChatMessage(existing.getConversationId(), "assistant", snapshot.getFinalAnswer(), "text", turnId,
+					runId);
 		}
 		if (memoryEligible) {
 			outboxService.enqueue("CONVERSATION_TURN", turnId, MemoryEventType.TURN_SUCCEEDED, null);
@@ -188,8 +191,8 @@ public class ConversationTurnService {
 			return;
 		}
 		String message = error != null
-				? StringUtils.abbreviate(StringUtils.defaultIfBlank(error.getMessage(), error.getClass().getSimpleName()),
-						4000)
+				? StringUtils
+					.abbreviate(StringUtils.defaultIfBlank(error.getMessage(), error.getClass().getSimpleName()), 4000)
 				: "Unknown graph error";
 		if (turnMapper.markTerminal(turnId, runId, TurnStatus.FAILED) != 1) {
 			log.debug("Ignoring failure for a stale or terminal turn: {}", turnId);

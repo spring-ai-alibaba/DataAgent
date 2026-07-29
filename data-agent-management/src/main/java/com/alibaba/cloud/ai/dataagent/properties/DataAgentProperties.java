@@ -284,15 +284,15 @@ public class DataAgentProperties {
 
 		/**
 		 * Enables owner-scoped recall only after the application has a trusted,
-		 * server-derived owner identity. USER_AGENT candidates inherit that identity
-		 * from a verified source turn; the current session userId input is not itself a
+		 * server-derived owner identity. USER_AGENT candidates inherit that identity from
+		 * a verified source turn; the current session userId input is not itself a
 		 * security boundary, so this remains disabled by default.
 		 */
 		private boolean userScopeEnabled = false;
 
 		/**
-		 * Enables optional vector indexing for long-term memories. MySQL remains the source
-		 * of truth.
+		 * Enables optional vector indexing for long-term memories. MySQL remains the
+		 * source of truth.
 		 */
 		private boolean vectorIndexEnabled = false;
 

@@ -178,12 +178,12 @@ class MemoryMapperIntegrationTest {
 			.scopeType(MemoryScopeType.DATASOURCE)
 			.agentId(7)
 			.datasourceId(3)
-				.memoryKind(MemoryKind.QUERY_PATTERN)
-				.memoryKey("sales-period")
-				.valueJson("\"month\"")
-				.identityHash("a".repeat(64))
-				.activeIdentityHash("a".repeat(64))
-				.sourceTurnId("turn-1")
+			.memoryKind(MemoryKind.QUERY_PATTERN)
+			.memoryKey("sales-period")
+			.valueJson("\"month\"")
+			.identityHash("a".repeat(64))
+			.activeIdentityHash("a".repeat(64))
+			.sourceTurnId("turn-1")
 			.status(MemoryStatus.CONFIRMED)
 			.confidence(BigDecimal.ONE)
 			.build();
@@ -209,11 +209,7 @@ class MemoryMapperIntegrationTest {
 			.status(TurnStatus.RUNNING)
 			.build();
 		turnMapper.insert(turn);
-		turnRunMapper.insert(TurnRun.builder()
-			.runId("run-1")
-			.turnId("turn-1")
-			.status(TurnStatus.RUNNING)
-			.build());
+		turnRunMapper.insert(TurnRun.builder().runId("run-1").turnId("turn-1").status(TurnStatus.RUNNING).build());
 
 		assertThat(turnMapper.markTerminal("turn-1", "run-1", TurnStatus.CANCELLED)).isEqualTo(1);
 		assertThat(turnRunMapper.markTerminal("run-1", TurnStatus.CANCELLED, "cancelled")).isEqualTo(1);

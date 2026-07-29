@@ -81,9 +81,8 @@ public class StreamContext {
 	}
 
 	public synchronized void recordResponse(GraphNodeResponse response) {
-		if (timelineBlocks.isEmpty()
-				|| !Objects.equals(timelineBlocks.get(timelineBlocks.size() - 1).get(0).getStepId(),
-						response.getStepId())) {
+		if (timelineBlocks.isEmpty() || !Objects
+			.equals(timelineBlocks.get(timelineBlocks.size() - 1).get(0).getStepId(), response.getStepId())) {
 			List<GraphNodeResponse> block = new ArrayList<>();
 			block.add(response);
 			timelineBlocks.add(block);

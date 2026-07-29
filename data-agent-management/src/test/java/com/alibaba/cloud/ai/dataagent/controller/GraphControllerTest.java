@@ -86,8 +86,7 @@ class GraphControllerTest {
 		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
 		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-2",
-				"thread-2", "turn-2", "approve this plan", false, true, "looks good", false, false,
-				serverHttpResponse);
+				"thread-2", "turn-2", "approve this plan", false, true, "looks good", false, false, serverHttpResponse);
 
 		assertNotNull(result);
 

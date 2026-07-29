@@ -92,8 +92,8 @@ public class LongTermMemoryService {
 			if (mapper.markSuperseded(superseded.getId()) != 1) {
 				throw new MemoryConflictException("Superseded memory changed concurrently");
 			}
-			outboxService.enqueue("MEMORY_ITEM", superseded.getId().toString(),
-					MemoryEventType.MEMORY_INVALIDATED, null);
+			outboxService.enqueue("MEMORY_ITEM", superseded.getId().toString(), MemoryEventType.MEMORY_INVALIDATED,
+					null);
 		}
 		else if (active != null) {
 			throw new MemoryConflictException("A confirmed memory already exists for this scope, kind and key");
@@ -143,7 +143,8 @@ public class LongTermMemoryService {
 		return mapper.selectConfirmedForContext(ownerId, agentId, datasourceId, Math.max(1, limit));
 	}
 
-	public List<MemoryItem> recallRelevant(String query, Long ownerId, Integer agentId, Integer datasourceId, int limit) {
+	public List<MemoryItem> recallRelevant(String query, Long ownerId, Integer agentId, Integer datasourceId,
+			int limit) {
 		List<MemoryItem> relational = recall(ownerId, agentId, datasourceId, limit);
 		List<Long> semanticIds = vectorIndexService.recallMemoryItemIds(query, ownerId, agentId, datasourceId, limit);
 		if (semanticIds.isEmpty()) {
@@ -191,12 +192,10 @@ public class LongTermMemoryService {
 		if (item.getConfidence() == null) {
 			item.setConfidence(BigDecimal.ONE);
 		}
-		if (item.getConfidence().compareTo(BigDecimal.ZERO) < 0
-				|| item.getConfidence().compareTo(BigDecimal.ONE) > 0) {
+		if (item.getConfidence().compareTo(BigDecimal.ZERO) < 0 || item.getConfidence().compareTo(BigDecimal.ONE) > 0) {
 			throw new IllegalArgumentException("memory confidence must be between 0 and 1");
 		}
-		if (item.getScopeType() == MemoryScopeType.USER_AGENT
-				&& !properties.getMemory().isUserScopeEnabled()) {
+		if (item.getScopeType() == MemoryScopeType.USER_AGENT && !properties.getMemory().isUserScopeEnabled()) {
 			throw new IllegalArgumentException(
 					"USER_AGENT memory is disabled until a trusted server-derived owner identity is configured");
 		}

@@ -28,8 +28,8 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * Explicit review API for durable cross-session memory. Creation never makes a
- * memory prompt-visible; a separate confirmation is required.
+ * Explicit review API for durable cross-session memory. Creation never makes a memory
+ * prompt-visible; a separate confirmation is required.
  */
 @RestController
 @RequiredArgsConstructor

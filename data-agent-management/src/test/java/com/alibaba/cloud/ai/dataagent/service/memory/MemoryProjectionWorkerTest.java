@@ -55,8 +55,8 @@ class MemoryProjectionWorkerTest {
 
 	@BeforeEach
 	void setUp() {
-		worker = new MemoryProjectionWorker(outboxMapper, turnMapper, memoryItemMapper, summaryService, vectorIndexService,
-				new DataAgentProperties());
+		worker = new MemoryProjectionWorker(outboxMapper, turnMapper, memoryItemMapper, summaryService,
+				vectorIndexService, new DataAgentProperties());
 	}
 
 	@Test
@@ -94,12 +94,7 @@ class MemoryProjectionWorkerTest {
 	}
 
 	private MemoryOutboxEvent event(Long id, String eventType, String aggregateId) {
-		return MemoryOutboxEvent.builder()
-			.id(id)
-			.eventType(eventType)
-			.aggregateId(aggregateId)
-			.attemptCount(0)
-			.build();
+		return MemoryOutboxEvent.builder().id(id).eventType(eventType).aggregateId(aggregateId).attemptCount(0).build();
 	}
 
 }

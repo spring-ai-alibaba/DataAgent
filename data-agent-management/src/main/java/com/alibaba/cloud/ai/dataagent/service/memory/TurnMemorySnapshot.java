@@ -77,7 +77,8 @@ public class TurnMemorySnapshot {
 		if ("SqlExecuteNode".equals(nodeName)) {
 			state.value(SQL_GENERATE_OUTPUT)
 				.map(Object::toString)
-				.filter(value -> StringUtils.isNotBlank(value) && !value.equals(com.alibaba.cloud.ai.graph.StateGraph.END))
+				.filter(value -> StringUtils.isNotBlank(value)
+						&& !value.equals(com.alibaba.cloud.ai.graph.StateGraph.END))
 				.ifPresent(this.sqlStatements::add);
 		}
 		state.value(SQL_EXECUTE_NODE_OUTPUT).ifPresent(this::captureExecutionResults);

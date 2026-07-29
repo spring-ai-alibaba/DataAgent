@@ -131,8 +131,7 @@ public interface ConversationTurnMapper {
 			  AND accepted_run_id = #{runId}
 			  AND status IN ('RUNNING', 'WAITING_REVIEW')
 			""")
-	int markTerminal(@Param("turnId") String turnId, @Param("runId") String runId,
-			@Param("status") TurnStatus status);
+	int markTerminal(@Param("turnId") String turnId, @Param("runId") String runId, @Param("status") TurnStatus status);
 
 	@Delete("DELETE FROM conversation_turn WHERE conversation_id = #{conversationId}")
 	int deleteByConversationId(@Param("conversationId") String conversationId);
