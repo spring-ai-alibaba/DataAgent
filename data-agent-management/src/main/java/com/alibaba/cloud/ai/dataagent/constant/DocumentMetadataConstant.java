@@ -52,4 +52,14 @@ public final class DocumentMetadataConstant {
 	// businessTermId
 	public static final String DB_BUSINESS_TERM_ID = "businessTermId";
 
+	public static final String EPISODIC_MEMORY = "episodicMemory";
+
+	public static final String LONG_TERM_MEMORY = "longTermMemory";
+
+	public static final String MEMORY_OWNER_ID = "memoryOwnerId";
+
+	public static final String TURN_ID = "turnId";
+
+	public static final String MEMORY_ITEM_ID = "memoryItemId";
+
 }

@@ -17,10 +17,11 @@ package com.alibaba.cloud.ai.dataagent.service.chat;
 
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
 import com.alibaba.cloud.ai.dataagent.mapper.ChatSessionMapper;
+import com.alibaba.cloud.ai.dataagent.service.memory.ConversationMemoryDeletionService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,7 +34,7 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
 	private final ChatSessionMapper chatSessionMapper;
 
-	private final ChatMemory chatMemory;
+	private final ConversationMemoryDeletionService memoryDeletionService;
 
 	/**
 	 * Get session list by agent ID
@@ -66,11 +67,12 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 	 * Clear all sessions for an agent
 	 */
 	@Override
+	@Transactional
 	public void clearSessionsByAgentId(Integer agentId) {
 		List<ChatSession> sessions = chatSessionMapper.selectByAgentId(agentId);
+		sessions.forEach(session -> memoryDeletionService.forgetConversation(session.getId()));
 		LocalDateTime now = LocalDateTime.now();
 		int updated = chatSessionMapper.softDeleteByAgentId(agentId, now);
-		sessions.forEach(session -> chatMemory.clear(session.getId()));
 		log.info("Cleared {} sessions for agent: {}", updated, agentId);
 	}
 
@@ -107,10 +109,11 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 	 * Delete a single session
 	 */
 	@Override
+	@Transactional
 	public void deleteSession(String sessionId) {
+		memoryDeletionService.forgetConversation(sessionId);
 		LocalDateTime now = LocalDateTime.now();
 		chatSessionMapper.softDeleteById(sessionId, now);
-		chatMemory.clear(sessionId);
 		log.info("Deleted session: {}", sessionId);
 	}
 

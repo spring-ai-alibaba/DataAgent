@@ -26,7 +26,8 @@ flowchart LR
     PromptCtl[PromptConfigController]
     ModelCtl[ModelConfigController]
     GraphSvc[GraphServiceImpl]
-    Context[MultiTurnContextManager]
+    Context[ConversationContextAssembler]
+    TurnMemory[ConversationTurnService]
     Graph[StateGraph Workflow]
     LlmSvc[LlmService]
     ModelRegistry[AiModelRegistry]
@@ -70,6 +71,8 @@ flowchart LR
   SSE --> GraphCtl
   GraphCtl --> GraphSvc
   GraphSvc --> Context
+  GraphSvc --> TurnMemory
+  TurnMemory --> MetaDB
   GraphSvc --> Graph
   Graph --> LlmSvc
   GraphSvc --> VectorSvc
@@ -245,16 +248,19 @@ sequenceDiagram
   participant GS as GraphServiceImpl
   participant G as CompiledGraph
   participant HF as HumanFeedbackNode
-  participant CTX as MultiTurnContextManager
+  participant CTX as ConversationContextAssembler
+  participant TURN as ConversationTurnService
   participant SS as StateSnapshot
 
   U->>API: stream search with humanFeedback true
   API->>GS: graphStreamProcess
-  GS->>CTX: buildContext and beginTurn
+  GS->>TURN: create turn and run
+  GS->>CTX: assemble verified context
   GS->>G: fluxStream interruptBefore HumanFeedback
   G-->>API: plan stream chunks
   G-->>HF: wait for feedback
   HF-->>G: wait state ends
+  GS->>TURN: mark WAITING_REVIEW
 
   Note over U,API: user submits feedback and threadId
   U->>API: stream search with feedback content
@@ -263,7 +269,8 @@ sequenceDiagram
   GS->>G: fluxStreamFromInitialNode
   HF-->>G: approve or reject
   G-->>API: continue execution stream
-  GS->>CTX: finishTurn update history
+  GS->>TURN: commit SUCCEEDED turn
+  TURN-->>CTX: outbox rebuilds projections
 ```
 
 ### 2. Prompt 配置与自动优化
@@ -467,7 +474,9 @@ sequenceDiagram
 
 - **流式输出**: `GraphController` SSE + `GraphServiceImpl` 流式处理
 - **文本标记**: `TextType` 在流中标记 SQL/JSON/HTML/Markdown，前端据此渲染
-- **多轮对话**: `MultiTurnContextManager` 记录"用户问题+规划结果"，注入到后续请求
+- **短期记忆**: `ConversationTurnService` 只提交成功且可验证的轮次；`ConversationContextAssembler` 注入滚动摘要和最近成功轮次
+- **长期记忆**: `memory_item` 采用 `CANDIDATE → CONFIRMED` 审核门，MySQL 是事实源，向量库只是可选索引
+- **隔离键**: `conversationId` 是稳定会话，`threadId` 是单次 Graph 运行，`turnId` 是逻辑对话轮次
 - **模式切换**: `spring.ai.alibaba.data-agent.llm-service-type` 支持 `STREAM/BLOCK`
 
 #### 架构图
@@ -478,7 +487,11 @@ flowchart LR
   SSE --> Sink[Sinks Many]
   SSE --> GraphSvc[GraphServiceImpl]
   GraphSvc --> StreamCtx[StreamContext]
-  GraphSvc --> Ctx[MultiTurnContextManager]
+  GraphSvc --> Ctx[ConversationContextAssembler]
+  GraphSvc --> Turn[ConversationTurnService]
+  Turn --> TurnDB[(conversation_turn)]
+  Turn --> Outbox[(memory_outbox)]
+  Outbox --> Projection[Summary ChatMemory Vector Index]
   GraphSvc --> Graph[CompiledGraph]
   Graph --> LLM[LlmService Stream Block]
   Graph --> TextType[TextType Markers]
@@ -497,7 +510,7 @@ flowchart LR
   class Client client
   class SSE,Sink api
   class GraphSvc,Graph service
-  class StreamCtx,Ctx data
+  class StreamCtx,Ctx,TurnDB,Outbox,Projection data
   class LLM llm
   class TextType,Stop control
 ```
@@ -513,7 +526,8 @@ sequenceDiagram
   participant GS as GraphServiceImpl
   participant SC as StreamContext
   participant SK as Sinks Many
-  participant CTX as MultiTurnContextManager
+  participant CTX as ConversationContextAssembler
+  participant TURN as ConversationTurnService
   participant G as CompiledGraph
   participant L as LlmService
   participant T as TextType
@@ -521,7 +535,8 @@ sequenceDiagram
   C->>API: connect SSE and send query
   API->>GS: graphStreamProcess
   GS->>SC: create or get context
-  GS->>CTX: beginTurn
+  GS->>TURN: begin turn and run
+  GS->>CTX: load verified context
   GS->>G: fluxStream threadId
   G->>L: stream model tokens
   L-->>G: token chunks
@@ -531,7 +546,7 @@ sequenceDiagram
   API-->>C: stream output
   C-->>API: disconnect
   API->>GS: stopStreamProcessing
-  GS->>CTX: discardPending
+  GS->>TURN: mark CANCELLED
 ```
 
 ### 6. MCP 与多模型调度

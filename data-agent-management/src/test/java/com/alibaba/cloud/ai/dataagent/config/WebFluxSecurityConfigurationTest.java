@@ -32,6 +32,7 @@ import org.springframework.web.reactive.function.server.RouterFunctions;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
+import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
 import static org.springframework.web.reactive.function.server.ServerResponse.ok;
 
 @ExtendWith(MockitoExtension.class)
@@ -55,6 +56,7 @@ class WebFluxSecurityConfigurationTest {
 				org.springframework.security.config.web.server.ServerHttpSecurity.http(), manager,
 				new AgentApiKeyServerAuthenticationConverter());
 		var router = RouterFunctions.route(GET("/api/stream/search"), request -> ok().bodyValue("stream"))
+			.andRoute(POST("/api/agents/{agentId}/memories"), request -> ok().bodyValue("memory"))
 			.andRoute(GET("/api/agent/list"), request -> ok().bodyValue("management"));
 		webTestClient = WebTestClient.bindToRouterFunction(router)
 			.webFilter(new WebFilterChainProxy(securityChain))
@@ -105,6 +107,27 @@ class WebFluxSecurityConfigurationTest {
 	@Test
 	void managementEndpoint_isNotClaimedByAgentApiKeyAuthentication() {
 		webTestClient.get().uri("/api/agent/list").exchange().expectStatus().isOk();
+	}
+
+	@Test
+	void memoryMutationUsesAgentIdFromPathAndRequiresItsCredential() {
+		when(agentMapper.findById(7L))
+			.thenReturn(Agent.builder().id(7L).apiKeyEnabled(1).apiKey(credentialService.encode("sk-seven")).build());
+
+		webTestClient.post()
+			.uri("/api/agents/7/memories")
+			.header(AgentApiKeyServerAuthenticationConverter.API_KEY_HEADER, "sk-seven")
+			.exchange()
+			.expectStatus()
+			.isOk();
+	}
+
+	@Test
+	void memoryMutationWithoutCredentialIsUnauthorized() {
+		when(agentMapper.findById(7L))
+			.thenReturn(Agent.builder().id(7L).apiKeyEnabled(1).apiKey(credentialService.encode("sk-seven")).build());
+
+		webTestClient.post().uri("/api/agents/7/memories").exchange().expectStatus().isUnauthorized();
 	}
 
 }

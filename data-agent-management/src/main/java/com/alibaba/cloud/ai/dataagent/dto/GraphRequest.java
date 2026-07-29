@@ -34,7 +34,12 @@ public class GraphRequest {
 	/** Graph run identifier. Reused only when resuming human feedback. */
 	private String threadId;
 
+	/** Durable turn identifier. Reused when resuming human feedback. */
+	private String turnId;
+
 	private String query;
+
+	private boolean titleNeeded;
 
 	private boolean humanFeedback;
 

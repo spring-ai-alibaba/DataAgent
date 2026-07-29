@@ -32,6 +32,8 @@ public final class Constant {
 
 	public static final String DATASOURCE_ID = "datasourceId";
 
+	public static final String SCHEMA_FINGERPRINT = "schemaFingerprint";
+
 	public static final String MULTI_TURN_CONTEXT = "MULTI_TURN_CONTEXT";
 
 	public static final String RESULT = "result";

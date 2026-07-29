@@ -35,6 +35,8 @@ public class DataAgentProperties {
 
 	private VectorStoreProperties vectorStore = new VectorStoreProperties();
 
+	private MemoryProperties memory = new MemoryProperties();
+
 	private ReportTemplate reportTemplate = new ReportTemplate();
 
 	/**
@@ -248,6 +250,57 @@ public class DataAgentProperties {
 		 * 每批次最大文本数量 适用于DashScope等有文本数量限制的API DashScope限制为10
 		 */
 		private int maxTextCount = 10;
+
+	}
+
+	@Getter
+	@Setter
+	public static class MemoryProperties {
+
+		/**
+		 * Number of successful structured turns kept verbatim in prompt context.
+		 */
+		private int recentTurns = 3;
+
+		/**
+		 * Maximum characters used by the rebuildable rolling summary.
+		 */
+		private int maxSummaryLength = 4000;
+
+		/**
+		 * Maximum characters copied from a result/report into prompt-facing memory.
+		 */
+		private int maxResultSummaryLength = 2000;
+
+		/**
+		 * Maximum confirmed long-term memories injected into one request.
+		 */
+		private int longTermTopK = 5;
+
+		/**
+		 * Maximum cross-session successful turns recalled for an authenticated owner.
+		 */
+		private int episodicTopK = 3;
+
+		/**
+		 * Enables owner-scoped recall only after the application has a trusted,
+		 * server-derived owner identity. USER_AGENT candidates inherit that identity
+		 * from a verified source turn; the current session userId input is not itself a
+		 * security boundary, so this remains disabled by default.
+		 */
+		private boolean userScopeEnabled = false;
+
+		/**
+		 * Enables optional vector indexing for long-term memories. MySQL remains the source
+		 * of truth.
+		 */
+		private boolean vectorIndexEnabled = false;
+
+		private double vectorSimilarityThreshold = 0.6;
+
+		private int outboxBatchSize = 20;
+
+		private int outboxMaxAttempts = 5;
 
 	}
 

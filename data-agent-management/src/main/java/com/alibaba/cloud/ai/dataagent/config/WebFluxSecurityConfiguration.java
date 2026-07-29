@@ -29,6 +29,7 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authentication.AuthenticationWebFilter;
 import org.springframework.security.web.server.authentication.ServerAuthenticationEntryPointFailureHandler;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
+import org.springframework.security.web.server.util.matcher.OrServerWebExchangeMatcher;
 import org.springframework.security.web.server.util.matcher.PathPatternParserServerWebExchangeMatcher;
 
 @Configuration(proxyBeanMethods = false)
@@ -36,6 +37,8 @@ import org.springframework.security.web.server.util.matcher.PathPatternParserSer
 public class WebFluxSecurityConfiguration {
 
 	private static final String STREAM_SEARCH_PATH = "/api/stream/search";
+
+	private static final String MEMORY_API_PATH = "/api/agents/*/memories/**";
 
 	@Bean
 	PasswordEncoder apiKeyPasswordEncoder() {
@@ -47,8 +50,9 @@ public class WebFluxSecurityConfiguration {
 			AgentApiKeyReactiveAuthenticationManager authenticationManager,
 			AgentApiKeyServerAuthenticationConverter authenticationConverter) {
 		AuthenticationWebFilter apiKeyFilter = new AuthenticationWebFilter(authenticationManager);
-		apiKeyFilter.setRequiresAuthenticationMatcher(
-				new PathPatternParserServerWebExchangeMatcher(STREAM_SEARCH_PATH, HttpMethod.GET));
+		apiKeyFilter.setRequiresAuthenticationMatcher(new OrServerWebExchangeMatcher(
+				new PathPatternParserServerWebExchangeMatcher(STREAM_SEARCH_PATH, HttpMethod.GET),
+				new PathPatternParserServerWebExchangeMatcher(MEMORY_API_PATH)));
 		apiKeyFilter.setServerAuthenticationConverter(authenticationConverter);
 		apiKeyFilter.setSecurityContextRepository(NoOpServerSecurityContextRepository.getInstance());
 		apiKeyFilter
@@ -63,6 +67,8 @@ public class WebFluxSecurityConfiguration {
 			.logout(ServerHttpSecurity.LogoutSpec::disable)
 			.securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
 			.authorizeExchange(exchange -> exchange.pathMatchers(HttpMethod.GET, STREAM_SEARCH_PATH)
+				.authenticated()
+				.pathMatchers(MEMORY_API_PATH)
 				.authenticated()
 				.anyExchange()
 				.permitAll())

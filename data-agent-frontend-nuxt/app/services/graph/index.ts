@@ -28,8 +28,12 @@ export interface GraphRequest {
   conversationId: string;
   /** Graph 运行 ID，仅在人工反馈恢复时复用 */
   threadId?: string;
+  /** 持久化对话轮次 ID，仅在人工反馈恢复时复用 */
+  turnId?: string;
   /** 用户查询语句 */
   query: string;
+  /** 是否需要异步生成会话标题 */
+  titleNeeded?: boolean;
   /** 是否需要人工反馈 */
   humanFeedback: boolean;
   /** 人工反馈内容 */
@@ -48,6 +52,8 @@ export interface GraphNodeResponse {
   agentId: string;
   /** 线程 ID */
   threadId: string;
+  /** 持久化对话轮次 ID */
+  turnId?: string;
   /** 事件语义；历史消息可能不存在 */
   eventType?: GraphEventType;
   /** 单次节点执行 ID；历史消息可能不存在 */
@@ -118,7 +124,11 @@ class GraphService {
     if (request.threadId) {
       params.append("threadId", request.threadId);
     }
+    if (request.turnId) {
+      params.append("turnId", request.turnId);
+    }
     params.append("query", request.query);
+    params.append("titleNeeded", Boolean(request.titleNeeded).toString());
     params.append("humanFeedback", request.humanFeedback.toString());
     params.append("rejectedPlan", request.rejectedPlan.toString());
     params.append("nl2sqlOnly", request.nl2sqlOnly.toString());
@@ -152,7 +162,8 @@ class GraphService {
     let isCompleted = false;
 
     eventSource.addEventListener("error", async (event) => {
-      if (!(event instanceof MessageEvent) || !event.data || isCompleted) return;
+      if (!(event instanceof MessageEvent) || !event.data || isCompleted)
+        return;
       isCompleted = true;
       eventSource.close();
       try {

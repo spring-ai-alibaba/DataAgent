@@ -154,14 +154,31 @@ All configuration items in this project are under the `spring.ai.alibaba.data-ag
 | `spring.ai.alibaba.data-agent.max-sql-retry-count` | SQL execution failure retry count | 10 |
 | `spring.ai.alibaba.data-agent.max-sql-optimize-count` | Maximum SQL optimization attempts | 10 |
 | `spring.ai.alibaba.data-agent.sql-score-threshold` | SQL optimization score threshold | 0.95 |
-| `spring.ai.alibaba.data-agent.maxturnhistory` | Maximum conversation turns to retain | 5 |
-| `spring.ai.alibaba.data-agent.maxplanlength` | Maximum plan length limit per planning | 2000 |
 | `spring.ai.alibaba.data-agent.max-columns-per-table` | Maximum estimated columns per table | 50 |
 | `spring.ai.alibaba.data-agent.fusion-strategy` | Multi-channel recall result fusion strategy | rrf |
 | `spring.ai.alibaba.data-agent.enable-sql-result-chart` | Enable SQL result chart judgment | true |
 | `spring.ai.alibaba.data-agent.enrich-sql-result-timeout` | SQL result chart generation timeout (ms) | 3000 |
 
-### 2. Embedding Batch Configuration
+### 2. Conversation Memory
+
+Configuration prefix: `spring.ai.alibaba.data-agent.memory`
+
+| Configuration Item | Description | Default Value |
+|-------------------|-------------|---------------|
+| `recent-turns` | Recent successful turns kept verbatim and projected to Spring AI ChatMemory | 3 |
+| `max-summary-length` | Maximum length of the rebuildable rolling summary | 4000 |
+| `max-result-summary-length` | Maximum result-summary length per turn | 2000 |
+| `long-term-top-k` | Maximum confirmed long-term memories injected per request | 5 |
+| `episodic-top-k` | Maximum cross-session turns recalled for a trusted owner | 3 |
+| `user-scope-enabled` | Enable personal memory; identity is inherited from a verified source turn and cannot be supplied by the API | false |
+| `vector-index-enabled` | Enable the optional semantic index; MySQL remains authoritative | false |
+| `vector-similarity-threshold` | Memory vector recall threshold | 0.6 |
+| `outbox-batch-size` | Projection events processed per batch | 20 |
+| `outbox-max-attempts` | Maximum projection attempts | 5 |
+
+For an existing MySQL installation, apply the updated `data-agent-management/src/main/resources/sql/schema.sql` before deployment. Graph requests do not fall back to the legacy memory implementation when the new tables are absent.
+
+### 3. Embedding Batch Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.embedding-batch`
 
@@ -172,7 +189,7 @@ Configuration prefix: `spring.ai.alibaba.data-agent.embedding-batch`
 | `reserve-percentage` | Reserve percentage (for buffer space) | 0.2 |
 | `max-text-count` | Maximum texts per batch (DashScope limit is 10) | 10 |
 
-### 3. Vector Store Configuration
+### 4. Vector Store Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.vector-store`
 
@@ -283,7 +300,7 @@ Below is the Elasticsearch Schema structure. Other vector stores (like Milvus, P
 }
 ```
 
-### 4. Text Splitter Configuration
+### 5. Text Splitter Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.text-splitter`
 
@@ -297,7 +314,7 @@ Configuration prefix: `spring.ai.alibaba.data-agent.text-splitter`
 | `separators` | Custom separator list | null (use default) |
 
 
-### 5. Code Executor Configuration
+### 6. Code Executor Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.code-executor`
 
@@ -343,7 +360,7 @@ for dependency syntax, security restrictions, runtime verification, and troubles
 [SAA 1.1.2.2 Python Sandbox Integration Design](superpowers/specs/2026-07-28-saa-python-sandbox-integration-design.md)
 for implementation boundaries.
 
-### 6. File Storage Configuration
+### 7. File Storage Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.file`
 
@@ -355,7 +372,7 @@ Configuration prefix: `spring.ai.alibaba.data-agent.file`
 | `image-size` | Image size limit (bytes) | 2097152 (2MB) |
 | `path-prefix` | Object storage path prefix | "" |
 
-### 7. Alibaba Cloud OSS Configuration
+### 8. Alibaba Cloud OSS Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.file.oss`
 
@@ -368,7 +385,7 @@ Configuration prefix: `spring.ai.alibaba.data-agent.file.oss`
 | `custom-domain` | Custom domain | - |
 
 
-### 8. Database Initialization
+### 9. Database Initialization
 
 Configuration prefix: `spring.sql.init`
 
@@ -378,13 +395,13 @@ Configuration prefix: `spring.sql.init`
 | `schema-locations` | Table structure script path | classpath:sql/schema.sql | |
 | `data-locations` | Data script path | classpath:sql/data.sql | |
 
-### 9. Dependency Extension
+### 10. Dependency Extension
 
 If you choose not to use Spring AI Alibaba Starter and instead manually import OpenAI or other vendor Starters:
 - Please ensure you remove the default Starter dependency to avoid conflicts.
 - You may need to manually configure `ChatClient`, `ChatModel`, and `EmbeddingModel` Beans.
 
-### 10. Report Resources Configuration
+### 11. Report Resources Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.report-template`
 
@@ -393,7 +410,7 @@ Configuration prefix: `spring.ai.alibaba.data-agent.report-template`
 | `marked-url` | Marked.js path (Markdown rendering library) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/marked/12.0.0/marked.min.js |
 | `echarts-url` | ECharts path (chart library) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/echarts/5.5.0/echarts.min.js |
 
-### 11. Langfuse Observability Configuration
+### 12. Langfuse Observability Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.langfuse`
 

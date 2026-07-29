@@ -66,7 +66,7 @@ class GraphControllerTest {
 		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
 		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-1",
-				"thread-1", "show me sales data", false, null, false, false, serverHttpResponse);
+				"thread-1", null, "show me sales data", false, false, null, false, false, serverHttpResponse);
 
 		assertNotNull(result);
 
@@ -86,7 +86,8 @@ class GraphControllerTest {
 		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
 		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-2",
-				"thread-2", "approve this plan", true, "looks good", false, false, serverHttpResponse);
+				"thread-2", "turn-2", "approve this plan", false, true, "looks good", false, false,
+				serverHttpResponse);
 
 		assertNotNull(result);
 
@@ -104,7 +105,7 @@ class GraphControllerTest {
 		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
 		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-3",
-				null, "SELECT query", false, null, false, true, serverHttpResponse);
+				null, null, "SELECT query", false, false, null, false, true, serverHttpResponse);
 
 		assertNotNull(result);
 
@@ -133,7 +134,7 @@ class GraphControllerTest {
 		}).when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
 		GraphNodeResponse response = graphController
-			.streamSearch("agent-1", "conversation-1", null, "review the plan", true, null, false, false,
+			.streamSearch("agent-1", "conversation-1", null, null, "review the plan", false, true, null, false, false,
 					serverHttpResponse)
 			.map(ServerSentEvent::data)
 			.blockFirst(Duration.ofSeconds(1));

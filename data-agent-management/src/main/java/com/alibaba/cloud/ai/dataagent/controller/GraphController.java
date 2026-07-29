@@ -49,7 +49,9 @@ public class GraphController {
 	@GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<ServerSentEvent<GraphNodeResponse>> streamSearch(@RequestParam("agentId") String agentId,
 			@RequestParam(value = "conversationId", required = false) String conversationId,
-			@RequestParam(value = "threadId", required = false) String threadId, @RequestParam("query") String query,
+			@RequestParam(value = "threadId", required = false) String threadId,
+			@RequestParam(value = "turnId", required = false) String turnId, @RequestParam("query") String query,
+			@RequestParam(value = "titleNeeded", required = false) boolean titleNeeded,
 			@RequestParam(value = "humanFeedback", required = false) boolean humanFeedback,
 			@RequestParam(value = "humanFeedbackContent", required = false) String humanFeedbackContent,
 			@RequestParam(value = "rejectedPlan", required = false) boolean rejectedPlan,
@@ -65,7 +67,9 @@ public class GraphController {
 			.agentId(agentId)
 			.conversationId(conversationId)
 			.threadId(threadId)
+			.turnId(turnId)
 			.query(query)
+			.titleNeeded(titleNeeded)
 			.humanFeedback(humanFeedback)
 			.humanFeedbackContent(humanFeedbackContent)
 			.rejectedPlan(rejectedPlan)

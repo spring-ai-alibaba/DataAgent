@@ -17,8 +17,9 @@ package com.alibaba.cloud.ai.dataagent.service.graph;
 
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.enums.GraphEventType;
-import com.alibaba.cloud.ai.dataagent.service.graph.Context.MultiTurnContextManager;
 import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
+import com.alibaba.cloud.ai.dataagent.service.memory.ConversationContextAssembler;
+import com.alibaba.cloud.ai.dataagent.service.memory.ConversationTurnService;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.CompileConfig;
@@ -63,7 +64,10 @@ class GraphServiceImplTest {
 	private CompiledGraph compiledGraph;
 
 	@Mock
-	private MultiTurnContextManager multiTurnContextManager;
+	private ConversationContextAssembler contextAssembler;
+
+	@Mock
+	private ConversationTurnService turnService;
 
 	@Mock
 	private LangfuseService langfuseReporter;
@@ -85,13 +89,16 @@ class GraphServiceImplTest {
 		StateGraph mockStateGraph = mock(StateGraph.class);
 		when(mockStateGraph.compile(any())).thenReturn(compiledGraph);
 
-		CompileConfig compileConfig = CompileConfig.builder().build();
-		graphService = new GraphServiceImpl(mockStateGraph, compileConfig, checkpointSaver, executor,
-				multiTurnContextManager, langfuseReporter);
+			CompileConfig compileConfig = CompileConfig.builder().build();
+			graphService = new GraphServiceImpl(mockStateGraph, compileConfig, checkpointSaver, executor,
+					contextAssembler, turnService, langfuseReporter);
 
 		when(langfuseReporter.startLLMSpan(anyString(), any())).thenReturn(mockSpan);
 		when(mockSpan.isRecording()).thenReturn(true);
-		when(multiTurnContextManager.buildContext(anyString())).thenReturn("(无)");
+			when(contextAssembler.build(anyString(), anyInt(), nullable(String.class))).thenReturn("(无)");
+			when(turnService.beginTurn(anyString(), anyInt(), anyString(), anyString(), anyBoolean()))
+				.thenReturn("turn-1");
+			when(turnService.resumeTurn(nullable(String.class), anyString(), anyBoolean())).thenReturn("turn-1");
 	}
 
 	@AfterEach
@@ -217,6 +224,8 @@ class GraphServiceImplTest {
 				responses.stream()
 					.anyMatch(response -> "HUMAN_FEEDBACK_REQUIRED".equals(response.getEventType().name())),
 				responses.toString());
+		verify(turnService).markWaitingReview(eq("turn-1"), eq(request.getThreadId()), nullable(String.class));
+		verify(turnService, never()).completeTurn(any(), any(), any(), any(), any());
 		verify(checkpointSaver, never()).release(any(RunnableConfig.class));
 	}
 
@@ -248,7 +257,53 @@ class GraphServiceImplTest {
 				responses.stream()
 					.anyMatch(response -> "HUMAN_FEEDBACK_REQUIRED".equals(response.getEventType().name())),
 				responses.toString());
+		verify(turnService).completeTurn(eq("turn-1"), eq(request.getThreadId()), any(), nullable(String.class),
+				nullable(String.class));
+		verify(turnService, never()).markWaitingReview(any(), any(), any());
 		verify(checkpointSaver).release(any(RunnableConfig.class));
+	}
+
+	@Test
+	void graphStreamProcess_startupFailureMarksDurableTurnFailedAndReleasesCheckpoint() throws Exception {
+		when(contextAssembler.build("conversation-1", 1, "test query"))
+			.thenThrow(new IllegalStateException("context unavailable"));
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-1")
+			.query("test query")
+			.build();
+
+		assertThrows(IllegalStateException.class,
+				() -> graphService.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), request));
+
+		verify(turnService).failTurn(eq("turn-1"), eq(request.getThreadId()), any(IllegalStateException.class),
+				nullable(String.class));
+		verify(checkpointSaver).release(argThat(config -> request.getThreadId().equals(config.threadId().orElse(null))));
+	}
+
+	@Test
+	void graphStreamProcess_completionPersistenceFailureMarksTurnFailedAndEmitsError() throws Exception {
+		doThrow(new IllegalStateException("database unavailable"))
+			.when(turnService)
+			.completeTurn(eq("turn-1"), anyString(), any(), nullable(String.class), nullable(String.class));
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.empty());
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
+		var responsesFuture = sink.asFlux().map(ServerSentEvent::data).collectList().toFuture();
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-1")
+			.query("test query")
+			.build();
+
+		graphService.graphStreamProcess(sink, request);
+		List<GraphNodeResponse> responses = responsesFuture.get(Duration.ofSeconds(2).toMillis(),
+				TimeUnit.MILLISECONDS);
+
+		assertTrue(responses.stream().anyMatch(response -> response.isError()
+				&& response.getText().contains("Failed to persist graph result")), responses.toString());
+		verify(turnService).failTurn(eq("turn-1"), eq(request.getThreadId()), any(IllegalStateException.class),
+				nullable(String.class));
+		verify(checkpointSaver).release(argThat(config -> request.getThreadId().equals(config.threadId().orElse(null))));
 	}
 
 	@Test
@@ -341,7 +396,7 @@ class GraphServiceImplTest {
 	@Test
 	void stopStreamProcessing_unknownThread_doesNothing() {
 		assertDoesNotThrow(() -> graphService.stopStreamProcessing("unknown-thread"));
-		verify(multiTurnContextManager).discardPending("unknown-thread");
+		verify(turnService, never()).cancelTurn(any(), any(), any());
 	}
 
 	@Test
@@ -367,7 +422,7 @@ class GraphServiceImplTest {
 		}
 
 		graphService.stopStreamProcessing(runId);
-		verify(multiTurnContextManager).discardPending("conversation-to-stop");
+		verify(turnService).cancelTurn(eq("turn-1"), eq(runId), nullable(String.class));
 	}
 
 	@Test
@@ -390,7 +445,7 @@ class GraphServiceImplTest {
 		graphService.stopStreamProcessingByConversationId("conversation-to-cancel");
 
 		assertTrue(cancelled.await(2, TimeUnit.SECONDS));
-		verify(multiTurnContextManager).discardPending("conversation-to-cancel");
+		verify(turnService).cancelTurn(eq("turn-1"), eq(request.getThreadId()), nullable(String.class));
 		var configCaptor = org.mockito.ArgumentCaptor.forClass(RunnableConfig.class);
 		try {
 			verify(checkpointSaver).release(configCaptor.capture());

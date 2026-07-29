@@ -24,6 +24,7 @@ import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.SchemaFingerprintUtil;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -129,7 +130,8 @@ public class SchemaRecallNode implements NodeAction {
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, currentState -> {
 					return Map.of(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocuments,
-							COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, columnDocuments);
+							COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, columnDocuments, DATASOURCE_ID, datasourceId,
+							SCHEMA_FINGERPRINT, SchemaFingerprintUtil.fingerprint(tableDocuments, columnDocuments));
 				}, displayFlux);
 
 		// Return the processing result

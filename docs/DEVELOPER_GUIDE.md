@@ -154,14 +154,31 @@ public class AgentVectorStoreService {
 | `spring.ai.alibaba.data-agent.max-sql-retry-count`     | SQL执行失败重试次数 | 10     |
 | `spring.ai.alibaba.data-agent.max-sql-optimize-count`  | SQL优化最多次数 | 10     |
 | `spring.ai.alibaba.data-agent.sql-score-threshold`     | SQL优化分数阈值 | 0.95   |
-| `spring.ai.alibaba.data-agent.maxturnhistory`          | 最多保留的对话轮数 | 5      |
-| `spring.ai.alibaba.data-agent.maxplanlength`           | 单次规划最大长度限制 | 2000   |
 | `spring.ai.alibaba.data-agent.max-columns-per-table`   | 每张表的最大预估列数 | 50     |
 | `spring.ai.alibaba.data-agent.fusion-strategy`         | 多路召回结果融合策略 | rrf    |
 | `spring.ai.alibaba.data-agent.enable-sql-result-chart` | 是否启用SQL执行结果图表判断 | true   |
 | `spring.ai.alibaba.data-agent.enrich-sql-result-timeout` | 执行SQL结果图表化超时时间，单位毫秒 | 3000   |
 
-### 2. 嵌入模型批处理策略 (Embedding Batch)
+### 2. 对话记忆
+
+配置前缀：`spring.ai.alibaba.data-agent.memory`
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `recent-turns` | 原样注入的最近成功轮次，也是 Spring AI ChatMemory 投影窗口 | 3 |
+| `max-summary-length` | 可重建滚动摘要的最大字符数 | 4000 |
+| `max-result-summary-length` | 单轮结果摘要最大字符数 | 2000 |
+| `long-term-top-k` | 每次注入的已确认长期记忆上限 | 5 |
+| `episodic-top-k` | 可信用户跨会话召回上限 | 3 |
+| `user-scope-enabled` | 是否启用个人记忆；身份只能从已验证来源轮次继承，不能由 API 请求指定 | false |
+| `vector-index-enabled` | 是否启用可选语义索引；MySQL 始终是事实源 | false |
+| `vector-similarity-threshold` | 记忆向量召回阈值 | 0.6 |
+| `outbox-batch-size` | 单批投影事件数量 | 20 |
+| `outbox-max-attempts` | 投影事件最大尝试次数 | 5 |
+
+已有 MySQL 环境升级时，需先执行更新后的 `data-agent-management/src/main/resources/sql/schema.sql`。短期和长期记忆表不存在时，Graph 请求不会降级为旧记忆实现。
+
+### 3. 嵌入模型批处理策略 (Embedding Batch)
 
 配置前缀: `spring.ai.alibaba.data-agent.embedding-batch`
 
@@ -172,7 +189,7 @@ public class AgentVectorStoreService {
 | `reserve-percentage` | 预留百分比 (用于缓冲空间) | 0.2 |
 | `max-text-count` | 每批次最大文本数量 (DashScope限制为10) | 10 |
 
-### 3. 向量库配置 (Vector Store)
+### 4. 向量库配置 (Vector Store)
 
 配置前缀: `spring.ai.alibaba.data-agent.vector-store`
 
@@ -283,17 +300,17 @@ public class AgentVectorStoreService {
 }
 ```
 
-### 4. 文本切分配置 (Text Splitter)
+### 5. 文本切分配置 (Text Splitter)
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter`
 
-#### 4.1 全局配置
+#### 5.1 全局配置
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
 | `chunk-size` | 默认分块大小（基于token数量，所有策略共享） | 1000 |
 
-#### 4.2 TokenTextSplitter 配置 (token)
+#### 5.2 TokenTextSplitter 配置 (token)
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter.token`
 
@@ -306,7 +323,7 @@ public class AgentVectorStoreService {
 | `max-num-chunks` | 最大分块数量 | 5000 |
 | `keep-separator` | 是否保留分隔符 | true |
 
-#### 4.3 RecursiveCharacterTextSplitter 配置 (recursive)
+#### 5.3 RecursiveCharacterTextSplitter 配置 (recursive)
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter.recursive`
 
@@ -317,7 +334,7 @@ public class AgentVectorStoreService {
 | `chunk-overlap` | 重叠区域字符数（相邻分块之间的重叠字符数） | 200 |
 | `separators` | 自定义分隔符列表（数组格式，如果为 null 则使用默认分隔符列表） | null |
 
-#### 4.4 SentenceTextSplitter 配置 (sentence)
+#### 5.4 SentenceTextSplitter 配置 (sentence)
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter.sentence`
 
@@ -327,7 +344,7 @@ public class AgentVectorStoreService {
 |--------|------|--------|
 | `sentence-overlap` | 句子重叠数量（保留前一个分块的最后 N 个句子） | 1 |
 
-#### 4.5 SemanticTextSplitter 配置 (semantic)
+#### 5.5 SemanticTextSplitter 配置 (semantic)
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter.semantic`
 
@@ -339,7 +356,7 @@ public class AgentVectorStoreService {
 | `max-chunk-size` | 最大分块大小（字符数） | 1000 |
 | `similarity-threshold` | 语义相似度阈值（0-1之间，值越低越容易分块） | 0.5 |
 
-#### 4.6 ParagraphTextSplitter 配置 (paragraph)
+#### 5.6 ParagraphTextSplitter 配置 (paragraph)
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter.paragraph`
 
@@ -350,7 +367,7 @@ public class AgentVectorStoreService {
 | `paragraph-overlap-chars` | 段落重叠字符数（保留前一个分块的最后 N 个字符，而非段落数量） | 200 |
 
 
-### 5. 代码执行器配置 (Code Executor)
+### 6. 代码执行器配置 (Code Executor)
 
 配置前缀: `spring.ai.alibaba.data-agent.code-executor`
 
@@ -394,7 +411,7 @@ public class AgentVectorStoreService {
 [高级功能 - Python 执行环境配置](ADVANCED_FEATURES.md#-python-执行环境配置)；实现边界见
 [SAA 1.1.2.2 Python 沙盒接入方案](superpowers/specs/2026-07-28-saa-python-sandbox-integration-design.md)。
 
-### 6. 文件存储配置 (File Storage)
+### 7. 文件存储配置 (File Storage)
 
 配置前缀: `spring.ai.alibaba.data-agent.file`
 
@@ -406,7 +423,7 @@ public class AgentVectorStoreService {
 | `image-size` | 图片大小上限 (字节) | 2097152 (2MB) |
 | `path-prefix` | 对象存储路径前缀 | "" |
 
-### 7. 阿里云 OSS 配置 (OSS Storage)
+### 8. 阿里云 OSS 配置 (OSS Storage)
 
 配置前缀: `spring.ai.alibaba.data-agent.file.oss`
 
@@ -419,7 +436,7 @@ public class AgentVectorStoreService {
 | `custom-domain` | 自定义域名 | - |
 
 
-### 8. 数据库初始化配置 (Database Initialization)
+### 9. 数据库初始化配置 (Database Initialization)
 
 配置前缀: `spring.sql.init`
 
@@ -429,13 +446,13 @@ public class AgentVectorStoreService {
 | `schema-locations` | 表结构脚本路径 | classpath:sql/schema.sql | |
 | `data-locations` | 数据脚本路径 | classpath:sql/data.sql | |
 
-### 9. 模型依赖手动管理 (Manual Model Dependency)
+### 10. 模型依赖手动管理 (Manual Model Dependency)
 
 如果您选择不使用 Spring AI Alibaba Starter 而是手动引入 OpenAI 或其他厂商的 Starter：
 - 请确保移除默认的 Starter 依赖，避免冲突。
 - 您可能需要手动配置 `ChatClient`, `ChatModel` 和 `EmbeddingModel` 的 Bean。
 
-### 10. 报告资源配置 (Report Resources)
+### 11. 报告资源配置 (Report Resources)
 
 配置前缀: `spring.ai.alibaba.data-agent.report-template`
 
@@ -444,7 +461,7 @@ public class AgentVectorStoreService {
 | `marked-url` | Marked.js 路径 (Markdown渲染库) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/marked/12.0.0/marked.min.js |
 | `echarts-url` | ECharts 路径 (图表库) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/echarts/5.5.0/echarts.min.js |
 
-### 11. Langfuse 可观测性配置 (Langfuse Observability)
+### 12. Langfuse 可观测性配置 (Langfuse Observability)
 
 配置前缀: `spring.ai.alibaba.data-agent.langfuse`
 

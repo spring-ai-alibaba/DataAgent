@@ -26,7 +26,8 @@ flowchart LR
     PromptCtl[PromptConfigController]
     ModelCtl[ModelConfigController]
     GraphSvc[GraphServiceImpl]
-    Context[MultiTurnContextManager]
+    Context[ConversationContextAssembler]
+    TurnMemory[ConversationTurnService]
     Graph[StateGraph Workflow]
     LlmSvc[LlmService]
     ModelRegistry[AiModelRegistry]
@@ -65,6 +66,8 @@ flowchart LR
   SSE --> GraphCtl
   GraphCtl --> GraphSvc
   GraphSvc --> Context
+  GraphSvc --> TurnMemory
+  TurnMemory --> MetaDB
   GraphSvc --> Graph
   Graph --> LlmSvc
   GraphSvc --> VectorSvc
@@ -235,16 +238,19 @@ sequenceDiagram
   participant GS as GraphServiceImpl
   participant G as CompiledGraph
   participant HF as HumanFeedbackNode
-  participant CTX as MultiTurnContextManager
+  participant CTX as ConversationContextAssembler
+  participant TURN as ConversationTurnService
   participant SS as StateSnapshot
 
   U->>API: stream search with humanFeedback true
   API->>GS: graphStreamProcess
-  GS->>CTX: buildContext and beginTurn
+  GS->>TURN: create turn and run
+  GS->>CTX: assemble verified context
   GS->>G: fluxStream interruptBefore HumanFeedback
   G-->>API: plan stream chunks
   G-->>HF: wait for feedback
   HF-->>G: wait state ends
+  GS->>TURN: mark WAITING_REVIEW
 
   Note over U,API: user submits feedback and threadId
   U->>API: stream search with feedback content
@@ -253,7 +259,8 @@ sequenceDiagram
   GS->>G: fluxStreamFromInitialNode
   HF-->>G: approve or reject
   G-->>API: continue execution stream
-  GS->>CTX: finishTurn update history
+  GS->>TURN: commit SUCCEEDED turn
+  TURN-->>CTX: outbox rebuilds projections
 ```
 
 ### 2. Prompt Configuration and Auto-Optimization
@@ -458,7 +465,9 @@ sequenceDiagram
 
 - **Streaming Output**: `GraphController` SSE + `GraphServiceImpl` streaming processing
 - **Text Markers**: `TextType` marks SQL/JSON/HTML/Markdown in the stream, frontend renders accordingly
-- **Multi-turn Conversation**: `MultiTurnContextManager` records "user question + planning results", injected into subsequent requests
+- **Short-term Memory**: `ConversationTurnService` commits only successful, verified turns; `ConversationContextAssembler` injects the rolling summary and recent successful turns
+- **Long-term Memory**: `memory_item` uses a `CANDIDATE → CONFIRMED` review gate; MySQL is authoritative and the vector store is an optional index
+- **Isolation Keys**: `conversationId` identifies the stable chat, `threadId` identifies one graph run, and `turnId` identifies the logical turn
 - **Mode Switching**: `spring.ai.alibaba.data-agent.llm-service-type` supports `STREAM/BLOCK`
 
 #### Architecture Diagram
@@ -469,7 +478,11 @@ flowchart LR
   SSE --> Sink[Sinks Many]
   SSE --> GraphSvc[GraphServiceImpl]
   GraphSvc --> StreamCtx[StreamContext]
-  GraphSvc --> Ctx[MultiTurnContextManager]
+  GraphSvc --> Ctx[ConversationContextAssembler]
+  GraphSvc --> Turn[ConversationTurnService]
+  Turn --> TurnDB[(conversation_turn)]
+  Turn --> Outbox[(memory_outbox)]
+  Outbox --> Projection[Summary ChatMemory Vector Index]
   GraphSvc --> Graph[CompiledGraph]
   Graph --> LLM[LlmService Stream Block]
   Graph --> TextType[TextType Markers]
@@ -488,7 +501,7 @@ flowchart LR
   class Client client
   class SSE,Sink api
   class GraphSvc,Graph service
-  class StreamCtx,Ctx data
+  class StreamCtx,Ctx,TurnDB,Outbox,Projection data
   class LLM llm
   class TextType,Stop control
 ```
@@ -504,7 +517,8 @@ sequenceDiagram
   participant GS as GraphServiceImpl
   participant SC as StreamContext
   participant SK as Sinks Many
-  participant CTX as MultiTurnContextManager
+  participant CTX as ConversationContextAssembler
+  participant TURN as ConversationTurnService
   participant G as CompiledGraph
   participant L as LlmService
   participant T as TextType
@@ -512,7 +526,8 @@ sequenceDiagram
   C->>API: connect SSE and send query
   API->>GS: graphStreamProcess
   GS->>SC: create or get context
-  GS->>CTX: beginTurn
+  GS->>TURN: begin turn and run
+  GS->>CTX: load verified context
   GS->>G: fluxStream threadId
   G->>L: stream model tokens
   L-->>G: token chunks
@@ -522,7 +537,7 @@ sequenceDiagram
   API-->>C: stream output
   C-->>API: disconnect
   API->>GS: stopStreamProcessing
-  GS->>CTX: discardPending
+  GS->>TURN: mark CANCELLED
 ```
 
 ### 6. MCP and Multi-Model Scheduling

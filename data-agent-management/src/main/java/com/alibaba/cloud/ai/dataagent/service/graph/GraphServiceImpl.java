@@ -15,14 +15,15 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.graph;
 
-import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
+import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.enums.GraphEventType;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
-import com.alibaba.cloud.ai.dataagent.workflow.node.PlannerNode;
-import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
-import com.alibaba.cloud.ai.dataagent.service.graph.Context.MultiTurnContextManager;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.StreamContext;
+import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
+import com.alibaba.cloud.ai.dataagent.service.memory.ConversationContextAssembler;
+import com.alibaba.cloud.ai.dataagent.service.memory.ConversationTurnService;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
+import com.alibaba.cloud.ai.dataagent.workflow.node.ReportGeneratorNode;
 import com.alibaba.cloud.ai.graph.*;
 import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
@@ -58,17 +59,21 @@ public class GraphServiceImpl implements GraphService {
 
 	private final ConcurrentHashMap<String, StreamContext> streamContextMap = new ConcurrentHashMap<>();
 
-	private final MultiTurnContextManager multiTurnContextManager;
+	private final ConversationContextAssembler contextAssembler;
+
+	private final ConversationTurnService turnService;
 
 	private final LangfuseService langfuseReporter;
 
 	public GraphServiceImpl(StateGraph stateGraph, CompileConfig compileConfig, BaseCheckpointSaver checkpointSaver,
-			ExecutorService executorService, MultiTurnContextManager multiTurnContextManager,
+			ExecutorService executorService, ConversationContextAssembler contextAssembler,
+			ConversationTurnService turnService,
 			LangfuseService langfuseReporter) throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(compileConfig);
 		this.checkpointSaver = checkpointSaver;
 		this.executor = executorService;
-		this.multiTurnContextManager = multiTurnContextManager;
+		this.contextAssembler = contextAssembler;
+		this.turnService = turnService;
 		this.langfuseReporter = langfuseReporter;
 	}
 
@@ -108,12 +113,19 @@ public class GraphServiceImpl implements GraphService {
 		// 创建或获取 StreamContext
 		StreamContext context = streamContextMap.computeIfAbsent(threadId, k -> new StreamContext());
 		context.setConversationId(graphRequest.getConversationId());
+		context.setTurnId(graphRequest.getTurnId());
 		context.setSink(sink);
-		if (StringUtils.hasText(graphRequest.getHumanFeedbackContent())) {
-			handleHumanFeedback(graphRequest);
+		try {
+			if (StringUtils.hasText(graphRequest.getHumanFeedbackContent())) {
+				handleHumanFeedback(graphRequest);
+			}
+			else {
+				handleNewProcess(graphRequest);
+			}
 		}
-		else {
-			handleNewProcess(graphRequest);
+		catch (RuntimeException e) {
+			cleanupFailedStart(context, threadId, e);
+			throw e;
 		}
 	}
 
@@ -128,8 +140,13 @@ public class GraphServiceImpl implements GraphService {
 		}
 		log.info("Stopping stream processing for threadId: {}", threadId);
 		StreamContext context = streamContextMap.remove(threadId);
-		multiTurnContextManager.discardPending(context != null ? context.getConversationId() : threadId);
 		if (context != null) {
+			try {
+				turnService.cancelTurn(context.getTurnId(), threadId, context.timelineJson());
+			}
+			catch (RuntimeException e) {
+				log.error("Failed to persist cancellation for threadId: {}", threadId, e);
+			}
 			// 客户端断开，结束 Langfuse span
 			if (context.getSpan() != null && context.getSpan().isRecording()) {
 				langfuseReporter.endSpanSuccess(context.getSpan(), threadId, context.getCollectedOutput());
@@ -178,8 +195,12 @@ public class GraphServiceImpl implements GraphService {
 		Span span = langfuseReporter.startLLMSpan("graph-stream", graphRequest);
 		context.setSpan(span);
 
-		String multiTurnContext = multiTurnContextManager.buildContext(conversationId);
-		multiTurnContextManager.beginTurn(conversationId, query);
+		Integer numericAgentId = Integer.valueOf(agentId);
+		String turnId = turnService.beginTurn(conversationId, numericAgentId, threadId, query,
+				graphRequest.isTitleNeeded());
+		graphRequest.setTurnId(turnId);
+		context.setTurnId(turnId);
+		String multiTurnContext = contextAssembler.build(conversationId, numericAgentId, query);
 		Flux<NodeOutput> nodeOutputFlux = compiledGraph.stream(
 				Map.of(IS_ONLY_NL2SQL, nl2sqlOnly, INPUT_KEY, query, AGENT_ID, agentId, HUMAN_REVIEW_ENABLED,
 						humanReviewEnabled, MULTI_TURN_CONTEXT, multiTurnContext, TRACE_THREAD_ID, threadId),
@@ -207,15 +228,16 @@ public class GraphServiceImpl implements GraphService {
 		// 开始 Langfuse 追踪
 		Span span = langfuseReporter.startLLMSpan("graph-feedback", graphRequest);
 		context.setSpan(span);
+		String turnId = turnService.resumeTurn(graphRequest.getTurnId(), threadId, graphRequest.isRejectedPlan());
+		graphRequest.setTurnId(turnId);
+		context.setTurnId(turnId);
 
 		Map<String, Object> feedbackData = Map.of("feedback", !graphRequest.isRejectedPlan(), "feedback_content",
 				feedbackContent);
-		if (graphRequest.isRejectedPlan()) {
-			multiTurnContextManager.restartLastTurn(conversationId);
-		}
 		Map<String, Object> stateUpdate = new HashMap<>();
 		stateUpdate.put(HUMAN_FEEDBACK_DATA, feedbackData);
-		stateUpdate.put(MULTI_TURN_CONTEXT, multiTurnContextManager.buildContext(conversationId));
+		stateUpdate.put(MULTI_TURN_CONTEXT,
+				contextAssembler.build(conversationId, Integer.valueOf(agentId), graphRequest.getQuery()));
 
 		RunnableConfig baseConfig = RunnableConfig.builder().threadId(threadId).build();
 		RunnableConfig updatedConfig;
@@ -275,9 +297,14 @@ public class GraphServiceImpl implements GraphService {
 		String threadId = request.getThreadId();
 		log.error("Error in stream processing for threadId: {}: ", threadId, error);
 		StreamContext context = streamContextMap.remove(threadId);
-		multiTurnContextManager.discardPending(request.getConversationId());
 		releaseCheckpoint(RunnableConfig.builder().threadId(threadId).build());
 		if (context != null && !context.isCleaned()) {
+			try {
+				turnService.failTurn(context.getTurnId(), threadId, error, context.timelineJson());
+			}
+			catch (RuntimeException persistenceError) {
+				log.error("Failed to persist graph error for threadId: {}", threadId, persistenceError);
+			}
 			// 结束 Langfuse span（失败）
 			if (context.getSpan() != null) {
 				langfuseReporter.endSpanError(context.getSpan(), threadId,
@@ -285,9 +312,9 @@ public class GraphServiceImpl implements GraphService {
 			}
 			if (context.getSink() != null && context.getSink().currentSubscriberCount() > 0) {
 				context.getSink()
-					.tryEmitNext(ServerSentEvent
-						.builder(GraphNodeResponse.error(agentId, threadId,
-								"Error in stream processing: " + error.getMessage()))
+						.tryEmitNext(ServerSentEvent
+							.builder(GraphNodeResponse.error(agentId, threadId, context.getTurnId(),
+									"Error in stream processing: " + error.getMessage()))
 						.event(STREAM_EVENT_ERROR)
 						.build());
 				context.getSink().tryEmitComplete();
@@ -304,14 +331,33 @@ public class GraphServiceImpl implements GraphService {
 		String agentId = request.getAgentId();
 		String threadId = request.getThreadId();
 		log.info("Stream processing completed successfully for threadId: {}", threadId);
-		multiTurnContextManager.finishTurn(request.getConversationId());
 		RunnableConfig config = RunnableConfig.builder().threadId(threadId).build();
 		boolean awaitingHumanFeedback = isAwaitingHumanFeedback(request, config);
-		if (!awaitingHumanFeedback) {
-			releaseCheckpoint(config);
-		}
 		StreamContext context = streamContextMap.remove(threadId);
 		if (context != null && !context.isCleaned()) {
+			try {
+				if (awaitingHumanFeedback) {
+					turnService.markWaitingReview(context.getTurnId(), threadId, context.timelineJson());
+				}
+				else {
+					turnService.completeTurn(context.getTurnId(), threadId, context.getMemorySnapshot(),
+							context.getReportContent(), context.timelineJson());
+					releaseCheckpoint(config);
+				}
+			}
+			catch (RuntimeException e) {
+				log.error("Failed to persist completed graph run for threadId: {}", threadId, e);
+				try {
+					turnService.failTurn(context.getTurnId(), threadId, e, context.timelineJson());
+				}
+				catch (RuntimeException failurePersistenceError) {
+					log.error("Failed to mark graph run failed after completion persistence error for threadId: {}",
+							threadId, failurePersistenceError);
+				}
+				releaseCheckpoint(config);
+				emitPersistenceError(context, agentId, threadId, e);
+				return;
+			}
 			// 结束 Langfuse span（成功）
 			if (context.getSpan() != null) {
 				langfuseReporter.endSpanSuccess(context.getSpan(), threadId, context.getCollectedOutput());
@@ -320,28 +366,50 @@ public class GraphServiceImpl implements GraphService {
 				if (awaitingHumanFeedback) {
 					context.getSink()
 						.tryEmitNext(ServerSentEvent
-							.builder(GraphNodeResponse.builder()
-								.agentId(agentId)
-								.threadId(threadId)
+								.builder(GraphNodeResponse.builder()
+									.agentId(agentId)
+									.threadId(threadId)
+									.turnId(context.getTurnId())
 								.eventType(GraphEventType.HUMAN_FEEDBACK_REQUIRED)
 								.textType(TextType.TEXT)
 								.build())
 							.build());
 				}
-				if (StringUtils.hasText(context.getFinalAnswer())) {
+					if (StringUtils.hasText(context.getFinalAnswer())) {
+						context.getSink()
+							.tryEmitNext(ServerSentEvent
+								.builder(GraphNodeResponse.finalAnswer(agentId, threadId, context.getTurnId(),
+										context.getFinalAnswer()))
+								.build());
+					}
 					context.getSink()
 						.tryEmitNext(ServerSentEvent
-							.builder(GraphNodeResponse.finalAnswer(agentId, threadId, context.getFinalAnswer()))
+							.builder(GraphNodeResponse.complete(agentId, threadId, context.getTurnId()))
+							.event(STREAM_EVENT_COMPLETE)
 							.build());
-				}
-				context.getSink()
-					.tryEmitNext(ServerSentEvent.builder(GraphNodeResponse.complete(agentId, threadId))
-						.event(STREAM_EVENT_COMPLETE)
-						.build());
 				context.getSink().tryEmitComplete();
 			}
 			context.cleanup();
 		}
+		else if (!awaitingHumanFeedback) {
+			releaseCheckpoint(config);
+		}
+	}
+
+	private void emitPersistenceError(StreamContext context, String agentId, String threadId, RuntimeException error) {
+		if (context.getSpan() != null) {
+			langfuseReporter.endSpanError(context.getSpan(), threadId, error);
+		}
+		if (context.getSink() != null && context.getSink().currentSubscriberCount() > 0) {
+			context.getSink()
+				.tryEmitNext(ServerSentEvent
+					.builder(GraphNodeResponse.error(agentId, threadId, context.getTurnId(),
+							"Failed to persist graph result"))
+					.event(STREAM_EVENT_ERROR)
+					.build());
+			context.getSink().tryEmitComplete();
+		}
+		context.cleanup();
 	}
 
 	/**
@@ -351,6 +419,7 @@ public class GraphServiceImpl implements GraphService {
 		log.debug("Received output: {}", output.getClass().getSimpleName());
 		StreamContext context = streamContextMap.get(request.getThreadId());
 		if (context != null) {
+			context.getMemorySnapshot().capture(output.state(), output.node());
 			output.state()
 				.value(FINAL_ANSWER)
 				.map(Object::toString)
@@ -400,18 +469,20 @@ public class GraphServiceImpl implements GraphService {
 		if (!isTypeSign) {
 			context.appendOutput(chunk);
 			StreamContext.StepIdentity stepIdentity = context.resolveStep(node);
-			if (PlannerNode.class.getSimpleName().equals(node)) {
-				multiTurnContextManager.appendPlannerChunk(request.getConversationId(), chunk);
-			}
 			GraphNodeResponse response = GraphNodeResponse.builder()
 				.agentId(request.getAgentId())
 				.threadId(threadId)
+				.turnId(context.getTurnId())
 				.stepId(stepIdentity.stepId())
 				.attempt(stepIdentity.attempt())
 				.nodeName(node)
 				.text(chunk)
 				.textType(textType)
 				.build();
+			if (ReportGeneratorNode.class.getSimpleName().equals(node) && textType == TextType.MARK_DOWN) {
+				context.appendReport(chunk);
+			}
+			context.recordResponse(response);
 			// 检查发送是否成功，如果失败说明客户端已断开
 			Sinks.EmitResult result = context.getSink().tryEmitNext(ServerSentEvent.builder(response).build());
 			if (result.isFailure()) {
@@ -421,6 +492,18 @@ public class GraphServiceImpl implements GraphService {
 				stopStreamProcessing(threadId);
 			}
 		}
+	}
+
+	private void cleanupFailedStart(StreamContext context, String threadId, RuntimeException error) {
+		streamContextMap.remove(threadId, context);
+		try {
+			turnService.failTurn(context.getTurnId(), threadId, error, context.timelineJson());
+		}
+		catch (RuntimeException persistenceError) {
+			log.error("Failed to persist graph startup error for threadId: {}", threadId, persistenceError);
+		}
+		releaseCheckpoint(RunnableConfig.builder().threadId(threadId).build());
+		context.cleanup();
 	}
 
 	private boolean isAwaitingHumanFeedback(GraphRequest request, RunnableConfig config) {

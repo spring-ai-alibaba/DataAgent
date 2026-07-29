@@ -17,12 +17,12 @@ package com.alibaba.cloud.ai.dataagent.service.chat;
 
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
 import com.alibaba.cloud.ai.dataagent.mapper.ChatSessionMapper;
+import com.alibaba.cloud.ai.dataagent.service.memory.ConversationMemoryDeletionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.ai.chat.memory.ChatMemory;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,11 +40,11 @@ class ChatSessionServiceImplTest {
 	private ChatSessionMapper chatSessionMapper;
 
 	@Mock
-	private ChatMemory chatMemory;
+	private ConversationMemoryDeletionService memoryDeletionService;
 
 	@BeforeEach
 	void setUp() {
-		service = new ChatSessionServiceImpl(chatSessionMapper, chatMemory);
+		service = new ChatSessionServiceImpl(chatSessionMapper, memoryDeletionService);
 	}
 
 	@Test
@@ -125,8 +125,8 @@ class ChatSessionServiceImplTest {
 		service.clearSessionsByAgentId(1);
 
 		verify(chatSessionMapper).softDeleteByAgentId(eq(1), any(LocalDateTime.class));
-		verify(chatMemory).clear("session-1");
-		verify(chatMemory).clear("session-2");
+		verify(memoryDeletionService).forgetConversation("session-1");
+		verify(memoryDeletionService).forgetConversation("session-2");
 	}
 
 	@Test
@@ -155,7 +155,7 @@ class ChatSessionServiceImplTest {
 		service.deleteSession("session-1");
 
 		verify(chatSessionMapper).softDeleteById(eq("session-1"), any(LocalDateTime.class));
-		verify(chatMemory).clear("session-1");
+		verify(memoryDeletionService).forgetConversation("session-1");
 	}
 
 }

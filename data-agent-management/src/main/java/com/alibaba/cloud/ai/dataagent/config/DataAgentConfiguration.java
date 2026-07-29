@@ -152,8 +152,10 @@ public class DataAgentConfiguration implements DisposableBean {
 			HashMap<String, KeyStrategy> keyStrategyHashMap = new HashMap<>();
 			// User input
 			keyStrategyHashMap.put(INPUT_KEY, KeyStrategy.REPLACE);
-			// Agent ID
+			// Agent and datasource scope
 			keyStrategyHashMap.put(AGENT_ID, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(DATASOURCE_ID, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(SCHEMA_FINGERPRINT, KeyStrategy.REPLACE);
 			// Multi-turn context
 			keyStrategyHashMap.put(MULTI_TURN_CONTEXT, KeyStrategy.REPLACE);
 			// Intent recognition
@@ -324,7 +326,7 @@ public class DataAgentConfiguration implements DisposableBean {
 	@Bean
 	@ConditionalOnMissingBean(ChatMemory.class)
 	public ChatMemory chatMemory(ChatMemoryRepository chatMemoryRepository, DataAgentProperties properties) {
-		int maxMessages = Math.max(2, properties.getMaxturnhistory() * 2);
+		int maxMessages = Math.max(2, properties.getMemory().getRecentTurns() * 2);
 		return MessageWindowChatMemory.builder()
 			.chatMemoryRepository(chatMemoryRepository)
 			.maxMessages(maxMessages)

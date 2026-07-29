@@ -32,6 +32,8 @@ public class GraphNodeResponse {
 
 	private String threadId;
 
+	private String turnId;
+
 	@Builder.Default
 	private GraphEventType eventType = GraphEventType.NODE_OUTPUT;
 
@@ -52,29 +54,32 @@ public class GraphNodeResponse {
 	@Builder.Default
 	private boolean complete = false;
 
-	public static GraphNodeResponse error(String agentId, String threadId, String text) {
+	public static GraphNodeResponse error(String agentId, String threadId, String turnId, String text) {
 		return GraphNodeResponse.builder()
 			.agentId(agentId)
 			.threadId(threadId)
+			.turnId(turnId)
 			.text(text)
 			.error(true)
 			.textType(TextType.TEXT)
 			.build();
 	}
 
-	public static GraphNodeResponse complete(String agentId, String threadId) {
+	public static GraphNodeResponse complete(String agentId, String threadId, String turnId) {
 		return GraphNodeResponse.builder()
 			.agentId(agentId)
 			.threadId(threadId)
+			.turnId(turnId)
 			.complete(true)
 			.textType(TextType.TEXT)
 			.build();
 	}
 
-	public static GraphNodeResponse finalAnswer(String agentId, String threadId, String text) {
+	public static GraphNodeResponse finalAnswer(String agentId, String threadId, String turnId, String text) {
 		return GraphNodeResponse.builder()
 			.agentId(agentId)
 			.threadId(threadId)
+			.turnId(turnId)
 			.eventType(GraphEventType.FINAL_ANSWER)
 			.textType(TextType.TEXT)
 			.text(text)
