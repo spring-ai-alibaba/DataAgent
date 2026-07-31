@@ -188,6 +188,8 @@ spring:
 ### 2.7 替换vector-store的实现类
 
 > 关于如何替换默认的内存向量库（如使用 PGVector、Milvus 等），请参考 [开发者指南 - 向量库依赖扩展](DEVELOPER_GUIDE.md#向量库依赖扩展)。
+>
+> 项目已内置 `application-milvus.yml` 与 `application-elasticsearch.yml` 两个开箱即用的示例 Profile，通过 `SPRING_PROFILES_ACTIVE=milvus`（或 `elasticsearch`）即可快速切换，详见 [开发者指南 - 开箱即用的配置示例](DEVELOPER_GUIDE.md#开箱即用的配置示例)。
 
 ### 2.8 配置 Python 沙盒
 
