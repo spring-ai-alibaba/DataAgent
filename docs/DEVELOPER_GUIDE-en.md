@@ -10,16 +10,18 @@ Welcome to participate in the development of the DataAgent project! This documen
 
 - **JDK**: 17 or higher
 - **Maven**: 3.6 or higher
-- **Node.js**: 16 or higher
+- **Node.js**: 22
+- **pnpm**: 11
 - **MySQL**: 5.7 or higher
+- **Docker**: Required only when running or verifying Python workflows
 - **Git**: Version control tool
 - **IDE**: IntelliJ IDEA or Eclipse (IntelliJ IDEA recommended)
 
 ### Clone Project
 
 ```bash
-git clone https://github.com/your-org/spring-ai-alibaba-data-agent.git
-cd spring-ai-alibaba-data-agent
+git clone https://github.com/spring-ai-alibaba/DataAgent.git
+cd DataAgent
 ```
 
 ### Backend Development Environment
@@ -34,21 +36,20 @@ cd spring-ai-alibaba-data-agent
 
 3. **Start Backend Service**
    ```bash
-   cd data-agent-management
-   ./mvnw spring-boot:run
+   ./mvnw -pl data-agent-management spring-boot:run
    ```
 
 ### Frontend Development Environment
 
 1. **Install Dependencies**
    ```bash
-   cd data-agent-frontend
-   npm install
+   cd data-agent-frontend-nuxt
+   pnpm install
    ```
 
 2. **Start Development Server**
    ```bash
-   npm run dev
+   pnpm dev
    ```
 
 3. **Access Application**
@@ -67,6 +68,8 @@ The workflow is based on Spring AI Alibaba's StateGraph implementation. Core nod
 - **PlannerNode**: Plan generation
 - **SqlGenerateNode**: SQL generation
 - **PythonGenerateNode**: Python code generation
+- **PythonExecuteNode**: Parse PEP 723 metadata and dispatch SAA sandbox execution
+- **PythonAnalyzeNode**: Analyze Python output and update step state
 - **ReportGeneratorNode**: Report generation
 
 ### 2. Multi-Model Scheduling
@@ -300,19 +303,45 @@ Configuration prefix: `spring.ai.alibaba.data-agent.code-executor`
 
 | Configuration Item | Description | Default Value |
 |-------------------|-------------|---------------|
-| `code-pool-executor` | Executor type (DOCKER/LOCAL) | DOCKER (default is local in application.yml) |
-| `image-name` | Docker image name | continuumio/anaconda3:latest |
-| `container-name-prefix` | Container name prefix | nl2sql-python-exec- |
-| `host` | Service host address | null |
-| `task-queue-size` | Task blocking queue size | 5 |
-| `core-container-num` | Maximum core container count | 2 |
-| `temp-container-num` | Maximum temporary container count | 2 |
-| `core-thread-size` | Thread pool core thread count | 5 |
-| `max-thread-size` | Thread pool maximum thread count | 5 |
 | `code-timeout` | Python code execution timeout | 60s |
-| `container-timeout` | Maximum container runtime | 3000 (ms) |
 | `limit-memory` | Container memory limit (MB) | 500 |
 | `cpu-core` | Container CPU cores | 1 |
+| `python-max-tries-count` | Maximum Python execution retries | 5 |
+| `sandbox.docker-host` | Docker Engine endpoint | `unix:///var/run/docker.sock` |
+| `sandbox.image-name` | SAA base image | `agentscope-registry.ap-southeast-1.cr.aliyuncs.com/agentscope/runtime-sandbox-base:latest` |
+| `sandbox.container-prefix` | Task container name prefix | `dataagent-sandbox-` |
+| `sandbox.max-concurrency` | Maximum concurrent sandboxes | 4 |
+| `sandbox.queue-capacity` | Bounded wait queue size | 10 |
+| `sandbox.max-code-bytes` | Python source UTF-8 byte limit | 262144 (256 KiB) |
+| `sandbox.max-input-bytes` | stdin JSON UTF-8 byte limit | 10485760 (10 MiB) |
+| `sandbox.max-output-bytes` | stdout UTF-8 byte limit | 1048576 (1 MiB) |
+| `sandbox.max-error-bytes` | stderr UTF-8 byte limit | 262144 (256 KiB) |
+| `sandbox.max-metadata-bytes` | PEP 723 metadata UTF-8 byte limit | 8192 (8 KiB) |
+| `sandbox.max-dependencies` | Maximum number of direct dependencies | 20 |
+| `sandbox.package-index-url` | Dynamic package index | `https://pypi.org/simple` |
+| `sandbox.dependency-install-timeout` | Dependency installation timeout | 3m |
+| `sandbox.max-connections` | Container `nofile` limit | 4096 |
+
+Third-party dependencies must be declared in the generated script's PEP 723 `dependencies`.
+Host-local, legacy Docker pool, and AI Simulation executors are no longer available.
+
+Common environment variables:
+
+| Environment Variable | Configuration | Purpose |
+|---|---|---|
+| `DATAAGENT_SANDBOX_DOCKER_HOST` | `sandbox.docker-host` | Point to a local or remote Docker Engine |
+| `DATAAGENT_SANDBOX_IMAGE` | `sandbox.image-name` | Pin the runtime image; use a digest in production |
+| `DATAAGENT_PYPI_INDEX_URL` | `sandbox.package-index-url` | Point to an enterprise private PyPI proxy |
+
+Each Python task creates a separate `BaseSandbox`, installs dependencies and executes code in the same
+container, then stops and removes that container. The service-side wait timeout is the dependency
+installation timeout plus the code timeout plus a 30-second transport margin. `requires-python` is
+currently parsed and retained, but it does not select or validate the sandbox Python version.
+
+See [Advanced Features - Python Execution Environment Configuration](ADVANCED_FEATURES-en.md#python-execution-environment-configuration)
+for dependency syntax, security restrictions, runtime verification, and troubleshooting. See the
+[SAA 1.1.2.2 Python Sandbox Integration Design](superpowers/specs/2026-07-28-saa-python-sandbox-integration-design.md)
+for implementation boundaries.
 
 ### 6. File Storage Configuration
 
@@ -345,7 +374,7 @@ Configuration prefix: `spring.sql.init`
 
 | Configuration Item | Description | Default Value | Notes |
 |-------------------|-------------|---------------|-------|
-| `mode` | Initialization mode (always/never) | always | "always" executes schema.sql and data.sql on every startup. Recommended to set to "never" for production to avoid sample data overwriting business data |
+| `mode` | Initialization mode (always/never) | never | Set to `always` only when initialization is explicitly required |
 | `schema-locations` | Table structure script path | classpath:sql/schema.sql | |
 | `data-locations` | Data script path | classpath:sql/data.sql | |
 
@@ -379,13 +408,43 @@ Environment variables: `LANGFUSE_ENABLED`, `LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY
 
 > For detailed usage, refer to [Advanced Features - Langfuse Observability](ADVANCED_FEATURES-en.md#langfuse-observability).
 
+## Python Sandbox Verification
+
+Unit tests that do not require Docker:
+
+```bash
+./mvnw -pl data-agent-management \
+  -Dtest='PythonDependencyMetadataParserTest,PythonSandboxBootstrapBuilderTest,SandboxExecutionResultParserTest,SaaSandboxPythonCodeExecutorServiceTest,SaaSandboxRuntimeTest,PythonExecuteNodeTest,PythonWorkflowIntegrationTest' \
+  test
+```
+
+Run the real SAA integration test while Docker is available:
+
+```bash
+docker info
+./mvnw -pl data-agent-management -Dtest=SaaSandboxTaskRunnerIT test
+```
+
+Run the CI-equivalent checks before submission:
+
+```bash
+make format-check
+make checkstyle-check
+make test
+```
+
+A real end-to-end acceptance check must go beyond HTTP 200: the browser timeline must show dependency
+installation and Python execution output, a final report, and SSE `event:complete`. The command
+`docker ps -a --filter name=dataagent-sandbox-` must not show leftover task containers.
+
 ## Learning Resources
 
 ### Official Documentation
 
 - [Spring AI Alibaba Documentation](https://springdoc.cn/spring-ai/)
 - [Spring Boot Documentation](https://spring.io/projects/spring-boot)
-- [React Documentation](https://react.dev/)
+- [Nuxt Documentation](https://nuxt.com/docs)
+- [Vue Documentation](https://vuejs.org/guide/)
 - [TypeScript Documentation](https://www.typescriptlang.org/)
 
 ### Related Technologies
@@ -397,7 +456,7 @@ Environment variables: `LANGFUSE_ENABLED`, `LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY
 
 ## Contribution Guide
 
-For detailed contribution guidelines, please refer to [CONTRIBUTING.md](../CONTRIBUTING.md).
+For detailed contribution guidelines, see [CONTRIBUTING-en.md](../CONTRIBUTING-en.md).
 
 ### Contribution Types
 

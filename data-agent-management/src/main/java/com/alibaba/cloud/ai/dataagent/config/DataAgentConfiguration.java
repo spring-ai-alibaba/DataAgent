@@ -19,9 +19,6 @@ import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
-import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorService;
-import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorServiceFactory;
-import com.alibaba.cloud.ai.dataagent.service.code.docker.DockerExecutorFactory;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageServiceFactory;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
@@ -35,6 +32,7 @@ import com.alibaba.cloud.ai.dataagent.splitter.ParagraphTextSplitter;
 import com.alibaba.cloud.ai.dataagent.util.McpServerToolUtil;
 import com.alibaba.cloud.ai.dataagent.util.NodeBeanUtil;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
+import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.EmbeddingModelCompatibilityValidator;
 import com.alibaba.cloud.ai.dataagent.strategy.EnhancedTokenCountBatchingStrategy;
 import com.alibaba.cloud.ai.dataagent.workflow.dispatcher.*;
 import com.alibaba.cloud.ai.dataagent.workflow.node.*;
@@ -124,13 +122,6 @@ public class DataAgentConfiguration implements DisposableBean {
 	public FileStorageService fileStorageService(FileStorageProperties properties,
 			OssStorageProperties ossStorageProperties) {
 		return new FileStorageServiceFactory(properties, ossStorageProperties).getObject();
-	}
-
-	@Bean
-	@ConditionalOnMissingBean(CodePoolExecutorService.class)
-	public CodePoolExecutorService codePoolExecutorService(CodeExecutorProperties properties, LlmService llmService,
-			DockerExecutorFactory dockerExecutorFactory) {
-		return new CodePoolExecutorServiceFactory(properties, llmService, dockerExecutorFactory).getObject();
 	}
 
 	@Bean
@@ -405,7 +396,8 @@ public class DataAgentConfiguration implements DisposableBean {
 	 */
 	@Bean
 	@Primary
-	public EmbeddingModel embeddingModel(AiModelRegistry registry) {
+	public EmbeddingModel embeddingModel(AiModelRegistry registry,
+			EmbeddingModelCompatibilityValidator embeddingModelCompatibilityValidator) {
 
 		// 1. 定义目标源 (TargetSource)
 		TargetSource targetSource = new TargetSource() {
@@ -423,7 +415,9 @@ public class DataAgentConfiguration implements DisposableBean {
 			@Override
 			public Object getTarget() {
 				// 每次方法调用，都去注册表拿最新的
-				return registry.getEmbeddingModel();
+				EmbeddingModel model = registry.getEmbeddingModel();
+				embeddingModelCompatibilityValidator.validateModel(model);
+				return model;
 			}
 
 			@Override

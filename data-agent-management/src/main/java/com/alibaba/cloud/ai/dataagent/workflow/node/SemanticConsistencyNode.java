@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.SqlUtil;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
@@ -34,6 +35,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 import static com.alibaba.cloud.ai.dataagent.util.PlanProcessUtil.getCurrentExecutionStepInstruction;
@@ -69,6 +71,11 @@ public class SemanticConsistencyNode implements NodeAction {
 		String sql = StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT);
 		String userQuery = StateUtil.getCanonicalQuery(state);
 
+		Optional<String> structuralValidationError = SqlUtil.findGeneratedSqlValidationError(sql, dialect);
+		if (structuralValidationError.isPresent()) {
+			return buildStructuralValidationFailure(state, sql, structuralValidationError.get());
+		}
+
 		SemanticConsistencyDTO semanticConsistencyDTO = SemanticConsistencyDTO.builder()
 			.dialect(dialect)
 			.sql(sql)
@@ -89,6 +96,14 @@ public class SemanticConsistencyNode implements NodeAction {
 					return result;
 				}, validationResultFlux);
 
+		return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, generator);
+	}
+
+	private Map<String, Object> buildStructuralValidationFailure(OverAllState state, String sql, String reason) {
+		log.warn("Generated SQL failed structural validation - reason: {}, SQL: {}", reason, sql);
+		Map<String, Object> result = buildValidationResult(false, reason);
+		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state, "开始SQL结构校验", "SQL结构校验未通过，准备重新生成", ignored -> result, Flux.empty());
 		return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, generator);
 	}
 

@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.prompt;
 
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
@@ -70,6 +71,45 @@ class PromptHelperTest {
 		assertTrue(result.contains("test_db"));
 		assertTrue(result.contains("users"));
 		assertTrue(result.contains("BIGINT"));
+	}
+
+	@Test
+	void buildNewSqlGeneratorPrompt_includesPreviousStepResults() {
+		SqlGenerationDTO dto = SqlGenerationDTO.builder()
+			.dialect("mysql")
+			.query("查询用户订单")
+			.schemaDTO(createTestSchema())
+			.evidence("")
+			.executionDescription("根据前一步用户ID查询订单")
+			.previousStepResults("step_1:\n{\"data\":[{\"id\":42}]}")
+			.build();
+
+		String result = PromptHelper.buildNewSqlGeneratorPrompt(dto);
+
+		assertTrue(result.contains("前序步骤执行结果"));
+		assertTrue(result.contains("\"id\":42"));
+		assertTrue(result.contains("替换 `?` 等占位符"));
+		assertTrue(result.contains("一条可执行 SQL 语句"));
+	}
+
+	@Test
+	void buildSqlErrorFixerPrompt_includesPreviousResultsAndStructuralConstraints() {
+		SqlGenerationDTO dto = SqlGenerationDTO.builder()
+			.dialect("mysql")
+			.query("查询用户订单")
+			.schemaDTO(createTestSchema())
+			.evidence("")
+			.executionDescription("根据前一步用户ID查询订单")
+			.previousStepResults("step_1:\n{\"data\":[{\"id\":42}]}")
+			.sql("SELECT id FROM users WHERE id = ?")
+			.exceptionMessage("Unresolved placeholder")
+			.build();
+
+		String result = PromptHelper.buildSqlErrorFixerPrompt(dto);
+
+		assertTrue(result.contains("\"id\":42"));
+		assertTrue(result.contains("一条可执行 SQL 语句"));
+		assertTrue(result.contains("不得残留 `?`"));
 	}
 
 	@Test

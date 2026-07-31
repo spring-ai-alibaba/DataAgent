@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.bo.schema;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -37,24 +38,28 @@ public class DisplayStyleBO {
 	/**
 	 * 图表类型，如：table, bar, line, pie等
 	 */
+	@JsonProperty(required = true)
 	@JsonPropertyDescription("图表类型，取值范围：table、 bar、 line、 pie等")
 	private String type;
 
 	/**
 	 * 图表标题
 	 */
+	@JsonProperty(required = true)
 	@JsonPropertyDescription("图表标题")
 	private String title;
 
 	/**
 	 * X轴字段名
 	 */
+	@JsonProperty(required = false)
 	@JsonPropertyDescription("X轴字段名")
 	private String x;
 
 	/**
 	 * Y轴字段名列表
 	 */
+	@JsonProperty(required = false)
 	@JsonPropertyDescription("Y轴字段名列表")
 	private List<String> y;
 

@@ -24,4 +24,12 @@ describe('buildReportHtml', () => {
 		expect(html).toContain("'echarts', 'json', 'javascript', 'js'");
 		expect(html).toContain('toLowerCase()');
 	});
+
+	it('reserves separate space for chart titles and legends', () => {
+		const html = buildReportHtml('```echarts\n{"title":{"text":"趋势"},"legend":{},"series":[]}\n```');
+
+		expect(html).toContain('normalizeChartLayout');
+		expect(html).toContain('legend.top = titles.length > 0 ? 50 : 10');
+		expect(html).toContain('grid.containLabel = true');
+	});
 });

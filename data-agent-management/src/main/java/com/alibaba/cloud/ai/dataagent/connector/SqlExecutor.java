@@ -67,6 +67,11 @@ public class SqlExecutor {
 					statement.execute("ALTER SESSION SET CURRENT_SCHEMA = " + schema);
 				}
 			}
+			else if (isDameng(dialect)) {
+				if (StringUtils.isNotEmpty(schema)) {
+					statement.execute("SET SCHEMA " + quoteIdentifier(schema));
+				}
+			}
 
 			try (ResultSet rs = statement.executeQuery(sql)) {
 				return ResultSetBuilder.buildFrom(rs, schema);
@@ -122,6 +127,11 @@ public class SqlExecutor {
 					statement.execute("ALTER SESSION SET CURRENT_SCHEMA = " + databaseOrSchema);
 				}
 			}
+			else if (isDameng(dialect)) {
+				if (StringUtils.isNotEmpty(databaseOrSchema)) {
+					statement.execute("SET SCHEMA " + quoteIdentifier(databaseOrSchema));
+				}
+			}
 
 			ResultSet rs = statement.executeQuery(sql);
 
@@ -133,6 +143,15 @@ public class SqlExecutor {
 
 			return result;
 		}
+	}
+
+	private static String quoteIdentifier(String identifier) {
+		return '"' + identifier.replace("\"", "\"\"") + '"';
+	}
+
+	private static boolean isDameng(String databaseProductName) {
+		return "DM DBMS".equalsIgnoreCase(databaseProductName)
+				|| DatabaseDialectEnum.DAMENG.code.equalsIgnoreCase(databaseProductName);
 	}
 
 }

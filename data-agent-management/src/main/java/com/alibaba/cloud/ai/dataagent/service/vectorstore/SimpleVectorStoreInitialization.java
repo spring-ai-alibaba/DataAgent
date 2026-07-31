@@ -27,6 +27,8 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.AtomicMoveNotSupportedException;
 
 /**
  * @author David Yu
@@ -58,18 +60,32 @@ public class SimpleVectorStoreInitialization implements ApplicationRunner, Dispo
 	public void save() {
 		log.info("Serialize the vector database to a local file.");
 		Path path = Paths.get(properties.getVectorStore().getFilePath());
+		Path temporaryFile = null;
 
 		try {
-			Files.createDirectories(path.getParent());
-
-			if (!Files.exists(path)) {
-				Files.createFile(path);
+			Path parent = path.toAbsolutePath().getParent();
+			Files.createDirectories(parent);
+			temporaryFile = Files.createTempFile(parent, "vectorstore-", ".tmp");
+			vectorStore.save(temporaryFile.toFile());
+			try {
+				Files.move(temporaryFile, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
 			}
-
-			vectorStore.save(path.toFile());
+			catch (AtomicMoveNotSupportedException unsupported) {
+				Files.move(temporaryFile, path, StandardCopyOption.REPLACE_EXISTING);
+			}
 		}
 		catch (Throwable t) {
 			log.error("An exception occurred while serializing the vector database to a local file.", t);
+		}
+		finally {
+			if (temporaryFile != null) {
+				try {
+					Files.deleteIfExists(temporaryFile);
+				}
+				catch (Exception cleanupError) {
+					log.warn("Failed to remove temporary vector-store file: {}", temporaryFile, cleanupError);
+				}
+			}
 		}
 	}
 

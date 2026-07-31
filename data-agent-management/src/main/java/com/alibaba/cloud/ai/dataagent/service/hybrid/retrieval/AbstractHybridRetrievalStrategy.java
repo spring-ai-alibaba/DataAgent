@@ -36,11 +36,19 @@ public abstract class AbstractHybridRetrievalStrategy implements HybridRetrieval
 
 	protected final FusionStrategy fusionStrategy;
 
+	private final long timeoutMs;
+
 	protected AbstractHybridRetrievalStrategy(ExecutorService executorService, VectorStore vectorStore,
 			FusionStrategy fusionStrategy) {
+		this(executorService, vectorStore, fusionStrategy, 3000L);
+	}
+
+	protected AbstractHybridRetrievalStrategy(ExecutorService executorService, VectorStore vectorStore,
+			FusionStrategy fusionStrategy, long timeoutMs) {
 		this.executorService = executorService;
 		this.vectorStore = vectorStore;
 		this.fusionStrategy = fusionStrategy;
+		this.timeoutMs = timeoutMs;
 		log.info(
 				"Initialized AbstractHybridRetrievalStrategy with executorService: {}, vectorStore: {}, fusionStrategy: {}",
 				executorService, vectorStore, fusionStrategy);
@@ -60,7 +68,7 @@ public abstract class AbstractHybridRetrievalStrategy implements HybridRetrieval
 			log.debug("Vector Search completed. Found {} documents for SearchRequest: {}", vectorResults.size(),
 					vectorSearchRequest);
 			return vectorResults;
-		}, executorService);
+		}, executorService).orTimeout(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
 
 		// 异步执行关键词搜索
 		CompletableFuture<List<Document>> keywordSearchFuture = CompletableFuture.supplyAsync(() -> {
@@ -68,7 +76,12 @@ public abstract class AbstractHybridRetrievalStrategy implements HybridRetrieval
 			log.debug("Keyword Search completed. Found {} documents, with query: {}", results.size(),
 					request.getQuery());
 			return results;
-		}, executorService);
+		}, executorService)
+			.completeOnTimeout(List.of(), timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+			.exceptionally(error -> {
+				log.warn("Keyword search failed; falling back to vector results: {}", error.getMessage());
+				return List.of();
+			});
 
 		try {
 			List<Document> vectorResults = vectorSearchFuture.get();

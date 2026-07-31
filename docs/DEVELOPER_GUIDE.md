@@ -10,16 +10,18 @@
 
 - **JDK**: 17 或更高版本
 - **Maven**: 3.6 或更高版本
-- **Node.js**: 16 或更高版本
+- **Node.js**: 22
+- **pnpm**: 11
 - **MySQL**: 5.7 或更高版本
+- **Docker**: 仅运行或验证 Python 工作流时需要
 - **Git**: 版本控制工具
 - **IDE**: IntelliJ IDEA 或 Eclipse (推荐 IntelliJ IDEA)
 
 ### 克隆项目
 
 ```bash
-git clone https://github.com/your-org/spring-ai-alibaba-data-agent.git
-cd spring-ai-alibaba-data-agent
+git clone https://github.com/spring-ai-alibaba/DataAgent.git
+cd DataAgent
 ```
 
 ### 后端开发环境
@@ -34,21 +36,20 @@ cd spring-ai-alibaba-data-agent
 
 3. **启动后端服务**
    ```bash
-   cd data-agent-management
-   ./mvnw spring-boot:run
+   ./mvnw -pl data-agent-management spring-boot:run
    ```
 
 ### 前端开发环境
 
 1. **安装依赖**
    ```bash
-   cd data-agent-frontend
-   npm install
+   cd data-agent-frontend-nuxt
+   pnpm install
    ```
 
 2. **启动开发服务器**
    ```bash
-   npm run dev
+   pnpm dev
    ```
 
 3. **访问应用**
@@ -67,6 +68,8 @@ cd spring-ai-alibaba-data-agent
 - **PlannerNode**: 计划生成
 - **SqlGenerateNode**: SQL 生成
 - **PythonGenerateNode**: Python 代码生成
+- **PythonExecuteNode**: 解析 PEP 723 元数据并调度 SAA 沙盒执行
+- **PythonAnalyzeNode**: 分析 Python 结果并更新步骤状态
 - **ReportGeneratorNode**: 报告生成
 
 ### 2. 多模型调度
@@ -353,19 +356,43 @@ public class AgentVectorStoreService {
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
-| `code-pool-executor` | 执行器类型 (DOCKER/LOCAL) | DOCKER (application.yml中默认为local) |
-| `image-name` | Docker镜像名称 | continuumio/anaconda3:latest |
-| `container-name-prefix` | 容器名称前缀 | nl2sql-python-exec- |
-| `host` | 服务主机地址 | null |
-| `task-queue-size` | 任务阻塞队列大小 | 5 |
-| `core-container-num` | 核心容器数量最大值 | 2 |
-| `temp-container-num` | 临时容器数量最大值 | 2 |
-| `core-thread-size` | 线程池核心线程数 | 5 |
-| `max-thread-size` | 线程池最大线程数 | 5 |
 | `code-timeout` | Python代码执行超时时间 | 60s |
-| `container-timeout` | 容器最大运行时长 | 3000 (ms) |
 | `limit-memory` | 容器内存限制 (MB) | 500 |
 | `cpu-core` | 容器CPU核数 | 1 |
+| `python-max-tries-count` | Python执行最大重试次数 | 5 |
+| `sandbox.docker-host` | Docker Engine 地址 | `unix:///var/run/docker.sock` |
+| `sandbox.image-name` | SAA 基础镜像 | `agentscope-registry.ap-southeast-1.cr.aliyuncs.com/agentscope/runtime-sandbox-base:latest` |
+| `sandbox.container-prefix` | 任务容器名称前缀 | `dataagent-sandbox-` |
+| `sandbox.max-concurrency` | 最大并发沙盒数 | 4 |
+| `sandbox.queue-capacity` | 有界等待队列大小 | 10 |
+| `sandbox.max-code-bytes` | Python 源码 UTF-8 字节上限 | 262144（256 KiB） |
+| `sandbox.max-input-bytes` | stdin JSON UTF-8 字节上限 | 10485760（10 MiB） |
+| `sandbox.max-output-bytes` | stdout UTF-8 字节上限 | 1048576（1 MiB） |
+| `sandbox.max-error-bytes` | stderr UTF-8 字节上限 | 262144（256 KiB） |
+| `sandbox.max-metadata-bytes` | PEP 723 元数据 UTF-8 字节上限 | 8192（8 KiB） |
+| `sandbox.max-dependencies` | 最大直接依赖数 | 20 |
+| `sandbox.package-index-url` | 动态依赖包索引 | `https://pypi.org/simple` |
+| `sandbox.dependency-install-timeout` | 依赖安装超时 | 3m |
+| `sandbox.max-connections` | 容器 `nofile` 上限 | 4096 |
+
+第三方依赖必须在生成脚本的 PEP 723 `dependencies` 中声明。系统不再提供宿主机 Local、
+旧 Docker 容器池或 AI Simulation 执行器。
+
+常用环境变量：
+
+| 环境变量 | 对应配置 | 用途 |
+|---|---|---|
+| `DATAAGENT_SANDBOX_DOCKER_HOST` | `sandbox.docker-host` | 指向本机或远程 Docker Engine |
+| `DATAAGENT_SANDBOX_IMAGE` | `sandbox.image-name` | 固定运行时镜像；生产环境应使用 digest |
+| `DATAAGENT_PYPI_INDEX_URL` | `sandbox.package-index-url` | 指向企业私有 PyPI 代理 |
+
+每次 Python 任务创建独立 `BaseSandbox`，在同一容器内先安装依赖、再执行代码，最后停止并
+删除容器。服务端总等待时间为“依赖安装超时 + 代码执行超时 + 30 秒通信余量”。
+`requires-python` 当前会被解析和保留，但不会切换或校验沙盒 Python 版本。
+
+依赖格式、安全限制、运行验证和故障处理见
+[高级功能 - Python 执行环境配置](ADVANCED_FEATURES.md#-python-执行环境配置)；实现边界见
+[SAA 1.1.2.2 Python 沙盒接入方案](superpowers/specs/2026-07-28-saa-python-sandbox-integration-design.md)。
 
 ### 6. 文件存储配置 (File Storage)
 
@@ -398,7 +425,7 @@ public class AgentVectorStoreService {
 
 | 配置项 | 说明 | 默认值 | 备注 |
 |--------|------|--------|------|
-| `mode` | 初始化模式 (always/never) | always | "always"会每次启动执行schema.sql和data.sql，建议生产环境设为"never" |
+| `mode` | 初始化模式 (always/never) | never | 仅在明确需要初始化时设置为 `always` |
 | `schema-locations` | 表结构脚本路径 | classpath:sql/schema.sql | |
 | `data-locations` | 数据脚本路径 | classpath:sql/data.sql | |
 
@@ -432,13 +459,43 @@ public class AgentVectorStoreService {
 
 > 详细使用说明请参考 [高级功能 - Langfuse 可观测性](ADVANCED_FEATURES.md#-langfuse-可观测性)。
 
+## ✅ Python 沙盒验证
+
+不需要 Docker 的单元测试：
+
+```bash
+./mvnw -pl data-agent-management \
+  -Dtest='PythonDependencyMetadataParserTest,PythonSandboxBootstrapBuilderTest,SandboxExecutionResultParserTest,SaaSandboxPythonCodeExecutorServiceTest,SaaSandboxRuntimeTest,PythonExecuteNodeTest,PythonWorkflowIntegrationTest' \
+  test
+```
+
+Docker 在线时运行真实 SAA 集成测试：
+
+```bash
+docker info
+./mvnw -pl data-agent-management -Dtest=SaaSandboxTaskRunnerIT test
+```
+
+提交前执行与 CI 对齐的检查：
+
+```bash
+make format-check
+make checkstyle-check
+make test
+```
+
+真实端到端验收不能只看 HTTP 200：浏览器时间线应出现依赖安装和 Python 执行结果、最终报告，
+SSE 应收到 `event:complete`，并且 `docker ps -a --filter name=dataagent-sandbox-` 不应留下
+任务容器。
+
 ## 📚 学习资源
 
 ### 官方文档
 
 - [Spring AI Alibaba 文档](https://springdoc.cn/spring-ai/)
 - [Spring Boot 文档](https://spring.io/projects/spring-boot)
-- [React 文档](https://react.dev/)
+- [Nuxt 文档](https://nuxt.com/docs)
+- [Vue 文档](https://vuejs.org/guide/)
 - [TypeScript 文档](https://www.typescriptlang.org/)
 
 ### 相关技术

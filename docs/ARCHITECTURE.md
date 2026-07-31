@@ -10,7 +10,7 @@
 %%{init: {"theme": "base", "flowchart": {"curve": "basis", "nodeSpacing": 35, "rankSpacing": 45}, "themeVariables": {"lineColor": "#475569", "primaryTextColor": "#1F2937"}}}%%
 flowchart LR
   subgraph Clients[Clients]
-    UserUI[data-agent-frontend UI]
+    UserUI[data-agent-frontend-nuxt UI]
     AdminUI[Admin Console]
     MCPClient[MCP Client]
   end
@@ -32,7 +32,7 @@ flowchart LR
     ModelRegistry[AiModelRegistry]
     VectorSvc[AgentVectorStoreService]
     Hybrid[HybridRetrievalStrategy]
-    CodePool[CodePoolExecutorService]
+    CodeExec[PythonCodeExecutorService]
     McpSvc[McpServerService]
     LangfuseSvc[LangfuseService]
   end
@@ -53,10 +53,11 @@ flowchart LR
     EmbeddingLLM[Embedding Model]
   end
 
-  subgraph Exec[Python Runtime]
-    Docker[Docker Executor]
-    Local[Local Executor]
-    AISim[AI Simulation Executor]
+  subgraph Exec[Python Sandbox Runtime]
+    SandboxSvc[SAA SandboxService]
+    DockerEngine[Docker Engine]
+    TaskSandbox[Task-scoped BaseSandbox]
+    PackageIndex[(PyPI / Private Package Index)]
   end
 
   UserUI --> RestAPI
@@ -79,10 +80,11 @@ flowchart LR
   GraphSvc --> ModelRegistry
   ModelRegistry --> ChatLLM
   ModelRegistry --> EmbeddingLLM
-  GraphSvc --> CodePool
-  CodePool --> Docker
-  CodePool --> Local
-  CodePool --> AISim
+  Graph --> CodeExec
+  CodeExec --> SandboxSvc
+  SandboxSvc --> DockerEngine
+  DockerEngine --> TaskSandbox
+  TaskSandbox --> PackageIndex
   GraphSvc --> LangfuseSvc
   LangfuseSvc --> Langfuse
   AgentCtl --> MetaDB
@@ -102,11 +104,11 @@ flowchart LR
   class UserUI,AdminUI,MCPClient client
   class RestAPI,SSE access
   class GraphCtl,AgentCtl,PromptCtl,ModelCtl api
-  class GraphSvc,Context,LlmSvc,ModelRegistry,VectorSvc,Hybrid,CodePool,McpSvc,LangfuseSvc service
+  class GraphSvc,Context,LlmSvc,ModelRegistry,VectorSvc,Hybrid,CodeExec,McpSvc,LangfuseSvc service
   class Graph workflow
   class BizDB,MetaDB,VectorDB,Files data
   class ChatLLM,EmbeddingLLM llm
-  class Docker,Local,AISim exec
+  class SandboxSvc,DockerEngine,TaskSandbox,PackageIndex exec
   class Langfuse observability
 
   style Clients fill:#FFF7ED,stroke:#D97706,stroke-width:1.5px
@@ -666,23 +668,39 @@ sequenceDiagram
 #### 说明要点
 
 - **代码生成**: `PythonGenerateNode` 根据计划与 SQL 结果生成 Python
-- **代码执行**: `PythonExecuteNode` 使用 `CodePoolExecutorService`（Docker/Local/AI 模拟）
-- **执行配置**: `spring.ai.alibaba.data-agent.code-executor.*`（默认 Docker 镜像 `continuumio/anaconda3:latest`）
+- **代码执行**: `PythonExecuteNode` 使用 `PythonCodeExecutorService`，统一进入任务级 SAA 沙盒
+- **动态依赖**: 生成代码通过 PEP 723 声明依赖，由固定 bootstrap 在沙盒内受控安装
+- **执行配置**: `spring.ai.alibaba.data-agent.code-executor.*`
+- **隔离与清理**: 每次尝试创建新的 `BaseSandbox`，成功或失败后均关闭并删除容器
+- **失败处理**: 安装或执行失败会把错误反馈给下一次代码生成；达到最大次数后走现有降级或终止分支
 - **结果回传**: 执行结果写回 `PYTHON_EXECUTE_NODE_OUTPUT`，`PythonAnalyzeNode` 汇总后写入 `SQL_EXECUTE_NODE_OUTPUT`，用于最终报告
+
+#### 代码边界
+
+```text
+service/code/sandbox
+├── SaaSandboxPythonCodeExecutorService.java  # 输入限制、并发队列、任务总超时
+├── dependency/                               # PEP 723 解析与包规格策略
+├── execution/                                # 固定 bootstrap 与结果 envelope
+└── runtime/                                  # SAA 服务和任务 Sandbox 生命周期
+```
+
+`PythonCodeExecutorService` 是工作流依赖的稳定接口，当前只有
+`SaaSandboxPythonCodeExecutorService` 一个实现。系统不会回退到宿主机、本地 Python
+进程、旧 Docker 容器池或 AI Simulation。
 
 #### 架构图
 
 ```mermaid
 flowchart LR
   PyGen[PythonGenerateNode] --> PyExec[PythonExecuteNode]
-  PyExec --> ExecSvc[CodePoolExecutorService]
-  ExecSvc --> Queue[Task Queue]
-  ExecSvc --> Pool[Container Pool]
-  Pool --> Docker[Docker Executor]
-  Pool --> Local[Local Executor]
-  Pool --> AISim[AI Simulation Executor]
-  Docker --> TempFiles[Temp Files]
-  TempFiles --> StdIO[Stdout Stderr]
+  PyExec --> Parser[PEP 723 Parser]
+  Parser --> ExecSvc[PythonCodeExecutorService]
+  ExecSvc --> Queue[Bounded Queue]
+  Queue --> SAA[SAA SandboxService]
+  SAA --> Install[Controlled Dependency Install]
+  Install --> Run[Python Subprocess]
+  Run --> StdIO[Stdout Stderr]
   StdIO --> JsonParse[JsonParseUtil]
   JsonParse --> PyAnalyze[PythonAnalyzeNode]
   PyAnalyze --> Report[ReportGeneratorNode]
@@ -692,8 +710,8 @@ flowchart LR
   classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
 
   class PyGen,PyExec,PyAnalyze,Report service
-  class ExecSvc,Pool,Docker,Local,AISim exec
-  class Queue,TempFiles,StdIO,JsonParse data
+  class ExecSvc,SAA,Install,Run exec
+  class Parser,Queue,StdIO,JsonParse data
 ```
 
 #### 流程图
@@ -706,25 +724,37 @@ sequenceDiagram
   participant G as PythonGenerateNode
   participant L as LlmService
   participant E as PythonExecuteNode
-  participant CP as CodePoolExecutorService
-  participant D as Docker Executor
+  participant CP as PythonCodeExecutorService
+  participant S as SAA Sandbox
+  participant D as PythonExecutorDispatcher
   participant J as JsonParseUtil
   participant A as PythonAnalyzeNode
   participant R as ReportGeneratorNode
 
   P->>G: 进入Python步骤并传入指令
   G->>L: generate python code
-  L-->>G: python code
+  L-->>G: python code + PEP 723
   G->>E: pass code and sql results
   E->>CP: runTask
-  CP->>D: execute in container
-  D-->>CP: stdout stderr
+  CP->>S: create task sandbox and install dependencies
+  S->>S: execute with stdin
+  S-->>CP: stdout stderr
   CP-->>E: task response
-  E->>J: parse stdout json
-  J-->>E: normalized output
-  E->>A: analyze result
-  A-->>P: update step results
-  P->>R: continue to report
+  alt execution succeeded
+    E->>J: parse stdout json
+    J-->>E: normalized output
+    E->>D: publish success state
+    D->>A: analyze result
+    A-->>P: update step results
+    P->>R: continue to report
+  else execution failed
+    E->>D: publish failure state
+    alt retry is available
+      D->>G: regenerate with previous code and error
+    else retry limit reached
+      D-->>P: fallback analysis or terminate
+    end
+  end
 ```
 
 
@@ -734,3 +764,4 @@ sequenceDiagram
 - [快速开始](QUICK_START.md) - 安装配置指南
 - [高级功能](ADVANCED_FEATURES.md) - API调用和MCP服务器
 - [开发者文档](DEVELOPER_GUIDE.md) - 贡献指南
+- [SAA 1.1.2.2 Python 沙盒接入方案](superpowers/specs/2026-07-28-saa-python-sandbox-integration-design.md) - 详细边界、安全取舍和验收证据
