@@ -21,6 +21,7 @@ import Python from 'highlight.js/lib/languages/python';
 import Json from 'highlight.js/lib/languages/json';
 import JavaScript from 'highlight.js/lib/languages/javascript';
 import type MarkdownIt from 'markdown-it';
+import { copyTextToClipboard } from '../clipboard';
 
 hljs.registerLanguage('sql', Sql);
 hljs.registerLanguage('json', Json);
@@ -92,9 +93,8 @@ if (typeof window !== 'undefined' && !window.copyCodeBlock) {
 
 		if (!decodedCode) return;
 
-		navigator.clipboard
-			.writeText(decodedCode)
-			.then(() => {
+		copyTextToClipboard(decodedCode).then((success) => {
+			if (success) {
 				btn.textContent = '已复制!';
 				btn.classList.add('copied');
 				window.__tipShow?.('复制成功');
@@ -102,14 +102,14 @@ if (typeof window !== 'undefined' && !window.copyCodeBlock) {
 					btn.textContent = originalText;
 					btn.classList.remove('copied');
 				}, 2000);
-			})
-			.catch(() => {
+			} else {
 				btn.textContent = '复制失败';
 				window.__tipShow?.('复制失败', { color: 'error', icon: 'mdi-alert-circle' });
 				setTimeout(() => {
 					btn.textContent = originalText;
 				}, 2000);
-			});
+			}
+		});
 	};
 }
 
