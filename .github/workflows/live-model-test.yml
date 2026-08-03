@@ -74,7 +74,7 @@ jobs:
           printf 'Resolved %s to %s@%s\n' "${pr_url}" "${head_repository}" "${head_sha}"
 
   live-model:
-    name: PR #${{ inputs.pr_number }} @ ${{ needs.resolve_pr.outputs.short_sha }}
+    name: "PR #${{ inputs.pr_number }} @ ${{ needs.resolve_pr.outputs.short_sha }}"
     needs: resolve_pr
     runs-on: ubuntu-22.04
     timeout-minutes: 15
