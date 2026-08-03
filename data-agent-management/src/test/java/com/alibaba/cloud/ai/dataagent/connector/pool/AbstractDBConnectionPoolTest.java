@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.connector.pool;
 
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.enums.ErrorCodeEnum;
+import com.alibaba.druid.pool.DruidDataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,14 +73,18 @@ class AbstractDBConnectionPoolTest {
 
 	@Test
 	void ping_invalidCredentials_returnsErrorCode() {
+		String url = String.format(H2_URL, nextDbId());
+		DbConfigBO validConfig = DbConfigBO.builder().url(url).username("sa").password("").connectionType("h2").build();
+		assertEquals(ErrorCodeEnum.SUCCESS, pool.ping(validConfig));
+
 		DbConfigBO config = DbConfigBO.builder()
-			.url("jdbc:h2:mem:testauth;DB_CLOSE_DELAY=-1")
+			.url(url)
 			.username("wronguser")
 			.password("wrongpass")
 			.connectionType("h2")
 			.build();
 		ErrorCodeEnum result = pool.ping(config);
-		assertNotNull(result);
+		assertEquals(ErrorCodeEnum.PASSWORD_ERROR_28000, result);
 	}
 
 	@Test
@@ -117,7 +122,7 @@ class AbstractDBConnectionPoolTest {
 			assertNotNull(ignored);
 		}
 
-		assertThrows(RuntimeException.class, () -> pool.getConnection(second));
+		assertThrowsExactly(RuntimeException.class, () -> pool.getConnection(second));
 		assertEquals(2, pool.getDataSourceCreationCount());
 	}
 
@@ -133,7 +138,7 @@ class AbstractDBConnectionPoolTest {
 			.connectionType("h2")
 			.build();
 
-		RuntimeException error = assertThrows(RuntimeException.class, () -> pool.getConnection(config));
+		RuntimeException error = assertThrowsExactly(RuntimeException.class, () -> pool.getConnection(config));
 
 		assertTrue(error.getMessage().contains("3 attempts"));
 		verify(failingDataSource, times(3)).getConnection();
@@ -193,11 +198,16 @@ class AbstractDBConnectionPoolTest {
 	void createdDataSource_setsDriverCorrectly() throws Exception {
 		String url = String.format(H2_URL, nextDbId());
 		DataSource dataSource = pool.createdDataSource(url, "sa", "");
-		assertNotNull(dataSource);
+		assertInstanceOf(DruidDataSource.class, dataSource);
+		DruidDataSource druidDataSource = (DruidDataSource) dataSource;
+		assertEquals("org.h2.Driver", druidDataSource.getDriverClassName());
+		assertEquals(url, druidDataSource.getUrl());
+		assertEquals("sa", druidDataSource.getUsername());
+		assertEquals(20, druidDataSource.getMaxActive());
 
 		Connection conn = dataSource.getConnection();
 		String driverName = conn.getMetaData().getDriverName();
-		assertNotNull(driverName);
+		assertEquals("H2 JDBC Driver", driverName);
 		conn.close();
 	}
 

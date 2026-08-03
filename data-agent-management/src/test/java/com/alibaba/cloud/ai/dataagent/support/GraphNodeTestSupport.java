@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.support;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 import com.alibaba.cloud.ai.graph.GraphResponse;
@@ -33,13 +34,7 @@ public final class GraphNodeTestSupport {
 
 	@SuppressWarnings("unchecked")
 	public static NodeExecution execute(Map<String, Object> nodeResult, String outputKey) {
-		assertThat(nodeResult).containsKey(outputKey);
-		assertThat(nodeResult.get(outputKey)).isInstanceOf(Flux.class);
-
-		Flux<GraphResponse<StreamingOutput>> generator = (Flux<GraphResponse<StreamingOutput>>) nodeResult
-			.get(outputKey);
-		List<GraphResponse<StreamingOutput>> responses = generator.collectList().block(Duration.ofSeconds(2));
-		assertThat(responses).isNotNull();
+		List<GraphResponse<StreamingOutput>> responses = responses(nodeResult, outputKey);
 
 		String streamedText = responses.stream()
 			.filter(response -> !response.isDone() && !response.isError())
@@ -54,7 +49,41 @@ public final class GraphNodeTestSupport {
 		return new NodeExecution(streamedText, finalResult);
 	}
 
+	public static NodeErrorExecution executeForError(Map<String, Object> nodeResult, String outputKey) {
+		List<GraphResponse<StreamingOutput>> responses = responses(nodeResult, outputKey);
+		String streamedText = responses.stream()
+			.filter(response -> !response.isDone() && !response.isError())
+			.map(response -> response.getOutput().join().chunk())
+			.collect(Collectors.joining());
+		GraphResponse<StreamingOutput> errorResponse = responses.stream()
+			.filter(GraphResponse::isError)
+			.findFirst()
+			.orElseThrow(() -> new AssertionError("Node did not emit an error result for " + outputKey));
+		try {
+			errorResponse.getOutput().join();
+			throw new AssertionError("Error response completed successfully for " + outputKey);
+		}
+		catch (CompletionException exception) {
+			return new NodeErrorExecution(streamedText, exception.getCause());
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<GraphResponse<StreamingOutput>> responses(Map<String, Object> nodeResult, String outputKey) {
+		assertThat(nodeResult).containsKey(outputKey);
+		assertThat(nodeResult.get(outputKey)).isInstanceOf(Flux.class);
+
+		Flux<GraphResponse<StreamingOutput>> generator = (Flux<GraphResponse<StreamingOutput>>) nodeResult
+			.get(outputKey);
+		List<GraphResponse<StreamingOutput>> responses = generator.collectList().block(Duration.ofSeconds(2));
+		assertThat(responses).isNotNull();
+		return responses;
+	}
+
 	public record NodeExecution(String streamedText, Map<String, Object> finalResult) {
+	}
+
+	public record NodeErrorExecution(String streamedText, Throwable error) {
 	}
 
 }

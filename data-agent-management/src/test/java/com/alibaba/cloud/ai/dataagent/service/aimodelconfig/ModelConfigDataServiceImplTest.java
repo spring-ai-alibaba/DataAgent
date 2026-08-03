@@ -50,7 +50,8 @@ class ModelConfigDataServiceImplTest {
 		config.setId(1);
 		when(modelConfigMapper.findById(1)).thenReturn(config);
 
-		assertNotNull(service.findById(1));
+		assertSame(config, service.findById(1));
+		verify(modelConfigMapper).findById(1);
 	}
 
 	@Test
@@ -117,7 +118,7 @@ class ModelConfigDataServiceImplTest {
 		dto.setApiKey("k");
 		when(modelConfigMapper.findById(99)).thenReturn(null);
 
-		assertThrows(RuntimeException.class, () -> service.updateConfigInDb(dto));
+		assertThrowsExactly(RuntimeException.class, () -> service.updateConfigInDb(dto));
 	}
 
 	@Test
@@ -134,7 +135,7 @@ class ModelConfigDataServiceImplTest {
 		dto.setBaseUrl("u");
 		dto.setApiKey("k");
 
-		assertThrows(RuntimeException.class, () -> service.updateConfigInDb(dto));
+		assertThrowsExactly(RuntimeException.class, () -> service.updateConfigInDb(dto));
 	}
 
 	@Test
@@ -254,7 +255,7 @@ class ModelConfigDataServiceImplTest {
 	void deleteConfig_notFound_throwsException() {
 		when(modelConfigMapper.findById(99)).thenReturn(null);
 
-		assertThrows(RuntimeException.class, () -> service.deleteConfig(99));
+		assertThrowsExactly(RuntimeException.class, () -> service.deleteConfig(99));
 	}
 
 	@Test
@@ -263,7 +264,7 @@ class ModelConfigDataServiceImplTest {
 		config.setIsActive(true);
 		when(modelConfigMapper.findById(1)).thenReturn(config);
 
-		assertThrows(RuntimeException.class, () -> service.deleteConfig(1));
+		assertThrowsExactly(RuntimeException.class, () -> service.deleteConfig(1));
 	}
 
 	@Test
@@ -291,7 +292,13 @@ class ModelConfigDataServiceImplTest {
 		when(modelConfigMapper.selectActiveByType("CHAT")).thenReturn(config);
 
 		ModelConfigDTO result = service.getActiveConfigByType(ModelType.CHAT);
-		assertNotNull(result);
+		assertEquals(1, result.getId());
+		assertEquals("gpt-4", result.getModelName());
+		assertEquals("CHAT", result.getModelType());
+		assertEquals("http://example.com", result.getBaseUrl());
+		assertEquals("key", result.getApiKey());
+		assertEquals("openai", result.getProvider());
+		verify(modelConfigMapper).selectActiveByType("CHAT");
 	}
 
 	@Test

@@ -19,8 +19,13 @@ test: ## Run tests
 	@$(LOG_TARGET)
 	mvnd test
 
+.PHONY: test-trust-check
+test-trust-check: ## Reject deterministic fake-green test patterns
+	@$(LOG_TARGET)
+	./CI/scripts/test-trust-check.sh
+
 .PHONY: verify
-verify: ## Run deterministic tests and quality gates
+verify: test-trust-check ## Run deterministic tests and quality gates
 	@$(LOG_TARGET)
 	mvnd verify
 
@@ -28,6 +33,11 @@ verify: ## Run deterministic tests and quality gates
 integration-test: ## Run tests that require real infrastructure
 	@$(LOG_TARGET)
 	mvnd verify -Pintegration
+
+.PHONY: live-model-test
+live-model-test: ## Run live model-provider contract tests with an explicitly configured API key
+	@$(LOG_TARGET)
+	mvnd verify -Plive-model
 
 .PHONY: milvus-integration-test
 milvus-integration-test: ## Run integration tests against a configured Milvus server

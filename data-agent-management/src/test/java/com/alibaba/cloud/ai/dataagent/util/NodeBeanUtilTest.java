@@ -54,7 +54,11 @@ class NodeBeanUtilTest {
 		TestNodeAction expected = new TestNodeAction();
 		when(context.getBean(TestNodeAction.class)).thenReturn(expected);
 
-		assertNotNull(nodeBeanUtil.getNodeBeanAsync(TestNodeAction.class));
+		assertEquals(java.util.Map.of(),
+				nodeBeanUtil.getNodeBeanAsync(TestNodeAction.class)
+					.apply(new com.alibaba.cloud.ai.graph.OverAllState())
+					.join());
+		verify(context).getBean(TestNodeAction.class);
 	}
 
 	@Test
@@ -71,7 +75,11 @@ class NodeBeanUtilTest {
 		TestEdgeAction expected = new TestEdgeAction();
 		when(context.getBean(TestEdgeAction.class)).thenReturn(expected);
 
-		assertNotNull(nodeBeanUtil.getEdgeBeanAsync(TestEdgeAction.class));
+		assertEquals("",
+				nodeBeanUtil.getEdgeBeanAsync(TestEdgeAction.class)
+					.apply(new com.alibaba.cloud.ai.graph.OverAllState())
+					.join());
+		verify(context).getBean(TestEdgeAction.class);
 	}
 
 	static class TestNodeAction implements NodeAction {

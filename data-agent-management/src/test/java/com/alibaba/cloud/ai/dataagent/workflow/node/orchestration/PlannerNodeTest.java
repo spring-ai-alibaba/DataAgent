@@ -16,12 +16,14 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node.orchestration;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,24 +31,22 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
+import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeExecution;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.dto.planner.Plan;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
 import com.alibaba.cloud.ai.dataagent.workflow.node.PlannerNode;
-import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
-import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 
 import reactor.core.publisher.Flux;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class PlannerNodeTest {
 
 	private static final String VALID_PLAN_JSON = """
@@ -147,10 +147,14 @@ class PlannerNodeTest {
 		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(VALID_PLAN_JSON)));
 
-		Map<String, Object> result = plannerNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PLANNER_NODE_OUTPUT));
-		assertNotNull(result.get(PLANNER_NODE_OUTPUT));
+		NodeExecution execution = execute(plannerNode.apply(state), PLANNER_NODE_OUTPUT);
+		Plan plan = parsePlan(execution);
+
+		assertEquals("分析用户查询，需要查询用户数据", plan.getThoughtProcess());
+		assertEquals(1, plan.getExecutionPlan().size());
+		assertEquals(SQL_GENERATE_NODE, plan.getExecutionPlan().get(0).getToolToUse());
+		assertEquals("查询所有用户信息", plan.getExecutionPlan().get(0).getToolParameters().getInstruction());
+		assertTrue(execution.streamedText().contains(VALID_PLAN_JSON.trim()));
 	}
 
 	@Test
@@ -161,10 +165,12 @@ class PlannerNodeTest {
 		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(MULTI_STEP_PLAN_JSON)));
 
-		Map<String, Object> result = plannerNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PLANNER_NODE_OUTPUT));
-		assertNotNull(result.get(PLANNER_NODE_OUTPUT));
+		Plan plan = parsePlan(execute(plannerNode.apply(state), PLANNER_NODE_OUTPUT));
+
+		assertEquals(2, plan.getExecutionPlan().size());
+		assertEquals(SQL_GENERATE_NODE, plan.getExecutionPlan().get(0).getToolToUse());
+		assertEquals(PYTHON_GENERATE_NODE, plan.getExecutionPlan().get(1).getToolToUse());
+		assertEquals("分析销售趋势", plan.getExecutionPlan().get(1).getToolParameters().getInstruction());
 	}
 
 	@Test
@@ -173,24 +179,12 @@ class PlannerNodeTest {
 		setupBasicState(state);
 		state.updateState(Map.of(IS_ONLY_NL2SQL, true));
 
-		Map<String, Object> result = plannerNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PLANNER_NODE_OUTPUT));
+		Plan plan = parsePlan(execute(plannerNode.apply(state), PLANNER_NODE_OUTPUT));
 
-		@SuppressWarnings("unchecked")
-		Flux<GraphResponse<StreamingOutput>> generator = (Flux<GraphResponse<StreamingOutput>>) result
-			.get(PLANNER_NODE_OUTPUT);
-		List<GraphResponse<StreamingOutput>> responses = generator.collectList().block(Duration.ofSeconds(2));
-		assertNotNull(responses);
-		String planJson = responses.stream()
-			.filter(GraphResponse::isDone)
-			.findFirst()
-			.flatMap(GraphResponse::resultValue)
-			.map(value -> (Map<?, ?>) value)
-			.map(value -> (String) value.get(PLANNER_NODE_OUTPUT))
-			.orElseThrow();
-		Plan plan = com.alibaba.cloud.ai.dataagent.util.JsonUtil.getObjectMapper().readValue(planJson, Plan.class);
+		assertEquals("根据问题生成SQL", plan.getThoughtProcess());
+		assertEquals(SQL_GENERATE_NODE, plan.getExecutionPlan().get(0).getToolToUse());
 		assertEquals("查询所有用户信息", plan.getExecutionPlan().get(0).getToolParameters().getInstruction());
+		verifyNoInteractions(llmService);
 	}
 
 	@Test
@@ -200,21 +194,22 @@ class PlannerNodeTest {
 
 		when(llmService.callUser(anyString())).thenThrow(new RuntimeException("LLM service unavailable"));
 
-		assertThrows(RuntimeException.class, () -> plannerNode.apply(state));
+		RuntimeException exception = assertThrowsExactly(RuntimeException.class, () -> plannerNode.apply(state));
+		assertEquals("LLM service unavailable", exception.getMessage());
 	}
 
 	@Test
-	void apply_invalidPlanJson_throwsParseException() throws Exception {
+	void apply_invalidPlanJson_emitsRawOutputForDownstreamValidation() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
 		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("this is not valid json at all")));
 
-		Map<String, Object> result = plannerNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PLANNER_NODE_OUTPUT));
-		assertNotNull(result.get(PLANNER_NODE_OUTPUT));
+		NodeExecution execution = execute(plannerNode.apply(state), PLANNER_NODE_OUTPUT);
+
+		assertEquals("this is not valid json at all", execution.finalResult().get(PLANNER_NODE_OUTPUT));
+		assertTrue(execution.streamedText().contains("this is not valid json at all"));
 	}
 
 	@Test
@@ -226,10 +221,13 @@ class PlannerNodeTest {
 		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(VALID_PLAN_JSON)));
 
-		Map<String, Object> result = plannerNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PLANNER_NODE_OUTPUT));
-		assertNotNull(result.get(PLANNER_NODE_OUTPUT));
+		Plan plan = parsePlan(execute(plannerNode.apply(state), PLANNER_NODE_OUTPUT));
+		ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(promptCaptor.capture());
+
+		assertEquals("查询所有用户信息", plan.getExecutionPlan().get(0).getToolParameters().getInstruction());
+		assertTrue(promptCaptor.getValue().contains("请不要使用Python分析，直接用SQL"));
+		assertTrue(promptCaptor.getValue().contains(VALID_PLAN_JSON.trim()));
 	}
 
 	@Test
@@ -241,10 +239,11 @@ class PlannerNodeTest {
 		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(VALID_PLAN_JSON)));
 
-		Map<String, Object> result = plannerNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PLANNER_NODE_OUTPUT));
-		assertNotNull(result.get(PLANNER_NODE_OUTPUT));
+		parsePlan(execute(plannerNode.apply(state), PLANNER_NODE_OUTPUT));
+		ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(promptCaptor.capture());
+
+		assertTrue(promptCaptor.getValue().contains("语义模型定义：PV表示页面浏览量"));
 	}
 
 	@Test
@@ -256,22 +255,17 @@ class PlannerNodeTest {
 		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(VALID_PLAN_JSON)));
 
-		Map<String, Object> result = plannerNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PLANNER_NODE_OUTPUT));
-		assertNotNull(result.get(PLANNER_NODE_OUTPUT));
+		parsePlan(execute(plannerNode.apply(state), PLANNER_NODE_OUTPUT));
+		ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(promptCaptor.capture());
+
+		assertFalse(promptCaptor.getValue().contains("业务知识：用户表包含所有注册用户"));
 	}
 
-	@Test
-	void handleNl2SqlOnly_returnsStandardPlan() throws Exception {
-		OverAllState state = createTestState();
-		setupBasicState(state);
-		state.updateState(Map.of(IS_ONLY_NL2SQL, true));
-
-		Map<String, Object> result = plannerNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PLANNER_NODE_OUTPUT));
-		assertNotNull(result.get(PLANNER_NODE_OUTPUT));
+	private Plan parsePlan(NodeExecution execution) throws Exception {
+		String planJson = (String) execution.finalResult().get(PLANNER_NODE_OUTPUT);
+		assertNotNull(planJson);
+		return JsonUtil.getObjectMapper().readValue(planJson, Plan.class);
 	}
 
 }

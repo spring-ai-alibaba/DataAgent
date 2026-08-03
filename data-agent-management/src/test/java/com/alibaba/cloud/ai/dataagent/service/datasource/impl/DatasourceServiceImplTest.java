@@ -235,7 +235,7 @@ class DatasourceServiceImplTest {
 
 		when(logicalRelationMapper.checkExists(1, "a", "b", "c", "d")).thenReturn(1);
 
-		assertThrows(RuntimeException.class, () -> datasourceService.addLogicalRelation(1, lr));
+		assertThrowsExactly(RuntimeException.class, () -> datasourceService.addLogicalRelation(1, lr));
 	}
 
 	@Test
@@ -258,7 +258,7 @@ class DatasourceServiceImplTest {
 		when(logicalRelationMapper.selectById(99)).thenReturn(null);
 		LogicalRelation lr = new LogicalRelation();
 
-		assertThrows(RuntimeException.class, () -> datasourceService.updateLogicalRelation(1, 99, lr));
+		assertThrowsExactly(RuntimeException.class, () -> datasourceService.updateLogicalRelation(1, 99, lr));
 	}
 
 	@Test
@@ -267,7 +267,7 @@ class DatasourceServiceImplTest {
 		existing.setDatasourceId(2);
 		when(logicalRelationMapper.selectById(1)).thenReturn(existing);
 
-		assertThrows(RuntimeException.class,
+		assertThrowsExactly(RuntimeException.class,
 				() -> datasourceService.updateLogicalRelation(1, 1, new LogicalRelation()));
 	}
 
@@ -275,7 +275,7 @@ class DatasourceServiceImplTest {
 	void deleteLogicalRelation_notFound_throwsException() {
 		when(logicalRelationMapper.selectById(99)).thenReturn(null);
 
-		assertThrows(RuntimeException.class, () -> datasourceService.deleteLogicalRelation(1, 99));
+		assertThrowsExactly(RuntimeException.class, () -> datasourceService.deleteLogicalRelation(1, 99));
 	}
 
 	@Test
@@ -284,7 +284,7 @@ class DatasourceServiceImplTest {
 		existing.setDatasourceId(2);
 		when(logicalRelationMapper.selectById(1)).thenReturn(existing);
 
-		assertThrows(RuntimeException.class, () -> datasourceService.deleteLogicalRelation(1, 1));
+		assertThrowsExactly(RuntimeException.class, () -> datasourceService.deleteLogicalRelation(1, 1));
 	}
 
 	@Test
@@ -372,7 +372,11 @@ class DatasourceServiceImplTest {
 		when(logicalRelationMapper.selectById(5)).thenReturn(existing, returned);
 
 		LogicalRelation result = datasourceService.updateLogicalRelation(1, 5, updated);
-		assertNotNull(result);
+		assertSame(returned, result);
+		assertEquals(5, updated.getId());
+		assertEquals(1, updated.getDatasourceId());
+		verify(logicalRelationMapper).updateById(updated);
+		verify(logicalRelationMapper, times(2)).selectById(5);
 	}
 
 	@Test
@@ -383,7 +387,7 @@ class DatasourceServiceImplTest {
 		when(logicalRelationMapper.selectById(5)).thenReturn(existing);
 		when(logicalRelationMapper.updateById(any())).thenReturn(0);
 
-		assertThrows(RuntimeException.class,
+		assertThrowsExactly(RuntimeException.class,
 				() -> datasourceService.updateLogicalRelation(1, 5, new LogicalRelation()));
 	}
 
@@ -408,7 +412,7 @@ class DatasourceServiceImplTest {
 		when(logicalRelationMapper.selectById(5)).thenReturn(existing);
 		when(logicalRelationMapper.deleteById(5)).thenReturn(0);
 
-		assertThrows(RuntimeException.class, () -> datasourceService.deleteLogicalRelation(1, 5));
+		assertThrowsExactly(RuntimeException.class, () -> datasourceService.deleteLogicalRelation(1, 5));
 	}
 
 	@Test

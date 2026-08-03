@@ -27,6 +27,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -158,7 +159,7 @@ public class SemanticModelController {
 
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-			headers.setContentDispositionFormData("attachment", TEMPLATE_FILE_NAME);
+			headers.setContentDisposition(ContentDisposition.attachment().filename(TEMPLATE_FILE_NAME).build());
 			return ResponseEntity.ok().headers(headers).body(template);
 		}
 		catch (IOException e) {

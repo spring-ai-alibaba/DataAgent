@@ -126,7 +126,7 @@ public class PythonGenerateNode implements NodeAction {
 					// emphasized this)
 					aiResponse = aiResponse.substring(TextType.PYTHON.getStartSign().length(),
 							aiResponse.length() - TextType.PYTHON.getEndSign().length());
-					aiResponse = MarkdownParserUtil.extractRawText(aiResponse);
+					aiResponse = MarkdownParserUtil.extractRawText(aiResponse).stripTrailing();
 					log.debug("Python Generate Code: {}", aiResponse);
 					return Map.of(PYTHON_GENERATE_NODE_OUTPUT, aiResponse, PYTHON_TRIES_COUNT, triesCount + 1);
 				},

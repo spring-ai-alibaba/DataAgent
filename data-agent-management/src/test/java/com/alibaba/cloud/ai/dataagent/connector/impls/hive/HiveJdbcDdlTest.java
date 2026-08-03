@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector.impls.hive;
 
+import static com.alibaba.cloud.ai.dataagent.support.ExceptionTestSupport.assertRuntimeCause;
+
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
@@ -88,7 +90,7 @@ class HiveJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> hiveJdbcDdl.showDatabases(connection));
+			assertRuntimeCause(SQLException.class, "error", () -> hiveJdbcDdl.showDatabases(connection));
 		}
 	}
 
@@ -270,7 +272,8 @@ class HiveJdbcDdlTest {
 				.thenReturn(expected);
 
 			ResultSetBO result = hiveJdbcDdl.scanTable(connection, "db", "users");
-			assertNotNull(result);
+			assertSame(expected, result);
+			ms.verify(() -> SqlExecutor.executeSqlAndReturnObject(connection, "db", "SELECT * FROM db.users LIMIT 20"));
 		}
 	}
 
@@ -283,7 +286,9 @@ class HiveJdbcDdlTest {
 				.thenReturn(expected);
 
 			ResultSetBO result = hiveJdbcDdl.scanTable(connection, "mydb", "users");
-			assertNotNull(result);
+			assertSame(expected, result);
+			ms.verify(() -> SqlExecutor.executeSqlAndReturnObject(connection, "mydb",
+					"SELECT * FROM mydb.users LIMIT 20"));
 		}
 	}
 
@@ -293,7 +298,7 @@ class HiveJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnObject(any(Connection.class), anyString(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> hiveJdbcDdl.scanTable(connection, "db", "users"));
+			assertRuntimeCause(SQLException.class, "error", () -> hiveJdbcDdl.scanTable(connection, "db", "users"));
 		}
 	}
 
@@ -306,7 +311,8 @@ class HiveJdbcDdlTest {
 				.thenReturn(expected);
 
 			ResultSetBO result = hiveJdbcDdl.scanTable(connection, null, "users");
-			assertNotNull(result);
+			assertSame(expected, result);
+			ms.verify(() -> SqlExecutor.executeSqlAndReturnObject(connection, null, "SELECT * FROM users LIMIT 20"));
 		}
 	}
 
@@ -351,7 +357,7 @@ class HiveJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> hiveJdbcDdl.showTables(connection, "db", null));
+			assertRuntimeCause(SQLException.class, "error", () -> hiveJdbcDdl.showTables(connection, "db", null));
 		}
 	}
 
@@ -433,7 +439,7 @@ class HiveJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> hiveJdbcDdl.showColumns(connection, "db", "users"));
+			assertRuntimeCause(SQLException.class, "error", () -> hiveJdbcDdl.showColumns(connection, "db", "users"));
 		}
 	}
 
