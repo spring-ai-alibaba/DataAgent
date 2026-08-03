@@ -19,6 +19,21 @@ test: ## Run tests
 	@$(LOG_TARGET)
 	mvnd test
 
+.PHONY: verify
+verify: ## Run deterministic tests and quality gates
+	@$(LOG_TARGET)
+	mvnd verify
+
+.PHONY: integration-test
+integration-test: ## Run tests that require real infrastructure
+	@$(LOG_TARGET)
+	mvnd verify -Pintegration
+
+.PHONY: milvus-integration-test
+milvus-integration-test: ## Run integration tests against a configured Milvus server
+	@$(LOG_TARGET)
+	mvnd verify -Pintegration -Dit.test=MilvusVectorStoreIT -Ddataagent.milvus.integration=true
+
 # Separate build and test to speed up execution
 .PHONY: build
 build: ## Build the project
