@@ -189,6 +189,8 @@ Below is the ES schema structure. For other vector stores like Milvus, PG, etc.,
 ### 2.7 Replace Vector Store Implementation
 
 > To replace the default in-memory vector store (for example, with PGVector or Milvus), see [Developer Guide - Vector Store Dependency Extension](DEVELOPER_GUIDE-en.md#vector-store-dependency-extension).
+>
+> The project ships two ready-to-use example profiles, `application-milvus.yml` and `application-elasticsearch.yml`. Switch quickly with `SPRING_PROFILES_ACTIVE=milvus` (or `elasticsearch`); see [Developer Guide - Ready-to-Use Configuration Examples](DEVELOPER_GUIDE-en.md#ready-to-use-configuration-examples).
 
 ### 2.8 Configure the Python Sandbox
 
