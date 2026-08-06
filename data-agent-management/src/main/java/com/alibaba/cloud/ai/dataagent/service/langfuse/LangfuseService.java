@@ -68,6 +68,26 @@ public class LangfuseService {
 	// --- Token 累计器，按 threadId 隔离 ---
 	private static final ConcurrentHashMap<String, long[]> TOKEN_ACCUMULATOR = new ConcurrentHashMap<>();
 
+	/**
+	 * 当前活跃的<b>节点级</b> token 累加器，key 为 threadId。
+	 *
+	 * <p>
+	 * 与 {@link #TOKEN_ACCUMULATOR}（整轮图运行的汇总）并存：本表由
+	 * {@code NodeTracingLifecycleListener} 在每个节点的每一次尝试开始时 register、结束时 take，因此每个 attempt
+	 * 各自拿到一份独立计数。重试时 prompt 会系统性膨胀，若合并成一个数字就无法区分「5000×3」和「2000+5000+8000」，
+	 * 而后者恰恰是"重试 prompt 累积失控"的唯一信号。
+	 *
+	 * <p>
+	 * 之所以按 threadId <b>单键</b>而非 {@code threadId#nodeId#attempt}：{@code FluxUtil} 侧只知道节点
+	 * <i>类名</i>（{@code IntentRecognitionNode}），而 listener 侧的 nodeId 是图注册常量
+	 * （{@code INTENT_RECOGNITION_NODE}），两者永不相等，任何拼 key 方案都会让 token 静默丢失。单键 +
+	 * register/take 严格配对可绕开这个问题（依赖图为串行执行，无并行节点）。
+	 */
+	private static final ConcurrentHashMap<String, long[]> ACTIVE_NODE_ACCUMULATOR = new ConcurrentHashMap<>();
+
+	/** 每个 threadId 当前的根 span，供节点级子 span 作为父 span 挂载 */
+	private static final ConcurrentHashMap<String, Span> ROOT_SPANS = new ConcurrentHashMap<>();
+
 	public LangfuseService(Tracer langfuseTracer, @Value("${langfuse.enabled:true}") boolean enabled) {
 		this.tracer = langfuseTracer;
 		this.enabled = enabled;
@@ -102,6 +122,7 @@ public class LangfuseService {
 			// 初始化该 threadId 的 token 累计器
 			if (request.getThreadId() != null) {
 				TOKEN_ACCUMULATOR.put(request.getThreadId(), new long[] { 0, 0 });
+				ROOT_SPANS.put(request.getThreadId(), span);
 			}
 
 			return span;
@@ -113,18 +134,84 @@ public class LangfuseService {
 	}
 
 	/**
+	 * 取出该 threadId 当前的根 span，供节点级子 span 作为父 span 使用。
+	 * @return 根 span；若 Langfuse 未启用、该轮运行尚未开始或已结束则返回 {@code null}
+	 */
+	public Span getRootSpan(String threadId) {
+		return threadId == null ? null : ROOT_SPANS.get(threadId);
+	}
+
+	/**
+	 * 为某个节点的某一次尝试注册一个全新的 token 累加器。
+	 *
+	 * <p>
+	 * 由 {@code NodeTracingLifecycleListener#before} 调用。若上一次 attempt 的累加器因异常路径未被
+	 * {@link #takeActiveAccumulator} 取走，此处会直接覆盖，保证新 attempt 从零开始计数。
+	 */
+	public static void registerActiveAccumulator(String threadId) {
+		if (threadId == null) {
+			return;
+		}
+		ACTIVE_NODE_ACCUMULATOR.put(threadId, new long[] { 0, 0 });
+	}
+
+	/**
+	 * 取出并移除当前活跃的节点级累加器。
+	 *
+	 * <p>
+	 * 由 {@code NodeTracingLifecycleListener#after}/{@code #onError} 调用。
+	 * @return {@code {promptTokens, completionTokens}}；无活跃累加器时返回 {@code null}
+	 */
+	public static long[] takeActiveAccumulator(String threadId) {
+		if (threadId == null) {
+			return null;
+		}
+		long[] tokens = ACTIVE_NODE_ACCUMULATOR.remove(threadId);
+		if (tokens == null) {
+			return null;
+		}
+		synchronized (tokens) {
+			return new long[] { tokens[0], tokens[1] };
+		}
+	}
+
+	/**
+	 * 丢弃该 threadId 的全部 token 累加状态与根 span 引用。
+	 *
+	 * <p>
+	 * 供客户端主动断开（{@code stopStreamProcessing}）时兜底清理，避免内存泄漏。
+	 */
+	public static void discardAccumulators(String threadId) {
+		if (threadId == null) {
+			return;
+		}
+		ACTIVE_NODE_ACCUMULATOR.remove(threadId);
+		TOKEN_ACCUMULATOR.remove(threadId);
+		ROOT_SPANS.remove(threadId);
+	}
+
+	/**
 	 * 累计 token 用量（由 FluxUtil 在处理 ChatResponse 时调用）
+	 *
+	 * <p>
+	 * 同时写入两处：整轮运行的汇总累加器（根 span 用）与当前活跃的节点级累加器（子 span 用）。 后者可能不存在（Langfuse
+	 * 未启用，或该 token 产生于任何节点的 before/after 窗口之外），此时静默跳过。
 	 */
 	public static void accumulateTokens(Object threadId, long promptTokens, long completionTokens) {
 		if (threadId == null) {
 			return;
 		}
-		long[] tokens = TOKEN_ACCUMULATOR.get(threadId);
-		if (tokens != null) {
-			synchronized (tokens) {
-				tokens[0] += promptTokens;
-				tokens[1] += completionTokens;
-			}
+		addTo(TOKEN_ACCUMULATOR.get(threadId), promptTokens, completionTokens);
+		addTo(ACTIVE_NODE_ACCUMULATOR.get(threadId), promptTokens, completionTokens);
+	}
+
+	private static void addTo(long[] tokens, long promptTokens, long completionTokens) {
+		if (tokens == null) {
+			return;
+		}
+		synchronized (tokens) {
+			tokens[0] += promptTokens;
+			tokens[1] += completionTokens;
 		}
 	}
 
@@ -182,6 +269,8 @@ public class LangfuseService {
 		if (threadId == null) {
 			return;
 		}
+		ROOT_SPANS.remove(threadId);
+		ACTIVE_NODE_ACCUMULATOR.remove(threadId);
 		long[] tokens = TOKEN_ACCUMULATOR.remove(threadId);
 		if (tokens != null) {
 			synchronized (tokens) {

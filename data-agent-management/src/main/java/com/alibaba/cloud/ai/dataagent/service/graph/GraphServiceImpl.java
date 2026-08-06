@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.service.graph;
 
 import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
+import com.alibaba.cloud.ai.dataagent.service.langfuse.NodeTracingLifecycleListener;
 import com.alibaba.cloud.ai.dataagent.enums.GraphEventType;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.workflow.node.PlannerNode;
@@ -62,14 +63,18 @@ public class GraphServiceImpl implements GraphService {
 
 	private final LangfuseService langfuseReporter;
 
+	private final NodeTracingLifecycleListener nodeTracingLifecycleListener;
+
 	public GraphServiceImpl(StateGraph stateGraph, CompileConfig compileConfig, BaseCheckpointSaver checkpointSaver,
 			ExecutorService executorService, MultiTurnContextManager multiTurnContextManager,
-			LangfuseService langfuseReporter) throws GraphStateException {
+			LangfuseService langfuseReporter, NodeTracingLifecycleListener nodeTracingLifecycleListener)
+			throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(compileConfig);
 		this.checkpointSaver = checkpointSaver;
 		this.executor = executorService;
 		this.multiTurnContextManager = multiTurnContextManager;
 		this.langfuseReporter = langfuseReporter;
+		this.nodeTracingLifecycleListener = nodeTracingLifecycleListener;
 	}
 
 	@Override
@@ -129,6 +134,9 @@ public class GraphServiceImpl implements GraphService {
 		log.info("Stopping stream processing for threadId: {}", threadId);
 		StreamContext context = streamContextMap.remove(threadId);
 		multiTurnContextManager.discardPending(context != null ? context.getConversationId() : threadId);
+		// 客户端断开是唯一绕过节点 after/onError 的路径：结束仍挂着的节点 span 并清理累加器，
+		// 否则会内存泄漏，且 Langfuse 上会留下永不结束的 span。必须在根 span 结束前做。
+		nodeTracingLifecycleListener.discardThread(threadId);
 		if (context != null) {
 			// 客户端断开，结束 Langfuse span
 			if (context.getSpan() != null && context.getSpan().isRecording()) {

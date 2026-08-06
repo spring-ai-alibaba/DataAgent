@@ -16,11 +16,14 @@
 package com.alibaba.cloud.ai.dataagent.config;
 
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageServiceFactory;
+import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
+import com.alibaba.cloud.ai.dataagent.service.langfuse.NodeTracingLifecycleListener;
 import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
 import com.alibaba.cloud.ai.graph.checkpoint.Checkpoint;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
+import io.opentelemetry.api.trace.Tracer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.FactoryBean;
 
@@ -29,6 +32,7 @@ import java.util.UUID;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_NODE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 class DataAgentConfigurationTest {
 
@@ -41,7 +45,8 @@ class DataAgentConfigurationTest {
 	void nl2sqlGraphCompileConfig_usesProvidedFrameworkSaver() throws Exception {
 		DataAgentConfiguration configuration = new DataAgentConfiguration();
 		BaseCheckpointSaver configuredSaver = configuration.memoryCheckpointSaver();
-		CompileConfig compileConfig = configuration.nl2sqlGraphCompileConfig(configuredSaver);
+		CompileConfig compileConfig = configuration.nl2sqlGraphCompileConfig(configuredSaver,
+				new NodeTracingLifecycleListener(mock(Tracer.class), mock(LangfuseService.class)));
 		BaseCheckpointSaver checkpointSaver = compileConfig.checkpointSaver().orElseThrow();
 		RunnableConfig runnableConfig = RunnableConfig.builder().threadId("chat-session-1").build();
 		Checkpoint checkpoint = Checkpoint.builder()

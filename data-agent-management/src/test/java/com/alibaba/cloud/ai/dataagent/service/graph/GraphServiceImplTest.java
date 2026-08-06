@@ -19,6 +19,7 @@ import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.enums.GraphEventType;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.MultiTurnContextManager;
 import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
+import com.alibaba.cloud.ai.dataagent.service.langfuse.NodeTracingLifecycleListener;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.CompileConfig;
@@ -72,6 +73,9 @@ class GraphServiceImplTest {
 	private BaseCheckpointSaver checkpointSaver;
 
 	@Mock
+	private NodeTracingLifecycleListener nodeTracingLifecycleListener;
+
+	@Mock
 	private Span mockSpan;
 
 	private GraphServiceImpl graphService;
@@ -87,7 +91,7 @@ class GraphServiceImplTest {
 
 		CompileConfig compileConfig = CompileConfig.builder().build();
 		graphService = new GraphServiceImpl(mockStateGraph, compileConfig, checkpointSaver, executor,
-				multiTurnContextManager, langfuseReporter);
+				multiTurnContextManager, langfuseReporter, nodeTracingLifecycleListener);
 
 		when(langfuseReporter.startLLMSpan(anyString(), any())).thenReturn(mockSpan);
 		when(mockSpan.isRecording()).thenReturn(true);
@@ -368,6 +372,38 @@ class GraphServiceImplTest {
 
 		graphService.stopStreamProcessing(runId);
 		verify(multiTurnContextManager).discardPending("conversation-to-stop");
+	}
+
+	/**
+	 * 客户端断开是唯一绕过节点 after/onError 的路径。若不清理，该 threadId 下仍挂着的节点 span 会在 Langfuse
+	 * 上永不结束，同时 listener 内部的 map 会持续泄漏。
+	 */
+	@Test
+	void stopStreamProcessing_discardsDanglingNodeSpans() {
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-with-nodes")
+			.threadId("thread-with-nodes")
+			.query("test query")
+			.build();
+
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().multicast().onBackpressureBuffer();
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.never());
+
+		graphService.graphStreamProcess(sink, request);
+		String runId = request.getThreadId();
+
+		graphService.stopStreamProcessing(runId);
+
+		verify(nodeTracingLifecycleListener).discardThread(runId);
+	}
+
+	@Test
+	void stopStreamProcessing_discardsNodeSpansEvenForUnknownThread() {
+		graphService.stopStreamProcessing("never-started-thread");
+
+		// 即使没有 StreamContext，也要清理 listener 侧可能存在的残留
+		verify(nodeTracingLifecycleListener).discardThread("never-started-thread");
 	}
 
 	@Test
