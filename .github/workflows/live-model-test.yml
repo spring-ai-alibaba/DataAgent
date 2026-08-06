@@ -23,9 +23,7 @@ on:
         required: true
         type: number
 
-permissions:
-  contents: read
-  pull-requests: read
+permissions: {}
 
 concurrency:
   group: live-model-pr-${{ inputs.pr_number }}
@@ -36,6 +34,10 @@ jobs:
     name: Resolve immutable PR head
     if: github.repository == 'spring-ai-alibaba/DataAgent'
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
     outputs:
       repository: ${{ steps.resolve.outputs.repository }}
       sha: ${{ steps.resolve.outputs.sha }}
@@ -48,6 +50,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ inputs.pr_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
 
@@ -71,13 +74,21 @@ jobs:
             echo "url=${pr_url}"
           } >>"${GITHUB_OUTPUT}"
 
+          gh api --method POST "repos/${REPOSITORY}/statuses/${head_sha}" \
+            -f state=pending \
+            -f context='Alibaba Cloud Live Model Test' \
+            -f description='Live Chat and Embedding validation is running' \
+            -f target_url="${RUN_URL}"
+
           printf 'Resolved %s to %s@%s\n' "${pr_url}" "${head_repository}" "${head_sha}"
 
-  live-model:
+  live_model:
     name: "PR #${{ inputs.pr_number }} @ ${{ needs.resolve_pr.outputs.short_sha }}"
     needs: resolve_pr
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    permissions:
+      contents: read
     environment:
       name: live-model
       url: ${{ needs.resolve_pr.outputs.url }}
@@ -100,3 +111,44 @@ jobs:
         run: |
           test -n "${DATAAGENT_LIVE_DASHSCOPE_API_KEY}"
           make live-model-test
+
+  report_status:
+    name: Report PR live model status
+    needs: [resolve_pr, live_model]
+    if: ${{ always() && needs.resolve_pr.result == 'success' }}
+    runs-on: ubuntu-22.04
+    permissions:
+      statuses: write
+    steps:
+      - name: Publish final PR status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ needs.resolve_pr.outputs.sha }}
+          RESULT: ${{ needs.live_model.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          case "${RESULT}" in
+            success)
+              state=success
+              description='Live Chat and Embedding contracts passed'
+              ;;
+            cancelled)
+              state=error
+              description='Live model validation was cancelled'
+              ;;
+            skipped)
+              state=error
+              description='Live model validation was skipped'
+              ;;
+            *)
+              state=failure
+              description='Live model workflow failed; inspect run details'
+              ;;
+          esac
+
+          gh api --method POST "repos/${REPOSITORY}/statuses/${SHA}" \
+            -f state="${state}" \
+            -f context='Alibaba Cloud Live Model Test' \
+            -f description="${description}" \
+            -f target_url="${RUN_URL}"
