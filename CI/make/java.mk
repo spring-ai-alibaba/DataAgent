@@ -37,7 +37,7 @@ integration-test: ## Run tests that require real infrastructure
 .PHONY: live-model-test
 live-model-test: ## Run live model-provider contract tests with an explicitly configured API key
 	@$(LOG_TARGET)
-	mvnd verify -Plive-model
+	mvnd verify -Plive-model -Dspotless.apply.skip=true
 
 .PHONY: milvus-integration-test
 milvus-integration-test: ## Run integration tests against a configured Milvus server
