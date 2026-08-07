@@ -25,15 +25,34 @@ public class MarkdownParserUtil {
 	}
 
 	public static String extractRawText(String markdownCode) {
-		// Find the start of a code block (3 or more backticks)
+		CodeBlock codeBlock = findNextCodeBlock(markdownCode, 0);
+		return codeBlock == null ? markdownCode : codeBlock.rawText;
+	}
+
+	public static String extractLastRawText(String markdownCode) {
+		CodeBlock lastCodeBlock = null;
+		int searchIndex = 0;
+
+		while (searchIndex <= markdownCode.length() - 3) {
+			CodeBlock codeBlock = findNextCodeBlock(markdownCode, searchIndex);
+			if (codeBlock == null) {
+				break;
+			}
+			lastCodeBlock = codeBlock;
+			searchIndex = codeBlock.nextSearchIndex;
+		}
+
+		return lastCodeBlock == null ? markdownCode : lastCodeBlock.rawText;
+	}
+
+	private static CodeBlock findNextCodeBlock(String markdownCode, int searchIndex) {
 		int startIndex = -1;
 		int delimiterLength = 0;
 
-		for (int i = 0; i <= markdownCode.length() - 3; i++) {
+		for (int i = searchIndex; i <= markdownCode.length() - 3; i++) {
 			if (markdownCode.substring(i, i + 3).equals("```")) {
 				startIndex = i;
 				delimiterLength = 3;
-				// Count additional backticks
 				while (i + delimiterLength < markdownCode.length() && markdownCode.charAt(i + delimiterLength) == '`') {
 					delimiterLength++;
 				}
@@ -42,29 +61,38 @@ public class MarkdownParserUtil {
 		}
 
 		if (startIndex == -1) {
-			return markdownCode; // No code block found
+			return null;
 		}
 
-		// Skip the opening delimiter and optional language specification
 		int contentStart = startIndex + delimiterLength;
 		while (contentStart < markdownCode.length() && markdownCode.charAt(contentStart) != '\n') {
 			contentStart++;
 		}
 		if (contentStart < markdownCode.length() && markdownCode.charAt(contentStart) == '\n') {
-			contentStart++; // Skip the newline after language spec
+			contentStart++;
 		}
 
-		// Find the closing delimiter
 		String closingDelimiter = "`".repeat(delimiterLength);
 		int endIndex = markdownCode.indexOf(closingDelimiter, contentStart);
 
 		if (endIndex == -1) {
-			// No closing delimiter found, return from content start to end
-			return markdownCode.substring(contentStart);
+			return new CodeBlock(markdownCode.substring(contentStart), markdownCode.length());
 		}
 
-		// Extract just the content between delimiters
-		return markdownCode.substring(contentStart, endIndex);
+		return new CodeBlock(markdownCode.substring(contentStart, endIndex), endIndex + delimiterLength);
+	}
+
+	private static final class CodeBlock {
+
+		private final String rawText;
+
+		private final int nextSearchIndex;
+
+		private CodeBlock(String rawText, int nextSearchIndex) {
+			this.rawText = rawText;
+			this.nextSearchIndex = nextSearchIndex;
+		}
+
 	}
 
 }
