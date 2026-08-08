@@ -60,8 +60,8 @@ public class NodeTracingLifecycleListener implements GraphLifecycleListener {
 
 	/**
 	 * Langfuse v4 识别此属性把 span 归类为 observation 类型（{@code ObservationTypeMapper}）。 取值
-	 * {@code generation} 时该 span 被视为 LLM 生成，token 用量会作为 Usage 徽章上浮到 span
-	 * 头部（否则只藏在 metadata 里）。仅对确有 token 的节点标记，无 LLM 调用的节点保持普通 span。
+	 * {@code generation} 时该 span 被视为 LLM 生成，token 用量会作为 Usage 徽章上浮到 span 头部（否则只藏在
+	 * metadata 里）。仅对确有 token 的节点标记，无 LLM 调用的节点保持普通 span。
 	 */
 	private static final AttributeKey<String> LANGFUSE_OBSERVATION_TYPE = AttributeKey
 		.stringKey("langfuse.observation.type");
@@ -121,8 +121,7 @@ public class NodeTracingLifecycleListener implements GraphLifecycleListener {
 			// 该 attempt 专属的 token 累加器；FluxUtil 按 threadId 找到它并累加
 			LangfuseService.registerActiveAccumulator(threadId);
 
-			activeNodes.computeIfAbsent(threadId, k -> new ArrayDeque<>())
-				.push(new ActiveNode(nodeId, span, snapshot));
+			activeNodes.computeIfAbsent(threadId, k -> new ArrayDeque<>()).push(new ActiveNode(nodeId, span, snapshot));
 		}
 		catch (Exception e) {
 			log.warn("Failed to start Langfuse span for node {}", nodeId, e);

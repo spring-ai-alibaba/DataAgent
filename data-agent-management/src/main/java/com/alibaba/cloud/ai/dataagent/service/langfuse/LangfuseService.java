@@ -72,10 +72,9 @@ public class LangfuseService {
 	 * 当前活跃的<b>节点级</b> token 累加器，key 为 threadId。
 	 *
 	 * <p>
-	 * 与 {@link #TOKEN_ACCUMULATOR}（整轮图运行的汇总）并存：本表由
-	 * {@code NodeTracingLifecycleListener} 在每个节点的每一次尝试开始时 register、结束时 take，因此每个 attempt
-	 * 各自拿到一份独立计数。重试时 prompt 会系统性膨胀，若合并成一个数字就无法区分「5000×3」和「2000+5000+8000」，
-	 * 而后者恰恰是"重试 prompt 累积失控"的唯一信号。
+	 * 与 {@link #TOKEN_ACCUMULATOR}（整轮图运行的汇总）并存：本表由 {@code NodeTracingLifecycleListener}
+	 * 在每个节点的每一次尝试开始时 register、结束时 take，因此每个 attempt 各自拿到一份独立计数。重试时 prompt
+	 * 会系统性膨胀，若合并成一个数字就无法区分「5000×3」和「2000+5000+8000」， 而后者恰恰是"重试 prompt 累积失控"的唯一信号。
 	 *
 	 * <p>
 	 * 之所以按 threadId <b>单键</b>而非 {@code threadId#nodeId#attempt}：{@code FluxUtil} 侧只知道节点
@@ -194,8 +193,8 @@ public class LangfuseService {
 	 * 累计 token 用量（由 FluxUtil 在处理 ChatResponse 时调用）
 	 *
 	 * <p>
-	 * 同时写入两处：整轮运行的汇总累加器（根 span 用）与当前活跃的节点级累加器（子 span 用）。 后者可能不存在（Langfuse
-	 * 未启用，或该 token 产生于任何节点的 before/after 窗口之外），此时静默跳过。
+	 * 同时写入两处：整轮运行的汇总累加器（根 span 用）与当前活跃的节点级累加器（子 span 用）。 后者可能不存在（Langfuse 未启用，或该 token
+	 * 产生于任何节点的 before/after 窗口之外），此时静默跳过。
 	 */
 	public static void accumulateTokens(Object threadId, long promptTokens, long completionTokens) {
 		if (threadId == null) {

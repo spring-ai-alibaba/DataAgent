@@ -38,8 +38,8 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * <p>
  * 除常规单测外，本类包含两条<b>源码级断言</b>：直接解析 {@code DataAgentConfiguration.java} 与各
- * {@code *Node.java} 源文件，把"人工核对白名单是否登记对了"变成自动化检查。这样后续新增节点或改动 output key
- * 时，遗漏会在构建期暴露，而不是等到 Langfuse 面板上出现莫名的红色 span 才被发现。
+ * {@code *Node.java} 源文件，把"人工核对白名单是否登记对了"变成自动化检查。这样后续新增节点或改动 output key 时，遗漏会在构建期暴露，而不是等到
+ * Langfuse 面板上出现莫名的红色 span 才被发现。
  *
  * @author suke
  */
@@ -105,8 +105,8 @@ class NodeIoRegistryTest {
 	 * 约束：output 白名单不得登记纯 Flux 信封标签。
 	 *
 	 * <p>
-	 * 信封标签（如 {@code SCHEMA_RECALL_NODE_OUTPUT}）永远不会进入 state。若误登记，该节点的 span 会因"声明的
-	 * output key 一个都不存在"而<b>每次执行都被误判为失败</b>。
+	 * 信封标签（如 {@code SCHEMA_RECALL_NODE_OUTPUT}）永远不会进入 state。若误登记，该节点的 span 会因"声明的 output
+	 * key 一个都不存在"而<b>每次执行都被误判为失败</b>。
 	 */
 	@Test
 	void noNodeDeclaresAFluxEnvelopeKeyAsOutput() {
@@ -125,8 +125,8 @@ class NodeIoRegistryTest {
 	 *
 	 * <p>
 	 * 这条断言抓的是"白名单写了一个该节点根本不会产出的 key"这类笔误——那会削弱失败判定的准确性（多一个永不出现的 key
-	 * 不会造成误判，但少一个会）。反方向（源码有、白名单没有）无法靠正则可靠判定，因为节点会读写大量非输出用途的 key，
-	 * 故此处只做单向检查，配合 {@link #noNodeDeclaresAFluxEnvelopeKeyAsOutput} 与人工核对。
+	 * 不会造成误判，但少一个会）。反方向（源码有、白名单没有）无法靠正则可靠判定，因为节点会读写大量非输出用途的 key， 故此处只做单向检查，配合
+	 * {@link #noNodeDeclaresAFluxEnvelopeKeyAsOutput} 与人工核对。
 	 */
 	@Test
 	void declaredOutputKeysAppearInTheNodeSourceFile() throws IOException {
@@ -246,7 +246,8 @@ class NodeIoRegistryTest {
 
 		Map<String, Object> outputs = NodeIoRegistry.extractOutputs(REPORT_GENERATOR_NODE, state);
 
-		assertTrue(outputs.containsKey(PLANNER_NODE_OUTPUT), "a key explicitly set to null must still count as present");
+		assertTrue(outputs.containsKey(PLANNER_NODE_OUTPUT),
+				"a key explicitly set to null must still count as present");
 		assertNull(outputs.get(PLANNER_NODE_OUTPUT));
 	}
 
@@ -284,8 +285,8 @@ class NodeIoRegistryTest {
 	}
 
 	/**
-	 * 把每个 nodeId 映射到对应 {@code *Node.java} 的源码文本。映射依据：节点类名去掉 {@code Node}
-	 * 后缀的下划线大写形式即 nodeId（{@code PythonAnalyzeNode} → {@code PYTHON_ANALYZE_NODE}）。
+	 * 把每个 nodeId 映射到对应 {@code *Node.java} 的源码文本。映射依据：节点类名去掉 {@code Node} 后缀的下划线大写形式即
+	 * nodeId（{@code PythonAnalyzeNode} → {@code PYTHON_ANALYZE_NODE}）。
 	 */
 	private static Map<String, String> readNodeSources() throws IOException {
 		assertTrue(Files.isDirectory(NODE_DIR), () -> "expected node directory at " + NODE_DIR.toAbsolutePath());

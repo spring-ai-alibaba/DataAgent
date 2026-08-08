@@ -76,8 +76,9 @@ class LangfuseServiceTest {
 	 *
 	 * <p>
 	 * 这是本次内存泄漏修复的行为契约：此前 {@code enabled} 绑定了错误的配置键（默认 true），导致禁用状态下仍向
-	 * {@code ROOT_SPANS}/{@code TOKEN_ACCUMULATOR} 写入却永不清理。改为从 {@link OpenTelemetryConfig}
-	 * （已有的 {@code @ConfigurationProperties} 单一来源）读取 {@code enabled} 后，禁用路径不再登记，泄漏消除。
+	 * {@code ROOT_SPANS}/{@code TOKEN_ACCUMULATOR} 写入却永不清理。改为从
+	 * {@link OpenTelemetryConfig} （已有的 {@code @ConfigurationProperties} 单一来源）读取
+	 * {@code enabled} 后，禁用路径不再登记，泄漏消除。
 	 */
 	@Test
 	void startLLMSpan_disabled_doesNotRegisterRootSpanLeak() {
@@ -479,7 +480,8 @@ class LangfuseServiceTest {
 	}
 
 	@Test
-	void accumulateTokens_intoRootAccumulatorOnly_whenNoActiveNode() {		GraphRequest request = requestWithThreadId("root-only-thread");
+	void accumulateTokens_intoRootAccumulatorOnly_whenNoActiveNode() {
+		GraphRequest request = requestWithThreadId("root-only-thread");
 		stubTracer();
 		when(span.isRecording()).thenReturn(true);
 		langfuseService.startLLMSpan("graph-stream", request);
@@ -492,7 +494,8 @@ class LangfuseServiceTest {
 		verify(span).setAttribute(AttributeKey.longKey("gen_ai.usage.total_tokens"), 100L);
 	}
 
-	private GraphRequest requestWithThreadId(String threadId) {		GraphRequest request = new GraphRequest();
+	private GraphRequest requestWithThreadId(String threadId) {
+		GraphRequest request = new GraphRequest();
 		request.setQuery("q");
 		request.setThreadId(threadId);
 		return request;

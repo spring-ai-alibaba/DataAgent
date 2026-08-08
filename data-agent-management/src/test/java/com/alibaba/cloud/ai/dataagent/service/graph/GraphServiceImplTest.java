@@ -375,8 +375,8 @@ class GraphServiceImplTest {
 	}
 
 	/**
-	 * 客户端断开是唯一绕过节点 after/onError 的路径。若不清理，该 threadId 下仍挂着的节点 span 会在 Langfuse
-	 * 上永不结束，同时 listener 内部的 map 会持续泄漏。
+	 * 客户端断开是唯一绕过节点 after/onError 的路径。若不清理，该 threadId 下仍挂着的节点 span 会在 Langfuse 上永不结束，同时
+	 * listener 内部的 map 会持续泄漏。
 	 */
 	@Test
 	void stopStreamProcessing_discardsDanglingNodeSpans() {
@@ -407,8 +407,8 @@ class GraphServiceImplTest {
 	}
 
 	/**
-	 * 正常终止路径必须清理 listener 侧的 attempt 计数器，否则每个新 threadId 都会留下残留、无界增长。
-	 * graphStreamProcess 会用新 UUID 覆盖入参中的 threadId，因此使用 request 的实际 threadId 做断言。
+	 * 正常终止路径必须清理 listener 侧的 attempt 计数器，否则每个新 threadId 都会留下残留、无界增长。 graphStreamProcess
+	 * 会用新 UUID 覆盖入参中的 threadId，因此使用 request 的实际 threadId 做断言。
 	 */
 	@Test
 	void handleStreamComplete_finishesThreadToClearAttemptCounters() {

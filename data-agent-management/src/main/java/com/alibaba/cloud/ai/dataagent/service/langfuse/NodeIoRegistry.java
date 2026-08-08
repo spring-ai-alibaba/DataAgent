@@ -31,8 +31,8 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 public final class NodeIoRegistry {
 
 	/**
-	 * {@code HumanFeedbackNode} 写入的路由 key。源码中是裸字符串字面量（非 {@code Constant} 常量），
-	 * 见 {@code HumanFeedbackNode} 与 {@code HumanFeedbackDispatcher}，此处照抄以保持一致。
+	 * {@code HumanFeedbackNode} 写入的路由 key。源码中是裸字符串字面量（非 {@code Constant} 常量）， 见
+	 * {@code HumanFeedbackNode} 与 {@code HumanFeedbackDispatcher}，此处照抄以保持一致。
 	 */
 	public static final String HUMAN_NEXT_NODE = "human_next_node";
 
@@ -40,12 +40,11 @@ public final class NodeIoRegistry {
 	 * 纯 Flux 信封标签：只作为 {@code apply()} 返回值的外层 key 出现，<b>永远不会进入 state</b>。
 	 *
 	 * <p>
-	 * 这两个 key 绝不能出现在任何节点的 output 白名单里。注意
-	 * {@code PYTHON_ANALYSIS_NODE_OUTPUT} 虽然在 {@code keyStrategyHashMap} 中注册了
-	 * {@code KeyStrategy}，但它同样只是信封标签——"已注册 KeyStrategy" 并不能证明一个 key 会真正落进 state。
+	 * 这两个 key 绝不能出现在任何节点的 output 白名单里。注意 {@code PYTHON_ANALYSIS_NODE_OUTPUT} 虽然在
+	 * {@code keyStrategyHashMap} 中注册了 {@code KeyStrategy}，但它同样只是信封标签——"已注册 KeyStrategy"
+	 * 并不能证明一个 key 会真正落进 state。
 	 */
-	public static final Set<String> FLUX_ENVELOPE_KEYS = Set.of(SCHEMA_RECALL_NODE_OUTPUT,
-			PYTHON_ANALYSIS_NODE_OUTPUT);
+	public static final Set<String> FLUX_ENVELOPE_KEYS = Set.of(SCHEMA_RECALL_NODE_OUTPUT, PYTHON_ANALYSIS_NODE_OUTPUT);
 
 	private static final Map<String, NodeIo> NODE_IO = buildRegistry();
 
@@ -66,16 +65,15 @@ public final class NodeIoRegistry {
 		Map<String, NodeIo> registry = new LinkedHashMap<>();
 
 		// 输入：用户原始提问 + 多轮上下文；输出：闲聊分支额外写 FINAL_ANSWER
-		registry.put(INTENT_RECOGNITION_NODE,
-				new NodeIo(List.of(INPUT_KEY, MULTI_TURN_CONTEXT),
-						List.of(INTENT_RECOGNITION_NODE_OUTPUT, FINAL_ANSWER)));
+		registry.put(INTENT_RECOGNITION_NODE, new NodeIo(List.of(INPUT_KEY, MULTI_TURN_CONTEXT),
+				List.of(INTENT_RECOGNITION_NODE_OUTPUT, FINAL_ANSWER)));
 
 		// 各种"无 evidence"分支同样写 EVIDENCE（值为 "无" 或 ""），故 output 恒为单 key
 		registry.put(EVIDENCE_RECALL_NODE,
 				new NodeIo(List.of(INPUT_KEY, AGENT_ID, MULTI_TURN_CONTEXT), List.of(EVIDENCE)));
 
-		registry.put(QUERY_ENHANCE_NODE, new NodeIo(List.of(INPUT_KEY, EVIDENCE, MULTI_TURN_CONTEXT),
-				List.of(QUERY_ENHANCE_NODE_OUTPUT)));
+		registry.put(QUERY_ENHANCE_NODE,
+				new NodeIo(List.of(INPUT_KEY, EVIDENCE, MULTI_TURN_CONTEXT), List.of(QUERY_ENHANCE_NODE_OUTPUT)));
 
 		// 外层信封是 SCHEMA_RECALL_NODE_OUTPUT，内层才是下面这两个
 		registry.put(SCHEMA_RECALL_NODE, new NodeIo(List.of(QUERY_ENHANCE_NODE_OUTPUT, AGENT_ID),
@@ -157,9 +155,9 @@ public final class NodeIoRegistry {
 
 		// 无 LLM 调用、无 Flux；HUMAN_NEXT_NODE 是裸字符串 key
 		registry.put(HUMAN_FEEDBACK_NODE,
-				new NodeIo(List.of(PLAN_REPAIR_COUNT, HUMAN_FEEDBACK_DATA), List.of(HUMAN_NEXT_NODE,
-						HUMAN_REVIEW_ENABLED, PLAN_REPAIR_COUNT, PLAN_CURRENT_STEP, PLAN_VALIDATION_ERROR,
-						PLANNER_NODE_OUTPUT)));
+				new NodeIo(List.of(PLAN_REPAIR_COUNT, HUMAN_FEEDBACK_DATA),
+						List.of(HUMAN_NEXT_NODE, HUMAN_REVIEW_ENABLED, PLAN_REPAIR_COUNT, PLAN_CURRENT_STEP,
+								PLAN_VALIDATION_ERROR, PLANNER_NODE_OUTPUT)));
 
 		return Map.copyOf(registry);
 	}

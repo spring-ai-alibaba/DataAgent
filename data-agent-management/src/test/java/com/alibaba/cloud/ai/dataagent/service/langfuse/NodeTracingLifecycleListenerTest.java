@@ -46,9 +46,8 @@ import static org.mockito.Mockito.when;
  * {@link NodeTracingLifecycleListener} 的行为测试。
  *
  * <p>
- * 使用真实的 OTel SDK 配一个内存 exporter，断言的是<b>最终导出的 span 数据</b>（属性、状态、父子关系），而不是对
- * mock 的调用次数——本功能的价值恰恰体现在"Langfuse 上看到的东西对不对"，用 mock 验证 setter 调用无法覆盖
- * 状态判定这类核心逻辑。
+ * 使用真实的 OTel SDK 配一个内存 exporter，断言的是<b>最终导出的 span 数据</b>（属性、状态、父子关系），而不是对 mock
+ * 的调用次数——本功能的价值恰恰体现在"Langfuse 上看到的东西对不对"，用 mock 验证 setter 调用无法覆盖 状态判定这类核心逻辑。
  *
  * @author suke
  */
@@ -152,7 +151,8 @@ class NodeTracingLifecycleListenerTest {
 		listener.after(INTENT_RECOGNITION_NODE, Map.of(INTENT_RECOGNITION_NODE_OUTPUT, "x"), config, 2L);
 
 		String input = onlyNodeSpan().getAttributes().get(INPUT_VALUE);
-		assertFalse(input.contains("SELECT * FROM orders"), "unrelated node output must not appear as this node's input");
+		assertFalse(input.contains("SELECT * FROM orders"),
+				"unrelated node output must not appear as this node's input");
 		assertFalse(input.contains("schema-blob"));
 	}
 
@@ -184,8 +184,8 @@ class NodeTracingLifecycleListenerTest {
 	}
 
 	/**
-	 * 回归测试（本功能最容易静默失效的地方）：LLM 调用失败时框架走的是 {@code after} 而非 {@code onError}，
-	 * state 完全没被改动。此时 span 必须是 ERROR，否则失败节点会在 Langfuse 上显示为绿色成功。
+	 * 回归测试（本功能最容易静默失效的地方）：LLM 调用失败时框架走的是 {@code after} 而非 {@code onError}， state
+	 * 完全没被改动。此时 span 必须是 ERROR，否则失败节点会在 Langfuse 上显示为绿色成功。
 	 */
 	@Test
 	void afterWithNoStateChange_marksSpanAsError() {
@@ -363,8 +363,8 @@ class NodeTracingLifecycleListenerTest {
 	}
 
 	/**
-	 * 未登记的 nodeId（理论上被 {@code NodeIoRegistryTest} 的覆盖断言拦住）不应导致异常； span 仍会创建，只是 input/output
-	 * 为空——这样至少能在 Langfuse 上看到该节点执行过。
+	 * 未登记的 nodeId（理论上被 {@code NodeIoRegistryTest} 的覆盖断言拦住）不应导致异常； span 仍会创建，只是
+	 * input/output 为空——这样至少能在 Langfuse 上看到该节点执行过。
 	 */
 	@Test
 	void unregisteredNode_stillProducesASpanWithEmptyIo() {
@@ -392,8 +392,8 @@ class NodeTracingLifecycleListenerTest {
 	}
 
 	/**
-	 * 客户端断开是唯一绕过 {@code after}/{@code onError} 的路径。未结束的 span 必须被标记并结束， 否则内存泄漏 +
-	 * Langfuse 上出现永不结束的 span。
+	 * 客户端断开是唯一绕过 {@code after}/{@code onError} 的路径。未结束的 span 必须被标记并结束， 否则内存泄漏 + Langfuse
+	 * 上出现永不结束的 span。
 	 */
 	@Test
 	void discardThread_endsDanglingSpansAndClearsState() {
@@ -426,7 +426,8 @@ class NodeTracingLifecycleListenerTest {
 		fresh.put(SQL_GENERATE_OUTPUT, "SELECT 2");
 		listener.after(SQL_GENERATE_NODE, fresh, config, 4L);
 
-		assertEquals(1L, onlyNodeSpan().getAttributes().get(ATTEMPT), "attempt must restart after the thread is discarded");
+		assertEquals(1L, onlyNodeSpan().getAttributes().get(ATTEMPT),
+				"attempt must restart after the thread is discarded");
 	}
 
 	/**
@@ -453,8 +454,7 @@ class NodeTracingLifecycleListenerTest {
 	}
 
 	/**
-	 * 正常终止时若确有节点 span 未闭合（理论上不该发生），{@code finishThread} 必须结束它并清理累加器，
-	 * 且描述用中性措辞而非"客户端断开"。
+	 * 正常终止时若确有节点 span 未闭合（理论上不该发生），{@code finishThread} 必须结束它并清理累加器， 且描述用中性措辞而非"客户端断开"。
 	 */
 	@Test
 	void finishThread_endsDanglingSpansWithNeutralReason() {
@@ -724,6 +724,7 @@ class NodeTracingLifecycleListenerTest {
 	private static String anyStringArg() {
 		return org.mockito.ArgumentMatchers.anyString();
 	}
+
 	/** 导出的 span 里排除根 span，只留节点 span，按开始时间排序 */
 	private List<SpanData> nodeSpans() {
 		List<SpanData> spans = new ArrayList<>(exporter.spans);
