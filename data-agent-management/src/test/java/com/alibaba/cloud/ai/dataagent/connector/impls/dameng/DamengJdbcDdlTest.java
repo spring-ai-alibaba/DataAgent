@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector.impls.dameng;
 
+import static com.alibaba.cloud.ai.dataagent.support.ExceptionTestSupport.assertRuntimeCause;
+
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
@@ -95,7 +97,7 @@ class DamengJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> damengJdbcDdl.showSchemas(connection));
+			assertRuntimeCause(SQLException.class, "error", () -> damengJdbcDdl.showSchemas(connection));
 		}
 	}
 
@@ -224,7 +226,9 @@ class DamengJdbcDdlTest {
 				.thenReturn(expected);
 
 			ResultSetBO result = damengJdbcDdl.scanTable(connection, "SYSDBA", "USERS");
-			assertNotNull(result);
+			assertSame(expected, result);
+			ms.verify(() -> SqlExecutor.executeSqlAndReturnObject(connection, "SYSDBA",
+					"SELECT * FROM USERS FETCH FIRST 20 ROWS ONLY"));
 		}
 	}
 
@@ -234,7 +238,8 @@ class DamengJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnObject(any(Connection.class), anyString(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> damengJdbcDdl.scanTable(connection, "SYSDBA", "USERS"));
+			assertRuntimeCause(SQLException.class, "error",
+					() -> damengJdbcDdl.scanTable(connection, "SYSDBA", "USERS"));
 		}
 	}
 
@@ -279,7 +284,7 @@ class DamengJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> damengJdbcDdl.showTables(connection, "SYSDBA", null));
+			assertRuntimeCause(SQLException.class, "error", () -> damengJdbcDdl.showTables(connection, "SYSDBA", null));
 		}
 	}
 
@@ -324,7 +329,7 @@ class DamengJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class,
+			assertRuntimeCause(SQLException.class, "error",
 					() -> damengJdbcDdl.fetchTables(connection, "SYSDBA", Arrays.asList("USERS")));
 		}
 	}
@@ -361,7 +366,8 @@ class DamengJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> damengJdbcDdl.showColumns(connection, "SYSDBA", "USERS"));
+			assertRuntimeCause(SQLException.class, "error",
+					() -> damengJdbcDdl.showColumns(connection, "SYSDBA", "USERS"));
 		}
 	}
 
@@ -385,7 +391,7 @@ class DamengJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class,
+			assertRuntimeCause(SQLException.class, "error",
 					() -> damengJdbcDdl.showForeignKeys(connection, "SYSDBA", Arrays.asList("ORDERS")));
 		}
 	}

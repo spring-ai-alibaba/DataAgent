@@ -74,7 +74,7 @@ class StateUtilSimpleTest {
 		state.updateState(Map.of("test-object", testMap));
 
 		Object result = StateUtil.getObjectValue(state, "test-object", Object.class);
-		assertNotNull(result);
+		assertSame(testMap, result);
 	}
 
 	@Test

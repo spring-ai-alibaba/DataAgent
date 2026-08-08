@@ -39,12 +39,15 @@ public class SessionEventPublisher {
 	private final Map<Integer, AgentSessionSink> sinks = new ConcurrentHashMap<>();
 
 	public Flux<ServerSentEvent<SessionUpdateEvent>> register(Integer agentId) {
-		AgentSessionSink sink = sinks.computeIfAbsent(agentId, id -> new AgentSessionSink());
-		Flux<ServerSentEvent<SessionUpdateEvent>> heartbeat = Flux.interval(Duration.ofSeconds(2))
-			.map(i -> ServerSentEvent.<SessionUpdateEvent>builder().comment("heartbeat").build());
-		sink.increment();
-		log.debug("Registered subscriber for agent {}, current count: {}", agentId, sink.subscribers.get());
-		return Flux.merge(heartbeat, sink.sink.asFlux()).doFinally(signalType -> cleanup(agentId, sink, signalType));
+		return Flux.defer(() -> {
+			AgentSessionSink sink = sinks.computeIfAbsent(agentId, id -> new AgentSessionSink());
+			Flux<ServerSentEvent<SessionUpdateEvent>> heartbeat = Flux.interval(Duration.ofSeconds(2))
+				.map(i -> ServerSentEvent.<SessionUpdateEvent>builder().comment("heartbeat").build());
+			sink.increment();
+			log.debug("Registered subscriber for agent {}, current count: {}", agentId, sink.subscribers.get());
+			return Flux.merge(heartbeat, sink.sink.asFlux())
+				.doFinally(signalType -> cleanup(agentId, sink, signalType));
+		});
 	}
 
 	public void publishTitleUpdated(Integer agentId, String sessionId, String title) {

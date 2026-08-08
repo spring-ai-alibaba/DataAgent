@@ -15,31 +15,40 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.nl2sql;
 
+import java.util.ArrayList;
+import java.util.stream.Stream;
+
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyOutputDTO;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
-
-import java.util.ArrayList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class Nl2SqlServiceImplTest {
 
 	@Mock
@@ -53,12 +62,115 @@ class Nl2SqlServiceImplTest {
 	@BeforeEach
 	void setUp() {
 		nl2SqlService = new Nl2SqlServiceImpl(llmService, jsonParseUtil);
+	}
 
-		ChatResponse mockResponse = ChatResponseUtil.createPureResponse("test response");
-		when(llmService.callUser(anyString())).thenReturn(Flux.just(mockResponse));
-		when(llmService.callUser(anyString(), any())).thenReturn(Flux.just(mockResponse));
-		when(llmService.callSystem(anyString())).thenReturn(Flux.just(mockResponse));
-		when(llmService.toStringFlux(any())).thenReturn(Flux.just("SELECT * FROM users"));
+	@Test
+	void performSemanticConsistency_rendersAllBusinessInputsAndReturnsTheLlmResponse() {
+		SemanticConsistencyDTO dto = SemanticConsistencyDTO.builder()
+			.dialect("mysql")
+			.sql("SELECT id FROM orders")
+			.executionDescription("Get order ids")
+			.schemaInfo("orders(id, total)")
+			.userQuery("list order ids")
+			.evidence("orders are tenant scoped")
+			.build();
+		ChatResponse response = ChatResponseUtil.createPureResponse("{\"status\":\"VALID\"}");
+		when(llmService.callUser(anyString(), eq(SemanticConsistencyOutputDTO.class))).thenReturn(Flux.just(response));
+
+		StepVerifier.create(nl2SqlService.performSemanticConsistency(dto)).expectNext(response).verifyComplete();
+
+		ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(prompt.capture(), eq(SemanticConsistencyOutputDTO.class));
+		assertThat(prompt.getValue()).contains("mysql", "SELECT id FROM orders", "Get order ids", "orders(id, total)",
+				"list order ids", "orders are tenant scoped");
+	}
+
+	@Test
+	void performSemanticConsistency_nullEvidenceStillRendersTheRequiredPrompt() {
+		SemanticConsistencyDTO dto = SemanticConsistencyDTO.builder()
+			.dialect("mysql")
+			.sql("SELECT 1")
+			.executionDescription("health check")
+			.schemaInfo("dual(value)")
+			.userQuery("check database")
+			.evidence(null)
+			.build();
+		ChatResponse response = ChatResponseUtil.createPureResponse("{\"status\":\"VALID\"}");
+		when(llmService.callUser(anyString(), eq(SemanticConsistencyOutputDTO.class))).thenReturn(Flux.just(response));
+
+		StepVerifier.create(nl2SqlService.performSemanticConsistency(dto)).expectNext(response).verifyComplete();
+
+		ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(prompt.capture(), eq(SemanticConsistencyOutputDTO.class));
+		assertThat(prompt.getValue()).contains("SELECT 1", "health check", "dual(value)", "check database");
+	}
+
+	@ParameterizedTest
+	@NullSource
+	@ValueSource(strings = { "", "   " })
+	void generateSql_withoutMeaningfulExistingSql_usesNewGenerationPrompt(String existingSql) {
+		SqlGenerationDTO dto = SqlGenerationDTO.builder()
+			.executionDescription("Get all users")
+			.dialect("mysql")
+			.schemaDTO(createTestSchema())
+			.sql(existingSql)
+			.query("show all users")
+			.evidence("users are active")
+			.build();
+		stubSystemSql("SELECT * FROM users");
+
+		StepVerifier.create(nl2SqlService.generateSql(dto)).expectNext("SELECT * FROM users").verifyComplete();
+
+		ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callSystem(prompt.capture());
+		verify(llmService, never()).callUser(anyString());
+		assertThat(prompt.getValue()).contains("Get all users", "mysql", "test_db", "show all users",
+				"users are active");
+	}
+
+	@Test
+	void generateSql_withExistingSql_usesErrorFixerPromptAndPreservesFailureContext() {
+		SqlGenerationDTO dto = SqlGenerationDTO.builder()
+			.executionDescription("Get users")
+			.dialect("postgresql")
+			.schemaDTO(createTestSchema())
+			.sql("SELECT * FORM users")
+			.exceptionMessage("syntax error at position 10")
+			.query("get all users")
+			.evidence("users table is authoritative")
+			.build();
+		stubUserSql("SELECT * FROM users");
+
+		StepVerifier.create(nl2SqlService.generateSql(dto)).expectNext("SELECT * FROM users").verifyComplete();
+
+		ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(prompt.capture());
+		verify(llmService, never()).callSystem(anyString());
+		assertThat(prompt.getValue()).contains("postgresql", "SELECT * FORM users", "syntax error at position 10",
+				"Get users", "test_db", "get all users", "users table is authoritative");
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("sqlTrimCases")
+	void sqlTrim_extractsTheFirstSqlBlockAndPreservesItsFormatting(String name, String input, String expected) {
+		assertThat(nl2SqlService.sqlTrim(input)).as(name).isEqualTo(expected);
+	}
+
+	@Test
+	void sqlTrim_nullInput_rejectsTheMissingSql() {
+		assertThatNullPointerException().isThrownBy(() -> nl2SqlService.sqlTrim(null));
+	}
+
+	private void stubSystemSql(String sql) {
+		Flux<ChatResponse> response = Flux.just(ChatResponseUtil.createPureResponse(sql));
+		when(llmService.callSystem(anyString())).thenReturn(response);
+		when(llmService.toStringFlux(response)).thenReturn(Flux.just(sql));
+	}
+
+	private void stubUserSql(String sql) {
+		Flux<ChatResponse> response = Flux.just(ChatResponseUtil.createPureResponse(sql));
+		when(llmService.callUser(anyString())).thenReturn(response);
+		when(llmService.toStringFlux(response)).thenReturn(Flux.just(sql));
 	}
 
 	private SchemaDTO createTestSchema() {
@@ -69,196 +181,14 @@ class Nl2SqlServiceImplTest {
 		return schema;
 	}
 
-	@Test
-	void performSemanticConsistency_validDto_returnsValidationFlux() {
-		SemanticConsistencyDTO dto = SemanticConsistencyDTO.builder()
-			.dialect("mysql")
-			.sql("SELECT * FROM users")
-			.executionDescription("Get all users")
-			.schemaInfo("users(id, name)")
-			.userQuery("show all users")
-			.evidence("evidence text")
-			.build();
-
-		Flux<ChatResponse> result = nl2SqlService.performSemanticConsistency(dto);
-
-		StepVerifier.create(result).expectNextCount(1).verifyComplete();
-		verify(llmService).callUser(anyString(), any());
-	}
-
-	@Test
-	void generateSql_noExistingSql_generatesNewSql() {
-		SqlGenerationDTO dto = SqlGenerationDTO.builder()
-			.executionDescription("Get all users")
-			.dialect("mysql")
-			.schemaDTO(createTestSchema())
-			.sql(null)
-			.build();
-
-		Flux<String> result = nl2SqlService.generateSql(dto);
-
-		StepVerifier.create(result).expectNext("SELECT * FROM users").verifyComplete();
-		verify(llmService).callSystem(anyString());
-	}
-
-	@Test
-	void generateSql_withExistingSql_usesErrorFixerPrompt() {
-		SqlGenerationDTO dto = SqlGenerationDTO.builder()
-			.executionDescription("Get all users")
-			.dialect("mysql")
-			.schemaDTO(createTestSchema())
-			.sql("SELECT * FORM users")
-			.exceptionMessage("syntax error")
-			.build();
-
-		Flux<String> result = nl2SqlService.generateSql(dto);
-
-		StepVerifier.create(result).expectNext("SELECT * FROM users").verifyComplete();
-		verify(llmService).callUser(anyString());
-	}
-
-	@Test
-	void generateSql_withEmptySql_generatesNewSql() {
-		SqlGenerationDTO dto = SqlGenerationDTO.builder()
-			.executionDescription("Get all users")
-			.dialect("mysql")
-			.schemaDTO(createTestSchema())
-			.sql("")
-			.build();
-
-		Flux<String> result = nl2SqlService.generateSql(dto);
-
-		StepVerifier.create(result).expectNext("SELECT * FROM users").verifyComplete();
-		verify(llmService).callSystem(anyString());
-	}
-
-	@Test
-	void sqlTrim_withMarkdownMarkers_returnsCleanSql() {
-		String markdownSql = "```sql\nSELECT * FROM users\n```";
-		String result = nl2SqlService.sqlTrim(markdownSql);
-		assertEquals("SELECT * FROM users", result);
-	}
-
-	@Test
-	void sqlTrim_cleanSql_returnsUnchanged() {
-		String cleanSql = "SELECT * FROM users";
-		String result = nl2SqlService.sqlTrim(cleanSql);
-		assertEquals("SELECT * FROM users", result);
-	}
-
-	@Test
-	void sqlTrim_withLeadingTrailingWhitespace_returnsTrimmed() {
-		String sql = "  SELECT * FROM users  ";
-		String result = nl2SqlService.sqlTrim(sql);
-		assertEquals("SELECT * FROM users", result);
-	}
-
-	@Test
-	void sqlTrim_withTripleBackticksNoLang_returnsCleanSql() {
-		String markdownSql = "```\nSELECT 1\n```";
-		String result = nl2SqlService.sqlTrim(markdownSql);
-		assertEquals("SELECT 1", result);
-	}
-
-	@Test
-	void performSemanticConsistency_llmServiceCalled_withCorrectPrompt() {
-		SemanticConsistencyDTO dto = SemanticConsistencyDTO.builder()
-			.dialect("mysql")
-			.sql("SELECT id FROM orders")
-			.executionDescription("Get order ids")
-			.schemaInfo("orders(id, total)")
-			.userQuery("list order ids")
-			.evidence("")
-			.build();
-
-		nl2SqlService.performSemanticConsistency(dto);
-		verify(llmService).callUser(anyString(), any());
-	}
-
-	@Test
-	void generateSql_withWhitespaceSql_generatesNewSql() {
-		SqlGenerationDTO dto = SqlGenerationDTO.builder()
-			.executionDescription("Get all users")
-			.dialect("mysql")
-			.schemaDTO(createTestSchema())
-			.sql("   ")
-			.build();
-
-		Flux<String> result = nl2SqlService.generateSql(dto);
-
-		StepVerifier.create(result).expectNext("SELECT * FROM users").verifyComplete();
-	}
-
-	@Test
-	void sqlTrim_null_throwsNPE() {
-		assertThrows(NullPointerException.class, () -> nl2SqlService.sqlTrim(null));
-	}
-
-	@Test
-	void sqlTrim_markdownCodeBlockWithLineBreaks_returnsCleanSql() {
-		String markdownSql = "```sql\n  SELECT *\n  FROM users\n  WHERE id = 1\n```";
-		String result = nl2SqlService.sqlTrim(markdownSql);
-		assertNotNull(result);
-		assertTrue(result.contains("SELECT"));
-	}
-
-	@Test
-	void sqlTrim_multipleBacktickBlocks_extractsFirst() {
-		String sql = "```sql\nSELECT 1\n```\nSome text\n```sql\nSELECT 2\n```";
-		String result = nl2SqlService.sqlTrim(sql);
-		assertNotNull(result);
-	}
-
-	@Test
-	void performSemanticConsistency_nullEvidence_buildsPrompt() {
-		SemanticConsistencyDTO dto = SemanticConsistencyDTO.builder()
-			.dialect("mysql")
-			.sql("SELECT 1")
-			.executionDescription("test")
-			.schemaInfo("t(c)")
-			.userQuery("test")
-			.evidence(null)
-			.build();
-
-		Flux<ChatResponse> result = nl2SqlService.performSemanticConsistency(dto);
-		StepVerifier.create(result).expectNextCount(1).verifyComplete();
-	}
-
-	@Test
-	void generateSql_withNonNullNonEmptySql_usesErrorFixerPath() {
-		SqlGenerationDTO dto = SqlGenerationDTO.builder()
-			.executionDescription("Get users")
-			.dialect("postgresql")
-			.schemaDTO(createTestSchema())
-			.sql("SELECT * FROM users")
-			.exceptionMessage("syntax error at position 5")
-			.query("get all users")
-			.evidence("no evidence")
-			.build();
-
-		Flux<String> result = nl2SqlService.generateSql(dto);
-
-		StepVerifier.create(result).expectNext("SELECT * FROM users").verifyComplete();
-		verify(llmService).callUser(anyString());
-		verify(llmService, never()).callSystem(anyString());
-	}
-
-	@Test
-	void generateSql_withNullSql_usesNewGenerationPath() {
-		SqlGenerationDTO dto = SqlGenerationDTO.builder()
-			.executionDescription("Get users")
-			.dialect("mysql")
-			.schemaDTO(createTestSchema())
-			.sql(null)
-			.query("get all users")
-			.evidence("no evidence")
-			.build();
-
-		Flux<String> result = nl2SqlService.generateSql(dto);
-
-		StepVerifier.create(result).expectNext("SELECT * FROM users").verifyComplete();
-		verify(llmService).callSystem(anyString());
-		verify(llmService, never()).callUser(anyString());
+	private static Stream<Arguments> sqlTrimCases() {
+		return Stream.of(Arguments.of("markdown sql", "```sql\nSELECT * FROM users\n```", "SELECT * FROM users"),
+				Arguments.of("plain sql", "SELECT * FROM users", "SELECT * FROM users"),
+				Arguments.of("surrounding whitespace", "  SELECT * FROM users  ", "SELECT * FROM users"),
+				Arguments.of("untyped block", "```\nSELECT 1\n```", "SELECT 1"),
+				Arguments.of("multiline sql", "```sql\n  SELECT *\n  FROM users\n  WHERE id = 1\n```",
+						"SELECT *\n  FROM users\n  WHERE id = 1"),
+				Arguments.of("multiple blocks", "```sql\nSELECT 1\n```\ntext\n```sql\nSELECT 2\n```", "SELECT 1"));
 	}
 
 }

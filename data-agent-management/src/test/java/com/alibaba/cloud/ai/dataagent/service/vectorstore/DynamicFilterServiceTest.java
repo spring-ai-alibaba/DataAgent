@@ -23,8 +23,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.ai.vectorstore.filter.Filter;
 
 import java.util.ArrayList;
@@ -35,10 +33,10 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class DynamicFilterServiceTest {
 
 	@Mock
@@ -61,7 +59,10 @@ class DynamicFilterServiceTest {
 		Filter.Expression result = dynamicFilterService.buildDynamicFilter("1",
 				DocumentMetadataConstant.AGENT_KNOWLEDGE);
 
-		assertNotNull(result);
+		assertEquals(Filter.ExpressionType.AND, result.type());
+		assertFilterContains(result, "agentId", "1", "vectorType", DocumentMetadataConstant.AGENT_KNOWLEDGE,
+				DocumentMetadataConstant.DB_AGENT_KNOWLEDGE_ID, "[1, 2, 3]");
+		verify(agentKnowledgeMapper).selectRecalledKnowledgeIds(1);
 	}
 
 	@Test
@@ -81,7 +82,10 @@ class DynamicFilterServiceTest {
 		Filter.Expression result = dynamicFilterService.buildDynamicFilter("1",
 				DocumentMetadataConstant.BUSINESS_TERM);
 
-		assertNotNull(result);
+		assertEquals(Filter.ExpressionType.AND, result.type());
+		assertFilterContains(result, "agentId", "1", "vectorType", DocumentMetadataConstant.BUSINESS_TERM,
+				DocumentMetadataConstant.DB_BUSINESS_TERM_ID, "[10, 20]");
+		verify(businessKnowledgeMapper).selectRecalledKnowledgeIds(1L);
 	}
 
 	@Test
@@ -161,7 +165,9 @@ class DynamicFilterServiceTest {
 		Filter.Expression result = DynamicFilterService.buildFilterExpressionForSearchTables(1,
 				List.of("users", "orders"));
 
-		assertNotNull(result);
+		assertEquals(Filter.ExpressionType.AND, result.type());
+		assertFilterContains(result, "datasourceId", "1", "vectorType", DocumentMetadataConstant.TABLE, "name",
+				"[users, orders]");
 	}
 
 	@Test
@@ -181,7 +187,9 @@ class DynamicFilterServiceTest {
 		Filter.Expression result = dynamicFilterService.buildFilterExpressionForSearchColumns(1,
 				List.of("users", "orders"));
 
-		assertNotNull(result);
+		assertEquals(Filter.ExpressionType.AND, result.type());
+		assertFilterContains(result, "datasourceId", "1", "vectorType", DocumentMetadataConstant.COLUMN, "tableName",
+				"[users, orders]");
 	}
 
 	@Test
@@ -241,6 +249,13 @@ class DynamicFilterServiceTest {
 		filterMap.put("invalid-key", "value");
 
 		assertThrows(IllegalArgumentException.class, () -> DynamicFilterService.buildFilterExpressionString(filterMap));
+	}
+
+	private static void assertFilterContains(Filter.Expression expression, String... expectedFragments) {
+		String rendered = expression.toString();
+		for (String expectedFragment : expectedFragments) {
+			assertTrue(rendered.contains(expectedFragment), () -> "Missing '" + expectedFragment + "' in " + rendered);
+		}
 	}
 
 }

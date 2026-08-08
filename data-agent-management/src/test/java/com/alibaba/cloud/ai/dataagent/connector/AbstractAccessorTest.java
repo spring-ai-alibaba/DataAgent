@@ -16,7 +16,12 @@
 package com.alibaba.cloud.ai.dataagent.connector;
 
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.SchemaInfoBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AbstractAccessor;
 import com.alibaba.cloud.ai.dataagent.connector.ddl.AbstractJdbcDdl;
 import com.alibaba.cloud.ai.dataagent.connector.ddl.DdlFactory;
@@ -32,6 +37,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -127,10 +133,11 @@ class AbstractAccessorTest {
 	void showDatabases_delegatesToDdlExecutor() throws Exception {
 		when(dbConnectionPool.getConnection(dbConfig)).thenReturn(connection);
 		when(ddlFactory.getDdlExecutorByDbConfig(dbConfig)).thenReturn(ddlExecutor);
-		when(ddlExecutor.showDatabases(connection)).thenReturn(List.of());
+		List<DatabaseInfoBO> expected = new ArrayList<>();
+		when(ddlExecutor.showDatabases(connection)).thenReturn(expected);
 
-		List<?> result = accessor.showDatabases(dbConfig);
-		assertNotNull(result);
+		List<DatabaseInfoBO> result = accessor.showDatabases(dbConfig);
+		assertSame(expected, result);
 		verify(ddlExecutor).showDatabases(connection);
 	}
 
@@ -138,10 +145,11 @@ class AbstractAccessorTest {
 	void showSchemas_delegatesToDdlExecutor() throws Exception {
 		when(dbConnectionPool.getConnection(dbConfig)).thenReturn(connection);
 		when(ddlFactory.getDdlExecutorByDbConfig(dbConfig)).thenReturn(ddlExecutor);
-		when(ddlExecutor.showSchemas(connection)).thenReturn(List.of());
+		List<SchemaInfoBO> expected = new ArrayList<>();
+		when(ddlExecutor.showSchemas(connection)).thenReturn(expected);
 
-		List<?> result = accessor.showSchemas(dbConfig);
-		assertNotNull(result);
+		List<SchemaInfoBO> result = accessor.showSchemas(dbConfig);
+		assertSame(expected, result);
 		verify(ddlExecutor).showSchemas(connection);
 	}
 
@@ -152,10 +160,12 @@ class AbstractAccessorTest {
 		DbQueryParameter param = new DbQueryParameter();
 		param.setSchema("testdb");
 		param.setTablePattern("user");
-		when(ddlExecutor.showTables(connection, "testdb", "user")).thenReturn(List.of());
+		List<TableInfoBO> expected = new ArrayList<>();
+		when(ddlExecutor.showTables(connection, "testdb", "user")).thenReturn(expected);
 
-		List<?> result = accessor.showTables(dbConfig, param);
-		assertNotNull(result);
+		List<TableInfoBO> result = accessor.showTables(dbConfig, param);
+		assertSame(expected, result);
+		verify(ddlExecutor).showTables(connection, "testdb", "user");
 	}
 
 	@Test
@@ -165,10 +175,12 @@ class AbstractAccessorTest {
 		DbQueryParameter param = new DbQueryParameter();
 		param.setSchema("testdb");
 		param.setTables(Arrays.asList("users"));
-		when(ddlExecutor.fetchTables(connection, "testdb", Arrays.asList("users"))).thenReturn(List.of());
+		List<TableInfoBO> expected = new ArrayList<>();
+		when(ddlExecutor.fetchTables(connection, "testdb", Arrays.asList("users"))).thenReturn(expected);
 
-		List<?> result = accessor.fetchTables(dbConfig, param);
-		assertNotNull(result);
+		List<TableInfoBO> result = accessor.fetchTables(dbConfig, param);
+		assertSame(expected, result);
+		verify(ddlExecutor).fetchTables(connection, "testdb", List.of("users"));
 	}
 
 	@Test
@@ -178,10 +190,12 @@ class AbstractAccessorTest {
 		DbQueryParameter param = new DbQueryParameter();
 		param.setSchema("testdb");
 		param.setTable("users");
-		when(ddlExecutor.showColumns(connection, "testdb", "users")).thenReturn(List.of());
+		List<ColumnInfoBO> expected = new ArrayList<>();
+		when(ddlExecutor.showColumns(connection, "testdb", "users")).thenReturn(expected);
 
-		List<?> result = accessor.showColumns(dbConfig, param);
-		assertNotNull(result);
+		List<ColumnInfoBO> result = accessor.showColumns(dbConfig, param);
+		assertSame(expected, result);
+		verify(ddlExecutor).showColumns(connection, "testdb", "users");
 	}
 
 	@Test
@@ -191,10 +205,12 @@ class AbstractAccessorTest {
 		DbQueryParameter param = new DbQueryParameter();
 		param.setSchema("testdb");
 		param.setTables(Arrays.asList("users"));
-		when(ddlExecutor.showForeignKeys(connection, "testdb", Arrays.asList("users"))).thenReturn(List.of());
+		List<ForeignKeyInfoBO> expected = new ArrayList<>();
+		when(ddlExecutor.showForeignKeys(connection, "testdb", Arrays.asList("users"))).thenReturn(expected);
 
-		List<?> result = accessor.showForeignKeys(dbConfig, param);
-		assertNotNull(result);
+		List<ForeignKeyInfoBO> result = accessor.showForeignKeys(dbConfig, param);
+		assertSame(expected, result);
+		verify(ddlExecutor).showForeignKeys(connection, "testdb", List.of("users"));
 	}
 
 	@Test
@@ -205,10 +221,12 @@ class AbstractAccessorTest {
 		param.setSchema("testdb");
 		param.setTable("users");
 		param.setColumn("name");
-		when(ddlExecutor.sampleColumn(connection, "testdb", "users", "name")).thenReturn(List.of());
+		List<String> expected = new ArrayList<>();
+		when(ddlExecutor.sampleColumn(connection, "testdb", "users", "name")).thenReturn(expected);
 
-		List<?> result = accessor.sampleColumn(dbConfig, param);
-		assertNotNull(result);
+		List<String> result = accessor.sampleColumn(dbConfig, param);
+		assertSame(expected, result);
+		verify(ddlExecutor).sampleColumn(connection, "testdb", "users", "name");
 	}
 
 	@Test
@@ -222,7 +240,8 @@ class AbstractAccessorTest {
 		when(ddlExecutor.scanTable(connection, "testdb", "users")).thenReturn(expected);
 
 		ResultSetBO result = accessor.scanTable(dbConfig, param);
-		assertNotNull(result);
+		assertSame(expected, result);
+		verify(ddlExecutor).scanTable(connection, "testdb", "users");
 	}
 
 	@Test
@@ -231,7 +250,7 @@ class AbstractAccessorTest {
 		when(ddlFactory.getDdlExecutorByDbConfig(dbConfig)).thenReturn(ddlExecutor);
 		when(ddlExecutor.showDatabases(connection)).thenThrow(new RuntimeException("db error"));
 
-		assertThrows(RuntimeException.class, () -> accessor.accessDb(dbConfig, "showDatabases", null));
+		assertThrowsExactly(RuntimeException.class, () -> accessor.accessDb(dbConfig, "showDatabases", null));
 	}
 
 	private static class TestableAccessor extends AbstractAccessor {

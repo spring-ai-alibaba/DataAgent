@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.service.langfuse;
 
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
@@ -89,7 +90,23 @@ class LangfuseServiceTest {
 
 	@Test
 	void accumulateTokens_nullThreadId_doesNothing() {
+		GraphRequest request = new GraphRequest();
+		request.setThreadId("null-token-control-thread");
+		request.setQuery("q");
+		when(tracer.spanBuilder(anyString())).thenReturn(spanBuilder);
+		when(spanBuilder.setSpanKind(any())).thenReturn(spanBuilder);
+		when(spanBuilder.setParent(any())).thenReturn(spanBuilder);
+		when(spanBuilder.startSpan()).thenReturn(span);
+		when(span.isRecording()).thenReturn(true);
+		langfuseService.startLLMSpan("span", request);
+
 		LangfuseService.accumulateTokens(null, 10, 20);
+		langfuseService.endSpanSuccess(span, request.getThreadId(), "done");
+
+		verify(span, never()).setAttribute(eq(AttributeKey.longKey("gen_ai.usage.prompt_tokens")), anyLong());
+		verify(span, never()).setAttribute(eq(AttributeKey.longKey("gen_ai.usage.completion_tokens")), anyLong());
+		verify(span, never()).setAttribute(eq(AttributeKey.longKey("gen_ai.usage.total_tokens")), anyLong());
+		verify(span).end();
 	}
 
 	@Test
@@ -102,11 +119,18 @@ class LangfuseServiceTest {
 		when(spanBuilder.setSpanKind(any())).thenReturn(spanBuilder);
 		when(spanBuilder.setParent(any())).thenReturn(spanBuilder);
 		when(spanBuilder.startSpan()).thenReturn(span);
+		when(span.isRecording()).thenReturn(true);
 
 		langfuseService.startLLMSpan("span", request);
 
 		LangfuseService.accumulateTokens("token-thread", 100, 200);
 		LangfuseService.accumulateTokens("token-thread", 50, 100);
+		langfuseService.endSpanSuccess(span, request.getThreadId(), "done");
+
+		verify(span).setAttribute(AttributeKey.longKey("gen_ai.usage.prompt_tokens"), 150L);
+		verify(span).setAttribute(AttributeKey.longKey("gen_ai.usage.completion_tokens"), 300L);
+		verify(span).setAttribute(AttributeKey.longKey("gen_ai.usage.total_tokens"), 450L);
+		verify(span).end();
 	}
 
 	@Test
@@ -118,7 +142,8 @@ class LangfuseServiceTest {
 
 	@Test
 	void endSpanSuccess_nullSpan_doesNothing() {
-		langfuseService.endSpanSuccess(null, "thread", "output");
+		assertDoesNotThrow(() -> langfuseService.endSpanSuccess(null, "thread", "output"));
+		verifyNoInteractions(tracer, span);
 	}
 
 	@Test

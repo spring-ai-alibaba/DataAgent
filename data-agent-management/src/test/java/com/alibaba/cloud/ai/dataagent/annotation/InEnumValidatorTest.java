@@ -68,7 +68,7 @@ class InEnumValidatorTest {
 
 	@Test
 	void testInitialize_invalidMethodThrows() {
-		assertThrows(RuntimeException.class, () -> createValidator(ModelType.class, "nonExistentMethod"));
+		assertThrowsExactly(RuntimeException.class, () -> createValidator(ModelType.class, "nonExistentMethod"));
 	}
 
 	@SuppressWarnings("unchecked")

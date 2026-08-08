@@ -37,14 +37,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -56,7 +55,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class GraphServiceImplTest {
 
 	@Mock
@@ -88,9 +86,10 @@ class GraphServiceImplTest {
 		CompileConfig compileConfig = CompileConfig.builder().build();
 		graphService = new GraphServiceImpl(mockStateGraph, compileConfig, checkpointSaver, executor,
 				multiTurnContextManager, langfuseReporter);
+	}
 
+	private void stubStreamDependencies() {
 		when(langfuseReporter.startLLMSpan(anyString(), any())).thenReturn(mockSpan);
-		when(mockSpan.isRecording()).thenReturn(true);
 		when(multiTurnContextManager.buildContext(anyString())).thenReturn("(无)");
 	}
 
@@ -133,6 +132,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_newProcess_setsThreadIdIfMissing() {
+		stubStreamDependencies();
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.conversationId("conversation-1")
@@ -152,6 +152,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_legacyThreadId_startsFreshRunAndKeepsConversationIdentity() {
+		stubStreamDependencies();
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.threadId("existing-thread")
@@ -170,6 +171,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_humanFeedback_reusesInterruptedRunId() throws Exception {
+		stubStreamDependencies();
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.conversationId("conversation-1")
@@ -192,6 +194,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_interruptedForHumanFeedback_emitsRequiredEventAndRetainsCheckpoint() throws Exception {
+		stubStreamDependencies();
 		Checkpoint checkpoint = Checkpoint.builder()
 			.nodeId("PLANNER_NODE")
 			.nextNodeId("HUMAN_FEEDBACK_NODE")
@@ -223,6 +226,7 @@ class GraphServiceImplTest {
 	@Test
 	void graphStreamProcess_completedBeforeHumanFeedback_doesNotEmitRequiredEventAndReleasesCheckpoint()
 			throws Exception {
+		stubStreamDependencies();
 		Checkpoint checkpoint = Checkpoint.builder()
 			.nodeId("SCHEMA_RECALL_NODE")
 			.nextNodeId("__END__")
@@ -253,6 +257,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_rejectedFeedbackInterruptedAgain_emitsRequiredEventAndRetainsCheckpoint() throws Exception {
+		stubStreamDependencies();
 		Checkpoint checkpoint = Checkpoint.builder()
 			.nodeId("PLANNER_NODE")
 			.nextNodeId("HUMAN_FEEDBACK_NODE")
@@ -288,6 +293,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_emitsStepIdentityAndTypedFinalAnswer() throws Exception {
+		stubStreamDependencies();
 		OverAllState regularState = new OverAllState();
 		regularState.registerKeyAndStrategy("final_answer", new ReplaceStrategy());
 		OverAllState finalState = new OverAllState();
@@ -336,6 +342,7 @@ class GraphServiceImplTest {
 	void stopStreamProcessing_nullThreadId_doesNothing() {
 		assertDoesNotThrow(() -> graphService.stopStreamProcessing(null));
 		assertDoesNotThrow(() -> graphService.stopStreamProcessing(""));
+		verifyNoInteractions(multiTurnContextManager, checkpointSaver, langfuseReporter);
 	}
 
 	@Test
@@ -345,7 +352,9 @@ class GraphServiceImplTest {
 	}
 
 	@Test
-	void stopStreamProcessing_existingThread_cleansUp() {
+	void stopStreamProcessing_existingThread_cleansUp() throws Exception {
+		stubStreamDependencies();
+		when(mockSpan.isRecording()).thenReturn(true);
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.conversationId("conversation-to-stop")
@@ -354,24 +363,22 @@ class GraphServiceImplTest {
 			.build();
 
 		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().multicast().onBackpressureBuffer();
-		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.never());
+		CountDownLatch subscribed = new CountDownLatch(1);
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(
+				Flux.<com.alibaba.cloud.ai.graph.NodeOutput>never().doOnSubscribe(ignored -> subscribed.countDown()));
 
 		graphService.graphStreamProcess(sink, request);
 		String runId = request.getThreadId();
-
-		try {
-			Thread.sleep(100);
-		}
-		catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-		}
+		assertTrue(subscribed.await(2, TimeUnit.SECONDS));
 
 		graphService.stopStreamProcessing(runId);
 		verify(multiTurnContextManager).discardPending("conversation-to-stop");
+		verify(langfuseReporter).endSpanSuccess(eq(mockSpan), eq(runId), anyString());
 	}
 
 	@Test
 	void stopStreamProcessingByConversationId_cancelsActiveGraphSubscription() throws Exception {
+		stubStreamDependencies();
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.conversationId("conversation-to-cancel")
@@ -406,14 +413,14 @@ class GraphServiceImplTest {
 		when(compiledGraph.invoke(anyMap(), any(RunnableConfig.class)))
 			.thenThrow(new RuntimeException("Graph execution failed"));
 
-		assertThrows(RuntimeException.class, () -> graphService.nl2sql("test", "1"));
+		assertThrowsExactly(RuntimeException.class, () -> graphService.nl2sql("test", "1"));
 	}
 
 	@Test
 	void nl2sql_emptyOptional_returnsEmpty() throws GraphRunnerException {
 		when(compiledGraph.invoke(anyMap(), any(RunnableConfig.class))).thenReturn(Optional.empty());
 
-		assertThrows(Exception.class, () -> graphService.nl2sql("test", "1"));
+		assertThrowsExactly(NoSuchElementException.class, () -> graphService.nl2sql("test", "1"));
 	}
 
 }

@@ -15,21 +15,22 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.integration;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
 import com.alibaba.cloud.ai.dataagent.constant.Constant;
 import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.service.vector.MetadataDocumentRetriever;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreServiceImpl;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService;
-import com.alibaba.cloud.ai.dataagent.service.vector.MetadataDocumentRetriever;
 import com.alibaba.cloud.ai.dataagent.support.KeywordEmbeddingModel;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.param.ConnectParam;
 import io.milvus.param.collection.DropCollectionParam;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,7 @@ import org.springframework.core.env.StandardEnvironment;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @EnabledIfSystemProperty(named = "dataagent.milvus.integration", matches = "true")
-class MilvusVectorStoreIntegrationTest {
+class MilvusVectorStoreIT {
 
 	private MilvusServiceClient client;
 

@@ -21,10 +21,9 @@ import com.alibaba.cloud.ai.dataagent.service.hybrid.fusion.FusionStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.elasticsearch.ElasticsearchVectorStore;
 import org.springframework.ai.vectorstore.filter.Filter;
@@ -42,7 +41,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class ElasticsearchHybridRetrievalStrategyTest {
 
 	@Mock
@@ -88,7 +86,7 @@ class ElasticsearchHybridRetrievalStrategyTest {
 
 		HybridSearchRequest request = HybridSearchRequest.builder().query("test query").topK(10).build();
 
-		assertThrows(RuntimeException.class, () -> strategy.getDocumentsByKeywords(request));
+		assertThrowsExactly(RuntimeException.class, () -> strategy.getDocumentsByKeywords(request));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -120,24 +118,41 @@ class ElasticsearchHybridRetrievalStrategyTest {
 	}
 
 	@Test
-	void setMinScore_setsValue() {
+	void setMinScore_setsValue() throws IOException {
+		when(vectorStore.getNativeClient()).thenReturn(Optional.of(esClient));
+		when(esClient.search(any(co.elastic.clients.elasticsearch.core.SearchRequest.class), eq(Document.class)))
+			.thenReturn(null);
 		strategy.setMinScore(0.5);
-		assertDoesNotThrow(
-				() -> strategy.getDocumentsByKeywords(HybridSearchRequest.builder().query("").topK(10).build()));
+
+		strategy.getDocumentsByKeywords(HybridSearchRequest.builder().query("revenue").topK(10).build());
+
+		ArgumentCaptor<co.elastic.clients.elasticsearch.core.SearchRequest> requestCaptor = ArgumentCaptor
+			.forClass(co.elastic.clients.elasticsearch.core.SearchRequest.class);
+		verify(esClient).search(requestCaptor.capture(), eq(Document.class));
+		assertEquals(0.5, requestCaptor.getValue().minScore());
+		assertEquals(20, requestCaptor.getValue().size());
 	}
 
 	@Test
-	void setIndexName_setsValue() {
+	void setIndexName_setsValue() throws IOException {
+		when(vectorStore.getNativeClient()).thenReturn(Optional.of(esClient));
+		when(esClient.search(any(co.elastic.clients.elasticsearch.core.SearchRequest.class), eq(Document.class)))
+			.thenReturn(null);
 		strategy.setIndexName("custom-index");
-		assertDoesNotThrow(
-				() -> strategy.getDocumentsByKeywords(HybridSearchRequest.builder().query("").topK(10).build()));
+
+		strategy.getDocumentsByKeywords(HybridSearchRequest.builder().query("revenue").topK(10).build());
+
+		ArgumentCaptor<co.elastic.clients.elasticsearch.core.SearchRequest> requestCaptor = ArgumentCaptor
+			.forClass(co.elastic.clients.elasticsearch.core.SearchRequest.class);
+		verify(esClient).search(requestCaptor.capture(), eq(Document.class));
+		assertEquals(List.of("custom-index"), requestCaptor.getValue().index());
 	}
 
 	@Test
 	void getDocumentsByKeywords_withFilterExpression_usesFilter() throws IOException {
 		when(vectorStore.getNativeClient()).thenReturn(Optional.of(esClient));
 		when(esClient.search(any(co.elastic.clients.elasticsearch.core.SearchRequest.class), eq(Document.class)))
-			.thenThrow(new IOException("connection error"));
+			.thenReturn(null);
 
 		FilterExpressionBuilder b = new FilterExpressionBuilder();
 		Filter.Expression filter = b.eq("key", "value").build();
@@ -151,6 +166,12 @@ class ElasticsearchHybridRetrievalStrategyTest {
 		List<Document> result = strategy.getDocumentsByKeywords(request);
 
 		assertTrue(result.isEmpty());
+		ArgumentCaptor<co.elastic.clients.elasticsearch.core.SearchRequest> requestCaptor = ArgumentCaptor
+			.forClass(co.elastic.clients.elasticsearch.core.SearchRequest.class);
+		verify(esClient).search(requestCaptor.capture(), eq(Document.class));
+		String filterQuery = requestCaptor.getValue().query().bool().filter().get(0).queryString().query();
+		assertTrue(filterQuery.contains("key"));
+		assertTrue(filterQuery.contains("value"));
 	}
 
 }
