@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.langfuse;
 
+import com.alibaba.cloud.ai.dataagent.config.OpenTelemetryConfig;
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
@@ -23,7 +24,6 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -88,9 +88,9 @@ public class LangfuseService {
 	/** 每个 threadId 当前的根 span，供节点级子 span 作为父 span 挂载 */
 	private static final ConcurrentHashMap<String, Span> ROOT_SPANS = new ConcurrentHashMap<>();
 
-	public LangfuseService(Tracer langfuseTracer, @Value("${langfuse.enabled:true}") boolean enabled) {
+	public LangfuseService(Tracer langfuseTracer, OpenTelemetryConfig openTelemetryConfig) {
 		this.tracer = langfuseTracer;
-		this.enabled = enabled;
+		this.enabled = openTelemetryConfig.isEnabled();
 	}
 
 	/**

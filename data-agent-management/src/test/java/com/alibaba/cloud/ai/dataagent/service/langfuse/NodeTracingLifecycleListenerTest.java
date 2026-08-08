@@ -66,6 +66,8 @@ class NodeTracingLifecycleListenerTest {
 
 	private static final AttributeKey<Long> TOTAL_TOKENS = AttributeKey.longKey("gen_ai.usage.total_tokens");
 
+	private static final AttributeKey<String> OBSERVATION_TYPE = AttributeKey.stringKey("langfuse.observation.type");
+
 	private final RecordingExporter exporter = new RecordingExporter();
 
 	private SdkTracerProvider tracerProvider;
@@ -120,6 +122,8 @@ class NodeTracingLifecycleListenerTest {
 		assertEquals(1L, span.getAttributes().get(ATTEMPT));
 		assertEquals(120L, span.getAttributes().get(PROMPT_TOKENS));
 		assertEquals(150L, span.getAttributes().get(TOTAL_TOKENS));
+		// 有 token 的节点标记为 generation，使 token 在面板上作为 Usage 徽章显示
+		assertEquals("generation", span.getAttributes().get(OBSERVATION_TYPE));
 		// 输入只含该节点声明的 key，不含后续节点的输出
 		assertTrue(span.getAttributes().get(INPUT_VALUE).contains("查一下销量"));
 		assertTrue(span.getAttributes().get(OUTPUT_VALUE).contains("DATA_ANALYSIS"));
@@ -354,6 +358,8 @@ class NodeTracingLifecycleListenerTest {
 		assertEquals(StatusCode.OK, span.getStatus().getStatusCode());
 		assertNull(span.getAttributes().get(PROMPT_TOKENS));
 		assertNull(span.getAttributes().get(TOTAL_TOKENS));
+		// 无 token 的节点保持普通 span，不标记为 generation
+		assertNull(span.getAttributes().get(OBSERVATION_TYPE));
 	}
 
 	/**
@@ -421,6 +427,46 @@ class NodeTracingLifecycleListenerTest {
 		listener.after(SQL_GENERATE_NODE, fresh, config, 4L);
 
 		assertEquals(1L, onlyNodeSpan().getAttributes().get(ATTEMPT), "attempt must restart after the thread is discarded");
+	}
+
+	/**
+	 * 正常终止路径（{@code finishThread}）也必须清零 attempt 计数器，否则每个新 threadId 都会在
+	 * {@link NodeTracingLifecycleListener#attemptCounters} 里留下条目，随流量无界增长。
+	 */
+	@Test
+	void finishThread_resetsAttemptCountersOnNormalTermination() {
+		Map<String, Object> state = new HashMap<>();
+		listener.before(SQL_GENERATE_NODE, state, config, 1L);
+		state.put(SQL_GENERATE_OUTPUT, "SELECT 1");
+		listener.after(SQL_GENERATE_NODE, state, config, 2L);
+
+		listener.finishThread(THREAD_ID);
+		exporter.clear();
+
+		Map<String, Object> fresh = new HashMap<>();
+		listener.before(SQL_GENERATE_NODE, fresh, config, 3L);
+		fresh.put(SQL_GENERATE_OUTPUT, "SELECT 2");
+		listener.after(SQL_GENERATE_NODE, fresh, config, 4L);
+
+		assertEquals(1L, onlyNodeSpan().getAttributes().get(ATTEMPT),
+				"attempt must restart after the thread finishes normally");
+	}
+
+	/**
+	 * 正常终止时若确有节点 span 未闭合（理论上不该发生），{@code finishThread} 必须结束它并清理累加器，
+	 * 且描述用中性措辞而非"客户端断开"。
+	 */
+	@Test
+	void finishThread_endsDanglingSpansWithNeutralReason() {
+		listener.before(SQL_EXECUTE_NODE, Map.of(SQL_GENERATE_OUTPUT, "SELECT 1"), config, 1L);
+
+		listener.finishThread(THREAD_ID);
+
+		SpanData span = onlyNodeSpan();
+		assertEquals(StatusCode.ERROR, span.getStatus().getStatusCode());
+		assertTrue(span.getStatus().getDescription().contains("Run ended"));
+		assertFalse(span.getStatus().getDescription().contains("disconnected"));
+		assertNull(LangfuseService.takeActiveAccumulator(THREAD_ID));
 	}
 
 	/**

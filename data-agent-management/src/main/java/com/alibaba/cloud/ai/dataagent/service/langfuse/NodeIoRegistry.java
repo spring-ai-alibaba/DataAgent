@@ -23,29 +23,10 @@ import java.util.Set;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 
 /**
- * 每个图节点的输入/输出 state key 白名单，供 Langfuse 节点级 span 精确记录 input/output 使用。
- *
- * <p>
- * 为什么需要白名单：{@code OverAllState} 是单调累加的（早期节点的输出会一直留在 state 里）。若直接把整份 state
- * 当作某个节点的输入，靠后的节点 span 会把前面所有节点的输出都当成自己的输入，失去排查价值。
- *
- * <p>
- * <b>登记规则（最易踩的坑）</b>：DataAgent 的节点普遍返回 embedded {@code Flux}，output key 存在两层结构：
- *
- * <pre>
- * return Map.of(SCHEMA_RECALL_NODE_OUTPUT, generator);   // 外层：Flux 信封标签，永不进 state
- *         ↓ Flux 消费完后 resultSupplier 才产出真正的 state 更新
- * return Map.of(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, ..., // 内层：这才是落进 state 的
- *               COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, ...);
- * </pre>
- *
- * 框架在合并 state 前会过滤掉 {@code instanceof Flux} 的条目，因此本表只登记<b>内层真实 state
- * key</b>。已知的纯信封标签见 {@link #FLUX_ENVELOPE_KEYS}。
- *
- * <p>
- * 同一节点若有多条执行路径（正常/降级/重试超限等），本表登记<b>所有路径</b>的 output key 的并集。
- *
  * @author suke
+ * @version 1.0
+ * @date 2026-08-08 13:37
+ * @description 图节点输入/输出 state key 白名单，供 Langfuse 节点级 span 精确记录 input/output
  */
 public final class NodeIoRegistry {
 

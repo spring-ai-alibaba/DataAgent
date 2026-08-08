@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.langfuse;
 
+import com.alibaba.cloud.ai.dataagent.config.OpenTelemetryConfig;
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
@@ -44,20 +45,52 @@ class LangfuseServiceTest {
 
 	private LangfuseService langfuseService;
 
+	/**
+	 * 用给定的 enabled 构造 {@link LangfuseService}。enabled 现在从 {@link OpenTelemetryConfig}
+	 * （{@code @ConfigurationProperties} 单一来源）读取，测试里直接构造该配置对象注入。
+	 */
+	private LangfuseService service(boolean enabled) {
+		OpenTelemetryConfig config = new OpenTelemetryConfig();
+		config.setEnabled(enabled);
+		return new LangfuseService(tracer, config);
+	}
+
 	@BeforeEach
 	void setUp() {
-		langfuseService = new LangfuseService(tracer, true);
+		langfuseService = service(true);
 	}
 
 	@Test
 	void startLLMSpan_disabled_returnsInvalidSpan() {
-		LangfuseService disabledService = new LangfuseService(tracer, false);
+		LangfuseService disabledService = service(false);
 		GraphRequest request = new GraphRequest();
 		request.setQuery("test");
 
 		Span result = disabledService.startLLMSpan("test-span", request);
 
 		assertFalse(result.isRecording());
+	}
+
+	/**
+	 * 禁用时 {@code startLLMSpan} 必须在触碰任何静态注册表之前就返回，绝不登记根 span。
+	 *
+	 * <p>
+	 * 这是本次内存泄漏修复的行为契约：此前 {@code enabled} 绑定了错误的配置键（默认 true），导致禁用状态下仍向
+	 * {@code ROOT_SPANS}/{@code TOKEN_ACCUMULATOR} 写入却永不清理。改为从 {@link OpenTelemetryConfig}
+	 * （已有的 {@code @ConfigurationProperties} 单一来源）读取 {@code enabled} 后，禁用路径不再登记，泄漏消除。
+	 */
+	@Test
+	void startLLMSpan_disabled_doesNotRegisterRootSpanLeak() {
+		LangfuseService disabledService = service(false);
+		GraphRequest request = new GraphRequest();
+		request.setQuery("test");
+		request.setThreadId("disabled-thread");
+
+		disabledService.startLLMSpan("test-span", request);
+
+		assertNull(disabledService.getRootSpan("disabled-thread"),
+				"disabled service must not register a root span (memory leak guard)");
+		assertNull(LangfuseService.takeActiveAccumulator("disabled-thread"));
 	}
 
 	@Test
@@ -112,7 +145,7 @@ class LangfuseServiceTest {
 
 	@Test
 	void endSpanSuccess_disabled_doesNothing() {
-		LangfuseService disabledService = new LangfuseService(tracer, false);
+		LangfuseService disabledService = service(false);
 		disabledService.endSpanSuccess(span, "thread", "output");
 		verify(span, never()).end();
 	}
@@ -134,7 +167,7 @@ class LangfuseServiceTest {
 
 	@Test
 	void endSpanError_disabled_doesNothing() {
-		LangfuseService disabledService = new LangfuseService(tracer, false);
+		LangfuseService disabledService = service(false);
 		disabledService.endSpanError(span, "thread", new RuntimeException("err"));
 		verify(span, never()).end();
 	}
@@ -205,7 +238,7 @@ class LangfuseServiceTest {
 
 	@Test
 	void getRootSpan_notRegisteredWhenLangfuseDisabled() {
-		LangfuseService disabled = new LangfuseService(tracer, false);
+		LangfuseService disabled = service(false);
 
 		disabled.startLLMSpan("graph-stream", requestWithThreadId("disabled-thread"));
 

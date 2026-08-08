@@ -406,6 +406,79 @@ class GraphServiceImplTest {
 		verify(nodeTracingLifecycleListener).discardThread("never-started-thread");
 	}
 
+	/**
+	 * 正常终止路径必须清理 listener 侧的 attempt 计数器，否则每个新 threadId 都会留下残留、无界增长。
+	 * graphStreamProcess 会用新 UUID 覆盖入参中的 threadId，因此使用 request 的实际 threadId 做断言。
+	 */
+	@Test
+	void handleStreamComplete_finishesThreadToClearAttemptCounters() {
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-complete")
+			.query("test query")
+			.build();
+
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().multicast().onBackpressureBuffer();
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.empty());
+
+		graphService.graphStreamProcess(sink, request);
+		// graphStreamProcess 会将实际分配的 threadId 写回 request
+		String actualThreadId = request.getThreadId();
+		assertNotNull(actualThreadId, "graphStreamProcess must assign a threadId");
+
+		verify(nodeTracingLifecycleListener, timeout(2000)).finishThread(actualThreadId);
+	}
+
+	/**
+	 * 流式错误路径同样必须清理 listener 侧残留。
+	 */
+	@Test
+	void handleStreamError_finishesThreadToClearAttemptCounters() {
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-error")
+			.query("test query")
+			.build();
+
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().multicast().onBackpressureBuffer();
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class)))
+			.thenReturn(Flux.error(new RuntimeException("boom")));
+
+		graphService.graphStreamProcess(sink, request);
+		String actualThreadId = request.getThreadId();
+		assertNotNull(actualThreadId, "graphStreamProcess must assign a threadId");
+
+		verify(nodeTracingLifecycleListener, timeout(2000)).finishThread(actualThreadId);
+	}
+
+	/**
+	 * 等待人工反馈时不能清理 attempt 计数器：反馈恢复后 attempt 需接着上一轮递增。
+	 */
+	@Test
+	void handleStreamComplete_awaitingHumanFeedback_doesNotFinishThread() throws Exception {
+		Checkpoint checkpoint = Checkpoint.builder()
+			.nodeId("PLANNER_NODE")
+			.nextNodeId("HUMAN_FEEDBACK_NODE")
+			.state(java.util.Map.of())
+			.build();
+		when(checkpointSaver.get(any(RunnableConfig.class))).thenReturn(Optional.of(checkpoint));
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.empty());
+
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
+		var responsesFuture = sink.asFlux().map(ServerSentEvent::data).collectList().toFuture();
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-feedback")
+			.query("review this plan")
+			.humanFeedback(true)
+			.build();
+
+		graphService.graphStreamProcess(sink, request);
+		responsesFuture.get(Duration.ofSeconds(2).toMillis(), TimeUnit.MILLISECONDS);
+
+		verify(nodeTracingLifecycleListener, never()).finishThread(anyString());
+	}
+
 	@Test
 	void stopStreamProcessingByConversationId_cancelsActiveGraphSubscription() throws Exception {
 		GraphRequest request = GraphRequest.builder()

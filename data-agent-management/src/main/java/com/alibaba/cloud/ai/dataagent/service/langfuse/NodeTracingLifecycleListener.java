@@ -34,47 +34,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 为图中每个节点的<b>每一次执行（含每次重试）</b>创建一个独立的 Langfuse 子 span，记录该次执行的输入、输出、token
- * 用量与成功/失败状态。
- *
- * <p>
- * 子 span 挂在 {@code GraphServiceImpl} 创建的根 span（{@code graph-stream}/{@code graph-feedback}）下。
- * 未启用 Langfuse 或找不到根 span 时全程静默跳过，保持零侵入。
- *
- * <h2>失败判定为何不能依赖 {@code onError}</h2>
- *
- * DataAgent 的节点普遍返回 embedded {@code Flux}，而 {@code FluxUtil} 用
- * {@code onErrorResume} 把流内异常转成了一个<i>正常的数据元素</i>（{@code GraphResponse.error(...)}）。
- * 框架因此走的是 {@code NODE_AFTER} 而不是 {@code ERROR} 分支——LLM 调用失败时
- * {@link #onError} <b>不会被触发</b>。若把 {@code onError} 当作唯一失败路径，失败节点会在 Langfuse
- * 上显示为绿色 OK，正好打掉本功能的核心价值。所以 {@link #after} 必须自行判定成败。
- *
- * <h2>判据：节点窗口内是否产出了新的输出</h2>
- *
- * {@code OverAllState} 是<b>单调累加</b>的，仅检查"声明的 output key 是否存在"并不够：节点重试时，上一次
- * attempt 写入的 key 仍留在 state 里，于是失败的第二次尝试会被误判为成功——这正是需要避免的那种静默失效。
- *
- * <p>
- * 因此本类在 {@link #before} 为声明的 output key 拍一份快照，在 {@link #after} 与当前 state 比对：
- *
- * <pre>
- * 该节点声明的 output key 中，没有任何一个在本次执行窗口内新增或发生变化 → ERROR
- * 至少有一个新增或变化                                                  → OK
- * </pre>
- *
- * 这样既能抓出"LLM 挂掉、{@code resultSupplier} 从未运行、state 完全没动"（真失败），也不会把
- * "业务校验失败但正常写了 {@code PLAN_VALIDATION_*}"或"降级模式换了一组 key"误判为失败——后两者都是节点正常工作
- * 并如实报告结果，本身有重试机制，标红只会制造噪音、掩盖真故障。
- *
- * <h2>已知的判定边界</h2>
- *
- * {@code TableRelationNode} 是唯一"Flux 与普通值混合返回"的节点，它的
- * {@code DB_DIALECT_TYPE}/{@code TABLE_RELATION_RETRY_COUNT} 等在 Flux 完成前就已落进 state，
- * 即使随后 LLM 失败也会造成"有变化"。该节点的 LLM 失败因此可能被判为 OK。这是有意接受的取舍：listener
- * 是纯旁路（框架把回调包在 try/catch 里、state 不可写、路由与 listener 无关），误判的唯一后果是面板颜色标错，
- * 不影响 workflow 执行。
- *
  * @author suke
+ * @version 1.0
+ * @date 2026-08-08 13:37
+ * @description 为图中每个节点的每一次执行（含重试）创建独立 Langfuse 子 span，记录输入/输出/token/成败状态
  */
 @Slf4j
 @Component
@@ -94,6 +57,16 @@ public class NodeTracingLifecycleListener implements GraphLifecycleListener {
 		.longKey("gen_ai.usage.completion_tokens");
 
 	private static final AttributeKey<Long> GEN_AI_TOTAL_TOKENS = AttributeKey.longKey("gen_ai.usage.total_tokens");
+
+	/**
+	 * Langfuse v4 识别此属性把 span 归类为 observation 类型（{@code ObservationTypeMapper}）。 取值
+	 * {@code generation} 时该 span 被视为 LLM 生成，token 用量会作为 Usage 徽章上浮到 span
+	 * 头部（否则只藏在 metadata 里）。仅对确有 token 的节点标记，无 LLM 调用的节点保持普通 span。
+	 */
+	private static final AttributeKey<String> LANGFUSE_OBSERVATION_TYPE = AttributeKey
+		.stringKey("langfuse.observation.type");
+
+	private static final String OBSERVATION_TYPE_GENERATION = "generation";
 
 	/** 单个 attribute 值的上限，避免超长 SQL/schema 把 span 撑爆 */
 	private static final int MAX_ATTRIBUTE_CHARS = 8_000;
@@ -215,12 +188,28 @@ public class NodeTracingLifecycleListener implements GraphLifecycleListener {
 	}
 
 	/**
-	 * 客户端主动断开时的兜底清理：结束该 threadId 下所有仍挂着的节点 span，并清空计数器与累加器。
+	 * 客户端主动断开时的兜底清理：结束该 threadId 下所有仍挂着的节点 span（标记为断开），并清空计数器与累加器。
 	 *
 	 * <p>
 	 * 这是唯一会绕过 {@code after}/{@code onError} 的场景；不清理会同时造成内存泄漏和 Langfuse 上永不结束的 span。
 	 */
 	public void discardThread(String threadId) {
+		endThread(threadId, "Client disconnected before node completed");
+	}
+
+	/**
+	 * 一轮图运行正常结束（成功或失败）后的清理：清空该 threadId 的 attempt 计数器与累加器残留。
+	 *
+	 * <p>
+	 * {@code after}/{@code onError} 只结束单个节点 span，但 {@link #attemptCounters} 是按
+	 * {@code threadId#nodeId} 累积的，正常结束路径不会移除它们；不在此处清理会导致每个新 threadId
+	 * 都留下计数器条目、随流量无界增长。若确有节点 span 未闭合（理论上不该发生），一并结束以防泄漏。
+	 */
+	public void finishThread(String threadId) {
+		endThread(threadId, "Run ended before node completed");
+	}
+
+	private void endThread(String threadId, String danglingReason) {
 		if (threadId == null) {
 			return;
 		}
@@ -228,7 +217,7 @@ public class NodeTracingLifecycleListener implements GraphLifecycleListener {
 		if (stack != null) {
 			for (ActiveNode active : stack) {
 				try {
-					active.span().setStatus(StatusCode.ERROR, "Client disconnected before node completed");
+					active.span().setStatus(StatusCode.ERROR, danglingReason);
 				}
 				catch (Exception e) {
 					log.warn("Failed to mark interrupted span for node {}", active.nodeId(), e);
@@ -264,6 +253,8 @@ public class NodeTracingLifecycleListener implements GraphLifecycleListener {
 		long[] tokens = LangfuseService.takeActiveAccumulator(threadId);
 		// 无 LLM 调用的节点（如 PlanExecutorNode）没有 token，属预期情况
 		if (tokens != null && (tokens[0] > 0 || tokens[1] > 0)) {
+			// 标记为 generation，使 token 在 Langfuse 面板上作为 Usage 徽章显示
+			span.setAttribute(LANGFUSE_OBSERVATION_TYPE, OBSERVATION_TYPE_GENERATION);
 			span.setAttribute(GEN_AI_PROMPT_TOKENS, tokens[0]);
 			span.setAttribute(GEN_AI_COMPLETION_TOKENS, tokens[1]);
 			span.setAttribute(GEN_AI_TOTAL_TOKENS, tokens[0] + tokens[1]);
