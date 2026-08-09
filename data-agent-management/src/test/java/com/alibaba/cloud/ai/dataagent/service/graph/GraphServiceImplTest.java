@@ -90,6 +90,7 @@ class GraphServiceImplTest {
 		CompileConfig compileConfig = CompileConfig.builder().build();
 		graphService = new GraphServiceImpl(mockStateGraph, compileConfig, checkpointSaver, executor,
 				multiTurnContextManager, langfuseReporter, nodeTracingLifecycleListener);
+	}
 
 	private void stubStreamDependencies() {
 		when(langfuseReporter.startLLMSpan(anyString(), any())).thenReturn(mockSpan);
@@ -385,6 +386,7 @@ class GraphServiceImplTest {
 	 */
 	@Test
 	void stopStreamProcessing_discardsDanglingNodeSpans() {
+		stubStreamDependencies();
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.conversationId("conversation-with-nodes")
@@ -417,6 +419,7 @@ class GraphServiceImplTest {
 	 */
 	@Test
 	void handleStreamComplete_finishesThreadToClearAttemptCounters() {
+		stubStreamDependencies();
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.conversationId("conversation-complete")
@@ -439,6 +442,7 @@ class GraphServiceImplTest {
 	 */
 	@Test
 	void handleStreamError_finishesThreadToClearAttemptCounters() {
+		stubStreamDependencies();
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.conversationId("conversation-error")
@@ -461,6 +465,7 @@ class GraphServiceImplTest {
 	 */
 	@Test
 	void handleStreamComplete_awaitingHumanFeedback_doesNotFinishThread() throws Exception {
+		stubStreamDependencies();
 		Checkpoint checkpoint = Checkpoint.builder()
 			.nodeId("PLANNER_NODE")
 			.nextNodeId("HUMAN_FEEDBACK_NODE")
