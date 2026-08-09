@@ -144,6 +144,8 @@ class TableMetadataServiceTest {
 
 		assertNotNull(table.getColumns());
 		assertTrue(table.getColumns().isEmpty());
+		assertEquals(List.of(), table.getPrimaryKeys());
+		assertEquals("", table.getForeignKey());
 	}
 
 	@Test
@@ -181,7 +183,11 @@ class TableMetadataServiceTest {
 
 		tableMetadataService.batchEnrichTableMetadata(tables, dbConfig, new HashMap<>());
 
-		assertNotNull(table.getColumns());
+		assertEquals(1, table.getColumns().size());
+		assertEquals("val", table.getColumns().get(0).getName());
+		assertEquals("null_result", table.getColumns().get(0).getTableName());
+		assertEquals("[]", table.getColumns().get(0).getSamples());
+		assertEquals(List.of(), table.getPrimaryKeys());
 	}
 
 	@Test
@@ -204,8 +210,14 @@ class TableMetadataServiceTest {
 
 		tableMetadataService.batchEnrichTableMetadata(tables, dbConfig, new HashMap<>());
 
-		assertNotNull(table1.getColumns());
-		assertNotNull(table2.getColumns());
+		assertEquals(List.of(col1), table1.getColumns());
+		assertEquals(List.of("id"), table1.getPrimaryKeys());
+		assertEquals("users", col1.getTableName());
+		assertEquals(List.of(col2), table2.getColumns());
+		assertEquals(List.of("order_id"), table2.getPrimaryKeys());
+		assertEquals("orders", col2.getTableName());
+		verify(accessor, times(2)).showColumns(eq(dbConfig), any());
+		verify(accessor, times(2)).executeSqlAndReturnObject(eq(dbConfig), any());
 	}
 
 	@Test
@@ -239,8 +251,7 @@ class TableMetadataServiceTest {
 		tableMetadataService.batchEnrichTableMetadata(tables, dbConfig, new HashMap<>());
 
 		String samples = table.getColumns().get(0).getSamples();
-		assertNotNull(samples);
-		assertFalse(samples.equals("[]"));
+		assertEquals("[\"active\",\"inactive\",\"pending\"]", samples);
 	}
 
 	@Test

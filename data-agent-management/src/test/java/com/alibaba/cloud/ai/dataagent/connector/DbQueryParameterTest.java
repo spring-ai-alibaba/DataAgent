@@ -79,7 +79,7 @@ class DbQueryParameterTest {
 	@Test
 	void testEquals_sameObject() {
 		DbQueryParameter p = new DbQueryParameter();
-		assertEquals(p, p);
+		assertTrue(p.equals(p));
 	}
 
 	@Test

@@ -29,8 +29,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import java.util.Collections;
 import java.util.List;
@@ -40,7 +38,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class BusinessKnowledgeServiceImplTest {
 
 	@Mock
@@ -166,7 +163,7 @@ class BusinessKnowledgeServiceImplTest {
 		when(businessKnowledgeConverter.toEntityForCreate(dto)).thenReturn(entity);
 		when(businessKnowledgeMapper.insert(entity)).thenReturn(0);
 
-		assertThrows(RuntimeException.class, () -> service.addKnowledge(dto));
+		assertThrowsExactly(RuntimeException.class, () -> service.addKnowledge(dto));
 	}
 
 	@Test
@@ -191,7 +188,7 @@ class BusinessKnowledgeServiceImplTest {
 	void updateKnowledge_notFound_throws() {
 		when(businessKnowledgeMapper.selectById(999L)).thenReturn(null);
 		UpdateBusinessKnowledgeDTO dto = new UpdateBusinessKnowledgeDTO();
-		assertThrows(RuntimeException.class, () -> service.updateKnowledge(999L, dto));
+		assertThrowsExactly(RuntimeException.class, () -> service.updateKnowledge(999L, dto));
 	}
 
 	@Test
@@ -219,7 +216,7 @@ class BusinessKnowledgeServiceImplTest {
 		dto.setBusinessTerm("T");
 		dto.setDescription("D");
 
-		assertThrows(RuntimeException.class, () -> service.updateKnowledge(1L, dto));
+		assertThrowsExactly(RuntimeException.class, () -> service.updateKnowledge(1L, dto));
 	}
 
 	@Test
@@ -245,7 +242,7 @@ class BusinessKnowledgeServiceImplTest {
 		when(agentVectorStoreService.deleteDocumentsByMetadata(anyString(), anyMap())).thenReturn(true);
 		when(businessKnowledgeMapper.logicalDelete(1L, 1)).thenReturn(0);
 
-		assertThrows(RuntimeException.class, () -> service.deleteKnowledge(1L));
+		assertThrowsExactly(RuntimeException.class, () -> service.deleteKnowledge(1L));
 	}
 
 	@Test
@@ -268,27 +265,27 @@ class BusinessKnowledgeServiceImplTest {
 	@Test
 	void recallKnowledge_notFound_throws() {
 		when(businessKnowledgeMapper.selectById(999L)).thenReturn(null);
-		assertThrows(RuntimeException.class, () -> service.recallKnowledge(999L, true));
+		assertThrowsExactly(RuntimeException.class, () -> service.recallKnowledge(999L, true));
 	}
 
 	@Test
 	void retryEmbedding_notFound_throws() {
 		when(businessKnowledgeMapper.selectById(999L)).thenReturn(null);
-		assertThrows(RuntimeException.class, () -> service.retryEmbedding(999L));
+		assertThrowsExactly(RuntimeException.class, () -> service.retryEmbedding(999L));
 	}
 
 	@Test
 	void retryEmbedding_processing_throws() {
 		testKnowledge.setEmbeddingStatus(EmbeddingStatus.PROCESSING);
 		when(businessKnowledgeMapper.selectById(1L)).thenReturn(testKnowledge);
-		assertThrows(RuntimeException.class, () -> service.retryEmbedding(1L));
+		assertThrowsExactly(RuntimeException.class, () -> service.retryEmbedding(1L));
 	}
 
 	@Test
 	void retryEmbedding_notRecalled_throws() {
 		testKnowledge.setIsRecall(0);
 		when(businessKnowledgeMapper.selectById(1L)).thenReturn(testKnowledge);
-		assertThrows(RuntimeException.class, () -> service.retryEmbedding(1L));
+		assertThrowsExactly(RuntimeException.class, () -> service.retryEmbedding(1L));
 	}
 
 }

@@ -73,7 +73,7 @@ class AgentDatasourceServiceImplTest {
 	void testInitializeSchemaForAgentWithDatasource_datasourceNotFound() {
 		when(datasourceService.getDatasourceById(1)).thenReturn(null);
 
-		assertThrows(RuntimeException.class,
+		assertThrowsExactly(RuntimeException.class,
 				() -> service.initializeSchemaForAgentWithDatasource(1L, 1, List.of("table1")));
 	}
 
@@ -154,7 +154,7 @@ class AgentDatasourceServiceImplTest {
 	void testToggleDatasourceForAgent_enable_conflict() {
 		when(agentDatasourceMapper.countActiveByAgentIdExcluding(1L, 1)).thenReturn(1);
 
-		assertThrows(RuntimeException.class, () -> service.toggleDatasourceForAgent(1L, 1, true));
+		assertThrowsExactly(RuntimeException.class, () -> service.toggleDatasourceForAgent(1L, 1, true));
 	}
 
 	@Test
@@ -171,7 +171,7 @@ class AgentDatasourceServiceImplTest {
 	void testToggleDatasourceForAgent_notFound() {
 		when(agentDatasourceMapper.updateRelation(1L, 1, 0)).thenReturn(0);
 
-		assertThrows(RuntimeException.class, () -> service.toggleDatasourceForAgent(1L, 1, false));
+		assertThrowsExactly(RuntimeException.class, () -> service.toggleDatasourceForAgent(1L, 1, false));
 	}
 
 	@Test

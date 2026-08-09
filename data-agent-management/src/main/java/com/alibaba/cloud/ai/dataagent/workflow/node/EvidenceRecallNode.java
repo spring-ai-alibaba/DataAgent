@@ -150,16 +150,12 @@ public class EvidenceRecallNode implements NodeAction {
 
 	private DocumentRetrievalResult retrieveDocuments(String agentId, String standaloneQuery) {
 		// 获取业务知识文档
-		List<Document> businessTermDocuments = vectorStoreService
-			.getDocumentsForAgent(agentId, standaloneQuery, DocumentMetadataConstant.BUSINESS_TERM)
-			.stream()
-			.toList();
+		List<Document> businessTermDocuments = retrieveDocuments(agentId, standaloneQuery,
+				DocumentMetadataConstant.BUSINESS_TERM);
 
 		// 获取智能体知识文档
-		List<Document> agentKnowledgeDocuments = vectorStoreService
-			.getDocumentsForAgent(agentId, standaloneQuery, DocumentMetadataConstant.AGENT_KNOWLEDGE)
-			.stream()
-			.toList();
+		List<Document> agentKnowledgeDocuments = retrieveDocuments(agentId, standaloneQuery,
+				DocumentMetadataConstant.AGENT_KNOWLEDGE);
 
 		// 合并所有证据文档
 		List<Document> allDocuments = new ArrayList<>();
@@ -173,6 +169,18 @@ public class EvidenceRecallNode implements NodeAction {
 				agentId, businessTermDocuments.size(), agentKnowledgeDocuments.size(), allDocuments.size());
 
 		return new DocumentRetrievalResult(businessTermDocuments, agentKnowledgeDocuments, allDocuments);
+	}
+
+	private List<Document> retrieveDocuments(String agentId, String standaloneQuery, String vectorType) {
+		try {
+			List<Document> documents = vectorStoreService.getDocumentsForAgent(agentId, standaloneQuery, vectorType);
+			return documents == null ? List.of() : List.copyOf(documents);
+		}
+		catch (Exception e) {
+			log.warn("Failed to retrieve {} documents for agent {}; continuing with other evidence sources", vectorType,
+					agentId, e);
+			return List.of();
+		}
 	}
 
 	// 构建证据内容，输出格式

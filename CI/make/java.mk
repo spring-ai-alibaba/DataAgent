@@ -19,6 +19,31 @@ test: ## Run tests
 	@$(LOG_TARGET)
 	mvnd test
 
+.PHONY: test-trust-check
+test-trust-check: ## Reject deterministic fake-green test patterns
+	@$(LOG_TARGET)
+	./CI/scripts/test-trust-check.sh
+
+.PHONY: verify
+verify: test-trust-check ## Run deterministic tests and quality gates
+	@$(LOG_TARGET)
+	mvnd verify
+
+.PHONY: integration-test
+integration-test: ## Run tests that require real infrastructure
+	@$(LOG_TARGET)
+	mvnd verify -Pintegration
+
+.PHONY: live-model-test
+live-model-test: ## Run live model-provider contract tests with an explicitly configured API key
+	@$(LOG_TARGET)
+	mvnd verify -Plive-model -Dspotless.apply.skip=true
+
+.PHONY: milvus-integration-test
+milvus-integration-test: ## Run integration tests against a configured Milvus server
+	@$(LOG_TARGET)
+	mvnd verify -Pintegration -Dit.test=MilvusVectorStoreIT -Ddataagent.milvus.integration=true
+
 # Separate build and test to speed up execution
 .PHONY: build
 build: ## Build the project

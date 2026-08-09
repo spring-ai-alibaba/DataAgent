@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector.impls.mysql;
 
+import static com.alibaba.cloud.ai.dataagent.support.ExceptionTestSupport.assertRuntimeCause;
+
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
@@ -94,7 +96,7 @@ class MysqlJdbcDdlTest {
 			mockedStatic.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("connection failed"));
 
-			assertThrows(RuntimeException.class, () -> mysqlJdbcDdl.showDatabases(connection));
+			assertRuntimeCause(SQLException.class, "connection failed", () -> mysqlJdbcDdl.showDatabases(connection));
 		}
 	}
 
@@ -268,7 +270,9 @@ class MysqlJdbcDdlTest {
 
 			ResultSetBO result = mysqlJdbcDdl.scanTable(connection, "testdb", "users");
 
-			assertNotNull(result);
+			assertSame(expectedResult, result);
+			mockedStatic.verify(() -> SqlExecutor.executeSqlAndReturnObject(connection, "testdb",
+					"SELECT *\nFROM \n    `users`\nLIMIT 20;"));
 		}
 	}
 
@@ -278,7 +282,8 @@ class MysqlJdbcDdlTest {
 			mockedStatic.when(() -> SqlExecutor.executeSqlAndReturnObject(any(Connection.class), any(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> mysqlJdbcDdl.scanTable(connection, "testdb", "users"));
+			assertRuntimeCause(SQLException.class, "error",
+					() -> mysqlJdbcDdl.scanTable(connection, "testdb", "users"));
 		}
 	}
 
@@ -322,7 +327,7 @@ class MysqlJdbcDdlTest {
 			mockedStatic.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> mysqlJdbcDdl.showTables(connection, "testdb", null));
+			assertRuntimeCause(SQLException.class, "error", () -> mysqlJdbcDdl.showTables(connection, "testdb", null));
 		}
 	}
 
@@ -366,7 +371,7 @@ class MysqlJdbcDdlTest {
 			mockedStatic.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class,
+			assertRuntimeCause(SQLException.class, "error",
 					() -> mysqlJdbcDdl.fetchTables(connection, "testdb", Arrays.asList("users")));
 		}
 	}
@@ -412,7 +417,7 @@ class MysqlJdbcDdlTest {
 			mockedStatic.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> mysqlJdbcDdl.showColumns(connection, "testdb", "users"));
+			assertRuntimeCause(SQLException.class, "error", () -> mysqlJdbcDdl.showColumns(connection, "testdb", "users"));
 		}
 	}
 
@@ -459,7 +464,7 @@ class MysqlJdbcDdlTest {
 			mockedStatic.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class,
+			assertRuntimeCause(SQLException.class, "error",
 					() -> mysqlJdbcDdl.showForeignKeys(connection, "testdb", Arrays.asList("orders")));
 		}
 	}
@@ -513,7 +518,7 @@ class MysqlJdbcDdlTest {
 	@Test
 	void getSelectSql_delegatesToSqlUtil() {
 		String result = mysqlJdbcDdl.getSelectSql("mysql", "users", "id,name", 10);
-		assertNotNull(result);
+		assertEquals("SELECT id,name FROM users LIMIT 10", result);
 	}
 
 }
