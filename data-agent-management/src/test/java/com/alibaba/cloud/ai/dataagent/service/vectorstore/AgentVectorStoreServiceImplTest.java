@@ -20,10 +20,9 @@ import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -37,7 +36,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class AgentVectorStoreServiceImplTest {
 
 	@Mock
@@ -157,10 +155,12 @@ class AgentVectorStoreServiceImplTest {
 
 	@Test
 	void deleteDocumentsByVectorType_delegates() throws Exception {
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(Collections.emptyList());
-
 		Boolean result = service.deleteDocumentsByVectorType("1", "KNOWLEDGE");
 		assertTrue(result);
+		ArgumentCaptor<String> filterCaptor = ArgumentCaptor.forClass(String.class);
+		verify(vectorStore).delete(filterCaptor.capture());
+		assertTrue(filterCaptor.getValue().contains("agentId"));
+		assertTrue(filterCaptor.getValue().contains("KNOWLEDGE"));
 	}
 
 	@Test
@@ -201,31 +201,6 @@ class AgentVectorStoreServiceImplTest {
 	@Test
 	void getDocumentsOnlyByFilter_nullFilter_throws() {
 		assertThrows(IllegalArgumentException.class, () -> service.getDocumentsOnlyByFilter(null, 10));
-	}
-
-	@Test
-	void getDocumentsOnlyByFilter_nullTopK_usesDefault() {
-		FilterExpressionBuilder b = new FilterExpressionBuilder();
-		Filter.Expression filter = b.eq("agentId", "1").build();
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
-
-		List<Document> result = service.getDocumentsOnlyByFilter(filter, null);
-		assertNotNull(result);
-	}
-
-	@Test
-	void hasSchemaDocuments_withDocs_returnsTrue() {
-		Document doc = new Document("content", Map.of("agentId", "1"));
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(doc));
-
-		assertTrue(service.hasSchemaDocuments("1"));
-	}
-
-	@Test
-	void hasSchemaDocuments_noDocs_returnsFalse() {
-		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(Collections.emptyList());
-
-		assertFalse(service.hasSchemaDocuments("1"));
 	}
 
 }

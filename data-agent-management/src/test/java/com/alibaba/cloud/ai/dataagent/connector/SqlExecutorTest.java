@@ -173,6 +173,23 @@ class SqlExecutorTest {
 	}
 
 	@Test
+	void executeSqlAndReturnObject_withDamengSchema_setsSchema() throws SQLException {
+		when(connection.createStatement()).thenReturn(statement);
+		when(connection.getMetaData()).thenReturn(databaseMetaData);
+		when(databaseMetaData.getDatabaseProductName()).thenReturn("DM DBMS");
+		when(statement.executeQuery("SELECT 1")).thenReturn(resultSet);
+		when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+		when(resultSetMetaData.getColumnCount()).thenReturn(1);
+		when(resultSetMetaData.getColumnLabel(1)).thenReturn("1");
+		when(resultSet.next()).thenReturn(false);
+
+		ResultSetBO result = SqlExecutor.executeSqlAndReturnObject(connection, "ACT", "SELECT 1");
+
+		assertNotNull(result);
+		verify(statement).execute("SET SCHEMA \"ACT\"");
+	}
+
+	@Test
 	void executeSqlAndReturnObject_withNullSchema_skipsSchemaSwitch() throws SQLException {
 		when(connection.createStatement()).thenReturn(statement);
 		when(connection.getMetaData()).thenReturn(databaseMetaData);
@@ -259,6 +276,24 @@ class SqlExecutorTest {
 
 		assertNotNull(result);
 		verify(statement).execute("ALTER SESSION SET CURRENT_SCHEMA = HR");
+	}
+
+	@Test
+	void executeSqlAndReturnArr_withDamengSchema_setsSchema() throws SQLException {
+		when(connection.createStatement()).thenReturn(statement);
+		when(connection.getCatalog()).thenReturn("DAMENG");
+		when(connection.getMetaData()).thenReturn(databaseMetaData);
+		when(databaseMetaData.getDatabaseProductName()).thenReturn("DM DBMS");
+		when(statement.executeQuery("SELECT 1")).thenReturn(resultSet);
+		when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+		when(resultSetMetaData.getColumnCount()).thenReturn(1);
+		when(resultSetMetaData.getColumnLabel(1)).thenReturn("1");
+		when(resultSet.next()).thenReturn(false);
+
+		String[][] result = SqlExecutor.executeSqlAndReturnArr(connection, "ACT", "SELECT 1");
+
+		assertNotNull(result);
+		verify(statement).execute("SET SCHEMA \"ACT\"");
 	}
 
 	@Test

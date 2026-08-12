@@ -16,25 +16,28 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node.python;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.Duration;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
+import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeExecution;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.workflow.node.PythonGenerateNode;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -43,7 +46,6 @@ import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import reactor.core.publisher.Flux;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class PythonGenerateNodeTest {
 
 	private static final String TEST_PLAN_JSON = """
@@ -98,7 +100,7 @@ class PythonGenerateNodeTest {
 	@BeforeEach
 	void setUp() {
 		when(codeExecutorProperties.getLimitMemory()).thenReturn(500L);
-		when(codeExecutorProperties.getCodeTimeout()).thenReturn("60s");
+		when(codeExecutorProperties.getCodeTimeout()).thenReturn(Duration.ofSeconds(60));
 		pythonGenerateNode = new PythonGenerateNode(codeExecutorProperties, llmService);
 	}
 
@@ -110,6 +112,7 @@ class PythonGenerateNodeTest {
 		state.registerKeyAndStrategy(PYTHON_TRIES_COUNT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_RESULT_LIST_MEMORY, new ReplaceStrategy());
+		state.registerKeyAndStrategy(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PLANNER_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PLAN_CURRENT_STEP, new ReplaceStrategy());
@@ -129,10 +132,10 @@ class PythonGenerateNodeTest {
 		when(llmService.call(anyString(), anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("import pandas as pd\nprint('hello')")));
 
-		Map<String, Object> result = pythonGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_GENERATE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_GENERATE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonGenerateNode.apply(state), PYTHON_GENERATE_NODE_OUTPUT);
+
+		assertEquals("import pandas as pd\nprint('hello')", execution.finalResult().get(PYTHON_GENERATE_NODE_OUTPUT));
+		assertEquals(1, execution.finalResult().get(PYTHON_TRIES_COUNT));
 	}
 
 	@Test
@@ -143,10 +146,13 @@ class PythonGenerateNodeTest {
 		when(llmService.call(anyString(), anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("print('with schema')")));
 
-		Map<String, Object> result = pythonGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_GENERATE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_GENERATE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonGenerateNode.apply(state), PYTHON_GENERATE_NODE_OUTPUT);
+
+		assertEquals("print('with schema')", execution.finalResult().get(PYTHON_GENERATE_NODE_OUTPUT));
+		ArgumentCaptor<String> systemPrompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).call(systemPrompt.capture(), anyString());
+		assertTrue(systemPrompt.getValue().contains("test_schema"));
+		assertTrue(systemPrompt.getValue().contains("sales"));
 	}
 
 	@Test
@@ -156,7 +162,8 @@ class PythonGenerateNodeTest {
 
 		when(llmService.call(anyString(), anyString())).thenThrow(new RuntimeException("LLM service unavailable"));
 
-		assertThrows(RuntimeException.class, () -> pythonGenerateNode.apply(state));
+		RuntimeException exception = assertThrowsExactly(RuntimeException.class, () -> pythonGenerateNode.apply(state));
+		assertEquals("LLM service unavailable", exception.getMessage());
 	}
 
 	@Test
@@ -169,14 +176,19 @@ class PythonGenerateNodeTest {
 		when(llmService.call(anyString(), anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("import pandas as pd\ndf = pd.DataFrame()")));
 
-		Map<String, Object> result = pythonGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_GENERATE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_GENERATE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonGenerateNode.apply(state), PYTHON_GENERATE_NODE_OUTPUT);
+
+		assertEquals("import pandas as pd\ndf = pd.DataFrame()",
+				execution.finalResult().get(PYTHON_GENERATE_NODE_OUTPUT));
+		assertEquals(2, execution.finalResult().get(PYTHON_TRIES_COUNT));
+		ArgumentCaptor<String> userPrompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).call(anyString(), userPrompt.capture());
+		assertTrue(userPrompt.getValue().contains("import pandas\nprint(df)"));
+		assertTrue(userPrompt.getValue().contains("NameError: name 'df' is not defined"));
 	}
 
 	@Test
-	void apply_maxRetriesReached_throwsException() throws Exception {
+	void apply_existingRetryCount_incrementsWithoutLocalLimit() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 		state.updateState(Map.of(PYTHON_IS_SUCCESS, false, PYTHON_GENERATE_NODE_OUTPUT, "bad code",
@@ -185,10 +197,10 @@ class PythonGenerateNodeTest {
 		when(llmService.call(anyString(), anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("print('retry')")));
 
-		Map<String, Object> result = pythonGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_GENERATE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_GENERATE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonGenerateNode.apply(state), PYTHON_GENERATE_NODE_OUTPUT);
+
+		assertEquals("print('retry')", execution.finalResult().get(PYTHON_GENERATE_NODE_OUTPUT));
+		assertEquals(11, execution.finalResult().get(PYTHON_TRIES_COUNT));
 	}
 
 	@Test
@@ -199,28 +211,34 @@ class PythonGenerateNodeTest {
 		when(llmService.call(anyString(), anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("```python\nprint('hello')\n```")));
 
-		Map<String, Object> result = pythonGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_GENERATE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_GENERATE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonGenerateNode.apply(state), PYTHON_GENERATE_NODE_OUTPUT);
+
+		assertEquals("print('hello')", execution.finalResult().get(PYTHON_GENERATE_NODE_OUTPUT));
+		assertEquals(1, execution.finalResult().get(PYTHON_TRIES_COUNT));
 	}
 
 	@Test
-	void apply_withSqlResults_includesResultsInPrompt() throws Exception {
+	void apply_withMultipleSqlResults_includesOrderedStepSamplesInPrompt() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
-		List<Map<String, String>> sqlResults = new ArrayList<>();
-		sqlResults.add(Map.of("name", "Alice", "sales", "100"));
-		sqlResults.add(Map.of("name", "Bob", "sales", "200"));
-		state.updateState(Map.of(SQL_RESULT_LIST_MEMORY, sqlResults));
+		state.updateState(Map.of(SQL_EXECUTE_NODE_OUTPUT,
+				Map.of("step_2", "{\"data\":[{\"department\":\"engineering\",\"headcount\":\"20\"}]}", "step_1",
+						"{\"data\":[{\"department\":\"sales\",\"revenue\":\"100\"}]}")));
 
 		when(llmService.call(anyString(), anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("import json\nprint(json.dumps(result))")));
 
-		Map<String, Object> result = pythonGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_GENERATE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_GENERATE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonGenerateNode.apply(state), PYTHON_GENERATE_NODE_OUTPUT);
+		assertEquals("import json\nprint(json.dumps(result))",
+				execution.finalResult().get(PYTHON_GENERATE_NODE_OUTPUT));
+
+		ArgumentCaptor<String> systemPrompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).call(systemPrompt.capture(), anyString());
+		String prompt = systemPrompt.getValue();
+		assertTrue(prompt.contains("[[{"));
+		assertTrue(prompt.indexOf("sales") < prompt.indexOf("engineering"));
+		assertTrue(prompt.contains("revenue"));
+		assertTrue(prompt.contains("headcount"));
 	}
 
 	@Test
@@ -231,22 +249,27 @@ class PythonGenerateNodeTest {
 		when(llmService.call(anyString(), anyString())).thenReturn(Flux.just(ChatResponseUtil
 			.createPureResponse("import pandas as pd\nimport numpy as np\nprint(np.mean([1,2,3]))")));
 
-		Map<String, Object> result = pythonGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_GENERATE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonGenerateNode.apply(state), PYTHON_GENERATE_NODE_OUTPUT);
+
+		assertEquals("import pandas as pd\nimport numpy as np\nprint(np.mean([1,2,3]))",
+				execution.finalResult().get(PYTHON_GENERATE_NODE_OUTPUT));
 	}
 
 	@Test
-	void apply_unsafeImportRequest_generatesCodeWithLimits() throws Exception {
+	void apply_promptIncludesConfiguredResourceLimits() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
 		when(llmService.call(anyString(), anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("print('safe output only')")));
 
-		Map<String, Object> result = pythonGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_GENERATE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonGenerateNode.apply(state), PYTHON_GENERATE_NODE_OUTPUT);
+
+		assertEquals("print('safe output only')", execution.finalResult().get(PYTHON_GENERATE_NODE_OUTPUT));
+		ArgumentCaptor<String> systemPrompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).call(systemPrompt.capture(), anyString());
+		assertTrue(systemPrompt.getValue().contains("500"));
+		assertTrue(systemPrompt.getValue().contains("60s"));
 	}
 
 }

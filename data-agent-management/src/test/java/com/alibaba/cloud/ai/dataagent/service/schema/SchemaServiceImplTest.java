@@ -26,12 +26,12 @@ import com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.BatchingStrategy;
+import org.springframework.ai.vectorstore.filter.Filter;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -42,7 +42,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class SchemaServiceImplTest {
 
 	@Mock
@@ -57,7 +56,6 @@ class SchemaServiceImplTest {
 	@Mock
 	private DynamicFilterService dynamicFilterService;
 
-	@Mock
 	private DataAgentProperties dataAgentProperties;
 
 	@Mock
@@ -68,16 +66,9 @@ class SchemaServiceImplTest {
 	@BeforeEach
 	void setUp() {
 		ExecutorService executor = Executors.newSingleThreadExecutor();
+		dataAgentProperties = new DataAgentProperties();
 		schemaService = new SchemaServiceImpl(executor, accessorFactory, tableMetadataService, batchingStrategy,
 				dynamicFilterService, dataAgentProperties, agentVectorStoreService);
-
-		DataAgentProperties.VectorStoreProperties vsProps = new DataAgentProperties.VectorStoreProperties();
-		vsProps.setTableTopkLimit(10);
-		vsProps.setTableSimilarityThreshold(0.5);
-		vsProps.setDefaultTopkLimit(10);
-		vsProps.setDefaultSimilarityThreshold(0.5);
-		when(dataAgentProperties.getVectorStore()).thenReturn(vsProps);
-		when(dataAgentProperties.getMaxColumnsPerTable()).thenReturn(50);
 	}
 
 	private Document createTableDoc(String name) {
@@ -212,10 +203,19 @@ class SchemaServiceImplTest {
 
 	@Test
 	void getTableDocumentsByDatasource_delegates() {
-		when(agentVectorStoreService.getDocumentsOnlyByFilter(any(), anyInt())).thenReturn(List.of());
+		List<Document> expected = new ArrayList<>();
+		when(agentVectorStoreService.similaritySearch(anyString(), any(), anyInt(), anyDouble())).thenReturn(expected);
 
 		List<Document> result = schemaService.getTableDocumentsByDatasource(1, "test query");
-		assertNotNull(result);
+		ArgumentCaptor<Filter.Expression> filterCaptor = ArgumentCaptor.forClass(Filter.Expression.class);
+
+		assertSame(expected, result);
+		verify(agentVectorStoreService).similaritySearch(eq("test query"), filterCaptor.capture(), eq(10), eq(0.2));
+		String filter = filterCaptor.getValue().toString();
+		assertTrue(filter.contains("datasourceId"));
+		assertTrue(filter.contains("value=1"));
+		assertTrue(filter.contains("vectorType"));
+		assertTrue(filter.contains("value=table"));
 	}
 
 	@Test

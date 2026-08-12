@@ -16,16 +16,19 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
+import com.alibaba.cloud.ai.dataagent.service.code.PythonCodeExecutorService;
+import com.alibaba.cloud.ai.dataagent.service.code.sandbox.dependency.PythonDependencyMetadata;
+import com.alibaba.cloud.ai.dataagent.service.code.sandbox.dependency.PythonDependencyMetadataParser;
 import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
 import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.util.SqlResultSetExtractor;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +36,6 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -49,7 +51,9 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 @Component
 public class PythonExecuteNode implements NodeAction {
 
-	private final CodePoolExecutorService codePoolExecutor;
+	private final PythonCodeExecutorService pythonCodeExecutor;
+
+	private final PythonDependencyMetadataParser dependencyMetadataParser;
 
 	private final ObjectMapper objectMapper;
 
@@ -57,9 +61,11 @@ public class PythonExecuteNode implements NodeAction {
 
 	private final CodeExecutorProperties codeExecutorProperties;
 
-	public PythonExecuteNode(CodePoolExecutorService codePoolExecutor, JsonParseUtil jsonParseUtil,
+	public PythonExecuteNode(PythonCodeExecutorService pythonCodeExecutor,
+			PythonDependencyMetadataParser dependencyMetadataParser, JsonParseUtil jsonParseUtil,
 			CodeExecutorProperties codeExecutorProperties) {
-		this.codePoolExecutor = codePoolExecutor;
+		this.pythonCodeExecutor = pythonCodeExecutor;
+		this.dependencyMetadataParser = dependencyMetadataParser;
 		this.objectMapper = JsonUtil.getObjectMapper();
 		this.jsonParseUtil = jsonParseUtil;
 		this.codeExecutorProperties = codeExecutorProperties;
@@ -71,17 +77,19 @@ public class PythonExecuteNode implements NodeAction {
 		try {
 			// Get context
 			String pythonCode = StateUtil.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT);
-			List<Map<String, String>> sqlResults = StateUtil.hasValue(state, SQL_RESULT_LIST_MEMORY)
-					? StateUtil.getListValue(state, SQL_RESULT_LIST_MEMORY) : new ArrayList<>();
+			Map<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
+					Map.of());
+			List<List<Map<String, String>>> sqlResults = SqlResultSetExtractor.extractAll(executionResults);
 
 			// 检查重试次数
 			int triesCount = StateUtil.getObjectValue(state, PYTHON_TRIES_COUNT, Integer.class, 0);
 
-			CodePoolExecutorService.TaskRequest taskRequest = new CodePoolExecutorService.TaskRequest(pythonCode,
-					objectMapper.writeValueAsString(sqlResults), null);
+			PythonDependencyMetadata metadata = dependencyMetadataParser.parse(pythonCode);
+			PythonCodeExecutorService.TaskRequest taskRequest = new PythonCodeExecutorService.TaskRequest(pythonCode,
+					objectMapper.writeValueAsString(sqlResults), metadata.dependencies());
 
 			// Run Python code
-			CodePoolExecutorService.TaskResponse taskResponse = this.codePoolExecutor.runTask(taskRequest);
+			PythonCodeExecutorService.TaskResponse taskResponse = this.pythonCodeExecutor.runTask(taskRequest);
 			if (!taskResponse.isSuccess()) {
 				String errorMsg = "Python Execute Failed!\nStdOut: " + taskResponse.stdOut() + "\nStdErr: "
 						+ taskResponse.stdErr() + "\nExceptionMsg: " + taskResponse.exceptionMsg();

@@ -383,31 +383,20 @@ WHERE u.name = 'Zhang San'
 
 ## Python Execution Environment Configuration
 
-### Executor Types
+Python always runs through Spring AI Alibaba Sandbox in a task-scoped container. Host-local,
+legacy Docker-pool, and AI Simulation executors are no longer available.
 
-The system supports three Python executors:
+### Prerequisites
 
-1. **Docker Executor** (Recommended)
-2. **Local Executor**
-3. **AI Simulation Executor**
+- Spring AI Alibaba `1.1.2.2`
+- A reachable Docker daemon
+- The sandbox image available to that Docker daemon
+- Network access from the sandbox to the configured Python package index when installing dependencies
 
-### Docker Executor Configuration
+SQL-only requests do not create a sandbox. Docker is required only when the execution plan contains
+`PYTHON_GENERATE_NODE`.
 
-```yaml
-spring:
-  ai:
-    alibaba:
-      data-agent:
-        code-executor:
-          type: docker
-          docker:
-            image: continuumio/anaconda3:latest
-            timeout: 300000  # 5 minute timeout
-            memory-limit: 512m
-            cpu-limit: 1.0
-```
-
-### Local Executor Configuration
+### Configure the SAA Sandbox
 
 ```yaml
 spring:
@@ -415,25 +404,103 @@ spring:
     alibaba:
       data-agent:
         code-executor:
-          type: local
-          local:
-            python-path: /usr/bin/python3
-            timeout: 300000
-            work-dir: /tmp/dataagent
+          code-timeout: 60s
+          limit-memory: 500
+          cpu-core: 1
+          python-max-tries-count: 5
+          sandbox:
+            docker-host: ${DATAAGENT_SANDBOX_DOCKER_HOST:unix:///var/run/docker.sock}
+            image-name: ${DATAAGENT_SANDBOX_IMAGE:agentscope-registry.ap-southeast-1.cr.aliyuncs.com/agentscope/runtime-sandbox-base:latest}
+            max-concurrency: 4
+            queue-capacity: 10
+            max-connections: 4096
+            package-index-url: ${DATAAGENT_PYPI_INDEX_URL:https://pypi.org/simple}
+            dependency-install-timeout: 3m
 ```
 
-### AI Simulation Executor
+When `docker-host` is `tcp://host:port`, DataAgent explicitly connects to that endpoint. Other
+values use SAA/docker-java local Docker discovery. See
+[Developer Guide - Code Executor Configuration](DEVELOPER_GUIDE-en.md#5-code-executor-configuration)
+for all size, output, and metadata limits.
 
-Used for testing environments, doesn't actually execute Python code, but simulates execution results through AI:
+### Declare Dynamic Dependencies
 
-```yaml
-spring:
-  ai:
-    alibaba:
-      data-agent:
-        code-executor:
-          type: ai-simulation
+```python
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["pandas>=2,<3", "six==1.17.0"]
+# ///
+
+import pandas as pd
+import six
 ```
+
+A script may contain at most one PEP 723 `script` block. `dependencies` supports PyPI package
+names, extras, and version constraints. URLs, VCS references, local paths, environment markers,
+`@` references, and pip options are rejected before a container is created. The current version
+parses and preserves `requires-python`, but does not use it to switch or reject the runtime Python
+version.
+
+Every non-standard-library import should have a matching dependency. Scripts that use only the
+standard library may omit the metadata block.
+
+### Execution Lifecycle
+
+```mermaid
+sequenceDiagram
+  participant W as PythonExecuteNode
+  participant E as PythonCodeExecutorService
+  participant S as Task BaseSandbox
+  participant I as Fixed Installer Bootstrap
+  participant C as Fixed Code Bootstrap
+
+  W->>E: code + stdin JSON + validated dependencies
+  E->>S: create isolated sandbox
+  opt dependencies are declared
+    E->>I: install into /tmp/dataagent-deps
+    I-->>E: bounded result envelope
+  end
+  E->>C: execute code with PYTHONPATH and stdin
+  C-->>E: bounded stdout/stderr envelope
+  E-->>W: TaskResponse
+  E->>S: close and remove container
+```
+
+The installer invokes `python -m pip install` with a fixed argument list and never uses a shell.
+Code, stdin, the dependency list, and the package index are Base64 encoded before entering the
+bootstrap. The dependency directory exists only in the current task container.
+
+### Verification
+
+Submit an analysis request that explicitly requires Python and a third-party dependency. Success
+means:
+
+1. The timeline contains Python generation, execution, analysis, and a final report.
+2. Python stdout contains the dependency version and business JSON.
+3. Backend logs show sandbox creation, dependency installation, code execution, and container removal.
+4. `docker ps --format '{{.Names}}' | grep '^dataagent-sandbox-'` prints nothing.
+
+### Troubleshooting
+
+| Symptom | Cause and action |
+|---|---|
+| Docker connection fails | Run `docker info`; use `tcp://host:port` for a remote daemon and default discovery for local Docker |
+| `DependencyInstallError` | Check the package name, version, and index reachability; increase `dependency-install-timeout` or use a private caching proxy for large packages |
+| `Unsupported Python dependency specifier` | Remove URLs, VCS references, paths, markers, and pip options; keep only a package name and version constraints |
+| `Python sandbox capacity is exhausted` | Concurrency and the wait queue are full; reduce upstream concurrency or adjust `max-concurrency` and `queue-capacity` |
+| `Python sandbox task timed out` | Total time exceeded “install timeout + code timeout + 30 seconds”; inspect package download and code duration |
+| A container remains after a task | Check whether the application was force-killed; normal success and failure paths close the task sandbox, and application shutdown performs global cleanup |
+
+### Production Security Boundary
+
+Task containers are non-privileged and have CPU, memory, nofile, timeout, concurrency, input, and
+output limits. SAA `1.1.2.2` does not expose an API to disconnect the container immediately after
+dependency installation, so production must also:
+
+1. Use a pinned image digest and a non-root base image.
+2. Allow sandbox access only to an enterprise PyPI proxy; block public internet and business networks.
+3. Never inject database, model, OSS, or Docker credentials into the sandbox.
+4. Scan packages for malware, CVEs, and license policy at the proxy.
 
 ## Advanced Configuration Options
 

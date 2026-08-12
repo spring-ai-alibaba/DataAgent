@@ -17,9 +17,7 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app';
 
-const props = defineProps({
-	error: Object as () => NuxtError,
-});
+const props = defineProps<{ error: NuxtError }>();
 
 const statusCode = computed(() => props.error?.statusCode || 500);
 const statusText = computed(() => {

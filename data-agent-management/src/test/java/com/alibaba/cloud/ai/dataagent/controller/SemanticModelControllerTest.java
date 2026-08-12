@@ -222,7 +222,15 @@ class SemanticModelControllerTest {
 	void downloadTemplate_templateExists_returnsBytes() {
 		ResponseEntity<byte[]> result = controller.downloadTemplate();
 
-		assertNotNull(result);
+		assertEquals(200, result.getStatusCode().value());
+		assertEquals("application/octet-stream", result.getHeaders().getContentType().toString());
+		assertTrue(result.getHeaders().getContentDisposition().isAttachment());
+		assertTrue(result.getHeaders().getContentDisposition().getFilename().endsWith(".xlsx"));
+		byte[] body = result.getBody();
+		assertNotNull(body);
+		assertTrue(body.length > 4);
+		assertEquals('P', body[0]);
+		assertEquals('K', body[1]);
 	}
 
 }

@@ -73,4 +73,41 @@ class SqlUtilTest {
 		assertThrows(IllegalArgumentException.class, () -> SqlUtil.buildSelectSql("mysql", "", "*", 10));
 	}
 
+	@Test
+	void findGeneratedSqlValidationError_unresolvedPlaceholder_returnsError() {
+		var error = SqlUtil.findGeneratedSqlValidationError("SELECT id FROM users WHERE id = ?", "MySQL");
+
+		assertTrue(error.isPresent());
+		assertTrue(error.get().contains("unresolved '?'"));
+	}
+
+	@Test
+	void findGeneratedSqlValidationError_questionMarkLiteral_isValid() {
+		var error = SqlUtil.findGeneratedSqlValidationError("SELECT '?' AS marker", "MySQL");
+
+		assertTrue(error.isEmpty());
+	}
+
+	@Test
+	void findGeneratedSqlValidationError_postgresJsonOperator_isValid() {
+		var error = SqlUtil.findGeneratedSqlValidationError("SELECT payload ? 'customer_id' FROM events", "PostgreSQL");
+
+		assertTrue(error.isEmpty());
+	}
+
+	@Test
+	void findGeneratedSqlValidationError_multipleStatements_returnsError() {
+		var error = SqlUtil.findGeneratedSqlValidationError("SELECT 1; SELECT 2;", "MySQL");
+
+		assertTrue(error.isPresent());
+		assertTrue(error.get().contains("2 executable statements"));
+	}
+
+	@Test
+	void findGeneratedSqlValidationError_trailingSemicolon_isSingleStatement() {
+		var error = SqlUtil.findGeneratedSqlValidationError("SELECT ';' AS marker;", "MySQL");
+
+		assertTrue(error.isEmpty());
+	}
+
 }

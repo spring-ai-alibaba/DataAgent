@@ -22,6 +22,8 @@ import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+import java.time.Duration;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class SessionEventPublisherTest {
@@ -34,10 +36,14 @@ class SessionEventPublisherTest {
 	}
 
 	@Test
-	void register_returnsFlux() {
-		Flux<ServerSentEvent<SessionUpdateEvent>> flux = publisher.register(1);
-
-		assertNotNull(flux);
+	void register_emitsHeartbeatAfterSubscription() {
+		StepVerifier.withVirtualTime(() -> publisher.register(1).take(1))
+			.thenAwait(Duration.ofSeconds(2))
+			.assertNext(sse -> {
+				assertEquals("heartbeat", sse.comment());
+				assertNull(sse.data());
+			})
+			.verifyComplete();
 	}
 
 	@Test
@@ -45,25 +51,39 @@ class SessionEventPublisherTest {
 		Integer agentId = 1;
 		Flux<ServerSentEvent<SessionUpdateEvent>> flux = publisher.register(agentId);
 
-		publisher.publishTitleUpdated(agentId, "session-1", "New Title");
-
-		StepVerifier.create(flux.filter(sse -> sse.data() != null).take(1)).assertNext(sse -> {
-			SessionUpdateEvent event = sse.data();
-			assertNotNull(event);
-			assertEquals("session-1", event.getSessionId());
-			assertEquals("New Title", event.getTitle());
-			assertEquals(SessionUpdateEvent.TYPE_TITLE_UPDATED, event.getType());
-		}).verifyComplete();
+		StepVerifier.create(flux.filter(sse -> sse.data() != null).take(1))
+			.then(() -> publisher.publishTitleUpdated(agentId, "session-1", "New Title"))
+			.assertNext(sse -> {
+				SessionUpdateEvent event = sse.data();
+				assertNotNull(event);
+				assertEquals("session-1", event.getSessionId());
+				assertEquals("New Title", event.getTitle());
+				assertEquals(SessionUpdateEvent.TYPE_TITLE_UPDATED, event.getType());
+				assertEquals(SessionUpdateEvent.TYPE_TITLE_UPDATED, sse.event());
+			})
+			.verifyComplete();
 	}
 
 	@Test
 	void publishTitleUpdated_withNullAgentId_doesNotThrow() {
 		assertDoesNotThrow(() -> publisher.publishTitleUpdated(null, "session-1", "title"));
+
+		Flux<ServerSentEvent<SessionUpdateEvent>> flux = publisher.register(1);
+		StepVerifier.create(flux.filter(sse -> sse.data() != null).take(1))
+			.then(() -> publisher.publishTitleUpdated(1, "session-after-null", "Current Title"))
+			.assertNext(sse -> assertEquals("session-after-null", sse.data().getSessionId()))
+			.verifyComplete();
 	}
 
 	@Test
-	void publishTitleUpdated_withNoSubscribers_doesNotThrow() {
+	void publishTitleUpdated_withNoSubscribers_doesNotBufferStaleEvent() {
 		assertDoesNotThrow(() -> publisher.publishTitleUpdated(999, "session-1", "title"));
+
+		Flux<ServerSentEvent<SessionUpdateEvent>> flux = publisher.register(999);
+		StepVerifier.create(flux.filter(sse -> sse.data() != null).take(1))
+			.then(() -> publisher.publishTitleUpdated(999, "session-current", "Current Title"))
+			.assertNext(sse -> assertEquals("session-current", sse.data().getSessionId()))
+			.verifyComplete();
 	}
 
 }

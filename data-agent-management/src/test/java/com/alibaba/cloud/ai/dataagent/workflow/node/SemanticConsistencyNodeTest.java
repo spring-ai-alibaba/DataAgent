@@ -16,8 +16,10 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,24 +27,24 @@ import java.util.ArrayList;
 import java.util.Map;
 
 import com.alibaba.cloud.ai.dataagent.common.TestFixtures;
+import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
+import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeExecution;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import reactor.core.publisher.Flux;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class SemanticConsistencyNodeTest {
 
 	@Mock
@@ -93,11 +95,19 @@ class SemanticConsistencyNodeTest {
 		when(nl2SqlService.performSemanticConsistency(any(SemanticConsistencyDTO.class)))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"passed\":true,\"reason\":\"SQL语义一致\"}")));
 
-		Map<String, Object> result = semanticConsistencyNode.apply(state);
+		NodeExecution execution = execute(semanticConsistencyNode.apply(state), SEMANTIC_CONSISTENCY_NODE_OUTPUT);
+		ArgumentCaptor<SemanticConsistencyDTO> requestCaptor = ArgumentCaptor.forClass(SemanticConsistencyDTO.class);
+		verify(nl2SqlService).performSemanticConsistency(requestCaptor.capture());
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(SEMANTIC_CONSISTENCY_NODE_OUTPUT));
-		verify(nl2SqlService).performSemanticConsistency(any(SemanticConsistencyDTO.class));
+		assertEquals(true, execution.finalResult().get(SEMANTIC_CONSISTENCY_NODE_OUTPUT));
+		assertFalse(execution.finalResult().containsKey(SQL_REGENERATE_REASON));
+		assertEquals("mysql", requestCaptor.getValue().getDialect());
+		assertEquals("SELECT * FROM users", requestCaptor.getValue().getSql());
+		assertEquals("Query all users", requestCaptor.getValue().getExecutionDescription());
+		assertEquals("查询用户", requestCaptor.getValue().getUserQuery());
+		assertEquals("test evidence", requestCaptor.getValue().getEvidence());
+		assertTrue(execution.streamedText().contains("开始语义一致性校验"));
+		assertTrue(execution.streamedText().contains("语义一致性校验完成"));
 	}
 
 	@Test
@@ -108,10 +118,11 @@ class SemanticConsistencyNodeTest {
 		when(nl2SqlService.performSemanticConsistency(any(SemanticConsistencyDTO.class)))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"passed\":false,\"reason\":\"表不存在\"}")));
 
-		Map<String, Object> result = semanticConsistencyNode.apply(state);
+		NodeExecution execution = execute(semanticConsistencyNode.apply(state), SEMANTIC_CONSISTENCY_NODE_OUTPUT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(SEMANTIC_CONSISTENCY_NODE_OUTPUT));
+		assertEquals(false, execution.finalResult().get(SEMANTIC_CONSISTENCY_NODE_OUTPUT));
+		SqlRetryDto retry = (SqlRetryDto) execution.finalResult().get(SQL_REGENERATE_REASON);
+		assertEquals(new SqlRetryDto("表不存在", true, false), retry);
 	}
 
 	@Test
@@ -121,7 +132,9 @@ class SemanticConsistencyNodeTest {
 		state.updateState(Map.of(TABLE_RELATION_OUTPUT, createSimpleSchema(), DB_DIALECT_TYPE, "mysql",
 				SQL_GENERATE_OUTPUT, "SELECT 1", QUERY_ENHANCE_NODE_OUTPUT, dto));
 
-		assertThrows(IllegalStateException.class, () -> semanticConsistencyNode.apply(state));
+		IllegalStateException exception = assertThrows(IllegalStateException.class,
+				() -> semanticConsistencyNode.apply(state));
+		assertTrue(exception.getMessage().contains(EVIDENCE));
 	}
 
 	@Test
@@ -131,7 +144,9 @@ class SemanticConsistencyNodeTest {
 		state.updateState(Map.of(EVIDENCE, "evidence", TABLE_RELATION_OUTPUT, createSimpleSchema(), DB_DIALECT_TYPE,
 				"mysql", QUERY_ENHANCE_NODE_OUTPUT, dto));
 
-		assertThrows(IllegalStateException.class, () -> semanticConsistencyNode.apply(state));
+		IllegalStateException exception = assertThrows(IllegalStateException.class,
+				() -> semanticConsistencyNode.apply(state));
+		assertTrue(exception.getMessage().contains(SQL_GENERATE_OUTPUT));
 	}
 
 	@Test
@@ -143,10 +158,9 @@ class SemanticConsistencyNodeTest {
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"passed\":true,"),
 					ChatResponseUtil.createPureResponse("\"reason\":\"SQL查询合理\"}")));
 
-		Map<String, Object> result = semanticConsistencyNode.apply(state);
+		NodeExecution execution = execute(semanticConsistencyNode.apply(state), SEMANTIC_CONSISTENCY_NODE_OUTPUT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(SEMANTIC_CONSISTENCY_NODE_OUTPUT));
+		assertEquals(true, execution.finalResult().get(SEMANTIC_CONSISTENCY_NODE_OUTPUT));
 	}
 
 	@Test
@@ -161,10 +175,13 @@ class SemanticConsistencyNodeTest {
 		when(nl2SqlService.performSemanticConsistency(any(SemanticConsistencyDTO.class)))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"passed\":true,\"reason\":\"通过\"}")));
 
-		Map<String, Object> result = semanticConsistencyNode.apply(state);
+		NodeExecution execution = execute(semanticConsistencyNode.apply(state), SEMANTIC_CONSISTENCY_NODE_OUTPUT);
+		ArgumentCaptor<SemanticConsistencyDTO> requestCaptor = ArgumentCaptor.forClass(SemanticConsistencyDTO.class);
+		verify(nl2SqlService).performSemanticConsistency(requestCaptor.capture());
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(SEMANTIC_CONSISTENCY_NODE_OUTPUT));
+		assertEquals(true, execution.finalResult().get(SEMANTIC_CONSISTENCY_NODE_OUTPUT));
+		assertEquals("postgresql", requestCaptor.getValue().getDialect());
+		assertEquals("SELECT * FROM users", requestCaptor.getValue().getSql());
 	}
 
 	@Test
@@ -175,7 +192,39 @@ class SemanticConsistencyNodeTest {
 		when(nl2SqlService.performSemanticConsistency(any(SemanticConsistencyDTO.class)))
 			.thenThrow(new RuntimeException("Service unavailable"));
 
-		assertThrows(RuntimeException.class, () -> semanticConsistencyNode.apply(state));
+		RuntimeException exception = assertThrowsExactly(RuntimeException.class,
+				() -> semanticConsistencyNode.apply(state));
+		assertEquals("Service unavailable", exception.getMessage());
+	}
+
+	@Test
+	void apply_unresolvedPlaceholder_skipsLlmAndRequestsRegeneration() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state, "SELECT id FROM users WHERE id = ?");
+
+		Map<String, Object> result = execute(semanticConsistencyNode.apply(state), SEMANTIC_CONSISTENCY_NODE_OUTPUT)
+			.finalResult();
+
+		assertEquals(false, result.get(SEMANTIC_CONSISTENCY_NODE_OUTPUT));
+		SqlRetryDto retry = (SqlRetryDto) result.get(SQL_REGENERATE_REASON);
+		assertTrue(retry.semanticFail());
+		assertTrue(retry.reason().contains("unresolved '?'"));
+		verify(nl2SqlService, never()).performSemanticConsistency(any(SemanticConsistencyDTO.class));
+	}
+
+	@Test
+	void apply_multipleStatements_skipsLlmAndRequestsRegeneration() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state, "SELECT id FROM users; SELECT name FROM users;");
+
+		Map<String, Object> result = execute(semanticConsistencyNode.apply(state), SEMANTIC_CONSISTENCY_NODE_OUTPUT)
+			.finalResult();
+
+		assertEquals(false, result.get(SEMANTIC_CONSISTENCY_NODE_OUTPUT));
+		SqlRetryDto retry = (SqlRetryDto) result.get(SQL_REGENERATE_REASON);
+		assertTrue(retry.semanticFail());
+		assertTrue(retry.reason().contains("2 executable statements"));
+		verify(nl2SqlService, never()).performSemanticConsistency(any(SemanticConsistencyDTO.class));
 	}
 
 }

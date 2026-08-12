@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector.impls.sqlserver;
 
+import static com.alibaba.cloud.ai.dataagent.support.ExceptionTestSupport.assertRuntimeCause;
+
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
@@ -77,7 +79,7 @@ class SqlServerJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> sqlServerJdbcDdl.showDatabases(connection));
+			assertRuntimeCause(SQLException.class, "error", () -> sqlServerJdbcDdl.showDatabases(connection));
 		}
 	}
 
@@ -197,7 +199,8 @@ class SqlServerJdbcDdlTest {
 				.thenReturn(expected);
 
 			ResultSetBO result = sqlServerJdbcDdl.scanTable(connection, "dbo", "Users");
-			assertNotNull(result);
+			assertSame(expected, result);
+			ms.verify(() -> SqlExecutor.executeSqlAndReturnObject(connection, "dbo", "SELECT TOP 20 * FROM Users"));
 		}
 	}
 
@@ -207,7 +210,8 @@ class SqlServerJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnObject(any(Connection.class), anyString(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> sqlServerJdbcDdl.scanTable(connection, "dbo", "Users"));
+			assertRuntimeCause(SQLException.class, "error",
+					() -> sqlServerJdbcDdl.scanTable(connection, "dbo", "Users"));
 		}
 	}
 
@@ -251,7 +255,7 @@ class SqlServerJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> sqlServerJdbcDdl.showSchemas(connection));
+			assertRuntimeCause(SQLException.class, "error", () -> sqlServerJdbcDdl.showSchemas(connection));
 		}
 	}
 
@@ -296,7 +300,7 @@ class SqlServerJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> sqlServerJdbcDdl.showTables(connection, "dbo", null));
+			assertRuntimeCause(SQLException.class, "error", () -> sqlServerJdbcDdl.showTables(connection, "dbo", null));
 		}
 	}
 
@@ -341,7 +345,7 @@ class SqlServerJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class,
+			assertRuntimeCause(SQLException.class, "error",
 					() -> sqlServerJdbcDdl.fetchTables(connection, "dbo", Arrays.asList("Users")));
 		}
 	}
@@ -378,7 +382,8 @@ class SqlServerJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> sqlServerJdbcDdl.showColumns(connection, "dbo", "Users"));
+			assertRuntimeCause(SQLException.class, "error",
+					() -> sqlServerJdbcDdl.showColumns(connection, "dbo", "Users"));
 		}
 	}
 
@@ -415,7 +420,7 @@ class SqlServerJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class,
+			assertRuntimeCause(SQLException.class, "error",
 					() -> sqlServerJdbcDdl.showForeignKeys(connection, "dbo", Arrays.asList("Orders")));
 		}
 	}

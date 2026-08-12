@@ -16,37 +16,44 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node.sql;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
+import org.springframework.ai.chat.model.ChatResponse;
 
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DisplayStyleBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ResultSetBO;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
 import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
+import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeExecution;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
 import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
@@ -57,9 +64,9 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class SqlExecuteNodeTest {
 
 	private static final String TEST_PLAN_JSON = """
@@ -136,27 +143,6 @@ class SqlExecuteNodeTest {
 		when(databaseUtil.getAgentAccessor(1L)).thenReturn(accessor);
 	}
 
-	@SuppressWarnings("unchecked")
-	private SqlExecution subscribeToExecution(OverAllState state) throws Exception {
-		Map<String, Object> result = sqlExecuteNode.apply(state);
-		Flux<GraphResponse<StreamingOutput>> generator = (Flux<GraphResponse<StreamingOutput>>) result
-			.get(SQL_EXECUTE_NODE_OUTPUT);
-		List<GraphResponse<StreamingOutput>> responses = generator.collectList().block(Duration.ofSeconds(2));
-		assertNotNull(responses);
-
-		String streamedText = responses.stream()
-			.filter(response -> !response.isDone() && !response.isError())
-			.map(response -> response.getOutput().join().chunk())
-			.collect(Collectors.joining());
-		Map<String, Object> finalResult = responses.stream()
-			.filter(GraphResponse::isDone)
-			.findFirst()
-			.flatMap(GraphResponse::resultValue)
-			.map(value -> (Map<String, Object>) value)
-			.orElseThrow();
-		return new SqlExecution(streamedText, finalResult);
-	}
-
 	private ResultBO extractResultSetPayload(String streamedText) throws Exception {
 		return extractResultSetPayloads(streamedText).get(0);
 	}
@@ -181,28 +167,36 @@ class SqlExecuteNodeTest {
 		return payloads;
 	}
 
-	private record SqlExecution(String streamedText, Map<String, Object> finalResult) {
+	private String streamedText(List<GraphResponse<StreamingOutput>> responses) {
+		return responses.stream()
+			.filter(response -> !response.isDone() && !response.isError())
+			.map(response -> response.getOutput().join().chunk())
+			.collect(Collectors.joining());
 	}
 
 	@Test
 	void validSelectQuery_executesSuccessfully_returnsResults() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
-
-		DbConfigBO dbConfig = new DbConfigBO();
-		dbConfig.setSchema("test_schema");
+		setupBasicMocks();
 
 		ResultSetBO resultSetBO = new ResultSetBO();
-		resultSetBO.setData(new ArrayList<>());
-
-		when(nl2SqlService.sqlTrim(any())).thenReturn("SELECT * FROM users");
-		when(databaseUtil.getAgentDbConfig(1L)).thenReturn(dbConfig);
-		when(databaseUtil.getAgentAccessor(1L)).thenReturn(accessor);
+		resultSetBO.setColumn(List.of("id", "name"));
+		resultSetBO.setData(List.of(Map.of("id", "1", "name", "Alice")));
 		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
 
-		Map<String, Object> result = sqlExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(sqlExecuteNode.apply(state), SQL_EXECUTE_NODE_OUTPUT);
+		ResultBO payload = extractResultSetPayload(execution.streamedText());
+
+		assertEquals(resultSetBO, payload.getResultSet());
+		assertEquals("table", payload.getDisplayStyle().getType());
+		assertEquals(resultSetBO.getData(), execution.finalResult().get(SQL_RESULT_LIST_MEMORY));
+		assertEquals(SqlRetryDto.empty(), execution.finalResult().get(SQL_REGENERATE_REASON));
+		assertEquals(2, execution.finalResult().get(PLAN_CURRENT_STEP));
+		ArgumentCaptor<DbQueryParameter> query = ArgumentCaptor.forClass(DbQueryParameter.class);
+		verify(accessor).executeSqlAndReturnObject(any(DbConfigBO.class), query.capture());
+		assertEquals("SELECT * FROM users", query.getValue().getSql());
+		assertEquals("test_schema", query.getValue().getSchema());
 	}
 
 	@Test
@@ -212,20 +206,18 @@ class SqlExecuteNodeTest {
 				Map.of(SQL_GENERATE_OUTPUT, "SELECT id, name, age FROM users", AGENT_ID, "1", PLANNER_NODE_OUTPUT,
 						TEST_PLAN_JSON, PLAN_CURRENT_STEP, 1, QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE));
 
-		DbConfigBO dbConfig = new DbConfigBO();
-		dbConfig.setSchema("test_schema");
+		setupBasicMocks();
 
 		ResultSetBO resultSetBO = new ResultSetBO();
-		resultSetBO.setData(new ArrayList<>());
-
-		when(nl2SqlService.sqlTrim(any())).thenReturn("SELECT id, name, age FROM users");
-		when(databaseUtil.getAgentDbConfig(1L)).thenReturn(dbConfig);
-		when(databaseUtil.getAgentAccessor(1L)).thenReturn(accessor);
+		resultSetBO.setColumn(List.of("id", "name", "age"));
+		resultSetBO.setData(List.of(Map.of("id", "7", "name", "Bob", "age", "42")));
 		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
 
-		Map<String, Object> result = sqlExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(sqlExecuteNode.apply(state), SQL_EXECUTE_NODE_OUTPUT);
+		ResultSetBO actual = extractResultSetPayload(execution.streamedText()).getResultSet();
+
+		assertEquals(List.of("id", "name", "age"), actual.getColumn());
+		assertEquals(resultSetBO.getData(), actual.getData());
 	}
 
 	@Test
@@ -237,10 +229,12 @@ class SqlExecuteNodeTest {
 		when(accessor.executeSqlAndReturnObject(any(), any()))
 			.thenThrow(new RuntimeException("Table 'users' doesn't exist"));
 
-		Map<String, Object> result = sqlExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(SQL_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(sqlExecuteNode.apply(state), SQL_EXECUTE_NODE_OUTPUT);
+
+		assertEquals(SqlRetryDto.sqlExecute("Table 'users' doesn't exist"),
+				execution.finalResult().get(SQL_REGENERATE_REASON));
+		assertTrue(execution.streamedText().contains("SQL执行失败: Table 'users' doesn't exist"));
+		assertFalse(execution.finalResult().containsKey(PLAN_CURRENT_STEP));
 	}
 
 	@Test
@@ -251,7 +245,7 @@ class SqlExecuteNodeTest {
 		when(nl2SqlService.sqlTrim(any())).thenAnswer(inv -> inv.getArgument(0));
 		when(databaseUtil.getAgentDbConfig(1L)).thenThrow(new RuntimeException("Connection refused"));
 
-		assertThrows(RuntimeException.class, () -> sqlExecuteNode.apply(state));
+		assertThrowsExactly(RuntimeException.class, () -> sqlExecuteNode.apply(state));
 	}
 
 	@Test
@@ -262,7 +256,22 @@ class SqlExecuteNodeTest {
 
 		when(nl2SqlService.sqlTrim(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		assertThrows(Exception.class, () -> sqlExecuteNode.apply(state));
+		IllegalStateException exception = assertThrowsExactly(IllegalStateException.class,
+				() -> sqlExecuteNode.apply(state));
+		assertEquals("State key not found: agentId", exception.getMessage());
+	}
+
+	@Test
+	void apply_blankAgentId_throwsExplicitException() {
+		OverAllState state = createTestState();
+		state.updateState(Map.of(SQL_GENERATE_OUTPUT, "SELECT * FROM users", PLANNER_NODE_OUTPUT, TEST_PLAN_JSON,
+				PLAN_CURRENT_STEP, 1, AGENT_ID, ""));
+
+		when(nl2SqlService.sqlTrim(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		IllegalStateException exception = assertThrowsExactly(IllegalStateException.class,
+				() -> sqlExecuteNode.apply(state));
+		assertEquals("Agent ID cannot be empty.", exception.getMessage());
 	}
 
 	@Test
@@ -276,10 +285,52 @@ class SqlExecuteNodeTest {
 
 		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
 
-		Map<String, Object> result = sqlExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(SQL_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(sqlExecuteNode.apply(state), SQL_EXECUTE_NODE_OUTPUT);
+		ResultBO payload = extractResultSetPayload(execution.streamedText());
+
+		assertEquals(resultSetBO, payload.getResultSet());
+		assertEquals(List.of(), execution.finalResult().get(SQL_RESULT_LIST_MEMORY));
+		assertEquals(SqlRetryDto.empty(), execution.finalResult().get(SQL_REGENERATE_REASON));
+	}
+
+	@Test
+	void apply_multipleSqlSteps_keepsCurrentMemoryAndStepHistorySeparate() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		setupBasicMocks();
+		List<Map<String, String>> previousRows = List.of(Map.of("department", "sales"));
+		String twoStepPlan = """
+				{
+				  "thought_process": "查询两个部门",
+				  "execution_plan": [
+				    {
+				      "step": 1,
+				      "tool_to_use": "sql_execute_node",
+				      "tool_parameters": {"instruction": "查询销售部门"}
+				    },
+				    {
+				      "step": 2,
+				      "tool_to_use": "sql_execute_node",
+				      "tool_parameters": {"instruction": "查询工程部门"}
+				    }
+				  ]
+				}
+				""";
+		state.updateState(Map.of(SQL_RESULT_LIST_MEMORY, previousRows, SQL_EXECUTE_NODE_OUTPUT,
+				Map.of("step_1", "{\"data\":[{\"department\":\"sales\"}]}"), PLAN_CURRENT_STEP, 2, PLANNER_NODE_OUTPUT,
+				twoStepPlan));
+
+		ResultSetBO resultSetBO = new ResultSetBO();
+		resultSetBO.setData(List.of(Map.of("department", "engineering")));
+		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
+
+		NodeExecution execution = execute(sqlExecuteNode.apply(state), SQL_EXECUTE_NODE_OUTPUT);
+
+		assertEquals(List.of(Map.of("department", "engineering")), execution.finalResult().get(SQL_RESULT_LIST_MEMORY));
+		Map<String, String> stepResults = (Map<String, String>) execution.finalResult().get(SQL_EXECUTE_NODE_OUTPUT);
+		assertEquals(2, stepResults.size());
+		assertTrue(stepResults.get("step_1").contains("sales"));
+		assertTrue(stepResults.get("step_2").contains("engineering"));
 	}
 
 	@Test
@@ -293,10 +344,13 @@ class SqlExecuteNodeTest {
 
 		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
 
-		Map<String, Object> result = sqlExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(SQL_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(sqlExecuteNode.apply(state), SQL_EXECUTE_NODE_OUTPUT);
+		ResultBO payload = extractResultSetPayload(execution.streamedText());
+
+		assertNull(payload.getResultSet().getData());
+		assertTrue(execution.finalResult().containsKey(SQL_RESULT_LIST_MEMORY));
+		assertNull(execution.finalResult().get(SQL_RESULT_LIST_MEMORY));
+		assertEquals(SqlRetryDto.empty(), execution.finalResult().get(SQL_REGENERATE_REASON));
 	}
 
 	@Test
@@ -315,7 +369,7 @@ class SqlExecuteNodeTest {
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"type\":\"bar\"}")));
 		when(llmService.toStringFlux(any())).thenCallRealMethod();
 
-		SqlExecution execution = subscribeToExecution(state);
+		NodeExecution execution = execute(sqlExecuteNode.apply(state), SQL_EXECUTE_NODE_OUTPUT);
 		List<ResultBO> payloads = extractResultSetPayloads(execution.streamedText());
 
 		assertEquals(resultSetBO, payloads.get(0).getResultSet());
@@ -339,7 +393,7 @@ class SqlExecuteNodeTest {
 		when(llmService.call(anyString(), anyString(), eq(DisplayStyleBO.class))).thenReturn(Flux.never());
 		when(llmService.toStringFlux(any())).thenCallRealMethod();
 
-		SqlExecution execution = subscribeToExecution(state);
+		NodeExecution execution = execute(sqlExecuteNode.apply(state), SQL_EXECUTE_NODE_OUTPUT);
 		ResultBO payload = extractResultSetPayload(execution.streamedText());
 
 		assertEquals(resultSetBO, payload.getResultSet());
@@ -360,22 +414,35 @@ class SqlExecuteNodeTest {
 		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
 		when(properties.isEnableSqlResultChart()).thenReturn(true);
 		when(properties.getEnrichSqlResultTimeout()).thenReturn(5000L);
-		when(llmService.call(anyString(), anyString(), eq(DisplayStyleBO.class))).thenReturn(Flux.never());
+		CountDownLatch chartSubscribed = new CountDownLatch(1);
+		CountDownLatch completed = new CountDownLatch(1);
+		Sinks.One<ChatResponse> chartResponse = Sinks.one();
+		when(llmService.call(anyString(), anyString(), eq(DisplayStyleBO.class))).thenReturn(Flux.defer(() -> {
+			chartSubscribed.countDown();
+			return chartResponse.asMono().flux();
+		}));
 		when(llmService.toStringFlux(any())).thenCallRealMethod();
 
 		Map<String, Object> result = sqlExecuteNode.apply(state);
 		Flux<GraphResponse<StreamingOutput>> generator = (Flux<GraphResponse<StreamingOutput>>) result
 			.get(SQL_EXECUTE_NODE_OUTPUT);
-		GraphResponse<StreamingOutput> response = generator
-			.filter(item -> !item.isDone() && !item.isError()
-					&& item.getOutput().join().chunk().contains("\"displayStyle\""))
-			.next()
-			.block(Duration.ofSeconds(1));
+		List<GraphResponse<StreamingOutput>> responses = new CopyOnWriteArrayList<>();
+		AtomicReference<Throwable> failure = new AtomicReference<>();
+		generator.subscribe(responses::add, failure::set, completed::countDown);
 
-		assertNotNull(response);
-		ResultBO payload = JsonUtil.getObjectMapper().readValue(response.getOutput().join().chunk(), ResultBO.class);
-		assertEquals(resultSetBO, payload.getResultSet());
-		assertEquals("table", payload.getDisplayStyle().getType());
+		assertTrue(chartSubscribed.await(1, TimeUnit.SECONDS), "chart generation was not subscribed");
+		List<ResultBO> pendingPayloads = extractResultSetPayloads(streamedText(responses));
+		assertEquals(1, pendingPayloads.size());
+		assertEquals(resultSetBO, pendingPayloads.get(0).getResultSet());
+		assertEquals("table", pendingPayloads.get(0).getDisplayStyle().getType());
+		assertEquals(1L, completed.getCount(), "stream must still wait for the chart response");
+
+		chartResponse.tryEmitValue(ChatResponseUtil.createPureResponse("{\"type\":\"bar\"}"));
+		assertTrue(completed.await(1, TimeUnit.SECONDS), "stream did not complete after chart response");
+		assertNull(failure.get());
+		List<ResultBO> completedPayloads = extractResultSetPayloads(streamedText(responses));
+		assertEquals(List.of("table", "bar"),
+				completedPayloads.stream().map(payload -> payload.getDisplayStyle().getType()).toList());
 	}
 
 	@Test
@@ -390,9 +457,8 @@ class SqlExecuteNodeTest {
 		resultSetBO.setData(new ArrayList<>(List.of(Map.of("name", "Alice"))));
 
 		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
-		when(properties.isEnableSqlResultChart()).thenReturn(true);
 
-		SqlExecution execution = subscribeToExecution(state);
+		NodeExecution execution = execute(sqlExecuteNode.apply(state), SQL_EXECUTE_NODE_OUTPUT);
 		ResultBO payload = extractResultSetPayload(execution.streamedText());
 
 		assertEquals(resultSetBO, payload.getResultSet());
@@ -419,14 +485,16 @@ class SqlExecuteNodeTest {
 
 		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
 
-		Map<String, Object> result = sqlExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(SQL_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(sqlExecuteNode.apply(state), SQL_EXECUTE_NODE_OUTPUT);
+		ResultSetBO actual = extractResultSetPayload(execution.streamedText()).getResultSet();
+
+		assertEquals(dataWithNulls, actual.getData());
+		assertNull(actual.getData().get(0).get("name"));
+		assertEquals(dataWithNulls, execution.finalResult().get(SQL_RESULT_LIST_MEMORY));
 	}
 
 	@Test
-	void apply_largeResultSet_truncatesAppropriately() throws Exception {
+	void apply_largeResultSet_preservesAllRows() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 		setupBasicMocks();
@@ -441,10 +509,13 @@ class SqlExecuteNodeTest {
 
 		when(accessor.executeSqlAndReturnObject(any(), any())).thenReturn(resultSetBO);
 
-		Map<String, Object> result = sqlExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(SQL_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(sqlExecuteNode.apply(state), SQL_EXECUTE_NODE_OUTPUT);
+		ResultSetBO actual = extractResultSetPayload(execution.streamedText()).getResultSet();
+
+		assertEquals(1000, actual.getData().size());
+		assertEquals(Map.of("id", "0", "name", "user_0"), actual.getData().get(0));
+		assertEquals(Map.of("id", "999", "name", "user_999"), actual.getData().get(999));
+		assertEquals(largeData, execution.finalResult().get(SQL_RESULT_LIST_MEMORY));
 	}
 
 }

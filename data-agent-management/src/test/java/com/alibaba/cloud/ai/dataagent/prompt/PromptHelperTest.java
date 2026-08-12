@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.prompt;
 
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
@@ -70,6 +71,45 @@ class PromptHelperTest {
 		assertTrue(result.contains("test_db"));
 		assertTrue(result.contains("users"));
 		assertTrue(result.contains("BIGINT"));
+	}
+
+	@Test
+	void buildNewSqlGeneratorPrompt_includesPreviousStepResults() {
+		SqlGenerationDTO dto = SqlGenerationDTO.builder()
+			.dialect("mysql")
+			.query("查询用户订单")
+			.schemaDTO(createTestSchema())
+			.evidence("")
+			.executionDescription("根据前一步用户ID查询订单")
+			.previousStepResults("step_1:\n{\"data\":[{\"id\":42}]}")
+			.build();
+
+		String result = PromptHelper.buildNewSqlGeneratorPrompt(dto);
+
+		assertTrue(result.contains("前序步骤执行结果"));
+		assertTrue(result.contains("\"id\":42"));
+		assertTrue(result.contains("替换 `?` 等占位符"));
+		assertTrue(result.contains("一条可执行 SQL 语句"));
+	}
+
+	@Test
+	void buildSqlErrorFixerPrompt_includesPreviousResultsAndStructuralConstraints() {
+		SqlGenerationDTO dto = SqlGenerationDTO.builder()
+			.dialect("mysql")
+			.query("查询用户订单")
+			.schemaDTO(createTestSchema())
+			.evidence("")
+			.executionDescription("根据前一步用户ID查询订单")
+			.previousStepResults("step_1:\n{\"data\":[{\"id\":42}]}")
+			.sql("SELECT id FROM users WHERE id = ?")
+			.exceptionMessage("Unresolved placeholder")
+			.build();
+
+		String result = PromptHelper.buildSqlErrorFixerPrompt(dto);
+
+		assertTrue(result.contains("\"id\":42"));
+		assertTrue(result.contains("一条可执行 SQL 语句"));
+		assertTrue(result.contains("不得残留 `?`"));
 	}
 
 	@Test
@@ -203,13 +243,13 @@ class PromptHelperTest {
 	@Test
 	void buildBusinessKnowledgePrompt_blankContent_usesDefault() {
 		String result = PromptHelper.buildBusinessKnowledgePrompt("");
-		assertNotNull(result);
+		assertTrue(result.contains("<business_knowledge>\n无\n</business_knowledge>"));
 	}
 
 	@Test
 	void buildBusinessKnowledgePrompt_nullContent_usesDefault() {
 		String result = PromptHelper.buildBusinessKnowledgePrompt(null);
-		assertNotNull(result);
+		assertTrue(result.contains("<business_knowledge>\n无\n</business_knowledge>"));
 	}
 
 	@Test
@@ -222,13 +262,13 @@ class PromptHelperTest {
 	@Test
 	void buildAgentKnowledgePrompt_blankContent_usesDefault() {
 		String result = PromptHelper.buildAgentKnowledgePrompt("");
-		assertNotNull(result);
+		assertTrue(result.contains("<agent_knowledge>\n无\n</agent_knowledge>"));
 	}
 
 	@Test
 	void buildAgentKnowledgePrompt_nullContent_usesDefault() {
 		String result = PromptHelper.buildAgentKnowledgePrompt(null);
-		assertNotNull(result);
+		assertTrue(result.contains("<agent_knowledge>\n无\n</agent_knowledge>"));
 	}
 
 	@Test
@@ -240,19 +280,23 @@ class PromptHelperTest {
 			.build();
 
 		String result = PromptHelper.buildSemanticModelPrompt(Arrays.asList(model));
-		assertNotNull(result);
+		assertTrue(result.contains("业务名称: User Name"));
+		assertTrue(result.contains("表名: users"));
+		assertTrue(result.contains("数据库字段名: name"));
 	}
 
 	@Test
 	void buildSemanticModelPrompt_emptyModels_handlesGracefully() {
 		String result = PromptHelper.buildSemanticModelPrompt(Collections.emptyList());
-		assertNotNull(result);
+		assertTrue(result.contains("<semantic_model>"));
+		assertTrue(result.contains("</semantic_model>"));
+		assertFalse(result.contains("业务名称:"));
 	}
 
 	@Test
 	void buildSemanticModelPrompt_nullModels_handlesGracefully() {
 		String result = PromptHelper.buildSemanticModelPrompt(null);
-		assertNotNull(result);
+		assertEquals(PromptHelper.buildSemanticModelPrompt(Collections.emptyList()), result);
 	}
 
 	@Test
@@ -267,7 +311,9 @@ class PromptHelperTest {
 	@Test
 	void buildIntentRecognitionPrompt_nullMultiTurn_usesDefault() {
 		String result = PromptHelper.buildIntentRecognitionPrompt(null, "What is the total sales?");
-		assertNotNull(result);
+		assertTrue(result.contains("(无)"));
+		assertTrue(result.contains("What is the total sales?"));
+		assertTrue(result.contains("classification"));
 	}
 
 	@Test
@@ -280,59 +326,79 @@ class PromptHelperTest {
 	@Test
 	void buildQueryEnhancePrompt_emptyEvidence_usesDefault() {
 		String result = PromptHelper.buildQueryEnhancePrompt("history", "latest query", "");
-		assertNotNull(result);
+		assertTrue(result.contains("history"));
+		assertTrue(result.contains("latest query"));
+		assertTrue(result.contains("无"));
 	}
 
 	@Test
 	void buildQueryEnhancePrompt_nullMultiTurn_usesDefault() {
 		String result = PromptHelper.buildQueryEnhancePrompt(null, "latest query", "evidence");
-		assertNotNull(result);
+		assertTrue(result.contains("(无)"));
+		assertTrue(result.contains("latest query"));
+		assertTrue(result.contains("evidence"));
 	}
 
 	@Test
 	void buildEvidenceQueryRewritePrompt_withMultiTurn_includesHistory() {
 		String result = PromptHelper.buildEvidenceQueryRewritePrompt("history", "latest query");
-		assertNotNull(result);
+		assertTrue(result.contains("history"));
+		assertTrue(result.contains("latest query"));
+		assertTrue(result.contains("standalone_query"));
 	}
 
 	@Test
 	void buildEvidenceQueryRewritePrompt_nullMultiTurn_usesDefault() {
 		String result = PromptHelper.buildEvidenceQueryRewritePrompt(null, "latest query");
-		assertNotNull(result);
+		assertTrue(result.contains("(无)"));
+		assertTrue(result.contains("latest query"));
 	}
 
 	@Test
 	void buildFeasibilityAssessmentPrompt_withAllParams_buildsPrompt() {
 		SchemaDTO schema = createTestSchema();
 		String result = PromptHelper.buildFeasibilityAssessmentPrompt("query", schema, "evidence", "history");
-		assertNotNull(result);
+		assertTrue(result.contains("query"));
+		assertTrue(result.contains("evidence"));
+		assertTrue(result.contains("history"));
+		assertTrue(result.contains("# Table: users"));
+		assertTrue(result.contains("requirementType"));
 	}
 
 	@Test
 	void buildFeasibilityAssessmentPrompt_nullParams_handlesGracefully() {
 		SchemaDTO schema = createTestSchema();
 		String result = PromptHelper.buildFeasibilityAssessmentPrompt(null, schema, null, null);
-		assertNotNull(result);
+		assertTrue(result.contains("(无)"));
+		assertTrue(result.contains("# Table: users"));
+		assertFalse(result.contains("<canonical_query>\nnull"));
+		assertFalse(result.contains("<evidence>\nnull"));
 	}
 
 	@Test
 	void buildReportGeneratorPromptWithOptimization_noOptimizations_buildsPrompt() {
 		String result = PromptHelper.buildReportGeneratorPromptWithOptimization("requirements", "steps", "summary",
 				null);
-		assertNotNull(result);
+		assertTrue(result.contains("requirements"));
+		assertTrue(result.contains("steps"));
+		assertTrue(result.contains("summary"));
+		assertFalse(result.contains("## 优化要求"));
 	}
 
 	@Test
 	void buildReportGeneratorPromptWithOptimization_emptyOptimizations_buildsPrompt() {
 		String result = PromptHelper.buildReportGeneratorPromptWithOptimization("requirements", "steps", "summary",
 				new ArrayList<>());
-		assertNotNull(result);
+		assertEquals(PromptHelper.buildReportGeneratorPromptWithOptimization("requirements", "steps", "summary", null),
+				result);
 	}
 
 	@Test
 	void buildDataViewAnalysisPrompt_returnsNonNull() {
 		String result = PromptHelper.buildDataViewAnalysisPrompt();
-		assertNotNull(result);
+		assertTrue(result.contains("`table`、`column`、`bar`、`line` 或 `pie`"));
+		assertTrue(result.contains("\"type\""));
+		assertTrue(result.contains("\"title\""));
 	}
 
 }

@@ -16,18 +16,20 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node.sql;
 
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SqlRetryDto;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
+import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeExecution;
 import com.alibaba.cloud.ai.dataagent.workflow.node.SqlGenerateNode;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
@@ -36,12 +38,12 @@ import java.util.List;
 import java.util.Map;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class SqlGenerateNodeTest {
 
 	private static final String TEST_PLAN_JSON = """
@@ -109,6 +111,7 @@ class SqlGenerateNodeTest {
 		state.registerKeyAndStrategy(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(DB_DIALECT_TYPE, new ReplaceStrategy());
 		state.registerKeyAndStrategy(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
 		return state;
 	}
 
@@ -118,17 +121,22 @@ class SqlGenerateNodeTest {
 				TABLE_RELATION_OUTPUT, TEST_SCHEMA));
 	}
 
+	private void stubGeneratedSql(String sql) {
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just(sql));
+		when(nl2SqlService.sqlTrim(any())).thenAnswer(invocation -> invocation.getArgument(0));
+	}
+
 	@Test
 	void simpleSelectQuery_validInput_generatesValidSql() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
-		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM users"));
+		stubGeneratedSql("SELECT * FROM users");
 
-		Map<String, Object> result = sqlGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals("SELECT * FROM users", execution.finalResult().get(SQL_GENERATE_OUTPUT));
+		assertEquals(1, execution.finalResult().get(SQL_GENERATE_COUNT));
 	}
 
 	@Test
@@ -137,11 +145,10 @@ class SqlGenerateNodeTest {
 		setupBasicState(state);
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
-		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM users WHERE age > 18"));
+		stubGeneratedSql("SELECT * FROM users WHERE age > 18");
 
-		Map<String, Object> result = sqlGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals("SELECT * FROM users WHERE age > 18", execution.finalResult().get(SQL_GENERATE_OUTPUT));
 	}
 
 	@Test
@@ -150,12 +157,11 @@ class SqlGenerateNodeTest {
 		setupBasicState(state);
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
-		when(nl2SqlService.generateSql(any()))
-			.thenReturn(Flux.just("SELECT u.*, o.* FROM users u JOIN orders o ON u.id = o.user_id"));
+		String sql = "SELECT u.*, o.* FROM users u JOIN orders o ON u.id = o.user_id";
+		stubGeneratedSql(sql);
 
-		Map<String, Object> result = sqlGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals(sql, execution.finalResult().get(SQL_GENERATE_OUTPUT));
 	}
 
 	@Test
@@ -167,9 +173,11 @@ class SqlGenerateNodeTest {
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
 
-		Map<String, Object> result = sqlGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals(StateGraph.END, execution.finalResult().get(SQL_GENERATE_OUTPUT));
+		assertEquals(0, execution.finalResult().get(SQL_GENERATE_COUNT));
+		assertTrue(execution.streamedText().contains("最大尝试次数：10"));
+		verifyNoInteractions(nl2SqlService);
 	}
 
 	@Test
@@ -180,7 +188,7 @@ class SqlGenerateNodeTest {
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
 		when(nl2SqlService.generateSql(any())).thenThrow(new RuntimeException("NL2SQL service unavailable"));
 
-		assertThrows(RuntimeException.class, () -> sqlGenerateNode.apply(state));
+		assertThrowsExactly(RuntimeException.class, () -> sqlGenerateNode.apply(state));
 	}
 
 	@Test
@@ -191,7 +199,8 @@ class SqlGenerateNodeTest {
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
 
-		assertThrows(Exception.class, () -> sqlGenerateNode.apply(state));
+		IllegalStateException exception = assertThrows(IllegalStateException.class, () -> sqlGenerateNode.apply(state));
+		assertEquals("State key not found: " + TABLE_RELATION_OUTPUT, exception.getMessage());
 	}
 
 	@Test
@@ -203,7 +212,8 @@ class SqlGenerateNodeTest {
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
 
-		assertThrows(Exception.class, () -> sqlGenerateNode.apply(state));
+		IllegalStateException exception = assertThrows(IllegalStateException.class, () -> sqlGenerateNode.apply(state));
+		assertEquals("计划节点输出为空", exception.getMessage());
 	}
 
 	@Test
@@ -215,11 +225,66 @@ class SqlGenerateNodeTest {
 						SQL_GENERATE_OUTPUT, "SELECT * FROM nonexistent"));
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
-		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM users"));
+		stubGeneratedSql("SELECT * FROM users");
 
-		Map<String, Object> result = sqlGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals("SELECT * FROM users", execution.finalResult().get(SQL_GENERATE_OUTPUT));
+		ArgumentCaptor<SqlGenerationDTO> requestCaptor = ArgumentCaptor.forClass(SqlGenerationDTO.class);
+		verify(nl2SqlService).generateSql(requestCaptor.capture());
+		assertEquals("SELECT * FROM nonexistent", requestCaptor.getValue().getSql());
+		assertEquals("SQL execution error: table not found", requestCaptor.getValue().getExceptionMessage());
+	}
+
+	@Test
+	void apply_executionRetryReturnsSameSql_stopsRetryLoop() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		state.updateState(Map.of(SQL_REGENERATE_REASON, SqlRetryDto.sqlExecute("same database error"),
+				SQL_GENERATE_OUTPUT, "SELECT * FROM users;"));
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM users"));
+		when(nl2SqlService.sqlTrim(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+
+		assertEquals(StateGraph.END, execution.finalResult().get(SQL_GENERATE_OUTPUT));
+		assertTrue(execution.streamedText().contains("已停止重试"));
+	}
+
+	@Test
+	void apply_laterStep_includesPreviousSqlResults() throws Exception {
+		OverAllState state = createTestState();
+		String multiStepPlan = """
+				{
+				  "thought_process": "先查用户再查订单",
+				  "execution_plan": [
+				    {
+				      "step": 1,
+				      "tool_to_use": "sql_generate_node",
+				      "tool_parameters": {"instruction": "查询目标用户"}
+				    },
+				    {
+				      "step": 2,
+				      "tool_to_use": "sql_generate_node",
+				      "tool_parameters": {"instruction": "根据用户ID查询订单"}
+				    }
+				  ]
+				}
+				""";
+		state.updateState(Map.of(SQL_GENERATE_COUNT, 0, PLANNER_NODE_OUTPUT, multiStepPlan, PLAN_CURRENT_STEP, 2,
+				EVIDENCE, "test evidence", DB_DIALECT_TYPE, "mysql", QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE,
+				TABLE_RELATION_OUTPUT, TEST_SCHEMA, SQL_EXECUTE_NODE_OUTPUT,
+				Map.of("step_1", "{\"data\":[{\"passport_id\":\"P100\"}]}")));
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM orders"));
+
+		sqlGenerateNode.apply(state);
+
+		ArgumentCaptor<SqlGenerationDTO> requestCaptor = ArgumentCaptor.forClass(SqlGenerationDTO.class);
+		verify(nl2SqlService).generateSql(requestCaptor.capture());
+		assertTrue(requestCaptor.getValue().getPreviousStepResults().contains("step_1"));
+		assertTrue(requestCaptor.getValue().getPreviousStepResults().contains("P100"));
 	}
 
 	@Test
@@ -231,11 +296,14 @@ class SqlGenerateNodeTest {
 				"SELECT count(*) FROM orders"));
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
-		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT sum(amount) FROM orders"));
+		stubGeneratedSql("SELECT sum(amount) FROM orders");
 
-		Map<String, Object> result = sqlGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals("SELECT sum(amount) FROM orders", execution.finalResult().get(SQL_GENERATE_OUTPUT));
+		ArgumentCaptor<SqlGenerationDTO> requestCaptor = ArgumentCaptor.forClass(SqlGenerationDTO.class);
+		verify(nl2SqlService).generateSql(requestCaptor.capture());
+		assertEquals("SELECT count(*) FROM orders", requestCaptor.getValue().getSql());
+		assertEquals("Semantic check failed: query intent mismatch", requestCaptor.getValue().getExceptionMessage());
 	}
 
 	@Test
@@ -246,11 +314,13 @@ class SqlGenerateNodeTest {
 				TABLE_RELATION_OUTPUT, TEST_SCHEMA));
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
-		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM users"));
+		stubGeneratedSql("SELECT * FROM users");
 
-		Map<String, Object> result = sqlGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals("SELECT * FROM users", execution.finalResult().get(SQL_GENERATE_OUTPUT));
+		ArgumentCaptor<SqlGenerationDTO> requestCaptor = ArgumentCaptor.forClass(SqlGenerationDTO.class);
+		verify(nl2SqlService).generateSql(requestCaptor.capture());
+		assertEquals("", requestCaptor.getValue().getEvidence());
 	}
 
 	@Test
@@ -259,12 +329,11 @@ class SqlGenerateNodeTest {
 		setupBasicState(state);
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
-		when(nl2SqlService.generateSql(any()))
-			.thenReturn(Flux.just("SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)"));
+		String sql = "SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)";
+		stubGeneratedSql(sql);
 
-		Map<String, Object> result = sqlGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals(sql, execution.finalResult().get(SQL_GENERATE_OUTPUT));
 	}
 
 	@Test
@@ -273,12 +342,11 @@ class SqlGenerateNodeTest {
 		setupBasicState(state);
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
-		when(nl2SqlService.generateSql(any()))
-			.thenReturn(Flux.just("SELECT `user-name`, `order#id` FROM `special_table`"));
+		String sql = "SELECT `user-name`, `order#id` FROM `special_table`";
+		stubGeneratedSql(sql);
 
-		Map<String, Object> result = sqlGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals(sql, execution.finalResult().get(SQL_GENERATE_OUTPUT));
 	}
 
 	@Test
@@ -295,11 +363,10 @@ class SqlGenerateNodeTest {
 		longSql.append(" FROM large_table WHERE id > 0");
 
 		when(properties.getMaxSqlRetryCount()).thenReturn(10);
-		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just(longSql.toString()));
+		stubGeneratedSql(longSql.toString());
 
-		Map<String, Object> result = sqlGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals(longSql.toString(), execution.finalResult().get(SQL_GENERATE_OUTPUT));
 	}
 
 	@Test
@@ -311,10 +378,9 @@ class SqlGenerateNodeTest {
 		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("```sql\nSELECT * FROM users\n```"));
 		when(nl2SqlService.sqlTrim(any())).thenReturn("SELECT * FROM users");
 
-		Map<String, Object> result = sqlGenerateNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
-		assertNotNull(result.get(SQL_GENERATE_OUTPUT));
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals("SELECT * FROM users", execution.finalResult().get(SQL_GENERATE_OUTPUT));
+		assertTrue(execution.streamedText().contains("SELECT * FROM users"));
 	}
 
 }

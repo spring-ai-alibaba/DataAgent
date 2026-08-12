@@ -16,12 +16,13 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node.python;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -29,36 +30,41 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
-import com.alibaba.cloud.ai.dataagent.service.code.CodePoolExecutorService;
+import com.alibaba.cloud.ai.dataagent.service.code.PythonCodeExecutorService;
+import com.alibaba.cloud.ai.dataagent.service.code.sandbox.dependency.PythonDependencyMetadataParser;
+import com.alibaba.cloud.ai.dataagent.service.code.sandbox.dependency.PythonDependencyPolicy;
+import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeExecution;
 import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.dataagent.workflow.node.PythonExecuteNode;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class PythonExecuteNodeTest {
 
 	@Mock
-	private CodePoolExecutorService codePoolExecutor;
+	private PythonCodeExecutorService pythonCodeExecutor;
+
+	private PythonDependencyMetadataParser dependencyMetadataParser;
 
 	@Mock
 	private JsonParseUtil jsonParseUtil;
 
-	@Mock
 	private CodeExecutorProperties codeExecutorProperties;
 
 	private PythonExecuteNode pythonExecuteNode;
 
 	@BeforeEach
 	void setUp() {
-		when(codeExecutorProperties.getPythonMaxTriesCount()).thenReturn(5);
-		pythonExecuteNode = new PythonExecuteNode(codePoolExecutor, jsonParseUtil, codeExecutorProperties);
+		codeExecutorProperties = new CodeExecutorProperties();
+		dependencyMetadataParser = new PythonDependencyMetadataParser(
+				new PythonDependencyPolicy(codeExecutorProperties));
+		pythonExecuteNode = new PythonExecuteNode(pythonCodeExecutor, dependencyMetadataParser, jsonParseUtil,
+				codeExecutorProperties);
 	}
 
 	private OverAllState createTestState() {
@@ -69,6 +75,7 @@ class PythonExecuteNodeTest {
 		state.registerKeyAndStrategy(PYTHON_TRIES_COUNT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PYTHON_FALLBACK_MODE, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_RESULT_LIST_MEMORY, new ReplaceStrategy());
+		state.registerKeyAndStrategy(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
 		return state;
 	}
 
@@ -81,13 +88,13 @@ class PythonExecuteNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success("hello world"));
+		when(pythonCodeExecutor.runTask(any()))
+			.thenReturn(PythonCodeExecutorService.TaskResponse.success("hello world"));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
 
-		Map<String, Object> result = pythonExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonExecuteNode.apply(state), PYTHON_EXECUTE_NODE_OUTPUT);
+		assertEquals("hello world", execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT));
+		assertEquals(true, execution.finalResult().get(PYTHON_IS_SUCCESS));
 	}
 
 	@Test
@@ -96,15 +103,14 @@ class PythonExecuteNodeTest {
 		state.updateState(Map.of(PYTHON_GENERATE_NODE_OUTPUT, "import json\nprint(json.dumps({'key': 'value'}))"));
 
 		String jsonOutput = "{\"key\": \"value\"}";
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success(jsonOutput));
+		when(pythonCodeExecutor.runTask(any())).thenReturn(PythonCodeExecutorService.TaskResponse.success(jsonOutput));
 
 		Map<String, Object> parsed = Map.of("key", "value");
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(parsed);
 
-		Map<String, Object> result = pythonExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonExecuteNode.apply(state), PYTHON_EXECUTE_NODE_OUTPUT);
+		assertEquals("{\"key\":\"value\"}", execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT));
+		assertEquals(true, execution.finalResult().get(PYTHON_IS_SUCCESS));
 	}
 
 	@Test
@@ -113,13 +119,12 @@ class PythonExecuteNodeTest {
 		setupBasicState(state);
 		state.updateState(Map.of(PYTHON_TRIES_COUNT, 1));
 
-		when(codePoolExecutor.runTask(any()))
-			.thenReturn(CodePoolExecutorService.TaskResponse.failure("", "NameError: name 'x' is not defined"));
+		when(pythonCodeExecutor.runTask(any()))
+			.thenReturn(PythonCodeExecutorService.TaskResponse.failure("", "NameError: name 'x' is not defined"));
 
-		Map<String, Object> result = pythonExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonExecuteNode.apply(state), PYTHON_EXECUTE_NODE_OUTPUT);
+		assertEquals(false, execution.finalResult().get(PYTHON_IS_SUCCESS));
+		assertTrue(execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT).toString().contains("NameError"));
 	}
 
 	@Test
@@ -128,13 +133,13 @@ class PythonExecuteNodeTest {
 		setupBasicState(state);
 		state.updateState(Map.of(PYTHON_TRIES_COUNT, 6));
 
-		when(codePoolExecutor.runTask(any()))
-			.thenReturn(CodePoolExecutorService.TaskResponse.failure("", "SyntaxError"));
+		when(pythonCodeExecutor.runTask(any()))
+			.thenReturn(PythonCodeExecutorService.TaskResponse.failure("", "SyntaxError"));
 
-		Map<String, Object> result = pythonExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonExecuteNode.apply(state), PYTHON_EXECUTE_NODE_OUTPUT);
+		assertEquals("{}", execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT));
+		assertEquals(false, execution.finalResult().get(PYTHON_IS_SUCCESS));
+		assertEquals(true, execution.finalResult().get(PYTHON_FALLBACK_MODE));
 	}
 
 	@Test
@@ -143,13 +148,12 @@ class PythonExecuteNodeTest {
 		setupBasicState(state);
 
 		String rawOutput = "not json content";
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success(rawOutput));
+		when(pythonCodeExecutor.runTask(any())).thenReturn(PythonCodeExecutorService.TaskResponse.success(rawOutput));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
 
-		Map<String, Object> result = pythonExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonExecuteNode.apply(state), PYTHON_EXECUTE_NODE_OUTPUT);
+		assertEquals(rawOutput, execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT));
+		assertEquals(true, execution.finalResult().get(PYTHON_IS_SUCCESS));
 	}
 
 	@Test
@@ -158,15 +162,15 @@ class PythonExecuteNodeTest {
 		state.updateState(Map.of(PYTHON_GENERATE_NODE_OUTPUT, "print('你好世界')"));
 
 		String unicodeOutput = "{\"message\": \"\\u4f60\\u597d\\u4e16\\u754c\"}";
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success(unicodeOutput));
+		when(pythonCodeExecutor.runTask(any()))
+			.thenReturn(PythonCodeExecutorService.TaskResponse.success(unicodeOutput));
 
 		Map<String, Object> parsed = Map.of("message", "你好世界");
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(parsed);
 
-		Map<String, Object> result = pythonExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonExecuteNode.apply(state), PYTHON_EXECUTE_NODE_OUTPUT);
+		assertEquals("{\"message\":\"你好世界\"}", execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT));
+		assertEquals(true, execution.finalResult().get(PYTHON_IS_SUCCESS));
 	}
 
 	@Test
@@ -174,31 +178,37 @@ class PythonExecuteNodeTest {
 		OverAllState state = createTestState();
 		setupBasicState(state);
 
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success(""));
+		when(pythonCodeExecutor.runTask(any())).thenReturn(PythonCodeExecutorService.TaskResponse.success(""));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
 
-		Map<String, Object> result = pythonExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonExecuteNode.apply(state), PYTHON_EXECUTE_NODE_OUTPUT);
+		assertEquals("", execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT));
+		assertEquals(true, execution.finalResult().get(PYTHON_IS_SUCCESS));
 	}
 
 	@Test
-	void apply_withSqlResultsAsCSV_passesCorrectly() throws Exception {
+	void apply_withMultipleSqlResults_passesOrderedResultSetsToPython() throws Exception {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(PYTHON_GENERATE_NODE_OUTPUT, "print('processed')"));
-		List<Map<String, String>> sqlResults = new ArrayList<>();
-		sqlResults.add(Map.of("name", "Alice", "amount", "100"));
-		sqlResults.add(Map.of("name", "Bob", "amount", "200"));
-		state.updateState(Map.of(SQL_RESULT_LIST_MEMORY, sqlResults));
+		state.updateState(Map.of(SQL_RESULT_LIST_MEMORY,
+				List.of(Map.of("department", "engineering", "headcount", "20")), SQL_EXECUTE_NODE_OUTPUT,
+				Map.of("step_2", "{\"data\":[{\"department\":\"engineering\",\"headcount\":\"20\"}]}", "step_1",
+						"{\"data\":[{\"department\":\"sales\",\"revenue\":\"100\"}]}")));
 
-		when(codePoolExecutor.runTask(any())).thenReturn(CodePoolExecutorService.TaskResponse.success("processed"));
+		when(pythonCodeExecutor.runTask(any())).thenReturn(PythonCodeExecutorService.TaskResponse.success("processed"));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
 
-		Map<String, Object> result = pythonExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonExecuteNode.apply(state), PYTHON_EXECUTE_NODE_OUTPUT);
+		assertEquals("processed", execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT));
+
+		ArgumentCaptor<PythonCodeExecutorService.TaskRequest> request = ArgumentCaptor
+			.forClass(PythonCodeExecutorService.TaskRequest.class);
+		verify(pythonCodeExecutor).runTask(request.capture());
+		String input = request.getValue().input();
+		String message = "Expected ordered sales and engineering result sets, but Python received: " + input;
+		assertTrue(input.startsWith("[[{"), message);
+		assertTrue(input.indexOf("sales") < input.indexOf("engineering"), message);
+		assertTrue(input.endsWith("}]]"), message);
 	}
 
 	@Test
@@ -211,14 +221,35 @@ class PythonExecuteNodeTest {
 			largeOutput.append("line ").append(i).append(": data_value_").append(i).append("\n");
 		}
 
-		when(codePoolExecutor.runTask(any()))
-			.thenReturn(CodePoolExecutorService.TaskResponse.success(largeOutput.toString()));
+		when(pythonCodeExecutor.runTask(any()))
+			.thenReturn(PythonCodeExecutorService.TaskResponse.success(largeOutput.toString()));
 		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
 
-		Map<String, Object> result = pythonExecuteNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
-		assertNotNull(result.get(PYTHON_EXECUTE_NODE_OUTPUT));
+		NodeExecution execution = execute(pythonExecuteNode.apply(state), PYTHON_EXECUTE_NODE_OUTPUT);
+		assertEquals(largeOutput.toString(), execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT));
+		assertEquals(true, execution.finalResult().get(PYTHON_IS_SUCCESS));
+	}
+
+	@Test
+	void apply_pep723Dependencies_passesStructuredDependenciesToSandbox() throws Exception {
+		OverAllState state = createTestState();
+		String code = """
+				# /// script
+				# dependencies = ["pandas>=2,<3"]
+				# ///
+				print("{}")
+				""";
+		state.updateState(Map.of(PYTHON_GENERATE_NODE_OUTPUT, code));
+		when(pythonCodeExecutor.runTask(any())).thenReturn(PythonCodeExecutorService.TaskResponse.success("{}"));
+		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class))).thenReturn(null);
+
+		NodeExecution execution = execute(pythonExecuteNode.apply(state), PYTHON_EXECUTE_NODE_OUTPUT);
+		assertEquals("{}", execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT));
+
+		ArgumentCaptor<PythonCodeExecutorService.TaskRequest> requestCaptor = ArgumentCaptor
+			.forClass(PythonCodeExecutorService.TaskRequest.class);
+		org.mockito.Mockito.verify(pythonCodeExecutor).runTask(requestCaptor.capture());
+		assertEquals(List.of("pandas>=2,<3"), requestCaptor.getValue().dependencies());
 	}
 
 }

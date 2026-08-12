@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.verify;
@@ -27,23 +28,22 @@ import java.util.Map;
 
 import com.alibaba.cloud.ai.dataagent.common.TestFixtures;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
+import com.alibaba.cloud.ai.dataagent.enums.TextType;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.service.prompt.UserPromptService;
+import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeExecution;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import reactor.core.publisher.Flux;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class ReportGeneratorNodeTest {
 
 	@Mock
@@ -92,10 +92,13 @@ class ReportGeneratorNodeTest {
 		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("<h1>用户数据分析报告</h1>")));
 
-		Map<String, Object> result = reportGeneratorNode.apply(state);
+		NodeExecution execution = execute(reportGeneratorNode.apply(state), RESULT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(RESULT));
+		assertEquals(expectedReport("<h1>用户数据分析报告</h1>"), execution.finalResult().get(RESULT));
+		assertTrue(execution.finalResult().containsKey(SQL_EXECUTE_NODE_OUTPUT));
+		assertNull(execution.finalResult().get(SQL_EXECUTE_NODE_OUTPUT));
+		assertNull(execution.finalResult().get(PLAN_CURRENT_STEP));
+		assertNull(execution.finalResult().get(PLANNER_NODE_OUTPUT));
 		verify(llmService).callUser(anyString());
 	}
 
@@ -113,10 +116,12 @@ class ReportGeneratorNodeTest {
 			.thenReturn(Collections.emptyList());
 		when(llmService.callUser(anyString())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("暂无数据可分析")));
 
-		Map<String, Object> result = reportGeneratorNode.apply(state);
+		NodeExecution execution = execute(reportGeneratorNode.apply(state), RESULT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(RESULT));
+		assertEquals(expectedReport("暂无数据可分析"), execution.finalResult().get(RESULT));
+		ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(prompt.capture());
+		assertTrue(prompt.getValue().contains("暂无执行结果数据"));
 	}
 
 	@Test
@@ -139,10 +144,13 @@ class ReportGeneratorNodeTest {
 		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("<h1>综合报告</h1>")));
 
-		Map<String, Object> result = reportGeneratorNode.apply(state);
+		NodeExecution execution = execute(reportGeneratorNode.apply(state), RESULT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(RESULT));
+		assertEquals(expectedReport("<h1>综合报告</h1>"), execution.finalResult().get(RESULT));
+		ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(prompt.capture());
+		assertTrue(prompt.getValue().contains("\"total\":1000"));
+		assertTrue(prompt.getValue().contains("\"customers\":50"));
 	}
 
 	@Test
@@ -154,7 +162,9 @@ class ReportGeneratorNodeTest {
 			.thenReturn(Collections.emptyList());
 		when(llmService.callUser(anyString())).thenThrow(new RuntimeException("LLM unavailable"));
 
-		assertThrows(RuntimeException.class, () -> reportGeneratorNode.apply(state));
+		RuntimeException exception = assertThrowsExactly(RuntimeException.class,
+				() -> reportGeneratorNode.apply(state));
+		assertEquals("LLM unavailable", exception.getMessage());
 	}
 
 	@Test
@@ -171,10 +181,10 @@ class ReportGeneratorNodeTest {
 			.thenReturn(Collections.emptyList());
 		when(llmService.callUser(anyString())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("report")));
 
-		Map<String, Object> result = reportGeneratorNode.apply(state);
+		NodeExecution execution = execute(reportGeneratorNode.apply(state), RESULT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(RESULT));
+		assertEquals(expectedReport("report"), execution.finalResult().get(RESULT));
+		verify(promptConfigService).getOptimizationConfigs("report-generator", null);
 	}
 
 	@Test
@@ -184,7 +194,9 @@ class ReportGeneratorNodeTest {
 		state.updateState(
 				Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, PLAN_CURRENT_STEP, 1, SQL_EXECUTE_NODE_OUTPUT, new HashMap<>()));
 
-		assertThrows(IllegalStateException.class, () -> reportGeneratorNode.apply(state));
+		IllegalStateException exception = assertThrows(IllegalStateException.class,
+				() -> reportGeneratorNode.apply(state));
+		assertEquals("State key not found: " + PLANNER_NODE_OUTPUT, exception.getMessage());
 	}
 
 	@Test
@@ -196,7 +208,9 @@ class ReportGeneratorNodeTest {
 		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planJson, QUERY_ENHANCE_NODE_OUTPUT, dto, PLAN_CURRENT_STEP, 5,
 				SQL_EXECUTE_NODE_OUTPUT, new HashMap<>(), AGENT_ID, "1"));
 
-		assertThrows(IllegalStateException.class, () -> reportGeneratorNode.apply(state));
+		IllegalStateException exception = assertThrows(IllegalStateException.class,
+				() -> reportGeneratorNode.apply(state));
+		assertEquals("Current step index out of range: 4", exception.getMessage());
 	}
 
 	@Test
@@ -218,10 +232,16 @@ class ReportGeneratorNodeTest {
 		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("<p>分析完成</p>")));
 
-		Map<String, Object> result = reportGeneratorNode.apply(state);
+		NodeExecution execution = execute(reportGeneratorNode.apply(state), RESULT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(RESULT));
+		assertEquals(expectedReport("<p>分析完成</p>"), execution.finalResult().get(RESULT));
+		ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(prompt.capture());
+		assertTrue(prompt.getValue().contains("数据趋势上升"));
+	}
+
+	private String expectedReport(String content) {
+		return TextType.MARK_DOWN.getStartSign() + content + TextType.MARK_DOWN.getEndSign();
 	}
 
 	@Test

@@ -131,6 +131,15 @@ public interface AgentKnowledgeMapper {
 			""")
 	List<AgentKnowledge> selectPendingAndRecalled();
 
+	@Update("""
+			UPDATE agent_knowledge
+			SET embedding_status = 'PENDING', error_msg = 'Recovered stale PROCESSING job', updated_time = NOW()
+			WHERE embedding_status = 'PROCESSING'
+			  AND is_deleted = 0
+			  AND updated_time < #{beforeTime}
+			""")
+	int resetStaleProcessing(@Param("beforeTime") LocalDateTime beforeTime);
+
 	/**
 	 * 查询待清理的“僵尸”记录 条件：is_deleted = 1 AND is_resource_cleaned = 0 AND updated_time <(当前时间
 	 * - N分钟)

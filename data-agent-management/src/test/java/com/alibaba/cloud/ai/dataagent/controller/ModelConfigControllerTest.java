@@ -84,18 +84,13 @@ class ModelConfigControllerTest {
 	}
 
 	@Test
-	void testConnection_validConfig_returnsSuccess() {
-		ModelConfigDTO config = ModelConfigDTO.builder()
-			.provider("openai")
-			.baseUrl("https://api.openai.com")
-			.modelName("gpt-4")
-			.modelType("CHAT")
-			.build();
-		doNothing().when(modelConfigOpsService).testConnection(any(ModelConfigDTO.class));
+	void testConnection_validId_returnsSuccess() {
+		doNothing().when(modelConfigOpsService).testConnection(1);
 
-		ApiResponse<String> result = modelConfigController.testConnection(config);
+		ApiResponse<String> result = modelConfigController.testConnection(1);
 
 		assertTrue(result.isSuccess());
+		verify(modelConfigOpsService).testConnection(1);
 	}
 
 	@Test

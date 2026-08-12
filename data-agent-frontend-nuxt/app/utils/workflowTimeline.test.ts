@@ -15,11 +15,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { TextType, type GraphNodeResponse } from '../services/graph/index';
 import {
-	TextType,
-	type GraphNodeResponse,
-} from '../services/graph/index';
-import { groupWorkflowTimeline } from './workflowTimeline';
+	groupWorkflowTimeline,
+	segmentWorkflowContent,
+} from './workflowTimeline';
 
 function event(
 	nodeName: string,
@@ -86,5 +86,53 @@ describe('groupWorkflowTimeline', () => {
 
 		expect(groups).toHaveLength(1);
 		expect(groups[0]?.items).toHaveLength(2);
+	});
+});
+
+describe('segmentWorkflowContent', () => {
+	it('keeps streamed SQL as a code segment between status messages', () => {
+		const segments = segmentWorkflowContent([
+			event('SqlGenerateNode', '开始生成SQL...\n'),
+			event('SqlGenerateNode', 'select', { textType: TextType.SQL }),
+			event('SqlGenerateNode', ' * from users', {
+				textType: TextType.SQL,
+			}),
+			event('SqlGenerateNode', 'SQL生成完成\n'),
+		]);
+
+		expect(segments.map((segment) => segment.kind)).toEqual([
+			'text',
+			'code',
+			'text',
+		]);
+		expect(segments[1]?.items.map((item) => item.text).join('')).toBe(
+			'select * from users',
+		);
+	});
+
+	it('keeps executed SQL separate from surrounding execution text', () => {
+		const segments = segmentWorkflowContent([
+			event('SqlExecuteNode', '开始执行SQL...\n'),
+			event('SqlExecuteNode', '执行SQL查询：\n'),
+			event('SqlExecuteNode', 'select 1\n', { textType: TextType.SQL }),
+			event('SqlExecuteNode', '执行SQL完成\n'),
+			event('SqlExecuteNode', 'SQL查询结果：\n'),
+		]);
+
+		expect(segments).toHaveLength(3);
+		expect(segments[0]?.items).toHaveLength(2);
+		expect(segments[1]?.kind).toBe('code');
+		expect(segments[1]?.items[0]?.textType).toBe(TextType.SQL);
+		expect(segments[2]?.items).toHaveLength(2);
+	});
+
+	it('does not merge adjacent code written in different languages', () => {
+		const segments = segmentWorkflowContent([
+			event('MixedNode', 'select 1', { textType: TextType.SQL }),
+			event('MixedNode', 'print(1)', { textType: TextType.PYTHON }),
+		]);
+
+		expect(segments).toHaveLength(2);
+		expect(segments.every((segment) => segment.kind === 'code')).toBe(true);
 	});
 });

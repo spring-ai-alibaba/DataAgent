@@ -9,7 +9,7 @@
   </p>
 
   <p>
-    <a href="https://github.com/alibaba/spring-ai-alibaba"><img src="https://img.shields.io/badge/Spring%20AI%20Alibaba-1.1.0.0-blue" alt="Spring AI Alibaba"></a>
+    <a href="https://github.com/alibaba/spring-ai-alibaba"><img src="https://img.shields.io/badge/Spring%20AI%20Alibaba-1.1.2.2-blue" alt="Spring AI Alibaba"></a>
     <img src="https://img.shields.io/badge/Spring%20Boot-3.4.8+-green" alt="Spring Boot">
     <img src="https://img.shields.io/badge/Java-17+-orange" alt="Java">
     <img src="https://img.shields.io/badge/License-Apache%202.0-red" alt="License">
@@ -46,7 +46,7 @@
 | 特性 | 说明 |
 | :--- | :--- |
 | **智能数据分析** | 基于 StateGraph 的 Text-to-SQL 转换，支持复杂的多表查询和多轮对话意图理解。 |
-| **Python 深度分析** | 内置 Docker/Local Python 执行器，自动生成并执行 Python 代码进行统计分析与机器学习预测。 |
+| **Python 深度分析** | 基于 Spring AI Alibaba Sandbox 在任务级容器中执行生成代码，支持 PEP 723 动态依赖、资源限制、失败重试与自动清理。 |
 | **智能报告生成** | 分析结果自动汇总为包含 ECharts 图表的 HTML/Markdown 报告，所见即所得。 |
 | **人工反馈机制** | 独创的 Human-in-the-loop 机制，支持用户在计划生成阶段进行干预和调整。 |
 | **RAG 检索增强** | 集成向量数据库，支持对业务元数据、术语库的语义检索，提升 SQL生成准确率。 |
@@ -66,7 +66,9 @@
 ### 1. 准备环境
 - JDK 17+
 - MySQL 5.7+
-- Node.js 16+
+- Node.js 22+
+- pnpm 11+
+- Docker（工作流需要执行 Python 步骤时必需）
 
 ### 2. 启动服务
 
@@ -75,12 +77,11 @@
 mysql -u root -p < data-agent-management/src/main/resources/sql/schema.sql
 
 # 2. 启动后端
-cd data-agent-management
-./mvnw spring-boot:run
+./mvnw -pl data-agent-management spring-boot:run
 
-# 3. 启动前端
-cd data-agent-frontend
-npm install && npm run dev
+# 3. 在另一个终端启动前端
+cd data-agent-frontend-nuxt
+pnpm install && pnpm dev
 ```
 
 ### 3. 访问系统
@@ -93,7 +94,7 @@ npm install && npm run dev
 | [快速开始](docs/QUICK_START.md) | 环境要求、数据库导入、基础配置、系统初体验 |
 | [架构设计](docs/ARCHITECTURE.md) | 系统分层架构、StateGraph与工作流设计、核心模块时序图 |
 | [开发者指南](docs/DEVELOPER_GUIDE.md) | 开发环境搭建、详细配置手册、代码规范、扩展开发(向量库/模型) |
-| [高级功能](docs/ADVANCED_FEATURES.md) | API Key 调用、MCP 服务器配置、自定义混合检索策略、Python执行器配置 |
+| [高级功能](docs/ADVANCED_FEATURES.md) | API Key 调用、MCP 服务器配置、自定义混合检索策略、SAA Python 沙盒与动态依赖 |
 | [知识配置最佳实践](docs/KNOWLEDGE_USAGE.md) | 语义模型，业务知识，智能体知识的解释和使用 |
 
 ## 🤝 加入社区 & 贡献

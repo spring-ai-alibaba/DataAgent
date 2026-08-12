@@ -15,6 +15,7 @@
  */
 
 import { $fetch } from 'ofetch';
+import type { Datasource } from './datasource';
 
 export interface ApiResponse<T> {
 	success: boolean;
@@ -28,7 +29,7 @@ export interface AgentDatasource {
 	datasourceId?: number;
 	isActive?: number;
 	selectTables?: string[];
-	datasource?: any;
+	datasource?: Datasource;
 }
 
 export interface UpdateDatasourceTablesDto {

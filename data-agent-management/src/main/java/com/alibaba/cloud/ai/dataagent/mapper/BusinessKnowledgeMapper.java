@@ -18,6 +18,7 @@ package com.alibaba.cloud.ai.dataagent.mapper;
 import com.alibaba.cloud.ai.dataagent.entity.BusinessKnowledge;
 import org.apache.ibatis.annotations.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -95,6 +96,15 @@ public interface BusinessKnowledgeMapper {
 			WHERE agent_id = #{agentId} AND is_recall = 1 AND is_deleted = 0
 			""")
 	List<Long> selectRecalledKnowledgeIds(@Param("agentId") Long agentId);
+
+	@Update("""
+			UPDATE business_knowledge
+			SET embedding_status = 'PENDING', error_msg = 'Recovered stale PROCESSING job', updated_time = NOW()
+			WHERE embedding_status = 'PROCESSING'
+			  AND is_deleted = 0
+			  AND updated_time < #{beforeTime}
+			""")
+	int resetStaleProcessing(@Param("beforeTime") LocalDateTime beforeTime);
 
 	@Update("""
 			UPDATE business_knowledge

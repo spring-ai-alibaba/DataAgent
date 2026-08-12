@@ -30,6 +30,18 @@ public interface AgentDatasourceTablesMapper {
 	@Select("select table_name from agent_datasource_tables where agent_datasource_id = #{agentDatasourceId}")
 	List<String> getAgentDatasourceTables(@Param("agentDatasourceId") int agentDatasourceId);
 
+	/**
+	 * Get the union of tables selected by every agent that shares a datasource.
+	 */
+	@Select("""
+			SELECT DISTINCT adt.table_name
+			FROM agent_datasource_tables adt
+			JOIN agent_datasource ad ON ad.id = adt.agent_datasource_id
+			WHERE ad.datasource_id = #{datasourceId}
+			ORDER BY adt.table_name
+			""")
+	List<String> getSelectedTablesByDatasourceId(@Param("datasourceId") int datasourceId);
+
 	// 删除当前列表中不存在的表
 	@Delete("<script>" + "DELETE FROM agent_datasource_tables WHERE agent_datasource_id = #{agentDatasourceId}"
 			+ "<if test='tables != null and tables.size() > 0'>" + " AND table_name NOT IN ("

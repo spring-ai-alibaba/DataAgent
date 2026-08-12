@@ -15,17 +15,17 @@
  */
 package com.alibaba.cloud.ai.dataagent.config;
 
-import com.alibaba.cloud.ai.dataagent.properties.CodeExecutorProperties;
 import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
-import com.alibaba.cloud.ai.dataagent.service.code.docker.DockerExecutorFactory;
-import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.PropertySource;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.ai.vectorstore.milvus.autoconfigure.MilvusServiceClientProperties;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -37,18 +37,33 @@ class VectorStoreConfigurationTest {
 	private final YamlPropertySourceLoader loader = new YamlPropertySourceLoader();
 
 	@Test
-	void vectorStoreProfiles_useExplicitSpringAiStarterTypes() throws Exception {
+	void vectorStoreProfiles_declareExpectedTypes() throws Exception {
 		assertThat(property("application.yml", "spring.ai.vectorstore.type")).isEqualTo("simple");
 		assertThat(property("application-milvus.yml", "spring.ai.vectorstore.type")).isEqualTo("milvus");
 		assertThat(property("application-elasticsearch.yml", "spring.ai.vectorstore.type")).isEqualTo("elasticsearch");
 	}
 
 	@Test
+	void milvusProfile_bindsConnectionPropertiesUsedBySpringAi() throws Exception {
+		StandardEnvironment environment = new StandardEnvironment();
+		List<PropertySource<?>> sources = loader.load("application-milvus.yml",
+				new ClassPathResource("application-milvus.yml"));
+		for (PropertySource<?> source : sources) {
+			environment.getPropertySources().addFirst(source);
+		}
+
+		MilvusServiceClientProperties properties = Binder.get(environment)
+			.bind("spring.ai.vectorstore.milvus.client", MilvusServiceClientProperties.class)
+			.orElseThrow(() -> new IllegalStateException("Milvus client properties did not bind"));
+
+		assertThat(properties.getHost()).isEqualTo("127.0.0.1");
+		assertThat(properties.getPort()).isEqualTo(19530);
+	}
+
+	@Test
 	void replaceableRuntimeServices_areConditionalOnMissingBean() throws Exception {
 		assertConditional("llmService", AiModelRegistry.class);
 		assertConditional("fileStorageService", FileStorageProperties.class, OssStorageProperties.class);
-		assertConditional("codePoolExecutorService", CodeExecutorProperties.class, LlmService.class,
-				DockerExecutorFactory.class);
 	}
 
 	private Object property(String resource, String name) throws Exception {

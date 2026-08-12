@@ -168,6 +168,27 @@ public class ReportTemplateUtil {
 			</div> <!-- container 结束 -->
 
 			<script>
+			  function normalizeChartLayout(option) {
+			      const titles = option.title ? (Array.isArray(option.title) ? option.title : [option.title]) : [];
+			      const legends = option.legend ? (Array.isArray(option.legend) ? option.legend : [option.legend]) : [];
+			      titles.forEach(title => {
+			          if (title && title.top == null) title.top = 10;
+			      });
+			      legends.forEach(legend => {
+			          if (legend && legend.top == null) legend.top = titles.length > 0 ? 50 : 10;
+			      });
+
+			      const reservedTop = titles.length > 0 && legends.length > 0 ? 90
+			          : (titles.length > 0 || legends.length > 0 ? 60 : 40);
+			      const grids = option.grid ? (Array.isArray(option.grid) ? option.grid : [option.grid]) : [{}];
+			      grids.forEach(grid => {
+			          if (grid.top == null) grid.top = reservedTop;
+			          if (grid.containLabel == null) grid.containLabel = true;
+			      });
+			      option.grid = Array.isArray(option.grid) ? grids : grids[0];
+			      return option;
+			  }
+
 			  window.onload = function() {
 			      // 0. 安全检查
 			      if (typeof marked === 'undefined') {
@@ -205,7 +226,7 @@ public class ReportTemplateUtil {
 			                  // 🌟 核心修改：使用 new Function 替代 JSON.parse
 			                  // 这样可以兼容 LLM 生成的 JS 函数 (formatter: function()...)
 			                  // 注意：这就要求 LLM 生成的是 JS 对象字面量，而不仅仅是 JSON (通常 LLM 都会这么做)
-			                  const option = new Function('return ' + code)();
+			                  const option = normalizeChartLayout(new Function('return ' + code)());
 
 			                  const myChart = echarts.init(box);
 			                  myChart.setOption(option);

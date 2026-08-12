@@ -25,6 +25,58 @@ function escapeForHtml(text: string): string {
 		.replace(/"/g, '&quot;');
 }
 
+type PositionedChartPart = {
+	top?: number | null;
+	[key: string]: unknown;
+};
+
+export type ChartLayoutOption = {
+	title?: PositionedChartPart | PositionedChartPart[];
+	legend?: PositionedChartPart | PositionedChartPart[];
+	grid?: PositionedChartPart | PositionedChartPart[];
+	[key: string]: unknown;
+};
+
+export function normalizeChartLayout(
+	option: ChartLayoutOption,
+): ChartLayoutOption {
+	const titles = option.title
+		? Array.isArray(option.title)
+			? option.title
+			: [option.title]
+		: [];
+	const legends = option.legend
+		? Array.isArray(option.legend)
+			? option.legend
+			: [option.legend]
+		: [];
+	titles.forEach((title) => {
+		if (title && title.top == null) title.top = 10;
+	});
+	legends.forEach((legend) => {
+		if (legend && legend.top == null)
+			legend.top = titles.length > 0 ? 50 : 10;
+	});
+
+	const reservedTop =
+		titles.length > 0 && legends.length > 0
+			? 90
+			: titles.length > 0 || legends.length > 0
+				? 60
+				: 40;
+	const grids = option.grid
+		? Array.isArray(option.grid)
+			? option.grid
+			: [option.grid]
+		: [{}];
+	grids.forEach((grid) => {
+		if (grid.top == null) grid.top = reservedTop;
+		if (grid.containLabel == null) grid.containLabel = true;
+	});
+	option.grid = Array.isArray(option.grid) ? grids : grids[0];
+	return option;
+}
+
 export function buildReportHtml(markdownContent: string): string {
 	const escapedContent = escapeForHtml(markdownContent);
 
@@ -34,8 +86,8 @@ export function buildReportHtml(markdownContent: string): string {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>分析报告</title>
-<script src="${MARKED_URL}"><\/script>
-<script src="${ECHARTS_URL}"><\/script>
+<script src="${MARKED_URL}"></script>
+<script src="${ECHARTS_URL}"></script>
 <style>
 * { box-sizing: border-box; }
 body { margin: 0; padding: 20px; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #374151; line-height: 1.6; }
@@ -63,6 +115,8 @@ pre code { background: transparent; color: inherit; padding: 0; }
 <div id="render-target" class="markdown-body"></div>
 </div>
 <script>
+${normalizeChartLayout.toString()}
+
 window.onload = function() {
   if (typeof marked === 'undefined') {
     document.getElementById('render-target').innerHTML = '<p style="color:red;">Marked库加载失败，请检查网络</p>';
@@ -84,7 +138,7 @@ window.onload = function() {
     document.querySelectorAll('.chart-box').forEach(function(box) {
       try {
         var code = decodeURIComponent(box.getAttribute('data-option'));
-        var option = new Function('return ' + code)();
+        var option = normalizeChartLayout(new Function('return ' + code)());
         var myChart = echarts.init(box);
         myChart.setOption(option);
         window.addEventListener('resize', function() { myChart.resize(); });
@@ -94,7 +148,7 @@ window.onload = function() {
     });
   }
 };
-<\/script>
+</script>
 </body>
 </html>`;
 }

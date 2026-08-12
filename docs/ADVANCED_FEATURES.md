@@ -382,31 +382,19 @@ WHERE u.name = '张三'
 
 ## 🐍 Python 执行环境配置
 
-### 执行器类型
+Python 统一通过 Spring AI Alibaba Sandbox 在任务级独立容器中执行，不再提供宿主机
+Local、旧 Docker 容器池或 AI Simulation 执行器。
 
-系统支持三种Python执行器：
+### 前置条件
 
-1. **Docker Executor** (推荐)
-2. **Local Executor**
-3. **AI Simulation Executor**
+- Spring AI Alibaba `1.1.2.2`
+- 可访问的 Docker daemon
+- 沙盒镜像可从 Docker daemon 获取
+- 动态安装依赖时，沙盒网络可访问配置的 Python 包索引
 
-### Docker 执行器配置
+仅执行 SQL 的请求不会创建沙盒；执行计划包含 `PYTHON_GENERATE_NODE` 时才需要 Docker。
 
-```yaml
-spring:
-  ai:
-    alibaba:
-      data-agent:
-        code-executor:
-          type: docker
-          docker:
-            image: continuumio/anaconda3:latest
-            timeout: 300000  # 5分钟超时
-            memory-limit: 512m
-            cpu-limit: 1.0
-```
-
-### Local 执行器配置
+### 配置 SAA 沙盒
 
 ```yaml
 spring:
@@ -414,25 +402,96 @@ spring:
     alibaba:
       data-agent:
         code-executor:
-          type: local
-          local:
-            python-path: /usr/bin/python3
-            timeout: 300000
-            work-dir: /tmp/dataagent
+          code-timeout: 60s
+          limit-memory: 500
+          cpu-core: 1
+          python-max-tries-count: 5
+          sandbox:
+            docker-host: ${DATAAGENT_SANDBOX_DOCKER_HOST:unix:///var/run/docker.sock}
+            image-name: ${DATAAGENT_SANDBOX_IMAGE:agentscope-registry.ap-southeast-1.cr.aliyuncs.com/agentscope/runtime-sandbox-base:latest}
+            max-concurrency: 4
+            queue-capacity: 10
+            max-connections: 4096
+            package-index-url: ${DATAAGENT_PYPI_INDEX_URL:https://pypi.org/simple}
+            dependency-install-timeout: 3m
 ```
 
-### AI 模拟执行器
+`docker-host` 使用 `tcp://host:port` 时会显式连接该端点；其他值走 SAA/docker-java 的
+本地 Docker 发现。完整大小、输出和元数据限制见
+[开发者指南 - 代码执行器配置](DEVELOPER_GUIDE.md#5-代码执行器配置-code-executor)。
 
-用于测试环境，不实际执行Python代码，而是通过AI模拟执行结果：
+### 声明动态依赖
 
-```yaml
-spring:
-  ai:
-    alibaba:
-      data-agent:
-        code-executor:
-          type: ai-simulation
+```python
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["pandas>=2,<3", "six==1.17.0"]
+# ///
+
+import pandas as pd
+import six
 ```
+
+脚本最多只能包含一个 PEP 723 `script` 块。`dependencies` 支持 PyPI 包名、extras 和
+版本约束；URL、VCS、本地路径、环境标记、`@` 引用和 pip 参数会在创建容器前被拒绝。
+当前版本会解析并保留 `requires-python`，但不会据此切换或拒绝运行时 Python 版本。
+
+每一个非标准库 `import` 都应有对应依赖。只使用标准库时可以省略元数据块。
+
+### 执行生命周期
+
+```mermaid
+sequenceDiagram
+  participant W as PythonExecuteNode
+  participant E as PythonCodeExecutorService
+  participant S as Task BaseSandbox
+  participant I as Fixed Installer Bootstrap
+  participant C as Fixed Code Bootstrap
+
+  W->>E: code + stdin JSON + validated dependencies
+  E->>S: create isolated sandbox
+  opt dependencies are declared
+    E->>I: install into /tmp/dataagent-deps
+    I-->>E: bounded result envelope
+  end
+  E->>C: execute code with PYTHONPATH and stdin
+  C-->>E: bounded stdout/stderr envelope
+  E-->>W: TaskResponse
+  E->>S: close and remove container
+```
+
+安装器固定执行 `python -m pip install` 参数列表，不经过 shell。代码、stdin、依赖清单
+和包索引在进入 bootstrap 前使用 Base64 编码。依赖安装目录只存在于本次任务容器。
+
+### 验证
+
+在数据问答页提交一个明确要求 Python 和第三方依赖的分析任务。成功标准：
+
+1. 时间线出现 Python 生成、执行、分析和最终报告。
+2. Python 标准输出包含依赖版本和业务 JSON。
+3. 后端日志包含沙盒创建、依赖安装、代码执行和容器删除。
+4. `docker ps --format '{{.Names}}' | grep '^dataagent-sandbox-'` 无输出。
+
+### 故障排查
+
+| 现象 | 原因与处理 |
+|---|---|
+| Docker 连接失败 | 先运行 `docker info`；远程 daemon 使用 `tcp://host:port`，本地 Docker 保持默认发现 |
+| `DependencyInstallError` | 检查包名、版本和索引连通性；大包下载超时可增大 `dependency-install-timeout` 或使用私有缓存代理 |
+| `Unsupported Python dependency specifier` | 移除 URL、VCS、路径、环境标记或 pip 参数，只保留包名和版本约束 |
+| `Python sandbox capacity is exhausted` | 并发数和等待队列已满；降低上游并发或调整 `max-concurrency`、`queue-capacity` |
+| `Python sandbox task timed out` | 总时间超过“依赖安装超时 + 代码超时 + 30 秒”；检查包下载或代码耗时 |
+| 任务后仍有容器 | 检查应用是否被强制终止；正常成功和失败路径都会关闭任务沙盒，应用关闭还会执行全量清理 |
+
+### 生产安全边界
+
+任务容器默认非 privileged，并限制 CPU、内存、nofile、超时、并发和输入输出大小。但
+SAA `1.1.2.2` 没有提供“安装完成后立即断网”的公开 API，因此生产环境还必须：
+
+1. 使用固定镜像 digest 和非 root 基础镜像。
+2. 仅允许沙盒访问企业私有 PyPI 代理，禁止访问公网和业务内网。
+3. 不向沙盒注入数据库、模型、OSS 或 Docker 凭据。
+4. 在代理侧执行恶意包、CVE 和许可证扫描。
 
 ## ⚙️ 高级配置选项
 
