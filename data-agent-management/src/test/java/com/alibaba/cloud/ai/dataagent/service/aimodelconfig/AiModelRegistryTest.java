@@ -22,8 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.embedding.EmbeddingModel;
 
@@ -32,7 +30,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class AiModelRegistryTest {
 
 	@Mock
@@ -74,6 +71,8 @@ class AiModelRegistryTest {
 		when(modelFactory.createChatModel(config)).thenReturn(chatModel);
 
 		assertNotNull(registry.getChatClient());
+		verify(modelConfigDataService).getActiveConfigByType(ModelType.CHAT);
+		verify(modelFactory).createChatModel(config);
 	}
 
 	@Test

@@ -55,5 +55,4 @@ jobs:
           fetch-depth: 0
       - uses: ./CI/github-actions/setup-deps
       - run: make tools
-      - run: make test
-      - run: make build
+      - run: make verify

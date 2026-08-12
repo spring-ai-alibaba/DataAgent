@@ -116,7 +116,7 @@ class AgentKnowledgeServiceImplTest {
 		dto.setType("DOCUMENT");
 		dto.setFile(null);
 
-		assertThrows(RuntimeException.class, () -> service.createKnowledge(dto));
+		assertThrowsExactly(RuntimeException.class, () -> service.createKnowledge(dto));
 	}
 
 	@Test
@@ -125,7 +125,7 @@ class AgentKnowledgeServiceImplTest {
 		dto.setType("QA");
 		dto.setQuestion(null);
 
-		assertThrows(RuntimeException.class, () -> service.createKnowledge(dto));
+		assertThrowsExactly(RuntimeException.class, () -> service.createKnowledge(dto));
 	}
 
 	@Test
@@ -135,7 +135,7 @@ class AgentKnowledgeServiceImplTest {
 		dto.setQuestion("question");
 		dto.setContent(null);
 
-		assertThrows(RuntimeException.class, () -> service.createKnowledge(dto));
+		assertThrowsExactly(RuntimeException.class, () -> service.createKnowledge(dto));
 	}
 
 	@Test
@@ -144,7 +144,7 @@ class AgentKnowledgeServiceImplTest {
 		dto.setType("FAQ");
 		dto.setQuestion(null);
 
-		assertThrows(RuntimeException.class, () -> service.createKnowledge(dto));
+		assertThrowsExactly(RuntimeException.class, () -> service.createKnowledge(dto));
 	}
 
 	@Test
@@ -160,14 +160,14 @@ class AgentKnowledgeServiceImplTest {
 		when(agentKnowledgeConverter.toEntityForCreate(eq(dto), isNull())).thenReturn(entity);
 		when(agentKnowledgeMapper.insert(entity)).thenReturn(0);
 
-		assertThrows(RuntimeException.class, () -> service.createKnowledge(dto));
+		assertThrowsExactly(RuntimeException.class, () -> service.createKnowledge(dto));
 	}
 
 	@Test
 	void updateKnowledge_notFound_throwsException() {
 		when(agentKnowledgeMapper.selectById(99)).thenReturn(null);
 
-		assertThrows(RuntimeException.class, () -> service.updateKnowledge(99, new UpdateKnowledgeDTO()));
+		assertThrowsExactly(RuntimeException.class, () -> service.updateKnowledge(99, new UpdateKnowledgeDTO()));
 	}
 
 	@Test
@@ -203,7 +203,7 @@ class AgentKnowledgeServiceImplTest {
 		when(agentKnowledgeMapper.selectById(1)).thenReturn(existing);
 		when(agentKnowledgeMapper.update(existing)).thenReturn(0);
 
-		assertThrows(RuntimeException.class, () -> service.updateKnowledge(1, dto));
+		assertThrowsExactly(RuntimeException.class, () -> service.updateKnowledge(1, dto));
 	}
 
 	@Test
@@ -263,7 +263,7 @@ class AgentKnowledgeServiceImplTest {
 	void updateKnowledgeRecallStatus_notFound_throwsException() {
 		when(agentKnowledgeMapper.selectById(99)).thenReturn(null);
 
-		assertThrows(RuntimeException.class, () -> service.updateKnowledgeRecallStatus(99, true));
+		assertThrowsExactly(RuntimeException.class, () -> service.updateKnowledgeRecallStatus(99, true));
 	}
 
 	@Test
@@ -302,7 +302,7 @@ class AgentKnowledgeServiceImplTest {
 		when(agentKnowledgeMapper.selectById(1)).thenReturn(knowledge);
 		when(agentKnowledgeMapper.update(knowledge)).thenReturn(0);
 
-		assertThrows(RuntimeException.class, () -> service.updateKnowledgeRecallStatus(1, true));
+		assertThrowsExactly(RuntimeException.class, () -> service.updateKnowledgeRecallStatus(1, true));
 	}
 
 	@Test
@@ -312,7 +312,7 @@ class AgentKnowledgeServiceImplTest {
 
 		when(agentKnowledgeMapper.selectById(1)).thenReturn(knowledge);
 
-		assertThrows(RuntimeException.class, () -> service.retryEmbedding(1));
+		assertThrowsExactly(RuntimeException.class, () -> service.retryEmbedding(1));
 	}
 
 	@Test
@@ -323,7 +323,7 @@ class AgentKnowledgeServiceImplTest {
 
 		when(agentKnowledgeMapper.selectById(1)).thenReturn(knowledge);
 
-		assertThrows(RuntimeException.class, () -> service.retryEmbedding(1));
+		assertThrowsExactly(RuntimeException.class, () -> service.retryEmbedding(1));
 	}
 
 	@Test
@@ -334,7 +334,7 @@ class AgentKnowledgeServiceImplTest {
 
 		when(agentKnowledgeMapper.selectById(1)).thenReturn(knowledge);
 
-		assertThrows(RuntimeException.class, () -> service.retryEmbedding(1));
+		assertThrowsExactly(RuntimeException.class, () -> service.retryEmbedding(1));
 	}
 
 	@Test

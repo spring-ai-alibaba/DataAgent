@@ -122,6 +122,9 @@ public class ModelConfigOpsService {
 		if (entity == null) {
 			throw new IllegalArgumentException("配置不存在");
 		}
+		if (entity.getModelType() == null) {
+			throw new IllegalArgumentException("未知的模型类型: null");
+		}
 		testConnection(ModelConfigConverter.toDTO(entity));
 	}
 
@@ -246,13 +249,13 @@ public class ModelConfigOpsService {
 	}
 
 	private String findMostSpecificMessage(Throwable error) {
-		String message = "Model connection test failed";
+		String message = null;
 		for (Throwable current = error; current != null; current = current.getCause()) {
 			if (StringUtils.hasText(current.getMessage())) {
 				message = current.getMessage();
 			}
 		}
-		return message;
+		return StringUtils.hasText(message) ? message : error.getClass().getSimpleName();
 	}
 
 }

@@ -19,31 +19,21 @@ import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.MultiTurnContextManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class MultiTurnContextManagerTest {
 
-	@Mock
 	private DataAgentProperties properties;
 
 	private MultiTurnContextManager contextManager;
 
 	@BeforeEach
 	void setUp() {
-		when(properties.getMaxturnhistory()).thenReturn(5);
-		when(properties.getMaxplanlength()).thenReturn(2000);
+		properties = new DataAgentProperties();
 		contextManager = createContextManager(5);
 	}
 
@@ -157,7 +147,6 @@ class MultiTurnContextManagerTest {
 
 	@Test
 	void buildContext_exceedsMaxTurns_truncatesOldest() {
-		when(properties.getMaxturnhistory()).thenReturn(2);
 		MultiTurnContextManager mgr = createContextManager(2);
 
 		for (int i = 1; i <= 3; i++) {

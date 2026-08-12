@@ -9,7 +9,7 @@
   </p>
 
   <p>
-    <a href="https://github.com/alibaba/spring-ai-alibaba"><img src="https://img.shields.io/badge/Spring%20AI%20Alibaba-1.1.0.0-blue" alt="Spring AI Alibaba"></a>
+    <a href="https://github.com/alibaba/spring-ai-alibaba"><img src="https://img.shields.io/badge/Spring%20AI%20Alibaba-1.1.2.2-blue" alt="Spring AI Alibaba"></a>
     <img src="https://img.shields.io/badge/Spring%20Boot-3.4.8+-green" alt="Spring Boot">
     <img src="https://img.shields.io/badge/Java-17+-orange" alt="Java">
     <img src="https://img.shields.io/badge/License-Apache%202.0-red" alt="License">
@@ -46,7 +46,7 @@ Additionally, this project natively supports **MCP (Model Context Protocol)**, e
 | Feature | Description |
 | :--- | :--- |
 | **Intelligent Data Analysis** | StateGraph-based Text-to-SQL conversion, supporting complex multi-table queries and multi-turn conversation intent understanding. |
-| **Python Deep Analysis** | Built-in Docker/Local Python executor, automatically generating and executing Python code for statistical analysis and machine learning predictions. |
+| **Python Deep Analysis** | Executes generated code in task-scoped Spring AI Alibaba Sandbox containers with PEP 723 dynamic dependencies, resource limits, retries, and automatic cleanup. |
 | **Intelligent Report Generation** | Analysis results are automatically summarized into HTML/Markdown reports with ECharts visualizations, WYSIWYG. |
 | **Human Feedback Mechanism** | Innovative Human-in-the-loop mechanism, supporting user intervention and adjustments during the plan generation phase. |
 | **RAG Retrieval Enhancement** | Integrated vector database, supporting semantic retrieval of business metadata and terminology libraries to improve SQL generation accuracy. |
@@ -61,12 +61,14 @@ Additionally, this project natively supports **MCP (Model Context Protocol)**, e
 
 ## Quick Start
 
-> For detailed installation and configuration guide, please refer to [Quick Start Guide](docs/QUICK_START.md).
+> For detailed installation and configuration guidance, see the [Quick Start Guide](docs/QUICK_START-en.md).
 
 ### 1. Prerequisites
 - JDK 17+
 - MySQL 5.7+
-- Node.js 16+
+- Node.js 22+
+- pnpm 11+
+- Docker (required when a workflow executes Python steps)
 
 ### 2. Start Services
 
@@ -75,12 +77,11 @@ Additionally, this project natively supports **MCP (Model Context Protocol)**, e
 mysql -u root -p < data-agent-management/src/main/resources/sql/schema.sql
 
 # 2. Start backend
-cd data-agent-management
-./mvnw spring-boot:run
+./mvnw -pl data-agent-management spring-boot:run
 
-# 3. Start frontend
-cd data-agent-frontend
-npm install && npm run dev
+# 3. Start the frontend in another terminal
+cd data-agent-frontend-nuxt
+pnpm install && pnpm dev
 ```
 
 ### 3. Access the System
@@ -90,11 +91,11 @@ Open your browser and visit `http://localhost:3000` to start creating your first
 
 | Document | Contents |
 | :--- | :--- |
-| [Quick Start](docs/QUICK_START.md) | Environment requirements, database import, basic configuration, getting started |
-| [Architecture Design](docs/ARCHITECTURE.md) | System layered architecture, StateGraph and workflow design, core module sequence diagrams |
-| [Developer Guide](docs/DEVELOPER_GUIDE.md) | Development environment setup, detailed configuration manual, coding standards, extension development (vector DB/models) |
-| [Advanced Features](docs/ADVANCED_FEATURES.md) | API Key invocation, MCP server configuration, custom hybrid retrieval strategies, Python executor configuration |
-| [Knowledge Configuration Best Practices](docs/KNOWLEDGE_USAGE.md) | Explanation and usage of semantic models, business knowledge, and agent knowledge |
+| [Quick Start](docs/QUICK_START-en.md) | Environment requirements, database import, basic configuration, getting started |
+| [Architecture Design](docs/ARCHITECTURE-en.md) | System layered architecture, StateGraph and workflow design, core module sequence diagrams |
+| [Developer Guide](docs/DEVELOPER_GUIDE-en.md) | Development environment setup, detailed configuration manual, coding standards, extension development (vector DB/models) |
+| [Advanced Features](docs/ADVANCED_FEATURES-en.md) | API Key invocation, MCP server configuration, custom hybrid retrieval strategies, SAA Python sandbox, and dynamic dependencies |
+| [Knowledge Configuration Best Practices](docs/KNOWLEDGE_USAGE-en.md) | Explanation and usage of semantic models, business knowledge, and agent knowledge |
 
 ## Community & Contribution
 

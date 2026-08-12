@@ -10,16 +10,18 @@
 
 - **JDK**: 17 或更高版本
 - **Maven**: 3.6 或更高版本
-- **Node.js**: 16 或更高版本
+- **Node.js**: 22
+- **pnpm**: 11
 - **MySQL**: 5.7 或更高版本
+- **Docker**: 仅运行或验证 Python 工作流时需要
 - **Git**: 版本控制工具
 - **IDE**: IntelliJ IDEA 或 Eclipse (推荐 IntelliJ IDEA)
 
 ### 克隆项目
 
 ```bash
-git clone https://github.com/your-org/spring-ai-alibaba-data-agent.git
-cd spring-ai-alibaba-data-agent
+git clone https://github.com/spring-ai-alibaba/DataAgent.git
+cd DataAgent
 ```
 
 ### 后端开发环境
@@ -34,21 +36,20 @@ cd spring-ai-alibaba-data-agent
 
 3. **启动后端服务**
    ```bash
-   cd data-agent-management
-   ./mvnw spring-boot:run
+   ./mvnw -pl data-agent-management spring-boot:run
    ```
 
 ### 前端开发环境
 
 1. **安装依赖**
    ```bash
-   cd data-agent-frontend
-   npm install
+   cd data-agent-frontend-nuxt
+   pnpm install
    ```
 
 2. **启动开发服务器**
    ```bash
-   npm run dev
+   pnpm dev
    ```
 
 3. **访问应用**
@@ -67,6 +68,8 @@ cd spring-ai-alibaba-data-agent
 - **PlannerNode**: 计划生成
 - **SqlGenerateNode**: SQL 生成
 - **PythonGenerateNode**: Python 代码生成
+- **PythonExecuteNode**: 解析 PEP 723 元数据并调度 SAA 沙盒执行
+- **PythonAnalyzeNode**: 分析 Python 结果并更新步骤状态
 - **ReportGeneratorNode**: 报告生成
 
 ### 2. 多模型调度
@@ -175,13 +178,16 @@ public class AgentVectorStoreService {
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
-| `default-similarity-threshold` | 全局默认相似度阈值 | 0.4 |
-| `table-similarity-threshold` | 召回表的相似度阈值 | 0.2 |
+| `default-similarity-threshold` | 全局默认相似度阈值（用于业务知识、智能体知识等） | 0.4 |
+| `table-similarity-threshold` | 召回表的相似度阈值（设置较低以尽量避免表召回遗漏） | 0.2 |
 | `batch-del-topk-limit` | 批量删除时的最大文档数量 | 5000 |
 | `default-topk-limit` | 全局默认查询返回的最大文档数量（目前只有业务知识和智能体知识在使用） | 8 |
 | `table-topk-limit` | 召回表的最大文档数量 | 10 |
-| `enable-hybrid-search` | 是否启用混合搜索 | false |
-| `elasticsearch-min-score` | ES关键词搜索的最小分数阈值 | 0.5 |
+| `embedding-dimension` | 持久化向量库期望的向量维度校验值，需与嵌入模型输出维度一致；设为 `0` 时关闭校验（内存向量库默认即为 0） | 0 |
+| `enable-hybrid-search` | 是否启用混合搜索（向量检索 + ES 关键词检索），仅在使用 Elasticsearch 时生效 | false |
+| `hybrid-search-timeout-ms` | 混合检索中每个检索分支的最大等待时间（毫秒） | 3000 |
+| `elasticsearch-min-score` | ES 关键词搜索的最小分数阈值，用于过滤相关性较低的文档 | 0.5 |
+| `file-path` | `SimpleVectorStore` 本地序列化文件地址（仅内存向量库使用） | `./vectorstore/vectorstore.json` |
 
 #### 向量库依赖扩展
 
@@ -199,8 +205,74 @@ public class AgentVectorStoreService {
    
 2. **配置属性**: 在 `application.yml` 中添加对应向量库的连接配置。具体参数请参考 [Spring AI 官方文档](https://springdoc.cn/spring-ai/api/vectordbs.html)。
 
-2. **配置 `spring.ai.vectorstore.type`**。具体填写的值可以在引入上面的向量库starter后自行搜索 `VectorStoreAutoConfiguration`自动配置类，比如`es`的是`ElasticsearchVectorStoreAutoConfiguration`，该类里面可以看见`spring.ai.vectorstore.type`期望的是`elasticsearch`。
+3. **配置 `spring.ai.vectorstore.type`**。具体填写的值可以在引入上面的向量库 starter 后自行搜索 `VectorStoreAutoConfiguration` 自动配置类，比如 `es` 的是 `ElasticsearchVectorStoreAutoConfiguration`，该类里面可以看见 `spring.ai.vectorstore.type` 期望的是 `elasticsearch`。
 
+4. **配置 `embedding-dimension`**: 使用持久化向量库时，建议将 `spring.ai.alibaba.data-agent.vector-store.embedding-dimension` 设置为与嵌入模型输出维度一致的值（如 `1024`），以便启动时校验维度是否匹配，避免写入后检索异常。
+
+#### 开箱即用的配置示例
+
+项目已内置两个可直接激活的向量库示例 Profile，位于 `data-agent-management/src/main/resources/`。通过 `spring.profiles.active` 或环境变量 `SPRING_PROFILES_ACTIVE` 激活对应 Profile 即可，无需手动编写连接配置。
+
+**Milvus (`application-milvus.yml`)**
+
+```yaml
+spring:
+  ai:
+    vectorstore:
+      type: milvus
+      milvus:
+        client:
+          host: ${MILVUS_HOST:127.0.0.1}
+          port: ${MILVUS_PORT:19530}
+        database-name: ${MILVUS_DATABASE:default}
+        collection-name: ${MILVUS_COLLECTION:vector_store}
+        embedding-dimension: ${MILVUS_DIMENSION:1024}
+        initialize-schema: true
+    alibaba:
+      data-agent:
+        vector-store:
+          embedding-dimension: ${MILVUS_DIMENSION:1024}
+```
+
+`spring-ai-starter-vector-store-milvus` 依赖已包含在 `data-agent-management/pom.xml` 中，无需额外引入，激活 Profile 即可：
+
+```bash
+export SPRING_PROFILES_ACTIVE=milvus
+# 可选：覆盖默认连接信息
+export MILVUS_HOST=127.0.0.1
+export MILVUS_PORT=19530
+```
+
+**Elasticsearch (`application-elasticsearch.yml`)**
+
+```yaml
+spring:
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URIS:http://127.0.0.1:9200}
+    username: ${ELASTICSEARCH_USERNAME:}
+    password: ${ELASTICSEARCH_PASSWORD:}
+  ai:
+    vectorstore:
+      type: elasticsearch
+      elasticsearch:
+        index-name: ${ELASTICSEARCH_INDEX_NAME:spring-ai-document-index}
+        dimensions: ${ELASTICSEARCH_DIMENSIONS:1024}
+        initialize-schema: ${ELASTICSEARCH_INITIALIZE_SCHEMA:true}
+    alibaba:
+      data-agent:
+        vector-store:
+          embedding-dimension: ${ELASTICSEARCH_DIMENSIONS:1024}
+```
+
+`spring-ai-starter-vector-store-elasticsearch` 依赖已包含在 `data-agent-management/pom.xml` 中，无需额外引入，激活 Profile 即可：
+
+```bash
+export SPRING_PROFILES_ACTIVE=elasticsearch
+# 可选：覆盖默认连接信息
+export ELASTICSEARCH_URIS=http://127.0.0.1:9200
+```
+
+> 提示：Elasticsearch 支持混合检索。激活 ES Profile 后，再将 `spring.ai.alibaba.data-agent.vector-store.enable-hybrid-search` 设为 `true` 即可启用向量检索与关键词检索的混合融合策略。
 
 #### ES Schema 配置示例
 以下为 Elasticsearch 的 Schema 结构。其他向量库（如 Milvus, PGVector）可参考此结构建立 Schema，尤其要注意 `metadata` 中的字段数据类型。
@@ -353,19 +425,43 @@ public class AgentVectorStoreService {
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
-| `code-pool-executor` | 执行器类型 (DOCKER/LOCAL) | DOCKER (application.yml中默认为local) |
-| `image-name` | Docker镜像名称 | continuumio/anaconda3:latest |
-| `container-name-prefix` | 容器名称前缀 | nl2sql-python-exec- |
-| `host` | 服务主机地址 | null |
-| `task-queue-size` | 任务阻塞队列大小 | 5 |
-| `core-container-num` | 核心容器数量最大值 | 2 |
-| `temp-container-num` | 临时容器数量最大值 | 2 |
-| `core-thread-size` | 线程池核心线程数 | 5 |
-| `max-thread-size` | 线程池最大线程数 | 5 |
 | `code-timeout` | Python代码执行超时时间 | 60s |
-| `container-timeout` | 容器最大运行时长 | 3000 (ms) |
 | `limit-memory` | 容器内存限制 (MB) | 500 |
 | `cpu-core` | 容器CPU核数 | 1 |
+| `python-max-tries-count` | Python执行最大重试次数 | 5 |
+| `sandbox.docker-host` | Docker Engine 地址 | `unix:///var/run/docker.sock` |
+| `sandbox.image-name` | SAA 基础镜像 | `agentscope-registry.ap-southeast-1.cr.aliyuncs.com/agentscope/runtime-sandbox-base:latest` |
+| `sandbox.container-prefix` | 任务容器名称前缀 | `dataagent-sandbox-` |
+| `sandbox.max-concurrency` | 最大并发沙盒数 | 4 |
+| `sandbox.queue-capacity` | 有界等待队列大小 | 10 |
+| `sandbox.max-code-bytes` | Python 源码 UTF-8 字节上限 | 262144（256 KiB） |
+| `sandbox.max-input-bytes` | stdin JSON UTF-8 字节上限 | 10485760（10 MiB） |
+| `sandbox.max-output-bytes` | stdout UTF-8 字节上限 | 1048576（1 MiB） |
+| `sandbox.max-error-bytes` | stderr UTF-8 字节上限 | 262144（256 KiB） |
+| `sandbox.max-metadata-bytes` | PEP 723 元数据 UTF-8 字节上限 | 8192（8 KiB） |
+| `sandbox.max-dependencies` | 最大直接依赖数 | 20 |
+| `sandbox.package-index-url` | 动态依赖包索引 | `https://pypi.org/simple` |
+| `sandbox.dependency-install-timeout` | 依赖安装超时 | 3m |
+| `sandbox.max-connections` | 容器 `nofile` 上限 | 4096 |
+
+第三方依赖必须在生成脚本的 PEP 723 `dependencies` 中声明。系统不再提供宿主机 Local、
+旧 Docker 容器池或 AI Simulation 执行器。
+
+常用环境变量：
+
+| 环境变量 | 对应配置 | 用途 |
+|---|---|---|
+| `DATAAGENT_SANDBOX_DOCKER_HOST` | `sandbox.docker-host` | 指向本机或远程 Docker Engine |
+| `DATAAGENT_SANDBOX_IMAGE` | `sandbox.image-name` | 固定运行时镜像；生产环境应使用 digest |
+| `DATAAGENT_PYPI_INDEX_URL` | `sandbox.package-index-url` | 指向企业私有 PyPI 代理 |
+
+每次 Python 任务创建独立 `BaseSandbox`，在同一容器内先安装依赖、再执行代码，最后停止并
+删除容器。服务端总等待时间为“依赖安装超时 + 代码执行超时 + 30 秒通信余量”。
+`requires-python` 当前会被解析和保留，但不会切换或校验沙盒 Python 版本。
+
+依赖格式、安全限制、运行验证和故障处理见
+[高级功能 - Python 执行环境配置](ADVANCED_FEATURES.md#-python-执行环境配置)；实现边界见
+[SAA 1.1.2.2 Python 沙盒接入方案](superpowers/specs/2026-07-28-saa-python-sandbox-integration-design.md)。
 
 ### 6. 文件存储配置 (File Storage)
 
@@ -398,7 +494,7 @@ public class AgentVectorStoreService {
 
 | 配置项 | 说明 | 默认值 | 备注 |
 |--------|------|--------|------|
-| `mode` | 初始化模式 (always/never) | always | "always"会每次启动执行schema.sql和data.sql，建议生产环境设为"never" |
+| `mode` | 初始化模式 (always/never) | never | 仅在明确需要初始化时设置为 `always` |
 | `schema-locations` | 表结构脚本路径 | classpath:sql/schema.sql | |
 | `data-locations` | 数据脚本路径 | classpath:sql/data.sql | |
 
@@ -432,13 +528,43 @@ public class AgentVectorStoreService {
 
 > 详细使用说明请参考 [高级功能 - Langfuse 可观测性](ADVANCED_FEATURES.md#-langfuse-可观测性)。
 
+## ✅ Python 沙盒验证
+
+不需要 Docker 的单元测试：
+
+```bash
+./mvnw -pl data-agent-management \
+  -Dtest='PythonDependencyMetadataParserTest,PythonSandboxBootstrapBuilderTest,SandboxExecutionResultParserTest,SaaSandboxPythonCodeExecutorServiceTest,SaaSandboxRuntimeTest,PythonExecuteNodeTest,PythonWorkflowIntegrationTest' \
+  test
+```
+
+Docker 在线时运行真实 SAA 集成测试：
+
+```bash
+docker info
+./mvnw -pl data-agent-management -Dtest=SaaSandboxTaskRunnerIT test
+```
+
+提交前执行与 CI 对齐的检查：
+
+```bash
+make format-check
+make checkstyle-check
+make test
+```
+
+真实端到端验收不能只看 HTTP 200：浏览器时间线应出现依赖安装和 Python 执行结果、最终报告，
+SSE 应收到 `event:complete`，并且 `docker ps -a --filter name=dataagent-sandbox-` 不应留下
+任务容器。
+
 ## 📚 学习资源
 
 ### 官方文档
 
 - [Spring AI Alibaba 文档](https://springdoc.cn/spring-ai/)
 - [Spring Boot 文档](https://spring.io/projects/spring-boot)
-- [React 文档](https://react.dev/)
+- [Nuxt 文档](https://nuxt.com/docs)
+- [Vue 文档](https://vuejs.org/guide/)
 - [TypeScript 文档](https://www.typescriptlang.org/)
 
 ### 相关技术

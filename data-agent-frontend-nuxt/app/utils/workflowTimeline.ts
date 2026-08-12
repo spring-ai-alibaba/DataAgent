@@ -14,16 +14,46 @@
  * limitations under the License.
  */
 
-import {
-	TextType,
-	type GraphNodeResponse,
-} from '../services/graph/index';
+import { TextType, type GraphNodeResponse } from '../services/graph/index';
 
 export interface WorkflowStepGroup {
 	stepId: string;
 	nodeName: string;
 	attempt: number;
 	items: GraphNodeResponse[];
+}
+
+export interface WorkflowContentSegment {
+	kind: 'code' | 'text';
+	items: GraphNodeResponse[];
+}
+
+const CODE_TEXT_TYPES = new Set([TextType.SQL, TextType.PYTHON, TextType.JSON]);
+
+/**
+ * Splits one node execution into renderable text and code segments. A workflow
+ * step normally contains status text before and after streamed code, so treating
+ * the whole step as plain text would discard the backend's SQL/Python/JSON type.
+ */
+export function segmentWorkflowContent(
+	items: GraphNodeResponse[],
+): WorkflowContentSegment[] {
+	const segments: WorkflowContentSegment[] = [];
+
+	for (const item of items) {
+		const kind = CODE_TEXT_TYPES.has(item.textType) ? 'code' : 'text';
+		const previous = segments.at(-1);
+		const sameCodeType =
+			kind !== 'code' || previous?.items[0]?.textType === item.textType;
+
+		if (previous?.kind === kind && sameCodeType) {
+			previous.items.push(item);
+		} else {
+			segments.push({ kind, items: [item] });
+		}
+	}
+
+	return segments;
 }
 
 /**

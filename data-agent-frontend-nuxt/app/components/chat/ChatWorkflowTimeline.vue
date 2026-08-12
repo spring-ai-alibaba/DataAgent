@@ -81,17 +81,25 @@
 							>
 							<span v-else>报告已生成完毕，查看下方报告卡片</span>
 						</div>
-						<!-- Pure code block (all items share same code type) -->
-						<div
-							v-else-if="isPureCodeBlock(step.contentBlock)"
-							v-html="renderCode(step.contentBlock)"
-						/>
-						<!-- Mixed content: text with possible embedded JSON/code -->
-						<div
-							v-else-if="step.contentBlock.length"
-							class="text-body"
-							v-html="renderTextWithJsonDetection(step.contentBlock)"
-						/>
+						<!-- Preserve typed code inside mixed status/code output. -->
+						<div v-else-if="step.contentBlock.length" class="timeline-content">
+							<template
+								v-for="(segment, index) in segmentWorkflowContent(
+									step.contentBlock,
+								)"
+								:key="`${segment.kind}-${index}`"
+							>
+								<div
+									v-if="segment.kind === 'code'"
+									v-html="renderCode(segment.items)"
+								/>
+								<div
+									v-else
+									class="text-body"
+									v-html="renderTextWithJsonDetection(segment.items)"
+								/>
+							</template>
+						</div>
 						<!-- RESULT_SET arrives as another block from the same node. -->
 						<ChatResultSet
 							v-if="step.resultSetText && store.requestOptions.showSqlResults"
@@ -113,7 +121,10 @@ import { TextType, type GraphNodeResponse } from '~/services/graph/index';
 import type { ResultData } from '~/services/resultSet/index';
 import ChatResultSet from './ChatResultSet.vue';
 import { useChatStore } from '~/stores/chat';
-import { groupWorkflowTimeline } from '~/utils/workflowTimeline';
+import {
+	groupWorkflowTimeline,
+	segmentWorkflowContent,
+} from '~/utils/workflowTimeline';
 
 const store = useChatStore();
 
@@ -323,14 +334,6 @@ function escapeHtml(text: string): string {
 
 const timelineRef = ref<HTMLElement | null>(null);
 const { renderECharts } = useEchartsRenderer();
-
-const CODE_TEXT_TYPES = new Set(['SQL', 'PYTHON', 'JSON']);
-
-function isPureCodeBlock(block: GraphNodeResponse[]): boolean {
-	return (
-		block.length > 0 && block.every((n) => CODE_TEXT_TYPES.has(n.textType))
-	);
-}
 
 const SANITIZE_OPTIONS = {
 	ADD_TAGS: ['pre', 'code'],
@@ -548,8 +551,16 @@ watch(
 	padding: 10px 12px;
 	font-size: 12.5px;
 	overflow-x: auto;
-	white-space: pre;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 	margin: 4px 0 0;
+}
+
+:deep(.tl-code code) {
+	white-space: inherit;
+	overflow-wrap: inherit;
+	word-break: inherit;
 }
 
 /* ── Markdown inside step content ────────────────────────────────────────────── */

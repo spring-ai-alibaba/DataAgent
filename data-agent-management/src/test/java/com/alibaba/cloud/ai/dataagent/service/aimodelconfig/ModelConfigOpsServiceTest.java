@@ -107,7 +107,7 @@ class ModelConfigOpsServiceTest {
 	void testActivateConfig_notFound() {
 		when(modelConfigDataService.findById(1)).thenReturn(null);
 
-		assertThrows(RuntimeException.class, () -> service.activateConfig(1));
+		assertThrowsExactly(RuntimeException.class, () -> service.activateConfig(1));
 	}
 
 	@Test
@@ -126,6 +126,8 @@ class ModelConfigOpsServiceTest {
 		when(chatModel.call("Hello")).thenReturn("Hi there");
 
 		assertDoesNotThrow(() -> service.testConnection(1));
+		verify(modelFactory).createChatModel(argThat(config -> "stored-api-key".equals(config.getApiKey())));
+		verify(chatModel).call("Hello");
 	}
 
 	@Test
@@ -142,6 +144,8 @@ class ModelConfigOpsServiceTest {
 		when(embeddingModel.embed("Test")).thenReturn(new float[] { 0.1f, 0.2f });
 
 		assertDoesNotThrow(() -> service.testConnection(2));
+		verify(modelFactory).createEmbeddingModel(argThat(config -> "text-embedding".equals(config.getModelName())));
+		verify(embeddingModel).embed("Test");
 	}
 
 	@Test
@@ -151,16 +155,22 @@ class ModelConfigOpsServiceTest {
 		entity.setModelType(null);
 		when(modelConfigDataService.findById(3)).thenReturn(entity);
 
-		assertThrows(RuntimeException.class, () -> service.testConnection(3));
+		IllegalArgumentException exception = assertThrowsExactly(IllegalArgumentException.class,
+				() -> service.testConnection(3));
+
+		assertEquals("未知的模型类型: null", exception.getMessage());
+		verifyNoInteractions(modelFactory);
 	}
 
 	@Test
 	void testTestConnection_notFound() {
 		when(modelConfigDataService.findById(99)).thenReturn(null);
 
-		RuntimeException exception = assertThrows(RuntimeException.class, () -> service.testConnection(99));
+		IllegalArgumentException exception = assertThrowsExactly(IllegalArgumentException.class,
+				() -> service.testConnection(99));
 
 		assertEquals("配置不存在", exception.getMessage());
+		verifyNoInteractions(modelFactory);
 	}
 
 	@Test
@@ -192,7 +202,9 @@ class ModelConfigOpsServiceTest {
 		when(modelFactory.createChatModel(any(ModelConfigDTO.class))).thenReturn(chatModel);
 		when(chatModel.call("Hello")).thenReturn("");
 
-		assertThrows(RuntimeException.class, () -> service.testConnection(4));
+		RuntimeException exception = assertThrowsExactly(RuntimeException.class, () -> service.testConnection(4));
+
+		assertEquals("模型返回内容为空", exception.getMessage());
 	}
 
 	@Test
@@ -206,7 +218,25 @@ class ModelConfigOpsServiceTest {
 		when(modelFactory.createEmbeddingModel(any(ModelConfigDTO.class))).thenReturn(embeddingModel);
 		when(embeddingModel.embed("Test")).thenReturn(new float[0]);
 
-		assertThrows(RuntimeException.class, () -> service.testConnection(5));
+		RuntimeException exception = assertThrowsExactly(RuntimeException.class, () -> service.testConnection(5));
+
+		assertEquals("模型生成的向量为空", exception.getMessage());
+	}
+
+	@Test
+	void testTestConnection_exceptionWithoutMessage_returnsExceptionType() {
+		ModelConfig entity = new ModelConfig();
+		entity.setId(6);
+		entity.setModelType(ModelType.CHAT);
+		when(modelConfigDataService.findById(6)).thenReturn(entity);
+
+		ChatModel chatModel = mock(ChatModel.class);
+		when(modelFactory.createChatModel(any(ModelConfigDTO.class))).thenReturn(chatModel);
+		when(chatModel.call("Hello")).thenThrow(new RuntimeException());
+
+		RuntimeException exception = assertThrowsExactly(RuntimeException.class, () -> service.testConnection(6));
+
+		assertEquals("RuntimeException", exception.getMessage());
 	}
 
 }

@@ -26,8 +26,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.http.HttpHeaders;
@@ -41,7 +39,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class GraphControllerTest {
 
 	@Mock
@@ -58,12 +55,15 @@ class GraphControllerTest {
 	@BeforeEach
 	void setUp() {
 		graphController = new GraphController(graphService);
+	}
+
+	private void stubResponseHeaders() {
 		when(serverHttpResponse.getHeaders()).thenReturn(httpHeaders);
 	}
 
 	@Test
 	void streamSearch_validRequest_invokesGraphServiceAndReturnsFlux() {
-		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
+		stubResponseHeaders();
 
 		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-1",
 				"thread-1", "show me sales data", false, null, false, false, serverHttpResponse);
@@ -83,7 +83,7 @@ class GraphControllerTest {
 
 	@Test
 	void streamSearch_humanFeedback_passesHumanFeedbackParams() {
-		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
+		stubResponseHeaders();
 
 		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-2",
 				"thread-2", "approve this plan", true, "looks good", false, false, serverHttpResponse);
@@ -101,7 +101,7 @@ class GraphControllerTest {
 
 	@Test
 	void streamSearch_nl2sqlOnly_setsNl2sqlOnlyFlag() {
-		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
+		stubResponseHeaders();
 
 		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-3",
 				null, "SELECT query", false, null, false, true, serverHttpResponse);
@@ -118,6 +118,7 @@ class GraphControllerTest {
 
 	@Test
 	void streamSearch_protocolEventWithoutText_isNotFilteredOut() {
+		stubResponseHeaders();
 		doAnswer(invocation -> {
 			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = invocation.getArgument(0);
 			sink.tryEmitNext(ServerSentEvent

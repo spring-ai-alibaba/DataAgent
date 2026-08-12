@@ -16,8 +16,10 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -35,6 +37,7 @@ import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
 import com.alibaba.cloud.ai.dataagent.service.semantic.SemanticModelService;
+import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeExecution;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.DatabaseUtil;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -44,13 +47,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.ai.document.Document;
 import reactor.core.publisher.Flux;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class TableRelationNodeTest {
 
 	@Mock
@@ -136,14 +136,15 @@ class TableRelationNodeTest {
 
 		setupCommonMocks("1", tableDocs);
 
-		Map<String, Object> result = tableRelationNode.apply(state);
+		NodeExecution execution = execute(tableRelationNode.apply(state), TABLE_RELATION_OUTPUT);
+		SchemaDTO schema = (SchemaDTO) execution.finalResult().get(TABLE_RELATION_OUTPUT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(TABLE_RELATION_OUTPUT));
-		assertTrue(result.containsKey(DB_DIALECT_TYPE));
-		assertEquals("mysql", result.get(DB_DIALECT_TYPE));
-		assertEquals(0, result.get(TABLE_RELATION_RETRY_COUNT));
-		assertEquals("", result.get(TABLE_RELATION_EXCEPTION_OUTPUT));
+		assertEquals("test_db", schema.getName());
+		assertEquals(Collections.emptyList(), schema.getTable());
+		assertEquals("mysql", execution.finalResult().get(DB_DIALECT_TYPE));
+		assertEquals(0, execution.finalResult().get(TABLE_RELATION_RETRY_COUNT));
+		assertEquals("", execution.finalResult().get(TABLE_RELATION_EXCEPTION_OUTPUT));
+		assertTrue(execution.streamedText().contains("schema selected"));
 	}
 
 	@Test
@@ -158,11 +159,12 @@ class TableRelationNodeTest {
 
 		setupCommonMocks("2", emptyTableDocs);
 
-		Map<String, Object> result = tableRelationNode.apply(state);
+		NodeExecution execution = execute(tableRelationNode.apply(state), TABLE_RELATION_OUTPUT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(TABLE_RELATION_OUTPUT));
-		assertEquals(0, result.get(TABLE_RELATION_RETRY_COUNT));
+		assertEquals("test_db", ((SchemaDTO) execution.finalResult().get(TABLE_RELATION_OUTPUT)).getName());
+		assertEquals(0, execution.finalResult().get(TABLE_RELATION_RETRY_COUNT));
+		verify(nl2SqlService).fineSelect(any(SchemaDTO.class), eq("查询"), eq("evidence"), isNull(),
+				any(DbConfigBO.class), any());
 	}
 
 	@Test
@@ -177,10 +179,11 @@ class TableRelationNodeTest {
 
 		setupCommonMocks("3", tableDocs);
 
-		Map<String, Object> result = tableRelationNode.apply(state);
+		NodeExecution execution = execute(tableRelationNode.apply(state), TABLE_RELATION_OUTPUT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(TABLE_RELATION_OUTPUT));
+		assertEquals(Collections.emptyList(),
+				((SchemaDTO) execution.finalResult().get(TABLE_RELATION_OUTPUT)).getTable());
+		assertEquals("mysql", execution.finalResult().get(DB_DIALECT_TYPE));
 	}
 
 	@Test
@@ -195,7 +198,8 @@ class TableRelationNodeTest {
 
 		when(databaseUtil.getAgentDbConfig(4L)).thenThrow(new RuntimeException("DB config not found"));
 
-		assertThrows(RuntimeException.class, () -> tableRelationNode.apply(state));
+		RuntimeException exception = assertThrowsExactly(RuntimeException.class, () -> tableRelationNode.apply(state));
+		assertEquals("DB config not found", exception.getMessage());
 	}
 
 	@Test
@@ -226,10 +230,11 @@ class TableRelationNodeTest {
 				return Flux.just(ChatResponseUtil.createPureResponse("done"));
 			});
 
-		Map<String, Object> result = tableRelationNode.apply(state);
+		NodeExecution execution = execute(tableRelationNode.apply(state), TABLE_RELATION_OUTPUT);
+		SchemaDTO schema = (SchemaDTO) execution.finalResult().get(TABLE_RELATION_OUTPUT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(TABLE_RELATION_OUTPUT));
+		assertEquals(Collections.emptyList(), schema.getForeignKeys());
+		assertEquals("test_db", schema.getName());
 	}
 
 	@Test
@@ -264,10 +269,11 @@ class TableRelationNodeTest {
 				return Flux.just(ChatResponseUtil.createPureResponse("done"));
 			});
 
-		Map<String, Object> result = tableRelationNode.apply(state);
+		NodeExecution execution = execute(tableRelationNode.apply(state), TABLE_RELATION_OUTPUT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(TABLE_RELATION_OUTPUT));
+		assertEquals("test_db", ((SchemaDTO) execution.finalResult().get(TABLE_RELATION_OUTPUT)).getName());
+		verify(nl2SqlService).fineSelect(any(SchemaDTO.class), anyString(), anyString(), eq("add orders table"),
+				any(DbConfigBO.class), any());
 	}
 
 }

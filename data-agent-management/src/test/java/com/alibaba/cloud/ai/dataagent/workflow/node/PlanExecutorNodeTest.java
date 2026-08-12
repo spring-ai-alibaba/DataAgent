@@ -27,8 +27,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
 import com.alibaba.cloud.ai.dataagent.dto.planner.Plan;
@@ -37,7 +35,6 @@ import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class PlanExecutorNodeTest {
 
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
