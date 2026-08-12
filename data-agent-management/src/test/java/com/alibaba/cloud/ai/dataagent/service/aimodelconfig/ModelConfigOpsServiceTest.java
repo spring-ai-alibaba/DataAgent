@@ -184,7 +184,7 @@ class ModelConfigOpsServiceTest {
 		when(modelFactory.createChatModel(any(ModelConfigDTO.class))).thenThrow(new RuntimeException(
 				"404 - {\"error\":{\"message\":\"Unsupported model `multimodal-embedding-v1` for OpenAI compatibility mode.\",\"code\":\"model_not_supported\"}}"));
 
-		RuntimeException error = assertThrows(RuntimeException.class, () -> service.testConnection(6));
+		RuntimeException error = assertThrowsExactly(RuntimeException.class, () -> service.testConnection(6));
 
 		assertTrue(error.getMessage().contains("model_not_supported"));
 		assertTrue(error.getMessage().contains("Unsupported model"));
