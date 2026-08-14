@@ -550,8 +550,16 @@ class NodeTracingLifecycleListenerTest {
 
 	@Test
 	void discardThread_isSafeForUnknownAndNullThreadId() {
+		Map<String, Object> state = new HashMap<>();
+		listener.before(SQL_GENERATE_NODE, state, config, 1L);
+
 		assertDoesNotThrow(() -> listener.discardThread("never-seen"));
 		assertDoesNotThrow(() -> listener.discardThread(null));
+
+		state.put(SQL_GENERATE_OUTPUT, "SELECT 1");
+		listener.after(SQL_GENERATE_NODE, state, config, 2L);
+		assertEquals(StatusCode.OK, onlyNodeSpan().getStatus().getStatusCode(),
+				"discarding an unknown thread must not disturb another thread's active span");
 	}
 
 	/**
@@ -630,10 +638,11 @@ class NodeTracingLifecycleListenerTest {
 	}
 
 	/**
-	 * span 自身在结束阶段抛异常时，catch 分支必须兜住，且仍要 end()。
+	 * span 创建后、登记到活动栈之前初始化失败时，catch 分支必须兜住并 end()，否则该 span 永远不会被
+	 * after/onError/discardThread 找到。
 	 */
 	@Test
-	void exceptionWhileFinishingSpanIsSwallowed() {
+	void exceptionWhileInitializingSpanIsSwallowedAndSpanEnded() {
 		Tracer flakyTracer = mock(Tracer.class);
 		io.opentelemetry.api.trace.SpanBuilder builder = mock(io.opentelemetry.api.trace.SpanBuilder.class);
 		Span flakySpan = mock(Span.class);
@@ -650,6 +659,8 @@ class NodeTracingLifecycleListenerTest {
 			flakyListener.before(SQL_GENERATE_NODE, Map.of(), config, 1L);
 			flakyListener.after(SQL_GENERATE_NODE, Map.of(SQL_GENERATE_OUTPUT, "x"), config, 2L);
 		});
+
+		org.mockito.Mockito.verify(flakySpan).end();
 	}
 
 	/**
@@ -717,6 +728,9 @@ class NodeTracingLifecycleListenerTest {
 
 		assertDoesNotThrow(() -> brokenListener.before(INTENT_RECOGNITION_NODE, Map.of(INPUT_KEY, "q"), config, 1L));
 		assertDoesNotThrow(() -> brokenListener.after(INTENT_RECOGNITION_NODE, Map.of(), config, 2L));
+
+		org.mockito.Mockito.verify(brokenTracer).spanBuilder(INTENT_RECOGNITION_NODE);
+		assertTrue(nodeSpans().isEmpty(), "a failed tracer must not leave a phantom node span");
 	}
 
 	// --- helpers ---
