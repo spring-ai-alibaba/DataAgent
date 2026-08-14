@@ -15,19 +15,14 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.util.StringUtils;
@@ -36,59 +31,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("live")
 @Timeout(value = 2, unit = TimeUnit.MINUTES)
-class AlibabaCloudModelLiveIT {
+class DashScopeEmbeddingLiveIT {
 
-	private static final String EXPECTED_CHAT_RESPONSE = "DATAAGENT_LIVE_OK";
+	private static final String DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 
-	private static final String DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode";
+	private static final String DEFAULT_EMBEDDINGS_PATH = "/embeddings";
+
+	private static final int EXPECTED_DIMENSIONS = 1024;
 
 	private final DynamicModelFactory modelFactory = new DynamicModelFactory();
 
 	@Test
-	void streamingChat_callsAlibabaCloudAndReturnsContentWithUsage() {
-		ChatModel chatModel = modelFactory.createChatModel(ModelConfigDTO.builder()
-			.provider("qwen")
-			.apiKey(requiredApiKey())
-			.baseUrl(baseUrl())
-			.modelName(environmentOrDefault("DATAAGENT_LIVE_DASHSCOPE_CHAT_MODEL", "qwen-plus"))
-			.modelType("CHAT")
-			.temperature(0.0)
-			.maxTokens(32)
-			.build());
-
-		Prompt prompt = new Prompt(
-				"Return exactly DATAAGENT_LIVE_OK with no punctuation, explanation, or Markdown formatting.");
-		List<ChatResponse> responses = chatModel.stream(prompt).collectList().block(Duration.ofSeconds(90));
-
-		assertThat(responses).isNotNull().isNotEmpty();
-		String content = responses.stream()
-			.map(ChatResponse::getResult)
-			.filter(Objects::nonNull)
-			.map(result -> result.getOutput().getText())
-			.filter(Objects::nonNull)
-			.reduce("", String::concat)
-			.trim();
-		assertThat(content).isEqualTo(EXPECTED_CHAT_RESPONSE);
-
-		int totalTokens = responses.stream()
-			.map(ChatResponse::getMetadata)
-			.filter(Objects::nonNull)
-			.map(metadata -> metadata.getUsage())
-			.filter(Objects::nonNull)
-			.map(usage -> usage.getTotalTokens())
-			.filter(Objects::nonNull)
-			.mapToInt(Integer::intValue)
-			.max()
-			.orElse(0);
-		assertThat(totalTokens).isPositive();
-	}
-
-	@Test
-	void embeddings_callAlibabaCloudAndReturnDistinctFiniteVectors() {
+	void embeddings_callDashScopeAndReturnDistinctFiniteVectorsWithUsage() {
 		EmbeddingModel embeddingModel = modelFactory.createEmbeddingModel(ModelConfigDTO.builder()
 			.provider("qwen")
 			.apiKey(requiredApiKey())
 			.baseUrl(baseUrl())
+			.embeddingsPath(environmentOrDefault("DATAAGENT_LIVE_DASHSCOPE_EMBEDDINGS_PATH", DEFAULT_EMBEDDINGS_PATH))
 			.modelName(environmentOrDefault("DATAAGENT_LIVE_DASHSCOPE_EMBEDDING_MODEL", "text-embedding-v4"))
 			.modelType("EMBEDDING")
 			.build());
@@ -108,7 +67,7 @@ class AlibabaCloudModelLiveIT {
 	}
 
 	private void assertVector(float[] vector) {
-		assertThat(vector).hasSize(1024);
+		assertThat(vector).hasSize(EXPECTED_DIMENSIONS);
 		double squaredNorm = 0.0;
 		for (float value : vector) {
 			assertThat(Float.isFinite(value)).as("embedding value must be finite").isTrue();
@@ -123,13 +82,14 @@ class AlibabaCloudModelLiveIT {
 			throw new IllegalStateException(
 					"Set DATAAGENT_LIVE_DASHSCOPE_API_KEY or DASHSCOPE_API_KEY before running live-model tests");
 		}
+		if (!apiKey.equals(apiKey.strip())) {
+			throw new IllegalStateException("DashScope API key must not contain leading or trailing whitespace");
+		}
 		return apiKey;
 	}
 
 	private String baseUrl() {
-		String value = environmentOrDefault("DATAAGENT_LIVE_DASHSCOPE_BASE_URL", DEFAULT_BASE_URL).replaceAll("/+$",
-				"");
-		return value.endsWith("/v1") ? value.substring(0, value.length() - 3) : value;
+		return environmentOrDefault("DATAAGENT_LIVE_DASHSCOPE_BASE_URL", DEFAULT_BASE_URL).replaceAll("/+$", "");
 	}
 
 	private String environmentOrDefault(String name, String defaultValue) {

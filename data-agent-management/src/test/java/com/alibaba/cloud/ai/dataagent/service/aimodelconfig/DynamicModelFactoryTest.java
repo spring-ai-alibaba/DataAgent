@@ -222,6 +222,21 @@ class DynamicModelFactoryTest {
 	}
 
 	@Test
+	void createEmbeddingModel_withBasePathAndEmbeddingsPath_preservesBothPaths() {
+		ModelConfigDTO config = ModelConfigDTO.builder()
+			.provider("custom")
+			.apiKey("")
+			.baseUrl(providerBaseUrl + "/compatible-mode/v1")
+			.modelName("local-embed")
+			.embeddingsPath("/embeddings")
+			.build();
+
+		EmbeddingModel embeddingModel = dynamicModelFactory.createEmbeddingModel(config);
+		assertArrayEquals(new float[] { 0.125f, 0.875f }, embeddingModel.embed("Hello"));
+		assertEquals("/compatible-mode/v1/embeddings", singleProviderRequest().path());
+	}
+
+	@Test
 	void createChatModel_withProxy_routesRequestThroughProxy() throws IOException {
 		proxyRequests = new CopyOnWriteArrayList<>();
 		proxyServer = startServer(proxyRequests, false);
