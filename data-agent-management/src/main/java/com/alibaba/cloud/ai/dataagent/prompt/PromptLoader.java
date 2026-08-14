@@ -44,7 +44,11 @@ public class PromptLoader {
 		return promptCache.computeIfAbsent(promptName, name -> {
 			String fileName = PROMPT_PATH_PREFIX + name + ".txt";
 			// 使用本类的类加载器获取资源（避免jar包中无法获取资源）
-			try (InputStream inputStream = PromptLoader.class.getClassLoader().getResourceAsStream(fileName)) {
+			InputStream resource = PromptLoader.class.getClassLoader().getResourceAsStream(fileName);
+			if (resource == null) {
+				throw new IllegalArgumentException("Prompt resource not found: " + fileName);
+			}
+			try (InputStream inputStream = resource) {
 				return StreamUtils.copyToString(inputStream, StandardCharsets.UTF_8);
 			}
 			catch (IOException e) {

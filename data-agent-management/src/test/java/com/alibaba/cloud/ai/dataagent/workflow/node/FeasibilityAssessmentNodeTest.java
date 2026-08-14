@@ -16,37 +16,35 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
-import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 
 import com.alibaba.cloud.ai.dataagent.common.TestFixtures;
+import com.alibaba.cloud.ai.dataagent.dto.prompt.FeasibilityAssessmentOutputDTO;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
+import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeExecution;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.graph.OverAllState;
-import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
-import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import reactor.core.publisher.Flux;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class FeasibilityAssessmentNodeTest {
 
 	@Mock
@@ -70,20 +68,6 @@ class FeasibilityAssessmentNodeTest {
 		return state;
 	}
 
-	@SuppressWarnings("unchecked")
-	private Map<String, Object> execute(Map<String, Object> nodeResult) {
-		Flux<GraphResponse<StreamingOutput>> generator = (Flux<GraphResponse<StreamingOutput>>) nodeResult
-			.get(FEASIBILITY_ASSESSMENT_NODE_OUTPUT);
-		List<GraphResponse<StreamingOutput>> responses = generator.collectList().block(Duration.ofSeconds(2));
-		assertNotNull(responses);
-		return responses.stream()
-			.filter(GraphResponse::isDone)
-			.findFirst()
-			.flatMap(GraphResponse::resultValue)
-			.map(value -> (Map<String, Object>) value)
-			.orElseThrow();
-	}
-
 	private SchemaDTO createSimpleSchema() {
 		SchemaDTO schema = new SchemaDTO();
 		schema.setName("test_db");
@@ -102,12 +86,15 @@ class FeasibilityAssessmentNodeTest {
 		when(llmService.callUser(anyString(), any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse(
 				"{\"requirementType\":\"DATA_ANALYSIS\",\"language\":\"zh-CN\",\"content\":\"查询用户数量\"}")));
 
-		Map<String, Object> result = feasibilityAssessmentNode.apply(state);
+		NodeExecution execution = execute(feasibilityAssessmentNode.apply(state), FEASIBILITY_ASSESSMENT_NODE_OUTPUT);
+		FeasibilityAssessmentOutputDTO output = output(execution);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(FEASIBILITY_ASSESSMENT_NODE_OUTPUT));
-		assertFalse(execute(result).containsKey(FINAL_ANSWER));
-		verify(llmService).callUser(anyString(), any());
+		assertEquals(FeasibilityAssessmentOutputDTO.RequirementType.DATA_ANALYSIS, output.getRequirementType());
+		assertEquals("zh-CN", output.getLanguage());
+		assertEquals("查询用户数量", output.getContent());
+		assertFalse(execution.finalResult().containsKey(FINAL_ANSWER));
+		assertTrue(execution.streamedText().contains("正在进行可行性评估"));
+		assertTrue(execution.streamedText().contains("可行性评估完成"));
 	}
 
 	@Test
@@ -120,11 +107,12 @@ class FeasibilityAssessmentNodeTest {
 		when(llmService.callUser(anyString(), any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse(
 				"{\"requirementType\":\"FREE_CHAT\",\"language\":\"zh-CN\",\"content\":\"查询与数据库无关\"}")));
 
-		Map<String, Object> result = feasibilityAssessmentNode.apply(state);
+		NodeExecution execution = execute(feasibilityAssessmentNode.apply(state), FEASIBILITY_ASSESSMENT_NODE_OUTPUT);
+		FeasibilityAssessmentOutputDTO output = output(execution);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(FEASIBILITY_ASSESSMENT_NODE_OUTPUT));
-		assertEquals("查询与数据库无关", execute(result).get(FINAL_ANSWER));
+		assertEquals(FeasibilityAssessmentOutputDTO.RequirementType.FREE_CHAT, output.getRequirementType());
+		assertEquals("查询与数据库无关", output.getContent());
+		assertEquals("查询与数据库无关", execution.finalResult().get(FINAL_ANSWER));
 	}
 
 	@Test
@@ -137,10 +125,14 @@ class FeasibilityAssessmentNodeTest {
 		when(llmService.callUser(anyString(), any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse(
 				"{\"requirementType\":\"DATA_ANALYSIS\",\"language\":\"zh-CN\",\"content\":\"查询用户订单\"}")));
 
-		Map<String, Object> result = feasibilityAssessmentNode.apply(state);
+		NodeExecution execution = execute(feasibilityAssessmentNode.apply(state), FEASIBILITY_ASSESSMENT_NODE_OUTPUT);
+		ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(promptCaptor.capture(), eq(FeasibilityAssessmentOutputDTO.class));
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(FEASIBILITY_ASSESSMENT_NODE_OUTPUT));
+		assertEquals(FeasibilityAssessmentOutputDTO.RequirementType.DATA_ANALYSIS,
+				output(execution).getRequirementType());
+		assertTrue(promptCaptor.getValue().contains("之前查询了用户列表"));
+		assertTrue(promptCaptor.getValue().contains("查询用户订单"));
 	}
 
 	@Test
@@ -154,10 +146,11 @@ class FeasibilityAssessmentNodeTest {
 				ChatResponseUtil.createPureResponse("{\"requirementType\":\"DATA_ANALYSIS\",\"language\":\"zh-CN\","),
 				ChatResponseUtil.createPureResponse("\"content\":\"查询销售额\"}")));
 
-		Map<String, Object> result = feasibilityAssessmentNode.apply(state);
+		NodeExecution execution = execute(feasibilityAssessmentNode.apply(state), FEASIBILITY_ASSESSMENT_NODE_OUTPUT);
 
-		assertNotNull(result);
-		assertTrue(result.containsKey(FEASIBILITY_ASSESSMENT_NODE_OUTPUT));
+		assertEquals(FeasibilityAssessmentOutputDTO.RequirementType.DATA_ANALYSIS,
+				output(execution).getRequirementType());
+		assertEquals("查询销售额", output(execution).getContent());
 	}
 
 	@Test
@@ -166,7 +159,15 @@ class FeasibilityAssessmentNodeTest {
 		QueryEnhanceOutputDTO dto = TestFixtures.createQueryEnhanceDTO("查询");
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, EVIDENCE, "evidence"));
 
-		assertThrows(IllegalStateException.class, () -> feasibilityAssessmentNode.apply(state));
+		IllegalStateException exception = assertThrows(IllegalStateException.class,
+				() -> feasibilityAssessmentNode.apply(state));
+		assertTrue(exception.getMessage().contains(TABLE_RELATION_OUTPUT));
+	}
+
+	private FeasibilityAssessmentOutputDTO output(NodeExecution execution) {
+		Object output = execution.finalResult().get(FEASIBILITY_ASSESSMENT_NODE_OUTPUT);
+		assertInstanceOf(FeasibilityAssessmentOutputDTO.class, output);
+		return (FeasibilityAssessmentOutputDTO) output;
 	}
 
 }

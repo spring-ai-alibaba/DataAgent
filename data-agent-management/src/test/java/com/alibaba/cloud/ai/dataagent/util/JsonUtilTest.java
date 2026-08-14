@@ -23,9 +23,9 @@ import static org.junit.jupiter.api.Assertions.*;
 class JsonUtilTest {
 
 	@Test
-	void testGetObjectMapper_notNull() {
+	void testGetObjectMapper_parsesJson() throws Exception {
 		ObjectMapper mapper = JsonUtil.getObjectMapper();
-		assertNotNull(mapper);
+		assertEquals(42, mapper.readTree("{\"value\":42}").get("value").intValue());
 	}
 
 	@Test

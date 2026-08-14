@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector.impls.h2;
 
+import static com.alibaba.cloud.ai.dataagent.support.ExceptionTestSupport.assertRuntimeCause;
+
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
@@ -212,7 +214,9 @@ class H2JdbcDdlTest {
 				.thenReturn(expected);
 
 			ResultSetBO result = h2JdbcDdl.scanTable(connection, "PUBLIC", "USERS");
-			assertNotNull(result);
+			assertSame(expected, result);
+			ms.verify(() -> SqlExecutor.executeSqlAndReturnObject(connection, "PUBLIC",
+					"SELECT *\nFROM \n    `USERS`\nLIMIT 20;"));
 		}
 	}
 
@@ -222,7 +226,7 @@ class H2JdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnObject(any(Connection.class), any(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> h2JdbcDdl.scanTable(connection, "PUBLIC", "USERS"));
+			assertRuntimeCause(SQLException.class, "error", () -> h2JdbcDdl.scanTable(connection, "PUBLIC", "USERS"));
 		}
 	}
 
@@ -232,7 +236,7 @@ class H2JdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> h2JdbcDdl.showDatabases(connection));
+			assertRuntimeCause(SQLException.class, "error", () -> h2JdbcDdl.showDatabases(connection));
 		}
 	}
 
@@ -254,7 +258,7 @@ class H2JdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> h2JdbcDdl.showSchemas(connection));
+			assertRuntimeCause(SQLException.class, "error", () -> h2JdbcDdl.showSchemas(connection));
 		}
 	}
 
@@ -300,7 +304,7 @@ class H2JdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> h2JdbcDdl.showTables(connection, "PUBLIC", null));
+			assertRuntimeCause(SQLException.class, "error", () -> h2JdbcDdl.showTables(connection, "PUBLIC", null));
 		}
 	}
 
@@ -334,7 +338,7 @@ class H2JdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class,
+			assertRuntimeCause(SQLException.class, "error",
 					() -> h2JdbcDdl.fetchTables(connection, "PUBLIC", Arrays.asList("USERS")));
 		}
 	}
@@ -372,7 +376,7 @@ class H2JdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> h2JdbcDdl.showColumns(connection, "PUBLIC", "USERS"));
+			assertRuntimeCause(SQLException.class, "error", () -> h2JdbcDdl.showColumns(connection, "PUBLIC", "USERS"));
 		}
 	}
 
@@ -411,7 +415,7 @@ class H2JdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class,
+			assertRuntimeCause(SQLException.class, "error",
 					() -> h2JdbcDdl.showForeignKeys(connection, "PUBLIC", Arrays.asList("ORDERS")));
 		}
 	}

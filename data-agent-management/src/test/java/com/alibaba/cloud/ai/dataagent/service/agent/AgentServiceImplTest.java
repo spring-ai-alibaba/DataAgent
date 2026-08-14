@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -146,7 +147,7 @@ class AgentServiceImplTest {
 		when(agentVectorStoreService.deleteDocumentsByMetadata(eq("1"), any()))
 			.thenThrow(new RuntimeException("vector unavailable"));
 
-		assertThrows(RuntimeException.class, () -> agentService.deleteById(1L));
+		assertThrowsExactly(RuntimeException.class, () -> agentService.deleteById(1L));
 		verify(agentMapper, never()).deleteById(1L);
 	}
 

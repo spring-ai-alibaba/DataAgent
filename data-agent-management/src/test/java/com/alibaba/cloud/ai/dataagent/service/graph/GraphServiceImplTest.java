@@ -19,6 +19,7 @@ import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.enums.GraphEventType;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.MultiTurnContextManager;
 import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
+import com.alibaba.cloud.ai.dataagent.service.langfuse.NodeTracingLifecycleListener;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.CompileConfig;
@@ -37,14 +38,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -56,7 +56,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class GraphServiceImplTest {
 
 	@Mock
@@ -70,6 +69,9 @@ class GraphServiceImplTest {
 
 	@Mock
 	private BaseCheckpointSaver checkpointSaver;
+
+	@Mock
+	private NodeTracingLifecycleListener nodeTracingLifecycleListener;
 
 	@Mock
 	private Span mockSpan;
@@ -87,10 +89,11 @@ class GraphServiceImplTest {
 
 		CompileConfig compileConfig = CompileConfig.builder().build();
 		graphService = new GraphServiceImpl(mockStateGraph, compileConfig, checkpointSaver, executor,
-				multiTurnContextManager, langfuseReporter);
+				multiTurnContextManager, langfuseReporter, nodeTracingLifecycleListener);
+	}
 
+	private void stubStreamDependencies() {
 		when(langfuseReporter.startLLMSpan(anyString(), any())).thenReturn(mockSpan);
-		when(mockSpan.isRecording()).thenReturn(true);
 		when(multiTurnContextManager.buildContext(anyString())).thenReturn("(无)");
 	}
 
@@ -133,6 +136,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_newProcess_setsThreadIdIfMissing() {
+		stubStreamDependencies();
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.conversationId("conversation-1")
@@ -152,6 +156,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_legacyThreadId_startsFreshRunAndKeepsConversationIdentity() {
+		stubStreamDependencies();
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.threadId("existing-thread")
@@ -170,6 +175,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_humanFeedback_reusesInterruptedRunId() throws Exception {
+		stubStreamDependencies();
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.conversationId("conversation-1")
@@ -192,6 +198,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_interruptedForHumanFeedback_emitsRequiredEventAndRetainsCheckpoint() throws Exception {
+		stubStreamDependencies();
 		Checkpoint checkpoint = Checkpoint.builder()
 			.nodeId("PLANNER_NODE")
 			.nextNodeId("HUMAN_FEEDBACK_NODE")
@@ -223,6 +230,7 @@ class GraphServiceImplTest {
 	@Test
 	void graphStreamProcess_completedBeforeHumanFeedback_doesNotEmitRequiredEventAndReleasesCheckpoint()
 			throws Exception {
+		stubStreamDependencies();
 		Checkpoint checkpoint = Checkpoint.builder()
 			.nodeId("SCHEMA_RECALL_NODE")
 			.nextNodeId("__END__")
@@ -253,6 +261,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_rejectedFeedbackInterruptedAgain_emitsRequiredEventAndRetainsCheckpoint() throws Exception {
+		stubStreamDependencies();
 		Checkpoint checkpoint = Checkpoint.builder()
 			.nodeId("PLANNER_NODE")
 			.nextNodeId("HUMAN_FEEDBACK_NODE")
@@ -288,6 +297,7 @@ class GraphServiceImplTest {
 
 	@Test
 	void graphStreamProcess_emitsStepIdentityAndTypedFinalAnswer() throws Exception {
+		stubStreamDependencies();
 		OverAllState regularState = new OverAllState();
 		regularState.registerKeyAndStrategy("final_answer", new ReplaceStrategy());
 		OverAllState finalState = new OverAllState();
@@ -336,6 +346,7 @@ class GraphServiceImplTest {
 	void stopStreamProcessing_nullThreadId_doesNothing() {
 		assertDoesNotThrow(() -> graphService.stopStreamProcessing(null));
 		assertDoesNotThrow(() -> graphService.stopStreamProcessing(""));
+		verifyNoInteractions(multiTurnContextManager, checkpointSaver, langfuseReporter);
 	}
 
 	@Test
@@ -345,11 +356,41 @@ class GraphServiceImplTest {
 	}
 
 	@Test
-	void stopStreamProcessing_existingThread_cleansUp() {
+	void stopStreamProcessing_existingThread_cleansUp() throws Exception {
+		stubStreamDependencies();
+		when(mockSpan.isRecording()).thenReturn(true);
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.conversationId("conversation-to-stop")
 			.threadId("thread-to-stop")
+			.query("test query")
+			.build();
+
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().multicast().onBackpressureBuffer();
+		CountDownLatch subscribed = new CountDownLatch(1);
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(
+				Flux.<com.alibaba.cloud.ai.graph.NodeOutput>never().doOnSubscribe(ignored -> subscribed.countDown()));
+
+		graphService.graphStreamProcess(sink, request);
+		String runId = request.getThreadId();
+		assertTrue(subscribed.await(2, TimeUnit.SECONDS));
+
+		graphService.stopStreamProcessing(runId);
+		verify(multiTurnContextManager).discardPending("conversation-to-stop");
+		verify(langfuseReporter).endSpanSuccess(eq(mockSpan), eq(runId), anyString());
+	}
+
+	/**
+	 * 客户端断开是唯一绕过节点 after/onError 的路径。若不清理，该 threadId 下仍挂着的节点 span 会在 Langfuse 上永不结束，同时
+	 * listener 内部的 map 会持续泄漏。
+	 */
+	@Test
+	void stopStreamProcessing_discardsDanglingNodeSpans() {
+		stubStreamDependencies();
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-with-nodes")
+			.threadId("thread-with-nodes")
 			.query("test query")
 			.build();
 
@@ -359,19 +400,98 @@ class GraphServiceImplTest {
 		graphService.graphStreamProcess(sink, request);
 		String runId = request.getThreadId();
 
-		try {
-			Thread.sleep(100);
-		}
-		catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-		}
-
 		graphService.stopStreamProcessing(runId);
-		verify(multiTurnContextManager).discardPending("conversation-to-stop");
+
+		verify(nodeTracingLifecycleListener).discardThread(runId);
+	}
+
+	@Test
+	void stopStreamProcessing_discardsNodeSpansEvenForUnknownThread() {
+		graphService.stopStreamProcessing("never-started-thread");
+
+		// 即使没有 StreamContext，也要清理 listener 侧可能存在的残留
+		verify(nodeTracingLifecycleListener).discardThread("never-started-thread");
+	}
+
+	/**
+	 * 正常终止路径必须清理 listener 侧的 attempt 计数器，否则每个新 threadId 都会留下残留、无界增长。 graphStreamProcess
+	 * 会用新 UUID 覆盖入参中的 threadId，因此使用 request 的实际 threadId 做断言。
+	 */
+	@Test
+	void handleStreamComplete_finishesThreadToClearAttemptCounters() {
+		stubStreamDependencies();
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-complete")
+			.query("test query")
+			.build();
+
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().multicast().onBackpressureBuffer();
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.empty());
+
+		graphService.graphStreamProcess(sink, request);
+		// graphStreamProcess 会将实际分配的 threadId 写回 request
+		String actualThreadId = request.getThreadId();
+		assertNotNull(actualThreadId, "graphStreamProcess must assign a threadId");
+
+		verify(nodeTracingLifecycleListener, timeout(2000)).finishThread(actualThreadId);
+	}
+
+	/**
+	 * 流式错误路径同样必须清理 listener 侧残留。
+	 */
+	@Test
+	void handleStreamError_finishesThreadToClearAttemptCounters() {
+		stubStreamDependencies();
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-error")
+			.query("test query")
+			.build();
+
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().multicast().onBackpressureBuffer();
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class)))
+			.thenReturn(Flux.error(new RuntimeException("boom")));
+
+		graphService.graphStreamProcess(sink, request);
+		String actualThreadId = request.getThreadId();
+		assertNotNull(actualThreadId, "graphStreamProcess must assign a threadId");
+
+		verify(nodeTracingLifecycleListener, timeout(2000)).finishThread(actualThreadId);
+	}
+
+	/**
+	 * 等待人工反馈时不能清理 attempt 计数器：反馈恢复后 attempt 需接着上一轮递增。
+	 */
+	@Test
+	void handleStreamComplete_awaitingHumanFeedback_doesNotFinishThread() throws Exception {
+		stubStreamDependencies();
+		Checkpoint checkpoint = Checkpoint.builder()
+			.nodeId("PLANNER_NODE")
+			.nextNodeId("HUMAN_FEEDBACK_NODE")
+			.state(java.util.Map.of())
+			.build();
+		when(checkpointSaver.get(any(RunnableConfig.class))).thenReturn(Optional.of(checkpoint));
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.empty());
+
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
+		var responsesFuture = sink.asFlux().map(ServerSentEvent::data).collectList().toFuture();
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-feedback")
+			.query("review this plan")
+			.humanFeedback(true)
+			.build();
+
+		graphService.graphStreamProcess(sink, request);
+		responsesFuture.get(Duration.ofSeconds(2).toMillis(), TimeUnit.MILLISECONDS);
+
+		verify(nodeTracingLifecycleListener, never()).finishThread(anyString());
 	}
 
 	@Test
 	void stopStreamProcessingByConversationId_cancelsActiveGraphSubscription() throws Exception {
+		stubStreamDependencies();
 		GraphRequest request = GraphRequest.builder()
 			.agentId("1")
 			.conversationId("conversation-to-cancel")
@@ -406,14 +526,14 @@ class GraphServiceImplTest {
 		when(compiledGraph.invoke(anyMap(), any(RunnableConfig.class)))
 			.thenThrow(new RuntimeException("Graph execution failed"));
 
-		assertThrows(RuntimeException.class, () -> graphService.nl2sql("test", "1"));
+		assertThrowsExactly(RuntimeException.class, () -> graphService.nl2sql("test", "1"));
 	}
 
 	@Test
 	void nl2sql_emptyOptional_returnsEmpty() throws GraphRunnerException {
 		when(compiledGraph.invoke(anyMap(), any(RunnableConfig.class))).thenReturn(Optional.empty());
 
-		assertThrows(Exception.class, () -> graphService.nl2sql("test", "1"));
+		assertThrowsExactly(NoSuchElementException.class, () -> graphService.nl2sql("test", "1"));
 	}
 
 }

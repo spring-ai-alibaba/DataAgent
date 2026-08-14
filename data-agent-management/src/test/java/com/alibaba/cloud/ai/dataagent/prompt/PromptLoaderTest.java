@@ -18,7 +18,8 @@ package com.alibaba.cloud.ai.dataagent.prompt;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PromptLoaderTest {
 
@@ -28,70 +29,48 @@ class PromptLoaderTest {
 	}
 
 	@Test
-	void loadPrompt_validName_returnsContent() {
+	void loadPrompt_validName_returnsTheRequestedTemplate() {
 		String content = PromptLoader.loadPrompt("intent-recognition");
-		assertNotNull(content);
-		assertFalse(content.isEmpty());
+
+		assertThat(content).contains("# 角色", "{latest_query}", "{multi_turn}", "{format}");
 	}
 
 	@Test
 	void loadPrompt_cachedResult_returnsSameContent() {
 		String first = PromptLoader.loadPrompt("intent-recognition");
 		String second = PromptLoader.loadPrompt("intent-recognition");
-		assertSame(first, second);
+
+		assertThat(second).isSameAs(first);
 	}
 
 	@Test
-	void loadPrompt_invalidName_returnsNullOrEmpty() {
-		try {
-			String content = PromptLoader.loadPrompt("nonexistent-prompt-file-xyz-12345");
-			assertTrue(content == null || content.isEmpty());
-		}
-		catch (Exception e) {
-			// expected - some implementations throw
-		}
+	void loadPrompt_missingResource_throwsAnExplicitContractError() {
+		assertThatThrownBy(() -> PromptLoader.loadPrompt("nonexistent-prompt-file-xyz-12345"))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("Prompt resource not found: prompts/nonexistent-prompt-file-xyz-12345.txt");
+		assertThat(PromptLoader.getCacheSize()).isZero();
 	}
 
 	@Test
 	void clearCache_emptiesCache() {
 		PromptLoader.loadPrompt("intent-recognition");
-		assertTrue(PromptLoader.getCacheSize() > 0);
+		assertThat(PromptLoader.getCacheSize()).isOne();
 
 		PromptLoader.clearCache();
-		assertEquals(0, PromptLoader.getCacheSize());
+
+		assertThat(PromptLoader.getCacheSize()).isZero();
 	}
 
 	@Test
 	void getCacheSize_afterLoading_returnsCorrectCount() {
 		PromptLoader.clearCache();
-		assertEquals(0, PromptLoader.getCacheSize());
+		assertThat(PromptLoader.getCacheSize()).isZero();
 
 		PromptLoader.loadPrompt("intent-recognition");
-		assertEquals(1, PromptLoader.getCacheSize());
+		assertThat(PromptLoader.getCacheSize()).isOne();
 
 		PromptLoader.loadPrompt("mix-selector");
-		assertEquals(2, PromptLoader.getCacheSize());
-	}
-
-	@Test
-	void loadPrompt_multiplePrompts_allLoadable() {
-		assertNotNull(PromptLoader.loadPrompt("intent-recognition"));
-		assertNotNull(PromptLoader.loadPrompt("mix-selector"));
-		assertNotNull(PromptLoader.loadPrompt("new-sql-generate"));
-		assertNotNull(PromptLoader.loadPrompt("semantic-consistency"));
-		assertNotNull(PromptLoader.loadPrompt("planner"));
-		assertNotNull(PromptLoader.loadPrompt("business-knowledge"));
-		assertNotNull(PromptLoader.loadPrompt("agent-knowledge"));
-		assertNotNull(PromptLoader.loadPrompt("query-enhancement"));
-		assertNotNull(PromptLoader.loadPrompt("feasibility-assessment"));
-		assertNotNull(PromptLoader.loadPrompt("sql-error-fixer"));
-		assertNotNull(PromptLoader.loadPrompt("python-generator"));
-		assertNotNull(PromptLoader.loadPrompt("python-analyze"));
-		assertNotNull(PromptLoader.loadPrompt("semantic-model"));
-		assertNotNull(PromptLoader.loadPrompt("json-fix"));
-		assertNotNull(PromptLoader.loadPrompt("data-view-analyze"));
-		assertNotNull(PromptLoader.loadPrompt("report-generator-plain"));
-		assertNotNull(PromptLoader.loadPrompt("evidence-query-rewrite"));
+		assertThat(PromptLoader.getCacheSize()).isEqualTo(2);
 	}
 
 }

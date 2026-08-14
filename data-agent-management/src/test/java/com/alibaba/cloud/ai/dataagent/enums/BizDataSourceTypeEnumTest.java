@@ -17,6 +17,9 @@ package com.alibaba.cloud.ai.dataagent.enums;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class BizDataSourceTypeEnumTest {
@@ -168,11 +171,16 @@ class BizDataSourceTypeEnumTest {
 
 	@Test
 	void allEnumValues_haveNonNullFields() {
+		Set<Integer> codes = new HashSet<>();
+		Set<String> typeNames = new HashSet<>();
 		for (BizDataSourceTypeEnum type : BizDataSourceTypeEnum.values()) {
-			assertNotNull(type.getCode());
-			assertNotNull(type.getTypeName());
-			assertNotNull(type.getDialect());
-			assertNotNull(type.getProtocol());
+			assertTrue(codes.add(type.getCode()), () -> "Duplicate datasource code: " + type.getCode());
+			assertTrue(typeNames.add(type.getTypeName()), () -> "Duplicate datasource type: " + type.getTypeName());
+			assertFalse(type.getTypeName().isBlank());
+			assertFalse(type.getDialect().isBlank());
+			assertFalse(type.getProtocol().isBlank());
+			assertSame(type, BizDataSourceTypeEnum.fromCode(type.getCode()));
+			assertSame(type, BizDataSourceTypeEnum.fromTypeName(type.getTypeName()));
 		}
 	}
 

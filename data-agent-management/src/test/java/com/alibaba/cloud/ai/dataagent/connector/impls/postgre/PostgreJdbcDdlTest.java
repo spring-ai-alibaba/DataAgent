@@ -15,6 +15,8 @@
  */
 package com.alibaba.cloud.ai.dataagent.connector.impls.postgre;
 
+import static com.alibaba.cloud.ai.dataagent.support.ExceptionTestSupport.assertRuntimeCause;
+
 import com.alibaba.cloud.ai.dataagent.bo.schema.ColumnInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.DatabaseInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
@@ -201,7 +203,9 @@ class PostgreJdbcDdlTest {
 				.thenReturn(expected);
 
 			ResultSetBO result = postgreJdbcDdl.scanTable(connection, "public", "users");
-			assertNotNull(result);
+			assertSame(expected, result);
+			ms.verify(() -> SqlExecutor.executeSqlAndReturnObject(connection, "public",
+					"SELECT *\nFROM \n    users\nLIMIT 20;"));
 		}
 	}
 
@@ -211,7 +215,8 @@ class PostgreJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnObject(any(Connection.class), anyString(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> postgreJdbcDdl.scanTable(connection, "public", "users"));
+			assertRuntimeCause(SQLException.class, "error",
+					() -> postgreJdbcDdl.scanTable(connection, "public", "users"));
 		}
 	}
 
@@ -221,7 +226,7 @@ class PostgreJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> postgreJdbcDdl.showDatabases(connection));
+			assertRuntimeCause(SQLException.class, "error", () -> postgreJdbcDdl.showDatabases(connection));
 		}
 	}
 
@@ -254,7 +259,7 @@ class PostgreJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> postgreJdbcDdl.showSchemas(connection));
+			assertRuntimeCause(SQLException.class, "error", () -> postgreJdbcDdl.showSchemas(connection));
 		}
 	}
 
@@ -300,7 +305,8 @@ class PostgreJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> postgreJdbcDdl.showTables(connection, "public", null));
+			assertRuntimeCause(SQLException.class, "error",
+					() -> postgreJdbcDdl.showTables(connection, "public", null));
 		}
 	}
 
@@ -334,7 +340,7 @@ class PostgreJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class,
+			assertRuntimeCause(SQLException.class, "error",
 					() -> postgreJdbcDdl.fetchTables(connection, "public", Arrays.asList("users")));
 		}
 	}
@@ -372,7 +378,8 @@ class PostgreJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class, () -> postgreJdbcDdl.showColumns(connection, "public", "users"));
+			assertRuntimeCause(SQLException.class, "error",
+					() -> postgreJdbcDdl.showColumns(connection, "public", "users"));
 		}
 	}
 
@@ -412,7 +419,7 @@ class PostgreJdbcDdlTest {
 			ms.when(() -> SqlExecutor.executeSqlAndReturnArr(any(Connection.class), any(), anyString()))
 				.thenThrow(new SQLException("error"));
 
-			assertThrows(RuntimeException.class,
+			assertRuntimeCause(SQLException.class, "error",
 					() -> postgreJdbcDdl.showForeignKeys(connection, "public", Arrays.asList("orders")));
 		}
 	}

@@ -103,7 +103,7 @@ class LocalFileStorageServiceImplTest {
 		when(multipartFile.getOriginalFilename()).thenReturn("fail.txt");
 		when(multipartFile.getInputStream()).thenThrow(new IOException("disk full"));
 
-		assertThrows(RuntimeException.class, () -> service.storeFile(multipartFile, "docs"));
+		assertThrowsExactly(RuntimeException.class, () -> service.storeFile(multipartFile, "docs"));
 	}
 
 	@Test
@@ -179,7 +179,7 @@ class LocalFileStorageServiceImplTest {
 
 	@Test
 	void getFileResource_nonExistingFile_throwsRuntimeException() {
-		assertThrows(RuntimeException.class, () -> service.getFileResource("missing.txt"));
+		assertThrowsExactly(RuntimeException.class, () -> service.getFileResource("missing.txt"));
 	}
 
 	@Test
