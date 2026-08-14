@@ -49,8 +49,7 @@ class DeepSeekModelLiveIT {
 			.provider("deepseek")
 			.apiKey(requiredApiKey())
 			.baseUrl(baseUrl())
-			.completionsPath(environmentOrDefault("DATAAGENT_LIVE_DEEPSEEK_COMPLETIONS_PATH",
-					DEFAULT_COMPLETIONS_PATH))
+			.completionsPath(environmentOrDefault("DATAAGENT_LIVE_DEEPSEEK_COMPLETIONS_PATH", DEFAULT_COMPLETIONS_PATH))
 			.modelName(environmentOrDefault("DATAAGENT_LIVE_DEEPSEEK_CHAT_MODEL", "deepseek-v4-flash"))
 			.modelType("CHAT")
 			.temperature(0.0)
