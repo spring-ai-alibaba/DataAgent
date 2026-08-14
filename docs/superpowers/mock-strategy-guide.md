@@ -75,7 +75,7 @@ Prefer real value objects and parsers when they are deterministic and cheap. Moc
 - If the contract is specifically early emission, hold the downstream dependency with a sink or latch, assert the early event, release it, and then assert terminal completion.
 - Assert structured payloads after decoding their stream markers. String presence alone is not enough when a DTO is available.
 
-## Real DeepSeek tests
+## Real provider tests
 
 `DeepSeekModelLiveIT` uses the same `DynamicModelFactory` as production. It validates:
 
@@ -83,10 +83,11 @@ Prefer real value objects and parsers when they are deterministic and cheap. Moc
 - terminal completion of the stream;
 - non-zero token usage from the completed stream.
 
-DeepSeek's official API currently exposes Chat Completions, Responses, FIM,
-model listing, and balance endpoints, but no Embeddings endpoint. This live profile
-therefore makes no real-embedding claim. Add a separately credentialed provider
-contract before treating embedding behavior as provider-verified.
+`DashScopeEmbeddingLiveIT` separately validates Alibaba Cloud Model Studio through
+its OpenAI-compatible Embeddings endpoint. It requires two real results and checks
+that both 1,024-dimensional vectors are finite, non-zero, distinct, and accompanied
+by positive token usage. The test does not use the Anthropic-compatible
+`/apps/anthropic` endpoint because that endpoint exposes Messages, not Embeddings.
 
 Run locally in zsh without placing the key in source, command history, or Maven arguments:
 
@@ -94,8 +95,13 @@ Run locally in zsh without placing the key in source, command history, or Maven 
 read -s "DEEPSEEK_API_KEY?DeepSeek API Key: "
 echo
 export DEEPSEEK_API_KEY
-mvn -pl data-agent-management -Plive-model -Dit.test=DeepSeekModelLiveIT verify
+read -s "DASHSCOPE_API_KEY?DashScope API Key: "
+echo
+export DASHSCOPE_API_KEY
+mvn -pl data-agent-management -Plive-model \
+  -Dit.test=DeepSeekModelLiveIT,DashScopeEmbeddingLiveIT verify
 unset DEEPSEEK_API_KEY
+unset DASHSCOPE_API_KEY
 ```
 
 Optional overrides:
@@ -106,8 +112,12 @@ Optional overrides:
 | `DATAAGENT_LIVE_DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | Official OpenAI-compatible endpoint |
 | `DATAAGENT_LIVE_DEEPSEEK_COMPLETIONS_PATH` | `/chat/completions` | Official Chat Completions path |
 | `DATAAGENT_LIVE_DEEPSEEK_CHAT_MODEL` | `deepseek-v4-flash` | Current low-cost Chat model |
+| `DATAAGENT_LIVE_DASHSCOPE_API_KEY` | falls back to `DASHSCOPE_API_KEY` | Dedicated Embedding credential |
+| `DATAAGENT_LIVE_DASHSCOPE_BASE_URL` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | Official OpenAI-compatible endpoint |
+| `DATAAGENT_LIVE_DASHSCOPE_EMBEDDINGS_PATH` | `/embeddings` | Official Embeddings path |
+| `DATAAGENT_LIVE_DASHSCOPE_EMBEDDING_MODEL` | `text-embedding-v4` | Existing 1,024-dimensional model space |
 
-The GitHub workflow is manual-only and must exist on the default branch before GitHub allows administrators to dispatch it. An administrator enters an open PR number; the unprivileged resolver job validates the PR and resolves its fork repository plus immutable head SHA. The live job checks out that exact SHA and reads the `DEEPSEEK` Actions secret only for the provider-test step gated by the protected `live-model` Environment.
+The GitHub workflow is manual-only and must exist on the default branch before GitHub allows administrators to dispatch it. An administrator enters an open PR number; the unprivileged resolver job validates the PR and resolves its fork repository plus immutable head SHA. The live job checks out that exact SHA and reads the `DEEPSEEK` and `DASHSCOPE_API_KEY` Actions secrets only for the provider-test step gated by the protected `live-model` Environment.
 
 Configure required reviewers and prevent self-review for the `live-model` Environment. Before approval, inspect the PR and confirm that the resolved SHA is the revision intended for testing because checked-out PR code can access the credential during the final step. Never expose this secret to an automatic pull-request job and never use `pull_request_target` to execute pull-request code.
 
