@@ -102,11 +102,12 @@ public class NodeTracingLifecycleListener implements GraphLifecycleListener {
 			return;
 		}
 
+		Span span = null;
 		try {
 			int attempt = attemptCounters.computeIfAbsent(counterKey(threadId, nodeId), k -> new AtomicInteger())
 				.incrementAndGet();
 
-			Span span = tracer.spanBuilder(nodeId)
+			span = tracer.spanBuilder(nodeId)
 				.setSpanKind(SpanKind.INTERNAL)
 				.setParent(io.opentelemetry.context.Context.current().with(rootSpan))
 				.startSpan();
@@ -122,9 +123,19 @@ public class NodeTracingLifecycleListener implements GraphLifecycleListener {
 			LangfuseService.registerActiveAccumulator(threadId);
 
 			activeNodes.computeIfAbsent(threadId, k -> new ArrayDeque<>()).push(new ActiveNode(nodeId, span, snapshot));
+			// Ownership is now held by activeNodes and transferred to after/onError.
+			span = null;
 		}
 		catch (Exception e) {
 			log.warn("Failed to start Langfuse span for node {}", nodeId, e);
+			if (span != null) {
+				try {
+					span.end();
+				}
+				catch (Exception endException) {
+					log.warn("Failed to clean up partially started Langfuse span for node {}", nodeId, endException);
+				}
+			}
 		}
 	}
 

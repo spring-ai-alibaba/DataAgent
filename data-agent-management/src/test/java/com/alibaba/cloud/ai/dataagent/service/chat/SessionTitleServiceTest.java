@@ -25,11 +25,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -77,7 +78,7 @@ class SessionTitleServiceTest {
 
 		service.scheduleTitleGeneration("session-1", "hello");
 		executorService.shutdown();
-		executorService.awaitTermination(5, TimeUnit.SECONDS);
+		assertTrue(executorService.awaitTermination(5, TimeUnit.SECONDS), "the title task must actually finish");
 
 		verify(chatSessionService).findBySessionId("session-1");
 		verify(chatSessionService, never()).renameSession(anyString(), anyString());
@@ -90,7 +91,7 @@ class SessionTitleServiceTest {
 
 		service.scheduleTitleGeneration("session-1", "hello");
 		executorService.shutdown();
-		executorService.awaitTermination(5, TimeUnit.SECONDS);
+		assertTrue(executorService.awaitTermination(5, TimeUnit.SECONDS), "the title task must actually finish");
 
 		verify(chatSessionService, never()).renameSession(anyString(), anyString());
 	}
@@ -106,7 +107,7 @@ class SessionTitleServiceTest {
 
 		service.scheduleTitleGeneration("session-1", "hello world");
 		executorService.shutdown();
-		executorService.awaitTermination(5, TimeUnit.SECONDS);
+		assertTrue(executorService.awaitTermination(5, TimeUnit.SECONDS), "the title task must actually finish");
 
 		verify(chatSessionService).renameSession(eq("session-1"), eq("Generated Title"));
 		verify(sessionEventPublisher).publishTitleUpdated(eq(1), eq("session-1"), eq("Generated Title"));
@@ -114,32 +115,36 @@ class SessionTitleServiceTest {
 
 	@Test
 	void scheduleTitleGeneration_duplicateSessionId_skipsSecondCall() throws Exception {
-		AtomicReference<ChatSession> sessionRef = new AtomicReference<>(
-				ChatSession.builder().id("session-1").agentId(1).title("\u65b0\u4f1a\u8bdd").build());
-		when(chatSessionService.findBySessionId("session-1")).thenAnswer(invocation -> sessionRef.get());
-
-		doAnswer(invocation -> {
-			String newTitle = invocation.getArgument(1);
-			ChatSession session = sessionRef.get();
-			ChatSession newSession = ChatSession.builder()
-				.title(newTitle)
-				.id(session.getId())
-				.agentId(session.getAgentId())
-				.build();
-			sessionRef.set(newSession);
-			return null;
-		}).when(chatSessionService).renameSession(anyString(), anyString());
+		ChatSession session = ChatSession.builder().id("session-1").agentId(1).title("\u65b0\u4f1a\u8bdd").build();
+		CountDownLatch firstTaskStarted = new CountDownLatch(1);
+		CountDownLatch allowFirstTaskToFinish = new CountDownLatch(1);
+		when(chatSessionService.findBySessionId("session-1")).thenAnswer(invocation -> {
+			firstTaskStarted.countDown();
+			if (!allowFirstTaskToFinish.await(5, TimeUnit.SECONDS)) {
+				throw new IllegalStateException("timed out waiting to finish the first title task");
+			}
+			return session;
+		});
 
 		Flux<ChatResponse> chatResponseFlux = Flux.empty();
 		when(llmService.call(anyString(), anyString())).thenReturn(chatResponseFlux);
 		when(llmService.toStringFlux(chatResponseFlux)).thenReturn(Flux.just("Title"));
 
 		service.scheduleTitleGeneration("session-1", "hello");
-		service.scheduleTitleGeneration("session-1", "hello again");
+		try {
+			assertTrue(firstTaskStarted.await(5, TimeUnit.SECONDS), "the first title task must actually start");
+			service.scheduleTitleGeneration("session-1", "hello again");
+		}
+		finally {
+			allowFirstTaskToFinish.countDown();
+		}
 		executorService.shutdown();
-		executorService.awaitTermination(5, TimeUnit.SECONDS);
+		assertTrue(executorService.awaitTermination(5, TimeUnit.SECONDS), "the title task must actually finish");
 
-		verify(chatSessionService, atMostOnce()).renameSession(anyString(), anyString());
+		verify(chatSessionService, times(1)).findBySessionId("session-1");
+		verify(llmService, times(1)).call(anyString(), anyString());
+		verify(chatSessionService, times(1)).renameSession("session-1", "Title");
+		verify(sessionEventPublisher, times(1)).publishTitleUpdated(1, "session-1", "Title");
 	}
 
 }
