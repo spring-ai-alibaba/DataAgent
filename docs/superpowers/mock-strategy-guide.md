@@ -75,35 +75,39 @@ Prefer real value objects and parsers when they are deterministic and cheap. Moc
 - If the contract is specifically early emission, hold the downstream dependency with a sink or latch, assert the early event, release it, and then assert terminal completion.
 - Assert structured payloads after decoding their stream markers. String presence alone is not enough when a DTO is available.
 
-## Real Alibaba Cloud tests
+## Real DeepSeek tests
 
-`AlibabaCloudModelLiveIT` uses the same `DynamicModelFactory` as production. It validates:
+`DeepSeekModelLiveIT` uses the same `DynamicModelFactory` as production. It validates:
 
-- a real streaming `qwen-plus` response with an exact protocol marker;
-- non-zero token usage from the completed stream;
-- two real `text-embedding-v4` results;
-- the expected 1,024 dimensions, finite non-zero values, and distinct vectors.
+- a real streaming `deepseek-v4-flash` response with an exact protocol marker;
+- terminal completion of the stream;
+- non-zero token usage from the completed stream.
+
+DeepSeek's official API currently exposes Chat Completions, Responses, FIM,
+model listing, and balance endpoints, but no Embeddings endpoint. This live profile
+therefore makes no real-embedding claim. Add a separately credentialed provider
+contract before treating embedding behavior as provider-verified.
 
 Run locally in zsh without placing the key in source, command history, or Maven arguments:
 
 ```bash
-read -s "DASHSCOPE_API_KEY?DashScope API Key: "
+read -s "DEEPSEEK_API_KEY?DeepSeek API Key: "
 echo
-export DASHSCOPE_API_KEY
-mvn -pl data-agent-management -Plive-model -Dit.test=AlibabaCloudModelLiveIT verify
-unset DASHSCOPE_API_KEY
+export DEEPSEEK_API_KEY
+mvn -pl data-agent-management -Plive-model -Dit.test=DeepSeekModelLiveIT verify
+unset DEEPSEEK_API_KEY
 ```
 
 Optional overrides:
 
 | Environment variable | Default | Purpose |
 | --- | --- | --- |
-| `DATAAGENT_LIVE_DASHSCOPE_API_KEY` | falls back to `DASHSCOPE_API_KEY` | Dedicated live-test credential |
-| `DATAAGENT_LIVE_DASHSCOPE_BASE_URL` | `https://dashscope.aliyuncs.com/compatible-mode` | Region or workspace endpoint; a trailing `/v1` is accepted |
-| `DATAAGENT_LIVE_DASHSCOPE_CHAT_MODEL` | `qwen-plus` | Chat model |
-| `DATAAGENT_LIVE_DASHSCOPE_EMBEDDING_MODEL` | `text-embedding-v4` | Embedding model |
+| `DATAAGENT_LIVE_DEEPSEEK_API_KEY` | falls back to `DEEPSEEK_API_KEY` | Dedicated live-test credential |
+| `DATAAGENT_LIVE_DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | Official OpenAI-compatible endpoint |
+| `DATAAGENT_LIVE_DEEPSEEK_COMPLETIONS_PATH` | `/chat/completions` | Official Chat Completions path |
+| `DATAAGENT_LIVE_DEEPSEEK_CHAT_MODEL` | `deepseek-v4-flash` | Current low-cost Chat model |
 
-The GitHub workflow is manual-only and must exist on the default branch before GitHub allows administrators to dispatch it. An administrator enters an open PR number; the unprivileged resolver job validates the PR and resolves its fork repository plus immutable head SHA. The live job checks out that exact SHA and reads `DASHSCOPE_API_KEY` from the protected `live-model` Environment only for the provider-test step.
+The GitHub workflow is manual-only and must exist on the default branch before GitHub allows administrators to dispatch it. An administrator enters an open PR number; the unprivileged resolver job validates the PR and resolves its fork repository plus immutable head SHA. The live job checks out that exact SHA and reads the `DEEPSEEK` Actions secret only for the provider-test step gated by the protected `live-model` Environment.
 
 Configure required reviewers and prevent self-review for the `live-model` Environment. Before approval, inspect the PR and confirm that the resolved SHA is the revision intended for testing because checked-out PR code can access the credential during the final step. Never expose this secret to an automatic pull-request job and never use `pull_request_target` to execute pull-request code.
 

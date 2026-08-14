@@ -16,7 +16,6 @@
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -28,32 +27,34 @@ import org.junit.jupiter.api.Timeout;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.util.StringUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("live")
 @Timeout(value = 2, unit = TimeUnit.MINUTES)
-class AlibabaCloudModelLiveIT {
+class DeepSeekModelLiveIT {
 
 	private static final String EXPECTED_CHAT_RESPONSE = "DATAAGENT_LIVE_OK";
 
-	private static final String DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode";
+	private static final String DEFAULT_BASE_URL = "https://api.deepseek.com";
+
+	private static final String DEFAULT_COMPLETIONS_PATH = "/chat/completions";
 
 	private final DynamicModelFactory modelFactory = new DynamicModelFactory();
 
 	@Test
-	void streamingChat_callsAlibabaCloudAndReturnsContentWithUsage() {
+	void streamingChat_callsDeepSeekAndReturnsContentWithUsage() {
 		ChatModel chatModel = modelFactory.createChatModel(ModelConfigDTO.builder()
-			.provider("qwen")
+			.provider("deepseek")
 			.apiKey(requiredApiKey())
 			.baseUrl(baseUrl())
-			.modelName(environmentOrDefault("DATAAGENT_LIVE_DASHSCOPE_CHAT_MODEL", "qwen-plus"))
+			.completionsPath(environmentOrDefault("DATAAGENT_LIVE_DEEPSEEK_COMPLETIONS_PATH",
+					DEFAULT_COMPLETIONS_PATH))
+			.modelName(environmentOrDefault("DATAAGENT_LIVE_DEEPSEEK_CHAT_MODEL", "deepseek-v4-flash"))
 			.modelType("CHAT")
 			.temperature(0.0)
-			.maxTokens(32)
+			.maxTokens(256)
 			.build());
 
 		Prompt prompt = new Prompt(
@@ -83,53 +84,20 @@ class AlibabaCloudModelLiveIT {
 		assertThat(totalTokens).isPositive();
 	}
 
-	@Test
-	void embeddings_callAlibabaCloudAndReturnDistinctFiniteVectors() {
-		EmbeddingModel embeddingModel = modelFactory.createEmbeddingModel(ModelConfigDTO.builder()
-			.provider("qwen")
-			.apiKey(requiredApiKey())
-			.baseUrl(baseUrl())
-			.modelName(environmentOrDefault("DATAAGENT_LIVE_DASHSCOPE_EMBEDDING_MODEL", "text-embedding-v4"))
-			.modelType("EMBEDDING")
-			.build());
-
-		EmbeddingResponse response = embeddingModel
-			.embedForResponse(List.of("查询订单表中的销售总额", "How to bake sourdough bread"));
-
-		assertThat(response.getResults()).hasSize(2);
-		float[] first = response.getResults().get(0).getOutput();
-		float[] second = response.getResults().get(1).getOutput();
-		assertVector(first);
-		assertVector(second);
-		assertThat(Arrays.equals(first, second)).isFalse();
-		assertThat(response.getMetadata()).isNotNull();
-		assertThat(response.getMetadata().getUsage()).isNotNull();
-		assertThat(response.getMetadata().getUsage().getTotalTokens()).isPositive();
-	}
-
-	private void assertVector(float[] vector) {
-		assertThat(vector).hasSize(1024);
-		double squaredNorm = 0.0;
-		for (float value : vector) {
-			assertThat(Float.isFinite(value)).as("embedding value must be finite").isTrue();
-			squaredNorm += value * value;
-		}
-		assertThat(squaredNorm).isPositive();
-	}
-
 	private String requiredApiKey() {
-		String apiKey = environmentOrDefault("DATAAGENT_LIVE_DASHSCOPE_API_KEY", System.getenv("DASHSCOPE_API_KEY"));
+		String apiKey = environmentOrDefault("DATAAGENT_LIVE_DEEPSEEK_API_KEY", System.getenv("DEEPSEEK_API_KEY"));
 		if (!StringUtils.hasText(apiKey)) {
 			throw new IllegalStateException(
-					"Set DATAAGENT_LIVE_DASHSCOPE_API_KEY or DASHSCOPE_API_KEY before running live-model tests");
+					"Set DATAAGENT_LIVE_DEEPSEEK_API_KEY or DEEPSEEK_API_KEY before running live-model tests");
+		}
+		if (!apiKey.equals(apiKey.strip())) {
+			throw new IllegalStateException("DeepSeek API key must not contain leading or trailing whitespace");
 		}
 		return apiKey;
 	}
 
 	private String baseUrl() {
-		String value = environmentOrDefault("DATAAGENT_LIVE_DASHSCOPE_BASE_URL", DEFAULT_BASE_URL).replaceAll("/+$",
-				"");
-		return value.endsWith("/v1") ? value.substring(0, value.length() - 3) : value;
+		return environmentOrDefault("DATAAGENT_LIVE_DEEPSEEK_BASE_URL", DEFAULT_BASE_URL).replaceAll("/+$", "");
 	}
 
 	private String environmentOrDefault(String name, String defaultValue) {

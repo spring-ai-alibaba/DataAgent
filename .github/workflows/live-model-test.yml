@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-name: Alibaba Cloud Live Model Test
+name: DeepSeek Live Model Test
 
 on:
   workflow_dispatch:
@@ -76,8 +76,8 @@ jobs:
 
           gh api --method POST "repos/${REPOSITORY}/statuses/${head_sha}" \
             -f state=pending \
-            -f context='Alibaba Cloud Live Model Test' \
-            -f description='Live Chat and Embedding validation is running' \
+            -f context='DeepSeek Live Model Test' \
+            -f description='Live DeepSeek Chat validation is running' \
             -f target_url="${RUN_URL}"
 
           printf 'Resolved %s to %s@%s\n' "${pr_url}" "${head_repository}" "${head_sha}"
@@ -105,11 +105,11 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "${EXPECTED_SHA}"
       - uses: ./CI/github-actions/setup-deps
       - run: make tools
-      - name: Run Alibaba Cloud live model contract
+      - name: Run DeepSeek live Chat contract
         env:
-          DATAAGENT_LIVE_DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          DATAAGENT_LIVE_DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
         run: |
-          test -n "${DATAAGENT_LIVE_DASHSCOPE_API_KEY}"
+          test -n "${DATAAGENT_LIVE_DEEPSEEK_API_KEY}"
           make live-model-test
 
   report_status:
@@ -131,7 +131,7 @@ jobs:
           case "${RESULT}" in
             success)
               state=success
-              description='Live Chat and Embedding contracts passed'
+              description='Live DeepSeek Chat contract passed'
               ;;
             cancelled)
               state=error
@@ -149,6 +149,6 @@ jobs:
 
           gh api --method POST "repos/${REPOSITORY}/statuses/${SHA}" \
             -f state="${state}" \
-            -f context='Alibaba Cloud Live Model Test' \
+            -f context='DeepSeek Live Model Test' \
             -f description="${description}" \
             -f target_url="${RUN_URL}"
