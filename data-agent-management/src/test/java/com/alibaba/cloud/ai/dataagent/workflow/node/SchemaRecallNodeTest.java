@@ -63,7 +63,7 @@ class SchemaRecallNodeTest {
 		state.registerKeyAndStrategy(AGENT_ID, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SCHEMA_RECALL_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
-		state.registerKeyAndStrategy(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(COLUMN_DOCUMENTS_FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
 		return state;
 	}
 

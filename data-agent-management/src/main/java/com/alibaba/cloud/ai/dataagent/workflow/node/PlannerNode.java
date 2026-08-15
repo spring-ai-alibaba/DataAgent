@@ -82,7 +82,7 @@ public class PlannerNode implements NodeAction {
 		}
 
 		// 构建提示参数
-		String semanticModel = (String) state.value(GENEGRATED_SEMANTIC_MODEL_PROMPT).orElse("");
+		String semanticModel = (String) state.value(GENERATED_SEMANTIC_MODEL_PROMPT).orElse("");
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 		String schemaStr = PromptHelper.buildMixMacSqlDbPrompt(schemaDTO, true);
 
