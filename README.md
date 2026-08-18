@@ -108,7 +108,7 @@ pnpm install && pnpm dev
 本项目采用 Apache License 2.0 许可证。
 ## Star 历史
 
-[![Star History Chart](https://api.star-history.com/svg?repos=spring-ai-alibaba/DataAgent&type=Date)](https://star-history.com/#spring-ai-alibaba/DataAgent&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=spring-ai-alibaba/DataAgent&type=Date)](https://star-history.dera.page/#spring-ai-alibaba/DataAgent&Date)
 
 ## 贡献者名单
 
