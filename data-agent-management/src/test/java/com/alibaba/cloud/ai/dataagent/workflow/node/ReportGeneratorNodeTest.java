@@ -244,4 +244,28 @@ class ReportGeneratorNodeTest {
 		return TextType.MARK_DOWN.getStartSign() + content + TextType.MARK_DOWN.getEndSign();
 	}
 
+	@Test
+	void apply_withPythonOutput_includesProcessedDataInReportPrompt() throws Exception {
+		OverAllState state = createTestState();
+		QueryEnhanceOutputDTO dto = TestFixtures.createQueryEnhanceDTO("分析");
+		String planJson = TestFixtures.planToJson(TestFixtures.createPlan("分析", TestFixtures.createSqlStep(1, "查询"),
+				TestFixtures.createReportStep(2, "报告")));
+		HashMap<String, String> executionResults = new HashMap<>();
+		executionResults.put("step_1", "[{\"amount\":100}]");
+		executionResults.put("step_1_analysis", "按类别汇总完成");
+		executionResults.put("step_1_python_output", "{\"categories\":[\"A\",\"B\"],\"totals\":[40,60]}");
+		state.updateState(Map.of(PLANNER_NODE_OUTPUT, planJson, QUERY_ENHANCE_NODE_OUTPUT, dto, PLAN_CURRENT_STEP, 2,
+				SQL_EXECUTE_NODE_OUTPUT, executionResults, AGENT_ID, "4"));
+		when(promptConfigService.getOptimizationConfigs(eq("report-generator"), eq(4L)))
+			.thenReturn(Collections.emptyList());
+		when(llmService.callUser(anyString())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("报告")));
+
+		reportGeneratorNode.apply(state);
+
+		ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(promptCaptor.capture());
+		assertTrue(promptCaptor.getValue().contains("Python 执行结果"));
+		assertTrue(promptCaptor.getValue().contains("\"categories\":[\"A\",\"B\"]"));
+	}
+
 }
