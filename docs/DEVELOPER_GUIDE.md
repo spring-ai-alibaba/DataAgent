@@ -198,13 +198,16 @@ Graph 请求不会降级为旧记忆实现。
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
-| `default-similarity-threshold` | 全局默认相似度阈值 | 0.4 |
-| `table-similarity-threshold` | 召回表的相似度阈值 | 0.2 |
+| `default-similarity-threshold` | 全局默认相似度阈值（用于业务知识、智能体知识等） | 0.4 |
+| `table-similarity-threshold` | 召回表的相似度阈值（设置较低以尽量避免表召回遗漏） | 0.2 |
 | `batch-del-topk-limit` | 批量删除时的最大文档数量 | 5000 |
 | `default-topk-limit` | 全局默认查询返回的最大文档数量（目前只有业务知识和智能体知识在使用） | 8 |
 | `table-topk-limit` | 召回表的最大文档数量 | 10 |
-| `enable-hybrid-search` | 是否启用混合搜索 | false |
-| `elasticsearch-min-score` | ES关键词搜索的最小分数阈值 | 0.5 |
+| `embedding-dimension` | 持久化向量库期望的向量维度校验值，需与嵌入模型输出维度一致；设为 `0` 时关闭校验（内存向量库默认即为 0） | 0 |
+| `enable-hybrid-search` | 是否启用混合搜索（向量检索 + ES 关键词检索），仅在使用 Elasticsearch 时生效 | false |
+| `hybrid-search-timeout-ms` | 混合检索中每个检索分支的最大等待时间（毫秒） | 3000 |
+| `elasticsearch-min-score` | ES 关键词搜索的最小分数阈值，用于过滤相关性较低的文档 | 0.5 |
+| `file-path` | `SimpleVectorStore` 本地序列化文件地址（仅内存向量库使用） | `./vectorstore/vectorstore.json` |
 
 #### 向量库依赖扩展
 
@@ -222,8 +225,74 @@ Graph 请求不会降级为旧记忆实现。
    
 2. **配置属性**: 在 `application.yml` 中添加对应向量库的连接配置。具体参数请参考 [Spring AI 官方文档](https://springdoc.cn/spring-ai/api/vectordbs.html)。
 
-2. **配置 `spring.ai.vectorstore.type`**。具体填写的值可以在引入上面的向量库starter后自行搜索 `VectorStoreAutoConfiguration`自动配置类，比如`es`的是`ElasticsearchVectorStoreAutoConfiguration`，该类里面可以看见`spring.ai.vectorstore.type`期望的是`elasticsearch`。
+3. **配置 `spring.ai.vectorstore.type`**。具体填写的值可以在引入上面的向量库 starter 后自行搜索 `VectorStoreAutoConfiguration` 自动配置类，比如 `es` 的是 `ElasticsearchVectorStoreAutoConfiguration`，该类里面可以看见 `spring.ai.vectorstore.type` 期望的是 `elasticsearch`。
 
+4. **配置 `embedding-dimension`**: 使用持久化向量库时，建议将 `spring.ai.alibaba.data-agent.vector-store.embedding-dimension` 设置为与嵌入模型输出维度一致的值（如 `1024`），以便启动时校验维度是否匹配，避免写入后检索异常。
+
+#### 开箱即用的配置示例
+
+项目已内置两个可直接激活的向量库示例 Profile，位于 `data-agent-management/src/main/resources/`。通过 `spring.profiles.active` 或环境变量 `SPRING_PROFILES_ACTIVE` 激活对应 Profile 即可，无需手动编写连接配置。
+
+**Milvus (`application-milvus.yml`)**
+
+```yaml
+spring:
+  ai:
+    vectorstore:
+      type: milvus
+      milvus:
+        client:
+          host: ${MILVUS_HOST:127.0.0.1}
+          port: ${MILVUS_PORT:19530}
+        database-name: ${MILVUS_DATABASE:default}
+        collection-name: ${MILVUS_COLLECTION:vector_store}
+        embedding-dimension: ${MILVUS_DIMENSION:1024}
+        initialize-schema: true
+    alibaba:
+      data-agent:
+        vector-store:
+          embedding-dimension: ${MILVUS_DIMENSION:1024}
+```
+
+`spring-ai-starter-vector-store-milvus` 依赖已包含在 `data-agent-management/pom.xml` 中，无需额外引入，激活 Profile 即可：
+
+```bash
+export SPRING_PROFILES_ACTIVE=milvus
+# 可选：覆盖默认连接信息
+export MILVUS_HOST=127.0.0.1
+export MILVUS_PORT=19530
+```
+
+**Elasticsearch (`application-elasticsearch.yml`)**
+
+```yaml
+spring:
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URIS:http://127.0.0.1:9200}
+    username: ${ELASTICSEARCH_USERNAME:}
+    password: ${ELASTICSEARCH_PASSWORD:}
+  ai:
+    vectorstore:
+      type: elasticsearch
+      elasticsearch:
+        index-name: ${ELASTICSEARCH_INDEX_NAME:spring-ai-document-index}
+        dimensions: ${ELASTICSEARCH_DIMENSIONS:1024}
+        initialize-schema: ${ELASTICSEARCH_INITIALIZE_SCHEMA:true}
+    alibaba:
+      data-agent:
+        vector-store:
+          embedding-dimension: ${ELASTICSEARCH_DIMENSIONS:1024}
+```
+
+`spring-ai-starter-vector-store-elasticsearch` 依赖已包含在 `data-agent-management/pom.xml` 中，无需额外引入，激活 Profile 即可：
+
+```bash
+export SPRING_PROFILES_ACTIVE=elasticsearch
+# 可选：覆盖默认连接信息
+export ELASTICSEARCH_URIS=http://127.0.0.1:9200
+```
+
+> 提示：Elasticsearch 支持混合检索。激活 ES Profile 后，再将 `spring.ai.alibaba.data-agent.vector-store.enable-hybrid-search` 设为 `true` 即可启用向量检索与关键词检索的混合融合策略。
 
 #### ES Schema 配置示例
 以下为 Elasticsearch 的 Schema 结构。其他向量库（如 Milvus, PGVector）可参考此结构建立 Schema，尤其要注意 `metadata` 中的字段数据类型。

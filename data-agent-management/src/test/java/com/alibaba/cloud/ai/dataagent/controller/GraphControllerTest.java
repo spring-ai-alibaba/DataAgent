@@ -26,13 +26,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.http.HttpHeaders;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
+import reactor.test.StepVerifier;
 
 import java.time.Duration;
 
@@ -41,7 +39,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class GraphControllerTest {
 
 	@Mock
@@ -58,17 +55,25 @@ class GraphControllerTest {
 	@BeforeEach
 	void setUp() {
 		graphController = new GraphController(graphService);
+	}
+
+	private void stubResponseHeaders() {
 		when(serverHttpResponse.getHeaders()).thenReturn(httpHeaders);
 	}
 
 	@Test
 	void streamSearch_validRequest_invokesGraphServiceAndReturnsFlux() {
-		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
+		stubResponseHeaders();
+		doAnswer(invocation -> {
+			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = invocation.getArgument(0);
+			sink.tryEmitComplete();
+			return null;
+		}).when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
-		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-1",
-				"thread-1", null, "show me sales data", false, false, null, false, false, serverHttpResponse);
-
-		assertNotNull(result);
+		StepVerifier
+			.create(graphController.streamSearch("agent-1", "conversation-1", "thread-1", null,
+					"show me sales data", false, false, null, false, false, serverHttpResponse))
+			.verifyComplete();
 
 		ArgumentCaptor<GraphRequest> requestCaptor = ArgumentCaptor.forClass(GraphRequest.class);
 		verify(graphService).graphStreamProcess(any(Sinks.Many.class), requestCaptor.capture());
@@ -79,34 +84,34 @@ class GraphControllerTest {
 		assertEquals("thread-1", captured.getThreadId());
 		assertEquals("show me sales data", captured.getQuery());
 		assertFalse(captured.isHumanFeedback());
+		verify(httpHeaders).add("Cache-Control", "no-cache");
+		verify(httpHeaders).add("Connection", "keep-alive");
+		verify(httpHeaders).add("Access-Control-Allow-Origin", "*");
 	}
 
 	@Test
 	void streamSearch_humanFeedback_passesHumanFeedbackParams() {
-		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
+		stubResponseHeaders();
 
-		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-2",
-				"thread-2", "turn-2", "approve this plan", false, true, "looks good", false, false, serverHttpResponse);
-
-		assertNotNull(result);
+		graphController.streamSearch("agent-1", "conversation-2", "thread-2", "turn-2", "approve this plan", false,
+				true, "looks good", false, false, serverHttpResponse);
 
 		ArgumentCaptor<GraphRequest> requestCaptor = ArgumentCaptor.forClass(GraphRequest.class);
 		verify(graphService).graphStreamProcess(any(Sinks.Many.class), requestCaptor.capture());
 
 		GraphRequest captured = requestCaptor.getValue();
 		assertTrue(captured.isHumanFeedback());
+		assertEquals("turn-2", captured.getTurnId());
 		assertEquals("looks good", captured.getHumanFeedbackContent());
 		assertFalse(captured.isRejectedPlan());
 	}
 
 	@Test
 	void streamSearch_nl2sqlOnly_setsNl2sqlOnlyFlag() {
-		doNothing().when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
+		stubResponseHeaders();
 
-		Flux<ServerSentEvent<GraphNodeResponse>> result = graphController.streamSearch("agent-1", "conversation-3",
-				null, null, "SELECT query", false, false, null, false, true, serverHttpResponse);
-
-		assertNotNull(result);
+		graphController.streamSearch("agent-1", "conversation-3", null, null, "SELECT query", false, false, null,
+				false, true, serverHttpResponse);
 
 		ArgumentCaptor<GraphRequest> requestCaptor = ArgumentCaptor.forClass(GraphRequest.class);
 		verify(graphService).graphStreamProcess(any(Sinks.Many.class), requestCaptor.capture());
@@ -118,6 +123,7 @@ class GraphControllerTest {
 
 	@Test
 	void streamSearch_protocolEventWithoutText_isNotFilteredOut() {
+		stubResponseHeaders();
 		doAnswer(invocation -> {
 			Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = invocation.getArgument(0);
 			sink.tryEmitNext(ServerSentEvent

@@ -199,13 +199,16 @@ Configuration prefix: `spring.ai.alibaba.data-agent.vector-store`
 
 | Configuration Item | Description | Default Value |
 |-------------------|-------------|---------------|
-| `default-similarity-threshold` | Global default similarity threshold | 0.4 |
-| `table-similarity-threshold` | Table recall similarity threshold | 0.2 |
+| `default-similarity-threshold` | Global default similarity threshold (used by business knowledge, agent knowledge, etc.) | 0.4 |
+| `table-similarity-threshold` | Table recall similarity threshold (kept low to avoid missing tables during recall) | 0.2 |
 | `batch-del-topk-limit` | Maximum documents for batch deletion | 5000 |
 | `default-topk-limit` | Global default max documents returned (currently only used by business knowledge and agent knowledge) | 8 |
 | `table-topk-limit` | Maximum documents for table recall | 10 |
-| `enable-hybrid-search` | Enable hybrid search | false |
-| `elasticsearch-min-score` | ES keyword search minimum score threshold | 0.5 |
+| `embedding-dimension` | Expected embedding dimension for the persistent vector store; must match the embedding model's output dimension. A value of `0` disables the check (the in-memory store defaults to 0) | 0 |
+| `enable-hybrid-search` | Enable hybrid search (vector retrieval + ES keyword retrieval); only effective with Elasticsearch | false |
+| `hybrid-search-timeout-ms` | Maximum wait time (ms) for each retrieval branch in hybrid search | 3000 |
+| `elasticsearch-min-score` | ES keyword search minimum score threshold, used to filter out low-relevance documents | 0.5 |
+| `file-path` | Local serialization file path for `SimpleVectorStore` (in-memory store only) | `./vectorstore/vectorstore.json` |
 
 #### Vector Store Dependency Extension
 
@@ -223,8 +226,74 @@ The project uses in-memory vector store (`SimpleVectorStore`) by default. To use
 
 2. **Configure Properties**: Add the corresponding vector store connection configuration in `application.yml`. For specific parameters, refer to [Spring AI Official Documentation](https://springdoc.cn/spring-ai/api/vectordbs.html).
 
-2. **Configure `spring.ai.vectorstore.type`**. You can find the specific value after importing the vector store starter above by searching for `VectorStoreAutoConfiguration` auto-configuration class. For example, for `es` it's `ElasticsearchVectorStoreAutoConfiguration`, and you can see that `spring.ai.vectorstore.type` expects `elasticsearch`.
+3. **Configure `spring.ai.vectorstore.type`**. You can find the specific value after importing the vector store starter above by searching for the `VectorStoreAutoConfiguration` auto-configuration class. For example, for `es` it's `ElasticsearchVectorStoreAutoConfiguration`, and you can see that `spring.ai.vectorstore.type` expects `elasticsearch`.
 
+4. **Configure `embedding-dimension`**: When using a persistent vector store, set `spring.ai.alibaba.data-agent.vector-store.embedding-dimension` to match your embedding model's output dimension (e.g. `1024`). This validates the dimension at startup and avoids retrieval failures after documents are written.
+
+#### Ready-to-Use Configuration Examples
+
+The project ships two ready-to-activate vector store example profiles under `data-agent-management/src/main/resources/`. Activate the corresponding profile via `spring.profiles.active` or the `SPRING_PROFILES_ACTIVE` environment variable — no manual connection configuration required.
+
+**Milvus (`application-milvus.yml`)**
+
+```yaml
+spring:
+  ai:
+    vectorstore:
+      type: milvus
+      milvus:
+        client:
+          host: ${MILVUS_HOST:127.0.0.1}
+          port: ${MILVUS_PORT:19530}
+        database-name: ${MILVUS_DATABASE:default}
+        collection-name: ${MILVUS_COLLECTION:vector_store}
+        embedding-dimension: ${MILVUS_DIMENSION:1024}
+        initialize-schema: true
+    alibaba:
+      data-agent:
+        vector-store:
+          embedding-dimension: ${MILVUS_DIMENSION:1024}
+```
+
+The `spring-ai-starter-vector-store-milvus` dependency is already bundled in `data-agent-management/pom.xml`, so no extra dependency is needed — just activate the profile:
+
+```bash
+export SPRING_PROFILES_ACTIVE=milvus
+# Optional: override the default connection info
+export MILVUS_HOST=127.0.0.1
+export MILVUS_PORT=19530
+```
+
+**Elasticsearch (`application-elasticsearch.yml`)**
+
+```yaml
+spring:
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URIS:http://127.0.0.1:9200}
+    username: ${ELASTICSEARCH_USERNAME:}
+    password: ${ELASTICSEARCH_PASSWORD:}
+  ai:
+    vectorstore:
+      type: elasticsearch
+      elasticsearch:
+        index-name: ${ELASTICSEARCH_INDEX_NAME:spring-ai-document-index}
+        dimensions: ${ELASTICSEARCH_DIMENSIONS:1024}
+        initialize-schema: ${ELASTICSEARCH_INITIALIZE_SCHEMA:true}
+    alibaba:
+      data-agent:
+        vector-store:
+          embedding-dimension: ${ELASTICSEARCH_DIMENSIONS:1024}
+```
+
+The `spring-ai-starter-vector-store-elasticsearch` dependency is already bundled in `data-agent-management/pom.xml`, so no extra dependency is needed — just activate the profile:
+
+```bash
+export SPRING_PROFILES_ACTIVE=elasticsearch
+# Optional: override the default connection info
+export ELASTICSEARCH_URIS=http://127.0.0.1:9200
+```
+
+> Tip: Elasticsearch supports hybrid search. After activating the ES profile, set `spring.ai.alibaba.data-agent.vector-store.enable-hybrid-search` to `true` to enable the weighted fusion of vector retrieval and keyword retrieval.
 
 #### ES Schema Configuration Example
 Below is the Elasticsearch Schema structure. Other vector stores (like Milvus, PGVector) can reference this structure to create their Schema, paying special attention to the data types of fields in `metadata`.

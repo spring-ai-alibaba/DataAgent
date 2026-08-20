@@ -16,10 +16,10 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node.rag;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
+import static com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.execute;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,10 +28,9 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.ai.document.Document;
 
 import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
@@ -40,6 +39,7 @@ import com.alibaba.cloud.ai.dataagent.enums.KnowledgeType;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentKnowledgeMapper;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
+import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeExecution;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.JsonParseUtil;
 import com.alibaba.cloud.ai.dataagent.workflow.node.EvidenceRecallNode;
@@ -49,7 +49,6 @@ import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import reactor.core.publisher.Flux;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class EvidenceRecallNodeTest {
 
 	private static final String LLM_REWRITE_RESPONSE = """
@@ -64,7 +63,6 @@ class EvidenceRecallNodeTest {
 	@Mock
 	private AgentVectorStoreService vectorStoreService;
 
-	@Mock
 	private JsonParseUtil jsonParseUtil;
 
 	@Mock
@@ -74,6 +72,7 @@ class EvidenceRecallNodeTest {
 
 	@BeforeEach
 	void setUp() {
+		jsonParseUtil = new JsonParseUtil(llmService);
 		evidenceRecallNode = new EvidenceRecallNode(llmService, vectorStoreService, jsonParseUtil,
 				agentKnowledgeMapper);
 	}
@@ -119,10 +118,8 @@ class EvidenceRecallNodeTest {
 				org.mockito.ArgumentMatchers.eq(DocumentMetadataConstant.AGENT_KNOWLEDGE)))
 			.thenReturn(new ArrayList<>());
 
-		Map<String, Object> result = evidenceRecallNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(EVIDENCE));
-		assertNotNull(result.get(EVIDENCE));
+		NodeExecution execution = execute(evidenceRecallNode.apply(state), EVIDENCE);
+		assertTrue(execution.finalResult().get(EVIDENCE).toString().contains("销售额=sum(order_amount)"));
 	}
 
 	@Test
@@ -151,10 +148,10 @@ class EvidenceRecallNodeTest {
 			.thenReturn(knowledgeDocs);
 		when(agentKnowledgeMapper.selectById(1)).thenReturn(knowledge);
 
-		Map<String, Object> result = evidenceRecallNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(EVIDENCE));
-		assertNotNull(result.get(EVIDENCE));
+		NodeExecution execution = execute(evidenceRecallNode.apply(state), EVIDENCE);
+		String evidence = execution.finalResult().get(EVIDENCE).toString();
+		assertTrue(evidence.contains("PV=页面浏览量"));
+		assertTrue(evidence.contains("[来源: PV定义] Q: 什么是PV A: PV是Page View的缩写"));
 	}
 
 	@Test
@@ -180,10 +177,8 @@ class EvidenceRecallNodeTest {
 			.thenReturn(List.of(faqDoc));
 		when(agentKnowledgeMapper.selectById(2)).thenReturn(knowledge);
 
-		Map<String, Object> result = evidenceRecallNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(EVIDENCE));
-		assertNotNull(result.get(EVIDENCE));
+		NodeExecution execution = execute(evidenceRecallNode.apply(state), EVIDENCE);
+		assertTrue(execution.finalResult().get(EVIDENCE).toString().contains("[来源: 退款FAQ] Q: 退款怎么算 A: 只统计已入库退货"));
 	}
 
 	@Test
@@ -210,10 +205,8 @@ class EvidenceRecallNodeTest {
 			.thenReturn(List.of(docKnowledge));
 		when(agentKnowledgeMapper.selectById(3)).thenReturn(knowledge);
 
-		Map<String, Object> result = evidenceRecallNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(EVIDENCE));
-		assertNotNull(result.get(EVIDENCE));
+		NodeExecution execution = execute(evidenceRecallNode.apply(state), EVIDENCE);
+		assertTrue(execution.finalResult().get(EVIDENCE).toString().contains("[来源: 2025Q3报告-销售数据.md] 华东地区销售数据增长20%"));
 	}
 
 	@Test
@@ -223,7 +216,8 @@ class EvidenceRecallNodeTest {
 
 		when(llmService.callUser(anyString())).thenThrow(new RuntimeException("LLM timeout"));
 
-		assertThrows(RuntimeException.class, () -> evidenceRecallNode.apply(state));
+		RuntimeException exception = assertThrowsExactly(RuntimeException.class, () -> evidenceRecallNode.apply(state));
+		assertEquals("LLM timeout", exception.getMessage());
 	}
 
 	@Test
@@ -237,10 +231,8 @@ class EvidenceRecallNodeTest {
 		when(vectorStoreService.getDocumentsForAgent(anyString(), anyString(), anyString()))
 			.thenThrow(new RuntimeException("Vector store connection failed"));
 
-		Map<String, Object> result = evidenceRecallNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(EVIDENCE));
-		assertNotNull(result.get(EVIDENCE));
+		NodeExecution execution = execute(evidenceRecallNode.apply(state), EVIDENCE);
+		assertEquals("无", execution.finalResult().get(EVIDENCE));
 	}
 
 	@Test
@@ -251,13 +243,9 @@ class EvidenceRecallNodeTest {
 		when(llmService.callUser(anyString()))
 			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("not valid json at all")));
 
-		when(jsonParseUtil.tryConvertToObject(anyString(), any(Class.class)))
-			.thenThrow(new RuntimeException("JSON parse error"));
-
-		Map<String, Object> result = evidenceRecallNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(EVIDENCE));
-		assertNotNull(result.get(EVIDENCE));
+		NodeExecution execution = execute(evidenceRecallNode.apply(state), EVIDENCE);
+		assertEquals("无", execution.finalResult().get(EVIDENCE));
+		verify(llmService, atLeast(2)).callUser(anyString());
 	}
 
 	@Test
@@ -271,10 +259,8 @@ class EvidenceRecallNodeTest {
 		when(vectorStoreService.getDocumentsForAgent(anyString(), anyString(), anyString()))
 			.thenReturn(new ArrayList<>());
 
-		Map<String, Object> result = evidenceRecallNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(EVIDENCE));
-		assertNotNull(result.get(EVIDENCE));
+		NodeExecution execution = execute(evidenceRecallNode.apply(state), EVIDENCE);
+		assertEquals("无", execution.finalResult().get(EVIDENCE));
 	}
 
 	@Test
@@ -289,10 +275,11 @@ class EvidenceRecallNodeTest {
 		when(vectorStoreService.getDocumentsForAgent(anyString(), anyString(), anyString()))
 			.thenReturn(new ArrayList<>());
 
-		Map<String, Object> result = evidenceRecallNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(EVIDENCE));
-		assertNotNull(result.get(EVIDENCE));
+		NodeExecution execution = execute(evidenceRecallNode.apply(state), EVIDENCE);
+		assertEquals("无", execution.finalResult().get(EVIDENCE));
+		ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(promptCaptor.capture());
+		assertTrue(promptCaptor.getValue().contains("user: 查询PV, assistant: PV是页面浏览量"));
 	}
 
 	@Test
@@ -311,10 +298,8 @@ class EvidenceRecallNodeTest {
 				org.mockito.ArgumentMatchers.eq(DocumentMetadataConstant.AGENT_KNOWLEDGE)))
 			.thenThrow(new RuntimeException("Partial vector store failure"));
 
-		Map<String, Object> result = evidenceRecallNode.apply(state);
-		assertNotNull(result);
-		assertTrue(result.containsKey(EVIDENCE));
-		assertNotNull(result.get(EVIDENCE));
+		NodeExecution execution = execute(evidenceRecallNode.apply(state), EVIDENCE);
+		assertTrue(execution.finalResult().get(EVIDENCE).toString().contains("GMV=总成交额"));
 	}
 
 }

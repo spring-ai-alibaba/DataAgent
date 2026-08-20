@@ -22,6 +22,7 @@ import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.service.graph.Context.StreamContext;
 import com.alibaba.cloud.ai.dataagent.service.graph.turn.ConversationTurnService;
 import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
+import com.alibaba.cloud.ai.dataagent.service.langfuse.NodeTracingLifecycleListener;
 import com.alibaba.cloud.ai.dataagent.service.memory.context.ConversationContextAssembler;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import com.alibaba.cloud.ai.dataagent.workflow.node.ReportGeneratorNode;
@@ -68,10 +69,13 @@ public class GraphServiceImpl implements GraphService {
 
 	private final LangfuseService langfuseReporter;
 
+	private final NodeTracingLifecycleListener nodeTracingLifecycleListener;
+
 	public GraphServiceImpl(StateGraph stateGraph, CompileConfig compileConfig, BaseCheckpointSaver checkpointSaver,
 			ExecutorService executorService, ConversationContextAssembler contextAssembler,
 			ConversationTurnService turnService, AgentDatasourceMapper agentDatasourceMapper,
-			LangfuseService langfuseReporter) throws GraphStateException {
+			LangfuseService langfuseReporter, NodeTracingLifecycleListener nodeTracingLifecycleListener)
+			throws GraphStateException {
 		this.compiledGraph = stateGraph.compile(compileConfig);
 		this.checkpointSaver = checkpointSaver;
 		this.executor = executorService;
@@ -79,6 +83,7 @@ public class GraphServiceImpl implements GraphService {
 		this.turnService = turnService;
 		this.agentDatasourceMapper = agentDatasourceMapper;
 		this.langfuseReporter = langfuseReporter;
+		this.nodeTracingLifecycleListener = nodeTracingLifecycleListener;
 	}
 
 	@Override
@@ -157,13 +162,17 @@ public class GraphServiceImpl implements GraphService {
 			catch (RuntimeException e) {
 				log.error("Failed to persist cancellation for threadId: {}", threadId, e);
 			}
-			// 客户端断开，结束 Langfuse span
+			// 客户端断开，结束根 Langfuse span。必须在 discardThread 清理累加器之前，
+			// 否则根 span 的 token 汇总会被提前清空。
 			if (context.getSpan() != null && context.getSpan().isRecording()) {
 				langfuseReporter.endSpanSuccess(context.getSpan(), threadId, context.getCollectedOutput());
 			}
 			context.cleanup();
 			log.info("Cleaned up stream context for threadId: {}", threadId);
 		}
+		// 客户端断开是唯一绕过节点 after/onError 的路径：结束仍挂着的节点 span（标记为断开）
+		// 并清理计数器/累加器，否则会内存泄漏，且 Langfuse 上会留下永不结束的 span。
+		nodeTracingLifecycleListener.discardThread(threadId);
 		// Dispose the graph subscription before releasing its checkpoint so a
 		// cancelled run cannot write another checkpoint after the release.
 		releaseCheckpoint(RunnableConfig.builder().threadId(threadId).build());
@@ -329,11 +338,13 @@ public class GraphServiceImpl implements GraphService {
 			catch (RuntimeException persistenceError) {
 				log.error("Failed to persist graph error for threadId: {}", threadId, persistenceError);
 			}
-			// 结束 Langfuse span（失败）
+			// 结束 Langfuse span（失败）。先结束根 span 取走 token 汇总，再清理 listener 侧残留。
 			if (context.getSpan() != null) {
 				langfuseReporter.endSpanError(context.getSpan(), threadId,
 						error instanceof Exception ? (Exception) error : new RuntimeException(error));
 			}
+			// 清理 listener 侧的 attempt 计数器与仍挂着的节点 span，避免无界增长。
+			nodeTracingLifecycleListener.finishThread(threadId);
 			if (context.getSink() != null && context.getSink().currentSubscriberCount() > 0) {
 				context.getSink()
 					.tryEmitNext(ServerSentEvent
@@ -382,9 +393,14 @@ public class GraphServiceImpl implements GraphService {
 				emitPersistenceError(context, agentId, threadId, e);
 				return;
 			}
-			// 结束 Langfuse span（成功）
+			// 结束 Langfuse span（成功）。必须在清理节点级 accumulator 之前，否则根 span 拿不到 token 汇总。
 			if (context.getSpan() != null) {
 				langfuseReporter.endSpanSuccess(context.getSpan(), threadId, context.getCollectedOutput());
+			}
+			// 正常终止（非等待人工反馈）时清理 listener 侧的 attempt 计数器残留，避免无界增长。
+			// 等待人工反馈时保留计数器，让反馈恢复后的 attempt 能接着上一轮递增。
+			if (!awaitingHumanFeedback) {
+				nodeTracingLifecycleListener.finishThread(threadId);
 			}
 			if (context.getSink() != null && context.getSink().currentSubscriberCount() > 0) {
 				if (awaitingHumanFeedback) {
@@ -424,6 +440,7 @@ public class GraphServiceImpl implements GraphService {
 		if (context.getSpan() != null) {
 			langfuseReporter.endSpanError(context.getSpan(), threadId, error);
 		}
+		nodeTracingLifecycleListener.finishThread(threadId);
 		if (context.getSink() != null && context.getSink().currentSubscriberCount() > 0) {
 			context.getSink()
 				.tryEmitNext(ServerSentEvent
@@ -527,6 +544,10 @@ public class GraphServiceImpl implements GraphService {
 			log.error("Failed to persist graph startup error for threadId: {}", threadId, persistenceError);
 		}
 		releaseCheckpoint(RunnableConfig.builder().threadId(threadId).build());
+		if (context.getSpan() != null) {
+			langfuseReporter.endSpanError(context.getSpan(), threadId, error);
+		}
+		nodeTracingLifecycleListener.finishThread(threadId);
 		context.cleanup();
 	}
 

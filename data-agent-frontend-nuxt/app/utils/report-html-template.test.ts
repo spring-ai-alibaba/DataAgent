@@ -15,14 +15,25 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildReportHtml } from './report-html-template';
+import {
+	buildReportHtml,
+	normalizeChartLayout,
+} from './report-html-template';
 
 describe('buildReportHtml', () => {
 	it('reserves separate space for chart titles and legends', () => {
-		const html = buildReportHtml('```echarts\n{"title":{"text":"趋势"},"legend":{},"series":[]}\n```');
+		const option = normalizeChartLayout({
+			title: { text: '趋势' },
+			legend: {},
+			series: [],
+		});
 
+		expect(option.title).toMatchObject({ top: 10 });
+		expect(option.legend).toMatchObject({ top: 50 });
+		expect(option.grid).toEqual({ top: 90, containLabel: true });
+
+		const html = buildReportHtml('```echarts\n{"title":{"text":"趋势"},"legend":{},"series":[]}\n```');
 		expect(html).toContain('normalizeChartLayout');
-		expect(html).toContain('legend.top = titles.length > 0 ? 50 : 10');
-		expect(html).toContain('grid.containLabel = true');
+		expect(html).toContain(normalizeChartLayout.toString());
 	});
 });

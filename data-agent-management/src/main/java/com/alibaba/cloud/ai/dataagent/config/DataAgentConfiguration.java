@@ -21,6 +21,7 @@ import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageServiceFactory;
+import com.alibaba.cloud.ai.dataagent.service.langfuse.NodeTracingLifecycleListener;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.service.llm.impls.StreamLlmService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.SimpleVectorStoreInitialization;
@@ -330,12 +331,14 @@ public class DataAgentConfiguration implements DisposableBean {
 	}
 
 	@Bean
-	public CompileConfig nl2sqlGraphCompileConfig(BaseCheckpointSaver checkpointSaver, Store graphMemoryStore) {
+	public CompileConfig nl2sqlGraphCompileConfig(BaseCheckpointSaver checkpointSaver, Store graphMemoryStore,
+			NodeTracingLifecycleListener nodeTracingLifecycleListener) {
 		SaverConfig saverConfig = SaverConfig.builder().register(checkpointSaver).build();
 		return CompileConfig.builder()
 			.saverConfig(saverConfig)
 			.store(graphMemoryStore)
 			.interruptBefore(HUMAN_FEEDBACK_NODE)
+			.withLifecycleListener(nodeTracingLifecycleListener)
 			.build();
 	}
 

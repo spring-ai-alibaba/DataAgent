@@ -1,819 +1,132 @@
-# DataAgent Testing Mock Strategy Guide
+# DataAgent Test Trust Guide
 
-**Date:** 2026-03-30
-**Purpose:** Document correct mock strategies for testing workflow nodes and services
+**Updated:** 2026-08-03
+**Purpose:** Keep tests deterministic while proving that the intended production path actually ran.
 
----
+## Test layers
 
-## Overview
+| Layer | Naming / command | Real dependencies | Required proof |
+| --- | --- | --- | --- |
+| Unit | `*Test`, `make verify` | None; external boundaries may be mocked | Exact output, state transition, request, and error branch |
+| Component | `*Test`, `make verify` | Multiple real DataAgent classes; only outer boundaries mocked | Data passes through the complete in-process chain |
+| Infrastructure integration | `*IT`, `make integration-test` | Docker or an explicitly configured service | Real protocol, persistence, cleanup, and failure behavior |
+| Provider live contract | `*LiveIT`, `make live-model-test` | Alibaba Cloud Model Studio | Parsed content, usage metadata, vector shape, and terminal completion |
 
-This document provides the correct mock strategies for testing DataAgent workflow nodes. Based on analysis of the codebase, all nodes follow consistent patterns that can be tested with proper mocking.
+Coverage reports show which lines ran. They do not prove that a test reached the intended branch or checked the right result.
+`make test-trust-check` enforces deterministic bad-pattern rules, but it is only a guardrail; it cannot prove business correctness.
 
-**Key Insight:** The reason previous tests had 1.2% coverage was NOT constant naming issues - it was improper mock configuration. The actual constants in `Constant.java` match the state keys correctly.
+## Non-negotiable rules
 
----
+1. Keep Mockito strict. Do not add class-wide `Strictness.LENIENT`.
+2. Stub only behavior used by that test. Move branch-specific stubs out of `@BeforeEach`.
+3. A reactive node has not executed merely because `apply` returned a `Flux`. Subscribe through terminal completion.
+4. Do not use `assertNotNull(result)` or `containsKey(outputKey)` as the only oracle.
+5. Check the exact state transition and at least one externally visible value. For boundary calls, capture and validate the request.
+6. Negative tests must prove the concrete error, retry, fallback, or no-interaction behavior.
+7. A test name must describe current behavior. Do not claim truncation, retry, persistence, or fallback without asserting it.
+8. A missing live credential is a failure in the explicit live profile, never a skipped green test.
 
-## State Management
+## Workflow-node pattern
 
-### OverAllState Usage
-
-`OverAllState` is used to pass data between workflow nodes. Key methods for testing:
-
-```java
-// Register keys before use (CRITICAL)
-state.registerKeyAndStrategy(SQL_GENERATE_OUTPUT, new ReplaceStrategy());
-
-// Set state values
-state.updateState(Map.of(
-    SQL_GENERATE_OUTPUT, "SELECT * FROM users",
-    SQL_GENERATE_COUNT, 0
-));
-
-// Get state values (via StateUtil)
-String sql = StateUtil.getStringValue(state, SQL_GENERATE_OUTPUT);
-SchemaDTO schema = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
-```
-
-**Important:** Always register state keys before using them in tests.
-
-### State Constants (from Constant.java)
-
-All state keys are UPPERCASE with underscores. No lowercase variants exist.
-
-| Constant Key | Purpose | Type |
-|-------------|---------|------|
-| `SQL_GENERATE_OUTPUT` | Generated SQL string | String |
-| `SQL_GENERATE_COUNT` | Retry count | Integer |
-| `SQL_REGENERATE_REASON` | Retry reason | SqlRetryDto |
-| `SQL_EXECUTE_NODE_OUTPUT` | Execution results | Map<String, String> |
-| `SQL_RESULT_LIST_MEMORY` | Result data | List<Map<String, String>> |
-| `PLANNER_NODE_OUTPUT` | Plan JSON | String |
-| `PLAN_CURRENT_STEP` | Current step number | Integer |
-| `PLAN_VALIDATION_ERROR` | Validation error | String |
-| `AGENT_ID` | Agent ID | String |
-| `DB_DIALECT_TYPE` | Database type | String |
-| `TABLE_RELATION_OUTPUT` | Schema info | SchemaDTO |
-| `EVIDENCE` | Evidence content | String |
-| `QUERY_ENHANCE_NODE_OUTPUT` | Query enhancement | QueryEnhanceOutputDTO |
-| `PYTHON_GENERATE_NODE_OUTPUT` | Python code | String |
-| `PYTHON_EXECUTE_NODE_OUTPUT` | Python result | String |
-| `PYTHON_IS_SUCCESS` | Success flag | Boolean |
-| `PYTHON_TRIES_COUNT` | Retry count | Integer |
-| `PYTHON_FALLBACK_MODE` | Fallback flag | Boolean |
-| `HUMAN_REVIEW_ENABLED` | Human review | Boolean |
-
----
-
-## Node Mock Strategies
-
-### SqlGenerateNode
-
-**Dependencies:**
-- `Nl2SqlService nl2SqlService` - Main service for SQL generation
-- `DataAgentProperties properties` - Configuration (max retry count)
-
-**Mock Pattern:**
+Use the shared `GraphNodeTestSupport` helper. It validates the output type, consumes the stream, requires a done event, and returns the streamed text plus the final state.
 
 ```java
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-class SqlGenerateNodeTest {
+import static com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.execute;
 
-    @Mock
-    private Nl2SqlService nl2SqlService;
+NodeExecution execution = execute(node.apply(state), SQL_EXECUTE_NODE_OUTPUT);
 
-    @Mock
-    private DataAgentProperties properties;
+assertThat(execution.finalResult())
+    .containsEntry(SQL_REGENERATE_REASON, SqlRetryDto.empty())
+    .containsEntry(PLAN_CURRENT_STEP, 2);
+assertThat(execution.streamedText()).contains("SQL查询结果");
 
-    private SqlGenerateNode sqlGenerateNode;
-
-    @BeforeEach
-    void setUp() {
-        sqlGenerateNode = new SqlGenerateNode(nl2SqlService, properties);
-    }
-
-    @Test
-    void testSqlGeneration() throws Exception {
-        // Setup state
-        OverAllState state = new OverAllState();
-        state.registerKeyAndStrategy(SQL_GENERATE_OUTPUT, new ReplaceStrategy());
-        state.registerKeyAndStrategy(SQL_GENERATE_COUNT, new ReplaceStrategy());
-        state.updateState(Map.of(
-            SQL_GENERATE_COUNT, 0,
-            TABLE_RELATION_OUTPUT, testSchema,
-            EVIDENCE, "test evidence",
-            DB_DIALECT_TYPE, "mysql",
-            PLANNER_NODE_OUTPUT, TEST_PLAN_JSON,
-            PLAN_CURRENT_STEP, 1,
-            QUERY_ENHANCE_NODE_OUTPUT, testQueryEnhance
-        ));
-
-        // Mock Nl2SqlService - return Flux of SQL strings
-        when(properties.getMaxSqlRetryCount()).thenReturn(10);
-        when(nl2SqlService.generateSql(any(SqlGenerationDTO.class)))
-            .thenReturn(Flux.just("SELECT * FROM users"));
-
-        // Execute
-        Map<String, Object> result = sqlGenerateNode.apply(state);
-
-        // Verify
-        assertNotNull(result);
-        assertTrue(result.containsKey(SQL_GENERATE_OUTPUT));
-        verify(nl2SqlService).generateSql(any(SqlGenerationDTO.class));
-    }
-}
+ArgumentCaptor<DbQueryParameter> query =
+    ArgumentCaptor.forClass(DbQueryParameter.class);
+verify(accessor).executeSqlAndReturnObject(any(DbConfigBO.class), query.capture());
+assertThat(query.getValue().getSql()).isEqualTo("SELECT * FROM users");
 ```
 
-**Test Data Setup:**
+This is insufficient because no subscription occurs and none of the SQL, vector, sandbox, or post-processing work is proven:
 
 ```java
-// SchemaDTO for testing
-private static final SchemaDTO TEST_SCHEMA = SchemaDTO.builder()
-    .name("test_schema")
-    .description("Test schema")
-    .tableCount(1)
-    .table(List.of(TableDTO.builder()
-        .name("users")
-        .description("Users table")
-        .column(new ArrayList<>())
-        .primaryKeys(new ArrayList<>())
-        .build()))
-    .foreignKeys(new ArrayList<>())
-    .build();
-
-// QueryEnhanceOutputDTO for testing
-private static final QueryEnhanceOutputDTO TEST_QUERY_ENHANCE =
-    QueryEnhanceOutputDTO.builder()
-        .canonicalQuery("查询所有用户")
-        .expandedQueries(new ArrayList<>())
-        .build();
+Map<String, Object> result = node.apply(state);
+assertNotNull(result);
+assertTrue(result.containsKey(SQL_EXECUTE_NODE_OUTPUT));
 ```
 
----
+## Strict mocking
 
-### SqlExecuteNode
+Mockito's default strictness is intentional. An `UnnecessaryStubbingException` usually means one of the following:
 
-**Dependencies:**
-- `DatabaseUtil databaseUtil` - Database access
-- `Nl2SqlService nl2SqlService` - SQL trimming
-- `LlmService llmService` - Chart config generation (optional)
-- `DataAgentProperties properties` - Configuration
-- `JsonParseUtil jsonParseUtil` - JSON parsing
+- the test never entered the intended branch;
+- an asynchronous publisher was never consumed;
+- shared setup contains behavior irrelevant to this case;
+- the production implementation changed while the test kept stale expectations.
 
-**Mock Pattern:**
+Fix the cause. Do not suppress the signal globally. A narrowly scoped `lenient().when(...)` is acceptable only when a framework invokes optional behavior outside the test's control, and the test must explain why in a comment.
 
-```java
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-class SqlExecuteNodeTest {
+Prefer real value objects and parsers when they are deterministic and cheap. Mock network, database, vector-store, clock, process, and sandbox boundaries. For a mocked boundary, verify the important request fields as well as the returned result.
 
-    @Mock
-    private DatabaseUtil databaseUtil;
+## Reactive and streaming behavior
 
-    @Mock
-    private Nl2SqlService nl2SqlService;
+- Use `GraphNodeTestSupport.execute` for graph nodes.
+- Use Reactor `StepVerifier` for service publishers.
+- Require completion or the expected error; avoid fire-and-forget `subscribe()`.
+- If the contract is specifically early emission, hold the downstream dependency with a sink or latch, assert the early event, release it, and then assert terminal completion.
+- Assert structured payloads after decoding their stream markers. String presence alone is not enough when a DTO is available.
 
-    @Mock
-    private LlmService llmService;
+## Real provider tests
 
-    @Mock
-    private DataAgentProperties properties;
+`DeepSeekModelLiveIT` uses the same `DynamicModelFactory` as production. It validates:
 
-    @Mock
-    private JsonParseUtil jsonParseUtil;
+- a real streaming `deepseek-v4-flash` response with an exact protocol marker;
+- terminal completion of the stream;
+- non-zero token usage from the completed stream.
 
-    @Mock
-    private Accessor accessor;  // Internal database accessor
+`DashScopeEmbeddingLiveIT` separately validates Alibaba Cloud Model Studio through
+its OpenAI-compatible Embeddings endpoint. It requires two real results and checks
+that both 1,024-dimensional vectors are finite, non-zero, distinct, and accompanied
+by positive token usage. The test does not use the Anthropic-compatible
+`/apps/anthropic` endpoint because that endpoint exposes Messages, not Embeddings.
 
-    private SqlExecuteNode sqlExecuteNode;
+Run locally in zsh without placing the key in source, command history, or Maven arguments:
 
-    @BeforeEach
-    void setUp() {
-        sqlExecuteNode = new SqlExecuteNode(
-            databaseUtil, nl2SqlService, llmService, properties, jsonParseUtil);
-    }
-
-    @Test
-    void testSqlExecution() throws Exception {
-        OverAllState state = createTestState();
-        state.updateState(Map.of(
-            SQL_GENERATE_OUTPUT, "SELECT * FROM users",
-            AGENT_ID, "1",
-            PLANNER_NODE_OUTPUT, TEST_PLAN_JSON,
-            PLAN_CURRENT_STEP, 1
-        ));
-
-        // Setup mocks
-        DbConfigBO dbConfig = new DbConfigBO();
-        dbConfig.setSchema("test_schema");
-
-        ResultSetBO resultSetBO = new ResultSetBO();
-        resultSetBO.setData(new ArrayList<>());
-
-        when(nl2SqlService.sqlTrim(any())).thenReturn("SELECT * FROM users");
-        when(databaseUtil.getAgentDbConfig(1L)).thenReturn(dbConfig);
-        when(databaseUtil.getAgentAccessor(1L)).thenReturn(accessor);
-        when(accessor.executeSqlAndReturnObject(any(), any()))
-            .thenReturn(resultSetBO);
-
-        // Execute
-        Map<String, Object> result = sqlExecuteNode.apply(state);
-
-        // Verify
-        assertNotNull(result);
-        assertTrue(result.containsKey(SQL_EXECUTE_NODE_OUTPUT));
-    }
-}
+```bash
+read -s "DEEPSEEK_API_KEY?DeepSeek API Key: "
+echo
+export DEEPSEEK_API_KEY
+read -s "DASHSCOPE_API_KEY?DashScope API Key: "
+echo
+export DASHSCOPE_API_KEY
+mvn -pl data-agent-management -Plive-model \
+  -Dit.test=DeepSeekModelLiveIT,DashScopeEmbeddingLiveIT verify
+unset DEEPSEEK_API_KEY
+unset DASHSCOPE_API_KEY
 ```
 
----
-
-### PlannerNode
-
-**Dependencies:**
-- `LlmService llmService` - LLM calls
-
-**Mock Pattern:**
-
-```java
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-class PlannerNodeTest {
-
-    @Mock
-    private LlmService llmService;
-
-    private PlannerNode plannerNode;
-
-    @BeforeEach
-    void setUp() {
-        plannerNode = new PlannerNode(llmService);
-    }
-
-    @Test
-    void testPlanGeneration() throws Exception {
-        OverAllState state = new OverAllState();
-        state.registerKeyAndStrategy(PLANNER_NODE_OUTPUT, new ReplaceStrategy());
-        state.updateState(Map.of(
-            TABLE_RELATION_OUTPUT, TEST_SCHEMA,
-            EVIDENCE, "test evidence",
-            IS_ONLY_NL2SQL, false,
-            QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE
-        ));
-
-        // Mock LLM response - return Plan JSON wrapped in markers
-        String planJson = """
-            {
-                "thought_process": "Test plan",
-                "execution_plan": [
-                    {
-                        "step": 1,
-                        "tool_to_use": "sql_generate_node",
-                        "tool_parameters": {"instruction": "Test"}
-                    }
-                ]
-            }
-            """;
-
-        when(llmService.callUser(any()))
-            .thenReturn(Flux.just(
-                ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()),
-                ChatResponseUtil.createPureResponse(planJson),
-                ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign())
-            ));
-
-        // Execute
-        Map<String, Object> result = plannerNode.apply(state);
-
-        // Verify
-        assertNotNull(result);
-        assertTrue(result.containsKey(PLANNER_NODE_OUTPUT));
-    }
-}
-```
-
----
-
-### EvidenceRecallNode
-
-**Dependencies:**
-- `LlmService llmService` - Query rewrite
-- `AgentVectorStoreService vectorStoreService` - Document retrieval
-- `JsonParseUtil jsonParseUtil` - JSON parsing
-- `AgentKnowledgeMapper agentKnowledgeMapper` - Database access
-
-**Mock Pattern:**
-
-```java
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-class EvidenceRecallNodeTest {
-
-    @Mock
-    private LlmService llmService;
-
-    @Mock
-    private AgentVectorStoreService vectorStoreService;
-
-    @Mock
-    private JsonParseUtil jsonParseUtil;
-
-    @Mock
-    private AgentKnowledgeMapper agentKnowledgeMapper;
-
-    private EvidenceRecallNode evidenceRecallNode;
-
-    @BeforeEach
-    void setUp() {
-        evidenceRecallNode = new EvidenceRecallNode(
-            llmService, vectorStoreService, jsonParseUtil, agentKnowledgeMapper);
-    }
-
-    @Test
-    void testEvidenceRecall() throws Exception {
-        OverAllState state = new OverAllState();
-        state.registerKeyAndStrategy(EVIDENCE, new ReplaceStrategy());
-        state.updateState(Map.of(
-            INPUT_KEY, "查询用户信息",
-            AGENT_ID, "1"
-        ));
-
-        // Mock LLM query rewrite response
-        String queryRewriteJson = """
-            {
-                "standalone_query": "查询用户信息"
-            }
-            """;
-        when(llmService.callUser(any()))
-            .thenReturn(Flux.just(
-                ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()),
-                ChatResponseUtil.createPureResponse(queryRewriteJson),
-                ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign())
-            ));
-
-        // Mock vector store - return empty (no evidence case)
-        when(vectorStoreService.getDocumentsForAgent(anyString(), anyString(), anyString()))
-            .thenReturn(Flux.empty());
-
-        // Mock JSON parse
-        EvidenceQueryRewriteDTO rewriteDto = EvidenceQueryRewriteDTO.builder()
-            .standaloneQuery("查询用户信息")
-            .build();
-        when(jsonParseUtil.tryConvertToObject(any(), any()))
-            .thenReturn(rewriteDto);
-
-        // Execute
-        Map<String, Object> result = evidenceRecallNode.apply(state);
-
-        // Verify
-        assertNotNull(result);
-        assertTrue(result.containsKey(EVIDENCE));
-    }
-}
-```
-
----
-
-### PythonGenerateNode
-
-**Dependencies:**
-- `CodeExecutorProperties codeExecutorProperties` - Config (timeout, memory)
-- `LlmService llmService` - LLM calls
-
-**Mock Pattern:**
-
-```java
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-class PythonGenerateNodeTest {
-
-    @Mock
-    private CodeExecutorProperties codeExecutorProperties;
-
-    @Mock
-    private LlmService llmService;
-
-    private PythonGenerateNode pythonGenerateNode;
-
-    @BeforeEach
-    void setUp() {
-        pythonGenerateNode = new PythonGenerateNode(codeExecutorProperties, llmService);
-    }
-
-    @Test
-    void testPythonCodeGeneration() throws Exception {
-        OverAllState state = new OverAllState();
-        state.registerKeyAndStrategy(PYTHON_GENERATE_NODE_OUTPUT, new ReplaceStrategy());
-        state.registerKeyAndStrategy(PYTHON_TRIES_COUNT, new ReplaceStrategy());
-        state.updateState(Map.of(
-            TABLE_RELATION_OUTPUT, TEST_SCHEMA,
-            SQL_RESULT_LIST_MEMORY, new ArrayList<>(),
-            PYTHON_IS_SUCCESS, true,
-            PYTHON_TRIES_COUNT, 0,
-            QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE
-        ));
-
-        // Mock properties
-        when(codeExecutorProperties.getLimitMemory()).thenReturn(512);
-        when(codeExecutorProperties.getCodeTimeout()).thenReturn("60s");
-
-        // Mock LLM response - return Python code wrapped in markers
-        String pythonCode = "import pandas as pd\ndata = pd.DataFrame()\nprint(data)";
-        when(llmService.call(anyString(), anyString()))
-            .thenReturn(Flux.just(
-                ChatResponseUtil.createPureResponse(TextType.PYTHON.getStartSign()),
-                ChatResponseUtil.createPureResponse(pythonCode),
-                ChatResponseUtil.createPureResponse(TextType.PYTHON.getEndSign())
-            ));
-
-        // Execute
-        Map<String, Object> result = pythonGenerateNode.apply(state);
-
-        // Verify
-        assertNotNull(result);
-        assertTrue(result.containsKey(PYTHON_GENERATE_NODE_OUTPUT));
-    }
-}
-```
-
----
-
-### PythonExecuteNode
-
-**Dependencies:**
-- `PythonCodeExecutorService pythonCodeExecutor` - SAA Sandbox execution
-- `PythonDependencyMetadataParser dependencyMetadataParser` - PEP 723 dependency parsing
-- `JsonParseUtil jsonParseUtil` - JSON parsing
-- `CodeExecutorProperties codeExecutorProperties` - Config
-
-**Mock Pattern:**
-
-```java
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-class PythonExecuteNodeTest {
-
-    @Mock
-    private PythonCodeExecutorService pythonCodeExecutor;
-
-    @Mock
-    private PythonDependencyMetadataParser dependencyMetadataParser;
-
-    @Mock
-    private JsonParseUtil jsonParseUtil;
-
-    @Mock
-    private CodeExecutorProperties codeExecutorProperties;
-
-    private PythonExecuteNode pythonExecuteNode;
-
-    @BeforeEach
-    void setUp() {
-        when(dependencyMetadataParser.parse(anyString()))
-            .thenReturn(PythonDependencyMetadata.empty());
-        pythonExecuteNode = new PythonExecuteNode(
-            pythonCodeExecutor, dependencyMetadataParser, jsonParseUtil, codeExecutorProperties);
-    }
-
-    @Test
-    void testPythonExecution() throws Exception {
-        OverAllState state = new OverAllState();
-        state.registerKeyAndStrategy(PYTHON_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
-        state.registerKeyAndStrategy(PYTHON_IS_SUCCESS, new ReplaceStrategy());
-        state.registerKeyAndStrategy(PYTHON_TRIES_COUNT, new ReplaceStrategy());
-        state.updateState(Map.of(
-            PYTHON_GENERATE_NODE_OUTPUT, "print('hello')",
-            SQL_RESULT_LIST_MEMORY, new ArrayList<>(),
-            PYTHON_TRIES_COUNT, 0
-        ));
-
-        // Mock SAA Sandbox execution
-        String jsonOutput = "{\"result\": \"hello\"}";
-        PythonCodeExecutorService.TaskResponse taskResponse =
-            PythonCodeExecutorService.TaskResponse.success(jsonOutput);
-        when(pythonCodeExecutor.runTask(any())).thenReturn(taskResponse);
-        when(codeExecutorProperties.getPythonMaxTriesCount()).thenReturn(3);
-        when(jsonParseUtil.tryConvertToObject(any(), any())).thenReturn(Map.of("result", "hello"));
-
-        // Execute
-        Map<String, Object> result = pythonExecuteNode.apply(state);
-
-        // Verify
-        assertNotNull(result);
-        assertTrue(result.containsKey(PYTHON_EXECUTE_NODE_OUTPUT));
-    }
-}
-```
-
----
-
-### PythonAnalyzeNode
-
-**Dependencies:**
-- `LlmService llmService` - LLM calls
-
-**Mock Pattern:**
-
-```java
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-class PythonAnalyzeNodeTest {
-
-    @Mock
-    private LlmService llmService;
-
-    private PythonAnalyzeNode pythonAnalyzeNode;
-
-    @BeforeEach
-    void setUp() {
-        pythonAnalyzeNode = new PythonAnalyzeNode(llmService);
-    }
-
-    @Test
-    void testPythonAnalysis() throws Exception {
-        OverAllState state = new OverAllState();
-        state.registerKeyAndStrategy(PYTHON_ANALYSIS_NODE_OUTPUT, new ReplaceStrategy());
-        state.registerKeyAndStrategy(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
-        state.registerKeyAndStrategy(PLAN_CURRENT_STEP, new ReplaceStrategy());
-        state.registerKeyAndStrategy(PYTHON_FALLBACK_MODE, new ReplaceStrategy());
-        state.updateState(Map.of(
-            PYTHON_EXECUTE_NODE_OUTPUT, "{\"result\": \"data\"}",
-            PLAN_CURRENT_STEP, 1,
-            PYTHON_FALLBACK_MODE, false,
-            QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE
-        ));
-
-        // Mock LLM analysis response
-        String analysis = "分析完成：数据包含10条记录";
-        when(llmService.callSystem(anyString()))
-            .thenReturn(Flux.just(ChatResponseUtil.createResponse(analysis)));
-
-        // Execute
-        Map<String, Object> result = pythonAnalyzeNode.apply(state);
-
-        // Verify
-        assertNotNull(result);
-        assertTrue(result.containsKey(PYTHON_ANALYSIS_NODE_OUTPUT));
-    }
-}
-```
-
----
-
-### SemanticConsistencyNode
-
-**Dependencies:**
-- `Nl2SqlService nl2SqlService` - Semantic validation
-
-**Mock Pattern:**
-
-```java
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-class SemanticConsistencyNodeTest {
-
-    @Mock
-    private Nl2SqlService nl2SqlService;
-
-    private SemanticConsistencyNode semanticConsistencyNode;
-
-    @BeforeEach
-    void setUp() {
-        semanticConsistencyNode = new SemanticConsistencyNode(nl2SqlService);
-    }
-
-    @Test
-    void testSemanticValidation() throws Exception {
-        OverAllState state = new OverAllState();
-        state.registerKeyAndStrategy(SEMANTIC_CONSISTENCY_NODE_OUTPUT, new ReplaceStrategy());
-        state.updateState(Map.of(
-            EVIDENCE, "test evidence",
-            TABLE_RELATION_OUTPUT, TEST_SCHEMA,
-            DB_DIALECT_TYPE, "mysql",
-            SQL_GENERATE_OUTPUT, "SELECT * FROM users",
-            QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE
-        ));
-
-        // Mock validation - pass case (no "不通过" in result)
-        when(nl2SqlService.performSemanticConsistency(any(SemanticConsistencyDTO.class)))
-            .thenReturn(Flux.just(
-                ChatResponseUtil.createResponse("语义一致性校验通过")
-            ));
-
-        // Execute
-        Map<String, Object> result = semanticConsistencyNode.apply(state);
-
-        // Verify - should pass
-        assertNotNull(result);
-        assertTrue(result.containsKey(SEMANTIC_CONSISTENCY_NODE_OUTPUT));
-    }
-}
-```
-
----
-
-### PlanExecutorNode
-
-**Dependencies:**
-- None (pure logic node)
-
-**Mock Pattern:**
-
-```java
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-class PlanExecutorNodeTest {
-
-    private PlanExecutorNode planExecutorNode;
-
-    @BeforeEach
-    void setUp() {
-        planExecutorNode = new PlanExecutorNode();
-    }
-
-    @Test
-    void testPlanExecution() throws Exception {
-        OverAllState state = new OverAllState();
-        state.registerKeyAndStrategy(PLAN_NEXT_NODE, new ReplaceStrategy());
-        state.registerKeyAndStrategy(PLAN_VALIDATION_STATUS, new ReplaceStrategy());
-        state.registerKeyAndStrategy(PLAN_CURRENT_STEP, new ReplaceStrategy());
-        state.registerKeyAndStrategy(PLAN_VALIDATION_ERROR, new ReplaceStrategy());
-
-        // Set plan JSON in state
-        String planJson = """
-            {
-                "thought_process": "Test plan",
-                "execution_plan": [
-                    {
-                        "step": 1,
-                        "tool_to_use": "sql_generate_node",
-                        "tool_parameters": {"instruction": "Test"}
-                    }
-                ]
-            }
-            """;
-
-        state.updateState(Map.of(
-            PLANNER_NODE_OUTPUT, planJson,
-            PLAN_CURRENT_STEP, 1,
-            IS_ONLY_NL2SQL, false
-        ));
-
-        // Execute
-        Map<String, Object> result = planExecutorNode.apply(state);
-
-        // Verify - should route to sql_generate_node
-        assertNotNull(result);
-        assertEquals("sql_generate_node", result.get(PLAN_NEXT_NODE));
-        assertTrue((Boolean) result.get(PLAN_VALIDATION_STATUS));
-    }
-}
-```
-
----
-
-## Common Test Utilities
-
-### ChatResponse Creation
-
-```java
-// Always use ChatResponseUtil for creating mock responses
-ChatResponse response = ChatResponseUtil.createResponse("message");
-ChatResponse pureResponse = ChatResponseUtil.createPureResponse("pure message");
-
-// For text type markers
-ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign());
-ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign());
-ChatResponseUtil.createPureResponse(TextType.PYTHON.getStartSign());
-ChatResponseUtil.createPureResponse(TextType.PYTHON.getEndSign());
-ChatResponseUtil.createPureResponse(TextType.SQL.getStartSign());
-ChatResponseUtil.createPureResponse(TextType.SQL.getEndSign());
-```
-
-### Flux Response Patterns
-
-```java
-// Single response
-when(service.call(anyString(), anyString()))
-    .thenReturn(Flux.just(ChatResponseUtil.createResponse("result")));
-
-// Multiple responses (with markers)
-when(service.call(anyString(), anyString()))
-    .thenReturn(Flux.just(
-        ChatResponseUtil.createPureResponse(TextType.JSON.getStartSign()),
-        ChatResponseUtil.createPureResponse(jsonContent),
-        ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign())
-    ));
-
-// Empty response
-when(service.call(anyString()))
-    .thenReturn(Flux.empty());
-```
-
-### JSON Parsing Mocks
-
-```java
-// Successful parse
-when(jsonParseUtil.tryConvertToObject(jsonString, TargetClass.class))
-    .thenReturn(targetObject);
-
-// Parse failure
-when(jsonParseUtil.tryConvertToObject(jsonString, TargetClass.class))
-    .thenReturn(null);
-
-// Parse with exception handling
-when(jsonParseUtil.tryConvertToObject(any(), any()))
-    .thenThrow(new JsonProcessingException("Invalid JSON"));
-```
-
----
-
-## Test Configuration
-
-### Required Settings
-
-```xml
-<dependency>
-    <groupId>org.mockito</groupId>
-    <artifactId>mockito-core</artifactId>
-    <scope>test</scope>
-</dependency>
-<dependency>
-    <groupId>io.projectreactor</groupId>
-    <artifactId>reactor-test</artifactId>
-    <scope>test</scope>
-</dependency>
-```
-
-### Test Class Pattern
-
-```java
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-class YourNodeTest {
-
-    @Mock
-    private Service1 service1;
-
-    @Mock
-    private Service2 service2;
-
-    private YourNode node;
-
-    @BeforeEach
-    void setUp() {
-        node = new YourNode(service1, service2);
-    }
-
-    private OverAllState createTestState() {
-        OverAllState state = new OverAllState();
-        state.registerKeyAndStrategy(KEY1, new ReplaceStrategy());
-        state.registerKeyAndStrategy(KEY2, new ReplaceStrategy());
-        // ... more keys
-        return state;
-    }
-
-    @Test
-    void testMethod() throws Exception {
-        OverAllState state = createTestState();
-        state.updateState(Map.of(...));
-
-        // Mock setup
-        when(service1.method(any())).thenReturn(...);
-
-        // Execute
-        Map<String, Object> result = node.apply(state);
-
-        // Assertions
-        assertNotNull(result);
-        assertTrue(result.containsKey(OUTPUT_KEY));
-    }
-}
-```
-
----
-
-## Why Previous Tests Failed (Debugging Notes)
-
-1. **Missing State Registration**: Not calling `registerKeyAndStrategy()` before setting values
-2. **Incorrect Constant Usage**: Using lowercase instead of UPPERCASE constants
-3. **Improper Flux Mocking**: Not wrapping responses in `Flux.just()` properly
-4. **Missing Mock Strictness**: Not using `@MockitoSettings(strictness = Strictness.LENIENT)` to allow unused stubs
-
-**None of these issues exist in the actual code** - constants are correctly defined as UPPERCASE.
-
----
-
-## Summary
-
-Key principles for effective testing:
-
-1. **Always register state keys** before using them
-2. **Use correct constants** from `Constant.java` (all UPPERCASE)
-3. **Mock Flux responses** using `Flux.just()` or `Flux.empty()`
-4. **Use ChatResponseUtil** for creating mock chat responses
-5. **Use Strictness.LENIENT** to allow flexible mocking
-6. **Verify state outputs** after node execution
-7. **Mock external services** to isolate node logic
-
-Follow these patterns and tests will execute actual code paths, achieving meaningful coverage.
+Optional overrides:
+
+| Environment variable | Default | Purpose |
+| --- | --- | --- |
+| `DATAAGENT_LIVE_DEEPSEEK_API_KEY` | falls back to `DEEPSEEK_API_KEY` | Dedicated live-test credential |
+| `DATAAGENT_LIVE_DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | Official OpenAI-compatible endpoint |
+| `DATAAGENT_LIVE_DEEPSEEK_COMPLETIONS_PATH` | `/chat/completions` | Official Chat Completions path |
+| `DATAAGENT_LIVE_DEEPSEEK_CHAT_MODEL` | `deepseek-v4-flash` | Current low-cost Chat model |
+| `DATAAGENT_LIVE_DASHSCOPE_API_KEY` | falls back to `DASHSCOPE_API_KEY` | Dedicated Embedding credential |
+| `DATAAGENT_LIVE_DASHSCOPE_BASE_URL` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | Official OpenAI-compatible endpoint |
+| `DATAAGENT_LIVE_DASHSCOPE_EMBEDDINGS_PATH` | `/embeddings` | Official Embeddings path |
+| `DATAAGENT_LIVE_DASHSCOPE_EMBEDDING_MODEL` | `text-embedding-v4` | Existing 1,024-dimensional model space |
+
+The GitHub workflow is manual-only and must exist on the default branch before GitHub allows administrators to dispatch it. An administrator enters an open PR number; the unprivileged resolver job validates the PR and resolves its fork repository plus immutable head SHA. The live job checks out that exact SHA and reads the `DEEPSEEK` and `DASHSCOPE_API_KEY` Actions secrets only for the provider-test step gated by the protected `live-model` Environment.
+
+Configure required reviewers and prevent self-review for the `live-model` Environment. Before approval, inspect the PR and confirm that the resolved SHA is the revision intended for testing because checked-out PR code can access the credential during the final step. Never expose this secret to an automatic pull-request job and never use `pull_request_target` to execute pull-request code.
+
+## Required evidence before merging
+
+- `make verify` passes with no skipped tests introduced by the change.
+- `make test-trust-check` passes with no disabled, lenient, constant, sleep-based, or broad-exception test patterns.
+- Frontend unit tests run in CI and pass when frontend code or contracts change.
+- `make integration-test` passes for affected real-infrastructure boundaries.
+- `make live-model-test` passes when provider compatibility changes.
+- Test reports, not log snippets, provide the final test/failure/error/skip counts.
+- Every fixed fake-green case contains a meaningful assertion that would fail if the production behavior were removed.

@@ -1,0 +1,156 @@
+#
+# Copyright 2026 the original author or authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+name: Live Model Contract Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Open pull request number to validate
+        required: true
+        type: number
+
+permissions: {}
+
+concurrency:
+  group: live-model-pr-${{ inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  resolve_pr:
+    name: Resolve immutable PR head
+    if: github.repository == 'spring-ai-alibaba/DataAgent'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    outputs:
+      repository: ${{ steps.resolve.outputs.repository }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      short_sha: ${{ steps.resolve.outputs.short_sha }}
+      url: ${{ steps.resolve.outputs.url }}
+    steps:
+      - name: Resolve and validate PR
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          pr_json=$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}")
+          state=$(jq -r '.state' <<<"${pr_json}")
+          base_ref=$(jq -r '.base.ref' <<<"${pr_json}")
+          head_repository=$(jq -r '.head.repo.full_name' <<<"${pr_json}")
+          head_sha=$(jq -r '.head.sha' <<<"${pr_json}")
+          pr_url=$(jq -r '.html_url' <<<"${pr_json}")
+
+          test "${state}" = "open"
+          test "${base_ref}" = "main"
+          [[ "${head_repository}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]
+          [[ "${head_sha}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${pr_url}" =~ ^https://github.com/[^/]+/[^/]+/pull/[0-9]+$ ]]
+
+          {
+            echo "repository=${head_repository}"
+            echo "sha=${head_sha}"
+            echo "short_sha=${head_sha:0:12}"
+            echo "url=${pr_url}"
+          } >>"${GITHUB_OUTPUT}"
+
+          gh api --method POST "repos/${REPOSITORY}/statuses/${head_sha}" \
+            -f state=pending \
+            -f context='Live Model Contract Test' \
+            -f description='DeepSeek Chat and DashScope Embedding validation is running' \
+            -f target_url="${RUN_URL}"
+
+          printf 'Resolved %s to %s@%s\n' "${pr_url}" "${head_repository}" "${head_sha}"
+
+  live_model:
+    name: "PR #${{ inputs.pr_number }} @ ${{ needs.resolve_pr.outputs.short_sha }}"
+    needs: resolve_pr
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    environment:
+      name: live-model
+      url: ${{ needs.resolve_pr.outputs.url }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ needs.resolve_pr.outputs.repository }}
+          ref: ${{ needs.resolve_pr.outputs.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify immutable checkout
+        env:
+          EXPECTED_SHA: ${{ needs.resolve_pr.outputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "${EXPECTED_SHA}"
+      - uses: ./CI/github-actions/setup-deps
+      - run: make tools
+      - name: Run live Chat and Embedding contracts
+        env:
+          DATAAGENT_LIVE_DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+          DATAAGENT_LIVE_DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+        run: |
+          test -n "${DATAAGENT_LIVE_DEEPSEEK_API_KEY}"
+          test -n "${DATAAGENT_LIVE_DASHSCOPE_API_KEY}"
+          make live-model-test
+
+  report_status:
+    name: Report PR live model status
+    needs: [resolve_pr, live_model]
+    if: ${{ always() && needs.resolve_pr.result == 'success' }}
+    runs-on: ubuntu-22.04
+    permissions:
+      statuses: write
+    steps:
+      - name: Publish final PR status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ needs.resolve_pr.outputs.sha }}
+          RESULT: ${{ needs.live_model.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          case "${RESULT}" in
+            success)
+              state=success
+              description='DeepSeek Chat and DashScope Embedding contracts passed'
+              ;;
+            cancelled)
+              state=error
+              description='Live model validation was cancelled'
+              ;;
+            skipped)
+              state=error
+              description='Live model validation was skipped'
+              ;;
+            *)
+              state=failure
+              description='Live model workflow failed; inspect run details'
+              ;;
+          esac
+
+          gh api --method POST "repos/${REPOSITORY}/statuses/${SHA}" \
+            -f state="${state}" \
+            -f context='Live Model Contract Test' \
+            -f description="${description}" \
+            -f target_url="${RUN_URL}"

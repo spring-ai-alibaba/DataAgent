@@ -243,13 +243,13 @@ class PromptHelperTest {
 	@Test
 	void buildBusinessKnowledgePrompt_blankContent_usesDefault() {
 		String result = PromptHelper.buildBusinessKnowledgePrompt("");
-		assertNotNull(result);
+		assertTrue(result.contains("<business_knowledge>\n无\n</business_knowledge>"));
 	}
 
 	@Test
 	void buildBusinessKnowledgePrompt_nullContent_usesDefault() {
 		String result = PromptHelper.buildBusinessKnowledgePrompt(null);
-		assertNotNull(result);
+		assertTrue(result.contains("<business_knowledge>\n无\n</business_knowledge>"));
 	}
 
 	@Test
@@ -262,13 +262,13 @@ class PromptHelperTest {
 	@Test
 	void buildAgentKnowledgePrompt_blankContent_usesDefault() {
 		String result = PromptHelper.buildAgentKnowledgePrompt("");
-		assertNotNull(result);
+		assertTrue(result.contains("<agent_knowledge>\n无\n</agent_knowledge>"));
 	}
 
 	@Test
 	void buildAgentKnowledgePrompt_nullContent_usesDefault() {
 		String result = PromptHelper.buildAgentKnowledgePrompt(null);
-		assertNotNull(result);
+		assertTrue(result.contains("<agent_knowledge>\n无\n</agent_knowledge>"));
 	}
 
 	@Test
@@ -280,19 +280,23 @@ class PromptHelperTest {
 			.build();
 
 		String result = PromptHelper.buildSemanticModelPrompt(Arrays.asList(model));
-		assertNotNull(result);
+		assertTrue(result.contains("业务名称: User Name"));
+		assertTrue(result.contains("表名: users"));
+		assertTrue(result.contains("数据库字段名: name"));
 	}
 
 	@Test
 	void buildSemanticModelPrompt_emptyModels_handlesGracefully() {
 		String result = PromptHelper.buildSemanticModelPrompt(Collections.emptyList());
-		assertNotNull(result);
+		assertTrue(result.contains("<semantic_model>"));
+		assertTrue(result.contains("</semantic_model>"));
+		assertFalse(result.contains("业务名称:"));
 	}
 
 	@Test
 	void buildSemanticModelPrompt_nullModels_handlesGracefully() {
 		String result = PromptHelper.buildSemanticModelPrompt(null);
-		assertNotNull(result);
+		assertEquals(PromptHelper.buildSemanticModelPrompt(Collections.emptyList()), result);
 	}
 
 	@Test
@@ -307,7 +311,9 @@ class PromptHelperTest {
 	@Test
 	void buildIntentRecognitionPrompt_nullMultiTurn_usesDefault() {
 		String result = PromptHelper.buildIntentRecognitionPrompt(null, "What is the total sales?");
-		assertNotNull(result);
+		assertTrue(result.contains("(无)"));
+		assertTrue(result.contains("What is the total sales?"));
+		assertTrue(result.contains("classification"));
 	}
 
 	@Test
@@ -320,59 +326,79 @@ class PromptHelperTest {
 	@Test
 	void buildQueryEnhancePrompt_emptyEvidence_usesDefault() {
 		String result = PromptHelper.buildQueryEnhancePrompt("history", "latest query", "");
-		assertNotNull(result);
+		assertTrue(result.contains("history"));
+		assertTrue(result.contains("latest query"));
+		assertTrue(result.contains("无"));
 	}
 
 	@Test
 	void buildQueryEnhancePrompt_nullMultiTurn_usesDefault() {
 		String result = PromptHelper.buildQueryEnhancePrompt(null, "latest query", "evidence");
-		assertNotNull(result);
+		assertTrue(result.contains("(无)"));
+		assertTrue(result.contains("latest query"));
+		assertTrue(result.contains("evidence"));
 	}
 
 	@Test
 	void buildEvidenceQueryRewritePrompt_withMultiTurn_includesHistory() {
 		String result = PromptHelper.buildEvidenceQueryRewritePrompt("history", "latest query");
-		assertNotNull(result);
+		assertTrue(result.contains("history"));
+		assertTrue(result.contains("latest query"));
+		assertTrue(result.contains("standalone_query"));
 	}
 
 	@Test
 	void buildEvidenceQueryRewritePrompt_nullMultiTurn_usesDefault() {
 		String result = PromptHelper.buildEvidenceQueryRewritePrompt(null, "latest query");
-		assertNotNull(result);
+		assertTrue(result.contains("(无)"));
+		assertTrue(result.contains("latest query"));
 	}
 
 	@Test
 	void buildFeasibilityAssessmentPrompt_withAllParams_buildsPrompt() {
 		SchemaDTO schema = createTestSchema();
 		String result = PromptHelper.buildFeasibilityAssessmentPrompt("query", schema, "evidence", "history");
-		assertNotNull(result);
+		assertTrue(result.contains("query"));
+		assertTrue(result.contains("evidence"));
+		assertTrue(result.contains("history"));
+		assertTrue(result.contains("# Table: users"));
+		assertTrue(result.contains("requirementType"));
 	}
 
 	@Test
 	void buildFeasibilityAssessmentPrompt_nullParams_handlesGracefully() {
 		SchemaDTO schema = createTestSchema();
 		String result = PromptHelper.buildFeasibilityAssessmentPrompt(null, schema, null, null);
-		assertNotNull(result);
+		assertTrue(result.contains("(无)"));
+		assertTrue(result.contains("# Table: users"));
+		assertFalse(result.contains("<canonical_query>\nnull"));
+		assertFalse(result.contains("<evidence>\nnull"));
 	}
 
 	@Test
 	void buildReportGeneratorPromptWithOptimization_noOptimizations_buildsPrompt() {
 		String result = PromptHelper.buildReportGeneratorPromptWithOptimization("requirements", "steps", "summary",
 				null);
-		assertNotNull(result);
+		assertTrue(result.contains("requirements"));
+		assertTrue(result.contains("steps"));
+		assertTrue(result.contains("summary"));
+		assertFalse(result.contains("## 优化要求"));
 	}
 
 	@Test
 	void buildReportGeneratorPromptWithOptimization_emptyOptimizations_buildsPrompt() {
 		String result = PromptHelper.buildReportGeneratorPromptWithOptimization("requirements", "steps", "summary",
 				new ArrayList<>());
-		assertNotNull(result);
+		assertEquals(PromptHelper.buildReportGeneratorPromptWithOptimization("requirements", "steps", "summary", null),
+				result);
 	}
 
 	@Test
 	void buildDataViewAnalysisPrompt_returnsNonNull() {
 		String result = PromptHelper.buildDataViewAnalysisPrompt();
-		assertNotNull(result);
+		assertTrue(result.contains("`table`、`column`、`bar`、`line` 或 `pie`"));
+		assertTrue(result.contains("\"type\""));
+		assertTrue(result.contains("\"title\""));
 	}
 
 }

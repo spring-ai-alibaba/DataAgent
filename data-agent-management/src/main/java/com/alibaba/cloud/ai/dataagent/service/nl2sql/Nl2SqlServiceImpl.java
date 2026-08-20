@@ -63,7 +63,7 @@ public class Nl2SqlServiceImpl implements Nl2SqlService {
 				sqlGenerationDTO.getExecutionDescription(), StringUtils.hasText(sql), sqlGenerationDTO.getDialect());
 
 		Flux<String> newSqlFlux;
-		if (sql != null && !sql.isEmpty()) {
+		if (StringUtils.hasText(sql)) {
 			// Use professional SQL error repair prompt
 			log.debug("Using SQL error fixer for existing SQL: {}", sql);
 			String errorFixerPrompt = PromptHelper.buildSqlErrorFixerPrompt(sqlGenerationDTO);

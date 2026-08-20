@@ -15,11 +15,19 @@
  */
 package com.alibaba.cloud.ai.dataagent.prompt;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class PromptConstantTest {
 
@@ -28,106 +36,56 @@ class PromptConstantTest {
 		PromptLoader.clearCache();
 	}
 
-	@Test
-	void getIntentRecognitionPromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getIntentRecognitionPromptTemplate();
-		assertNotNull(template);
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("promptContracts")
+	void promptTemplate_declaredVariables_renderWithoutLeavingPlaceholders(String promptName,
+			Supplier<PromptTemplate> templateFactory, List<String> variables) {
+		Map<String, Object> values = new LinkedHashMap<>();
+		variables.forEach(variable -> values.put(variable, "sentinel_" + variable));
+
+		String rendered = templateFactory.get().render(values);
+
+		assertThat(rendered).as(promptName).contains(values.values().toArray(String[]::new));
+		variables.forEach(variable -> assertThat(rendered).as(promptName).doesNotContain("{" + variable + "}"));
 	}
 
-	@Test
-	void getEvidenceQueryRewritePromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getEvidenceQueryRewritePromptTemplate();
-		assertNotNull(template);
+	private static Stream<Arguments> promptContracts() {
+		return Stream.of(
+				contract("intent-recognition", PromptConstant::getIntentRecognitionPromptTemplate, "latest_query",
+						"multi_turn", "format"),
+				contract("evidence-query-rewrite", PromptConstant::getEvidenceQueryRewritePromptTemplate,
+						"latest_query", "multi_turn", "format"),
+				contract("agent-knowledge", PromptConstant::getAgentKnowledgePromptTemplate, "agentKnowledge"),
+				contract("query-enhancement", PromptConstant::getQueryEnhancementPromptTemplate, "latest_query",
+						"multi_turn", "evidence", "current_time_info", "format"),
+				contract("feasibility-assessment", PromptConstant::getFeasibilityAssessmentPromptTemplate,
+						"canonical_query", "multi_turn", "evidence", "recalled_schema", "format"),
+				contract("mix-selector", PromptConstant::getMixSelectorPromptTemplate, "evidence", "question",
+						"schema_info"),
+				contract("semantic-consistency", PromptConstant::getSemanticConsistencyPromptTemplate, "dialect", "sql",
+						"execution_description", "schema_info", "user_query", "evidence", "format"),
+				contract("new-sql-generate", PromptConstant::getNewSqlGeneratorPromptTemplate, "dialect",
+						"execution_description", "schema_info", "question", "evidence", "previous_step_results"),
+				contract("planner", PromptConstant::getPlannerPromptTemplate, "user_question", "evidence", "schema",
+						"semantic_model", "plan_validation_error", "format"),
+				contract("report-generator-plain", PromptConstant::getReportGeneratorPlainPromptTemplate,
+						"user_requirements_and_plan", "analysis_steps_and_data", "summary_and_recommendations",
+						"optimization_section", "json_example"),
+				contract("sql-error-fixer", PromptConstant::getSqlErrorFixerPromptTemplate, "dialect", "error_sql",
+						"error_message", "execution_description", "schema_info", "question", "evidence",
+						"previous_step_results"),
+				contract("python-generator", PromptConstant::getPythonGeneratorPromptTemplate, "python_memory",
+						"python_timeout", "database_schema", "sample_input", "plan_description"),
+				contract("python-analyze", PromptConstant::getPythonAnalyzePromptTemplate, "python_output",
+						"user_query"),
+				contract("business-knowledge", PromptConstant::getBusinessKnowledgePromptTemplate, "businessKnowledge"),
+				contract("semantic-model", PromptConstant::getSemanticModelPromptTemplate, "semanticModel"),
+				contract("json-fix", PromptConstant::getJsonFixPromptTemplate, "json_string", "error_message"),
+				contract("data-view-analyze", PromptConstant::getDataViewAnalyzePromptTemplate, "format"));
 	}
 
-	@Test
-	void getAgentKnowledgePromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getAgentKnowledgePromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getQueryEnhancementPromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getQueryEnhancementPromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getFeasibilityAssessmentPromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getFeasibilityAssessmentPromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getMixSelectorPromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getMixSelectorPromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getSemanticConsistencyPromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getSemanticConsistencyPromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getNewSqlGeneratorPromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getNewSqlGeneratorPromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getPlannerPromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getPlannerPromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getReportGeneratorPlainPromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getReportGeneratorPlainPromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getSqlErrorFixerPromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getSqlErrorFixerPromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getPythonGeneratorPromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getPythonGeneratorPromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getPythonAnalyzePromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getPythonAnalyzePromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getBusinessKnowledgePromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getBusinessKnowledgePromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getSemanticModelPromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getSemanticModelPromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getJsonFixPromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getJsonFixPromptTemplate();
-		assertNotNull(template);
-	}
-
-	@Test
-	void getDataViewAnalyzePromptTemplate_returnsNonNull() {
-		PromptTemplate template = PromptConstant.getDataViewAnalyzePromptTemplate();
-		assertNotNull(template);
+	private static Arguments contract(String name, Supplier<PromptTemplate> templateFactory, String... variables) {
+		return Arguments.of(name, templateFactory, List.of(variables));
 	}
 
 }

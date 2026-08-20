@@ -29,8 +29,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -42,7 +40,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class SemanticModelServiceImplTest {
 
 	@Mock
@@ -122,7 +119,7 @@ class SemanticModelServiceImplTest {
 		SemanticModelAddDTO dto = new SemanticModelAddDTO();
 		dto.setAgentId(1L);
 
-		assertThrows(RuntimeException.class, () -> service.addSemanticModel(dto));
+		assertThrowsExactly(RuntimeException.class, () -> service.addSemanticModel(dto));
 	}
 
 	@Test
@@ -169,7 +166,7 @@ class SemanticModelServiceImplTest {
 	void getByAgentIdAndTableNames_noDatasource_returnsEmpty() {
 		when(agentDatasourceMapper.selectByAgentId(1L)).thenReturn(Collections.emptyList());
 
-		assertThrows(RuntimeException.class, () -> service.getByAgentIdAndTableNames(1L, List.of("users")));
+		assertThrowsExactly(RuntimeException.class, () -> service.getByAgentIdAndTableNames(1L, List.of("users")));
 	}
 
 	@Test
@@ -189,10 +186,14 @@ class SemanticModelServiceImplTest {
 	@Test
 	void getByAgentIdAndTableNames_withValidData() {
 		when(agentDatasourceMapper.selectByAgentId(1L)).thenReturn(List.of(activeDs));
-		when(semanticModelMapper.selectByDatasourceIdAndTableNames(eq(10), anyList())).thenReturn(List.of());
+		SemanticModel expectedModel = SemanticModel.builder().id(7L).tableName("users").columnName("name").build();
+		List<SemanticModel> expected = List.of(expectedModel);
+		when(semanticModelMapper.selectByDatasourceIdAndTableNames(10, List.of("users"))).thenReturn(expected);
 
 		List<SemanticModel> result = service.getByAgentIdAndTableNames(1L, List.of("users"));
-		assertNotNull(result);
+		assertSame(expected, result);
+		assertSame(expectedModel, result.get(0));
+		verify(semanticModelMapper).selectByDatasourceIdAndTableNames(10, List.of("users"));
 	}
 
 	@Test
