@@ -388,7 +388,7 @@ legacy Docker-pool, and AI Simulation executors are no longer available.
 
 ### Prerequisites
 
-- Spring AI Alibaba `1.1.2.2`
+- Spring AI Alibaba `1.1.2.3`
 - A reachable Docker daemon
 - The sandbox image available to that Docker daemon
 - Network access from the sandbox to the configured Python package index when installing dependencies
@@ -494,7 +494,7 @@ means:
 ### Production Security Boundary
 
 Task containers are non-privileged and have CPU, memory, nofile, timeout, concurrency, input, and
-output limits. SAA `1.1.2.2` does not expose an API to disconnect the container immediately after
+output limits. SAA `1.1.2.3` does not expose an API to disconnect the container immediately after
 dependency installation, so production must also:
 
 1. Use a pinned image digest and a non-root base image.

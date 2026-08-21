@@ -165,21 +165,63 @@ public class AgentVectorStoreService {
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
-| `recent-turns` | 从关系库事实源原样注入的最近成功轮次 | 3 |
+| `recent-turns` | Spring AI `ChatMemory` 保留的最近成功对话轮次数 | 3 |
 | `max-summary-length` | 可重建滚动摘要的最大字符数 | 4000 |
+| `summary-cache-max-entries` | 单节点保留的滚动摘要投影上限；超限淘汰最旧项 | 10000 |
 | `max-result-summary-length` | 单轮结果摘要最大字符数 | 2000 |
+| `max-context-length` | 单次请求注入的全部记忆上下文字符硬上限 | 16000 |
 | `long-term-top-k` | 每次注入的已确认长期记忆上限 | 5 |
 | `episodic-top-k` | 可信用户跨会话召回上限 | 3 |
-| `user-scope-enabled` | 是否启用个人记忆；身份只能从已验证来源轮次继承，不能由 API 请求指定 | false |
+| `user-scope-enabled` | 个人记忆预留开关；当前版本缺少可信用户身份，设为 `true` 会拒绝启动 | false |
 | `vector-index-enabled` | 是否启用可选语义索引；MySQL 始终是事实源 | false |
 | `vector-similarity-threshold` | 记忆向量召回阈值 | 0.6 |
 | `outbox-batch-size` | 单批投影事件数量 | 20 |
-| `outbox-max-attempts` | 投影事件最大尝试次数 | 5 |
+| `outbox-max-attempts` | 可重建投影进入死信前的最大尝试次数；删除、遗忘和 checkpoint 释放持续退避重试 | 5 |
+| `outbox-completed-retention-days` | 已成功投影事件的保留天数；失败和死信不会自动删除 | 7 |
+| `outbox-cleanup-batch-size` | 单次清理的已完成事件上限 | 1000 |
+
+Graph 检查点配置前缀：`spring.ai.alibaba.data-agent.checkpoint`
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `type` | 框架 CheckpointSaver 类型：`mysql` 或 `memory` | mysql |
+
+`MysqlSaver.release()` 逻辑释放后的行会随对应的已完成 Outbox 事件一起保留，达到
+`memory.outbox-completed-retention-days` 后先按逻辑 thread 名物理删除所有 checkpoint 代次（包括与逻辑释放竞争而重建的行），再删除 Outbox 事件；单批上限复用
+`memory.outbox-cleanup-batch-size`。
+已发布 graph-core `1.1.2.3` 使用 `(thread_name, is_released)` 唯一索引；若跨节点写入在首次释放后
+重建 active 代次，下一次框架释放会与旧 released 代次冲突。Worker 只在框架释放失败且两种代次同时存在时
+删除旧 released 代次，然后重试框架 `release()`；正常 checkpoint 读写、恢复与释放语义仍由框架负责。
+
+删除、遗忘、记忆失效和 checkpoint 释放属于必须最终执行的事件，不受最大尝试次数限制。升级前若旧版
+Worker 已将这四类事件标记为 `DEAD`，新版 Worker 会先自动恢复为 `FAILED` 再继续退避重试；可重建投影的
+死信不会被自动恢复。
+
+记忆能力按“框架负责通用存储语义，应用负责业务真实性”分层：
+
+| 层次 | 实现 | 职责 |
+|------|------|------|
+| 最近消息窗口 | Spring AI `MessageWindowChatMemory` + `JdbcChatMemoryRepository` | 只保存已成功提交的用户/最终助手消息对；投影为空、损坏、不完整或未填满当前窗口时，只读回退到 `conversation_turn` 最近 N 轮 |
+| 滚动摘要 | Spring AI Alibaba `Store` + `MemoryStore` | 有界节点本地缓存可从成功轮次重建的摘要投影；每次读取用关系库摘要边界校验，缓存丢失、过期或跨节点不一致时自动重建 |
+| Graph 检查点 | Spring AI Alibaba graph-core `1.1.2.3` `MysqlSaver` | 保存和恢复 Graph 执行状态及人工审核中断点；`maxCachedThreads(0)` 关闭节点本地 latest cache，成功、失败、取消和会话删除提交后均由 Outbox 重试调用框架 `release`；框架逻辑释放后的行在对应 Outbox 事件保留期满后物理删除 |
+| 业务事实与审核 | `conversation_turn`、`turn_run`、`turn_artifact`、`memory_item`、`memory_outbox` | 执行审计、长期记忆审核、事务 outbox；不重复实现框架 ChatMemory/Checkpoint |
+| 语义索引 | Spring AI `VectorStore`（可选） | 加速长期记忆和历史轮次召回；可重建且不是事实源 |
+
+当前不使用已发布 graph-core `1.1.2.3` 的 `DatabaseStore`：该版本写入仍固定使用 H2
+`MERGE ... KEY(...)`，与项目默认 MySQL 不兼容。待框架发布方言感知修复后，可替换 `MemoryStore`，
+不需要改变摘要服务或关系库事实源。
 
 已有 MySQL 环境升级时，需先执行版本化脚本
-`data-agent-management/src/main/resources/sql/migration/V20260729_01__create_durable_memory.sql`；
-全新环境继续使用 `data-agent-management/src/main/resources/sql/schema.sql`。短期和长期记忆表不存在时，
-Graph 请求不会降级为旧记忆实现。
+`data-agent-management/src/main/resources/sql/migration/V20260729_01__create_durable_memory.sql`，再执行
+`data-agent-management/src/main/resources/sql/migration/V20260820_01__add_datasource_schema_revision.sql`；
+全新环境继续使用 `data-agent-management/src/main/resources/sql/schema.sql`。必需的记忆表或
+`datasource.schema_revision`、`datasource.schema_generation`、`memory_outbox.lease_token` 字段不存在时，
+应用会在启动时列出缺失项并失败，不会降级为旧记忆实现。
+部署前应先完成或取消旧版本中仍处于人工审核等待态的 Graph 执行：旧 checkpoint 没有对应的
+`conversation_turn`/`turn_run` 业务事实，无法安全推导租户、会话和执行归属，因此升级后不会被自动接管。
+升级后还需要为每个已有数据源重新执行一次 Schema 初始化，以生成稳定的 `schema_revision`。初始化开始时会先
+使旧 revision 失效，只有同一 generation 的全部 Schema 向量发布成功后才写入新 revision；初始化失败期间，
+依赖 Schema 的纠错和查询模式记忆会被安全地排除在召回结果之外。
 
 ### 3. 嵌入模型批处理策略 (Embedding Batch)
 

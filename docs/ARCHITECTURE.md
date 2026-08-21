@@ -474,8 +474,9 @@ sequenceDiagram
 
 - **流式输出**: `GraphController` SSE + `GraphServiceImpl` 流式处理
 - **文本标记**: `TextType` 在流中标记 SQL/JSON/HTML/Markdown，前端据此渲染
-- **短期记忆**: `ConversationTurnService` 只提交成功且可验证的轮次；`ConversationContextAssembler` 从关系库事实源同步校准滚动摘要并注入最近成功轮次
+- **短期记忆**: `ConversationTurnService` 只提交成功的用户/最终助手消息对；最近窗口由 Spring AI `MessageWindowChatMemory` + `JdbcChatMemoryRepository` 管理，框架投影为空、损坏、不完整或尚未填满配置窗口时只读回退到权威 `conversation_turn` 的最近 N 轮；滚动摘要使用 Spring AI Alibaba `MemoryStore` 作为节点本地可重建投影，每次读取都用关系库中的摘要边界轮次校验，缓存丢失或过期时自动重建
 - **长期记忆**: `memory_item` 采用 `CANDIDATE → CONFIRMED` 审核门，MySQL 是事实源，向量库只是可选索引
+- **Graph 状态**: Spring AI Alibaba graph-core `1.1.2.3` 的 `MysqlSaver` 负责检查点序列化、持久化和人工审核恢复，并通过 `maxCachedThreads(0)` 关闭节点本地 latest cache；每个成功、失败、取消终态以及会话删除都会在同一业务事务中写入 Outbox，提交后重试调用框架 `release`；由于框架的 release 仅做逻辑释放，应用只补充保留期后的物理清理，不自建第二套检查点
 - **隔离键**: `conversationId` 是稳定会话，`threadId` 是单次 Graph 运行，`turnId` 是逻辑对话轮次
 - **模式切换**: `spring.ai.alibaba.data-agent.llm-service-type` 支持 `STREAM/BLOCK`
 
@@ -490,9 +491,14 @@ flowchart LR
   GraphSvc --> Ctx[ConversationContextAssembler]
   GraphSvc --> Turn[ConversationTurnService]
   Turn --> TurnDB[(conversation_turn)]
+  Turn --> ChatMemory[Spring AI ChatMemory]
   Turn --> Outbox[(memory_outbox)]
-  Outbox --> Projection[Summary Vector Index]
+  Outbox --> SummaryStore[Alibaba MemoryStore Summary Cache]
+  Outbox --> Projection[Optional Vector Index]
+  Outbox -. release .-> Checkpoint
+  Checkpoint --> Retention[Released-row retention cleanup]
   GraphSvc --> Graph[CompiledGraph]
+  Graph --> Checkpoint[Alibaba MysqlSaver cache disabled]
   Graph --> LLM[LlmService Stream Block]
   Graph --> TextType[TextType Markers]
   TextType --> Sink
@@ -510,7 +516,7 @@ flowchart LR
   class Client client
   class SSE,Sink api
   class GraphSvc,Graph service
-  class StreamCtx,Ctx,TurnDB,Outbox,Projection data
+  class StreamCtx,Ctx,TurnDB,ChatMemory,Outbox,SummaryStore,Projection,Checkpoint data
   class LLM llm
   class TextType,Stop control
 ```

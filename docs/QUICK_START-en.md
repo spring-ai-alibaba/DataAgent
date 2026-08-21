@@ -194,7 +194,7 @@ Below is the ES schema structure. For other vector stores like Milvus, PG, etc.,
 
 ### 2.8 Configure the Python Sandbox
 
-DataAgent uses the Spring AI Alibaba `1.1.2.2` Sandbox to run generated Python code. Every
+DataAgent uses the Spring AI Alibaba `1.1.2.3` Sandbox to run generated Python code. Every
 execution gets a task-scoped container; dynamic dependency installation, code execution, and
 container cleanup all happen inside that task.
 

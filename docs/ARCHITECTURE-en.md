@@ -465,8 +465,9 @@ sequenceDiagram
 
 - **Streaming Output**: `GraphController` SSE + `GraphServiceImpl` streaming processing
 - **Text Markers**: `TextType` marks SQL/JSON/HTML/Markdown in the stream, frontend renders accordingly
-- **Short-term Memory**: `ConversationTurnService` commits only successful, verified turns; `ConversationContextAssembler` synchronizes the rolling summary from relational truth and injects recent successful turns
+- **Short-term Memory**: `ConversationTurnService` commits only successful user/final-assistant pairs; Spring AI `MessageWindowChatMemory` + `JdbcChatMemoryRepository` own the recent window, with a read-only fallback to the latest N authoritative `conversation_turn` rows when the framework projection is empty, corrupt, incomplete, or has not yet filled the configured window; the rolling summary uses Spring AI Alibaba `MemoryStore` as a node-local rebuildable projection, verifies its boundary turn against relational truth on every read, and rebuilds a missing or stale cache
 - **Long-term Memory**: `memory_item` uses a `CANDIDATE → CONFIRMED` review gate; MySQL is authoritative and the vector store is an optional index
+- **Graph State**: Spring AI Alibaba graph-core `1.1.2.3` `MysqlSaver` owns checkpoint serialization, persistence, and human-review recovery, with its node-local latest cache disabled through `maxCachedThreads(0)`; every successful, failed, or cancelled terminal transition and every conversation deletion records an Outbox event in the same business transaction, which retries the framework `release` operation after commit; because framework release is logical, the application adds only retention-based physical cleanup rather than a second checkpoint implementation
 - **Isolation Keys**: `conversationId` identifies the stable chat, `threadId` identifies one graph run, and `turnId` identifies the logical turn
 - **Mode Switching**: `spring.ai.alibaba.data-agent.llm-service-type` supports `STREAM/BLOCK`
 
@@ -481,9 +482,14 @@ flowchart LR
   GraphSvc --> Ctx[ConversationContextAssembler]
   GraphSvc --> Turn[ConversationTurnService]
   Turn --> TurnDB[(conversation_turn)]
+  Turn --> ChatMemory[Spring AI ChatMemory]
   Turn --> Outbox[(memory_outbox)]
-  Outbox --> Projection[Summary Vector Index]
+  Outbox --> SummaryStore[Alibaba MemoryStore Summary Cache]
+  Outbox --> Projection[Optional Vector Index]
+  Outbox -. release .-> Checkpoint
+  Checkpoint --> Retention[Released-row retention cleanup]
   GraphSvc --> Graph[CompiledGraph]
+  Graph --> Checkpoint[Alibaba MysqlSaver cache disabled]
   Graph --> LLM[LlmService Stream Block]
   Graph --> TextType[TextType Markers]
   TextType --> Sink
@@ -501,7 +507,7 @@ flowchart LR
   class Client client
   class SSE,Sink api
   class GraphSvc,Graph service
-  class StreamCtx,Ctx,TurnDB,Outbox,Projection data
+  class StreamCtx,Ctx,TurnDB,ChatMemory,Outbox,SummaryStore,Projection,Checkpoint data
   class LLM llm
   class TextType,Stop control
 ```

@@ -165,22 +165,68 @@ Configuration prefix: `spring.ai.alibaba.data-agent.memory`
 
 | Configuration Item | Description | Default Value |
 |-------------------|-------------|---------------|
-| `recent-turns` | Recent successful turns read verbatim from the relational source of truth | 3 |
+| `recent-turns` | Recent successful conversation turns retained by Spring AI `ChatMemory` | 3 |
 | `max-summary-length` | Maximum length of the rebuildable rolling summary | 4000 |
+| `summary-cache-max-entries` | Maximum rolling-summary projections retained per node; oldest entries are evicted above the bound | 10000 |
 | `max-result-summary-length` | Maximum result-summary length per turn | 2000 |
+| `max-context-length` | Hard character limit for all memory context injected into one request | 16000 |
 | `long-term-top-k` | Maximum confirmed long-term memories injected per request | 5 |
 | `episodic-top-k` | Maximum cross-session turns recalled for a trusted owner | 3 |
-| `user-scope-enabled` | Enable personal memory; identity is inherited from a verified source turn and cannot be supplied by the API | false |
+| `user-scope-enabled` | Reserved personal-memory switch; startup rejects `true` until trusted user identity is integrated | false |
 | `vector-index-enabled` | Enable the optional semantic index; MySQL remains authoritative | false |
 | `vector-similarity-threshold` | Memory vector recall threshold | 0.6 |
 | `outbox-batch-size` | Projection events processed per batch | 20 |
-| `outbox-max-attempts` | Maximum projection attempts | 5 |
+| `outbox-max-attempts` | Attempts before rebuild events become dead; delete, forget, and checkpoint-release events keep retrying with backoff | 5 |
+| `outbox-completed-retention-days` | Retention days for successfully projected events; failed and dead rows are not auto-deleted | 7 |
+| `outbox-cleanup-batch-size` | Maximum completed events removed per cleanup run | 1000 |
+
+Graph checkpoint configuration prefix: `spring.ai.alibaba.data-agent.checkpoint`
+
+| Configuration Item | Description | Default Value |
+|-------------------|-------------|---------------|
+| `type` | Framework CheckpointSaver type: `mysql` or `memory` | mysql |
+
+Rows logically released by `MysqlSaver.release()` are retained with their completed Outbox event. After
+`memory.outbox-completed-retention-days`, every checkpoint generation for the logical thread (including a row recreated by a writer racing logical release) is physically deleted before the event is removed; the batch
+bound reuses `memory.outbox-cleanup-batch-size`.
+The released graph-core `1.1.2.3` uses a unique `(thread_name, is_released)` index. If a cross-node writer recreates an
+active generation after the first release, the next framework release conflicts with the older released generation.
+Only when framework release fails and both generations exist, the worker removes the older released generation and
+retries framework `release()`; normal checkpoint persistence, recovery, and release semantics remain framework-owned.
+
+Delete, forget, memory-invalidation, and checkpoint-release events must eventually execute and are not capped by the
+maximum attempt count. If an older worker marked one of these four event types `DEAD`, the new worker automatically
+revives it as `FAILED` and resumes bounded-backoff retries. Dead rebuildable projections are not revived automatically.
+
+Memory is split so the frameworks own generic persistence semantics while the application owns business truth:
+
+| Layer | Implementation | Responsibility |
+|-------|----------------|----------------|
+| Recent message window | Spring AI `MessageWindowChatMemory` + `JdbcChatMemoryRepository` | Stores only successfully committed user/final-assistant message pairs; when the projection is empty, corrupt, incomplete, or underfills the current window, reads fall back to the latest N `conversation_turn` rows |
+| Rolling summary | Spring AI Alibaba `Store` + `MemoryStore` | Keeps a bounded node-local cache of the summary projection derived from successful turns; every read verifies the relational boundary turn and rebuilds a missing, stale, or cross-node-inconsistent cache |
+| Graph checkpoints | Spring AI Alibaba graph-core `1.1.2.3` `MysqlSaver` | Persists and restores graph execution state and human-review interrupts; `maxCachedThreads(0)` disables the node-local latest cache, and after successful, failed, or cancelled terminal transitions and conversation deletion commit the outbox retries framework `release`; logically released rows are physically removed when the corresponding Outbox event reaches its retention boundary |
+| Business truth and review | `conversation_turn`, `turn_run`, `turn_artifact`, `memory_item`, `memory_outbox` | Execution audit, long-term-memory review, and transactional outbox; does not reimplement framework ChatMemory or checkpoints |
+| Semantic index | Spring AI `VectorStore` (optional) | Accelerates long-term-memory and episodic recall; rebuildable and non-authoritative |
+
+The released graph-core `1.1.2.3` `DatabaseStore` is deliberately not used because its write path still emits the H2
+`MERGE ... KEY(...)` syntax, which is incompatible with the project's default MySQL database. Once a released framework
+version includes the dialect-aware fix, `MemoryStore` can be replaced without changing the summary service or relational
+source of truth.
 
 For an existing MySQL installation, apply
-`data-agent-management/src/main/resources/sql/migration/V20260729_01__create_durable_memory.sql`
+`data-agent-management/src/main/resources/sql/migration/V20260729_01__create_durable_memory.sql`, followed by
+`data-agent-management/src/main/resources/sql/migration/V20260820_01__add_datasource_schema_revision.sql`,
 before deployment. New installations continue to use
-`data-agent-management/src/main/resources/sql/schema.sql`. Graph requests do not fall back to the legacy memory
-implementation when the new tables are absent.
+`data-agent-management/src/main/resources/sql/schema.sql`. Startup reports missing required memory tables or the
+`datasource.schema_revision`, `datasource.schema_generation`, or `memory_outbox.lease_token` columns and fails; the
+application does not fall back to the legacy memory implementation. Before deployment, complete or cancel graph runs
+that are still waiting for human review on the old version. Their checkpoints do not have corresponding
+`conversation_turn`/`turn_run` business facts, so tenant, conversation, and run ownership cannot be derived safely and
+the new version does not adopt them automatically. After upgrading, initialize Schema once for every
+existing datasource to populate its stable `schema_revision`. Initialization invalidates the old revision before
+extraction starts and publishes a new revision only after every Schema vector for the same generation succeeds. While
+initialization is incomplete or has failed, schema-dependent correction and query-pattern memories are safely excluded
+from recall.
 
 ### 3. Embedding Batch Configuration
 

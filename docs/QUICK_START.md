@@ -193,7 +193,7 @@ spring:
 
 ### 2.8 配置 Python 沙盒
 
-DataAgent 使用 Spring AI Alibaba `1.1.2.2` 的 Sandbox 运行生成的 Python 代码。每次
+DataAgent 使用 Spring AI Alibaba `1.1.2.3` 的 Sandbox 运行生成的 Python 代码。每次
 执行都会创建一个任务级容器，动态依赖安装、业务代码执行和容器清理都在该任务内完成。
 
 先确认 Docker 可用：

@@ -387,7 +387,7 @@ Local、旧 Docker 容器池或 AI Simulation 执行器。
 
 ### 前置条件
 
-- Spring AI Alibaba `1.1.2.2`
+- Spring AI Alibaba `1.1.2.3`
 - 可访问的 Docker daemon
 - 沙盒镜像可从 Docker daemon 获取
 - 动态安装依赖时，沙盒网络可访问配置的 Python 包索引
@@ -486,7 +486,7 @@ sequenceDiagram
 ### 生产安全边界
 
 任务容器默认非 privileged，并限制 CPU、内存、nofile、超时、并发和输入输出大小。但
-SAA `1.1.2.2` 没有提供“安装完成后立即断网”的公开 API，因此生产环境还必须：
+SAA `1.1.2.3` 没有提供“安装完成后立即断网”的公开 API，因此生产环境还必须：
 
 1. 使用固定镜像 digest 和非 root 基础镜像。
 2. 仅允许沙盒访问企业私有 PyPI 代理，禁止访问公网和业务内网。
