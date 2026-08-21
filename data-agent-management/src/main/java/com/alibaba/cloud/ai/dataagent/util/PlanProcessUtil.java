@@ -18,9 +18,11 @@ package com.alibaba.cloud.ai.dataagent.util;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.dataagent.dto.planner.ExecutionStep;
 import com.alibaba.cloud.ai.dataagent.dto.planner.Plan;
+import com.fasterxml.jackson.databind.MappingIterator;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.ParameterizedTypeReference;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,11 +103,31 @@ public final class PlanProcessUtil {
 	public static Plan getPlan(OverAllState state) {
 		String plannerNodeOutput = (String) state.value(PLANNER_NODE_OUTPUT)
 			.orElseThrow(() -> new IllegalStateException("计划节点输出为空"));
-		Plan plan = converter.convert(plannerNodeOutput);
+		Plan plan = convertPlan(plannerNodeOutput);
 		if (plan == null) {
 			throw new IllegalStateException("计划解析失败");
 		}
 		return plan;
+	}
+
+	private static Plan convertPlan(String plannerNodeOutput) {
+		try (MappingIterator<Plan> plans = JsonUtil.getObjectMapper()
+			.readerFor(Plan.class)
+			.readValues(plannerNodeOutput)) {
+			Plan lastPlan = null;
+			int planCount = 0;
+			while (plans.hasNextValue()) {
+				lastPlan = plans.nextValue();
+				planCount++;
+			}
+			if (planCount > 1) {
+				return lastPlan;
+			}
+		}
+		catch (IOException ignored) {
+			// Let the existing converter handle its supported wrappers and report errors.
+		}
+		return converter.convert(plannerNodeOutput);
 	}
 
 	/**
