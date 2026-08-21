@@ -15,10 +15,12 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.aimodelconfig;
 
-import com.alibaba.cloud.ai.dataagent.enums.ModelType;
 import com.alibaba.cloud.ai.dataagent.converter.ModelConfigConverter;
 import com.alibaba.cloud.ai.dataagent.dto.ModelConfigDTO;
 import com.alibaba.cloud.ai.dataagent.entity.ModelConfig;
+import com.alibaba.cloud.ai.dataagent.enums.ModelType;
+import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
@@ -190,10 +192,12 @@ public class ModelConfigOpsService {
 	 * 辅助方法：提取更友好的错误信息 Spring AI 抛出的异常有时候嵌套很深
 	 */
 	private String parseErrorMessage(Exception e) {
-		String message = e.getMessage();
-		if (!StringUtils.hasText(message)) {
-			return e.getClass().getSimpleName();
+		String providerError = extractProviderError(e);
+		if (StringUtils.hasText(providerError)) {
+			return providerError;
 		}
+
+		String message = findMostSpecificMessage(e);
 		// 如果是 401，通常是 Key 错
 		if (message.contains("401")) {
 			return "鉴权失败 (401)，请检查 API Key 是否正确。";
@@ -208,6 +212,50 @@ public class ModelConfigOpsService {
 		}
 		// 其他错误直接返回原样
 		return message;
+	}
+
+	private String extractProviderError(Throwable error) {
+		for (Throwable current = error; current != null; current = current.getCause()) {
+			String message = current.getMessage();
+			if (!StringUtils.hasText(message)) {
+				continue;
+			}
+			int jsonStart = message.indexOf('{');
+			if (jsonStart < 0) {
+				continue;
+			}
+			try {
+				JsonNode errorNode = JsonUtil.getObjectMapper().readTree(message.substring(jsonStart)).path("error");
+				if (errorNode.isMissingNode() || errorNode.isNull()) {
+					continue;
+				}
+				String providerMessage = errorNode.path("message").asText("");
+				String providerCode = errorNode.path("code").asText("");
+				if (StringUtils.hasText(providerMessage) && StringUtils.hasText(providerCode)) {
+					return providerMessage + " (" + providerCode + ")";
+				}
+				if (StringUtils.hasText(providerMessage)) {
+					return providerMessage;
+				}
+				if (StringUtils.hasText(providerCode)) {
+					return providerCode;
+				}
+			}
+			catch (Exception parseException) {
+				log.debug("Failed to parse structured model provider error", parseException);
+			}
+		}
+		return null;
+	}
+
+	private String findMostSpecificMessage(Throwable error) {
+		String message = null;
+		for (Throwable current = error; current != null; current = current.getCause()) {
+			if (StringUtils.hasText(current.getMessage())) {
+				message = current.getMessage();
+			}
+		}
+		return StringUtils.hasText(message) ? message : error.getClass().getSimpleName();
 	}
 
 }

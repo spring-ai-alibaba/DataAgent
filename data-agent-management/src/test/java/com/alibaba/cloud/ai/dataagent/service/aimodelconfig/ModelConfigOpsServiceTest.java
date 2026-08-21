@@ -174,6 +174,24 @@ class ModelConfigOpsServiceTest {
 	}
 
 	@Test
+	void testTestConnection_structuredProviderErrorPreservesCodeAndMessage() {
+		ModelConfig entity = new ModelConfig();
+		entity.setId(6);
+		entity.setModelType(ModelType.CHAT);
+		entity.setProvider("openai");
+		entity.setModelName("multimodal-embedding-v1");
+		when(modelConfigDataService.findById(6)).thenReturn(entity);
+		when(modelFactory.createChatModel(any(ModelConfigDTO.class))).thenThrow(new RuntimeException(
+				"404 - {\"error\":{\"message\":\"Unsupported model `multimodal-embedding-v1` for OpenAI compatibility mode.\",\"code\":\"model_not_supported\"}}"));
+
+		RuntimeException error = assertThrowsExactly(RuntimeException.class, () -> service.testConnection(6));
+
+		assertTrue(error.getMessage().contains("model_not_supported"));
+		assertTrue(error.getMessage().contains("Unsupported model"));
+		assertFalse(error.getMessage().contains("Base URL"));
+	}
+
+	@Test
 	void testTestConnection_chatReturnsEmpty() {
 		ModelConfig entity = new ModelConfig();
 		entity.setId(4);
