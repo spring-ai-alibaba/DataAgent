@@ -240,6 +240,10 @@ sequenceDiagram
   participant HF as HumanFeedbackNode
   participant CTX as ConversationContextAssembler
   participant TURN as ConversationTurnService
+  participant MEM as ConversationMemoryGateway
+  participant OB as memory_outbox
+  participant MW as MemoryProjectionWorker
+  participant PROJ as Summary Vector Checkpoint
   participant SS as StateSnapshot
 
   U->>API: stream search with humanFeedback true
@@ -260,7 +264,10 @@ sequenceDiagram
   HF-->>G: approve or reject
   G-->>API: continue execution stream
   GS->>TURN: commit SUCCEEDED turn
-  TURN-->>CTX: outbox rebuilds projections
+  TURN->>MEM: store accepted user/final-assistant pair
+  TURN->>OB: enqueue projection and checkpoint events
+  MW->>OB: lease ready event after commit
+  MW->>PROJ: rebuild summary/vector or release checkpoint
 ```
 
 ### 2. Prompt Configuration and Auto-Optimization
@@ -484,10 +491,17 @@ flowchart LR
   Turn --> TurnDB[(conversation_turn)]
   Turn --> ChatMemory[Spring AI ChatMemory]
   Turn --> Outbox[(memory_outbox)]
-  Outbox --> SummaryStore[Alibaba MemoryStore Summary Cache]
-  Outbox --> Projection[Optional Vector Index]
-  Outbox -. release .-> Checkpoint
-  Checkpoint --> Retention[Released-row retention cleanup]
+  Outbox --> Worker[MemoryProjectionWorker]
+  Worker --> SummaryStore[Alibaba MemoryStore Summary Cache]
+  Worker --> Projection[Optional Vector Index]
+  Worker -. framework release .-> Checkpoint
+  Worker --> Retention[Released-row retention cleanup]
+  Client --> MemoryAPI[LongTermMemoryController]
+  MemoryAPI --> LongTerm[LongTermMemoryService]
+  LongTerm --> MemoryDB[(memory_item)]
+  LongTerm --> Outbox
+  Client -. delete .-> Lifecycle[MemoryLifecycleService]
+  Lifecycle --> Outbox
   GraphSvc --> Graph[CompiledGraph]
   Graph --> Checkpoint[Alibaba MysqlSaver cache disabled]
   Graph --> LLM[LlmService Stream Block]
@@ -505,9 +519,9 @@ flowchart LR
   classDef control fill:#F3F4F6,stroke:#6B7280,stroke-width:1px,color:#1F2937;
 
   class Client client
-  class SSE,Sink api
-  class GraphSvc,Graph service
-  class StreamCtx,Ctx,TurnDB,ChatMemory,Outbox,SummaryStore,Projection,Checkpoint data
+  class SSE,Sink,MemoryAPI api
+  class GraphSvc,Graph,Worker,LongTerm,Lifecycle service
+  class StreamCtx,Ctx,TurnDB,ChatMemory,Outbox,SummaryStore,Projection,Checkpoint,MemoryDB data
   class LLM llm
   class TextType,Stop control
 ```
@@ -621,20 +635,28 @@ sequenceDiagram
 
 - **Management**: `AgentController` supports generating, resetting, deleting, and enabling/disabling API Keys
 - **Data Fields**: `agent.api_key` and `agent.api_key_enabled`
-- **Calling Method**: Request header `X-API-Key` (requires implementing backend validation logic yourself)
-- **Note**: By default, the backend does not intercept `X-API-Key` for authentication; production needs to add validation yourself
+- **Authentication Chain**: `SecurityWebFilterChain → AgentApiKeyServerAuthenticationConverter → AgentApiKeyReactiveAuthenticationManager → AgentMapper/ApiKeyCredentialService`
+- **Calling Method**: Request header `X-API-Key` or `Authorization: Bearer <key>`
+- **Protected Endpoints**: Stream search/stop and session deletion require credentials when the agent has API Key authentication enabled; long-term-memory routes under `/api/agents/{agentId}/memories/**` always require that agent to have API Key authentication enabled and the request to carry its credential
+- **Scope Source**: Long-term memory and bulk session deletion resolve `agentId` from the path; other protected requests resolve it from the query string, preventing another parameter from overriding a path identity
+- **Browser Boundary**: Native `EventSource` in the built-in page cannot set authentication headers. Use a header-capable external SSE client for an API-key-enabled agent; never downgrade the key into a URL
 
 #### Architecture Diagram
 
 ```mermaid
 flowchart LR
-  UI --> AgentAPI[AgentController]
+  Admin[Trusted management surface] --> AgentAPI[AgentController]
   AgentAPI --> AgentSvc[AgentService]
   AgentSvc --> AgentMapper[AgentMapper]
   AgentMapper --> AgentDB[(agent)]
-  UI --> GraphAPI[GraphController]
-  GraphAPI -.-> Auth[Optional Auth Interceptor]
-  Auth -.-> AgentSvc
+  Client[API client] --> Security[SecurityWebFilterChain]
+  Security --> Converter[ServerAuthenticationConverter]
+  Converter --> Manager[ReactiveAuthenticationManager]
+  Manager --> AgentMapper
+  Manager --> Credential[ApiKeyCredentialService]
+  Security --> GraphAPI[GraphController SSE Stop]
+  Security --> SessionAPI[Session delete]
+  Security --> MemoryAPI[LongTermMemoryController]
 
   classDef client fill:#FFF4E6,stroke:#D97706,stroke-width:1px,color:#1F2937;
   classDef api fill:#E0F2FE,stroke:#0284C7,stroke-width:1px,color:#1F2937;
@@ -642,11 +664,11 @@ flowchart LR
   classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
   classDef control fill:#F3F4F6,stroke:#6B7280,stroke-width:1px,color:#1F2937;
 
-  class UI client
-  class AgentAPI,GraphAPI api
-  class AgentSvc,AgentMapper service
+  class Admin,Client client
+  class AgentAPI,GraphAPI,SessionAPI,MemoryAPI api
+  class AgentSvc,AgentMapper,Converter,Manager,Credential service
   class AgentDB data
-  class Auth control
+  class Security control
 ```
 
 #### Flow Diagram
@@ -655,24 +677,21 @@ flowchart LR
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
   autonumber
-  participant U as User
-  participant API as AgentController
-  participant S as AgentService
-  participant M as AgentMapper
+  participant C as API Client
+  participant SEC as SecurityWebFilterChain
+  participant CONV as AuthenticationConverter
+  participant AUTH as AuthenticationManager
   participant DB as agent
-  participant G as GraphController
-  participant Auth as Optional Auth Interceptor
+  participant API as Protected Controller
 
-  U->>API: Generate and enable API Key
-  API->>S: generateApiKey
-  S->>M: update agent key
-  M->>DB: write api_key
-  U->>G: Call business interface with X-API-Key
-  opt custom auth enabled
-    G->>Auth: validate api key
-    Auth->>DB: check api_key_enabled
-  end
-  G-->>U: response
+  C->>SEC: request with X-API-Key or Bearer
+  SEC->>CONV: resolve agentId from path/query and extract credential
+  CONV->>AUTH: unauthenticated agent token
+  AUTH->>DB: load api_key_enabled and encoded key
+  AUTH->>AUTH: verify credential with PasswordEncoder
+  AUTH-->>SEC: authenticated agent principal
+  SEC->>API: continue with path-scoped request
+  API-->>C: response
 ```
 
 ### 8. Python Execution and Result Return

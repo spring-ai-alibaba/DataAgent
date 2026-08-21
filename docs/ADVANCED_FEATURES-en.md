@@ -6,70 +6,72 @@ This document introduces the advanced features and custom configuration options 
 
 ## Access API (API Key Calls)
 
-> **Note**: The current version only provides API Key generation, reset, deletion, and enable/disable management capabilities. **Backend validation for `X-API-Key` has not been implemented yet**; for production scenarios requiring authentication, please add validation logic in the backend interceptor before exposing externally.
+The backend validates `X-API-Key` through Spring Security WebFlux and also accepts
+`Authorization: Bearer <your_api_key>`. Authentication is scoped to the agent resolved from the
+request path or the `agentId` parameter; a client cannot override that scope with another value.
 
 ### API Key Management
 
-1. Enter "Access API" from the left menu in the agent details
-2. Generate a Key for the agent and enable/disable as needed
-3. Add `X-API-Key: <your_api_key>` to the request header when calling session interfaces
+1. Call `POST /api/agent/{agentId}/api-key/generate` to generate and automatically enable a key; the raw key is returned only by generate or reset responses
+2. Reset it with `POST /api/agent/{agentId}/api-key/reset`, or temporarily disable it through
+   `POST /api/agent/{agentId}/api-key/enable?enabled=false`
+3. Add `X-API-Key: <your_api_key>` to protected requests
 
-![Access API Key](../img/apikey.png)
+### Protected Endpoints
+
+- `GET /api/stream/search`, `POST /api/stream/stop`, and session deletion require the correct credential when the agent has API Key authentication enabled; they remain compatible with internal calls while it is disabled.
+- `/api/agents/{agentId}/memories/**` always requires the target agent to have API Key authentication enabled and the request to contain the correct credential.
+- API Key management, session creation, and visible-chat-message writes are not covered by this Agent API Key filter. Add administrator authentication at the gateway or management surface before exposing those endpoints to an untrusted network.
+
+> **Browser SSE limitation:** the built-in page currently uses native `EventSource`, which cannot set
+> custom authentication headers. For an API-key-enabled agent, call the stream with an external SSE
+> client that supports headers. Keep API Key authentication disabled for that agent when using the
+> built-in page. Do not put the key in a query parameter because URLs are commonly logged and retained
+> in browser history.
 
 ### API Call Examples
 
-#### Create Session
+#### Start an SSE Query
 
 ```bash
-curl -X POST "http://127.0.0.1:3000/api/agent/<agentId>/sessions" \
-  -H "Content-Type: application/json" \
+curl -N -G "http://127.0.0.1:3000/api/stream/search" \
   -H "X-API-Key: <your_api_key>" \
-  -d '{"title":"demo"}'
+  --data-urlencode "agentId=<agentId>" \
+  --data-urlencode "conversationId=<conversationId>" \
+  --data-urlencode "query=Give me an example" \
+  --data-urlencode "humanFeedback=false" \
+  --data-urlencode "rejectedPlan=false" \
+  --data-urlencode "nl2sqlOnly=false"
 ```
 
-#### Send Message
+The server always generates `threadId` for a new query. It generates `turnId` only when
+`conversationId` resolves to an active persisted session owned by the agent. Before relying on
+durable memory or human-review resume, create a session with `POST /api/agent/{agentId}/sessions`
+and use the returned session ID. A human-feedback resume request must return both the `threadId` and
+`turnId` from the preceding SSE response.
+
+#### Create and Confirm a Long-Term Memory
 
 ```bash
-curl -X POST "http://127.0.0.1:3000/api/sessions/<sessionId>/messages" \
+curl -X POST "http://127.0.0.1:3000/api/agents/<agentId>/memories" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: <your_api_key>" \
-  -d '{"role":"user","content":"Give me an example","messageType":"text"}'
+  -d '{
+    "scopeType":"AGENT",
+    "memoryKind":"PREFERENCE",
+    "memoryKey":"report-format",
+    "value":{"format":"compact"}
+  }'
+
+curl -X POST \
+  "http://127.0.0.1:3000/api/agents/<agentId>/memories/<memoryId>/confirm" \
+  -H "X-API-Key: <your_api_key>"
 ```
 
-### Implement Custom Authentication
-
-If you need to enable API Key authentication in production, you can create an interceptor:
-
-```java
-@Component
-public class ApiKeyAuthInterceptor implements HandlerInterceptor {
-
-    @Autowired
-    private AgentService agentService;
-
-    @Override
-    public boolean preHandle(HttpServletRequest request,
-                            HttpServletResponse response,
-                            Object handler) throws Exception {
-        String apiKey = request.getHeader("X-API-Key");
-
-        if (apiKey == null || apiKey.isEmpty()) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return false;
-        }
-
-        // Validate API Key
-        boolean isValid = agentService.validateApiKey(apiKey);
-
-        if (!isValid) {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            return false;
-        }
-
-        return true;
-    }
-}
-```
+Long-term memories start as `CANDIDATE` and enter recall only after confirmation. Invalidate one with
+`POST /api/agents/{agentId}/memories/{memoryId}/invalidate`. Invalid request fields or supersession
+relationships return `400`, missing or invalid credentials return `401`, cross-agent access returns
+`404`, and state or concurrency conflicts return `409`.
 
 ## MCP Server
 

@@ -177,8 +177,12 @@ public class AgentVectorStoreService {
 | `vector-similarity-threshold` | 记忆向量召回阈值 | 0.6 |
 | `outbox-batch-size` | 单批投影事件数量 | 20 |
 | `outbox-max-attempts` | 可重建投影进入死信前的最大尝试次数；删除、遗忘和 checkpoint 释放持续退避重试 | 5 |
+| `outbox-initial-delay-ms` | 应用启动后首次轮询 Outbox 的延迟（毫秒） | 10000 |
+| `outbox-poll-delay-ms` | 上一轮投影完成到下一轮轮询的固定延迟（毫秒） | 2000 |
 | `outbox-completed-retention-days` | 已成功投影事件的保留天数；失败和死信不会自动删除 | 7 |
 | `outbox-cleanup-batch-size` | 单次清理的已完成事件上限 | 1000 |
+| `outbox-cleanup-initial-delay-ms` | 应用启动后首次清理已完成事件的延迟（毫秒） | 60000 |
+| `outbox-cleanup-delay-ms` | 上一轮清理完成到下一轮清理的固定延迟（毫秒） | 3600000 |
 
 Graph 检查点配置前缀：`spring.ai.alibaba.data-agent.checkpoint`
 
@@ -207,6 +211,29 @@ Worker 已将这四类事件标记为 `DEAD`，新版 Worker 会先自动恢复�
 | 业务事实与审核 | `conversation_turn`、`turn_run`、`turn_artifact`、`memory_item`、`memory_outbox` | 执行审计、长期记忆审核、事务 outbox；不重复实现框架 ChatMemory/Checkpoint |
 | 语义索引 | Spring AI `VectorStore`（可选） | 加速长期记忆和历史轮次召回；可重建且不是事实源 |
 
+Spring AI JDBC ChatMemory 表由 `spring.ai.chat.memory.repository.jdbc.initialize-schema=always`
+交给框架初始化；Graph checkpoint 表由 `MysqlSaver` 的 `CreateOption.CREATE_IF_NOT_EXISTS`
+创建。业务迁移脚本只管理 DataAgent 自有事实表和补充字段，不复制这两套框架表结构。
+
+请求标识遵循固定生命周期：`conversationId` 在整个会话中保持稳定；新查询的 `threadId` 始终由服务端生成，
+而 `turnId` 只在 `conversationId` 对应当前智能体的有效持久化会话时生成。需要持久化记忆或人工审核恢复时，
+客户端应先创建会话并使用响应中的会话 ID；恢复同一次人工审核时，再把上一条 SSE 响应的 `threadId` 与
+`turnId` 原样传回。
+
+长期记忆 REST 接口：
+
+| 方法 | 路径 | 语义 |
+|------|------|------|
+| `GET` | `/api/agents/{agentId}/memories?status={status}` | 列出记忆；`status` 可选：`CANDIDATE`、`CONFIRMED`、`SUPERSEDED`、`INVALIDATED` |
+| `POST` | `/api/agents/{agentId}/memories` | 创建 `CANDIDATE`；必填 `scopeType`、`memoryKind`、`memoryKey`、JSON `value` |
+| `POST` | `/api/agents/{agentId}/memories/{memoryId}/confirm` | 确认候选并进入可召回状态；同作用域同键冲突按替换语义处理 |
+| `POST` | `/api/agents/{agentId}/memories/{memoryId}/invalidate` | 失效记忆并异步移除可选向量投影 |
+
+上述四个接口都要求目标智能体已启用 API Key，并携带 `X-API-Key` 或 Bearer 凭证。
+请求字段或 `supersedesId` 关系校验错误返回 `400`，错误凭证返回 `401`，跨智能体的记忆 ID 返回 `404`，
+状态或并发冲突返回 `409`。内置页面使用的原生 `EventSource` 不能设置认证头；API Key 开启后的流查询应使用
+支持 Header 的外部 SSE 客户端，不能把密钥放入 URL。
+
 当前不使用已发布 graph-core `1.1.2.3` 的 `DatabaseStore`：该版本写入仍固定使用 H2
 `MERGE ... KEY(...)`，与项目默认 MySQL 不兼容。待框架发布方言感知修复后，可替换 `MemoryStore`，
 不需要改变摘要服务或关系库事实源。
@@ -222,6 +249,18 @@ Worker 已将这四类事件标记为 `DEAD`，新版 Worker 会先自动恢复�
 升级后还需要为每个已有数据源重新执行一次 Schema 初始化，以生成稳定的 `schema_revision`。初始化开始时会先
 使旧 revision 失效，只有同一 generation 的全部 Schema 向量发布成功后才写入新 revision；初始化失败期间，
 依赖 Schema 的纠错和查询模式记忆会被安全地排除在召回结果之外。
+
+真实 MySQL 8.4 迁移、约束、跨实例发布锁和 generation fencing 回归可按仓库的 Failsafe
+`integration` Profile 运行：
+
+```bash
+./mvnw -pl data-agent-management -Pintegration \
+  -Dspotless.apply.skip=true \
+  -Dit.test=MysqlMemorySchemaPublicationIT \
+  test-compile failsafe:integration-test failsafe:verify
+```
+
+该 `*IT` 是显式集成测试，不会被默认的 `make verify` 自动执行。
 
 ### 3. 嵌入模型批处理策略 (Embedding Batch)
 

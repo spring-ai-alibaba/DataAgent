@@ -177,8 +177,12 @@ Configuration prefix: `spring.ai.alibaba.data-agent.memory`
 | `vector-similarity-threshold` | Memory vector recall threshold | 0.6 |
 | `outbox-batch-size` | Projection events processed per batch | 20 |
 | `outbox-max-attempts` | Attempts before rebuild events become dead; delete, forget, and checkpoint-release events keep retrying with backoff | 5 |
+| `outbox-initial-delay-ms` | Delay before the first outbox poll after startup (milliseconds) | 10000 |
+| `outbox-poll-delay-ms` | Fixed delay between completed projection polls (milliseconds) | 2000 |
 | `outbox-completed-retention-days` | Retention days for successfully projected events; failed and dead rows are not auto-deleted | 7 |
 | `outbox-cleanup-batch-size` | Maximum completed events removed per cleanup run | 1000 |
+| `outbox-cleanup-initial-delay-ms` | Delay before the first completed-event cleanup after startup (milliseconds) | 60000 |
+| `outbox-cleanup-delay-ms` | Fixed delay between completed-event cleanup runs (milliseconds) | 3600000 |
 
 Graph checkpoint configuration prefix: `spring.ai.alibaba.data-agent.checkpoint`
 
@@ -208,6 +212,32 @@ Memory is split so the frameworks own generic persistence semantics while the ap
 | Business truth and review | `conversation_turn`, `turn_run`, `turn_artifact`, `memory_item`, `memory_outbox` | Execution audit, long-term-memory review, and transactional outbox; does not reimplement framework ChatMemory or checkpoints |
 | Semantic index | Spring AI `VectorStore` (optional) | Accelerates long-term-memory and episodic recall; rebuildable and non-authoritative |
 
+Spring AI initializes its JDBC ChatMemory table through
+`spring.ai.chat.memory.repository.jdbc.initialize-schema=always`. `MysqlSaver` creates the graph checkpoint tables with
+`CreateOption.CREATE_IF_NOT_EXISTS`. Application migrations manage only DataAgent-owned business tables and supplement
+columns; they do not copy either framework schema.
+
+Request identifiers have a fixed lifecycle: `conversationId` remains stable for the chat, and the server always creates
+`threadId` for a new query. It creates `turnId` only when `conversationId` resolves to an active persisted session owned
+by the agent. Before relying on durable memory or human-review resume, create a session and use its returned ID. A resume
+of the same human-review interruption sends the `threadId` and `turnId` from the preceding SSE response back to the
+server.
+
+Long-term-memory REST endpoints:
+
+| Method | Path | Semantics |
+|--------|------|-----------|
+| `GET` | `/api/agents/{agentId}/memories?status={status}` | List memories; optional `status`: `CANDIDATE`, `CONFIRMED`, `SUPERSEDED`, or `INVALIDATED` |
+| `POST` | `/api/agents/{agentId}/memories` | Create a `CANDIDATE`; required fields are `scopeType`, `memoryKind`, `memoryKey`, and JSON `value` |
+| `POST` | `/api/agents/{agentId}/memories/{memoryId}/confirm` | Confirm a candidate so it can be recalled; same-scope/same-key conflicts follow explicit supersession rules |
+| `POST` | `/api/agents/{agentId}/memories/{memoryId}/invalidate` | Invalidate the memory and asynchronously remove its optional vector projection |
+
+All four endpoints require the target agent to have API Key authentication enabled and the request to carry either
+`X-API-Key` or a Bearer credential. Invalid request fields or `supersedesId` relationships return `400`, invalid
+credentials return `401`, a memory ID owned by another agent returns `404`, and state or concurrency conflicts return
+`409`. Native `EventSource` in the built-in page cannot set authentication headers; use a header-capable external SSE
+client for stream queries after enabling API Key authentication, and never put the key in a URL.
+
 The released graph-core `1.1.2.3` `DatabaseStore` is deliberately not used because its write path still emits the H2
 `MERGE ... KEY(...)` syntax, which is incompatible with the project's default MySQL database. Once a released framework
 version includes the dialect-aware fix, `MemoryStore` can be replaced without changing the summary service or relational
@@ -227,6 +257,18 @@ existing datasource to populate its stable `schema_revision`. Initialization inv
 extraction starts and publishes a new revision only after every Schema vector for the same generation succeeds. While
 initialization is incomplete or has failed, schema-dependent correction and query-pattern memories are safely excluded
 from recall.
+
+Run the real MySQL 8.4 migration, constraint, cross-instance publication-lock, and generation-fencing regression with
+the repository's Failsafe `integration` profile:
+
+```bash
+./mvnw -pl data-agent-management -Pintegration \
+  -Dspotless.apply.skip=true \
+  -Dit.test=MysqlMemorySchemaPublicationIT \
+  test-compile failsafe:integration-test failsafe:verify
+```
+
+This `*IT` is explicit integration coverage and is not executed by the default `make verify` workflow.
 
 ### 3. Embedding Batch Configuration
 
