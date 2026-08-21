@@ -206,12 +206,13 @@ public class ReportTemplateUtil {
 			      const renderer = new marked.Renderer();
 
 			      renderer.code = function(code, language) {
-			          if (language === 'echarts' || language === 'json') {
+			          const normalizedLanguage = (language || '').trim().toLowerCase();
+			          if (['echarts', 'json', 'javascript', 'js'].includes(normalizedLanguage)) {
 			              const id = 'chart_' + Math.random().toString(36).substr(2, 9);
 			              // 使用 encodeURIComponent 保存原始代码串
 			              return '<div id="' + id + '" class="chart-box" data-option="' + encodeURIComponent(code) + '"></div>';
 			          }
-			          return '<pre><code class="language-' + language + '">' + code + '</code></pre>';
+			          return '<pre><code class="language-' + normalizedLanguage + '">' + code + '</code></pre>';
 			      };
 
 			      document.getElementById('render-target').innerHTML = marked.parse(rawText, { renderer: renderer });
