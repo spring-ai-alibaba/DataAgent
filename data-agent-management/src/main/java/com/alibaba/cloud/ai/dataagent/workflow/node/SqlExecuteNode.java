@@ -108,7 +108,11 @@ public class SqlExecuteNode implements NodeAction {
 		Integer datasourceId = state.value(DATASOURCE_ID)
 			.map(value -> value instanceof Number number ? number.intValue() : Integer.valueOf(value.toString()))
 			.orElseThrow(() -> new IllegalStateException("Pinned datasource ID cannot be empty."));
-		DbConfigBO dbConfig = databaseUtil.getDatasourceDbConfig(datasourceId);
+		String schemaRevision = state.value(Constant.SCHEMA_FINGERPRINT)
+			.map(Object::toString)
+			.filter(StringUtils::isNotBlank)
+			.orElseThrow(() -> new IllegalStateException("Pinned schema revision cannot be empty."));
+		DbConfigBO dbConfig = databaseUtil.getDatasourceDbConfig(datasourceId, schemaRevision);
 		Accessor dbAccessor = databaseUtil.getAccessor(dbConfig);
 
 		return executeSqlQuery(state, currentStep, sqlQuery, dbConfig, dbAccessor);
@@ -125,7 +129,8 @@ public class SqlExecuteNode implements NodeAction {
 	 * @param currentStep The current step number in the execution plan
 	 * @param sqlQuery The SQL query to execute
 	 * @param dbConfig The database configuration to use for execution
-	 * @param dbAccessor The accessor created from the same pinned datasource configuration
+	 * @param dbAccessor The accessor created from the same pinned datasource
+	 * configuration
 	 * @return Map containing the generator for streaming output
 	 */
 	@SuppressWarnings("unchecked")

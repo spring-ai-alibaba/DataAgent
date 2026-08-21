@@ -22,6 +22,7 @@ import static com.alibaba.cloud.ai.dataagent.constant.Constant.DB_DIALECT_TYPE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.EVIDENCE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.GENEGRATED_SEMANTIC_MODEL_PROMPT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_SCHEMA_MISSING_ADVICE;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SCHEMA_FINGERPRINT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_EXCEPTION_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.TABLE_RELATION_OUTPUT;
@@ -56,6 +57,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
@@ -100,9 +102,13 @@ public class TableRelationNode implements NodeAction {
 		Integer datasourceId = state.value(DATASOURCE_ID)
 			.map(value -> value instanceof Number number ? number.intValue() : Integer.valueOf(value.toString()))
 			.orElseThrow(() -> new IllegalStateException("Pinned datasource ID cannot be empty."));
+		String schemaRevision = state.value(SCHEMA_FINGERPRINT)
+			.map(Object::toString)
+			.filter(StringUtils::isNotBlank)
+			.orElseThrow(() -> new IllegalStateException("Pinned schema revision cannot be empty."));
 
 		// Execute business logic first - get final result immediately
-		DbConfigBO agentDbConfig = databaseUtil.getDatasourceDbConfig(datasourceId);
+		DbConfigBO agentDbConfig = databaseUtil.getDatasourceDbConfig(datasourceId, schemaRevision);
 
 		List<String> logicalForeignKeys = getLogicalForeignKeys(datasourceId, tableDocuments);
 		log.info("Found {} logical foreign keys for agent: {}", logicalForeignKeys.size(), agentIdStr);

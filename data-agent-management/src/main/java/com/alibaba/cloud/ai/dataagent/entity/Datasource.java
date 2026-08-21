@@ -59,6 +59,14 @@ public class Datasource {
 
 	private Long creatorId;
 
+	/** Stable hash of the complete schema currently indexed for this datasource. */
+	private String schemaRevision;
+
+	/**
+	 * Monotonic generation of connection and selected-table inputs to schema indexing.
+	 */
+	private Long schemaGeneration;
+
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
 	@DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
 	private LocalDateTime createTime;

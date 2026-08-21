@@ -40,10 +40,19 @@ class SchemaFingerprintUtilTest {
 
 		String original = SchemaFingerprintUtil.fingerprint(List.of(first, second));
 		String reordered = SchemaFingerprintUtil.fingerprint(List.of(second, firstReordered));
+		String regeneratedIds = SchemaFingerprintUtil
+			.fingerprint(List.of(new Document("new-a", "orders table", firstMetadata),
+					new Document("new-b", "users table", Map.of("name", "users"))));
 
 		assertThat(reordered).isEqualTo(original);
-		assertThat(SchemaFingerprintUtil.fingerprint(List.of(new Document("a", "changed", firstMetadata))))
+		assertThat(regeneratedIds).isEqualTo(original);
+		assertThat(SchemaFingerprintUtil
+			.fingerprint(List.of(new Document("a", "changed description", firstMetadata), second))).isEqualTo(original);
+		assertThat(SchemaFingerprintUtil
+			.fingerprint(List.of(first, new Document("b", "users table", Map.of("name", "customers")))))
 			.isNotEqualTo(original);
+		assertThat(SchemaFingerprintUtil.fingerprint(2, List.of(first, second)))
+			.isNotEqualTo(SchemaFingerprintUtil.fingerprint(3, List.of(first, second)));
 	}
 
 }

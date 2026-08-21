@@ -37,6 +37,8 @@ public class DataAgentProperties {
 
 	private MemoryProperties memory = new MemoryProperties();
 
+	private CheckpointProperties checkpoint = new CheckpointProperties();
+
 	private ReportTemplate reportTemplate = new ReportTemplate();
 
 	/**
@@ -275,10 +277,21 @@ public class DataAgentProperties {
 		private int maxSummaryLength = 4000;
 
 		/**
+		 * Maximum node-local rolling-summary projections retained by the framework
+		 * MemoryStore. The cache evicts its oldest entries above this bound.
+		 */
+		private int summaryCacheMaxEntries = 10000;
+
+		/**
 		 * Maximum characters copied from verified execution results into prompt-facing
 		 * memory.
 		 */
 		private int maxResultSummaryLength = 2000;
+
+		/**
+		 * Hard character budget for all memory context injected into one model request.
+		 */
+		private int maxContextLength = 16000;
 
 		/**
 		 * Maximum confirmed long-term memories injected into one request.
@@ -291,10 +304,9 @@ public class DataAgentProperties {
 		private int episodicTopK = 3;
 
 		/**
-		 * Enables owner-scoped recall only after the application has a trusted,
-		 * server-derived owner identity. USER_AGENT candidates inherit that identity from
-		 * a verified source turn; the current session userId input is not itself a
-		 * security boundary, so this remains disabled by default.
+		 * Reserved for a future trusted, server-derived user identity integration. The
+		 * current application authenticates agents only and rejects startup when this is
+		 * enabled.
 		 */
 		private boolean userScopeEnabled = false;
 
@@ -309,6 +321,25 @@ public class DataAgentProperties {
 		private int outboxBatchSize = 20;
 
 		private int outboxMaxAttempts = 5;
+
+		/**
+		 * Retention for successfully projected Outbox rows. Failed and DEAD rows are
+		 * retained for diagnosis and explicit remediation.
+		 */
+		private int outboxCompletedRetentionDays = 7;
+
+		private int outboxCleanupBatchSize = 1000;
+
+	}
+
+	@Getter
+	@Setter
+	public static class CheckpointProperties {
+
+		/**
+		 * Framework checkpoint implementation selected by DataAgentConfiguration.
+		 */
+		private String type = "mysql";
 
 	}
 

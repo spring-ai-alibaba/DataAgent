@@ -13,27 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.dataagent.controller;
+package com.alibaba.cloud.ai.dataagent.service.graph.turn;
 
-import org.junit.jupiter.api.Test;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-class ChatControllerUserIdTest {
-
-	@Test
-	void integerJsonNumberConvertsToLong() {
-		assertThat(ChatController.toUserId(Integer.valueOf(123))).isEqualTo(123L);
-	}
-
-	@Test
-	void longJsonNumberRemainsLong() {
-		assertThat(ChatController.toUserId(Long.MAX_VALUE)).isEqualTo(Long.MAX_VALUE);
-	}
-
-	@Test
-	void absentUserIdRemainsNull() {
-		assertThat(ChatController.toUserId(null)).isNull();
-	}
-
+/**
+ * Server-authoritative scope for one durable graph turn.
+ *
+ * <p>
+ * Values in this record are loaded from the durable turn/run records. Callers must not
+ * reconstruct the scope from request parameters when resuming a checkpoint.
+ */
+public record TurnExecutionScope(String turnId, String runId, String conversationId, Integer agentId,
+		Integer datasourceId, Long ownerId, String rawQuery) {
 }

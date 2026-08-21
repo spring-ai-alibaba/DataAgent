@@ -23,6 +23,8 @@ import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -56,7 +58,6 @@ public class LongTermMemoryController {
 			.valueJson(request.getValue().toString())
 			.sourceTurnId(request.getSourceTurnId())
 			.confidence(request.getConfidence() == null ? BigDecimal.ONE : request.getConfidence())
-			.schemaFingerprint(request.getSchemaFingerprint())
 			.validUntil(request.getValidUntil())
 			.supersedesId(request.getSupersedesId())
 			.build();
@@ -76,9 +77,15 @@ public class LongTermMemoryController {
 	}
 
 	private MemoryItem requireAgentMemory(Integer agentId, Long memoryId) {
-		MemoryItem item = memoryService.findById(memoryId);
+		MemoryItem item;
+		try {
+			item = memoryService.findById(memoryId);
+		}
+		catch (IllegalArgumentException notFound) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Memory item not found");
+		}
 		if (!agentId.equals(item.getAgentId())) {
-			throw new IllegalArgumentException("Memory item does not belong to agent " + agentId);
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Memory item not found");
 		}
 		return item;
 	}

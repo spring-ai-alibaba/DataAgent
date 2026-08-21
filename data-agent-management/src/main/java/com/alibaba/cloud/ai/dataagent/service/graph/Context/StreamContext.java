@@ -41,6 +41,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Data
 public class StreamContext {
 
+	private String agentId;
+
 	private String conversationId;
 
 	private String turnId;
@@ -135,6 +137,16 @@ public class StreamContext {
 	 * 标记是否已经清理，用于防止重复清理
 	 */
 	private final AtomicBoolean cleaned = new AtomicBoolean(false);
+
+	private final AtomicBoolean checkpointReleaseDeferred = new AtomicBoolean(false);
+
+	public void deferCheckpointRelease() {
+		checkpointReleaseDeferred.set(true);
+	}
+
+	public boolean isCheckpointReleaseDeferred() {
+		return checkpointReleaseDeferred.get();
+	}
 
 	/**
 	 * 清理所有资源 线程安全：使用 AtomicBoolean 确保只执行一次

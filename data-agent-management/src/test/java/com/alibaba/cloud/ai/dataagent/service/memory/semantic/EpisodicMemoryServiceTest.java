@@ -62,12 +62,44 @@ class EpisodicMemoryServiceTest {
 		List<ConversationTurn> recalled = service.recallRelevant("sales", 99L, 7, 3, "conversation-1");
 
 		assertThat(recalled).extracting(ConversationTurn::getId).containsExactly("valid");
+		verify(turnMapper).selectRecentSuccessfulByOwner(99L, 7, 3, "conversation-1", 3);
+	}
+
+	@Test
+	void validSemanticCandidatesKeepVectorRankingAndRelationalFallbackFillsTheWindow() {
+		when(vectorIndexService.recallTurnIds("sales", 99L, 7, 3, 3))
+			.thenReturn(List.of("semantic-second", "stale", "semantic-first"));
+		// Deliberately return rows in a different order: an SQL IN predicate does not
+		// carry the vector ranking.
+		when(turnMapper.selectSuccessfulByIds(anyList()))
+			.thenReturn(List.of(turn("semantic-first", "conversation-2", 99L, 7, 3),
+					turn("semantic-second", "conversation-3", 99L, 7, 3)));
+		when(turnMapper.selectRecentSuccessfulByOwner(99L, 7, 3, "conversation-1", 3))
+			.thenReturn(List.of(turn("semantic-first", "conversation-2", 99L, 7, 3),
+					turn("recent", "conversation-4", 99L, 7, 3)));
+
+		List<ConversationTurn> recalled = service.recallRelevant("sales", 99L, 7, 3, "conversation-1");
+
+		assertThat(recalled).extracting(ConversationTurn::getId)
+			.containsExactly("semantic-second", "semantic-first", "recent");
+	}
+
+	@Test
+	void staleSemanticCandidatesFallBackToRecentRelationalTurns() {
+		when(vectorIndexService.recallTurnIds("sales", 99L, 7, 3, 3)).thenReturn(List.of("stale"));
+		when(turnMapper.selectSuccessfulByIds(List.of("stale"))).thenReturn(List.of());
+		when(turnMapper.selectRecentSuccessfulByOwner(99L, 7, 3, "conversation-1", 3))
+			.thenReturn(List.of(turn("recent", "conversation-2", 99L, 7, 3)));
+
+		List<ConversationTurn> recalled = service.recallRelevant("sales", 99L, 7, 3, "conversation-1");
+
+		assertThat(recalled).extracting(ConversationTurn::getId).containsExactly("recent");
 	}
 
 	@Test
 	void relationalRecentTurnsAreUsedWhenVectorSearchReturnsNoCandidates() {
 		when(vectorIndexService.recallTurnIds("sales", 99L, 7, 3, 3)).thenReturn(List.of());
-		when(turnMapper.selectRecentSuccessfulByOwner(99L, 7, 3, 6))
+		when(turnMapper.selectRecentSuccessfulByOwner(99L, 7, 3, "conversation-1", 3))
 			.thenReturn(List.of(turn("recent", "conversation-2", 99L, 7, 3)));
 
 		List<ConversationTurn> recalled = service.recallRelevant("sales", 99L, 7, 3, "conversation-1");
@@ -78,6 +110,8 @@ class EpisodicMemoryServiceTest {
 	@Test
 	void ownerlessRequestsNeverAttemptCrossConversationRecall() {
 		assertThat(service.recallRelevant("sales", null, 7, 3, "conversation-1")).isEmpty();
+		assertThat(service.recallRelevant("sales", 99L, null, 3, "conversation-1")).isEmpty();
+		assertThat(service.recallRelevant("sales", 99L, 7, null, "conversation-1")).isEmpty();
 
 		verifyNoInteractions(turnMapper, vectorIndexService);
 	}

@@ -38,7 +38,13 @@ public class WebFluxSecurityConfiguration {
 
 	private static final String STREAM_SEARCH_PATH = "/api/stream/search";
 
+	private static final String STREAM_STOP_PATH = "/api/stream/stop";
+
 	private static final String MEMORY_API_PATH = "/api/agents/*/memories/**";
+
+	private static final String AGENT_SESSIONS_PATH = "/api/agent/*/sessions";
+
+	private static final String SESSION_PATH = "/api/sessions/*";
 
 	@Bean
 	PasswordEncoder apiKeyPasswordEncoder() {
@@ -52,6 +58,9 @@ public class WebFluxSecurityConfiguration {
 		AuthenticationWebFilter apiKeyFilter = new AuthenticationWebFilter(authenticationManager);
 		apiKeyFilter.setRequiresAuthenticationMatcher(new OrServerWebExchangeMatcher(
 				new PathPatternParserServerWebExchangeMatcher(STREAM_SEARCH_PATH, HttpMethod.GET),
+				new PathPatternParserServerWebExchangeMatcher(STREAM_STOP_PATH, HttpMethod.POST),
+				new PathPatternParserServerWebExchangeMatcher(AGENT_SESSIONS_PATH, HttpMethod.DELETE),
+				new PathPatternParserServerWebExchangeMatcher(SESSION_PATH, HttpMethod.DELETE),
 				new PathPatternParserServerWebExchangeMatcher(MEMORY_API_PATH)));
 		apiKeyFilter.setServerAuthenticationConverter(authenticationConverter);
 		apiKeyFilter.setSecurityContextRepository(NoOpServerSecurityContextRepository.getInstance());
@@ -67,6 +76,10 @@ public class WebFluxSecurityConfiguration {
 			.logout(ServerHttpSecurity.LogoutSpec::disable)
 			.securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
 			.authorizeExchange(exchange -> exchange.pathMatchers(HttpMethod.GET, STREAM_SEARCH_PATH)
+				.authenticated()
+				.pathMatchers(HttpMethod.POST, STREAM_STOP_PATH)
+				.authenticated()
+				.pathMatchers(HttpMethod.DELETE, AGENT_SESSIONS_PATH, SESSION_PATH)
 				.authenticated()
 				.pathMatchers(MEMORY_API_PATH)
 				.authenticated()

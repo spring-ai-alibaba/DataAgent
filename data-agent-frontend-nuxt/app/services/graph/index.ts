@@ -206,6 +206,7 @@ class GraphService {
       if (!cancelRun) return;
 
       const stopParams = new URLSearchParams({
+        agentId: request.agentId,
         conversationId: request.conversationId,
       });
       if (latestThreadId) stopParams.append("threadId", latestThreadId);

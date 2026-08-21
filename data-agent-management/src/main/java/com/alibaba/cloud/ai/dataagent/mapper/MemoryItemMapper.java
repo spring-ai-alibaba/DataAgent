@@ -89,18 +89,29 @@ public interface MemoryItemMapper {
 			  AND (
 			        scope_type = 'AGENT'
 			        <if test="datasourceId != null">
-			          OR (scope_type = 'DATASOURCE' AND datasource_id = #{datasourceId})
+			          OR (
+			            scope_type = 'DATASOURCE'
+			            AND datasource_id = #{datasourceId}
+			            AND (
+			              memory_kind = 'PREFERENCE'
+			              <if test="schemaRevision != null and schemaRevision != ''">
+			                OR schema_fingerprint = #{schemaRevision}
+			              </if>
+			            )
+			          )
 			        </if>
 			        <if test="ownerId != null">
 			          OR (scope_type = 'USER_AGENT' AND owner_id = #{ownerId})
 			        </if>
 			      )
-			ORDER BY confidence DESC, update_time DESC
+			ORDER BY CASE WHEN scope_type = 'DATASOURCE' THEN 0 WHEN scope_type = 'USER_AGENT' THEN 1 ELSE 2 END,
+			         confidence DESC, update_time DESC
 			LIMIT #{limit}
 			</script>
 			""")
 	List<MemoryItem> selectConfirmedForContext(@Param("ownerId") Long ownerId, @Param("agentId") Integer agentId,
-			@Param("datasourceId") Integer datasourceId, @Param("limit") int limit);
+			@Param("datasourceId") Integer datasourceId, @Param("schemaRevision") String schemaRevision,
+			@Param("limit") int limit);
 
 	@Update("""
 			UPDATE memory_item
@@ -125,5 +136,21 @@ public interface MemoryItemMapper {
 
 	@Delete("DELETE FROM memory_item WHERE source_turn_id IN (SELECT id FROM conversation_turn WHERE conversation_id = #{conversationId})")
 	int deleteByConversationId(@Param("conversationId") String conversationId);
+
+	@Delete("DELETE FROM memory_item WHERE agent_id = #{agentId}")
+	int deleteByAgentId(@Param("agentId") Integer agentId);
+
+	@Delete("DELETE FROM memory_item WHERE scope_type = 'DATASOURCE' AND datasource_id = #{datasourceId}")
+	int deleteByDatasourceId(@Param("datasourceId") Integer datasourceId);
+
+	@Select("SELECT * FROM memory_item WHERE scope_type = 'DATASOURCE' AND agent_id = #{agentId} AND datasource_id = #{datasourceId}")
+	List<MemoryItem> selectByAgentAndDatasource(@Param("agentId") Integer agentId,
+			@Param("datasourceId") Integer datasourceId);
+
+	@Delete("DELETE FROM memory_item WHERE scope_type = 'DATASOURCE' AND agent_id = #{agentId} AND datasource_id = #{datasourceId}")
+	int deleteByAgentAndDatasource(@Param("agentId") Integer agentId, @Param("datasourceId") Integer datasourceId);
+
+	@Select("SELECT * FROM memory_item WHERE scope_type = 'DATASOURCE' AND datasource_id = #{datasourceId}")
+	List<MemoryItem> selectByDatasourceId(@Param("datasourceId") Integer datasourceId);
 
 }

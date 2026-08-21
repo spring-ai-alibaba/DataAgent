@@ -36,12 +36,21 @@ public class AgentApiKeyServerAuthenticationConverter implements ServerAuthentic
 
 	private static final Pattern AGENT_MEMORY_PATH = Pattern.compile("^/api/agents/([^/]+)/memories(?:/.*)?$");
 
+	private static final Pattern AGENT_SESSIONS_PATH = Pattern.compile("^/api/agent/([^/]+)/sessions$");
+
 	@Override
 	public Mono<Authentication> convert(ServerWebExchange exchange) {
 		Matcher memoryMatcher = AGENT_MEMORY_PATH.matcher(exchange.getRequest().getPath().value());
 		boolean credentialRequired = memoryMatcher.matches();
-		String agentId = credentialRequired ? memoryMatcher.group(1)
-				: exchange.getRequest().getQueryParams().getFirst("agentId");
+		String agentId;
+		if (credentialRequired) {
+			agentId = memoryMatcher.group(1);
+		}
+		else {
+			Matcher sessionsMatcher = AGENT_SESSIONS_PATH.matcher(exchange.getRequest().getPath().value());
+			agentId = sessionsMatcher.matches() ? sessionsMatcher.group(1)
+					: exchange.getRequest().getQueryParams().getFirst("agentId");
+		}
 		if (!StringUtils.hasText(agentId)) {
 			return Mono.error(new BadCredentialsException("agentId is required"));
 		}

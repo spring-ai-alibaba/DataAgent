@@ -64,4 +64,6 @@ public final class DocumentMetadataConstant {
 
 	public static final String MEMORY_SCOPE_TYPE = "memoryScopeType";
 
+	public static final String SCHEMA_REVISION = "schemaRevision";
+
 }

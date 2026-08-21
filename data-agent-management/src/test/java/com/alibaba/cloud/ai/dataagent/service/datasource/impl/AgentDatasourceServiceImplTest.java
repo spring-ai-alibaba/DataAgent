@@ -21,8 +21,10 @@ import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceTablesMapper;
+import com.alibaba.cloud.ai.dataagent.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
+import com.alibaba.cloud.ai.dataagent.service.memory.lifecycle.MemoryLifecycleService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,14 +54,21 @@ class AgentDatasourceServiceImplTest {
 	@Mock
 	private AgentDatasourceTablesMapper tablesMapper;
 
+	@Mock
+	private DatasourceMapper datasourceMapper;
+
+	@Mock
+	private MemoryLifecycleService memoryLifecycleService;
+
 	@BeforeEach
 	void setUp() {
-		service = new AgentDatasourceServiceImpl(datasourceService, schemaService, agentDatasourceMapper, tablesMapper);
+		service = new AgentDatasourceServiceImpl(datasourceService, schemaService, agentDatasourceMapper, tablesMapper,
+				datasourceMapper, memoryLifecycleService);
 	}
 
 	@Test
 	void testInitializeSchemaForAgentWithDatasource_success() throws Exception {
-		Datasource ds = new Datasource();
+		Datasource ds = Datasource.builder().schemaGeneration(4L).build();
 		DbConfigBO dbConfig = new DbConfigBO();
 		when(datasourceService.getDatasourceById(1)).thenReturn(ds);
 		when(datasourceService.getDbConfig(ds)).thenReturn(dbConfig);
@@ -67,6 +76,7 @@ class AgentDatasourceServiceImplTest {
 
 		Boolean result = service.initializeSchemaForAgentWithDatasource(1L, 1, List.of("table1"));
 		assertTrue(result);
+		verify(schemaService).schema(eq(1), argThat(request -> Long.valueOf(4L).equals(request.getSchemaGeneration())));
 	}
 
 	@Test
@@ -126,17 +136,23 @@ class AgentDatasourceServiceImplTest {
 		existing.setId(10);
 		AgentDatasource updated = new AgentDatasource();
 		when(agentDatasourceMapper.selectByAgentIdAndDatasourceId(1L, 1)).thenReturn(existing, updated);
+		when(datasourceMapper.advanceSchemaGeneration(1)).thenReturn(1);
 
 		AgentDatasource result = service.addDatasourceToAgent(1L, 1);
 		assertNotNull(result);
 		verify(agentDatasourceMapper).enableRelation(1L, 1);
 		verify(tablesMapper).removeAllTables(10);
+		verify(datasourceMapper).advanceSchemaGeneration(1);
 	}
 
 	@Test
 	void testRemoveDatasourceFromAgent() {
+		when(agentDatasourceMapper.removeRelation(1L, 1)).thenReturn(1);
+		when(datasourceMapper.advanceSchemaGeneration(1)).thenReturn(1);
 		service.removeDatasourceFromAgent(1L, 1);
+		verify(memoryLifecycleService).invalidateDatasourceBinding(1, 1);
 		verify(agentDatasourceMapper).removeRelation(1L, 1);
+		verify(datasourceMapper).advanceSchemaGeneration(1);
 	}
 
 	@Test
@@ -179,9 +195,11 @@ class AgentDatasourceServiceImplTest {
 		AgentDatasource ad = new AgentDatasource();
 		ad.setId(10);
 		when(agentDatasourceMapper.selectByAgentIdAndDatasourceId(1L, 1)).thenReturn(ad);
+		when(datasourceMapper.advanceSchemaGeneration(1)).thenReturn(1);
 
 		service.updateDatasourceTables(1L, 1, List.of("t1", "t2"));
 		verify(tablesMapper).updateAgentDatasourceTables(10, List.of("t1", "t2"));
+		verify(datasourceMapper).advanceSchemaGeneration(1);
 	}
 
 	@Test
@@ -189,9 +207,11 @@ class AgentDatasourceServiceImplTest {
 		AgentDatasource ad = new AgentDatasource();
 		ad.setId(10);
 		when(agentDatasourceMapper.selectByAgentIdAndDatasourceId(1L, 1)).thenReturn(ad);
+		when(datasourceMapper.advanceSchemaGeneration(1)).thenReturn(1);
 
 		service.updateDatasourceTables(1L, 1, List.of());
 		verify(tablesMapper).removeAllTables(10);
+		verify(datasourceMapper).advanceSchemaGeneration(1);
 	}
 
 	@Test

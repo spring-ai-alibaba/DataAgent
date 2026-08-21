@@ -44,6 +44,7 @@ class DatabaseUtilTest {
 	@Test
 	void getDatasourceDbConfig_usesPinnedDatasourceId() {
 		Datasource datasource = new Datasource();
+		datasource.setSchemaRevision("schema-v1");
 
 		DbConfigBO expectedConfig = new DbConfigBO();
 		expectedConfig.setUrl("jdbc:mysql://localhost:3306/test");
@@ -53,7 +54,7 @@ class DatabaseUtilTest {
 		when(datasourceService.getDatasourceById(3)).thenReturn(datasource);
 		when(datasourceService.getDbConfig(datasource)).thenReturn(expectedConfig);
 
-		DbConfigBO result = databaseUtil.getDatasourceDbConfig(3);
+		DbConfigBO result = databaseUtil.getDatasourceDbConfig(3, "schema-v1");
 
 		assertNotNull(result);
 		assertEquals("jdbc:mysql://localhost:3306/test", result.getUrl());
@@ -65,7 +66,20 @@ class DatabaseUtilTest {
 	void getDatasourceDbConfig_missingDatasourceFailsClosed() {
 		when(datasourceService.getDatasourceById(3)).thenReturn(null);
 
-		assertThrows(IllegalStateException.class, () -> databaseUtil.getDatasourceDbConfig(3));
+		assertThrows(IllegalStateException.class, () -> databaseUtil.getDatasourceDbConfig(3, "schema-v1"));
+		verify(datasourceService, never()).getDbConfig(any());
+	}
+
+	@Test
+	void getDatasourceDbConfig_schemaChangedSinceRecallFailsClosed() {
+		Datasource datasource = new Datasource();
+		datasource.setSchemaRevision("schema-v2");
+		when(datasourceService.getDatasourceById(3)).thenReturn(datasource);
+
+		IllegalStateException error = assertThrows(IllegalStateException.class,
+				() -> databaseUtil.getDatasourceDbConfig(3, "schema-v1"));
+
+		assertTrue(error.getMessage().contains("schema changed"));
 		verify(datasourceService, never()).getDbConfig(any());
 	}
 

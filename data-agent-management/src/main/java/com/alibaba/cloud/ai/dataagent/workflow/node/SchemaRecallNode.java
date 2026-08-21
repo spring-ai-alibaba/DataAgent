@@ -16,17 +16,17 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
+import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
+import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
+import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
+import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
-import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
-import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
-import com.alibaba.cloud.ai.dataagent.util.SchemaFingerprintUtil;
-import com.alibaba.cloud.ai.dataagent.util.StateUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
@@ -34,6 +34,7 @@ import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -95,12 +96,28 @@ public class SchemaRecallNode implements NodeAction {
 			return Map.of(SCHEMA_RECALL_NODE_OUTPUT, generator);
 		}
 
-		// Execute business logic first - recall schema information immediately
-		List<Document> tableDocuments = new ArrayList<>(
-				schemaService.getTableDocumentsByDatasource(datasourceId, input));
+		String requestedSchemaRevision = schemaService.getSchemaRevision(datasourceId);
+		List<Document> recalledTables = StringUtils.isBlank(requestedSchemaRevision) ? Collections.emptyList()
+				: schemaService.getTableDocumentsByDatasource(datasourceId, input, requestedSchemaRevision);
+		List<Document> tableDocuments = new ArrayList<>(recalledTables);
 		// extract table names
 		List<String> recalledTableNames = extractTableName(tableDocuments);
-		List<Document> columnDocuments = schemaService.getColumnDocumentsByTableName(datasourceId, recalledTableNames);
+		List<Document> columnDocuments = StringUtils.isBlank(requestedSchemaRevision) ? Collections.emptyList()
+				: schemaService.getColumnDocumentsByTableName(datasourceId, recalledTableNames,
+						requestedSchemaRevision);
+		String schemaRevision = requestedSchemaRevision;
+		if (!StringUtils.equals(requestedSchemaRevision, schemaService.getSchemaRevision(datasourceId))) {
+			log.warn("Schema revision changed during recall for datasource {}, discarding the inconsistent result",
+					datasourceId);
+			tableDocuments = Collections.emptyList();
+			columnDocuments = Collections.emptyList();
+			schemaRevision = null;
+			recalledTableNames = Collections.emptyList();
+		}
+		List<Document> stableTableDocuments = tableDocuments;
+		List<Document> stableColumnDocuments = columnDocuments;
+		List<String> stableTableNames = recalledTableNames;
+		String stableSchemaRevision = schemaRevision;
 
 		String failMessage = """
 				\n 未检索到相关数据表
@@ -116,8 +133,8 @@ public class SchemaRecallNode implements NodeAction {
 		Flux<ChatResponse> displayFlux = Flux.create(emitter -> {
 			emitter.next(ChatResponseUtil.createResponse("开始初步召回Schema信息..."));
 			emitter.next(ChatResponseUtil.createResponse(
-					"初步表信息召回完成，数量: " + tableDocuments.size() + "，表名: " + String.join(", ", recalledTableNames)));
-			if (tableDocuments.isEmpty()) {
+					"初步表信息召回完成，数量: " + stableTableDocuments.size() + "，表名: " + String.join(", ", stableTableNames)));
+			if (stableTableDocuments.isEmpty()) {
 				emitter.next(ChatResponseUtil.createResponse(failMessage));
 			}
 			emitter.next(ChatResponseUtil.createResponse("初步Schema信息召回完成."));
@@ -126,9 +143,14 @@ public class SchemaRecallNode implements NodeAction {
 
 		Flux<GraphResponse<StreamingOutput>> generator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
 				state, currentState -> {
-					return Map.of(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocuments,
-							COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, columnDocuments, DATASOURCE_ID, datasourceId,
-							SCHEMA_FINGERPRINT, SchemaFingerprintUtil.fingerprint(tableDocuments, columnDocuments));
+					Map<String, Object> result = new HashMap<>();
+					result.put(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, stableTableDocuments);
+					result.put(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, stableColumnDocuments);
+					result.put(DATASOURCE_ID, datasourceId);
+					if (StringUtils.isNotBlank(stableSchemaRevision)) {
+						result.put(SCHEMA_FINGERPRINT, stableSchemaRevision);
+					}
+					return result;
 				}, displayFlux);
 
 		// Return the processing result

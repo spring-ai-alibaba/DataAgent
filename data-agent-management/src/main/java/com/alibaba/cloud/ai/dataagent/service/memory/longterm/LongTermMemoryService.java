@@ -17,17 +17,21 @@ package com.alibaba.cloud.ai.dataagent.service.memory.longterm;
 
 import com.alibaba.cloud.ai.dataagent.entity.MemoryItem;
 import com.alibaba.cloud.ai.dataagent.entity.ConversationTurn;
+import com.alibaba.cloud.ai.dataagent.entity.Datasource;
+import com.alibaba.cloud.ai.dataagent.enums.MemoryKind;
 import com.alibaba.cloud.ai.dataagent.enums.MemoryScopeType;
 import com.alibaba.cloud.ai.dataagent.enums.MemoryStatus;
 import com.alibaba.cloud.ai.dataagent.enums.TurnStatus;
 import com.alibaba.cloud.ai.dataagent.exception.MemoryConflictException;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationTurnMapper;
+import com.alibaba.cloud.ai.dataagent.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.MemoryItemMapper;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox.MemoryEventType;
 import com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox.MemoryOutboxService;
 import com.alibaba.cloud.ai.dataagent.service.memory.semantic.MemoryVectorIndexService;
+import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -38,9 +42,15 @@ import org.springframework.util.Assert;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Review-gated source of truth for stable cross-session memories.
@@ -48,6 +58,8 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class LongTermMemoryService {
+
+	private static final int MAX_MEMORY_VALUE_LENGTH = 16_000;
 
 	private final MemoryItemMapper mapper;
 
@@ -60,6 +72,10 @@ public class LongTermMemoryService {
 	private final ConversationTurnMapper turnMapper;
 
 	private final AgentDatasourceMapper agentDatasourceMapper;
+
+	private final DatasourceMapper datasourceMapper;
+
+	private final SchemaService schemaService;
 
 	@Transactional
 	public MemoryItem createCandidate(MemoryItem item) {
@@ -78,6 +94,7 @@ public class LongTermMemoryService {
 		if (item.getStatus() != MemoryStatus.CANDIDATE) {
 			throw new MemoryConflictException("Only CANDIDATE memory can be confirmed");
 		}
+		validateCandidateStillCurrent(item);
 		ensureIdentity(item);
 		MemoryItem active = mapper.selectConfirmedByIdentityHashForUpdate(item.getIdentityHash());
 		if (item.getSupersedesId() != null) {
@@ -92,14 +109,23 @@ public class LongTermMemoryService {
 			if (active != null && !active.getId().equals(superseded.getId())) {
 				throw new MemoryConflictException("Another confirmed memory already owns this identity");
 			}
-			if (mapper.markSuperseded(superseded.getId()) != 1) {
+			if (isExpired(superseded)) {
+				invalidateNoLongerApplicable(superseded);
+			}
+			else if (mapper.markSuperseded(superseded.getId()) != 1) {
 				throw new MemoryConflictException("Superseded memory changed concurrently");
 			}
-			outboxService.enqueue("MEMORY_ITEM", superseded.getId().toString(), MemoryEventType.MEMORY_INVALIDATED,
-					null);
+			else {
+				enqueueInvalidation(superseded);
+			}
 		}
 		else if (active != null) {
-			throw new MemoryConflictException("A confirmed memory already exists for this scope, kind and key");
+			if (isExpired(active) || hasStaleSchema(active, item)) {
+				invalidateNoLongerApplicable(active);
+			}
+			else {
+				throw new MemoryConflictException("A confirmed memory already exists for this scope, kind and key");
+			}
 		}
 		try {
 			if (mapper.confirmCandidate(id) != 1) {
@@ -143,32 +169,92 @@ public class LongTermMemoryService {
 
 	public List<MemoryItem> recall(Long ownerId, Integer agentId, Integer datasourceId, int limit) {
 		Assert.notNull(agentId, "agentId is required");
-		return mapper.selectConfirmedForContext(ownerId, agentId, datasourceId, Math.max(1, limit));
+		String schemaRevision = schemaService.getSchemaRevision(datasourceId);
+		return recall(ownerId, agentId, datasourceId, schemaRevision, limit);
 	}
 
 	public List<MemoryItem> recallRelevant(String query, Long ownerId, Integer agentId, Integer datasourceId,
 			int limit) {
-		List<MemoryItem> relational = recall(ownerId, agentId, datasourceId, limit);
+		Assert.notNull(agentId, "agentId is required");
+		String schemaRevision = schemaService.getSchemaRevision(datasourceId);
+		List<MemoryItem> relational = recall(ownerId, agentId, datasourceId, schemaRevision, limit);
 		List<Long> semanticIds = vectorIndexService.recallMemoryItemIds(query, ownerId, agentId, datasourceId, limit);
 		if (semanticIds.isEmpty()) {
 			return relational;
 		}
-		List<MemoryItem> semantic = mapper.selectConfirmedByIds(semanticIds)
+		Map<Long, MemoryItem> semanticById = mapper.selectConfirmedByIds(semanticIds)
 			.stream()
-			.filter(item -> isAllowed(item, ownerId, agentId, datasourceId))
-			.toList();
-		java.util.LinkedHashMap<Long, MemoryItem> merged = new java.util.LinkedHashMap<>();
-		semantic.forEach(item -> merged.put(item.getId(), item));
+			.filter(item -> isAllowed(item, ownerId, agentId, datasourceId, schemaRevision))
+			.collect(Collectors.toMap(MemoryItem::getId, Function.identity(), (left, right) -> left));
+		List<MemoryItem> semantic = semanticIds.stream().map(semanticById::get).filter(Objects::nonNull).toList();
+		LinkedHashMap<Long, MemoryItem> merged = new LinkedHashMap<>();
+		// Current-datasource rules remain deterministic and highest priority. Within the
+		// remaining budget, semantically relevant memories should displace unrelated
+		// relational fallback rows.
+		relational.stream()
+			.filter(item -> item.getScopeType() == MemoryScopeType.DATASOURCE)
+			.forEach(item -> merged.put(item.getId(), item));
+		semantic.forEach(item -> merged.putIfAbsent(item.getId(), item));
 		relational.forEach(item -> merged.putIfAbsent(item.getId(), item));
 		return merged.values().stream().limit(Math.max(1, limit)).toList();
+	}
+
+	private List<MemoryItem> recall(Long ownerId, Integer agentId, Integer datasourceId, String schemaRevision,
+			int limit) {
+		return mapper.selectConfirmedForContext(ownerId, agentId, datasourceId, schemaRevision, Math.max(1, limit));
 	}
 
 	@Transactional
 	public void deleteByConversation(String conversationId) {
 		List<MemoryItem> items = mapper.selectByConversationId(conversationId);
-		items.forEach(item -> outboxService.enqueue("MEMORY_ITEM", item.getId().toString(),
-				MemoryEventType.MEMORY_INVALIDATED, null));
+		enqueueInvalidations(items);
 		mapper.deleteByConversationId(conversationId);
+	}
+
+	@Transactional
+	public void deleteByAgent(Integer agentId) {
+		List<MemoryItem> items = mapper.selectByAgentId(agentId, null);
+		enqueueInvalidations(items);
+		mapper.deleteByAgentId(agentId);
+	}
+
+	@Transactional
+	public void deleteByDatasource(Integer datasourceId) {
+		List<MemoryItem> items = mapper.selectByDatasourceId(datasourceId);
+		enqueueInvalidations(items);
+		mapper.deleteByDatasourceId(datasourceId);
+	}
+
+	@Transactional
+	public void deleteByAgentAndDatasource(Integer agentId, Integer datasourceId) {
+		List<MemoryItem> items = mapper.selectByAgentAndDatasource(agentId, datasourceId);
+		enqueueInvalidations(items);
+		mapper.deleteByAgentAndDatasource(agentId, datasourceId);
+	}
+
+	private void enqueueInvalidations(List<MemoryItem> items) {
+		items.forEach(this::enqueueInvalidation);
+	}
+
+	private void enqueueInvalidation(MemoryItem item) {
+		outboxService.enqueue("MEMORY_ITEM", item.getId().toString(), MemoryEventType.MEMORY_INVALIDATED, null);
+	}
+
+	private void invalidateNoLongerApplicable(MemoryItem item) {
+		if (mapper.invalidate(item.getId()) != 1) {
+			throw new MemoryConflictException("Obsolete memory changed concurrently");
+		}
+		enqueueInvalidation(item);
+	}
+
+	private boolean isExpired(MemoryItem item) {
+		return item.getValidUntil() != null && !item.getValidUntil().isAfter(LocalDateTime.now());
+	}
+
+	private boolean hasStaleSchema(MemoryItem active, MemoryItem replacement) {
+		return replacement.getScopeType() == MemoryScopeType.DATASOURCE
+				&& isSchemaSensitive(replacement.getMemoryKind())
+				&& !StringUtils.equals(active.getSchemaFingerprint(), replacement.getSchemaFingerprint());
 	}
 
 	private MemoryItem requireItem(Long id) {
@@ -196,6 +282,13 @@ public class LongTermMemoryService {
 		Assert.notNull(item.getAgentId(), "agentId is required");
 		Assert.hasText(item.getMemoryKey(), "memory key is required");
 		Assert.hasText(item.getValueJson(), "memory value is required");
+		if ("null".equals(item.getValueJson().trim())) {
+			throw new IllegalArgumentException("memory value must not be JSON null");
+		}
+		if (item.getValueJson().length() > MAX_MEMORY_VALUE_LENGTH) {
+			throw new IllegalArgumentException(
+					"memory value must not exceed " + MAX_MEMORY_VALUE_LENGTH + " characters");
+		}
 		if (item.getMemoryKey().length() > 255) {
 			throw new IllegalArgumentException("memory key must not exceed 255 characters");
 		}
@@ -205,6 +298,9 @@ public class LongTermMemoryService {
 		}
 		if (item.getConfidence().compareTo(BigDecimal.ZERO) < 0 || item.getConfidence().compareTo(BigDecimal.ONE) > 0) {
 			throw new IllegalArgumentException("memory confidence must be between 0 and 1");
+		}
+		if (isExpired(item)) {
+			throw new IllegalArgumentException("memory validUntil must be in the future");
 		}
 		if (item.getScopeType() == MemoryScopeType.USER_AGENT && !properties.getMemory().isUserScopeEnabled()) {
 			throw new IllegalArgumentException(
@@ -216,9 +312,6 @@ public class LongTermMemoryService {
 		if (item.getScopeType() == MemoryScopeType.DATASOURCE && agentDatasourceMapper
 			.selectByAgentIdAndDatasourceId(item.getAgentId().longValue(), item.getDatasourceId()) == null) {
 			throw new IllegalArgumentException("Datasource memory must reference a datasource bound to the agent");
-		}
-		if (item.getSchemaFingerprint() != null && StringUtils.isBlank(item.getSchemaFingerprint())) {
-			item.setSchemaFingerprint(null);
 		}
 		ConversationTurn source = null;
 		if (StringUtils.isNotBlank(item.getSourceTurnId())) {
@@ -237,35 +330,81 @@ public class LongTermMemoryService {
 			item.setOwnerId(source.getOwnerId());
 			item.setDatasourceId(null);
 		}
-		if (item.getScopeType() == MemoryScopeType.DATASOURCE && source != null) {
-			if (!item.getDatasourceId().equals(source.getDatasourceId())) {
-				throw new IllegalArgumentException("Datasource memory must use the source turn datasource");
-			}
-			if (item.getSchemaFingerprint() == null) {
-				item.setSchemaFingerprint(source.getSchemaFingerprint());
-			}
+		if (item.getScopeType() == MemoryScopeType.DATASOURCE) {
+			validateDatasourceRevision(item, source);
 		}
 		if (item.getScopeType() == MemoryScopeType.AGENT) {
 			item.setOwnerId(null);
 			item.setDatasourceId(null);
+			item.setSchemaFingerprint(null);
 		}
 		else if (item.getScopeType() == MemoryScopeType.DATASOURCE) {
 			item.setOwnerId(null);
+		}
+		else {
+			item.setSchemaFingerprint(null);
 		}
 		item.setIdentityHash(null);
 		ensureIdentity(item);
 		item.setActiveIdentityHash(null);
 	}
 
-	private boolean isAllowed(MemoryItem item, Long ownerId, Integer agentId, Integer datasourceId) {
+	private void validateCandidateStillCurrent(MemoryItem item) {
+		if (isExpired(item)) {
+			throw new MemoryConflictException("Memory candidate expired before confirmation");
+		}
+		if (item.getScopeType() != MemoryScopeType.DATASOURCE) {
+			return;
+		}
+		if (agentDatasourceMapper.selectByAgentIdAndDatasourceId(item.getAgentId().longValue(),
+				item.getDatasourceId()) == null) {
+			throw new MemoryConflictException("Datasource is no longer bound to the agent");
+		}
+		Datasource datasource = datasourceMapper.selectByIdForUpdate(item.getDatasourceId());
+		if (datasource == null) {
+			throw new MemoryConflictException("Datasource no longer exists");
+		}
+		if (isSchemaSensitive(item.getMemoryKind())
+				&& !StringUtils.equals(item.getSchemaFingerprint(), datasource.getSchemaRevision())) {
+			throw new MemoryConflictException("Datasource schema changed after the memory candidate was created");
+		}
+	}
+
+	private void validateDatasourceRevision(MemoryItem item, ConversationTurn source) {
+		if (source != null && !item.getDatasourceId().equals(source.getDatasourceId())) {
+			throw new IllegalArgumentException("Datasource memory must use the source turn datasource");
+		}
+		if (!isSchemaSensitive(item.getMemoryKind())) {
+			item.setSchemaFingerprint(null);
+			return;
+		}
+		String currentRevision = schemaService.getSchemaRevision(item.getDatasourceId());
+		if (StringUtils.isBlank(currentRevision)) {
+			throw new IllegalArgumentException(
+					"Schema-sensitive datasource memory requires an initialized datasource schema");
+		}
+		if (source != null && !currentRevision.equals(source.getSchemaFingerprint())) {
+			throw new IllegalArgumentException("Source turn schema is no longer current for the datasource");
+		}
+		item.setSchemaFingerprint(currentRevision);
+	}
+
+	private boolean isAllowed(MemoryItem item, Long ownerId, Integer agentId, Integer datasourceId,
+			String schemaRevision) {
 		if (!agentId.equals(item.getAgentId())) {
 			return false;
 		}
 		return switch (item.getScopeType()) {
 			case AGENT -> true;
-			case DATASOURCE -> datasourceId != null && datasourceId.equals(item.getDatasourceId());
+			case DATASOURCE -> datasourceId != null && datasourceId.equals(item.getDatasourceId())
+					&& (!isSchemaSensitive(item.getMemoryKind())
+							|| StringUtils.equals(schemaRevision, item.getSchemaFingerprint()));
 			case USER_AGENT -> ownerId != null && ownerId.equals(item.getOwnerId());
 		};
+	}
+
+	private boolean isSchemaSensitive(MemoryKind memoryKind) {
+		return memoryKind == MemoryKind.CORRECTION || memoryKind == MemoryKind.QUERY_PATTERN;
 	}
 
 	private void ensureIdentity(MemoryItem item) {

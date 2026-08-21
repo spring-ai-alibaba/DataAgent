@@ -18,10 +18,15 @@ package com.alibaba.cloud.ai.dataagent.service.graph;
 import com.alibaba.cloud.ai.dataagent.dto.GraphRequest;
 import com.alibaba.cloud.ai.dataagent.enums.GraphEventType;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
+import com.alibaba.cloud.ai.dataagent.service.graph.Context.StreamContext;
+import com.alibaba.cloud.ai.dataagent.service.graph.runtime.ActiveGraphRunRegistry;
 import com.alibaba.cloud.ai.dataagent.service.graph.turn.ConversationTurnService;
+import com.alibaba.cloud.ai.dataagent.service.graph.turn.TurnExecutionScope;
 import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
 import com.alibaba.cloud.ai.dataagent.service.langfuse.NodeTracingLifecycleListener;
 import com.alibaba.cloud.ai.dataagent.service.memory.context.ConversationContextAssembler;
+import com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox.MemoryEventType;
+import com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox.MemoryOutboxService;
 import com.alibaba.cloud.ai.dataagent.vo.GraphNodeResponse;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.CompileConfig;
@@ -41,6 +46,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
@@ -48,6 +54,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -82,9 +89,14 @@ class GraphServiceImplTest {
 	private NodeTracingLifecycleListener nodeTracingLifecycleListener;
 
 	@Mock
+	private MemoryOutboxService outboxService;
+
+	@Mock
 	private Span mockSpan;
 
 	private GraphServiceImpl graphService;
+
+	private ActiveGraphRunRegistry activeGraphRunRegistry;
 
 	private ExecutorService executor;
 
@@ -96,8 +108,10 @@ class GraphServiceImplTest {
 		when(mockStateGraph.compile(any())).thenReturn(compiledGraph);
 
 		CompileConfig compileConfig = CompileConfig.builder().build();
+		activeGraphRunRegistry = new ActiveGraphRunRegistry(langfuseReporter, nodeTracingLifecycleListener);
 		graphService = new GraphServiceImpl(mockStateGraph, compileConfig, checkpointSaver, executor, contextAssembler,
-				turnService, agentDatasourceMapper, langfuseReporter, nodeTracingLifecycleListener);
+				turnService, outboxService, agentDatasourceMapper, activeGraphRunRegistry, langfuseReporter,
+				nodeTracingLifecycleListener);
 	}
 
 	private void stubNewProcessDependencies() {
@@ -114,8 +128,9 @@ class GraphServiceImplTest {
 		when(langfuseReporter.startLLMSpan(anyString(), any())).thenReturn(mockSpan);
 		when(contextAssembler.build(anyString(), anyInt(), nullable(String.class), nullable(Integer.class)))
 			.thenReturn("(无)");
-		when(turnService.resumeTurn(nullable(String.class), anyString(), anyBoolean())).thenReturn("turn-1");
-		when(turnService.getPinnedDatasourceId("turn-1")).thenReturn(3);
+		when(turnService.resumeTurn(nullable(String.class), anyString(), anyBoolean(), anyInt(), anyString()))
+			.thenReturn(new TurnExecutionScope("turn-1", "interrupted-run", "conversation-1", 1, 3, null,
+					"persisted query"));
 	}
 
 	@AfterEach
@@ -136,8 +151,12 @@ class GraphServiceImplTest {
 		verify(compiledGraph).invoke(anyMap(), configCaptor.capture());
 		assertTrue(configCaptor.getValue().threadId().isPresent());
 		assertNotEquals(BaseCheckpointSaver.THREAD_ID_DEFAULT, configCaptor.getValue().threadId().orElseThrow());
+		var cleanupOrder = inOrder(outboxService, checkpointSaver);
+		cleanupOrder.verify(outboxService)
+			.enqueue("GRAPH_RUN", configCaptor.getValue().threadId().orElseThrow(),
+					MemoryEventType.GRAPH_CHECKPOINT_RELEASE, null);
 		try {
-			verify(checkpointSaver).release(configCaptor.getValue());
+			cleanupOrder.verify(checkpointSaver).release(configCaptor.getValue());
 		}
 		catch (Exception e) {
 			fail(e);
@@ -153,6 +172,21 @@ class GraphServiceImplTest {
 		String result = graphService.nl2sql("invalid query", "1");
 
 		assertEquals("", result);
+	}
+
+	@Test
+	void nl2sql_releaseFailureSchedulesDurableCheckpointCleanup() throws Exception {
+		OverAllState mockState = mock(OverAllState.class);
+		when(mockState.value(eq("SQL_GENERATE_OUTPUT"), eq(""))).thenReturn("SELECT 1");
+		when(compiledGraph.invoke(anyMap(), any(RunnableConfig.class))).thenReturn(Optional.of(mockState));
+		doThrow(new IllegalStateException("checkpoint database unavailable")).when(checkpointSaver)
+			.release(any(RunnableConfig.class));
+		when(checkpointSaver.list(any(RunnableConfig.class))).thenReturn(List.of(mock(Checkpoint.class)));
+
+		assertEquals("SELECT 1", graphService.nl2sql("health", "1"));
+
+		verify(outboxService).enqueue(eq("GRAPH_RUN"), anyString(), eq(MemoryEventType.GRAPH_CHECKPOINT_RELEASE),
+				isNull());
 	}
 
 	@Test
@@ -221,6 +255,65 @@ class GraphServiceImplTest {
 		verify(compiledGraph).updateState(configCaptor.capture(), anyMap());
 		assertEquals("interrupted-run", configCaptor.getValue().threadId().orElseThrow());
 		assertEquals("interrupted-run", request.getThreadId());
+		verify(turnService).resumeTurn(null, "interrupted-run", false, 1, "conversation-1");
+		verify(contextAssembler).build("conversation-1", 1, "persisted query", 3);
+	}
+
+	@Test
+	void graphStreamProcess_rejectedFeedbackScopeCannotFailOrReleaseAnotherAgentsRun() throws Exception {
+		when(turnService.resumeTurn("victim-turn", "victim-run", false, 8, "victim-conversation"))
+			.thenThrow(new IllegalArgumentException("Turn does not belong to authenticated agent 8"));
+		GraphRequest request = GraphRequest.builder()
+			.agentId("8")
+			.conversationId("victim-conversation")
+			.threadId("victim-run")
+			.turnId("victim-turn")
+			.query("approve")
+			.humanFeedback(true)
+			.humanFeedbackContent("approve")
+			.build();
+
+		assertThrows(IllegalArgumentException.class,
+				() -> graphService.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), request));
+
+		verify(turnService, never()).failTurn(any(), any(), any(), any());
+		verify(checkpointSaver, never()).release(any(RunnableConfig.class));
+		verify(nodeTracingLifecycleListener, never()).finishThread("victim-run");
+		verify(langfuseReporter, never()).startLLMSpan(anyString(), any());
+	}
+
+	@Test
+	void graphStreamProcess_duplicateFeedbackCannotReplaceActiveRunContext() throws Exception {
+		stubHumanFeedbackDependencies();
+		when(compiledGraph.updateState(any(RunnableConfig.class), anyMap()))
+			.thenReturn(RunnableConfig.builder().threadId("interrupted-run").build());
+		CountDownLatch subscribed = new CountDownLatch(1);
+		when(compiledGraph.stream(isNull(), any(RunnableConfig.class))).thenReturn(
+				Flux.<com.alibaba.cloud.ai.graph.NodeOutput>never().doOnSubscribe(ignored -> subscribed.countDown()));
+		GraphRequest first = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-1")
+			.threadId("interrupted-run")
+			.humanFeedbackContent("approve")
+			.build();
+		GraphRequest duplicate = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-1")
+			.threadId("interrupted-run")
+			.humanFeedbackContent("approve again")
+			.build();
+
+		graphService.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), first);
+		assertTrue(subscribed.await(2, TimeUnit.SECONDS));
+
+		assertThrows(IllegalStateException.class,
+				() -> graphService.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), duplicate));
+		verify(turnService, times(1)).resumeTurn(nullable(String.class), eq("interrupted-run"), eq(false), eq(1),
+				eq("conversation-1"));
+		verify(turnService, never()).failTurn(any(), any(), any(), any());
+		verify(checkpointSaver, never()).release(any(RunnableConfig.class));
+
+		graphService.stopStreamProcessing("interrupted-run", "1");
 	}
 
 	@Test
@@ -292,8 +385,42 @@ class GraphServiceImplTest {
 	}
 
 	@Test
-	void graphStreamProcess_startupFailureMarksDurableTurnFailedAndReleasesCheckpoint() throws Exception {
+	void graphStreamProcess_checkpointReadFailureCannotCommitHumanReviewRunAsSuccessful() throws Exception {
 		stubNewProcessDependencies();
+		when(checkpointSaver.get(any(RunnableConfig.class)))
+			.thenThrow(new IllegalStateException("checkpoint unavailable"));
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.empty());
+
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
+		var responsesFuture = sink.asFlux().map(ServerSentEvent::data).collectList().toFuture();
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-1")
+			.query("review this plan")
+			.humanFeedback(true)
+			.build();
+
+		graphService.graphStreamProcess(sink, request);
+		List<GraphNodeResponse> responses = responsesFuture.get(Duration.ofSeconds(2).toMillis(),
+				TimeUnit.MILLISECONDS);
+
+		assertTrue(responses.stream()
+			.anyMatch(response -> response.isError() && response.getText().contains("Failed to persist graph result")),
+				responses.toString());
+		verify(turnService, never()).completeTurn(any(), any(), any(), any(), any());
+		verify(turnService, never()).markWaitingReview(any(), any(), any());
+		verify(turnService).failTurn(eq("turn-1"), eq(request.getThreadId()), any(IllegalStateException.class),
+				nullable(String.class));
+		verify(checkpointSaver).release(any(RunnableConfig.class));
+		verify(nodeTracingLifecycleListener).finishThread(request.getThreadId());
+	}
+
+	@Test
+	void graphStreamProcess_startupFailureMarksDurableTurnFailedAndReleasesCheckpoint() throws Exception {
+		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(1L)).thenReturn(3);
+		when(turnService.beginTurn(anyString(), anyInt(), nullable(Integer.class), anyString(), anyString(),
+				anyBoolean()))
+			.thenReturn("turn-1");
 		when(contextAssembler.build("conversation-1", 1, "test query", 3))
 			.thenThrow(new IllegalStateException("context unavailable"));
 		GraphRequest request = GraphRequest.builder()
@@ -307,8 +434,32 @@ class GraphServiceImplTest {
 
 		verify(turnService).failTurn(eq("turn-1"), eq(request.getThreadId()), any(IllegalStateException.class),
 				nullable(String.class));
-		verify(checkpointSaver).release(argThat(config -> request.getThreadId().equals(config.threadId().orElse(null))));
+		verify(checkpointSaver)
+			.release(argThat(config -> request.getThreadId().equals(config.threadId().orElse(null))));
 		verify(nodeTracingLifecycleListener).finishThread(request.getThreadId());
+	}
+
+	@Test
+	void graphStreamProcess_startupFailureRetainsCheckpointWhenFailureCannotBePersisted() throws Exception {
+		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(1L)).thenReturn(3);
+		when(turnService.beginTurn(anyString(), anyInt(), nullable(Integer.class), anyString(), anyString(),
+				anyBoolean()))
+			.thenReturn("turn-1");
+		when(contextAssembler.build("conversation-1", 1, "test query", 3))
+			.thenThrow(new IllegalStateException("context unavailable"));
+		doThrow(new IllegalStateException("business database unavailable")).when(turnService)
+			.failTurn(anyString(), anyString(), any(Throwable.class), nullable(String.class));
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-1")
+			.query("test query")
+			.build();
+
+		assertThrows(IllegalStateException.class,
+				() -> graphService.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), request));
+
+		verify(checkpointSaver, never()).release(any(RunnableConfig.class));
+		verifyNoInteractions(outboxService);
 	}
 
 	@Test
@@ -337,6 +488,31 @@ class GraphServiceImplTest {
 		verify(checkpointSaver)
 			.release(argThat(config -> request.getThreadId().equals(config.threadId().orElse(null))));
 		verify(nodeTracingLifecycleListener).finishThread(request.getThreadId());
+	}
+
+	@Test
+	void graphStreamProcess_completionAndFailurePersistenceFailureRetainsCheckpoint() throws Exception {
+		stubNewProcessDependencies();
+		doThrow(new IllegalStateException("completion write failed")).when(turnService)
+			.completeTurn(eq("turn-1"), anyString(), any(), nullable(String.class), nullable(String.class));
+		doThrow(new IllegalStateException("failure write failed")).when(turnService)
+			.failTurn(eq("turn-1"), anyString(), any(Throwable.class), nullable(String.class));
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(Flux.empty());
+		Sinks.Many<ServerSentEvent<GraphNodeResponse>> sink = Sinks.many().unicast().onBackpressureBuffer();
+		var responsesFuture = sink.asFlux().map(ServerSentEvent::data).collectList().toFuture();
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-1")
+			.query("test query")
+			.build();
+
+		graphService.graphStreamProcess(sink, request);
+		List<GraphNodeResponse> responses = responsesFuture.get(Duration.ofSeconds(2).toMillis(),
+				TimeUnit.MILLISECONDS);
+
+		assertTrue(responses.stream().anyMatch(GraphNodeResponse::isError), responses.toString());
+		verify(checkpointSaver, never()).release(any(RunnableConfig.class));
+		verifyNoInteractions(outboxService);
 	}
 
 	@Test
@@ -424,15 +600,16 @@ class GraphServiceImplTest {
 
 	@Test
 	void stopStreamProcessing_nullThreadId_doesNothing() {
-		assertDoesNotThrow(() -> graphService.stopStreamProcessing(null));
-		assertDoesNotThrow(() -> graphService.stopStreamProcessing(""));
+		assertDoesNotThrow(() -> graphService.stopStreamProcessing(null, "1"));
+		assertDoesNotThrow(() -> graphService.stopStreamProcessing("", "1"));
 		verifyNoInteractions(checkpointSaver, langfuseReporter, nodeTracingLifecycleListener);
 	}
 
 	@Test
 	void stopStreamProcessing_unknownThread_doesNothing() {
-		assertDoesNotThrow(() -> graphService.stopStreamProcessing("unknown-thread"));
+		assertDoesNotThrow(() -> graphService.stopStreamProcessing("unknown-thread", "1"));
 		verify(turnService, never()).cancelTurn(any(), any(), any());
+		verifyNoInteractions(checkpointSaver, nodeTracingLifecycleListener);
 	}
 
 	@Test
@@ -455,10 +632,88 @@ class GraphServiceImplTest {
 		String runId = request.getThreadId();
 		assertTrue(subscribed.await(2, TimeUnit.SECONDS));
 
-		graphService.stopStreamProcessing(runId);
+		graphService.stopStreamProcessing(runId, "1");
 		verify(turnService).cancelTurn(eq("turn-1"), eq(runId), nullable(String.class));
 		verify(langfuseReporter).endSpanSuccess(eq(mockSpan), eq(runId), anyString());
 		verify(nodeTracingLifecycleListener).discardThread(runId);
+	}
+
+	@Test
+	void stopStreamProcessing_retainsCheckpointWhenCancellationCannotBePersisted() throws Exception {
+		stubNewProcessDependencies();
+		doThrow(new IllegalStateException("business database unavailable")).when(turnService)
+			.cancelTurn(anyString(), anyString(), nullable(String.class));
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-to-stop")
+			.query("test query")
+			.build();
+		CountDownLatch subscribed = new CountDownLatch(1);
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(
+				Flux.<com.alibaba.cloud.ai.graph.NodeOutput>never().doOnSubscribe(ignored -> subscribed.countDown()));
+
+		graphService.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), request);
+		assertTrue(subscribed.await(2, TimeUnit.SECONDS));
+
+		graphService.stopStreamProcessing(request.getThreadId(), "1");
+
+		verify(checkpointSaver, never()).release(any(RunnableConfig.class));
+		verifyNoInteractions(outboxService);
+	}
+
+	@Test
+	void stopDuringDurableTurnCreationCancelsTurnCreatedAfterStop() throws Exception {
+		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(1L)).thenReturn(3);
+		CountDownLatch beginEntered = new CountDownLatch(1);
+		CountDownLatch allowBeginToFinish = new CountDownLatch(1);
+		when(turnService.beginTurn(eq("conversation-1"), eq(1), eq(3), anyString(), eq("test query"), eq(false)))
+			.thenAnswer(invocation -> {
+				beginEntered.countDown();
+				assertTrue(allowBeginToFinish.await(2, TimeUnit.SECONDS));
+				return "turn-created-after-stop";
+			});
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-1")
+			.query("test query")
+			.build();
+
+		CompletableFuture<Void> starting = CompletableFuture.runAsync(() -> graphService
+			.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), request));
+		assertTrue(beginEntered.await(2, TimeUnit.SECONDS));
+		String runId = request.getThreadId();
+		assertNotNull(runId);
+
+		graphService.stopStreamProcessing(runId, "1");
+		allowBeginToFinish.countDown();
+		starting.get(2, TimeUnit.SECONDS);
+
+		verify(turnService).cancelTurn(eq("turn-created-after-stop"), eq(runId), nullable(String.class));
+		verify(compiledGraph, never()).stream(anyMap(), any(RunnableConfig.class));
+		verify(langfuseReporter, never()).startLLMSpan(anyString(), any());
+	}
+
+	@Test
+	void stopStreamProcessing_wrongAgentCannotCancelOwnedRun() throws Exception {
+		stubNewProcessDependencies();
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-to-protect")
+			.query("test query")
+			.build();
+		CountDownLatch subscribed = new CountDownLatch(1);
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class))).thenReturn(
+				Flux.<com.alibaba.cloud.ai.graph.NodeOutput>never().doOnSubscribe(ignored -> subscribed.countDown()));
+
+		graphService.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), request);
+		assertTrue(subscribed.await(2, TimeUnit.SECONDS));
+
+		graphService.stopStreamProcessing(request.getThreadId(), "2");
+
+		verify(turnService, never()).cancelTurn(any(), any(), any());
+		verifyNoInteractions(checkpointSaver, nodeTracingLifecycleListener);
+
+		graphService.stopStreamProcessing(request.getThreadId(), "1");
 	}
 
 	/**
@@ -481,17 +736,16 @@ class GraphServiceImplTest {
 		graphService.graphStreamProcess(sink, request);
 		String runId = request.getThreadId();
 
-		graphService.stopStreamProcessing(runId);
+		graphService.stopStreamProcessing(runId, "1");
 		verify(turnService).cancelTurn(eq("turn-1"), eq(runId), nullable(String.class));
 		verify(nodeTracingLifecycleListener).discardThread(runId);
 	}
 
 	@Test
-	void stopStreamProcessing_discardsNodeSpansEvenForUnknownThread() {
-		graphService.stopStreamProcessing("never-started-thread");
+	void stopStreamProcessing_unknownThreadCannotReleaseAnotherRunsCheckpoint() {
+		graphService.stopStreamProcessing("never-started-thread", "1");
 
-		// 即使没有 StreamContext，也要清理 listener 侧可能存在的残留
-		verify(nodeTracingLifecycleListener).discardThread("never-started-thread");
+		verifyNoInteractions(checkpointSaver, nodeTracingLifecycleListener);
 	}
 
 	/**
@@ -539,6 +793,51 @@ class GraphServiceImplTest {
 		assertNotNull(actualThreadId, "graphStreamProcess must assign a threadId");
 
 		verify(nodeTracingLifecycleListener, timeout(2000)).finishThread(actualThreadId);
+		var terminalOrder = inOrder(turnService, checkpointSaver);
+		terminalOrder.verify(turnService)
+			.failTurn(eq("turn-1"), eq(actualThreadId), any(RuntimeException.class), nullable(String.class));
+		try {
+			terminalOrder.verify(checkpointSaver).release(any(RunnableConfig.class));
+		}
+		catch (Exception e) {
+			fail(e);
+		}
+	}
+
+	@Test
+	void handleStreamError_retainsCheckpointWhenTerminalPersistenceFails() throws Exception {
+		stubNewProcessDependencies();
+		doThrow(new IllegalStateException("business database unavailable")).when(turnService)
+			.failTurn(anyString(), anyString(), any(Throwable.class), nullable(String.class));
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-error")
+			.query("test query")
+			.build();
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class)))
+			.thenReturn(Flux.error(new RuntimeException("boom")));
+
+		graphService.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), request);
+
+		verify(nodeTracingLifecycleListener, timeout(2000)).finishThread(request.getThreadId());
+		verify(checkpointSaver, never()).release(any(RunnableConfig.class));
+		verifyNoInteractions(outboxService);
+	}
+
+	@Test
+	void staleTerminalCallbacksCannotTouchReplacementRunContext() {
+		String runId = "reused-run";
+		GraphRequest staleRequest = GraphRequest.builder().agentId("1").threadId(runId).build();
+		StreamContext staleContext = new StreamContext();
+		StreamContext replacementContext = new StreamContext();
+		assertTrue(activeGraphRunRegistry.register(runId, replacementContext));
+
+		ReflectionTestUtils.invokeMethod(graphService, "handleStreamComplete", staleRequest, staleContext);
+		ReflectionTestUtils.invokeMethod(graphService, "handleStreamError", staleRequest, staleContext,
+				new IllegalStateException("late failure"));
+
+		assertSame(replacementContext, activeGraphRunRegistry.get(runId));
+		verifyNoInteractions(checkpointSaver, turnService, langfuseReporter, nodeTracingLifecycleListener);
 	}
 
 	/**
@@ -588,7 +887,7 @@ class GraphServiceImplTest {
 		graphService.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), request);
 
 		assertTrue(subscribed.await(2, TimeUnit.SECONDS));
-		graphService.stopStreamProcessingByConversationId("conversation-to-cancel");
+		graphService.stopStreamProcessingByConversationId("conversation-to-cancel", "1");
 
 		assertTrue(cancelled.await(2, TimeUnit.SECONDS));
 		verify(turnService).cancelTurn(eq("turn-1"), eq(request.getThreadId()), nullable(String.class));
@@ -600,6 +899,32 @@ class GraphServiceImplTest {
 			fail(e);
 		}
 		assertEquals(request.getThreadId(), configCaptor.getValue().threadId().orElseThrow());
+	}
+
+	@Test
+	void deletionRegistryQuiesceDefersCheckpointReleaseToTheDeletionOutbox() throws Exception {
+		stubNewProcessDependencies();
+		GraphRequest request = GraphRequest.builder()
+			.agentId("1")
+			.conversationId("conversation-to-delete")
+			.query("test query")
+			.build();
+		CountDownLatch subscribed = new CountDownLatch(1);
+		CountDownLatch cancelled = new CountDownLatch(1);
+		when(compiledGraph.stream(anyMap(), any(RunnableConfig.class)))
+			.thenReturn(Flux.<com.alibaba.cloud.ai.graph.NodeOutput>never()
+				.doOnSubscribe(ignored -> subscribed.countDown())
+				.doOnCancel(cancelled::countDown));
+
+		graphService.graphStreamProcess(Sinks.many().multicast().onBackpressureBuffer(), request);
+
+		assertTrue(subscribed.await(2, TimeUnit.SECONDS));
+		activeGraphRunRegistry.quiesceConversationForDeletion("conversation-to-delete", "1");
+
+		assertTrue(cancelled.await(2, TimeUnit.SECONDS));
+		verify(turnService, never()).cancelTurn(anyString(), anyString(), nullable(String.class));
+		verify(checkpointSaver, never()).release(any(RunnableConfig.class));
+		verify(nodeTracingLifecycleListener).discardThread(request.getThreadId());
 	}
 
 	@Test

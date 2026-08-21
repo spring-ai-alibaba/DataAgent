@@ -37,6 +37,9 @@ public interface ConversationTurnMapper {
 	@Select("SELECT * FROM conversation_turn WHERE id = #{id}")
 	ConversationTurn selectById(@Param("id") String id);
 
+	@Select("SELECT * FROM conversation_turn WHERE id = #{id} FOR UPDATE")
+	ConversationTurn selectByIdForUpdate(@Param("id") String id);
+
 	@Select("SELECT * FROM conversation_turn WHERE conversation_id = #{conversationId}")
 	List<ConversationTurn> selectByConversationId(@Param("conversationId") String conversationId);
 
@@ -46,23 +49,56 @@ public interface ConversationTurnMapper {
 			FROM conversation_turn
 			WHERE conversation_id = #{conversationId}
 			  AND status = 'SUCCEEDED'
-			  AND memory_eligible = 1
+			  AND final_answer IS NOT NULL
+			  AND TRIM(final_answer) != ''
 			ORDER BY observed_at ASC, create_time ASC, id ASC
 			""")
-	List<ConversationTurn> selectAllSuccessful(@Param("conversationId") String conversationId);
+	List<ConversationTurn> selectContextTimeline(@Param("conversationId") String conversationId);
 
 	@Select("""
+			SELECT id, conversation_id, raw_query, final_answer, observed_at, create_time
+			FROM conversation_turn
+			WHERE conversation_id = #{conversationId}
+			  AND status = 'SUCCEEDED'
+			  AND final_answer IS NOT NULL
+			  AND TRIM(final_answer) != ''
+			ORDER BY observed_at DESC, create_time DESC, id DESC
+			LIMIT #{limit}
+			""")
+	List<ConversationTurn> selectRecentContextTurns(@Param("conversationId") String conversationId,
+			@Param("limit") int limit);
+
+	@Select("""
+			SELECT id
+			FROM conversation_turn
+			WHERE conversation_id = #{conversationId}
+			  AND status = 'SUCCEEDED'
+			  AND final_answer IS NOT NULL
+			  AND TRIM(final_answer) != ''
+			ORDER BY observed_at DESC, create_time DESC, id DESC
+			LIMIT 1 OFFSET #{recentTurns}
+			""")
+	String selectSummaryBoundaryTurnId(@Param("conversationId") String conversationId,
+			@Param("recentTurns") int recentTurns);
+
+	@Select("""
+			<script>
 			SELECT * FROM conversation_turn
 			WHERE owner_id = #{ownerId}
 			  AND agent_id = #{agentId}
 			  AND status = 'SUCCEEDED'
 			  AND memory_eligible = 1
 			  AND (#{datasourceId} IS NULL OR datasource_id = #{datasourceId})
+			<if test="excludedConversationId != null and excludedConversationId != ''">
+			  AND conversation_id != #{excludedConversationId}
+			</if>
 			ORDER BY observed_at DESC, create_time DESC, id DESC
 			LIMIT #{limit}
+			</script>
 			""")
 	List<ConversationTurn> selectRecentSuccessfulByOwner(@Param("ownerId") Long ownerId,
-			@Param("agentId") Integer agentId, @Param("datasourceId") Integer datasourceId, @Param("limit") int limit);
+			@Param("agentId") Integer agentId, @Param("datasourceId") Integer datasourceId,
+			@Param("excludedConversationId") String excludedConversationId, @Param("limit") int limit);
 
 	@Select("""
 			<script>

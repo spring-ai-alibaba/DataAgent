@@ -16,7 +16,9 @@
 package com.alibaba.cloud.ai.dataagent.service.chat;
 
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
+import com.alibaba.cloud.ai.dataagent.mapper.AgentMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ChatSessionMapper;
+import com.alibaba.cloud.ai.dataagent.service.memory.lifecycle.MemoryLifecycleService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,11 +41,14 @@ class ChatSessionServiceImplTest {
 	private ChatSessionMapper chatSessionMapper;
 
 	@Mock
-	private ConversationMemoryCleanupService memoryCleanupService;
+	private AgentMapper agentMapper;
+
+	@Mock
+	private MemoryLifecycleService memoryLifecycleService;
 
 	@BeforeEach
 	void setUp() {
-		service = new ChatSessionServiceImpl(chatSessionMapper, memoryCleanupService);
+		service = new ChatSessionServiceImpl(chatSessionMapper, agentMapper, memoryLifecycleService);
 	}
 
 	@Test
@@ -93,22 +98,20 @@ class ChatSessionServiceImplTest {
 	void createSession_withTitle() {
 		Integer agentId = 1;
 		String title = "My Session";
-		Long userId = 100L;
-
-		ChatSession result = service.createSession(agentId, title, userId);
+		ChatSession result = service.createSession(agentId, title);
 
 		assertNotNull(result);
 		assertNotNull(result.getId());
 		assertEquals(agentId, result.getAgentId());
 		assertEquals(title, result.getTitle());
 		assertEquals("active", result.getStatus());
-		assertEquals(userId, result.getUserId());
+		assertNull(result.getUserId());
 		verify(chatSessionMapper).insert(any(ChatSession.class));
 	}
 
 	@Test
 	void createSession_withNullTitle_usesDefault() {
-		ChatSession result = service.createSession(1, null, 100L);
+		ChatSession result = service.createSession(1, null);
 
 		assertEquals("\u65b0\u4f1a\u8bdd", result.getTitle());
 		verify(chatSessionMapper).insert(any(ChatSession.class));
@@ -116,6 +119,7 @@ class ChatSessionServiceImplTest {
 
 	@Test
 	void clearSessionsByAgentId_callsSoftDelete() {
+		when(agentMapper.lockById(1L)).thenReturn(1L);
 		when(chatSessionMapper.selectByAgentId(1))
 			.thenReturn(List.of(ChatSession.builder().id("session-1").build(),
 					ChatSession.builder().id("session-2").build()));
@@ -123,9 +127,20 @@ class ChatSessionServiceImplTest {
 
 		service.clearSessionsByAgentId(1);
 
+		verify(agentMapper).lockById(1L);
 		verify(chatSessionMapper).softDeleteByAgentId(eq(1), any(LocalDateTime.class));
-		verify(memoryCleanupService).forgetConversation("session-1");
-		verify(memoryCleanupService).forgetConversation("session-2");
+		verify(memoryLifecycleService).forgetConversation("session-1", 1);
+		verify(memoryLifecycleService).forgetConversation("session-2", 1);
+	}
+
+	@Test
+	void clearSessionsByAgentId_rejectsMissingAgentBeforeEnumeratingSessions() {
+		when(agentMapper.lockById(7L)).thenReturn(null);
+
+		assertThrows(IllegalArgumentException.class, () -> service.clearSessionsByAgentId(7));
+
+		verify(chatSessionMapper, never()).selectByAgentId(anyInt());
+		verify(memoryLifecycleService, never()).forgetConversation(anyString(), anyInt());
 	}
 
 	@Test
@@ -151,10 +166,19 @@ class ChatSessionServiceImplTest {
 
 	@Test
 	void deleteSession_callsSoftDelete() {
-		service.deleteSession("session-1");
+		when(chatSessionMapper.softDeleteById(eq("session-1"), any(LocalDateTime.class))).thenReturn(1);
+
+		service.deleteSession("session-1", 7);
 
 		verify(chatSessionMapper).softDeleteById(eq("session-1"), any(LocalDateTime.class));
-		verify(memoryCleanupService).forgetConversation("session-1");
+		verify(memoryLifecycleService).forgetConversation("session-1", 7);
+	}
+
+	@Test
+	void deleteSession_softDeleteFailureRollsBackInsteadOfReportingSuccess() {
+		when(chatSessionMapper.softDeleteById(eq("session-1"), any(LocalDateTime.class))).thenReturn(0);
+
+		assertThrows(IllegalStateException.class, () -> service.deleteSession("session-1", 7));
 	}
 
 }

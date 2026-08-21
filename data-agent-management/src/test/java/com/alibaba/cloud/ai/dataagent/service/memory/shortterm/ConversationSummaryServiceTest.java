@@ -45,11 +45,13 @@ class ConversationSummaryServiceTest {
 
 	private Store store;
 
+	private DataAgentProperties properties;
+
 	private ConversationSummaryService service;
 
 	@BeforeEach
 	void setUp() {
-		DataAgentProperties properties = new DataAgentProperties();
+		properties = new DataAgentProperties();
 		properties.getMemory().setRecentTurns(1);
 		store = new MemoryStore();
 		service = new ConversationSummaryService(turnMapper, chatSessionMapper, properties, store);
@@ -57,9 +59,11 @@ class ConversationSummaryServiceTest {
 
 	@Test
 	void summaryIsDeterministicallyRebuiltFromTurnsOutsideRecentWindow() {
-		when(turnMapper.selectAllSuccessful("conversation-1")).thenReturn(List.of(
-				turn("turn-1", "raw one", "canonical one", "result one"),
-				turn("turn-2", "raw two", null, "result two")));
+		stubActiveConversation();
+		when(turnMapper.selectContextTimeline("conversation-1"))
+			.thenReturn(List.of(turn("turn-1", "raw one", "canonical one", "result one"),
+					turn("turn-2", "raw two", null, "result two")));
+		when(turnMapper.selectSummaryBoundaryTurnId("conversation-1", 1)).thenReturn("turn-1");
 
 		service.rebuild("conversation-1");
 
@@ -72,29 +76,31 @@ class ConversationSummaryServiceTest {
 
 	@Test
 	void boundedSummaryKeepsTheNewestHistoricalTurnsAndMakesOmissionExplicit() {
+		stubActiveConversation();
 		DataAgentProperties properties = new DataAgentProperties();
 		properties.getMemory().setRecentTurns(1);
 		properties.getMemory().setMaxSummaryLength(500);
 		service = new ConversationSummaryService(turnMapper, chatSessionMapper, properties, store);
-		when(turnMapper.selectAllSuccessful("conversation-1")).thenReturn(
+		when(turnMapper.selectContextTimeline("conversation-1")).thenReturn(
 				List.of(turn("turn-1", "oldest", null, "a".repeat(700)), turn("turn-2", "older", null, "b".repeat(700)),
 						turn("turn-3", "newer historical", null, "c".repeat(700)),
 						turn("turn-4", "latest", null, "latest result")));
+		when(turnMapper.selectSummaryBoundaryTurnId("conversation-1", 1)).thenReturn("turn-3");
 
 		service.rebuild("conversation-1");
 
 		ConversationSummaryService.Summary summary = service.load("conversation-1");
-		assertThat(summary.summaryText()).contains("newer historical", "较早历史已因上下文预算省略")
-			.doesNotContain("oldest");
+		assertThat(summary.summaryText()).contains("newer historical", "较早历史已因上下文预算省略").doesNotContain("oldest");
 		assertThat(summary.coveredThroughTurnId()).isEqualTo("turn-3");
 	}
 
 	@Test
 	void summaryUsesFrameworkStoreUpsertAndCanBeDeletedWhenNoHistoryNeedsSummarizing() {
+		stubActiveConversation();
 		store.putItem(StoreItem.of(ConversationSummaryService.summaryNamespace("conversation-1"),
 				ConversationSummaryService.SUMMARY_KEY,
 				Map.of("summaryText", "stale", "coveredThroughTurnId", "turn-0")));
-		when(turnMapper.selectAllSuccessful("conversation-1"))
+		when(turnMapper.selectContextTimeline("conversation-1"))
 			.thenReturn(List.of(turn("turn-1", "latest", null, "latest result")));
 
 		service.rebuild("conversation-1");
@@ -103,12 +109,117 @@ class ConversationSummaryServiceTest {
 		assertThat(store.isEmpty()).isTrue();
 	}
 
+	@Test
+	void nonVerifiedFinalTurnsAdvanceTheWindowWithoutEnteringVerifiedSummary() {
+		stubActiveConversation();
+		ConversationTurn unverified = turn("turn-2", "configuration help", null, "not verified");
+		unverified.setMemoryEligible(false);
+		when(turnMapper.selectContextTimeline("conversation-1"))
+			.thenReturn(List.of(turn("turn-1", "verified old", null, "verified result"), unverified,
+					turn("turn-3", "latest", null, "latest result")));
+		when(turnMapper.selectSummaryBoundaryTurnId("conversation-1", 1)).thenReturn("turn-2");
+
+		service.rebuild("conversation-1");
+
+		ConversationSummaryService.Summary summary = service.load("conversation-1");
+		assertThat(summary.summaryText()).contains("verified old").doesNotContain("configuration help", "not verified");
+		assertThat(summary.coveredThroughTurnId()).isEqualTo("turn-2");
+	}
+
+	@Test
+	void delayedCompletionCannotRecreateSummaryForDeletedConversation() {
+		store.putItem(StoreItem.of(ConversationSummaryService.summaryNamespace("conversation-1"),
+				ConversationSummaryService.SUMMARY_KEY,
+				Map.of("summaryText", "stale", "coveredThroughTurnId", "turn-0")));
+		when(chatSessionMapper.lockBySessionId("conversation-1")).thenReturn(null);
+
+		service.rebuild("conversation-1");
+
+		assertThat(store.isEmpty()).isTrue();
+		verifyNoInteractions(turnMapper);
+	}
+
+	@Test
+	void unreadableSummaryProjectionCannotBreakContextAssembly() {
+		Store unavailableStore = mock(Store.class);
+		when(unavailableStore.getItem(ConversationSummaryService.summaryNamespace("conversation-1"),
+				ConversationSummaryService.SUMMARY_KEY))
+			.thenThrow(new IllegalStateException("corrupt projection"));
+		ConversationSummaryService unavailableService = new ConversationSummaryService(turnMapper, chatSessionMapper,
+				new DataAgentProperties(), unavailableStore);
+
+		assertThat(unavailableService.load("conversation-1")).isNull();
+	}
+
+	@Test
+	void missingNodeLocalProjectionIsRebuiltFromDurableTurnsOnRead() {
+		when(turnMapper.selectSummaryBoundaryTurnId("conversation-1", 1)).thenReturn("turn-1");
+		when(turnMapper.selectContextTimeline("conversation-1")).thenReturn(List.of(
+				turn("turn-1", "historical", null, "verified result"),
+				turn("turn-2", "latest", null, "latest result")));
+
+		ConversationSummaryService.Summary summary = service.load("conversation-1");
+
+		assertThat(summary.coveredThroughTurnId()).isEqualTo("turn-1");
+		assertThat(summary.summaryText()).contains("historical", "verified result");
+		assertThat(store.size()).isEqualTo(1);
+	}
+
+	@Test
+	void staleProjectionIsRefreshedEvenBeforeTheOutboxWorkerRuns() {
+		store.putItem(StoreItem.of(ConversationSummaryService.summaryNamespace("conversation-1"),
+				ConversationSummaryService.SUMMARY_KEY,
+				Map.of("summaryText", "stale", "coveredThroughTurnId", "turn-0")));
+		when(turnMapper.selectSummaryBoundaryTurnId("conversation-1", 1)).thenReturn("turn-2");
+		when(turnMapper.selectContextTimeline("conversation-1")).thenReturn(
+				List.of(turn("turn-1", "old", null, "old result"), turn("turn-2", "new historical", null, "new result"),
+						turn("turn-3", "latest", null, "latest result")));
+
+		ConversationSummaryService.Summary summary = service.load("conversation-1");
+
+		assertThat(summary.coveredThroughTurnId()).isEqualTo("turn-2");
+		assertThat(summary.summaryText()).contains("new historical").doesNotContain("stale");
+	}
+
+	@Test
+	void matchingBoundaryUsesTheFrameworkProjectionWithoutScanningTheTimeline() {
+		store.putItem(StoreItem.of(ConversationSummaryService.summaryNamespace("conversation-1"),
+				ConversationSummaryService.SUMMARY_KEY,
+				Map.of("summaryText", "current", "coveredThroughTurnId", "turn-2")));
+		when(turnMapper.selectSummaryBoundaryTurnId("conversation-1", 1)).thenReturn("turn-2");
+
+		assertThat(service.load("conversation-1").summaryText()).isEqualTo("current");
+		verify(turnMapper, never()).selectContextTimeline("conversation-1");
+	}
+
+	@Test
+	void nodeLocalProjectionCacheIsBounded() {
+		properties.getMemory().setSummaryCacheMaxEntries(2);
+		when(chatSessionMapper.lockBySessionId(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(turnMapper.selectContextTimeline(anyString())).thenAnswer(invocation -> {
+			String conversationId = invocation.getArgument(0);
+			return List.of(turn(conversationId + "-old", "historical", null, "result"),
+					turn(conversationId + "-new", "latest", null, "latest result"));
+		});
+
+		service.rebuild("conversation-1");
+		service.rebuild("conversation-2");
+		service.rebuild("conversation-3");
+
+		assertThat(store.size()).isEqualTo(2);
+	}
+
+	private void stubActiveConversation() {
+		when(chatSessionMapper.lockBySessionId("conversation-1")).thenReturn("conversation-1");
+	}
+
 	private ConversationTurn turn(String id, String rawQuery, String canonicalQuery, String result) {
 		return ConversationTurn.builder()
 			.id(id)
 			.rawQuery(rawQuery)
 			.canonicalQuery(canonicalQuery)
 			.resultSummary(result)
+			.memoryEligible(true)
 			.build();
 	}
 

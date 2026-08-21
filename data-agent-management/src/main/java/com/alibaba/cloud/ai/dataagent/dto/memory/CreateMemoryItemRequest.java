@@ -53,9 +53,6 @@ public class CreateMemoryItemRequest {
 	@DecimalMax("1.0")
 	private BigDecimal confidence;
 
-	@Size(max = 128)
-	private String schemaFingerprint;
-
 	private LocalDateTime validUntil;
 
 	private Long supersedesId;

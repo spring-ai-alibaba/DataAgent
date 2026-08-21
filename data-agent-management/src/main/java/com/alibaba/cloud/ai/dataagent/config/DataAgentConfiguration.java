@@ -49,7 +49,7 @@ import com.alibaba.cloud.ai.graph.checkpoint.savers.mysql.CreateOption;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.mysql.MysqlSaver;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.alibaba.cloud.ai.graph.store.Store;
-import com.alibaba.cloud.ai.graph.store.stores.DatabaseStore;
+import com.alibaba.cloud.ai.graph.store.stores.MemoryStore;
 import com.knuddels.jtokkit.api.EncodingType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.BatchingStrategy;
@@ -80,6 +80,7 @@ import org.springframework.boot.web.client.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -310,6 +311,7 @@ public class DataAgentConfiguration implements DisposableBean {
 		return MysqlSaver.builder()
 			.dataSource(dataSource)
 			.stateSerializer(nl2sqlGraph.getStateSerializer())
+			.maxCachedThreads(0)
 			.createOption(CreateOption.CREATE_IF_NOT_EXISTS)
 			.build();
 	}
@@ -321,17 +323,26 @@ public class DataAgentConfiguration implements DisposableBean {
 	}
 
 	/**
-	 * Framework-owned cross-session store for exact-key memory projections. Semantic
-	 * Top-K recall remains on Spring AI {@link VectorStore}.
+	 * Framework-owned cache for rebuildable exact-key projections. Durable conversation
+	 * truth remains in MySQL and read-side boundary checks rebuild a missing or stale
+	 * node-local projection. Semantic Top-K recall remains on Spring AI
+	 * {@link VectorStore}.
 	 */
-	@Bean
-	@ConditionalOnMissingBean(Store.class)
-	public Store graphMemoryStore(DataSource dataSource) {
-		return new DatabaseStore(dataSource, "spring_ai_dataagent_store");
+	@Bean("graphMemoryStore")
+	@ConditionalOnMissingBean(name = "graphMemoryStore")
+	public Store graphMemoryStore() {
+		return new MemoryStore();
+	}
+
+	@Bean("conversationSummaryStore")
+	@ConditionalOnMissingBean(name = "conversationSummaryStore")
+	public Store conversationSummaryStore() {
+		return new MemoryStore();
 	}
 
 	@Bean
-	public CompileConfig nl2sqlGraphCompileConfig(BaseCheckpointSaver checkpointSaver, Store graphMemoryStore,
+	public CompileConfig nl2sqlGraphCompileConfig(BaseCheckpointSaver checkpointSaver,
+			@Qualifier("graphMemoryStore") Store graphMemoryStore,
 			NodeTracingLifecycleListener nodeTracingLifecycleListener) {
 		SaverConfig saverConfig = SaverConfig.builder().register(checkpointSaver).build();
 		return CompileConfig.builder()

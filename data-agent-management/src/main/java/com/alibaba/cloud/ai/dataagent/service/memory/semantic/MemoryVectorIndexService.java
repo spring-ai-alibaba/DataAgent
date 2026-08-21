@@ -116,7 +116,15 @@ public class MemoryVectorIndexService {
 				ids.add(number.longValue());
 			}
 			else if (id != null) {
-				ids.add(Long.valueOf(id.toString()));
+				try {
+					ids.add(Long.valueOf(id.toString()));
+				}
+				catch (NumberFormatException malformedMetadata) {
+					// The semantic index is a rebuildable hint, never a reason to fail
+					// the
+					// authoritative relational recall path.
+					log.warn("Ignoring memory vector document {} with invalid memory item ID", document.getId());
+				}
 			}
 		}
 		return ids.stream().distinct().toList();
@@ -201,10 +209,11 @@ public class MemoryVectorIndexService {
 	}
 
 	private void delete(String id) {
-		if (!enabled()) {
-			return;
-		}
 		try {
+			// Disabling semantic indexing stops new writes and recall, but it must not
+			// turn an explicit forget/invalidate event into a false success. A document
+			// may have been written while the feature was enabled, so deterministic-ID
+			// cleanup remains active and is retried by the transactional outbox.
 			vectorStore.delete(List.of(id));
 		}
 		catch (RuntimeException e) {

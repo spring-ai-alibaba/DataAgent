@@ -35,7 +35,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -67,11 +66,14 @@ public class ConversationTurnService {
 	private final DataAgentProperties properties;
 
 	@Transactional
-	public String beginTurn(String conversationId, Integer agentId, Integer datasourceId, String runId,
-			String rawQuery, boolean titleNeeded) {
+	public String beginTurn(String conversationId, Integer agentId, Integer datasourceId, String runId, String rawQuery,
+			boolean titleNeeded) {
 		chatSessionMapper.lockBySessionId(conversationId);
 		ChatSession session = chatSessionMapper.selectBySessionId(conversationId);
 		if (session == null) {
+			if (chatSessionMapper.selectAnyBySessionId(conversationId) != null) {
+				throw new IllegalStateException("Conversation has been deleted: " + conversationId);
+			}
 			log.debug("Conversation {} is not a persisted chat session; skipping durable turn creation",
 					conversationId);
 			return null;
@@ -102,14 +104,32 @@ public class ConversationTurnService {
 	}
 
 	@Transactional
-	public String resumeTurn(String turnId, String runId, boolean rejectedPlan) {
+	public TurnExecutionScope resumeTurn(String turnId, String runId, boolean rejectedPlan,
+			Integer authenticatedAgentId, String requestedConversationId) {
 		if (StringUtils.isBlank(runId)) {
 			throw new IllegalArgumentException("Graph run ID is required");
+		}
+		if (authenticatedAgentId == null) {
+			throw new IllegalArgumentException("Authenticated agent ID is required");
 		}
 		TurnRun run = runMapper.selectById(runId);
 		String resolvedTurnId = StringUtils.defaultIfBlank(turnId, run != null ? run.getTurnId() : null);
 		if (run == null || StringUtils.isBlank(resolvedTurnId) || !resolvedTurnId.equals(run.getTurnId())) {
 			throw new IllegalArgumentException("Run does not belong to turn " + turnId);
+		}
+		ConversationTurn turn = lockTurnInActiveConversation(resolvedTurnId);
+		if (turn == null) {
+			throw new IllegalStateException("Turn or active conversation no longer exists: " + resolvedTurnId);
+		}
+		if (!runId.equals(turn.getAcceptedRunId())) {
+			throw new IllegalArgumentException("Run does not belong to turn " + resolvedTurnId);
+		}
+		if (!authenticatedAgentId.equals(turn.getAgentId())) {
+			throw new IllegalArgumentException("Turn does not belong to authenticated agent " + authenticatedAgentId);
+		}
+		if (StringUtils.isNotBlank(requestedConversationId)
+				&& !requestedConversationId.equals(turn.getConversationId())) {
+			throw new IllegalArgumentException("Turn does not belong to conversation " + requestedConversationId);
 		}
 		if (turnMapper.markRunning(resolvedTurnId, runId) != 1) {
 			throw new IllegalStateException("Turn is no longer waiting for review: " + resolvedTurnId);
@@ -118,13 +138,18 @@ public class ConversationTurnService {
 		if (runUpdated != 1) {
 			throw new IllegalStateException("Run is no longer waiting for review: " + runId);
 		}
-		return resolvedTurnId;
+		return new TurnExecutionScope(resolvedTurnId, runId, turn.getConversationId(), turn.getAgentId(),
+				turn.getDatasourceId(), turn.getOwnerId(), turn.getRawQuery());
 	}
 
 	@Transactional
 	public void markWaitingReview(String turnId, String runId, String timelineJson) {
 		if (StringUtils.isAnyBlank(turnId, runId)) {
 			return;
+		}
+		ConversationTurn turn = lockTurnInActiveConversation(turnId);
+		if (turn == null) {
+			throw new IllegalStateException("Turn or active conversation no longer exists: " + turnId);
 		}
 		if (turnMapper.markWaitingReview(turnId, runId) != 1) {
 			throw new IllegalStateException("Turn is no longer running: " + turnId);
@@ -133,7 +158,7 @@ public class ConversationTurnService {
 			throw new IllegalStateException("Run is no longer running: " + runId);
 		}
 		storeArtifact(turnId, runId, TurnArtifactType.TIMELINE, timelineJson);
-		saveTimelineMessage(turnId, runId, timelineJson);
+		saveTimelineMessage(turn.getConversationId(), turnId, runId, timelineJson);
 	}
 
 	@Transactional
@@ -142,9 +167,9 @@ public class ConversationTurnService {
 		if (StringUtils.isAnyBlank(turnId, runId)) {
 			return;
 		}
-		ConversationTurn existing = turnMapper.selectById(turnId);
+		ConversationTurn existing = lockTurnInActiveConversation(turnId);
 		if (existing == null) {
-			throw new IllegalStateException("Turn no longer exists: " + turnId);
+			throw new IllegalStateException("Turn or active conversation no longer exists: " + turnId);
 		}
 		if (existing.getStatus() == TurnStatus.SUCCEEDED && runId.equals(existing.getAcceptedRunId())) {
 			return;
@@ -182,34 +207,13 @@ public class ConversationTurnService {
 		storeArtifact(turnId, runId, TurnArtifactType.RESULT, snapshot.resultArtifactJson());
 		storeArtifact(turnId, runId, TurnArtifactType.REPORT, finalAnswer);
 		storeArtifact(turnId, runId, TurnArtifactType.TIMELINE, timelineJson);
-		saveTimelineMessage(turnId, runId, timelineJson);
+		saveTimelineMessage(existing.getConversationId(), turnId, runId, timelineJson);
 		if (StringUtils.isNotBlank(finalAnswer)) {
 			saveChatMessage(existing.getConversationId(), "assistant", finalAnswer, "text", turnId, runId);
 			memoryGateway.commitSuccessfulTurn(existing.getConversationId(), existing.getRawQuery(), finalAnswer);
+			outboxService.enqueue("CONVERSATION_TURN", turnId, MemoryEventType.TURN_COMPLETED, null);
 		}
-		if (memoryEligible) {
-			outboxService.enqueue("CONVERSATION_TURN", turnId, MemoryEventType.TURN_SUCCEEDED, null);
-		}
-	}
-
-	public Integer getPinnedDatasourceId(String turnId) {
-		if (StringUtils.isBlank(turnId)) {
-			return null;
-		}
-		ConversationTurn turn = turnMapper.selectById(turnId);
-		if (turn == null) {
-			throw new IllegalArgumentException("Turn not found: " + turnId);
-		}
-		return turn.getDatasourceId();
-	}
-
-	@Transactional
-	public void deleteByConversation(String conversationId) {
-		List<ConversationTurn> turns = turnMapper.selectByConversationId(conversationId);
-		turns.forEach(turn -> outboxService.enqueue("CONVERSATION_TURN", turn.getId(),
-				MemoryEventType.TURN_INVALIDATED, null));
-		turnMapper.deleteByConversationId(conversationId);
-		chatMessageMapper.deleteBySessionId(conversationId);
+		enqueueCheckpointRelease(runId);
 	}
 
 	@Transactional
@@ -221,6 +225,11 @@ public class ConversationTurnService {
 				? StringUtils
 					.abbreviate(StringUtils.defaultIfBlank(error.getMessage(), error.getClass().getSimpleName()), 4000)
 				: "Unknown graph error";
+		ConversationTurn turn = lockTurnInActiveConversation(turnId);
+		if (turn == null) {
+			log.debug("Ignoring failure for a deleted turn or conversation: {}", turnId);
+			return;
+		}
 		if (turnMapper.markTerminal(turnId, runId, TurnStatus.FAILED) != 1) {
 			log.debug("Ignoring failure for a stale or terminal turn: {}", turnId);
 			return;
@@ -229,11 +238,9 @@ public class ConversationTurnService {
 			throw new IllegalStateException("Run is no longer active: " + runId);
 		}
 		storeArtifact(turnId, runId, TurnArtifactType.TIMELINE, timelineJson);
-		ConversationTurn turn = turnMapper.selectById(turnId);
-		if (turn != null) {
-			saveTimelineMessage(turnId, runId, timelineJson);
-			saveChatMessage(turn.getConversationId(), "assistant", message, "error", turnId, runId);
-		}
+		saveTimelineMessage(turn.getConversationId(), turnId, runId, timelineJson);
+		saveChatMessage(turn.getConversationId(), "assistant", message, "error", turnId, runId);
+		enqueueCheckpointRelease(runId);
 	}
 
 	@Transactional
@@ -242,6 +249,11 @@ public class ConversationTurnService {
 			return;
 		}
 		String reason = "Cancelled by user or disconnected client";
+		ConversationTurn turn = lockTurnInActiveConversation(turnId);
+		if (turn == null) {
+			log.debug("Ignoring cancellation for a deleted turn or conversation: {}", turnId);
+			return;
+		}
 		if (turnMapper.markTerminal(turnId, runId, TurnStatus.CANCELLED) != 1) {
 			log.debug("Ignoring cancellation for a stale or terminal turn: {}", turnId);
 			return;
@@ -250,11 +262,31 @@ public class ConversationTurnService {
 			throw new IllegalStateException("Run is no longer active: " + runId);
 		}
 		storeArtifact(turnId, runId, TurnArtifactType.TIMELINE, timelineJson);
-		ConversationTurn turn = turnMapper.selectById(turnId);
-		if (turn != null) {
-			saveTimelineMessage(turnId, runId, timelineJson);
-			saveChatMessage(turn.getConversationId(), "assistant", "用户已终止本次对话。", "warning", turnId, runId);
+		saveTimelineMessage(turn.getConversationId(), turnId, runId, timelineJson);
+		saveChatMessage(turn.getConversationId(), "assistant", "用户已终止本次对话。", "warning", turnId, runId);
+		enqueueCheckpointRelease(runId);
+	}
+
+	private void enqueueCheckpointRelease(String runId) {
+		outboxService.enqueue("GRAPH_RUN", runId, MemoryEventType.GRAPH_CHECKPOINT_RELEASE, null);
+	}
+
+	/**
+	 * Keeps every terminal transition in the same session -&gt; turn lock order as
+	 * conversation deletion. This prevents a graph callback from deadlocking with the
+	 * session cleanup transaction while it writes FK-backed artifacts and messages.
+	 */
+	private ConversationTurn lockTurnInActiveConversation(String turnId) {
+		ConversationTurn candidate = turnMapper.selectById(turnId);
+		if (candidate == null || StringUtils.isBlank(candidate.getConversationId())) {
+			return null;
 		}
+		String conversationId = candidate.getConversationId();
+		if (!conversationId.equals(chatSessionMapper.lockBySessionId(conversationId))) {
+			return null;
+		}
+		ConversationTurn locked = turnMapper.selectByIdForUpdate(turnId);
+		return locked != null && conversationId.equals(locked.getConversationId()) ? locked : null;
 	}
 
 	private void storeArtifact(String turnId, String runId, TurnArtifactType type, String content) {
@@ -271,14 +303,11 @@ public class ConversationTurnService {
 			.build());
 	}
 
-	private void saveTimelineMessage(String turnId, String runId, String timelineJson) {
+	private void saveTimelineMessage(String conversationId, String turnId, String runId, String timelineJson) {
 		if (StringUtils.isBlank(timelineJson)) {
 			return;
 		}
-		ConversationTurn turn = turnMapper.selectById(turnId);
-		if (turn != null) {
-			saveChatMessage(turn.getConversationId(), "assistant", timelineJson, "timeline", turnId, runId);
-		}
+		saveChatMessage(conversationId, "assistant", timelineJson, "timeline", turnId, runId);
 	}
 
 	private void saveChatMessage(String conversationId, String role, String content, String messageType, String turnId,

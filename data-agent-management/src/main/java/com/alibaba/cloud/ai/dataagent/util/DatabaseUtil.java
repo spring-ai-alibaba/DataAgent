@@ -21,6 +21,7 @@ import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import lombok.AllArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 /**
@@ -34,10 +35,24 @@ public class DatabaseUtil {
 
 	private final DatasourceService datasourceService;
 
-	public DbConfigBO getDatasourceDbConfig(Integer datasourceId) {
+	/**
+	 * Resolves one immutable connection snapshot only when it still belongs to the schema
+	 * revision captured by the graph. Reading the revision and connection fields from the
+	 * same datasource row prevents a mid-run connection update from combining old schema
+	 * documents with a new physical database.
+	 */
+	public DbConfigBO getDatasourceDbConfig(Integer datasourceId, String expectedSchemaRevision) {
+		if (StringUtils.isBlank(expectedSchemaRevision)) {
+			throw new IllegalStateException("Pinned schema revision cannot be empty for datasource " + datasourceId);
+		}
 		Datasource datasource = datasourceService.getDatasourceById(datasourceId);
 		if (datasource == null) {
 			throw new IllegalStateException("Datasource not found: " + datasourceId);
+		}
+		if (!expectedSchemaRevision.equals(datasource.getSchemaRevision())) {
+			throw new IllegalStateException(
+					"Datasource schema changed during graph execution; restart the query for datasource "
+							+ datasourceId);
 		}
 		return datasourceService.getDbConfig(datasource);
 	}

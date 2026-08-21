@@ -272,7 +272,7 @@ export const useChatStore = defineStore('chat', () => {
 	}
 
 	async function removeSession(session: ChatSession) {
-		await chatService.deleteSession(session.id);
+		await chatService.deleteSession(session.id, session.agentId);
 		deleteSessionState(session.id);
 		sessions.value = sessions.value.filter((s) => s.id !== session.id);
 		if (currentSession.value?.id === session.id) {

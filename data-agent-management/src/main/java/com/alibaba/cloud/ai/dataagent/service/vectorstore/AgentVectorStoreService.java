@@ -70,6 +70,11 @@ public interface AgentVectorStoreService {
 	boolean hasTableDocuments(Integer datasourceId, List<String> tableNames);
 
 	/**
+	 * Check whether all selected tables have vectors for one published schema revision.
+	 */
+	boolean hasTableDocuments(Integer datasourceId, List<String> tableNames, String schemaRevision);
+
+	/**
 	 * Replace all documents selected by metadata without deleting the currently usable
 	 * documents before the new vectors have been written successfully.
 	 */

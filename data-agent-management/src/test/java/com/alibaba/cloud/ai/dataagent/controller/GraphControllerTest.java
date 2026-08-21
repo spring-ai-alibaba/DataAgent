@@ -71,8 +71,8 @@ class GraphControllerTest {
 		}).when(graphService).graphStreamProcess(any(Sinks.Many.class), any(GraphRequest.class));
 
 		StepVerifier
-			.create(graphController.streamSearch("agent-1", "conversation-1", "thread-1", null,
-					"show me sales data", false, false, null, false, false, serverHttpResponse))
+			.create(graphController.streamSearch("agent-1", "conversation-1", "thread-1", null, "show me sales data",
+					false, false, null, false, false, serverHttpResponse))
 			.verifyComplete();
 
 		ArgumentCaptor<GraphRequest> requestCaptor = ArgumentCaptor.forClass(GraphRequest.class);
@@ -110,8 +110,8 @@ class GraphControllerTest {
 	void streamSearch_nl2sqlOnly_setsNl2sqlOnlyFlag() {
 		stubResponseHeaders();
 
-		graphController.streamSearch("agent-1", "conversation-3", null, null, "SELECT query", false, false, null,
-				false, true, serverHttpResponse);
+		graphController.streamSearch("agent-1", "conversation-3", null, null, "SELECT query", false, false, null, false,
+				true, serverHttpResponse);
 
 		ArgumentCaptor<GraphRequest> requestCaptor = ArgumentCaptor.forClass(GraphRequest.class);
 		verify(graphService).graphStreamProcess(any(Sinks.Many.class), requestCaptor.capture());
@@ -151,18 +151,18 @@ class GraphControllerTest {
 
 	@Test
 	void stopStream_withRunId_stopsExactGraphRun() {
-		graphController.stopStream("conversation-4", "run-4");
+		graphController.stopStream("4", "conversation-4", "run-4");
 
-		verify(graphService).stopStreamProcessing("run-4");
-		verify(graphService, never()).stopStreamProcessingByConversationId(anyString());
+		verify(graphService).stopStreamProcessing("run-4", "4");
+		verify(graphService, never()).stopStreamProcessingByConversationId(anyString(), anyString());
 	}
 
 	@Test
 	void stopStream_withoutRunId_stopsConversationRun() {
-		graphController.stopStream("conversation-5", null);
+		graphController.stopStream("5", "conversation-5", null);
 
-		verify(graphService).stopStreamProcessingByConversationId("conversation-5");
-		verify(graphService, never()).stopStreamProcessing(anyString());
+		verify(graphService).stopStreamProcessingByConversationId("conversation-5", "5");
+		verify(graphService, never()).stopStreamProcessing(anyString(), anyString());
 	}
 
 }

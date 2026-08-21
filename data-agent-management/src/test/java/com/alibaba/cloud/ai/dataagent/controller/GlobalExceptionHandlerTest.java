@@ -101,4 +101,12 @@ class GlobalExceptionHandlerTest {
 		assertEquals("memory already confirmed", response.getBody().getMessage());
 	}
 
+	@Test
+	void handleIllegalArgumentException_returnsBadRequestPayload() {
+		ApiResponse<Object> response = handler.handleBadRequest(new IllegalArgumentException("invalid memory scope"));
+
+		assertFalse(response.isSuccess());
+		assertEquals("invalid memory scope", response.getMessage());
+	}
+
 }

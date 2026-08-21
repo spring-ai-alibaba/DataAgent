@@ -45,6 +45,9 @@ public class MemoryOutboxEvent {
 
 	private Integer attemptCount;
 
+	/** Unique ownership token for the worker currently processing this event. */
+	private String leaseToken;
+
 	private LocalDateTime availableAt;
 
 	private String lastError;

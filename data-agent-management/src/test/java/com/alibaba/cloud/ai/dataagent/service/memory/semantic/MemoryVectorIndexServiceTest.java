@@ -33,8 +33,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -99,12 +99,35 @@ class MemoryVectorIndexServiceTest {
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<Document>> documents = ArgumentCaptor.forClass(List.class);
 		verify(vectorStore).add(documents.capture());
-		assertThat(documents.getValue()).singleElement().satisfies(document -> assertThat(document.getMetadata())
-			.containsEntry(DocumentMetadataConstant.MEMORY_OWNER_ID, "99"));
+		assertThat(documents.getValue()).singleElement()
+			.satisfies(document -> assertThat(document.getMetadata())
+				.containsEntry(DocumentMetadataConstant.MEMORY_OWNER_ID, "99"));
 		ArgumentCaptor<SearchRequest> search = ArgumentCaptor.forClass(SearchRequest.class);
 		verify(vectorStore).similaritySearch(search.capture());
-		assertThat(search.getValue().getFilterExpression().toString())
-			.contains("memoryScopeType", "USER_AGENT", "memoryOwnerId", "99");
+		assertThat(search.getValue().getFilterExpression().toString()).contains("memoryScopeType", "USER_AGENT",
+				"memoryOwnerId", "99");
+	}
+
+	@Test
+	void disablingIndexingStillDeletesDocumentsWrittenBeforeTheConfigurationChange() {
+		properties.getMemory().setVectorIndexEnabled(false);
+
+		service.deleteTurn("turn-1");
+		service.deleteMemoryItem(11L);
+
+		verify(vectorStore).delete(List.of("memory-turn-turn-1"));
+		verify(vectorStore).delete(List.of("memory-item-11"));
+	}
+
+	@Test
+	void malformedVectorMetadataCannotBreakRelationalFallback() {
+		Document malformed = new Document("bad", "memory",
+				java.util.Map.of(DocumentMetadataConstant.MEMORY_ITEM_ID, "not-a-number"));
+		Document valid = new Document("good", "memory",
+				java.util.Map.of(DocumentMetadataConstant.MEMORY_ITEM_ID, "12"));
+		when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(malformed, valid));
+
+		assertThat(service.recallMemoryItemIds("currency", null, 7, null, 5)).containsExactly(12L);
 	}
 
 }

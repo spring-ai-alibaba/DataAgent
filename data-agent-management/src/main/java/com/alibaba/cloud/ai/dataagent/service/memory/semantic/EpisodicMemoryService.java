@@ -27,8 +27,8 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Recalls successful turns from other conversations and revalidates their
- * relational ownership boundary after semantic retrieval.
+ * Recalls successful turns from other conversations and revalidates their relational
+ * ownership boundary after semantic retrieval.
  */
 @Service
 @RequiredArgsConstructor
@@ -42,23 +42,45 @@ public class EpisodicMemoryService {
 
 	public List<ConversationTurn> recallRelevant(String query, Long ownerId, Integer agentId, Integer datasourceId,
 			String currentConversationId) {
-		if (ownerId == null || datasourceId == null) {
+		if (ownerId == null || agentId == null || datasourceId == null) {
 			return List.of();
 		}
 		int limit = Math.max(1, properties.getMemory().getEpisodicTopK());
 		List<String> recalledIds = vectorIndexService.recallTurnIds(query, ownerId, agentId, datasourceId, limit);
-		List<ConversationTurn> candidates = recalledIds.isEmpty()
-				? turnMapper.selectRecentSuccessfulByOwner(ownerId, agentId, datasourceId, limit * 2)
-				: turnMapper.selectSuccessfulByIds(recalledIds);
 		Map<String, ConversationTurn> filtered = new LinkedHashMap<>();
-		for (ConversationTurn candidate : candidates) {
-			boolean sameScope = ownerId.equals(candidate.getOwnerId()) && agentId.equals(candidate.getAgentId())
-					&& datasourceId.equals(candidate.getDatasourceId());
-			if (sameScope && !Objects.equals(currentConversationId, candidate.getConversationId())) {
-				filtered.putIfAbsent(candidate.getId(), candidate);
+		if (!recalledIds.isEmpty()) {
+			Map<String, ConversationTurn> candidatesById = new LinkedHashMap<>();
+			for (ConversationTurn candidate : turnMapper.selectSuccessfulByIds(recalledIds)) {
+				candidatesById.putIfAbsent(candidate.getId(), candidate);
+			}
+			// SQL IN does not preserve the vector result order. Reapply it explicitly,
+			// then keep only rows that still satisfy the authoritative ownership scope.
+			for (String recalledId : recalledIds) {
+				addIfVisible(filtered, candidatesById.get(recalledId), ownerId, agentId, datasourceId,
+						currentConversationId);
+			}
+		}
+		if (filtered.size() < limit) {
+			// The vector index is a rebuildable hint. Stale, missing or partially valid
+			// hits must not suppress the relational fallback.
+			for (ConversationTurn recent : turnMapper.selectRecentSuccessfulByOwner(ownerId, agentId, datasourceId,
+					currentConversationId, limit)) {
+				addIfVisible(filtered, recent, ownerId, agentId, datasourceId, currentConversationId);
 			}
 		}
 		return filtered.values().stream().limit(limit).toList();
+	}
+
+	private void addIfVisible(Map<String, ConversationTurn> target, ConversationTurn candidate, Long ownerId,
+			Integer agentId, Integer datasourceId, String currentConversationId) {
+		if (candidate == null) {
+			return;
+		}
+		boolean sameScope = ownerId.equals(candidate.getOwnerId()) && Objects.equals(agentId, candidate.getAgentId())
+				&& datasourceId.equals(candidate.getDatasourceId());
+		if (sameScope && !Objects.equals(currentConversationId, candidate.getConversationId())) {
+			target.putIfAbsent(candidate.getId(), candidate);
+		}
 	}
 
 }

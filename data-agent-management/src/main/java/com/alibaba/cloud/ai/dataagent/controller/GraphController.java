@@ -95,26 +95,27 @@ public class GraphController {
 			.doOnCancel(() -> {
 				log.info("Client disconnected from stream, threadId: {}", request.getThreadId());
 				if (request.getThreadId() != null) {
-					graphService.stopStreamProcessing(request.getThreadId());
+					graphService.stopStreamProcessing(request.getThreadId(), request.getAgentId());
 				}
 			})
 			.doOnError(e -> {
 				log.error("Error occurred during streaming, threadId: {}: ", request.getThreadId(), e);
 				if (request.getThreadId() != null) {
-					graphService.stopStreamProcessing(request.getThreadId());
+					graphService.stopStreamProcessing(request.getThreadId(), request.getAgentId());
 				}
 			})
 			.doOnComplete(() -> log.info("Stream completed successfully, threadId: {}", request.getThreadId()));
 	}
 
 	@PostMapping("/stream/stop")
-	public ResponseEntity<Void> stopStream(@RequestParam("conversationId") String conversationId,
+	public ResponseEntity<Void> stopStream(@RequestParam("agentId") String agentId,
+			@RequestParam("conversationId") String conversationId,
 			@RequestParam(value = "threadId", required = false) String threadId) {
 		if (StringUtils.hasText(threadId)) {
-			graphService.stopStreamProcessing(threadId);
+			graphService.stopStreamProcessing(threadId, agentId);
 		}
 		else {
-			graphService.stopStreamProcessingByConversationId(conversationId);
+			graphService.stopStreamProcessingByConversationId(conversationId, agentId);
 		}
 		return ResponseEntity.noContent().build();
 	}

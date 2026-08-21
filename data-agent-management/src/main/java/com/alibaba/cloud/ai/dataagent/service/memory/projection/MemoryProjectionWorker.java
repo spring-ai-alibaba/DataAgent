@@ -19,21 +19,30 @@ import com.alibaba.cloud.ai.dataagent.entity.ConversationTurn;
 import com.alibaba.cloud.ai.dataagent.entity.MemoryItem;
 import com.alibaba.cloud.ai.dataagent.entity.MemoryOutboxEvent;
 import com.alibaba.cloud.ai.dataagent.enums.MemoryStatus;
+import com.alibaba.cloud.ai.dataagent.enums.TurnStatus;
 import com.alibaba.cloud.ai.dataagent.mapper.ConversationTurnMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.MemoryItemMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.MemoryOutboxMapper;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.service.graph.checkpoint.ReleasedCheckpointCleanupService;
 import com.alibaba.cloud.ai.dataagent.service.memory.projection.outbox.MemoryEventType;
 import com.alibaba.cloud.ai.dataagent.service.memory.semantic.MemoryVectorIndexService;
+import com.alibaba.cloud.ai.dataagent.service.memory.shortterm.ConversationMemoryGateway;
 import com.alibaba.cloud.ai.dataagent.service.memory.shortterm.ConversationSummaryService;
+import com.alibaba.cloud.ai.graph.RunnableConfig;
+import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Idempotently projects durable turn and memory events into rebuildable summaries and the
@@ -54,6 +63,12 @@ public class MemoryProjectionWorker {
 
 	private final MemoryVectorIndexService vectorIndexService;
 
+	private final ConversationMemoryGateway memoryGateway;
+
+	private final BaseCheckpointSaver checkpointSaver;
+
+	private final ReleasedCheckpointCleanupService checkpointCleanupService;
+
 	private final DataAgentProperties properties;
 
 	@Scheduled(initialDelayString = "${spring.ai.alibaba.data-agent.memory.outbox-initial-delay-ms:10000}",
@@ -63,6 +78,14 @@ public class MemoryProjectionWorker {
 		List<MemoryOutboxEvent> events;
 		try {
 			outboxMapper.recoverStale(LocalDateTime.now().minusMinutes(5));
+			int revived = outboxMapper.reviveGuaranteedRetryDeadLetters();
+			if (revived > 0) {
+				log.warn("Revived {} destructive memory cleanup event(s) from DEAD", revived);
+			}
+			int exhausted = outboxMapper.markExhaustedAsDead(maxAttempts);
+			if (exhausted > 0) {
+				log.error("Moved {} exhausted memory projection event(s) to DEAD", exhausted);
+			}
 			events = outboxMapper.selectReady(Math.max(1, properties.getMemory().getOutboxBatchSize()), maxAttempts);
 		}
 		catch (RuntimeException e) {
@@ -70,28 +93,84 @@ public class MemoryProjectionWorker {
 			return;
 		}
 		for (MemoryOutboxEvent event : events) {
-			if (outboxMapper.claim(event.getId()) != 1) {
+			String leaseToken = UUID.randomUUID().toString();
+			if (outboxMapper.claim(event.getId(), leaseToken, maxAttempts) != 1) {
 				continue;
 			}
 			try {
 				project(event);
-				outboxMapper.markDone(event.getId());
+				if (outboxMapper.markDone(event.getId(), leaseToken) != 1) {
+					log.warn("Memory projection event {} completed after its worker lease expired", event.getId());
+				}
 			}
 			catch (RuntimeException e) {
 				int attempt = event.getAttemptCount() == null ? 1 : event.getAttemptCount() + 1;
 				long retryDelaySeconds = Math.min(300, 1L << Math.min(8, attempt));
 				String error = StringUtils
 					.abbreviate(StringUtils.defaultIfBlank(e.getMessage(), e.getClass().getSimpleName()), 4000);
-				outboxMapper.markFailed(event.getId(), error, LocalDateTime.now().plusSeconds(retryDelaySeconds));
-				log.warn("Memory projection event {} failed on attempt {}: {}", event.getId(), attempt, error);
+				if (attempt >= maxAttempts && !MemoryEventType.requiresGuaranteedRetry(event.getEventType())) {
+					if (outboxMapper.markDead(event.getId(), leaseToken, error) == 1) {
+						log.error("Memory projection event {} is DEAD after {} attempts: {}", event.getId(), attempt,
+								error);
+					}
+					else {
+						log.warn("Ignoring terminal failure from an expired worker lease for memory event {}",
+								event.getId());
+					}
+				}
+				else {
+					if (outboxMapper.markFailed(event.getId(), leaseToken, error,
+							LocalDateTime.now().plusSeconds(retryDelaySeconds)) == 1) {
+						log.warn("Memory projection event {} failed on attempt {}: {}", event.getId(), attempt, error);
+					}
+					else {
+						log.warn("Ignoring retry state from an expired worker lease for memory event {}",
+								event.getId());
+					}
+				}
 			}
+		}
+	}
+
+	@Scheduled(initialDelayString = "${spring.ai.alibaba.data-agent.memory.outbox-cleanup-initial-delay-ms:60000}",
+			fixedDelayString = "${spring.ai.alibaba.data-agent.memory.outbox-cleanup-delay-ms:3600000}")
+	public void purgeCompletedEvents() {
+		int retentionDays = Math.max(1, properties.getMemory().getOutboxCompletedRetentionDays());
+		int batchSize = Math.max(1, properties.getMemory().getOutboxCleanupBatchSize());
+		try {
+			List<MemoryOutboxEvent> completed = outboxMapper
+				.selectCompletedBefore(LocalDateTime.now().minus(retentionDays, ChronoUnit.DAYS), batchSize);
+			List<Long> ids = new ArrayList<>(completed.size());
+			for (MemoryOutboxEvent event : completed) {
+				if (MemoryEventType.GRAPH_CHECKPOINT_RELEASE.equals(event.getEventType())) {
+					try {
+						checkpointCleanupService.purgeReleased(event.getAggregateId());
+					}
+					catch (RuntimeException cleanupFailure) {
+						log.warn("Unable to purge released graph checkpoint {}: {}", event.getAggregateId(),
+								cleanupFailure.getMessage());
+						continue;
+					}
+				}
+				ids.add(event.getId());
+			}
+			if (!ids.isEmpty()) {
+				int deleted = outboxMapper.deleteCompletedByIds(ids);
+				log.info("Purged {} completed memory projection event(s)", deleted);
+			}
+		}
+		catch (RuntimeException e) {
+			log.warn("Completed memory projection cleanup is unavailable: {}", e.getMessage());
 		}
 	}
 
 	private void project(MemoryOutboxEvent event) {
 		switch (event.getEventType()) {
-			case MemoryEventType.TURN_SUCCEEDED -> projectTurn(event.getAggregateId());
+			case MemoryEventType.TURN_COMPLETED, MemoryEventType.LEGACY_TURN_SUCCEEDED ->
+				projectTurn(event.getAggregateId());
 			case MemoryEventType.TURN_INVALIDATED -> vectorIndexService.deleteTurn(event.getAggregateId());
+			case MemoryEventType.CONVERSATION_FORGOTTEN -> forgetConversation(event.getAggregateId());
+			case MemoryEventType.GRAPH_CHECKPOINT_RELEASE -> releaseCheckpoint(event.getAggregateId());
 			case MemoryEventType.MEMORY_CONFIRMED -> projectConfirmedMemory(Long.valueOf(event.getAggregateId()));
 			case MemoryEventType.MEMORY_INVALIDATED ->
 				vectorIndexService.deleteMemoryItem(Long.valueOf(event.getAggregateId()));
@@ -99,19 +178,88 @@ public class MemoryProjectionWorker {
 		}
 	}
 
+	private void releaseCheckpoint(String threadId) {
+		RunnableConfig config = RunnableConfig.builder().threadId(threadId).build();
+		try {
+			checkpointSaver.release(config);
+		}
+		catch (Exception releaseFailure) {
+			try {
+				if (isIntegrityConstraintViolation(releaseFailure)
+						&& checkpointCleanupService.reconcileLegacyReleaseConflict(threadId)) {
+					try {
+						checkpointSaver.release(config);
+						return;
+					}
+					catch (Exception retryFailure) {
+						releaseFailure.addSuppressed(retryFailure);
+					}
+				}
+			}
+			catch (RuntimeException reconciliationFailure) {
+				releaseFailure.addSuppressed(reconciliationFailure);
+			}
+			try {
+				if (checkpointSaver.list(config).isEmpty()) {
+					// Framework JDBC savers report an already released or absent thread
+					// as an
+					// exception. The configured cache-disabled MysqlSaver makes this a
+					// database-backed verification before the outbox event is
+					// acknowledged.
+					return;
+				}
+			}
+			catch (RuntimeException verificationFailure) {
+				releaseFailure.addSuppressed(verificationFailure);
+			}
+			throw new IllegalStateException("Failed to release graph checkpoint " + threadId, releaseFailure);
+		}
+	}
+
+	private boolean isIntegrityConstraintViolation(Throwable failure) {
+		Throwable current = failure;
+		while (current != null) {
+			if (current instanceof SQLException sqlException && sqlException.getSQLState() != null
+					&& sqlException.getSQLState().startsWith("23")) {
+				return true;
+			}
+			if (current.getCause() == current) {
+				break;
+			}
+			current = current.getCause();
+		}
+		return false;
+	}
+
+	private void forgetConversation(String conversationId) {
+		summaryService.delete(conversationId);
+		memoryGateway.clear(conversationId);
+	}
+
 	private void projectTurn(String turnId) {
 		ConversationTurn turn = turnMapper.selectById(turnId);
-		if (turn == null || !Boolean.TRUE.equals(turn.getMemoryEligible())) {
+		if (turn == null || turn.getStatus() != TurnStatus.SUCCEEDED) {
 			return;
 		}
 		summaryService.rebuild(turn.getConversationId());
-		vectorIndexService.indexTurn(turn);
+		if (Boolean.TRUE.equals(turn.getMemoryEligible())) {
+			vectorIndexService.indexTurn(turn);
+			ConversationTurn current = turnMapper.selectById(turnId);
+			if (current == null || current.getStatus() != TurnStatus.SUCCEEDED
+					|| !Boolean.TRUE.equals(current.getMemoryEligible())) {
+				vectorIndexService.deleteTurn(turnId);
+			}
+		}
 	}
 
 	private void projectConfirmedMemory(Long memoryItemId) {
 		MemoryItem item = memoryItemMapper.selectById(memoryItemId);
 		if (item != null && item.getStatus() == MemoryStatus.CONFIRMED) {
 			vectorIndexService.indexMemoryItem(item);
+			MemoryItem current = memoryItemMapper.selectById(memoryItemId);
+			if (current == null || current.getStatus() != MemoryStatus.CONFIRMED) {
+				vectorIndexService.deleteMemoryItem(memoryItemId);
+			}
 		}
 	}
 

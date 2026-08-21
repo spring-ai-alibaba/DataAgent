@@ -30,7 +30,9 @@ import org.springframework.security.web.server.WebFilterChainProxy;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.server.RouterFunctions;
 
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.web.reactive.function.server.RequestPredicates.DELETE;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
 import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
 import static org.springframework.web.reactive.function.server.ServerResponse.ok;
@@ -56,7 +58,10 @@ class WebFluxSecurityConfigurationTest {
 				org.springframework.security.config.web.server.ServerHttpSecurity.http(), manager,
 				new AgentApiKeyServerAuthenticationConverter());
 		var router = RouterFunctions.route(GET("/api/stream/search"), request -> ok().bodyValue("stream"))
+			.andRoute(POST("/api/stream/stop"), request -> ok().bodyValue("stopped"))
 			.andRoute(POST("/api/agents/{agentId}/memories"), request -> ok().bodyValue("memory"))
+			.andRoute(DELETE("/api/agent/{agentId}/sessions"), request -> ok().bodyValue("cleared"))
+			.andRoute(DELETE("/api/sessions/{sessionId}"), request -> ok().bodyValue("deleted"))
 			.andRoute(GET("/api/agent/list"), request -> ok().bodyValue("management"));
 		webTestClient = WebTestClient.bindToRouterFunction(router)
 			.webFilter(new WebFilterChainProxy(securityChain))
@@ -105,6 +110,31 @@ class WebFluxSecurityConfigurationTest {
 	}
 
 	@Test
+	void streamStop_usesAgentIdentityAndRequiresItsCredential() {
+		when(agentMapper.findById(1L))
+			.thenReturn(Agent.builder().id(1L).apiKeyEnabled(1).apiKey(credentialService.encode("sk-valid")).build());
+
+		webTestClient.post()
+			.uri("/api/stream/stop?agentId=1&conversationId=conversation-1")
+			.header(AgentApiKeyServerAuthenticationConverter.API_KEY_HEADER, "sk-valid")
+			.exchange()
+			.expectStatus()
+			.isOk();
+	}
+
+	@Test
+	void streamStop_withoutCredentialIsUnauthorizedWhenAgentKeyIsEnabled() {
+		when(agentMapper.findById(1L))
+			.thenReturn(Agent.builder().id(1L).apiKeyEnabled(1).apiKey(credentialService.encode("sk-valid")).build());
+
+		webTestClient.post()
+			.uri("/api/stream/stop?agentId=1&conversationId=conversation-1")
+			.exchange()
+			.expectStatus()
+			.isUnauthorized();
+	}
+
+	@Test
 	void managementEndpoint_isNotClaimedByAgentApiKeyAuthentication() {
 		webTestClient.get().uri("/api/agent/list").exchange().expectStatus().isOk();
 	}
@@ -142,6 +172,35 @@ class WebFluxSecurityConfigurationTest {
 		when(agentMapper.findById(7L)).thenReturn(Agent.builder().id(7L).apiKeyEnabled(0).build());
 
 		webTestClient.post().uri("/api/agents/7/memories?agentId=8").exchange().expectStatus().isUnauthorized();
+	}
+
+	@Test
+	void clearSessions_usesAgentIdFromPathInsteadOfQueryParameter() {
+		when(agentMapper.findById(7L)).thenReturn(Agent.builder().id(7L).apiKeyEnabled(0).build());
+
+		webTestClient.delete().uri("/api/agent/7/sessions?agentId=8").exchange().expectStatus().isOk();
+
+		verify(agentMapper).findById(7L);
+	}
+
+	@Test
+	void clearSessions_requiresCredentialWhenAgentKeyIsEnabled() {
+		when(agentMapper.findById(7L))
+			.thenReturn(Agent.builder().id(7L).apiKeyEnabled(1).apiKey(credentialService.encode("sk-seven")).build());
+
+		webTestClient.delete().uri("/api/agent/7/sessions").exchange().expectStatus().isUnauthorized();
+	}
+
+	@Test
+	void deleteSession_authenticatesAgentFromRequiredQueryParameter() {
+		when(agentMapper.findById(7L)).thenReturn(Agent.builder().id(7L).apiKeyEnabled(0).build());
+
+		webTestClient.delete().uri("/api/sessions/conversation-1?agentId=7").exchange().expectStatus().isOk();
+	}
+
+	@Test
+	void deleteSession_withoutAgentIdIsUnauthorized() {
+		webTestClient.delete().uri("/api/sessions/conversation-1").exchange().expectStatus().isUnauthorized();
 	}
 
 }

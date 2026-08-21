@@ -82,19 +82,20 @@ class TableRelationNodeTest {
 		state.registerKeyAndStrategy(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(AGENT_ID, new ReplaceStrategy());
 		state.registerKeyAndStrategy(DATASOURCE_ID, new ReplaceStrategy());
+		state.registerKeyAndStrategy(SCHEMA_FINGERPRINT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(DB_DIALECT_TYPE, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_RETRY_COUNT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_EXCEPTION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_GENERATE_SCHEMA_MISSING_ADVICE, new ReplaceStrategy());
 		state.registerKeyAndStrategy(GENEGRATED_SEMANTIC_MODEL_PROMPT, new ReplaceStrategy());
-		state.updateState(Map.of(DATASOURCE_ID, 100));
+		state.updateState(Map.of(DATASOURCE_ID, 100, SCHEMA_FINGERPRINT, "schema-v1"));
 		return state;
 	}
 
 	private void setupCommonMocks(String agentId, List<Document> tableDocs) throws Exception {
 		DbConfigBO dbConfig = DbConfigBO.builder().dialectType("mysql").schema("test_db").build();
-		when(databaseUtil.getDatasourceDbConfig(100)).thenReturn(dbConfig);
+		when(databaseUtil.getDatasourceDbConfig(100, "schema-v1")).thenReturn(dbConfig);
 		when(datasourceService.getLogicalRelations(100)).thenReturn(Collections.emptyList());
 		when(semanticModelService.getByAgentIdAndTableNames(eq(Long.valueOf(agentId)), anyList()))
 			.thenReturn(Collections.emptyList());
@@ -189,7 +190,8 @@ class TableRelationNodeTest {
 				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocs, COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT,
 				Collections.emptyList()));
 
-		when(databaseUtil.getDatasourceDbConfig(100)).thenThrow(new RuntimeException("DB config not found"));
+		when(databaseUtil.getDatasourceDbConfig(100, "schema-v1"))
+			.thenThrow(new RuntimeException("DB config not found"));
 
 		RuntimeException exception = assertThrowsExactly(RuntimeException.class, () -> tableRelationNode.apply(state));
 		assertEquals("DB config not found", exception.getMessage());
@@ -206,7 +208,7 @@ class TableRelationNodeTest {
 				Collections.emptyList()));
 
 		DbConfigBO dbConfig = DbConfigBO.builder().dialectType("mysql").schema("test_db").build();
-		when(databaseUtil.getDatasourceDbConfig(100)).thenReturn(dbConfig);
+		when(databaseUtil.getDatasourceDbConfig(100, "schema-v1")).thenReturn(dbConfig);
 		when(datasourceService.getLogicalRelations(100)).thenReturn(Collections.emptyList());
 		when(semanticModelService.getByAgentIdAndTableNames(eq(5L), anyList())).thenReturn(Collections.emptyList());
 
@@ -241,7 +243,7 @@ class TableRelationNodeTest {
 				Collections.emptyList(), SQL_GENERATE_SCHEMA_MISSING_ADVICE, "add orders table"));
 
 		DbConfigBO dbConfig = DbConfigBO.builder().dialectType("mysql").schema("test_db").build();
-		when(databaseUtil.getDatasourceDbConfig(100)).thenReturn(dbConfig);
+		when(databaseUtil.getDatasourceDbConfig(100, "schema-v1")).thenReturn(dbConfig);
 		when(datasourceService.getLogicalRelations(100)).thenReturn(Collections.emptyList());
 		when(semanticModelService.getByAgentIdAndTableNames(eq(6L), anyList())).thenReturn(Collections.emptyList());
 

@@ -20,12 +20,13 @@ import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
 import com.alibaba.cloud.ai.dataagent.service.langfuse.NodeTracingLifecycleListener;
 import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
+import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
 import com.alibaba.cloud.ai.graph.checkpoint.Checkpoint;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
+import com.alibaba.cloud.ai.graph.checkpoint.savers.mysql.MysqlSaver;
 import com.alibaba.cloud.ai.graph.store.Store;
 import com.alibaba.cloud.ai.graph.store.StoreItem;
-import com.alibaba.cloud.ai.graph.store.stores.DatabaseStore;
 import com.alibaba.cloud.ai.graph.store.stores.MemoryStore;
 import io.opentelemetry.api.trace.Tracer;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,7 @@ import java.util.UUID;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.HUMAN_FEEDBACK_NODE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class DataAgentConfigurationTest {
 
@@ -48,19 +50,17 @@ class DataAgentConfigurationTest {
 	}
 
 	@Test
-	void graphMemoryStore_usesFrameworkDatabaseStoreAndPersistsAcrossInstances() {
+	void graphMemoryStore_usesFrameworkMemoryStoreAsRebuildableProjection() {
 		DataAgentConfiguration configuration = new DataAgentConfiguration();
-		String databaseName = "graph-memory-" + UUID.randomUUID();
-		DriverManagerDataSource dataSource = new DriverManagerDataSource(
-				"jdbc:h2:mem:" + databaseName + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
 		List<String> namespace = List.of("data-agent", "conversation-summary", "conversation-1");
 
-		Store first = configuration.graphMemoryStore(dataSource);
-		first.putItem(StoreItem.of(namespace, "rolling-summary", Map.of("summaryText", "verified summary")));
-		Store second = configuration.graphMemoryStore(dataSource);
+		Store store = configuration.graphMemoryStore();
+		Store summaryStore = configuration.conversationSummaryStore();
+		store.putItem(StoreItem.of(namespace, "rolling-summary", Map.of("summaryText", "verified summary")));
 
-		assertThat(first).isInstanceOf(DatabaseStore.class);
-		assertThat(second.getItem(namespace, "rolling-summary")).isPresent()
+		assertThat(store).isInstanceOf(MemoryStore.class);
+		assertThat(summaryStore).isInstanceOf(MemoryStore.class).isNotSameAs(store);
+		assertThat(store.getItem(namespace, "rolling-summary")).isPresent()
 			.get()
 			.satisfies(item -> assertThat(item.getValue()).containsEntry("summaryText", "verified summary"));
 	}
@@ -89,6 +89,23 @@ class DataAgentConfigurationTest {
 		assertThat(checkpointSaver.get(runnableConfig)).isPresent();
 		checkpointSaver.release(runnableConfig);
 		assertThat(checkpointSaver.get(runnableConfig)).isEmpty();
+	}
+
+	@Test
+	void mysqlCheckpointSaver_usesFrameworkSaverWithNodeLocalCacheDisabled() throws ReflectiveOperationException {
+		DataAgentConfiguration configuration = new DataAgentConfiguration();
+		String databaseName = "checkpoint-" + UUID.randomUUID();
+		DriverManagerDataSource dataSource = new DriverManagerDataSource(
+				"jdbc:h2:mem:" + databaseName + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
+		StateGraph graph = mock(StateGraph.class);
+		when(graph.getStateSerializer()).thenReturn(StateGraph.DEFAULT_JACKSON_SERIALIZER);
+
+		BaseCheckpointSaver saver = configuration.mysqlCheckpointSaver(graph, dataSource);
+		var maxCachedThreads = MysqlSaver.class.getDeclaredField("maxCachedThreads");
+		maxCachedThreads.setAccessible(true);
+
+		assertThat(saver).isInstanceOf(MysqlSaver.class);
+		assertThat(maxCachedThreads.getInt(saver)).isZero();
 	}
 
 }
