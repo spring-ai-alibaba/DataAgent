@@ -29,7 +29,6 @@ import java.util.Map;
 
 import com.alibaba.cloud.ai.dataagent.common.TestFixtures;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
-import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
 import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeExecution;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -47,23 +46,22 @@ class SchemaRecallNodeTest {
 	@Mock
 	private SchemaService schemaService;
 
-	@Mock
-	private AgentDatasourceMapper agentDatasourceMapper;
-
 	private SchemaRecallNode schemaRecallNode;
 
 	@BeforeEach
 	void setUp() {
-		schemaRecallNode = new SchemaRecallNode(schemaService, agentDatasourceMapper);
+		schemaRecallNode = new SchemaRecallNode(schemaService);
 	}
 
 	private OverAllState createTestState() {
 		OverAllState state = new OverAllState();
 		state.registerKeyAndStrategy(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(AGENT_ID, new ReplaceStrategy());
+		state.registerKeyAndStrategy(DATASOURCE_ID, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SCHEMA_RECALL_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(SCHEMA_FINGERPRINT, new ReplaceStrategy());
 		return state;
 	}
 
@@ -78,14 +76,14 @@ class SchemaRecallNodeTest {
 	@Test
 	void apply_withDatasource_returnsSchemaRecallOutput() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, createQueryEnhanceDTO("查询用户"), AGENT_ID, "1"));
-
-		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(1L)).thenReturn(100);
+		state.updateState(
+				Map.of(QUERY_ENHANCE_NODE_OUTPUT, createQueryEnhanceDTO("查询用户"), AGENT_ID, "1", DATASOURCE_ID, 100));
 
 		List<Document> tableDocs = List.of(createTableDocument("users"));
 		List<Document> columnDocs = List.of(new Document("col doc"));
-		when(schemaService.getTableDocumentsByDatasource(eq(100), anyString())).thenReturn(tableDocs);
-		when(schemaService.getColumnDocumentsByTableName(eq(100), anyList())).thenReturn(columnDocs);
+		when(schemaService.getSchemaRevision(100)).thenReturn("schema-v1");
+		when(schemaService.getTableDocumentsByDatasource(eq(100), anyString(), eq("schema-v1"))).thenReturn(tableDocs);
+		when(schemaService.getColumnDocumentsByTableName(eq(100), anyList(), eq("schema-v1"))).thenReturn(columnDocs);
 
 		NodeExecution execution = execute(schemaRecallNode.apply(state), SCHEMA_RECALL_NODE_OUTPUT);
 
@@ -99,8 +97,6 @@ class SchemaRecallNodeTest {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, createQueryEnhanceDTO("查询用户"), AGENT_ID, "2"));
 
-		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(2L)).thenReturn(null);
-
 		NodeExecution execution = execute(schemaRecallNode.apply(state), SCHEMA_RECALL_NODE_OUTPUT);
 
 		assertEquals(Collections.emptyList(), execution.finalResult().get(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT));
@@ -111,11 +107,13 @@ class SchemaRecallNodeTest {
 	@Test
 	void apply_emptyTableDocuments_returnsGeneratorWithEmptyTables() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, createQueryEnhanceDTO("不存在的查询"), AGENT_ID, "3"));
-
-		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(3L)).thenReturn(200);
-		when(schemaService.getTableDocumentsByDatasource(eq(200), anyString())).thenReturn(Collections.emptyList());
-		when(schemaService.getColumnDocumentsByTableName(eq(200), anyList())).thenReturn(Collections.emptyList());
+		state.updateState(
+				Map.of(QUERY_ENHANCE_NODE_OUTPUT, createQueryEnhanceDTO("不存在的查询"), AGENT_ID, "3", DATASOURCE_ID, 200));
+		when(schemaService.getSchemaRevision(200)).thenReturn("schema-v1");
+		when(schemaService.getTableDocumentsByDatasource(eq(200), anyString(), eq("schema-v1")))
+			.thenReturn(Collections.emptyList());
+		when(schemaService.getColumnDocumentsByTableName(eq(200), anyList(), eq("schema-v1")))
+			.thenReturn(Collections.emptyList());
 
 		NodeExecution execution = execute(schemaRecallNode.apply(state), SCHEMA_RECALL_NODE_OUTPUT);
 
@@ -127,29 +125,29 @@ class SchemaRecallNodeTest {
 	@Test
 	void apply_multipleTables_returnsAllTableNames() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, createQueryEnhanceDTO("查询用户和订单"), AGENT_ID, "4"));
-
-		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(4L)).thenReturn(300);
+		state.updateState(
+				Map.of(QUERY_ENHANCE_NODE_OUTPUT, createQueryEnhanceDTO("查询用户和订单"), AGENT_ID, "4", DATASOURCE_ID, 300));
 
 		List<Document> tableDocs = List.of(createTableDocument("users"), createTableDocument("orders"));
-		when(schemaService.getTableDocumentsByDatasource(eq(300), anyString())).thenReturn(tableDocs);
-		when(schemaService.getColumnDocumentsByTableName(eq(300), anyList()))
+		when(schemaService.getSchemaRevision(300)).thenReturn("schema-v1");
+		when(schemaService.getTableDocumentsByDatasource(eq(300), anyString(), eq("schema-v1"))).thenReturn(tableDocs);
+		when(schemaService.getColumnDocumentsByTableName(eq(300), anyList(), eq("schema-v1")))
 			.thenReturn(List.of(new Document("col1"), new Document("col2")));
 
 		NodeExecution execution = execute(schemaRecallNode.apply(state), SCHEMA_RECALL_NODE_OUTPUT);
 
 		assertEquals(tableDocs, execution.finalResult().get(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT));
 		assertEquals(2, ((List<?>) execution.finalResult().get(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT)).size());
-		verify(schemaService).getColumnDocumentsByTableName(300, List.of("users", "orders"));
+		verify(schemaService).getColumnDocumentsByTableName(300, List.of("users", "orders"), "schema-v1");
 	}
 
 	@Test
 	void apply_schemaServiceFailure_throwsException() {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, createQueryEnhanceDTO("查询失败"), AGENT_ID, "5"));
-
-		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(5L)).thenReturn(400);
-		when(schemaService.getTableDocumentsByDatasource(eq(400), anyString()))
+		state.updateState(
+				Map.of(QUERY_ENHANCE_NODE_OUTPUT, createQueryEnhanceDTO("查询失败"), AGENT_ID, "5", DATASOURCE_ID, 400));
+		when(schemaService.getSchemaRevision(400)).thenReturn("schema-v1");
+		when(schemaService.getTableDocumentsByDatasource(eq(400), anyString(), eq("schema-v1")))
 			.thenThrow(new RuntimeException("DB connection failed"));
 
 		RuntimeException exception = assertThrowsExactly(RuntimeException.class, () -> schemaRecallNode.apply(state));
@@ -159,23 +157,41 @@ class SchemaRecallNodeTest {
 	@Test
 	void apply_tableDocumentWithoutName_extractsOnlyValidNames() throws Exception {
 		OverAllState state = createTestState();
-		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, createQueryEnhanceDTO("查询"), AGENT_ID, "6"));
-
-		when(agentDatasourceMapper.selectActiveDatasourceIdByAgentId(6L)).thenReturn(500);
+		state.updateState(
+				Map.of(QUERY_ENHANCE_NODE_OUTPUT, createQueryEnhanceDTO("查询"), AGENT_ID, "6", DATASOURCE_ID, 500));
 
 		Document validDoc = createTableDocument("users");
 		Document noNameDoc = new Document("doc without name", Map.of("other", "value"));
 		List<Document> tableDocs = new ArrayList<>(List.of(validDoc, noNameDoc));
 
-		when(schemaService.getTableDocumentsByDatasource(eq(500), anyString())).thenReturn(tableDocs);
-		when(schemaService.getColumnDocumentsByTableName(eq(500), eq(List.of("users"))))
+		when(schemaService.getSchemaRevision(500)).thenReturn("schema-v1");
+		when(schemaService.getTableDocumentsByDatasource(eq(500), anyString(), eq("schema-v1"))).thenReturn(tableDocs);
+		when(schemaService.getColumnDocumentsByTableName(eq(500), eq(List.of("users")), eq("schema-v1")))
 			.thenReturn(Collections.emptyList());
 
 		NodeExecution execution = execute(schemaRecallNode.apply(state), SCHEMA_RECALL_NODE_OUTPUT);
 
 		assertEquals(tableDocs, execution.finalResult().get(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT));
 		assertEquals(Collections.emptyList(), execution.finalResult().get(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT));
-		verify(schemaService).getColumnDocumentsByTableName(500, List.of("users"));
+		verify(schemaService).getColumnDocumentsByTableName(500, List.of("users"), "schema-v1");
+	}
+
+	@Test
+	void apply_schemaRevisionChangesDuringRecall_discardsMixedDocuments() throws Exception {
+		OverAllState state = createTestState();
+		state.updateState(
+				Map.of(QUERY_ENHANCE_NODE_OUTPUT, createQueryEnhanceDTO("查询"), AGENT_ID, "6", DATASOURCE_ID, 600));
+		when(schemaService.getSchemaRevision(600)).thenReturn("schema-v1", "schema-v2");
+		when(schemaService.getTableDocumentsByDatasource(600, "查询", "schema-v1"))
+			.thenReturn(List.of(createTableDocument("users")));
+		when(schemaService.getColumnDocumentsByTableName(600, List.of("users"), "schema-v1"))
+			.thenReturn(List.of(new Document("column")));
+
+		NodeExecution execution = execute(schemaRecallNode.apply(state), SCHEMA_RECALL_NODE_OUTPUT);
+
+		assertEquals(Collections.emptyList(), execution.finalResult().get(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT));
+		assertEquals(Collections.emptyList(), execution.finalResult().get(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT));
+		assertFalse(execution.finalResult().containsKey(SCHEMA_FINGERPRINT));
 	}
 
 	@Test

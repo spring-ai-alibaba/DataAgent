@@ -35,6 +35,10 @@ public class DataAgentProperties {
 
 	private VectorStoreProperties vectorStore = new VectorStoreProperties();
 
+	private MemoryProperties memory = new MemoryProperties();
+
+	private CheckpointProperties checkpoint = new CheckpointProperties();
+
 	private ReportTemplate reportTemplate = new ReportTemplate();
 
 	/**
@@ -55,9 +59,15 @@ public class DataAgentProperties {
 	private TextSplitter textSplitter = new TextSplitter();
 
 	/**
-	 * 最多保留的对话轮数
+	 * Legacy short-term window setting. New deployments should use
+	 * {@code memory.recent-turns}.
 	 */
-	private int maxturnhistory = 5;
+	@Deprecated
+	private Integer maxturnhistory;
+
+	public int resolveRecentTurns() {
+		return maxturnhistory != null ? Math.max(1, maxturnhistory) : Math.max(1, memory.getRecentTurns());
+	}
 
 	/**
 	 * 单次规划最大长度限制
@@ -248,6 +258,88 @@ public class DataAgentProperties {
 		 * 每批次最大文本数量 适用于DashScope等有文本数量限制的API DashScope限制为10
 		 */
 		private int maxTextCount = 10;
+
+	}
+
+	@Getter
+	@Setter
+	public static class MemoryProperties {
+
+		/**
+		 * Number of accepted user/assistant turns kept by framework ChatMemory. The
+		 * deterministic summary starts before this window.
+		 */
+		private int recentTurns = 3;
+
+		/**
+		 * Maximum characters used by the rebuildable rolling summary.
+		 */
+		private int maxSummaryLength = 4000;
+
+		/**
+		 * Maximum node-local rolling-summary projections retained by the framework
+		 * MemoryStore. The cache evicts its oldest entries above this bound.
+		 */
+		private int summaryCacheMaxEntries = 10000;
+
+		/**
+		 * Maximum characters copied from verified execution results into prompt-facing
+		 * memory.
+		 */
+		private int maxResultSummaryLength = 2000;
+
+		/**
+		 * Hard character budget for all memory context injected into one model request.
+		 */
+		private int maxContextLength = 16000;
+
+		/**
+		 * Maximum confirmed long-term memories injected into one request.
+		 */
+		private int longTermTopK = 5;
+
+		/**
+		 * Maximum cross-session successful turns recalled for an authenticated owner.
+		 */
+		private int episodicTopK = 3;
+
+		/**
+		 * Reserved for a future trusted, server-derived user identity integration. The
+		 * current application authenticates agents only and rejects startup when this is
+		 * enabled.
+		 */
+		private boolean userScopeEnabled = false;
+
+		/**
+		 * Enables optional vector indexing for long-term memories. MySQL remains the
+		 * source of truth.
+		 */
+		private boolean vectorIndexEnabled = false;
+
+		private double vectorSimilarityThreshold = 0.6;
+
+		private int outboxBatchSize = 20;
+
+		private int outboxMaxAttempts = 5;
+
+		/**
+		 * Retention for successfully projected Outbox rows. Failed and DEAD rows are
+		 * retained for diagnosis and explicit remediation.
+		 */
+		private int outboxCompletedRetentionDays = 7;
+
+		private int outboxCleanupBatchSize = 1000;
+
+	}
+
+	@Getter
+	@Setter
+	public static class CheckpointProperties {
+
+		/**
+		 * Framework checkpoint implementation selected by DataAgentConfiguration.
+		 */
+		private String type = "mysql";
 
 	}
 

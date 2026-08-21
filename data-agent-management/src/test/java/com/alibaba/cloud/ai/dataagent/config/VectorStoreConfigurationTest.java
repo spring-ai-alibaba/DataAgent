@@ -19,7 +19,9 @@ import com.alibaba.cloud.ai.dataagent.properties.FileStorageProperties;
 import com.alibaba.cloud.ai.dataagent.properties.OssStorageProperties;
 import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.AiModelRegistry;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.PropertySource;
@@ -37,10 +39,20 @@ class VectorStoreConfigurationTest {
 	private final YamlPropertySourceLoader loader = new YamlPropertySourceLoader();
 
 	@Test
-	void vectorStoreProfiles_declareExpectedTypes() throws Exception {
-		assertThat(property("application.yml", "spring.ai.vectorstore.type")).isEqualTo("simple");
+	void vectorStoreProfiles_declareExpectedOverrideTypes() throws Exception {
 		assertThat(property("application-milvus.yml", "spring.ai.vectorstore.type")).isEqualTo("milvus");
 		assertThat(property("application-elasticsearch.yml", "spring.ai.vectorstore.type")).isEqualTo("elasticsearch");
+	}
+
+	@Test
+	void simpleVectorStore_defaultsWhenTypeIsMissing() throws Exception {
+		Method method = DataAgentConfiguration.class.getDeclaredMethod("simpleVectorStore", EmbeddingModel.class);
+		ConditionalOnProperty condition = method.getAnnotation(ConditionalOnProperty.class);
+
+		assertThat(condition).isNotNull();
+		assertThat(condition.name()).containsExactly("spring.ai.vectorstore.type");
+		assertThat(condition.havingValue()).isEqualTo("simple");
+		assertThat(condition.matchIfMissing()).isTrue();
 	}
 
 	@Test

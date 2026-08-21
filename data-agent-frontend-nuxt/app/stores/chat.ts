@@ -272,7 +272,7 @@ export const useChatStore = defineStore('chat', () => {
 	}
 
 	async function removeSession(session: ChatSession) {
-		await chatService.deleteSession(session.id);
+		await chatService.deleteSession(session.id, session.agentId);
 		deleteSessionState(session.id);
 		sessions.value = sessions.value.filter((s) => s.id !== session.id);
 		if (currentSession.value?.id === session.id) {
@@ -307,16 +307,14 @@ export const useChatStore = defineStore('chat', () => {
 			titleNeeded: needsTitle,
 		};
 
-		const saved = await chatService.saveMessage(
-			currentSession.value.id,
-			userMessage,
-		);
-		currentMessages.value.push(saved);
+		// Optimistic only. The graph backend owns durable turn/message persistence.
+		currentMessages.value.push(userMessage);
 
 		const request: GraphRequest = {
 			agentId: String(currentAgentId.value || ''),
 			conversationId: currentSession.value.id,
 			query,
+			titleNeeded: needsTitle,
 			humanFeedback: requestOptions.value.humanFeedback,
 			nl2sqlOnly: requestOptions.value.nl2sqlOnly,
 			rejectedPlan: false,
@@ -324,6 +322,7 @@ export const useChatStore = defineStore('chat', () => {
 			// A normal message starts a fresh graph run. The backend returns its run ID
 			// and submitFeedback reuses it only when resuming an interrupted graph.
 			threadId: undefined,
+			turnId: undefined,
 		};
 
 		await _sendGraphRequest(request);
@@ -404,8 +403,11 @@ export const useChatStore = defineStore('chat', () => {
 			request,
 			async (response: GraphNodeResponse) => {
 				if (response.error) return;
-				if (sessionState.lastRequest)
+				if (sessionState.lastRequest) {
 					sessionState.lastRequest.threadId = response.threadId;
+					sessionState.lastRequest.turnId = response.turnId;
+				}
+				lastRequest.value = sessionState.lastRequest;
 				if (response.eventType === GraphEventType.FINAL_ANSWER) {
 					finalReply = response.text?.trim() || null;
 					return;
@@ -453,29 +455,6 @@ export const useChatStore = defineStore('chat', () => {
 				console.error('Stream error:', error);
 				flushPendingSync();
 
-				if (sessionState.nodeBlocks.length > 0) {
-					const msg: ChatMessage = {
-						sessionId,
-						role: 'assistant',
-						content: JSON.stringify(sessionState.nodeBlocks),
-						messageType: 'timeline',
-					};
-					await chatService
-						.saveMessage(sessionId, msg)
-						.catch((e) => console.error(e));
-				}
-
-				// Save error message
-				const errorMsg: ChatMessage = {
-					sessionId,
-					role: 'assistant',
-					content: error.message || '请求失败，请检查网络连接并重试。',
-					messageType: 'error',
-				};
-				await chatService
-					.saveMessage(sessionId, errorMsg)
-					.catch((e) => console.error(e));
-
 				sessionState.isStreaming = false;
 				sessionState.closeStream = null;
 				currentStepId = null;
@@ -489,35 +468,6 @@ export const useChatStore = defineStore('chat', () => {
 			},
 			async () => {
 				flushPendingSync();
-				if (sessionState.nodeBlocks.length > 0) {
-					const timelineMsg: ChatMessage = {
-						sessionId,
-						role: 'assistant',
-						content: JSON.stringify(sessionState.nodeBlocks),
-						messageType: 'timeline',
-					};
-					const savedTimeline = await chatService
-						.saveMessage(sessionId, timelineMsg)
-						.catch((e) => {
-							console.error(e);
-							return null;
-						});
-					if (savedTimeline && currentSession.value?.id === sessionId)
-						currentMessages.value.push(savedTimeline);
-				}
-
-				if (finalReply) {
-					const replyMessage: ChatMessage = {
-						sessionId,
-						role: 'assistant',
-						content: finalReply,
-						messageType: 'text',
-					};
-					await chatService
-						.saveMessage(sessionId, replyMessage)
-						.catch((e) => console.error(e));
-				}
-
 				if (awaitingHumanFeedback && !finalReply) {
 					showHumanFeedback.value = true;
 				} else {
@@ -558,17 +508,6 @@ export const useChatStore = defineStore('chat', () => {
 		sessionState.closeStream = null;
 		sessionState.isStreaming = false;
 		sessionState.nodeBlocks = [];
-
-		// Save user-terminated warning message
-		const warningMsg: ChatMessage = {
-			sessionId,
-			role: 'assistant',
-			content: '用户已终止本次对话。',
-			messageType: 'warning',
-		};
-		await chatService
-			.saveMessage(sessionId, warningMsg)
-			.catch((e) => console.error(e));
 
 		if (currentSession.value?.id === sessionId) {
 			isStreaming.value = false;

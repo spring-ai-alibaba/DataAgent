@@ -108,6 +108,8 @@ CREATE TABLE IF NOT EXISTS datasource (
   test_status VARCHAR(50) DEFAULT 'unknown' COMMENT '连接测试状态：success-成功，failed-失败，unknown-未知',
   description TEXT COMMENT '描述',
   creator_id BIGINT COMMENT '创建者ID',
+  schema_revision CHAR(64) COMMENT '最近一次完整Schema索引的稳定版本',
+  schema_generation BIGINT NOT NULL DEFAULT 0 COMMENT 'Schema索引输入的单调代次',
   create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
@@ -185,6 +187,107 @@ CREATE TABLE IF NOT EXISTS chat_message (
   INDEX idx_create_time (create_time),
   FOREIGN KEY (session_id) REFERENCES chat_session(id) ON DELETE CASCADE
 ) ENGINE = InnoDB COMMENT = '聊天消息表';
+
+CREATE TABLE IF NOT EXISTS conversation_turn (
+  id VARCHAR(36) NOT NULL,
+  conversation_id VARCHAR(36) NOT NULL,
+  agent_id INT NOT NULL,
+  owner_id BIGINT,
+  accepted_run_id VARCHAR(36),
+  datasource_id INT,
+  raw_query TEXT NOT NULL,
+  canonical_query TEXT,
+  query_frame TEXT,
+  result_summary TEXT,
+  final_answer TEXT,
+  schema_fingerprint VARCHAR(128),
+  status VARCHAR(32) NOT NULL DEFAULT 'CREATED',
+  memory_eligible TINYINT NOT NULL DEFAULT 0,
+  observed_at TIMESTAMP NULL,
+  completed_at TIMESTAMP NULL,
+  create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  INDEX idx_test_conversation_turn_conversation (conversation_id, create_time),
+  INDEX idx_test_conversation_turn_owner_agent (owner_id, agent_id, create_time),
+  INDEX idx_test_conversation_turn_status (status, memory_eligible),
+  FOREIGN KEY (conversation_id) REFERENCES chat_session(id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS turn_run (
+  run_id VARCHAR(36) NOT NULL,
+  turn_id VARCHAR(36) NOT NULL,
+  attempt INT NOT NULL DEFAULT 1,
+  status VARCHAR(32) NOT NULL DEFAULT 'CREATED',
+  error_message TEXT,
+  create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (run_id),
+  INDEX idx_test_turn_run_turn (turn_id, attempt),
+  INDEX idx_test_turn_run_status (status),
+  FOREIGN KEY (turn_id) REFERENCES conversation_turn(id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS turn_artifact (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  turn_id VARCHAR(36) NOT NULL,
+  run_id VARCHAR(36) NOT NULL,
+  artifact_type VARCHAR(32) NOT NULL,
+  content TEXT NOT NULL,
+  content_hash VARCHAR(128),
+  create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_test_turn_artifact_type (turn_id, run_id, artifact_type),
+  INDEX idx_test_turn_artifact_turn (turn_id),
+  FOREIGN KEY (turn_id) REFERENCES conversation_turn(id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS memory_item (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  scope_type VARCHAR(32) NOT NULL,
+  owner_id BIGINT,
+  agent_id INT NOT NULL,
+  datasource_id INT,
+  memory_kind VARCHAR(32) NOT NULL,
+  memory_key VARCHAR(255) NOT NULL,
+  value_json TEXT NOT NULL,
+  identity_hash CHAR(64) NOT NULL,
+  active_identity_hash CHAR(64),
+  source_turn_id VARCHAR(36),
+  status VARCHAR(32) NOT NULL DEFAULT 'CANDIDATE',
+  confidence DECIMAL(5,4) NOT NULL DEFAULT 1.0000,
+  schema_fingerprint VARCHAR(128),
+  valid_until TIMESTAMP NULL,
+  supersedes_id BIGINT,
+  create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_test_memory_item_active_identity (active_identity_hash),
+  INDEX idx_test_memory_item_scope (scope_type, owner_id, agent_id, datasource_id, status),
+  INDEX idx_test_memory_item_key (memory_key),
+  CONSTRAINT chk_test_memory_item_active_identity CHECK (
+    (status = 'CONFIRMED' AND active_identity_hash IS NOT NULL AND active_identity_hash = identity_hash)
+    OR (status <> 'CONFIRMED' AND active_identity_hash IS NULL)
+  ),
+  FOREIGN KEY (source_turn_id) REFERENCES conversation_turn(id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS memory_outbox (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  aggregate_type VARCHAR(32) NOT NULL,
+  aggregate_id VARCHAR(64) NOT NULL,
+  event_type VARCHAR(64) NOT NULL,
+  payload TEXT,
+  status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+  attempt_count INT NOT NULL DEFAULT 0,
+  lease_token VARCHAR(36),
+  available_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_error TEXT,
+  create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  INDEX idx_test_memory_outbox_pending (status, available_at)
+) ENGINE = InnoDB;
 
 -- 用户Prompt配置表
 CREATE TABLE IF NOT EXISTS user_prompt_config (

@@ -22,6 +22,7 @@ import com.alibaba.cloud.ai.dataagent.mapper.AgentMapper;
 import com.alibaba.cloud.ai.dataagent.security.ApiKeyCredentialService;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeResourceManager;
+import com.alibaba.cloud.ai.dataagent.service.memory.lifecycle.MemoryLifecycleService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,12 +64,15 @@ class AgentServiceImplTest {
 	@Mock
 	private AgentKnowledgeResourceManager agentKnowledgeResourceManager;
 
+	@Mock
+	private MemoryLifecycleService memoryLifecycleService;
+
 	private AgentServiceImpl agentService;
 
 	@BeforeEach
 	void setUp() {
 		agentService = new AgentServiceImpl(agentMapper, agentVectorStoreService, fileStorageService,
-				apiKeyCredentialService, agentKnowledgeMapper, agentKnowledgeResourceManager);
+				apiKeyCredentialService, agentKnowledgeMapper, agentKnowledgeResourceManager, memoryLifecycleService);
 	}
 
 	@Test
@@ -122,6 +126,7 @@ class AgentServiceImplTest {
 
 		agentService.deleteById(1L);
 
+		verify(memoryLifecycleService).forgetAgent(1);
 		verify(agentKnowledgeMapper).deleteByAgentId(1);
 		verify(agentMapper).deleteById(1L);
 	}

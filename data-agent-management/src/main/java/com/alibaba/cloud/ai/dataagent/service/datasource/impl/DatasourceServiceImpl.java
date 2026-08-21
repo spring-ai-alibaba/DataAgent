@@ -32,6 +32,7 @@ import com.alibaba.cloud.ai.dataagent.mapper.LogicalRelationMapper;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeHandler;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.registry.DatasourceTypeHandlerRegistry;
+import com.alibaba.cloud.ai.dataagent.service.memory.lifecycle.MemoryLifecycleService;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -62,6 +63,8 @@ public class DatasourceServiceImpl implements DatasourceService {
 	private final AccessorFactory accessorFactory;
 
 	private final DatasourceTypeHandlerRegistry datasourceTypeHandlerRegistry;
+
+	private final MemoryLifecycleService memoryLifecycleService;
 
 	@Override
 	public List<Datasource> getAllDatasource() {
@@ -113,7 +116,12 @@ public class DatasourceServiceImpl implements DatasourceService {
 	}
 
 	@Override
+	@Transactional
 	public Datasource updateDatasource(Integer id, Datasource datasource) {
+		Datasource existing = datasourceMapper.selectById(id);
+		if (existing == null) {
+			throw new IllegalArgumentException("Datasource not found with id: " + id);
+		}
 		// Regenerate connection URL
 		DatasourceTypeHandler handler = datasourceTypeHandlerRegistry.getRequired(datasource.getType());
 		String connectionUrl = handler.resolveConnectionUrl(datasource);
@@ -124,8 +132,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		// 密码为空时保留原密码，避免因前端未传密码导致密码被清空
 		if (datasource.getPassword() == null || datasource.getPassword().isEmpty()) {
-			Datasource existing = datasourceMapper.selectById(id);
-			if (existing != null && existing.getPassword() != null) {
+			if (existing.getPassword() != null) {
 				datasource.setPassword(existing.getPassword());
 			}
 		}
@@ -138,13 +145,26 @@ public class DatasourceServiceImpl implements DatasourceService {
 			datasource.setUsername("");
 		}
 
-		datasourceMapper.updateById(datasource);
+		if (datasourceMapper.updateById(datasource) != 1) {
+			throw new IllegalStateException("Failed to update datasource: " + id);
+		}
+		if (schemaConnectionChanged(existing, datasource) && datasourceMapper.advanceSchemaGeneration(id) != 1) {
+			throw new IllegalStateException("Failed to invalidate schema for datasource: " + id);
+		}
 		return datasource;
+	}
+
+	private boolean schemaConnectionChanged(Datasource existing, Datasource updated) {
+		return !Objects.equals(existing.getType(), updated.getType())
+				|| !Objects.equals(existing.getConnectionUrl(), updated.getConnectionUrl())
+				|| !Objects.equals(existing.getUsername(), updated.getUsername())
+				|| !Objects.equals(existing.getPassword(), updated.getPassword());
 	}
 
 	@Override
 	@Transactional
 	public void deleteDatasource(Integer id) {
+		memoryLifecycleService.invalidateDatasource(id);
 		// First, delete the associations
 		agentDatasourceMapper.deleteAllByDatasourceId(id);
 
@@ -286,6 +306,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 	}
 
 	@Override
+	@Transactional
 	public LogicalRelation addLogicalRelation(Integer datasourceId, LogicalRelation logicalRelation) {
 		log.info("Adding logical relation for datasource: {}", datasourceId);
 
@@ -302,13 +323,17 @@ public class DatasourceServiceImpl implements DatasourceService {
 		}
 
 		// 插入外键
-		logicalRelationMapper.insert(logicalRelation);
+		if (logicalRelationMapper.insert(logicalRelation) != 1) {
+			throw new IllegalStateException("新增逻辑外键失败");
+		}
+		advanceSchemaGeneration(datasourceId);
 		log.info("Logical relation added successfully with id: {}", logicalRelation.getId());
 
 		return logicalRelation;
 	}
 
 	@Override
+	@Transactional
 	public LogicalRelation updateLogicalRelation(Integer datasourceId, Integer logicalRelationId,
 			LogicalRelation logicalRelation) {
 		log.info("Updating logical relation: {} for datasource: {}", logicalRelationId, datasourceId);
@@ -332,6 +357,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 		if (updated == 0) {
 			throw new RuntimeException("更新逻辑外键失败");
 		}
+		advanceSchemaGeneration(datasourceId);
 
 		log.info("Logical relation updated successfully: {}", logicalRelationId);
 
@@ -340,6 +366,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 	}
 
 	@Override
+	@Transactional
 	public void deleteLogicalRelation(Integer datasourceId, Integer logicalRelationId) {
 		log.info("Deleting logical relation: {} for datasource: {}", logicalRelationId, datasourceId);
 
@@ -358,6 +385,7 @@ public class DatasourceServiceImpl implements DatasourceService {
 		if (deleted == 0) {
 			throw new RuntimeException("删除逻辑外键失败");
 		}
+		advanceSchemaGeneration(datasourceId);
 
 		log.info("Logical relation deleted successfully: {}", logicalRelationId);
 	}
@@ -382,7 +410,9 @@ public class DatasourceServiceImpl implements DatasourceService {
 		int deletedCount = 0;
 		for (LogicalRelation existing : existingRelations) {
 			if (!incomingIds.contains(existing.getId())) {
-				logicalRelationMapper.deleteById(existing.getId());
+				if (logicalRelationMapper.deleteById(existing.getId()) != 1) {
+					throw new IllegalStateException("删除逻辑外键失败，ID: " + existing.getId());
+				}
 				deletedCount++;
 				log.info("Deleted logical relation: {} -> {}", existing.getSourceTableName(),
 						existing.getTargetTableName());
@@ -421,7 +451,9 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 			if (logicalRelation.getId() != null && existingMap.containsKey(logicalRelation.getId())) {
 				// 更新现有记录
-				logicalRelationMapper.updateById(logicalRelation);
+				if (logicalRelationMapper.updateById(logicalRelation) != 1) {
+					throw new IllegalStateException("更新逻辑外键失败，ID: " + logicalRelation.getId());
+				}
 				updatedCount++;
 				log.debug("Updated logical relation: {} -> {}", logicalRelation.getSourceTableName(),
 						logicalRelation.getTargetTableName());
@@ -429,7 +461,9 @@ public class DatasourceServiceImpl implements DatasourceService {
 			else {
 				// 插入新记录
 				logicalRelation.setId(null);
-				logicalRelationMapper.insert(logicalRelation);
+				if (logicalRelationMapper.insert(logicalRelation) != 1) {
+					throw new IllegalStateException("新增逻辑外键失败");
+				}
 				insertedCount++;
 				log.debug("Inserted logical relation: {} -> {}", logicalRelation.getSourceTableName(),
 						logicalRelation.getTargetTableName());
@@ -438,8 +472,15 @@ public class DatasourceServiceImpl implements DatasourceService {
 
 		log.info("Saved logical relations for datasource {}: {} inserted, {} updated, {} deleted", datasourceId,
 				insertedCount, updatedCount, deletedCount);
+		advanceSchemaGeneration(datasourceId);
 
 		return logicalRelationMapper.selectByDatasourceId(datasourceId);
+	}
+
+	private void advanceSchemaGeneration(Integer datasourceId) {
+		if (datasourceMapper.advanceSchemaGeneration(datasourceId) != 1) {
+			throw new IllegalStateException("Datasource no longer exists: " + datasourceId);
+		}
 	}
 
 }

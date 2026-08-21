@@ -6,70 +6,68 @@
 
 ## 🔑 访问 API（API Key 调用）
 
-> **注意**: 当前版本仅提供 API Key 生成、重置、删除与开关的管理能力，**尚未在后端对 `X-API-Key` 做权限校验**；需要鉴权的生产场景请自行在后端拦截器中补充校验逻辑后再对外开放。
+后端已经通过 Spring Security WebFlux 校验 `X-API-Key`，也接受
+`Authorization: Bearer <your_api_key>`。校验以请求路径或 `agentId` 参数确定的智能体为边界，
+不会信任客户端传入的其他作用域。
 
 ### API Key 管理
 
-1. 在智能体详情左侧菜单进入"访问 API"
-2. 为智能体生成 Key，并根据需要启用/禁用
-3. 调用会话接口时在请求头添加 `X-API-Key: <your_api_key>`
+1. 调用 `POST /api/agent/{agentId}/api-key/generate` 生成并自动启用 Key；原始 Key 只在生成或重置响应中返回
+2. 使用 `POST /api/agent/{agentId}/api-key/reset` 重置，或调用
+   `POST /api/agent/{agentId}/api-key/enable?enabled=false` 临时禁用
+3. 调用受保护接口时在请求头添加 `X-API-Key: <your_api_key>`
 
-![访问 API Key](../img/apikey.png)
+### 受保护接口
+
+- `GET /api/stream/search`、`POST /api/stream/stop`、会话删除接口：智能体启用 API Key 后必须提供正确凭证；未启用时保持内部调用兼容。
+- `/api/agents/{agentId}/memories/**`：始终要求该智能体已启用 API Key，并提供正确凭证。
+- API Key 管理、创建会话和写入可见聊天消息不在这条 Agent API Key 过滤链中；部署到不可信网络前仍需在网关或管理端增加管理员身份认证。
+
+> **浏览器 SSE 限制**：项目内置页面当前使用原生 `EventSource`，无法设置自定义认证头。
+> 因此启用 Agent API Key 后，请使用支持请求头的外部 SSE 客户端调用流接口；如需继续使用内置页面，
+> 该智能体应保持 API Key 关闭。不要把 API Key 放入 URL 查询参数，避免出现在访问日志和历史记录中。
 
 ### API 调用示例
 
-#### 创建会话
+#### 发起 SSE 查询
 
 ```bash
-curl -X POST "http://127.0.0.1:3000/api/agent/<agentId>/sessions" \
-  -H "Content-Type: application/json" \
+curl -N -G "http://127.0.0.1:3000/api/stream/search" \
   -H "X-API-Key: <your_api_key>" \
-  -d '{"title":"demo"}'
+  --data-urlencode "agentId=<agentId>" \
+  --data-urlencode "conversationId=<conversationId>" \
+  --data-urlencode "query=给我一个示例" \
+  --data-urlencode "humanFeedback=false" \
+  --data-urlencode "rejectedPlan=false" \
+  --data-urlencode "nl2sqlOnly=false"
 ```
 
-#### 发送消息
+新查询的 `threadId` 始终由服务端生成。`turnId` 只在 `conversationId` 对应当前智能体的有效、
+持久化会话时生成；需要持久化记忆或恢复人工审核时，应先通过
+`POST /api/agent/{agentId}/sessions` 创建会话，并使用响应中的会话 ID。恢复人工审核时，客户端必须把上一条
+SSE 响应中的 `threadId` 和 `turnId` 原样传回。
+
+#### 创建并确认长期记忆
 
 ```bash
-curl -X POST "http://127.0.0.1:3000/api/sessions/<sessionId>/messages" \
+curl -X POST "http://127.0.0.1:3000/api/agents/<agentId>/memories" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: <your_api_key>" \
-  -d '{"role":"user","content":"给我一个示例","messageType":"text"}'
+  -d '{
+    "scopeType":"AGENT",
+    "memoryKind":"PREFERENCE",
+    "memoryKey":"report-format",
+    "value":{"format":"compact"}
+  }'
+
+curl -X POST \
+  "http://127.0.0.1:3000/api/agents/<agentId>/memories/<memoryId>/confirm" \
+  -H "X-API-Key: <your_api_key>"
 ```
 
-### 实现自定义鉴权
-
-如需在生产环境启用API Key鉴权，可以创建一个拦截器：
-
-```java
-@Component
-public class ApiKeyAuthInterceptor implements HandlerInterceptor {
-    
-    @Autowired
-    private AgentService agentService;
-    
-    @Override
-    public boolean preHandle(HttpServletRequest request, 
-                            HttpServletResponse response, 
-                            Object handler) throws Exception {
-        String apiKey = request.getHeader("X-API-Key");
-        
-        if (apiKey == null || apiKey.isEmpty()) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return false;
-        }
-        
-        // 验证API Key
-        boolean isValid = agentService.validateApiKey(apiKey);
-        
-        if (!isValid) {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            return false;
-        }
-        
-        return true;
-    }
-}
-```
+长期记忆初始状态为 `CANDIDATE`，确认后才参与召回；可通过
+`POST /api/agents/{agentId}/memories/{memoryId}/invalidate` 使其失效。请求字段或替换关系校验错误返回
+`400`，缺少或错误凭证返回 `401`，跨智能体访问返回 `404`，状态或并发冲突返回 `409`。
 
 ## 🔌 MCP服务器
 
@@ -387,7 +385,7 @@ Local、旧 Docker 容器池或 AI Simulation 执行器。
 
 ### 前置条件
 
-- Spring AI Alibaba `1.1.2.2`
+- Spring AI Alibaba `1.1.2.3`
 - 可访问的 Docker daemon
 - 沙盒镜像可从 Docker daemon 获取
 - 动态安装依赖时，沙盒网络可访问配置的 Python 包索引
@@ -486,7 +484,7 @@ sequenceDiagram
 ### 生产安全边界
 
 任务容器默认非 privileged，并限制 CPU、内存、nofile、超时、并发和输入输出大小。但
-SAA `1.1.2.2` 没有提供“安装完成后立即断网”的公开 API，因此生产环境还必须：
+SAA `1.1.2.3` 没有提供“安装完成后立即断网”的公开 API，因此生产环境还必须：
 
 1. 使用固定镜像 digest 和非 root 基础镜像。
 2. 仅允许沙盒访问企业私有 PyPI 代理，禁止访问公网和业务内网。

@@ -21,8 +21,10 @@ import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
 import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentDatasourceTablesMapper;
+import com.alibaba.cloud.ai.dataagent.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
+import com.alibaba.cloud.ai.dataagent.service.memory.lifecycle.MemoryLifecycleService;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +46,10 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 	private final AgentDatasourceMapper agentDatasourceMapper;
 
 	private final AgentDatasourceTablesMapper tablesMapper;
+
+	private final DatasourceMapper datasourceMapper;
+
+	private final MemoryLifecycleService memoryLifecycleService;
 
 	@Override
 	public Boolean initializeSchemaForAgentWithDatasource(Long agentId, Integer datasourceId, List<String> tables) {
@@ -70,6 +76,7 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 			List<String> sharedTables = tablesMapper.getSelectedTablesByDatasourceId(datasourceId);
 			List<String> tablesToInitialize = sharedTables.isEmpty() ? tables : sharedTables;
 			schemaInitRequest.setTables(tablesToInitialize);
+			schemaInitRequest.setSchemaGeneration(datasource.getSchemaGeneration());
 
 			log.info("Created SchemaInitRequest for agent: {}, datasource: {}, tableCount: {}", agentIdStr,
 					datasourceId, tablesToInitialize.size());
@@ -122,6 +129,7 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 
 			// 删除已有的表
 			tablesMapper.removeAllTables(existing.getId());
+			advanceSchemaGeneration(datasourceId);
 
 			// Query and return the updated association
 			result = agentDatasourceMapper.selectByAgentIdAndDatasourceId(agentId, datasourceId);
@@ -138,8 +146,12 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 	}
 
 	@Override
+	@Transactional
 	public void removeDatasourceFromAgent(Long agentId, Integer datasourceId) {
-		agentDatasourceMapper.removeRelation(agentId, datasourceId);
+		memoryLifecycleService.invalidateDatasourceBinding(agentId.intValue(), datasourceId);
+		if (agentDatasourceMapper.removeRelation(agentId, datasourceId) == 1) {
+			advanceSchemaGeneration(datasourceId);
+		}
 	}
 
 	@Override
@@ -178,6 +190,13 @@ public class AgentDatasourceServiceImpl implements AgentDatasourceService {
 		}
 		else {
 			tablesMapper.updateAgentDatasourceTables(datasource.getId(), tables);
+		}
+		advanceSchemaGeneration(datasourceId);
+	}
+
+	private void advanceSchemaGeneration(Integer datasourceId) {
+		if (datasourceMapper.advanceSchemaGeneration(datasourceId) != 1) {
+			throw new IllegalStateException("Datasource no longer exists: " + datasourceId);
 		}
 	}
 

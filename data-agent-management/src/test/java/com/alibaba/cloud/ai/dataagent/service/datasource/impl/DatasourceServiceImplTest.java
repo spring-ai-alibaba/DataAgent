@@ -26,6 +26,7 @@ import com.alibaba.cloud.ai.dataagent.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.LogicalRelationMapper;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.DatasourceTypeHandler;
 import com.alibaba.cloud.ai.dataagent.service.datasource.handler.registry.DatasourceTypeHandlerRegistry;
+import com.alibaba.cloud.ai.dataagent.service.memory.lifecycle.MemoryLifecycleService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,10 +69,13 @@ class DatasourceServiceImplTest {
 	@Mock
 	private DBConnectionPool dbConnectionPool;
 
+	@Mock
+	private MemoryLifecycleService memoryLifecycleService;
+
 	@BeforeEach
 	void setUp() {
 		datasourceService = new DatasourceServiceImpl(datasourceMapper, agentDatasourceMapper, logicalRelationMapper,
-				poolFactory, accessorFactory, handlerRegistry);
+				poolFactory, accessorFactory, handlerRegistry, memoryLifecycleService);
 	}
 
 	@Test
@@ -148,19 +152,25 @@ class DatasourceServiceImplTest {
 	@Test
 	void updateDatasource_updatesRecord() {
 		Datasource ds = Datasource.builder().type("mysql").build();
+		when(datasourceMapper.selectById(5))
+			.thenReturn(Datasource.builder().type("mysql").connectionUrl("jdbc:mysql://old/test").build());
 		when(handlerRegistry.getRequired("mysql")).thenReturn(typeHandler);
 		when(typeHandler.resolveConnectionUrl(ds)).thenReturn("jdbc:mysql://localhost/test");
+		when(datasourceMapper.updateById(ds)).thenReturn(1);
+		when(datasourceMapper.advanceSchemaGeneration(5)).thenReturn(1);
 
 		Datasource result = datasourceService.updateDatasource(5, ds);
 
 		assertEquals(5, result.getId());
 		verify(datasourceMapper).updateById(ds);
+		verify(datasourceMapper).advanceSchemaGeneration(5);
 	}
 
 	@Test
 	void deleteDatasource_deletesAssociationsFirst() {
 		datasourceService.deleteDatasource(1);
 
+		verify(memoryLifecycleService).invalidateDatasource(1);
 		verify(agentDatasourceMapper).deleteAllByDatasourceId(1);
 		verify(datasourceMapper).deleteById(1);
 	}
@@ -247,10 +257,13 @@ class DatasourceServiceImplTest {
 		lr.setTargetColumnName("d");
 
 		when(logicalRelationMapper.checkExists(1, "a", "b", "c", "d")).thenReturn(0);
+		when(logicalRelationMapper.insert(lr)).thenReturn(1);
+		when(datasourceMapper.advanceSchemaGeneration(1)).thenReturn(1);
 
 		LogicalRelation result = datasourceService.addLogicalRelation(1, lr);
 		assertEquals(1, result.getDatasourceId());
 		verify(logicalRelationMapper).insert(lr);
+		verify(datasourceMapper).advanceSchemaGeneration(1);
 	}
 
 	@Test
@@ -295,17 +308,21 @@ class DatasourceServiceImplTest {
 		existing.setTargetTableName("b");
 
 		when(logicalRelationMapper.selectByDatasourceId(1)).thenReturn(List.of(existing), Collections.emptyList());
+		when(logicalRelationMapper.deleteById(1)).thenReturn(1);
 
 		LogicalRelation newRelation = new LogicalRelation();
 		newRelation.setSourceTableName("c");
 		newRelation.setSourceColumnName("d");
 		newRelation.setTargetTableName("e");
 		newRelation.setTargetColumnName("f");
+		when(logicalRelationMapper.insert(newRelation)).thenReturn(1);
+		when(datasourceMapper.advanceSchemaGeneration(1)).thenReturn(1);
 
 		datasourceService.saveLogicalRelations(1, List.of(newRelation));
 
 		verify(logicalRelationMapper).deleteById(1);
 		verify(logicalRelationMapper).insert(newRelation);
+		verify(datasourceMapper).advanceSchemaGeneration(1);
 	}
 
 	@Test
@@ -326,11 +343,14 @@ class DatasourceServiceImplTest {
 		updated.setTargetTableName("c");
 		updated.setTargetColumnName("d");
 		updated.setDescription("updated desc");
+		when(logicalRelationMapper.updateById(updated)).thenReturn(1);
+		when(datasourceMapper.advanceSchemaGeneration(1)).thenReturn(1);
 
 		datasourceService.saveLogicalRelations(1, List.of(updated));
 
 		verify(logicalRelationMapper).updateById(updated);
 		verify(logicalRelationMapper, never()).deleteById(10);
+		verify(datasourceMapper).advanceSchemaGeneration(1);
 	}
 
 	@Test
@@ -349,10 +369,13 @@ class DatasourceServiceImplTest {
 		lr2.setSourceColumnName("b");
 		lr2.setTargetTableName("c");
 		lr2.setTargetColumnName("d");
+		when(logicalRelationMapper.insert(any())).thenReturn(1);
+		when(datasourceMapper.advanceSchemaGeneration(1)).thenReturn(1);
 
 		datasourceService.saveLogicalRelations(1, List.of(lr1, lr2));
 
 		verify(logicalRelationMapper, times(1)).insert(any());
+		verify(datasourceMapper).advanceSchemaGeneration(1);
 	}
 
 	@Test
@@ -362,6 +385,7 @@ class DatasourceServiceImplTest {
 		existing.setDatasourceId(1);
 		when(logicalRelationMapper.selectById(5)).thenReturn(existing);
 		when(logicalRelationMapper.updateById(any())).thenReturn(1);
+		when(datasourceMapper.advanceSchemaGeneration(1)).thenReturn(1);
 
 		LogicalRelation updated = new LogicalRelation();
 		updated.setSourceTableName("new_table");
@@ -376,6 +400,7 @@ class DatasourceServiceImplTest {
 		assertEquals(5, updated.getId());
 		assertEquals(1, updated.getDatasourceId());
 		verify(logicalRelationMapper).updateById(updated);
+		verify(datasourceMapper).advanceSchemaGeneration(1);
 		verify(logicalRelationMapper, times(2)).selectById(5);
 	}
 
@@ -398,10 +423,12 @@ class DatasourceServiceImplTest {
 		existing.setDatasourceId(1);
 		when(logicalRelationMapper.selectById(5)).thenReturn(existing);
 		when(logicalRelationMapper.deleteById(5)).thenReturn(1);
+		when(datasourceMapper.advanceSchemaGeneration(1)).thenReturn(1);
 
 		datasourceService.deleteLogicalRelation(1, 5);
 
 		verify(logicalRelationMapper).deleteById(5);
+		verify(datasourceMapper).advanceSchemaGeneration(1);
 	}
 
 	@Test
@@ -418,13 +445,17 @@ class DatasourceServiceImplTest {
 	@Test
 	void updateDatasource_nullUsernameAndPassword_setsEmpty() {
 		Datasource ds = Datasource.builder().type("mysql").username(null).password(null).build();
+		when(datasourceMapper.selectById(5))
+			.thenReturn(Datasource.builder().type("mysql").username("").password("").build());
 		when(handlerRegistry.getRequired("mysql")).thenReturn(typeHandler);
 		when(typeHandler.resolveConnectionUrl(ds)).thenReturn(null);
+		when(datasourceMapper.updateById(ds)).thenReturn(1);
 
 		Datasource result = datasourceService.updateDatasource(5, ds);
 
 		assertEquals("", result.getUsername());
 		assertEquals("", result.getPassword());
+		verify(datasourceMapper, never()).advanceSchemaGeneration(anyInt());
 	}
 
 	@Test

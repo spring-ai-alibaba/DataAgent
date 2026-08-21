@@ -51,6 +51,9 @@ public class AgentApiKeyReactiveAuthenticationManager implements ReactiveAuthent
 			throw new BadCredentialsException("Invalid agent API credentials");
 		}
 		if (!Integer.valueOf(1).equals(agent.getApiKeyEnabled())) {
+			if (token.isCredentialRequired()) {
+				throw new BadCredentialsException("Agent API key must be enabled for memory management");
+			}
 			return authenticated(agentId);
 		}
 		String rawApiKey = (String) token.getCredentials();

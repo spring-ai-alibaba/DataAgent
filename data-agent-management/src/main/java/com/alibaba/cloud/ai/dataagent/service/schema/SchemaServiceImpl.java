@@ -15,23 +15,25 @@
  */
 package com.alibaba.cloud.ai.dataagent.service.schema;
 
-import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
+import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
-import com.alibaba.cloud.ai.dataagent.constant.Constant;
-import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
-import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
-import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
-import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
+import com.alibaba.cloud.ai.dataagent.connector.DbQueryParameter;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
+import com.alibaba.cloud.ai.dataagent.constant.Constant;
+import com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant;
 import com.alibaba.cloud.ai.dataagent.dto.datasource.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
+import com.alibaba.cloud.ai.dataagent.enums.BizDataSourceTypeEnum;
+import com.alibaba.cloud.ai.dataagent.mapper.DatasourceMapper;
+import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService;
+import com.alibaba.cloud.ai.dataagent.util.JsonUtil;
+import com.alibaba.cloud.ai.dataagent.util.SchemaFingerprintUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,6 +82,10 @@ public class SchemaServiceImpl implements SchemaService {
 	 */
 	private final AgentVectorStoreService agentVectorStoreService;
 
+	private final DatasourceMapper datasourceMapper;
+
+	private final SchemaPublicationCoordinator schemaPublicationCoordinator;
+
 	@Override
 	public void buildSchemaFromDocuments(String agentId, List<Document> currentColumnDocuments,
 			List<Document> tableDocuments, SchemaDTO schemaDTO) {
@@ -105,8 +111,9 @@ public class SchemaServiceImpl implements SchemaService {
 		List<String> missingTables = getMissingTableNamesWithForeignKeySet(mutableTableDocuments,
 				relatedNamesFromForeignKeys);
 		if (!missingTables.isEmpty() && datasourceId != null) {
-			loadMissingTableDocuments(datasourceId, mutableTableDocuments, missingTables);
-			loadMissingColDocForMissingTables(datasourceId, mutableColumnDocuments, missingTables);
+			String schemaRevision = extractSchemaRevision(mutableTableDocuments);
+			loadMissingTableDocuments(datasourceId, mutableTableDocuments, missingTables, schemaRevision);
+			loadMissingColDocForMissingTables(datasourceId, mutableColumnDocuments, missingTables, schemaRevision);
 		}
 
 		// Build table list
@@ -129,11 +136,18 @@ public class SchemaServiceImpl implements SchemaService {
 	public Boolean schema(Integer datasourceId, SchemaInitRequest schemaInitRequest) throws Exception {
 		log.info("Starting schema initialization for datasource: {}", datasourceId);
 		DbConfigBO config = schemaInitRequest.getDbConfig();
-		DbQueryParameter dqp = DbQueryParameter.from(config)
-			.setSchema(config.getSchema())
-			.setTables(schemaInitRequest.getTables());
-
+		Long schemaGeneration = schemaInitRequest.getSchemaGeneration();
+		if (schemaGeneration == null) {
+			schemaGeneration = datasourceMapper.selectSchemaGeneration(datasourceId);
+		}
+		if (schemaGeneration == null) {
+			throw new IllegalArgumentException("Datasource does not exist: " + datasourceId);
+		}
 		try {
+			schemaPublicationCoordinator.invalidate(datasourceId, schemaGeneration);
+			DbQueryParameter dqp = DbQueryParameter.from(config)
+				.setSchema(config.getSchema())
+				.setTables(schemaInitRequest.getTables());
 			// 根据当前DbConfig获取Accessor
 			Accessor dbAccessor = accessorFactory.getAccessorByDbConfig(config);
 
@@ -148,7 +162,7 @@ public class SchemaServiceImpl implements SchemaService {
 			// 处理表和列
 			log.debug("Fetching tables for datasource: {}", datasourceId);
 			List<TableInfoBO> tables = dbAccessor.fetchTables(config, dqp);
-			log.info("Found  tables for datasource: {}", tables.size(), datasourceId);
+			log.info("Found {} tables for datasource: {}", tables.size(), datasourceId);
 
 			if (tables.size() > 5) {
 				// 对于大量表，使用并行处理
@@ -168,9 +182,13 @@ public class SchemaServiceImpl implements SchemaService {
 			List<Document> tableDocs = convertTablesToDocuments(datasourceId, tables);
 
 			// 存储文档
-			log.info("Storing  columns and {} tables for datasource: {}", columnDocs.size(), tableDocs.size(),
+			log.info("Storing {} columns and {} tables for datasource: {}", columnDocs.size(), tableDocs.size(),
 					datasourceId);
-			replaceSchemaDocuments(datasourceId, columnDocs, tableDocs);
+			String schemaRevision = SchemaFingerprintUtil.fingerprint(schemaGeneration, columnDocs, tableDocs);
+			attachSchemaRevision(columnDocs, schemaRevision);
+			attachSchemaRevision(tableDocs, schemaRevision);
+			schemaPublicationCoordinator.publish(datasourceId, schemaGeneration, schemaRevision,
+					() -> replaceSchemaDocuments(datasourceId, columnDocs, tableDocs));
 			log.info("Successfully stored all documents for datasource: {}", datasourceId);
 			return true;
 		}
@@ -178,6 +196,11 @@ public class SchemaServiceImpl implements SchemaService {
 			log.error("Failed to process schema for datasource: {}", datasourceId, e);
 			return false;
 		}
+	}
+
+	@Override
+	public String getSchemaRevision(Integer datasourceId) {
+		return datasourceId == null ? null : datasourceMapper.selectSchemaRevision(datasourceId);
 	}
 
 	/**
@@ -254,14 +277,21 @@ public class SchemaServiceImpl implements SchemaService {
 	}
 
 	protected void replaceSchemaDocuments(Integer datasourceId, List<Document> columns, List<Document> tables) {
-		List<Document> replacementDocuments = new ArrayList<>(columns.size() + tables.size());
-		replacementDocuments.addAll(columns);
-		replacementDocuments.addAll(tables);
-		if (replacementDocuments.isEmpty()) {
+		if (columns.isEmpty() && tables.isEmpty()) {
 			throw new IllegalStateException("Refusing to replace existing schema vectors with an empty schema");
 		}
-		agentVectorStoreService.replaceDocumentsByMetadata(Map.of(Constant.DATASOURCE_ID, datasourceId.toString()),
-				replacementDocuments);
+		replaceSchemaDocumentType(datasourceId, DocumentMetadataConstant.COLUMN, columns);
+		replaceSchemaDocumentType(datasourceId, DocumentMetadataConstant.TABLE, tables);
+	}
+
+	private void replaceSchemaDocumentType(Integer datasourceId, String vectorType, List<Document> documents) {
+		Map<String, Object> identity = Map.of(Constant.DATASOURCE_ID, datasourceId.toString(),
+				DocumentMetadataConstant.VECTOR_TYPE, vectorType);
+		if (documents.isEmpty()) {
+			agentVectorStoreService.deleteDocumentsByMetadata(identity);
+			return;
+		}
+		agentVectorStoreService.replaceDocumentsByMetadata(identity, documents);
 	}
 
 	protected Map<String, List<String>> buildForeignKeyMap(List<ForeignKeyInfoBO> foreignKeys) {
@@ -290,7 +320,15 @@ public class SchemaServiceImpl implements SchemaService {
 
 	@Override
 	public List<Document> getTableDocumentsByDatasource(Integer datasourceId, String query) {
+		return getTableDocumentsByDatasource(datasourceId, query, getSchemaRevision(datasourceId));
+	}
+
+	@Override
+	public List<Document> getTableDocumentsByDatasource(Integer datasourceId, String query, String schemaRevision) {
 		Assert.notNull(datasourceId, "datasourceId cannot be null");
+		if (StringUtils.isBlank(schemaRevision)) {
+			return Collections.emptyList();
+		}
 		int tableTopK = dataAgentProperties.getVectorStore().getTableTopkLimit();
 		double tableThreshold = dataAgentProperties.getVectorStore().getTableSimilarityThreshold();
 
@@ -300,6 +338,7 @@ public class SchemaServiceImpl implements SchemaService {
 
 		conditions.add(b.eq(Constant.DATASOURCE_ID, datasourceId.toString()).build());
 		conditions.add(b.eq(DocumentMetadataConstant.VECTOR_TYPE, DocumentMetadataConstant.TABLE).build());
+		conditions.add(b.eq(DocumentMetadataConstant.SCHEMA_REVISION, schemaRevision).build());
 
 		Filter.Expression filterExpression = DynamicFilterService.combineWithAnd(conditions);
 
@@ -326,9 +365,9 @@ public class SchemaServiceImpl implements SchemaService {
 	}
 
 	private void loadMissingTableDocuments(Integer datasourceId, List<Document> tableDocuments,
-			List<String> missingTableNames) {
+			List<String> missingTableNames, String schemaRevision) {
 		// 加载缺失的表文档
-		List<Document> foundTableDocs = this.getTableDocuments(datasourceId, missingTableNames);
+		List<Document> foundTableDocs = this.getTableDocuments(datasourceId, missingTableNames, schemaRevision);
 		if (foundTableDocs.size() > missingTableNames.size())
 			log.error("When we search missing tables:{},  more than expected tables for datasource: {}",
 					missingTableNames, datasourceId);
@@ -340,9 +379,10 @@ public class SchemaServiceImpl implements SchemaService {
 	}
 
 	private void loadMissingColDocForMissingTables(Integer datasourceId, List<Document> curColDocs,
-			List<String> missingTableNames) {
+			List<String> missingTableNames, String schemaRevision) {
 		// 加载缺失的列文档
-		List<Document> foundColumnDocs = this.getColumnDocumentsByTableName(datasourceId, missingTableNames);
+		List<Document> foundColumnDocs = this.getColumnDocumentsByTableName(datasourceId, missingTableNames,
+				schemaRevision);
 		if (!foundColumnDocs.isEmpty()) {
 			// 使用公共方法添加去重后的文档
 			addUniqueDocuments(curColDocs, foundColumnDocs, DocumentMetadataConstant.COLUMN, missingTableNames);
@@ -486,8 +526,12 @@ public class SchemaServiceImpl implements SchemaService {
 
 	@Override
 	public List<Document> getTableDocuments(Integer datasourceId, List<String> tableNames) {
+		return getTableDocuments(datasourceId, tableNames, getSchemaRevision(datasourceId));
+	}
+
+	private List<Document> getTableDocuments(Integer datasourceId, List<String> tableNames, String schemaRevision) {
 		Assert.notNull(datasourceId, "DatasourceId cannot be null.");
-		if (tableNames.isEmpty())
+		if (tableNames.isEmpty() || StringUtils.isBlank(schemaRevision))
 			return Collections.emptyList();
 		// 通过元数据过滤查找目标表
 		Filter.Expression filterExpression = DynamicFilterService.buildFilterExpressionForSearchTables(datasourceId,
@@ -496,13 +540,22 @@ public class SchemaServiceImpl implements SchemaService {
 			log.error("FilterExpression is null.This should not happen when tableNames is not Empty, ");
 			return Collections.emptyList();
 		}
-		return agentVectorStoreService.getDocumentsOnlyByFilter(filterExpression, tableNames.size() + 5);
+		FilterExpressionBuilder builder = new FilterExpressionBuilder();
+		Filter.Expression revisionFilter = builder.eq(DocumentMetadataConstant.SCHEMA_REVISION, schemaRevision).build();
+		return agentVectorStoreService.getDocumentsOnlyByFilter(
+				DynamicFilterService.combineWithAnd(List.of(filterExpression, revisionFilter)), tableNames.size() + 5);
 	}
 
 	@Override
 	public List<Document> getColumnDocumentsByTableName(Integer datasourceId, List<String> tableNames) {
+		return getColumnDocumentsByTableName(datasourceId, tableNames, getSchemaRevision(datasourceId));
+	}
+
+	@Override
+	public List<Document> getColumnDocumentsByTableName(Integer datasourceId, List<String> tableNames,
+			String schemaRevision) {
 		Assert.notNull(datasourceId, "DatasourceId cannot be null.");
-		if (tableNames.isEmpty()) {
+		if (tableNames.isEmpty() || StringUtils.isBlank(schemaRevision)) {
 			log.warn("TableNames is empty.We need talbeNames to search their columns");
 			return Collections.emptyList();
 		}
@@ -514,8 +567,26 @@ public class SchemaServiceImpl implements SchemaService {
 		}
 		// 通过元数据过滤查找目标表下的所有列
 		// TopK=表数量×最大预估列数
-		return agentVectorStoreService.getDocumentsOnlyByFilter(filterExpression,
+		FilterExpressionBuilder builder = new FilterExpressionBuilder();
+		Filter.Expression revisionFilter = builder.eq(DocumentMetadataConstant.SCHEMA_REVISION, schemaRevision).build();
+		return agentVectorStoreService.getDocumentsOnlyByFilter(
+				DynamicFilterService.combineWithAnd(List.of(filterExpression, revisionFilter)),
 				tableNames.size() * dataAgentProperties.getMaxColumnsPerTable());
+	}
+
+	private void attachSchemaRevision(List<Document> documents, String schemaRevision) {
+		documents
+			.forEach(document -> document.getMetadata().put(DocumentMetadataConstant.SCHEMA_REVISION, schemaRevision));
+	}
+
+	private String extractSchemaRevision(List<Document> documents) {
+		return documents.stream()
+			.map(document -> document.getMetadata().get(DocumentMetadataConstant.SCHEMA_REVISION))
+			.filter(Objects::nonNull)
+			.map(Object::toString)
+			.filter(StringUtils::isNotBlank)
+			.findFirst()
+			.orElse(null);
 	}
 
 }

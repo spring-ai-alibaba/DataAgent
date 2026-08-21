@@ -34,6 +34,9 @@ public interface ChatSessionMapper {
 			""")
 	List<ChatSession> selectByAgentId(@Param("agentId") Integer agentId);
 
+	@Select("SELECT * FROM chat_session WHERE agent_id = #{agentId} ORDER BY create_time ASC")
+	List<ChatSession> selectAllByAgentId(@Param("agentId") Integer agentId);
+
 	/**
 	 * Query session details by session ID
 	 */
@@ -42,6 +45,20 @@ public interface ChatSessionMapper {
 			WHERE id = #{sessionId} AND status != 'deleted'
 			""")
 	ChatSession selectBySessionId(@Param("sessionId") String sessionId);
+
+	/** Query a session regardless of lifecycle state for tombstone checks. */
+	@Select("SELECT * FROM chat_session WHERE id = #{sessionId}")
+	ChatSession selectAnyBySessionId(@Param("sessionId") String sessionId);
+
+	/**
+	 * Serialize derived-memory rebuilds for one persisted conversation.
+	 */
+	@Select("SELECT id FROM chat_session WHERE id = #{sessionId} AND status != 'deleted' FOR UPDATE")
+	String lockBySessionId(@Param("sessionId") String sessionId);
+
+	/** Lock a session including its tombstone before a destructive operation. */
+	@Select("SELECT id FROM chat_session WHERE id = #{sessionId} FOR UPDATE")
+	String lockAnyBySessionId(@Param("sessionId") String sessionId);
 
 	/**
 	 * Update session
@@ -100,7 +117,7 @@ public interface ChatSessionMapper {
 			UPDATE chat_session SET
 				title = #{title},
 				update_time = #{updateTime}
-			WHERE id = #{sessionId}
+			WHERE id = #{sessionId} AND status != 'deleted'
 			""")
 	int updateTitle(@Param("sessionId") String sessionId, @Param("title") String title,
 			@Param("updateTime") LocalDateTime updateTime);

@@ -31,8 +31,6 @@ import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.common.TestFixtures;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.QueryEnhanceOutputDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
-import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
-import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.nl2sql.Nl2SqlService;
 import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
@@ -68,15 +66,12 @@ class TableRelationNodeTest {
 	@Mock
 	private DatasourceService datasourceService;
 
-	@Mock
-	private AgentDatasourceService agentDatasourceService;
-
 	private TableRelationNode tableRelationNode;
 
 	@BeforeEach
 	void setUp() {
 		tableRelationNode = new TableRelationNode(schemaService, nl2SqlService, semanticModelService, databaseUtil,
-				datasourceService, agentDatasourceService);
+				datasourceService);
 	}
 
 	private OverAllState createTestState() {
@@ -86,22 +81,21 @@ class TableRelationNodeTest {
 		state.registerKeyAndStrategy(TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(AGENT_ID, new ReplaceStrategy());
+		state.registerKeyAndStrategy(DATASOURCE_ID, new ReplaceStrategy());
+		state.registerKeyAndStrategy(SCHEMA_FINGERPRINT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(DB_DIALECT_TYPE, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_RETRY_COUNT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_EXCEPTION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_GENERATE_SCHEMA_MISSING_ADVICE, new ReplaceStrategy());
 		state.registerKeyAndStrategy(GENEGRATED_SEMANTIC_MODEL_PROMPT, new ReplaceStrategy());
+		state.updateState(Map.of(DATASOURCE_ID, 100, SCHEMA_FINGERPRINT, "schema-v1"));
 		return state;
 	}
 
 	private void setupCommonMocks(String agentId, List<Document> tableDocs) throws Exception {
 		DbConfigBO dbConfig = DbConfigBO.builder().dialectType("mysql").schema("test_db").build();
-		when(databaseUtil.getAgentDbConfig(Long.valueOf(agentId))).thenReturn(dbConfig);
-
-		AgentDatasource agentDs = new AgentDatasource();
-		agentDs.setDatasourceId(100);
-		when(agentDatasourceService.getCurrentAgentDatasource(Long.valueOf(agentId))).thenReturn(agentDs);
+		when(databaseUtil.getDatasourceDbConfig(100, "schema-v1")).thenReturn(dbConfig);
 		when(datasourceService.getLogicalRelations(100)).thenReturn(Collections.emptyList());
 		when(semanticModelService.getByAgentIdAndTableNames(eq(Long.valueOf(agentId)), anyList()))
 			.thenReturn(Collections.emptyList());
@@ -196,14 +190,15 @@ class TableRelationNodeTest {
 				TABLE_DOCUMENTS_FOR_SCHEMA_OUTPUT, tableDocs, COLUMN_DOCUMENTS__FOR_SCHEMA_OUTPUT,
 				Collections.emptyList()));
 
-		when(databaseUtil.getAgentDbConfig(4L)).thenThrow(new RuntimeException("DB config not found"));
+		when(databaseUtil.getDatasourceDbConfig(100, "schema-v1"))
+			.thenThrow(new RuntimeException("DB config not found"));
 
 		RuntimeException exception = assertThrowsExactly(RuntimeException.class, () -> tableRelationNode.apply(state));
 		assertEquals("DB config not found", exception.getMessage());
 	}
 
 	@Test
-	void apply_noActiveDatasource_returnsEmptyForeignKeys() throws Exception {
+	void apply_noLogicalRelations_returnsEmptyForeignKeys() throws Exception {
 		OverAllState state = createTestState();
 		QueryEnhanceOutputDTO dto = TestFixtures.createQueryEnhanceDTO("查询用户");
 		List<Document> tableDocs = List.of(createTableDocument("users"));
@@ -213,8 +208,8 @@ class TableRelationNodeTest {
 				Collections.emptyList()));
 
 		DbConfigBO dbConfig = DbConfigBO.builder().dialectType("mysql").schema("test_db").build();
-		when(databaseUtil.getAgentDbConfig(5L)).thenReturn(dbConfig);
-		when(agentDatasourceService.getCurrentAgentDatasource(5L)).thenReturn(null);
+		when(databaseUtil.getDatasourceDbConfig(100, "schema-v1")).thenReturn(dbConfig);
+		when(datasourceService.getLogicalRelations(100)).thenReturn(Collections.emptyList());
 		when(semanticModelService.getByAgentIdAndTableNames(eq(5L), anyList())).thenReturn(Collections.emptyList());
 
 		SchemaDTO schemaResult = new SchemaDTO();
@@ -248,12 +243,8 @@ class TableRelationNodeTest {
 				Collections.emptyList(), SQL_GENERATE_SCHEMA_MISSING_ADVICE, "add orders table"));
 
 		DbConfigBO dbConfig = DbConfigBO.builder().dialectType("mysql").schema("test_db").build();
-		when(databaseUtil.getAgentDbConfig(6L)).thenReturn(dbConfig);
-
-		AgentDatasource agentDs = new AgentDatasource();
-		agentDs.setDatasourceId(600);
-		when(agentDatasourceService.getCurrentAgentDatasource(6L)).thenReturn(agentDs);
-		when(datasourceService.getLogicalRelations(600)).thenReturn(Collections.emptyList());
+		when(databaseUtil.getDatasourceDbConfig(100, "schema-v1")).thenReturn(dbConfig);
+		when(datasourceService.getLogicalRelations(100)).thenReturn(Collections.emptyList());
 		when(semanticModelService.getByAgentIdAndTableNames(eq(6L), anyList())).thenReturn(Collections.emptyList());
 
 		SchemaDTO schemaResult = new SchemaDTO();

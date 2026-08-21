@@ -45,11 +45,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.AGENT_ID;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.DATASOURCE_ID;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.DB_DIALECT_TYPE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.EVIDENCE;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_CURRENT_STEP;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLANNER_NODE_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.QUERY_ENHANCE_NODE_OUTPUT;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.SCHEMA_FINGERPRINT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_COUNT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_OUTPUT;
@@ -105,8 +107,8 @@ class TextToSqlWorkflowComponentTest {
 
 		DbConfigBO dbConfig = new DbConfigBO();
 		dbConfig.setSchema("test_db");
-		when(databaseUtil.getAgentDbConfig(1L)).thenReturn(dbConfig);
-		when(databaseUtil.getAgentAccessor(1L)).thenReturn(accessor);
+		when(databaseUtil.getDatasourceDbConfig(100, "schema-v1")).thenReturn(dbConfig);
+		when(databaseUtil.getAccessor(dbConfig)).thenReturn(accessor);
 		List<Map<String, String>> rows = new ArrayList<>();
 		rows.add(Map.of("id", "1", "name", "Alice", "email", "alice@test.com"));
 		rows.add(Map.of("id", "2", "name", "Bob", "email", "bob@test.com"));
@@ -142,8 +144,8 @@ class TextToSqlWorkflowComponentTest {
 
 		DbConfigBO dbConfig = new DbConfigBO();
 		dbConfig.setSchema("test_db");
-		when(databaseUtil.getAgentDbConfig(1L)).thenReturn(dbConfig);
-		when(databaseUtil.getAgentAccessor(1L)).thenReturn(accessor);
+		when(databaseUtil.getDatasourceDbConfig(100, "schema-v1")).thenReturn(dbConfig);
+		when(databaseUtil.getAccessor(dbConfig)).thenReturn(accessor);
 		String databaseError = "Table 'nonexistent_table' doesn't exist";
 		when(accessor.executeSqlAndReturnObject(any(DbConfigBO.class), any(DbQueryParameter.class)))
 			.thenThrow(new RuntimeException(databaseError));
@@ -175,7 +177,7 @@ class TextToSqlWorkflowComponentTest {
 		OverAllState state = new OverAllState();
 		String[] keys = { SQL_GENERATE_OUTPUT, SQL_GENERATE_COUNT, SQL_REGENERATE_REASON, PLANNER_NODE_OUTPUT,
 				PLAN_CURRENT_STEP, EVIDENCE, TABLE_RELATION_OUTPUT, DB_DIALECT_TYPE, QUERY_ENHANCE_NODE_OUTPUT,
-				AGENT_ID, SQL_EXECUTE_NODE_OUTPUT, SQL_RESULT_LIST_MEMORY };
+				AGENT_ID, DATASOURCE_ID, SCHEMA_FINGERPRINT, SQL_EXECUTE_NODE_OUTPUT, SQL_RESULT_LIST_MEMORY };
 		for (String key : keys) {
 			state.registerKeyAndStrategy(key, new ReplaceStrategy());
 		}
@@ -183,7 +185,7 @@ class TextToSqlWorkflowComponentTest {
 		Map<String, Object> queryEnhance = TestFixtures.createQueryEnhanceMap("查询所有用户");
 		state.updateState(Map.of(SQL_GENERATE_COUNT, 0, PLANNER_NODE_OUTPUT, TEST_PLAN_JSON, PLAN_CURRENT_STEP, 1,
 				EVIDENCE, "用户表包含id, name, email", DB_DIALECT_TYPE, "mysql", QUERY_ENHANCE_NODE_OUTPUT, queryEnhance,
-				TABLE_RELATION_OUTPUT, schema, AGENT_ID, "1"));
+				TABLE_RELATION_OUTPUT, schema, AGENT_ID, "1", DATASOURCE_ID, 100, SCHEMA_FINGERPRINT, "schema-v1"));
 		return state;
 	}
 

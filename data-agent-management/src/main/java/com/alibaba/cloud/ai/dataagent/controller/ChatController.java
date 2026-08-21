@@ -29,6 +29,7 @@ import java.time.format.DateTimeFormatter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -71,14 +72,9 @@ public class ChatController {
 	public ResponseEntity<ChatSession> createSession(@PathVariable(value = "id") Integer id,
 			@RequestBody(required = false) Map<String, Object> request) {
 		String title = request != null ? (String) request.get("title") : null;
-		Long userId = request != null ? toUserId(request.get("userId")) : null;
 
-		ChatSession session = chatSessionService.createSession(id, title, userId);
+		ChatSession session = chatSessionService.createSession(id, title);
 		return ResponseEntity.ok(session);
-	}
-
-	static Long toUserId(Object value) {
-		return value instanceof Number number ? number.longValue() : null;
 	}
 
 	/**
@@ -175,10 +171,15 @@ public class ChatController {
 	 * Delete a single session
 	 */
 	@DeleteMapping("/sessions/{sessionId}")
-	public ResponseEntity<ApiResponse> deleteSession(@PathVariable(value = "sessionId") String sessionId) {
+	public ResponseEntity<ApiResponse> deleteSession(@PathVariable(value = "sessionId") String sessionId,
+			@RequestParam(value = "agentId") Integer agentId) {
 		try {
-			chatSessionService.deleteSession(sessionId);
+			chatSessionService.deleteSession(sessionId, agentId);
 			return ResponseEntity.ok(ApiResponse.success("会话已删除"));
+		}
+		catch (IllegalArgumentException e) {
+			log.warn("Delete session rejected for session {} and agent {}", sessionId, agentId);
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("会话不存在"));
 		}
 		catch (Exception e) {
 			log.error("Delete session error for session {}: {}", sessionId, e.getMessage(), e);

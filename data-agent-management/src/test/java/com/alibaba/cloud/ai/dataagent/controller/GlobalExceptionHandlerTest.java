@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
 import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
+import com.alibaba.cloud.ai.dataagent.exception.MemoryConflictException;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -87,6 +88,25 @@ class GlobalExceptionHandlerTest {
 		assertNotNull(response.getBody());
 		assertFalse(response.getBody().isSuccess());
 		assertEquals("agent not found", response.getBody().getMessage());
+	}
+
+	@Test
+	void handleMemoryConflictException_returnsConflictWithSafeMessage() {
+		ResponseEntity<ApiResponse<Object>> response = handler
+			.handleMemoryConflictException(new MemoryConflictException("memory already confirmed"));
+
+		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertFalse(response.getBody().isSuccess());
+		assertEquals("memory already confirmed", response.getBody().getMessage());
+	}
+
+	@Test
+	void handleIllegalArgumentException_returnsBadRequestPayload() {
+		ApiResponse<Object> response = handler.handleBadRequest(new IllegalArgumentException("invalid memory scope"));
+
+		assertFalse(response.isSuccess());
+		assertEquals("invalid memory scope", response.getMessage());
 	}
 
 }

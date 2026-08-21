@@ -49,7 +49,9 @@ public class GraphController {
 	@GetMapping(value = "/stream/search", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<ServerSentEvent<GraphNodeResponse>> streamSearch(@RequestParam("agentId") String agentId,
 			@RequestParam(value = "conversationId", required = false) String conversationId,
-			@RequestParam(value = "threadId", required = false) String threadId, @RequestParam("query") String query,
+			@RequestParam(value = "threadId", required = false) String threadId,
+			@RequestParam(value = "turnId", required = false) String turnId, @RequestParam("query") String query,
+			@RequestParam(value = "titleNeeded", required = false) boolean titleNeeded,
 			@RequestParam(value = "humanFeedback", required = false) boolean humanFeedback,
 			@RequestParam(value = "humanFeedbackContent", required = false) String humanFeedbackContent,
 			@RequestParam(value = "rejectedPlan", required = false) boolean rejectedPlan,
@@ -65,7 +67,9 @@ public class GraphController {
 			.agentId(agentId)
 			.conversationId(conversationId)
 			.threadId(threadId)
+			.turnId(turnId)
 			.query(query)
+			.titleNeeded(titleNeeded)
 			.humanFeedback(humanFeedback)
 			.humanFeedbackContent(humanFeedbackContent)
 			.rejectedPlan(rejectedPlan)
@@ -91,26 +95,27 @@ public class GraphController {
 			.doOnCancel(() -> {
 				log.info("Client disconnected from stream, threadId: {}", request.getThreadId());
 				if (request.getThreadId() != null) {
-					graphService.stopStreamProcessing(request.getThreadId());
+					graphService.stopStreamProcessing(request.getThreadId(), request.getAgentId());
 				}
 			})
 			.doOnError(e -> {
 				log.error("Error occurred during streaming, threadId: {}: ", request.getThreadId(), e);
 				if (request.getThreadId() != null) {
-					graphService.stopStreamProcessing(request.getThreadId());
+					graphService.stopStreamProcessing(request.getThreadId(), request.getAgentId());
 				}
 			})
 			.doOnComplete(() -> log.info("Stream completed successfully, threadId: {}", request.getThreadId()));
 	}
 
 	@PostMapping("/stream/stop")
-	public ResponseEntity<Void> stopStream(@RequestParam("conversationId") String conversationId,
+	public ResponseEntity<Void> stopStream(@RequestParam("agentId") String agentId,
+			@RequestParam("conversationId") String conversationId,
 			@RequestParam(value = "threadId", required = false) String threadId) {
 		if (StringUtils.hasText(threadId)) {
-			graphService.stopStreamProcessing(threadId);
+			graphService.stopStreamProcessing(threadId, agentId);
 		}
 		else {
-			graphService.stopStreamProcessingByConversationId(conversationId);
+			graphService.stopStreamProcessingByConversationId(conversationId, agentId);
 		}
 		return ResponseEntity.noContent().build();
 	}
