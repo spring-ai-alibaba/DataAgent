@@ -399,7 +399,7 @@ public class GraphServiceImpl implements GraphService {
 		TextType textType;
 		boolean isTypeSign = false;
 		if (originType == null) {
-			textType = TextType.getTypeByStratSign(chunk);
+			textType = TextType.getTypeByStartSign(chunk);
 			if (textType != TextType.TEXT) {
 				isTypeSign = true;
 			}
