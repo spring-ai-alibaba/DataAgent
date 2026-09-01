@@ -15,13 +15,26 @@
  */
 package com.alibaba.cloud.ai.dataagent.util;
 
+import com.alibaba.cloud.ai.dataagent.service.langfuse.LangfuseService;
+import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.action.NodeAction;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.DefaultUsage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.TRACE_THREAD_ID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FluxUtilTest {
@@ -130,6 +143,104 @@ class FluxUtilTest {
 		Flux<String> result = FluxUtil.cascadeFlux(origin, nextFunc, aggregator);
 
 		StepVerifier.create(result).expectNext("single").expectNext("processed:single").verifyComplete();
+	}
+
+	@Nested
+	@DisplayName("Token accumulation with completion-id dedup")
+	class TokenAccumulation {
+
+		private static final String THREAD_ID = "flux-util-test-thread";
+
+		@Test
+		@DisplayName("Duplicate completion id counts usage only once (STOP chunk + usage-only chunk)")
+		void duplicateCompletionId_countsOnce() {
+			long[] tokens = runAndTake(THREAD_ID, contentChunk("hello"), usageChunk("chatcmpl-1", 10, 5),
+					usageChunk("chatcmpl-1", 10, 5));
+
+			assertArrayEquals(new long[] { 10, 5 }, tokens);
+		}
+
+		@Test
+		@DisplayName("Distinct completion ids (e.g. a new model call after tool execution) are each counted once")
+		void distinctCompletionIds_countEachOnce() {
+			long[] tokens = runAndTake(THREAD_ID, usageChunk("chatcmpl-1", 10, 5), usageChunk("chatcmpl-1", 10, 5),
+					usageChunk("chatcmpl-2", 20, 8), usageChunk("chatcmpl-2", 20, 8));
+
+			assertArrayEquals(new long[] { 30, 13 }, tokens);
+		}
+
+		@Test
+		@DisplayName("Chunks without a completion id fall back to counting every usage-bearing chunk")
+		void nullCompletionId_alwaysCounted() {
+			long[] tokens = runAndTake(THREAD_ID, usageChunk(null, 10, 5), usageChunk(null, 10, 5));
+
+			assertArrayEquals(new long[] { 20, 10 }, tokens);
+		}
+
+		@Test
+		@DisplayName("Chunks with zero-token usage are ignored")
+		void zeroUsage_isIgnored() {
+			long[] tokens = runAndTake(THREAD_ID, usageChunk("chatcmpl-1", 0, 0));
+
+			assertArrayEquals(new long[] { 0, 0 }, tokens);
+		}
+
+		@Test
+		@DisplayName("Missing TRACE_THREAD_ID in state neither accumulates nor throws")
+		void missingThreadId_doesNotAccumulate() {
+			OverAllState state = new OverAllState();
+			Flux<ChatResponse> source = Flux.just(usageChunk("chatcmpl-1", 10, 5), usageChunk("chatcmpl-1", 10, 5));
+
+			assertDoesNotThrow(() -> FluxUtil
+				.createStreamingGenerator(DummyNode.class, state, source, Flux.empty(), Flux.empty(),
+						text -> Map.of("result", text))
+				.collectList()
+				.block());
+		}
+
+	}
+
+	static class DummyNode implements NodeAction {
+
+		@Override
+		public Map<String, Object> apply(OverAllState state) {
+			return Map.of();
+		}
+
+	}
+
+	/**
+	 * 将 chunk 流跑过 {@link FluxUtil#createStreamingGenerator}，并取出节点级 token 累加器的计数
+	 */
+	private static long[] runAndTake(String threadId, ChatResponse... chunks) {
+		OverAllState state = new OverAllState();
+		state.updateState(Map.of(TRACE_THREAD_ID, threadId));
+		LangfuseService.registerActiveAccumulator(threadId);
+		try {
+			FluxUtil
+				.createStreamingGenerator(DummyNode.class, state, Flux.just(chunks), Flux.empty(), Flux.empty(),
+						text -> Map.of("result", text))
+				.collectList()
+				.block();
+			long[] tokens = LangfuseService.takeActiveAccumulator(threadId);
+			assertNotNull(tokens);
+			return tokens;
+		}
+		finally {
+			LangfuseService.discardAccumulators(threadId);
+		}
+	}
+
+	private static ChatResponse contentChunk(String text) {
+		return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
+	}
+
+	private static ChatResponse usageChunk(String id, int promptTokens, int completionTokens) {
+		ChatResponseMetadata metadata = ChatResponseMetadata.builder()
+			.id(id)
+			.usage(new DefaultUsage(promptTokens, completionTokens))
+			.build();
+		return new ChatResponse(List.of(new Generation(new AssistantMessage(""))), metadata);
 	}
 
 }

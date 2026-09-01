@@ -22,10 +22,13 @@ import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.OutputType;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.support.UsageCalculator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -136,9 +139,10 @@ public final class FluxUtil {
 	private static Flux<GraphResponse<StreamingOutput>> toStreamingResponseFlux(String nodeName, OverAllState state,
 			Flux<ChatResponse> sourceFlux, Supplier<Map<String, Object>> resultSupplier) {
 		Object threadId = state.value(TRACE_THREAD_ID).orElse(null);
+		Set<String> dedupCompletionId = ConcurrentHashMap.newKeySet();
 
 		Flux<GraphResponse<StreamingOutput>> streamingFlux = sourceFlux
-			.doOnNext(response -> extractAndAccumulateTokens(threadId, response))
+			.doOnNext(response -> extractAndAccumulateTokens(threadId, response, dedupCompletionId))
 			.filter(response -> response != null && response.getResult() != null
 					&& response.getResult().getOutput() != null)
 			.map(response -> GraphResponse.of(new StreamingOutput<>(response.getResult().getOutput(), response,
@@ -151,14 +155,24 @@ public final class FluxUtil {
 	/**
 	 * 从 ChatResponse 中提取 token 用量并累计到 Langfuse Reporter
 	 */
-	private static void extractAndAccumulateTokens(Object threadId, ChatResponse response) {
+	private static void extractAndAccumulateTokens(Object threadId, ChatResponse response,
+			Set<String> dedupCompletionId) {
 		if (threadId == null || response.getMetadata() == null) {
 			return;
 		}
 		Usage usage = response.getMetadata().getUsage();
-		if (usage != null && (usage.getPromptTokens() > 0 || usage.getCompletionTokens() > 0)) {
-			LangfuseService.accumulateTokens(threadId, usage.getPromptTokens(), usage.getCompletionTokens());
+		if (UsageCalculator.isEmpty(usage)) {
+			return;
 		}
+
+		String responseId = response.getMetadata().getId();
+		// OpenAI streaming will emit the same completion id twice: once on the final
+		// content chunk and once on the usage-only chunk which before final content chunk.
+		if (responseId != null && !responseId.isBlank() && !dedupCompletionId.add(responseId)) {
+			return;
+		}
+
+		LangfuseService.accumulateTokens(threadId, usage.getPromptTokens(), usage.getCompletionTokens());
 	}
 
 }
