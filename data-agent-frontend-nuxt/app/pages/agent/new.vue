@@ -122,19 +122,6 @@
 							hide-details="auto"
 						/>
 					</v-col>
-					<v-col cols="12">
-						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
-							智能体 Prompt
-						</p>
-						<v-textarea
-							v-model="agentForm.prompt"
-							placeholder="请输入智能体 Prompt"
-							variant="outlined"
-							density="compact"
-							rows="4"
-							hide-details="auto"
-						/>
-					</v-col>
 					<v-col cols="12" md="6">
 						<p class="text-body-2 font-weight-medium text-grey-darken-2 mb-2">
 							标签 <span class="text-error">*</span>
@@ -192,7 +179,6 @@ const agentForm = reactive({
 	avatar: '',
 	category: '',
 	tags: '',
-	prompt: '',
 	status: 'draft',
 	humanReviewEnabled: false,
 });
@@ -278,7 +264,6 @@ async function createAgent() {
 			avatar: agentForm.avatar.trim(),
 			category: agentForm.category.trim(),
 			tags: agentForm.tags.trim(),
-			prompt: agentForm.prompt.trim(),
 			status: agentForm.status,
 			humanReviewEnabled: agentForm.humanReviewEnabled ? 1 : 0,
 		};
