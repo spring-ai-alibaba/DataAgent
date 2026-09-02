@@ -114,6 +114,7 @@ public class AgentServiceImpl implements AgentService {
 			throw new IllegalStateException("Failed to clean vector resources for agent: " + id);
 		}
 		if (existing.getAvatar() != null && !existing.getAvatar().isBlank()
+				&& !existing.getAvatar().startsWith("data:")
 				&& !fileStorageService.deleteFile(existing.getAvatar())) {
 			throw new IllegalStateException("Failed to delete avatar for agent: " + id);
 		}
