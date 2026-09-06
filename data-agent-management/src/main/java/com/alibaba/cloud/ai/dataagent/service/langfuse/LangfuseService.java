@@ -47,7 +47,7 @@ public class LangfuseService {
 
 	private static final AttributeKey<String> ATTR_AGENT_ID = AttributeKey.stringKey("data_agent.agent_id");
 
-	private static final AttributeKey<String> ATTR_THREAD_ID = AttributeKey.stringKey("data_agent.thread_id");
+	private static final AttributeKey<String> ATTR_THREAD_ID = AttributeKey.stringKey("session.id");
 
 	private static final AttributeKey<Boolean> ATTR_NL2SQL_ONLY = AttributeKey.booleanKey("data_agent.nl2sql_only");
 
