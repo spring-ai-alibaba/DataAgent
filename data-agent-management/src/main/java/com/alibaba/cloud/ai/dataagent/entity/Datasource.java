@@ -25,6 +25,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
+/**
+ *  Datasource Entity Class
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
