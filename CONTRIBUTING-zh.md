@@ -2,9 +2,9 @@
 
 ## 如何贡献
 
-## 感谢你为 Spring AI Alibaba-DateAgent 贡献！
+## 感谢你为 Spring AI Alibaba-DataAgent 贡献！
 
-DateAgent 从开源建设以来，受到了很多社区同学的关注。社区的每一个 Issue ，每一个 PR，都是对整个项目的帮助，都在为建设更好用的 Spring AI 添砖加瓦。
+DataAgent 从开源建设以来，受到了很多社区同学的关注。社区的每一个 Issue ，每一个 PR，都是对整个项目的帮助，都在为建设更好用的 Spring AI 添砖加瓦。
 
 我们真心地感谢为这个项目提出过 Issue 和 PR 的开发者。我们希望有更多社区的开发者加入进来，一起把项目做好。
 
