@@ -23,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 
@@ -131,6 +132,25 @@ class AgentPresetQuestionServiceImplTest {
 		service.batchSave(1L, List.of());
 		verify(mapper).deleteByAgentId(1L);
 		verify(mapper, never()).insert(any());
+	}
+
+	@Test
+	void testBatchSave_stopsAndPropagatesWhenInsertFails() {
+		AgentPresetQuestion q1 = new AgentPresetQuestion();
+		q1.setQuestion("q1");
+		AgentPresetQuestion q2 = new AgentPresetQuestion();
+		q2.setQuestion("q2");
+		AgentPresetQuestion q3 = new AgentPresetQuestion();
+		q3.setQuestion("q3");
+
+		DataIntegrityViolationException insertFailure = new DataIntegrityViolationException("模拟第二条数据插入时异常");
+		when(mapper.insert(any(AgentPresetQuestion.class))).thenReturn(1).thenThrow(insertFailure);
+
+		DataIntegrityViolationException thrown = assertThrowsExactly(DataIntegrityViolationException.class,
+				() -> service.batchSave(1L, List.of(q1, q2, q3)));
+		assertSame(insertFailure, thrown);
+		verify(mapper, times(1)).deleteByAgentId(1L);
+		verify(mapper, times(2)).insert(any(AgentPresetQuestion.class));
 	}
 
 }

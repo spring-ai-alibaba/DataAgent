@@ -19,6 +19,7 @@ import com.alibaba.cloud.ai.dataagent.entity.AgentPresetQuestion;
 import com.alibaba.cloud.ai.dataagent.mapper.AgentPresetQuestionMapper;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -72,6 +73,7 @@ public class AgentPresetQuestionServiceImpl implements AgentPresetQuestionServic
 	}
 
 	@Override
+	@Transactional
 	public void batchSave(Long agentId, List<AgentPresetQuestion> questions) {
 		// Step 1: Delete all existing preset questions for the agent
 		deleteByAgentId(agentId);
