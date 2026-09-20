@@ -357,9 +357,11 @@ class PromptHelperTest {
 	@Test
 	void buildFeasibilityAssessmentPrompt_withAllParams_buildsPrompt() {
 		SchemaDTO schema = createTestSchema();
-		String result = PromptHelper.buildFeasibilityAssessmentPrompt("query", schema, "evidence", "history");
+		String result = PromptHelper.buildFeasibilityAssessmentPrompt("query", schema, "evidence", "semantic model",
+				"history");
 		assertTrue(result.contains("query"));
 		assertTrue(result.contains("evidence"));
+		assertTrue(result.contains("semantic model"));
 		assertTrue(result.contains("history"));
 		assertTrue(result.contains("# Table: users"));
 		assertTrue(result.contains("requirementType"));
@@ -368,7 +370,7 @@ class PromptHelperTest {
 	@Test
 	void buildFeasibilityAssessmentPrompt_nullParams_handlesGracefully() {
 		SchemaDTO schema = createTestSchema();
-		String result = PromptHelper.buildFeasibilityAssessmentPrompt(null, schema, null, null);
+		String result = PromptHelper.buildFeasibilityAssessmentPrompt(null, schema, null, null, null);
 		assertTrue(result.contains("(无)"));
 		assertTrue(result.contains("# Table: users"));
 		assertFalse(result.contains("<canonical_query>\nnull"));

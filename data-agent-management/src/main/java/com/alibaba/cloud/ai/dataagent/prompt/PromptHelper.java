@@ -282,16 +282,18 @@ public class PromptHelper {
 	 * @param canonicalQuery 规范化查询
 	 * @param recalledSchema 召回的数据库Schema
 	 * @param evidence 参考信息
+	 * @param semanticModel 语义模型映射参考
 	 * @param multiTurn 多轮对话历史
 	 * @return 可行性评估提示词
 	 */
 	public static String buildFeasibilityAssessmentPrompt(String canonicalQuery, SchemaDTO recalledSchema,
-			String evidence, String multiTurn) {
+			String evidence, String semanticModel, String multiTurn) {
 		Map<String, Object> params = new HashMap<>();
 		String schemaInfo = buildMixMacSqlDbPrompt(recalledSchema, true);
 		params.put("canonical_query", canonicalQuery != null ? canonicalQuery : "");
 		params.put("recalled_schema", schemaInfo);
 		params.put("evidence", evidence != null ? evidence : "");
+		params.put("semantic_model", semanticModel != null ? semanticModel : "");
 		params.put("multi_turn", multiTurn != null ? multiTurn : "(无)");
 		BeanOutputConverter<FeasibilityAssessmentOutputDTO> beanOutputConverter = new BeanOutputConverter<>(
 				FeasibilityAssessmentOutputDTO.class);

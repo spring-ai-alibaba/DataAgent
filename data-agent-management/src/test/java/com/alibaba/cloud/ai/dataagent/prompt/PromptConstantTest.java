@@ -59,7 +59,7 @@ class PromptConstantTest {
 				contract("query-enhancement", PromptConstant::getQueryEnhancementPromptTemplate, "latest_query",
 						"multi_turn", "evidence", "current_time_info", "format"),
 				contract("feasibility-assessment", PromptConstant::getFeasibilityAssessmentPromptTemplate,
-						"canonical_query", "multi_turn", "evidence", "recalled_schema", "format"),
+						"canonical_query", "multi_turn", "evidence", "semantic_model", "recalled_schema", "format"),
 				contract("mix-selector", PromptConstant::getMixSelectorPromptTemplate, "evidence", "question",
 						"schema_info"),
 				contract("semantic-consistency", PromptConstant::getSemanticConsistencyPromptTemplate, "dialect", "sql",

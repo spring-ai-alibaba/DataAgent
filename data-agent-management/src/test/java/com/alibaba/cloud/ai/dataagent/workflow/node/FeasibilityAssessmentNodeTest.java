@@ -62,6 +62,7 @@ class FeasibilityAssessmentNodeTest {
 		state.registerKeyAndStrategy(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(EVIDENCE, new ReplaceStrategy());
+		state.registerKeyAndStrategy(GENEGRATED_SEMANTIC_MODEL_PROMPT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(MULTI_TURN_CONTEXT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(FEASIBILITY_ASSESSMENT_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(FINAL_ANSWER, new ReplaceStrategy());
@@ -133,6 +134,25 @@ class FeasibilityAssessmentNodeTest {
 				output(execution).getRequirementType());
 		assertTrue(promptCaptor.getValue().contains("之前查询了用户列表"));
 		assertTrue(promptCaptor.getValue().contains("查询用户订单"));
+	}
+
+	@Test
+	void apply_withSemanticModel_includesModelInPrompt() throws Exception {
+		OverAllState state = createTestState();
+		QueryEnhanceOutputDTO dto = TestFixtures.createQueryEnhanceDTO("查询总订单金额");
+		state.updateState(Map.of(QUERY_ENHANCE_NODE_OUTPUT, dto, TABLE_RELATION_OUTPUT, createSimpleSchema(), EVIDENCE,
+				"evidence", GENEGRATED_SEMANTIC_MODEL_PROMPT, "语义模型：订单金额=orders.amount"));
+
+		when(llmService.callUser(anyString(), any())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse(
+				"{\"requirementType\":\"DATA_ANALYSIS\",\"language\":\"zh-CN\",\"content\":\"查询总订单金额\"}")));
+
+		NodeExecution execution = execute(feasibilityAssessmentNode.apply(state), FEASIBILITY_ASSESSMENT_NODE_OUTPUT);
+		ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(promptCaptor.capture(), eq(FeasibilityAssessmentOutputDTO.class));
+
+		assertEquals(FeasibilityAssessmentOutputDTO.RequirementType.DATA_ANALYSIS,
+				output(execution).getRequirementType());
+		assertTrue(promptCaptor.getValue().contains("语义模型：订单金额=orders.amount"));
 	}
 
 	@Test
