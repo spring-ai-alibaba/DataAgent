@@ -55,7 +55,7 @@ public enum TextType {
 		return origin;
 	}
 
-	public static TextType getTypeByStratSign(String startSign) {
+	public static TextType getTypeByStartSign(String startSign) {
 		for (TextType type : TextType.values()) {
 			if (startSign.equals(type.startSign)) {
 				return type;

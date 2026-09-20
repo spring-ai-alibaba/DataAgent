@@ -93,16 +93,16 @@ class TextTypeTest {
 
 	@Test
 	void getTypeByStartSign_matchesKnownSigns() {
-		assertEquals(TextType.JSON, TextType.getTypeByStratSign("$$$json"));
-		assertEquals(TextType.PYTHON, TextType.getTypeByStratSign("$$$python"));
-		assertEquals(TextType.SQL, TextType.getTypeByStratSign("$$$sql"));
-		assertEquals(TextType.MARK_DOWN, TextType.getTypeByStratSign("$$$markdown-report"));
-		assertEquals(TextType.RESULT_SET, TextType.getTypeByStratSign("$$$result_set"));
+		assertEquals(TextType.JSON, TextType.getTypeByStartSign("$$$json"));
+		assertEquals(TextType.PYTHON, TextType.getTypeByStartSign("$$$python"));
+		assertEquals(TextType.SQL, TextType.getTypeByStartSign("$$$sql"));
+		assertEquals(TextType.MARK_DOWN, TextType.getTypeByStartSign("$$$markdown-report"));
+		assertEquals(TextType.RESULT_SET, TextType.getTypeByStartSign("$$$result_set"));
 	}
 
 	@Test
 	void getTypeByStartSign_unknown_returnsText() {
-		assertEquals(TextType.TEXT, TextType.getTypeByStratSign("unknown"));
+		assertEquals(TextType.TEXT, TextType.getTypeByStartSign("unknown"));
 	}
 
 }
