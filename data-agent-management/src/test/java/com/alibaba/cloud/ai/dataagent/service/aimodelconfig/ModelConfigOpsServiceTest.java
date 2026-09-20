@@ -222,3 +222,42 @@ class ModelConfigOpsServiceTest {
 	}
 
 }
+
+	@Test
+	void parseErrorMessage_modelNotSupported_reportsUnsupportedModel() {
+		RuntimeException ex = new RuntimeException(
+				"404 - {\"error\":{\"message\":\"Unsupported model `multimodal-embedding-v1` for OpenAI compatibility mode.\",\"type\":\"invalid_request_error\",\"code\":\"model_not_supported\"}}");
+
+		String result = service.parseErrorMessage(ex);
+
+		assertTrue(result.contains("model_not_supported"), "应提示 model_not_supported，实际: " + result);
+		assertFalse(result.contains("接口未找到"), "不应误报为接口未找到，实际: " + result);
+	}
+
+	@Test
+	void parseErrorMessage_generic404_reportsInterfaceNotFound() {
+		RuntimeException ex = new RuntimeException("404 Not Found: path /v1/chat/completions");
+
+		String result = service.parseErrorMessage(ex);
+
+		assertTrue(result.contains("接口未找到"), "普通 404 仍应提示接口未找到，实际: " + result);
+		assertFalse(result.contains("model_not_supported"));
+	}
+
+	@Test
+	void parseErrorMessage_401_reportsAuthFailure() {
+		RuntimeException ex = new RuntimeException("401 Unauthorized");
+
+		String result = service.parseErrorMessage(ex);
+
+		assertTrue(result.contains("鉴权失败"), "实际: " + result);
+	}
+
+	@Test
+	void parseErrorMessage_429_reportsQuota() {
+		RuntimeException ex = new RuntimeException("429 Too Many Requests");
+
+		String result = service.parseErrorMessage(ex);
+
+		assertTrue(result.contains("请求过多或余额不足"), "实际: " + result);
+	}
