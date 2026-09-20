@@ -24,6 +24,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -41,8 +42,10 @@ import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeErrorExec
 import com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.NodeExecution;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.workflow.node.PythonAnalyzeNode;
+import com.alibaba.cloud.ai.graph.GraphResponse;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
+import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 
 import reactor.core.publisher.Flux;
 
@@ -171,6 +174,29 @@ class PythonAnalyzeNodeTest {
 		assertEquals("{\"data\": []}", updatedResults.get("step_1"));
 		assertEquals("分析完成：数据为空", updatedResults.get("step_1_analysis"));
 		assertEquals(2, execution.finalResult().get(PLAN_CURRENT_STEP));
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void apply_preservesPythonOutputForReport() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		when(llmService.callSystem(anyString())).thenReturn(Flux.just(ChatResponseUtil.createPureResponse("销售数据分析完成")));
+
+		Map<String, Object> result = pythonAnalyzeNode.apply(state);
+		Flux<GraphResponse<StreamingOutput>> generator = (Flux<GraphResponse<StreamingOutput>>) result
+			.get(PYTHON_ANALYSIS_NODE_OUTPUT);
+		Map<String, Object> finalResult = generator.collectList()
+			.block(Duration.ofSeconds(2))
+			.stream()
+			.filter(GraphResponse::isDone)
+			.findFirst()
+			.flatMap(GraphResponse::resultValue)
+			.map(value -> (Map<String, Object>) value)
+			.orElseThrow();
+		Map<String, String> executionResults = (Map<String, String>) finalResult.get(SQL_EXECUTE_NODE_OUTPUT);
+
+		assertEquals("{\"total_sales\": 15000, \"avg_sales\": 3000}", executionResults.get("step_1_python_output"));
 	}
 
 	@Test
