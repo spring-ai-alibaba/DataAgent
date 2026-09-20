@@ -21,6 +21,13 @@ import {
 } from './report-html-template';
 
 describe('buildReportHtml', () => {
+	it('recognizes common ECharts fence language aliases', () => {
+		const html = buildReportHtml('```javascript\n{"series":[]}\n```');
+
+		expect(html).toContain("'echarts', 'json', 'javascript', 'js'");
+		expect(html).toContain('toLowerCase()');
+	});
+
 	it('reserves separate space for chart titles and legends', () => {
 		const option = normalizeChartLayout({
 			title: { text: '趋势' },
