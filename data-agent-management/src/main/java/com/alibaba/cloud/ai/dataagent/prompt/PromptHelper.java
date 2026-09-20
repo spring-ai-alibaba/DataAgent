@@ -41,9 +41,23 @@ import org.springframework.ai.converter.BeanOutputConverter;
 
 import static com.alibaba.cloud.ai.dataagent.util.ReportTemplateUtil.cleanJsonExample;
 
+/**
+ * 提示词及时帮助类
+ *
+ * @author yuxiaohan
+ * &#064;date  2026/09/07 09:04
+ */
 public class PromptHelper {
 
-	public static String buildMixSelectorPrompt(String evidence, String question, SchemaDTO schemaDTO) {
+    /**
+     * 构建混合选择器提示符
+     *
+     * @param evidence  证据
+     * @param question  问题
+     * @param schemaDTO 模式dto
+     * @return {@link String}
+     */
+    public static String buildMixSelectorPrompt(String evidence, String question, SchemaDTO schemaDTO) {
 		String schemaInfo = buildMixMacSqlDbPrompt(schemaDTO, true);
 		Map<String, Object> params = new HashMap<>();
 		params.put("schema_info", schemaInfo);
@@ -114,7 +128,13 @@ public class PromptHelper {
 		return sb.toString();
 	}
 
-	public static String buildNewSqlGeneratorPrompt(SqlGenerationDTO sqlGenerationDTO) {
+    /**
+     *
+     *
+     * @param sqlGenerationDTO SQL生成
+     * @return {@link String}
+     */
+    public static String buildNewSqlGeneratorPrompt(SqlGenerationDTO sqlGenerationDTO) {
 		String schemaInfo = buildMixMacSqlDbPrompt(sqlGenerationDTO.getSchemaDTO(), true);
 		Map<String, Object> params = new HashMap<>();
 		params.put("dialect", sqlGenerationDTO.getDialect());

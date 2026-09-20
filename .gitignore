@@ -65,3 +65,5 @@ uploads/*
 spring-ai-alibaba-1.1.0.0/
 .gstack/
 .codegraph/
+
+/clockit_backup_*.csv

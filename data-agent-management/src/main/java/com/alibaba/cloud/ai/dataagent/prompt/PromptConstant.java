@@ -24,12 +24,21 @@ import org.springframework.ai.chat.prompt.PromptTemplate;
  */
 public class PromptConstant {
 
-	// intent-recognition
+    /**
+     * 获取意图识别提示模板
+     *
+     * @return {@link PromptTemplate}
+     */
+    // intent-recognition
 	public static PromptTemplate getIntentRecognitionPromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("intent-recognition"));
 	}
 
-	// evidence-query-rewrite
+    /**
+     * 获取证据查询重写提示模板
+     *
+     * @return {@link PromptTemplate}
+     */// evidence-query-rewrite
 	public static PromptTemplate getEvidenceQueryRewritePromptTemplate() {
 		return new PromptTemplate(PromptLoader.loadPrompt("evidence-query-rewrite"));
 	}

@@ -21,6 +21,9 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
+/**
+ * Model Config Entity Class
+ */
 @Data
 public class ModelConfig {
 
