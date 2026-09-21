@@ -68,6 +68,7 @@ class SemanticConsistencyNodeTest {
 		state.registerKeyAndStrategy(SQL_REGENERATE_REASON, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PLANNER_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PLAN_CURRENT_STEP, new ReplaceStrategy());
+		state.registerKeyAndStrategy(GENEGRATED_SEMANTIC_MODEL_PROMPT, new ReplaceStrategy());
 		return state;
 	}
 
@@ -106,8 +107,25 @@ class SemanticConsistencyNodeTest {
 		assertEquals("Query all users", requestCaptor.getValue().getExecutionDescription());
 		assertEquals("查询用户", requestCaptor.getValue().getUserQuery());
 		assertEquals("test evidence", requestCaptor.getValue().getEvidence());
+		assertEquals("", requestCaptor.getValue().getSemanticModel());
 		assertTrue(execution.streamedText().contains("开始语义一致性校验"));
 		assertTrue(execution.streamedText().contains("语义一致性校验完成"));
+	}
+
+	@Test
+	void apply_withSemanticModel_passesModelToDto() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state, "SELECT amount FROM orders");
+		state.updateState(Map.of(GENEGRATED_SEMANTIC_MODEL_PROMPT, "语义模型：订单金额=orders.amount"));
+
+		when(nl2SqlService.performSemanticConsistency(any(SemanticConsistencyDTO.class)))
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"passed\":true,\"reason\":\"SQL语义一致\"}")));
+
+		execute(semanticConsistencyNode.apply(state), SEMANTIC_CONSISTENCY_NODE_OUTPUT);
+		ArgumentCaptor<SemanticConsistencyDTO> requestCaptor = ArgumentCaptor.forClass(SemanticConsistencyDTO.class);
+		verify(nl2SqlService).performSemanticConsistency(requestCaptor.capture());
+
+		assertEquals("语义模型：订单金额=orders.amount", requestCaptor.getValue().getSemanticModel());
 	}
 
 	@Test

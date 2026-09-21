@@ -32,6 +32,8 @@ public class SemanticConsistencyDTO {
 
 	private String schemaInfo;
 
+	private String semanticModel;
+
 	private String userQuery;
 
 	private String evidence;

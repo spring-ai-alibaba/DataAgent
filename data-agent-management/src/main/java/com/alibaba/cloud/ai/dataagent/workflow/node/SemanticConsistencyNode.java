@@ -76,11 +76,14 @@ public class SemanticConsistencyNode implements NodeAction {
 			return buildStructuralValidationFailure(state, sql, structuralValidationError.get());
 		}
 
+		String semanticModel = (String) state.value(GENEGRATED_SEMANTIC_MODEL_PROMPT).orElse("");
+
 		SemanticConsistencyDTO semanticConsistencyDTO = SemanticConsistencyDTO.builder()
 			.dialect(dialect)
 			.sql(sql)
 			.executionDescription(getCurrentExecutionStepInstruction(state))
 			.schemaInfo(buildMixMacSqlDbPrompt(schemaDTO, true))
+			.semanticModel(semanticModel)
 			.userQuery(userQuery)
 			.evidence(evidence)
 			.build();

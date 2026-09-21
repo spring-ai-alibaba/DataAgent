@@ -112,6 +112,7 @@ class SqlGenerateNodeTest {
 		state.registerKeyAndStrategy(DB_DIALECT_TYPE, new ReplaceStrategy());
 		state.registerKeyAndStrategy(QUERY_ENHANCE_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(GENEGRATED_SEMANTIC_MODEL_PROMPT, new ReplaceStrategy());
 		return state;
 	}
 
@@ -162,6 +163,21 @@ class SqlGenerateNodeTest {
 
 		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
 		assertEquals(sql, execution.finalResult().get(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	void generateSql_withSemanticModel_passesModelToDto() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		state.updateState(Map.of(GENEGRATED_SEMANTIC_MODEL_PROMPT, "语义模型：订单金额=orders.amount"));
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		stubGeneratedSql("SELECT amount FROM orders");
+
+		execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		ArgumentCaptor<SqlGenerationDTO> dtoCaptor = ArgumentCaptor.forClass(SqlGenerationDTO.class);
+		verify(nl2SqlService).generateSql(dtoCaptor.capture());
+		assertEquals("语义模型：订单金额=orders.amount", dtoCaptor.getValue().getSemanticModel());
 	}
 
 	@Test

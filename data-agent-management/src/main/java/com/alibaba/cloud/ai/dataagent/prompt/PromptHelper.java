@@ -121,6 +121,7 @@ public class PromptHelper {
 		params.put("question", sqlGenerationDTO.getQuery());
 		params.put("schema_info", schemaInfo);
 		params.put("evidence", sqlGenerationDTO.getEvidence());
+		params.put("semantic_model", StringUtils.defaultIfBlank(sqlGenerationDTO.getSemanticModel(), ""));
 		params.put("execution_description", sqlGenerationDTO.getExecutionDescription());
 		params.put("previous_step_results", StringUtils.defaultIfBlank(sqlGenerationDTO.getPreviousStepResults(), "无"));
 		return PromptConstant.getNewSqlGeneratorPromptTemplate().render(params);
@@ -133,6 +134,7 @@ public class PromptHelper {
 		params.put("user_query", semanticConsistencyDTO.getUserQuery());
 		params.put("evidence", semanticConsistencyDTO.getEvidence());
 		params.put("schema_info", semanticConsistencyDTO.getSchemaInfo());
+		params.put("semantic_model", StringUtils.defaultIfBlank(semanticConsistencyDTO.getSemanticModel(), ""));
 		params.put("sql", semanticConsistencyDTO.getSql());
 		BeanOutputConverter<SemanticConsistencyOutputDTO> beanOutputConverter = new BeanOutputConverter<>(
 				SemanticConsistencyOutputDTO.class);
@@ -172,6 +174,7 @@ public class PromptHelper {
 		params.put("question", sqlGenerationDTO.getQuery());
 		params.put("schema_info", schemaInfo);
 		params.put("evidence", sqlGenerationDTO.getEvidence());
+		params.put("semantic_model", StringUtils.defaultIfBlank(sqlGenerationDTO.getSemanticModel(), ""));
 		params.put("error_sql", sqlGenerationDTO.getSql());
 		params.put("error_message", sqlGenerationDTO.getExceptionMessage());
 		params.put("execution_description", sqlGenerationDTO.getExecutionDescription());

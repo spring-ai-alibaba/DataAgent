@@ -31,6 +31,8 @@ public class SqlGenerationDTO {
 
 	private SchemaDTO schemaDTO;
 
+	private String semanticModel;
+
 	private String previousStepResults;
 
 	private String sql;

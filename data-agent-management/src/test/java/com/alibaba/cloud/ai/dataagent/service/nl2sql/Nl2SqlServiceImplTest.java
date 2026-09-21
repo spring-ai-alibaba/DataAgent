@@ -150,6 +150,34 @@ class Nl2SqlServiceImplTest {
 				"Get users", "test_db", "get all users", "users table is authoritative");
 	}
 
+	@ParameterizedTest
+	@NullSource
+	@ValueSource(strings = { "", "   ", "客户姓名=users.name; 示例值={name}" })
+	void generateSql_withExistingSql_preservesOptionalSemanticModel(String semanticModel) {
+		SqlGenerationDTO dto = SqlGenerationDTO.builder()
+			.executionDescription("Get customer names")
+			.dialect("mysql")
+			.schemaDTO(createTestSchema())
+			.sql("SELECT customer_name FROM users")
+			.exceptionMessage("Unknown column customer_name")
+			.query("查询客户姓名")
+			.evidence("")
+			.semanticModel(semanticModel)
+			.build();
+		stubUserSql("SELECT name FROM users");
+
+		StepVerifier.create(nl2SqlService.generateSql(dto)).expectNext("SELECT name FROM users").verifyComplete();
+
+		ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
+		verify(llmService).callUser(prompt.capture());
+		verify(llmService, never()).callSystem(anyString());
+		assertThat(prompt.getValue()).contains("Unknown column customer_name", "SELECT customer_name FROM users")
+			.doesNotContain("{semantic_model}");
+		if (semanticModel != null && !semanticModel.isBlank()) {
+			assertThat(prompt.getValue()).contains(semanticModel);
+		}
+	}
+
 	@ParameterizedTest(name = "{0}")
 	@MethodSource("sqlTrimCases")
 	void sqlTrim_extractsTheFirstSqlBlockAndPreservesItsFormatting(String name, String input, String expected) {

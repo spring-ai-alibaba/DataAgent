@@ -160,12 +160,14 @@ public class SqlGenerateNode implements NodeAction {
 		SchemaDTO schemaDTO = StateUtil.getObjectValue(state, TABLE_RELATION_OUTPUT, SchemaDTO.class);
 		String userQuery = StateUtil.getCanonicalQuery(state);
 		String dialect = StateUtil.getStringValue(state, DB_DIALECT_TYPE);
+		String semanticModel = (String) state.value(GENEGRATED_SEMANTIC_MODEL_PROMPT).orElse("");
 		String previousStepResults = buildPreviousStepResults(state);
 
 		SqlGenerationDTO sqlGenerationDTO = SqlGenerationDTO.builder()
 			.evidence(evidence)
 			.query(userQuery)
 			.schemaDTO(schemaDTO)
+			.semanticModel(semanticModel)
 			.previousStepResults(previousStepResults)
 			.sql(originalSql)
 			.exceptionMessage(errorMsg)

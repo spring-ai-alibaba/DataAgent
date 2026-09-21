@@ -15,6 +15,7 @@
  */
 package com.alibaba.cloud.ai.dataagent.prompt;
 
+import com.alibaba.cloud.ai.dataagent.dto.prompt.SemanticConsistencyDTO;
 import com.alibaba.cloud.ai.dataagent.dto.prompt.SqlGenerationDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.ColumnDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
@@ -80,6 +81,7 @@ class PromptHelperTest {
 			.query("查询用户订单")
 			.schemaDTO(createTestSchema())
 			.evidence("")
+			.semanticModel("语义模型：订单金额=orders.amount")
 			.executionDescription("根据前一步用户ID查询订单")
 			.previousStepResults("step_1:\n{\"data\":[{\"id\":42}]}")
 			.build();
@@ -90,6 +92,25 @@ class PromptHelperTest {
 		assertTrue(result.contains("\"id\":42"));
 		assertTrue(result.contains("替换 `?` 等占位符"));
 		assertTrue(result.contains("一条可执行 SQL 语句"));
+		assertTrue(result.contains("语义模型：订单金额=orders.amount"));
+	}
+
+	@Test
+	void buildSemanticConsistenPrompt_withSemanticModel_includesModel() {
+		SemanticConsistencyDTO dto = SemanticConsistencyDTO.builder()
+			.dialect("mysql")
+			.sql("SELECT amount FROM orders")
+			.executionDescription("查询订单金额")
+			.schemaInfo("# Table: orders")
+			.semanticModel("语义模型：订单金额=orders.amount")
+			.userQuery("查询订单金额")
+			.evidence("")
+			.build();
+
+		String result = PromptHelper.buildSemanticConsistenPrompt(dto);
+
+		assertTrue(result.contains("语义模型：订单金额=orders.amount"));
+		assertTrue(result.contains("SELECT amount FROM orders"));
 	}
 
 	@Test
