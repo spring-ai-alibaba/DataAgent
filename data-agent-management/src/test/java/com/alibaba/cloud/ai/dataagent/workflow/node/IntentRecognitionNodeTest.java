@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Map;
@@ -30,6 +31,8 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -94,6 +97,100 @@ class IntentRecognitionNodeTest {
 	}
 
 	@Test
+	void thinkingModelResponse_doesNotRepairJson() throws Exception {
+		assertAnalysisResponseWithoutRepair("Reasoning</think>\n" + JSON_ANALYSIS);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "", "Reasoning</think>\n", "<think>Reasoning</think>\n" })
+	void fencedModelResponse_returnsDataAnalysisIntentWithoutRepair(String prefix) throws Exception {
+		assertAnalysisResponseWithoutRepair(prefix + "```json\n" + JSON_ANALYSIS + "```\n");
+	}
+
+	private void assertAnalysisResponseWithoutRepair(String response) throws Exception {
+		OverAllState state = createTestState();
+		state.updateState(Map.of(INPUT_KEY, CHAT_QUERY, MULTI_TURN_CONTEXT, "(无)"));
+		when(llmService.callUser(anyString(), any()))
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(response)));
+
+		NodeExecution execution = execute(intentRecognitionNode.apply(state), INTENT_RECOGNITION_NODE_OUTPUT);
+
+		assertEquals("《可能的数据分析请求》", output(execution).getClassification());
+		assertEquals("", output(execution).getResponse());
+		assertFalse(execution.finalResult().containsKey(FINAL_ANSWER));
+		verify(llmService).callUser(anyString(), eq(IntentRecognitionOutputDTO.class));
+		verifyNoMoreInteractions(llmService);
+	}
+
+	@Test
+	void responseWithAdditionalField_preservesConverterCompatibility() throws Exception {
+		assertAnalysisResponseWithoutRepair(
+				JSON_ANALYSIS.replace("\"response\": \"\"", "\"response\": \"\", \"extra\": true"));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "<thinking>Reasoning</thinking>", "<reasoning>Reasoning</reasoning>",
+			"<THINK>Reasoning</THINK>" })
+	void otherThinkingFormats_preserveConverterCompatibility(String prefix) throws Exception {
+		assertAnalysisResponseWithoutRepair(prefix + JSON_ANALYSIS);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "", "Reasoning</think>\n" })
+	void fencedChatResponse_preservesBackticksAndThinkTag(String prefix) throws Exception {
+		OverAllState state = createTestState();
+		state.updateState(Map.of(INPUT_KEY, "你好", MULTI_TURN_CONTEXT, "(无)"));
+		String response = prefix + "```json\n"
+				+ "{\"classification\":\"《闲聊或无关指令》\",\"response\":\"保留 ``` 和 </think>\"}\n```";
+		when(llmService.callUser(anyString(), any()))
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse(response)));
+
+		NodeExecution execution = execute(intentRecognitionNode.apply(state), INTENT_RECOGNITION_NODE_OUTPUT);
+
+		assertEquals("保留 ``` 和 </think>", output(execution).getResponse());
+		assertEquals("保留 ``` 和 </think>", execution.finalResult().get(FINAL_ANSWER));
+		verify(llmService).callUser(anyString(), eq(IntentRecognitionOutputDTO.class));
+		verifyNoMoreInteractions(llmService);
+	}
+
+	@Test
+	void thinkingResponseSplitAcrossChunks_returnsDataAnalysisIntent() throws Exception {
+		OverAllState state = createTestState();
+		state.updateState(Map.of(INPUT_KEY, CHAT_QUERY, MULTI_TURN_CONTEXT, "(无)"));
+		when(llmService.callUser(anyString(), any()))
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("Reasoning</th"),
+					ChatResponseUtil.createPureResponse("ink>\n```json\n"),
+					ChatResponseUtil.createPureResponse(JSON_ANALYSIS), ChatResponseUtil.createPureResponse("```")));
+
+		NodeExecution execution = execute(intentRecognitionNode.apply(state), INTENT_RECOGNITION_NODE_OUTPUT);
+
+		assertEquals("《可能的数据分析请求》", output(execution).getClassification());
+		verify(llmService).callUser(anyString(), eq(IntentRecognitionOutputDTO.class));
+		verifyNoMoreInteractions(llmService);
+	}
+
+	@Test
+	void repeatedThinkingTags_usesCompleteFinalObject() throws Exception {
+		assertAnalysisResponseWithoutRepair(
+				"Reasoning</think>" + JSON_ANALYSIS + "This was only an example.</think>" + JSON_ANALYSIS);
+	}
+
+	@Test
+	void incompleteFinalObject_emitsErrorWithoutRepair() throws Exception {
+		OverAllState state = createTestState();
+		state.updateState(Map.of(INPUT_KEY, CHAT_QUERY, MULTI_TURN_CONTEXT, "(无)"));
+		when(llmService.callUser(anyString(), any())).thenReturn(
+				Flux.just(ChatResponseUtil.createPureResponse("Reasoning</think>" + JSON_ANALYSIS + " trailing text")));
+
+		NodeErrorExecution execution = executeForError(intentRecognitionNode.apply(state),
+				INTENT_RECOGNITION_NODE_OUTPUT);
+
+		assertNotNull(execution.error());
+		verify(llmService).callUser(anyString(), eq(IntentRecognitionOutputDTO.class));
+		verifyNoMoreInteractions(llmService);
+	}
+
+	@Test
 	void simpleChatQuery_returnsChatIntent() throws Exception {
 		OverAllState state = createTestState();
 		state.updateState(Map.of(INPUT_KEY, "你好", MULTI_TURN_CONTEXT, "(无)"));
@@ -135,6 +232,8 @@ class IntentRecognitionNodeTest {
 
 		assertNotNull(execution.error());
 		assertTrue(execution.streamedText().contains("invalid json"));
+		verify(llmService).callUser(anyString(), eq(IntentRecognitionOutputDTO.class));
+		verifyNoMoreInteractions(llmService);
 	}
 
 	@Test

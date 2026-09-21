@@ -26,10 +26,16 @@ import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import com.alibaba.cloud.ai.dataagent.util.ChatResponseUtil;
 import com.alibaba.cloud.ai.dataagent.util.FluxUtil;
 import com.alibaba.cloud.ai.dataagent.util.StateUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.converter.BeanOutputConverter;
+import org.springframework.ai.converter.MarkdownCodeBlockCleaner;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -48,6 +54,13 @@ public class IntentRecognitionNode implements NodeAction {
 
 	private static final BeanOutputConverter<IntentRecognitionOutputDTO> OUTPUT_CONVERTER = new BeanOutputConverter<>(
 			IntentRecognitionOutputDTO.class);
+
+	private static final MarkdownCodeBlockCleaner MARKDOWN_CLEANER = new MarkdownCodeBlockCleaner();
+
+	private static final ObjectReader JSON_READER = new ObjectMapper().reader()
+		.with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+
+	private static final String THINK_END_TAG = "</think>";
 
 	private final LlmService llmService;
 
@@ -74,7 +87,7 @@ public class IntentRecognitionNode implements NodeAction {
 				Flux.just(ChatResponseUtil.createPureResponse(TextType.JSON.getEndSign()),
 						ChatResponseUtil.createResponse("\n意图识别完成！")),
 				result -> {
-					IntentRecognitionOutputDTO intent = OUTPUT_CONVERTER.convert(result);
+					IntentRecognitionOutputDTO intent = OUTPUT_CONVERTER.convert(removeThinkingPrefix(result));
 					Map<String, Object> output = new HashMap<>();
 					output.put(INTENT_RECOGNITION_NODE_OUTPUT, intent);
 					if ("《闲聊或无关指令》".equals(intent.getClassification())
@@ -84,6 +97,27 @@ public class IntentRecognitionNode implements NodeAction {
 					return output;
 				});
 		return Map.of(INTENT_RECOGNITION_NODE_OUTPUT, generator);
+	}
+
+	private static String removeThinkingPrefix(String response) {
+		for (int index = response.lastIndexOf(THINK_END_TAG); index >= 0; index = response.lastIndexOf(THINK_END_TAG,
+				index - 1)) {
+			String candidate = MARKDOWN_CLEANER.clean(response.substring(index + THINK_END_TAG.length()));
+			if (!candidate.startsWith("{")) {
+				continue;
+			}
+			try {
+				JsonNode json = JSON_READER.readTree(candidate);
+				if (json != null && json.isObject()) {
+					return candidate;
+				}
+			}
+			catch (JsonProcessingException ex) {
+				// A closing tag may be quoted inside the JSON or the reasoning text.
+				// Remove a prefix only when the remaining response is a complete object.
+			}
+		}
+		return response;
 	}
 
 }
