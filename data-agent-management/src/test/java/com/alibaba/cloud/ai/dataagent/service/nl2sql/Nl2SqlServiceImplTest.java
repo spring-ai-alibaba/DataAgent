@@ -117,13 +117,13 @@ class Nl2SqlServiceImplTest {
 			.query("show all users")
 			.evidence("users are active")
 			.build();
-		stubSystemSql("SELECT * FROM users");
+		stubUserSql("SELECT * FROM users");
 
 		StepVerifier.create(nl2SqlService.generateSql(dto)).expectNext("SELECT * FROM users").verifyComplete();
 
 		ArgumentCaptor<String> prompt = ArgumentCaptor.forClass(String.class);
-		verify(llmService).callSystem(prompt.capture());
-		verify(llmService, never()).callUser(anyString());
+		verify(llmService).callUser(prompt.capture());
+		verify(llmService, never()).callSystem(anyString());
 		assertThat(prompt.getValue()).contains("Get all users", "mysql", "test_db", "show all users",
 				"users are active");
 	}
@@ -159,12 +159,6 @@ class Nl2SqlServiceImplTest {
 	@Test
 	void sqlTrim_nullInput_rejectsTheMissingSql() {
 		assertThatNullPointerException().isThrownBy(() -> nl2SqlService.sqlTrim(null));
-	}
-
-	private void stubSystemSql(String sql) {
-		Flux<ChatResponse> response = Flux.just(ChatResponseUtil.createPureResponse(sql));
-		when(llmService.callSystem(anyString())).thenReturn(response);
-		when(llmService.toStringFlux(response)).thenReturn(Flux.just(sql));
 	}
 
 	private void stubUserSql(String sql) {
