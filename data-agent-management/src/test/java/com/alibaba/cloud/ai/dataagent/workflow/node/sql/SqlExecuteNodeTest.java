@@ -238,6 +238,26 @@ class SqlExecuteNodeTest {
 	}
 
 	@Test
+	void apply_sqlExecutionErrorWithoutMessage_doesNotLeakNullIntoUserFacingText() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		setupBasicMocks();
+
+		// NPE / StackOverflowError and several JDBC wrappers carry a null message
+		when(accessor.executeSqlAndReturnObject(any(), any())).thenThrow(new RuntimeException((String) null));
+
+		NodeExecution execution = execute(sqlExecuteNode.apply(state), SQL_EXECUTE_NODE_OUTPUT);
+
+		String streamed = execution.streamedText();
+		assertFalse(streamed.contains("null"),
+				"user-facing text must not leak the literal 'null', was: " + streamed);
+		assertTrue(streamed.contains("SQL执行失败"), "failure notice must still be emitted, was: " + streamed);
+		SqlRetryDto retryReason = (SqlRetryDto) execution.finalResult().get(SQL_REGENERATE_REASON);
+		assertNotNull(retryReason);
+		assertTrue(retryReason.sqlExecuteFail());
+	}
+
+	@Test
 	void apply_connectionFailure_throwsException() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
