@@ -152,7 +152,9 @@ public class SqlExecuteNode implements NodeAction {
 			.flatMapMany(executed -> Flux.concat(baseResultResponses(executed.resultSet()),
 					chartUpdateResponses(state, executed.resultSet())))
 			.onErrorResume(e -> {
-				String errorMessage = e.getMessage();
+				// NPE / StackOverflowError and several JDBC wrappers carry a null message;
+				// fall back to the exception type so the user never sees the literal "null"
+				String errorMessage = StringUtils.isNotBlank(e.getMessage()) ? e.getMessage() : e.getClass().getName();
 				log.error("SQL execution failed - SQL as follows: \n {} \n ", sqlQuery, e);
 				result.put(SQL_REGENERATE_REASON, SqlRetryDto.sqlExecute(errorMessage));
 				return Flux.just(ChatResponseUtil.createResponse("SQL执行失败: " + errorMessage));
