@@ -126,6 +126,24 @@ class SemanticConsistencyNodeTest {
 	}
 
 	@Test
+	void apply_failedWithoutReason_doesNotStoreNullReason() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state, "SELECT * FROM nonexistent");
+
+		// LLM may omit "reason" entirely when it only reports the verdict
+		when(nl2SqlService.performSemanticConsistency(any(SemanticConsistencyDTO.class)))
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("{\"passed\":false}")));
+
+		NodeExecution execution = execute(semanticConsistencyNode.apply(state), SEMANTIC_CONSISTENCY_NODE_OUTPUT);
+
+		assertEquals(false, execution.finalResult().get(SEMANTIC_CONSISTENCY_NODE_OUTPUT));
+		SqlRetryDto retry = (SqlRetryDto) execution.finalResult().get(SQL_REGENERATE_REASON);
+		assertNotNull(retry, "retry reason must still be produced so the workflow loops back");
+		assertTrue(retry.semanticFail());
+		assertNotNull(retry.reason(), "reason must not be null; it is rendered into the repair prompt");
+	}
+
+	@Test
 	void apply_missingEvidence_throwsException() {
 		OverAllState state = createTestState();
 		QueryEnhanceOutputDTO dto = TestFixtures.createQueryEnhanceDTO("查询用户");

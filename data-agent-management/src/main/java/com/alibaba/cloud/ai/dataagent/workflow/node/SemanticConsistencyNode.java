@@ -29,6 +29,7 @@ import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.stereotype.Component;
@@ -109,6 +110,11 @@ public class SemanticConsistencyNode implements NodeAction {
 
 	/**
 	 * Build validation result
+	 *
+	 * <p>
+	 * The reason is rendered into the {@code sql-error-fixer} prompt on the retry path, so a
+	 * null reason would leave the model with an empty "错误信息" section. Fall back to a
+	 * generic notice when the model reports a failure without explaining it.
 	 */
 	private Map<String, Object> buildValidationResult(boolean passed, String validationResult) {
 		if (passed) {
@@ -116,7 +122,8 @@ public class SemanticConsistencyNode implements NodeAction {
 		}
 		else {
 			return Map.of(SEMANTIC_CONSISTENCY_NODE_OUTPUT, false, SQL_REGENERATE_REASON,
-					SqlRetryDto.semantic(validationResult));
+					SqlRetryDto.semantic(StringUtils.isNotBlank(validationResult) ? validationResult
+							: "语义一致性校验未通过，模型未给出具体原因"));
 		}
 	}
 
