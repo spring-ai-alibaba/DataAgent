@@ -127,6 +127,20 @@ class AgentServiceImplTest {
 	}
 
 	@Test
+	void deleteById_dataUriAvatar_skipsFileDeletionAndDeletesAgent() {
+		Agent agent = Agent.builder().id(1L).avatar("data:image/svg+xml;charset=utf-8,%3Csvg%3E").build();
+		when(agentMapper.findById(1L)).thenReturn(agent);
+		when(agentKnowledgeMapper.selectByAgentIdIncludeDeleted(1)).thenReturn(List.of());
+		when(agentVectorStoreService.deleteDocumentsByMetadata(eq("1"), any())).thenReturn(true);
+		when(agentMapper.deleteById(1L)).thenReturn(1);
+
+		agentService.deleteById(1L);
+
+		verify(fileStorageService, never()).deleteFile(anyString());
+		verify(agentMapper).deleteById(1L);
+	}
+
+	@Test
 	void deleteById_knowledgeCleanupFails_keepsDatabaseRecords() {
 		Agent agent = Agent.builder().id(1L).build();
 		AgentKnowledge knowledge = new AgentKnowledge();
