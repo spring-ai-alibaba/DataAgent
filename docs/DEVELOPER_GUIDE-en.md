@@ -154,14 +154,123 @@ All configuration items in this project are under the `spring.ai.alibaba.data-ag
 | `spring.ai.alibaba.data-agent.max-sql-retry-count` | SQL execution failure retry count | 10 |
 | `spring.ai.alibaba.data-agent.max-sql-optimize-count` | Maximum SQL optimization attempts | 10 |
 | `spring.ai.alibaba.data-agent.sql-score-threshold` | SQL optimization score threshold | 0.95 |
-| `spring.ai.alibaba.data-agent.maxturnhistory` | Maximum conversation turns to retain | 5 |
-| `spring.ai.alibaba.data-agent.maxplanlength` | Maximum plan length limit per planning | 2000 |
 | `spring.ai.alibaba.data-agent.max-columns-per-table` | Maximum estimated columns per table | 50 |
 | `spring.ai.alibaba.data-agent.fusion-strategy` | Multi-channel recall result fusion strategy | rrf |
 | `spring.ai.alibaba.data-agent.enable-sql-result-chart` | Enable SQL result chart judgment | true |
 | `spring.ai.alibaba.data-agent.enrich-sql-result-timeout` | SQL result chart generation timeout (ms) | 3000 |
 
-### 2. Embedding Batch Configuration
+### 2. Conversation Memory
+
+Configuration prefix: `spring.ai.alibaba.data-agent.memory`
+
+| Configuration Item | Description | Default Value |
+|-------------------|-------------|---------------|
+| `recent-turns` | Recent successful conversation turns retained by Spring AI `ChatMemory` | 3 |
+| `max-summary-length` | Maximum length of the rebuildable rolling summary | 4000 |
+| `summary-cache-max-entries` | Maximum rolling-summary projections retained per node; oldest entries are evicted above the bound | 10000 |
+| `max-result-summary-length` | Maximum result-summary length per turn | 2000 |
+| `max-context-length` | Hard character limit for all memory context injected into one request | 16000 |
+| `long-term-top-k` | Maximum confirmed long-term memories injected per request | 5 |
+| `episodic-top-k` | Maximum cross-session turns recalled for a trusted owner | 3 |
+| `user-scope-enabled` | Reserved personal-memory switch; startup rejects `true` until trusted user identity is integrated | false |
+| `vector-index-enabled` | Enable the optional semantic index; MySQL remains authoritative | false |
+| `vector-similarity-threshold` | Memory vector recall threshold | 0.6 |
+| `outbox-batch-size` | Projection events processed per batch | 20 |
+| `outbox-max-attempts` | Attempts before rebuild events become dead; delete, forget, and checkpoint-release events keep retrying with backoff | 5 |
+| `outbox-initial-delay-ms` | Delay before the first outbox poll after startup (milliseconds) | 10000 |
+| `outbox-poll-delay-ms` | Fixed delay between completed projection polls (milliseconds) | 2000 |
+| `outbox-completed-retention-days` | Retention days for successfully projected events; failed and dead rows are not auto-deleted | 7 |
+| `outbox-cleanup-batch-size` | Maximum completed events removed per cleanup run | 1000 |
+| `outbox-cleanup-initial-delay-ms` | Delay before the first completed-event cleanup after startup (milliseconds) | 60000 |
+| `outbox-cleanup-delay-ms` | Fixed delay between completed-event cleanup runs (milliseconds) | 3600000 |
+
+Graph checkpoint configuration prefix: `spring.ai.alibaba.data-agent.checkpoint`
+
+| Configuration Item | Description | Default Value |
+|-------------------|-------------|---------------|
+| `type` | Framework CheckpointSaver type: `mysql` or `memory` | mysql |
+
+Rows logically released by `MysqlSaver.release()` are retained with their completed Outbox event. After
+`memory.outbox-completed-retention-days`, every checkpoint generation for the logical thread (including a row recreated by a writer racing logical release) is physically deleted before the event is removed; the batch
+bound reuses `memory.outbox-cleanup-batch-size`.
+The released graph-core `1.1.2.3` uses a unique `(thread_name, is_released)` index. If a cross-node writer recreates an
+active generation after the first release, the next framework release conflicts with the older released generation.
+Only when framework release fails and both generations exist, the worker removes the older released generation and
+retries framework `release()`; normal checkpoint persistence, recovery, and release semantics remain framework-owned.
+
+Delete, forget, memory-invalidation, and checkpoint-release events must eventually execute and are not capped by the
+maximum attempt count. If an older worker marked one of these four event types `DEAD`, the new worker automatically
+revives it as `FAILED` and resumes bounded-backoff retries. Dead rebuildable projections are not revived automatically.
+
+Memory is split so the frameworks own generic persistence semantics while the application owns business truth:
+
+| Layer | Implementation | Responsibility |
+|-------|----------------|----------------|
+| Recent message window | Spring AI `MessageWindowChatMemory` + `JdbcChatMemoryRepository` | Stores only successfully committed user/final-assistant message pairs; when the projection is empty, corrupt, incomplete, or underfills the current window, reads fall back to the latest N `conversation_turn` rows |
+| Rolling summary | Spring AI Alibaba `Store` + `MemoryStore` | Keeps a bounded node-local cache of the summary projection derived from successful turns; every read verifies the relational boundary turn and rebuilds a missing, stale, or cross-node-inconsistent cache |
+| Graph checkpoints | Spring AI Alibaba graph-core `1.1.2.3` `MysqlSaver` | Persists and restores graph execution state and human-review interrupts; `maxCachedThreads(0)` disables the node-local latest cache, and after successful, failed, or cancelled terminal transitions and conversation deletion commit the outbox retries framework `release`; logically released rows are physically removed when the corresponding Outbox event reaches its retention boundary |
+| Business truth and review | `conversation_turn`, `turn_run`, `turn_artifact`, `memory_item`, `memory_outbox` | Execution audit, long-term-memory review, and transactional outbox; does not reimplement framework ChatMemory or checkpoints |
+| Semantic index | Spring AI `VectorStore` (optional) | Accelerates long-term-memory and episodic recall; rebuildable and non-authoritative |
+
+Spring AI initializes its JDBC ChatMemory table through
+`spring.ai.chat.memory.repository.jdbc.initialize-schema=always`. `MysqlSaver` creates the graph checkpoint tables with
+`CreateOption.CREATE_IF_NOT_EXISTS`. Application migrations manage only DataAgent-owned business tables and supplement
+columns; they do not copy either framework schema.
+
+Request identifiers have a fixed lifecycle: `conversationId` remains stable for the chat, and the server always creates
+`threadId` for a new query. It creates `turnId` only when `conversationId` resolves to an active persisted session owned
+by the agent. Before relying on durable memory or human-review resume, create a session and use its returned ID. A resume
+of the same human-review interruption sends the `threadId` and `turnId` from the preceding SSE response back to the
+server.
+
+Long-term-memory REST endpoints:
+
+| Method | Path | Semantics |
+|--------|------|-----------|
+| `GET` | `/api/agents/{agentId}/memories?status={status}` | List memories; optional `status`: `CANDIDATE`, `CONFIRMED`, `SUPERSEDED`, or `INVALIDATED` |
+| `POST` | `/api/agents/{agentId}/memories` | Create a `CANDIDATE`; required fields are `scopeType`, `memoryKind`, `memoryKey`, and JSON `value` |
+| `POST` | `/api/agents/{agentId}/memories/{memoryId}/confirm` | Confirm a candidate so it can be recalled; same-scope/same-key conflicts follow explicit supersession rules |
+| `POST` | `/api/agents/{agentId}/memories/{memoryId}/invalidate` | Invalidate the memory and asynchronously remove its optional vector projection |
+
+All four endpoints require the target agent to have API Key authentication enabled and the request to carry either
+`X-API-Key` or a Bearer credential. Invalid request fields or `supersedesId` relationships return `400`, invalid
+credentials return `401`, a memory ID owned by another agent returns `404`, and state or concurrency conflicts return
+`409`. Native `EventSource` in the built-in page cannot set authentication headers; use a header-capable external SSE
+client for stream queries after enabling API Key authentication, and never put the key in a URL.
+
+The released graph-core `1.1.2.3` `DatabaseStore` is deliberately not used because its write path still emits the H2
+`MERGE ... KEY(...)` syntax, which is incompatible with the project's default MySQL database. Once a released framework
+version includes the dialect-aware fix, `MemoryStore` can be replaced without changing the summary service or relational
+source of truth.
+
+For an existing MySQL installation, apply
+`data-agent-management/src/main/resources/sql/migration/V20260729_01__create_durable_memory.sql`, followed by
+`data-agent-management/src/main/resources/sql/migration/V20260820_01__add_datasource_schema_revision.sql`,
+before deployment. New installations continue to use
+`data-agent-management/src/main/resources/sql/schema.sql`. Startup reports missing required memory tables or the
+`datasource.schema_revision`, `datasource.schema_generation`, or `memory_outbox.lease_token` columns and fails; the
+application does not fall back to the legacy memory implementation. Before deployment, complete or cancel graph runs
+that are still waiting for human review on the old version. Their checkpoints do not have corresponding
+`conversation_turn`/`turn_run` business facts, so tenant, conversation, and run ownership cannot be derived safely and
+the new version does not adopt them automatically. After upgrading, initialize Schema once for every
+existing datasource to populate its stable `schema_revision`. Initialization invalidates the old revision before
+extraction starts and publishes a new revision only after every Schema vector for the same generation succeeds. While
+initialization is incomplete or has failed, schema-dependent correction and query-pattern memories are safely excluded
+from recall.
+
+Run the real MySQL 8.4 migration, constraint, cross-instance publication-lock, and generation-fencing regression with
+the repository's Failsafe `integration` profile:
+
+```bash
+./mvnw -pl data-agent-management -Pintegration \
+  -Dspotless.apply.skip=true \
+  -Dit.test=MysqlMemorySchemaPublicationIT \
+  test-compile failsafe:integration-test failsafe:verify
+```
+
+This `*IT` is explicit integration coverage and is not executed by the default `make verify` workflow.
+
+### 3. Embedding Batch Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.embedding-batch`
 
@@ -172,7 +281,7 @@ Configuration prefix: `spring.ai.alibaba.data-agent.embedding-batch`
 | `reserve-percentage` | Reserve percentage (for buffer space) | 0.2 |
 | `max-text-count` | Maximum texts per batch (DashScope limit is 10) | 10 |
 
-### 3. Vector Store Configuration
+### 4. Vector Store Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.vector-store`
 
@@ -352,7 +461,7 @@ Below is the Elasticsearch Schema structure. Other vector stores (like Milvus, P
 }
 ```
 
-### 4. Text Splitter Configuration
+### 5. Text Splitter Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.text-splitter`
 
@@ -366,7 +475,7 @@ Configuration prefix: `spring.ai.alibaba.data-agent.text-splitter`
 | `separators` | Custom separator list | null (use default) |
 
 
-### 5. Code Executor Configuration
+### 6. Code Executor Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.code-executor`
 
@@ -412,7 +521,7 @@ for dependency syntax, security restrictions, runtime verification, and troubles
 [SAA 1.1.2.2 Python Sandbox Integration Design](superpowers/specs/2026-07-28-saa-python-sandbox-integration-design.md)
 for implementation boundaries.
 
-### 6. File Storage Configuration
+### 7. File Storage Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.file`
 
@@ -424,7 +533,7 @@ Configuration prefix: `spring.ai.alibaba.data-agent.file`
 | `image-size` | Image size limit (bytes) | 2097152 (2MB) |
 | `path-prefix` | Object storage path prefix | "" |
 
-### 7. Alibaba Cloud OSS Configuration
+### 8. Alibaba Cloud OSS Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.file.oss`
 
@@ -437,7 +546,7 @@ Configuration prefix: `spring.ai.alibaba.data-agent.file.oss`
 | `custom-domain` | Custom domain | - |
 
 
-### 8. Database Initialization
+### 9. Database Initialization
 
 Configuration prefix: `spring.sql.init`
 
@@ -447,13 +556,13 @@ Configuration prefix: `spring.sql.init`
 | `schema-locations` | Table structure script path | classpath:sql/schema.sql | |
 | `data-locations` | Data script path | classpath:sql/data.sql | |
 
-### 9. Dependency Extension
+### 10. Dependency Extension
 
 If you choose not to use Spring AI Alibaba Starter and instead manually import OpenAI or other vendor Starters:
 - Please ensure you remove the default Starter dependency to avoid conflicts.
 - You may need to manually configure `ChatClient`, `ChatModel`, and `EmbeddingModel` Beans.
 
-### 10. Report Resources Configuration
+### 11. Report Resources Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.report-template`
 
@@ -462,7 +571,7 @@ Configuration prefix: `spring.ai.alibaba.data-agent.report-template`
 | `marked-url` | Marked.js path (Markdown rendering library) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/marked/12.0.0/marked.min.js |
 | `echarts-url` | ECharts path (chart library) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/echarts/5.5.0/echarts.min.js |
 
-### 11. Langfuse Observability Configuration
+### 12. Langfuse Observability Configuration
 
 Configuration prefix: `spring.ai.alibaba.data-agent.langfuse`
 

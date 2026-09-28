@@ -85,13 +85,11 @@ class ChatService {
    * @description 创建新会话
    * @param {number} agentId - 智能体 ID
    * @param {string} [title] - 会话标题
-   * @param {number} [userId] - 用户 ID
    * @returns {Promise<ChatSession>} 创建成功的会话详情
    */
-  async createSession(agentId: number, title?: string, userId?: number): Promise<ChatSession> {
+  async createSession(agentId: number, title?: string): Promise<ChatSession> {
     const request = {
       title,
-      userId,
     };
 
     const response = await axios.post<ChatSession>(
@@ -210,11 +208,14 @@ class ChatService {
   /**
    * @description 删除指定会话
    * @param {string} sessionId - 会话 ID
+   * @param {number} agentId - 会话所属智能体 ID
    * @returns {Promise<ApiResponse>} 操作结果
    */
-  async deleteSession(sessionId: string): Promise<ApiResponse> {
+  async deleteSession(sessionId: string, agentId: number): Promise<ApiResponse> {
     try {
-      const response = await axios.delete<ApiResponse>(`${API_BASE_URL}/sessions/${sessionId}`);
+      const response = await axios.delete<ApiResponse>(`${API_BASE_URL}/sessions/${sessionId}`, {
+        params: { agentId },
+      });
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 500) {

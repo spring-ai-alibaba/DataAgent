@@ -26,7 +26,8 @@ flowchart LR
     PromptCtl[PromptConfigController]
     ModelCtl[ModelConfigController]
     GraphSvc[GraphServiceImpl]
-    Context[MultiTurnContextManager]
+    Context[ConversationContextAssembler]
+    TurnMemory[ConversationTurnService]
     Graph[StateGraph Workflow]
     LlmSvc[LlmService]
     ModelRegistry[AiModelRegistry]
@@ -70,6 +71,8 @@ flowchart LR
   SSE --> GraphCtl
   GraphCtl --> GraphSvc
   GraphSvc --> Context
+  GraphSvc --> TurnMemory
+  TurnMemory --> MetaDB
   GraphSvc --> Graph
   Graph --> LlmSvc
   GraphSvc --> VectorSvc
@@ -245,16 +248,23 @@ sequenceDiagram
   participant GS as GraphServiceImpl
   participant G as CompiledGraph
   participant HF as HumanFeedbackNode
-  participant CTX as MultiTurnContextManager
+  participant CTX as ConversationContextAssembler
+  participant TURN as ConversationTurnService
+  participant MEM as ConversationMemoryGateway
+  participant OB as memory_outbox
+  participant MW as MemoryProjectionWorker
+  participant PROJ as Summary Vector Checkpoint
   participant SS as StateSnapshot
 
   U->>API: stream search with humanFeedback true
   API->>GS: graphStreamProcess
-  GS->>CTX: buildContext and beginTurn
+  GS->>TURN: create turn and run
+  GS->>CTX: assemble verified context
   GS->>G: fluxStream interruptBefore HumanFeedback
   G-->>API: plan stream chunks
   G-->>HF: wait for feedback
   HF-->>G: wait state ends
+  GS->>TURN: mark WAITING_REVIEW
 
   Note over U,API: user submits feedback and threadId
   U->>API: stream search with feedback content
@@ -263,7 +273,11 @@ sequenceDiagram
   GS->>G: fluxStreamFromInitialNode
   HF-->>G: approve or reject
   G-->>API: continue execution stream
-  GS->>CTX: finishTurn update history
+  GS->>TURN: commit SUCCEEDED turn
+  TURN->>MEM: store accepted user/final-assistant pair
+  TURN->>OB: enqueue projection and checkpoint events
+  MW->>OB: lease ready event after commit
+  MW->>PROJ: rebuild summary/vector or release checkpoint
 ```
 
 ### 2. Prompt 配置与自动优化
@@ -467,7 +481,10 @@ sequenceDiagram
 
 - **流式输出**: `GraphController` SSE + `GraphServiceImpl` 流式处理
 - **文本标记**: `TextType` 在流中标记 SQL/JSON/HTML/Markdown，前端据此渲染
-- **多轮对话**: `MultiTurnContextManager` 记录"用户问题+规划结果"，注入到后续请求
+- **短期记忆**: `ConversationTurnService` 只提交成功的用户/最终助手消息对；最近窗口由 Spring AI `MessageWindowChatMemory` + `JdbcChatMemoryRepository` 管理，框架投影为空、损坏、不完整或尚未填满配置窗口时只读回退到权威 `conversation_turn` 的最近 N 轮；滚动摘要使用 Spring AI Alibaba `MemoryStore` 作为节点本地可重建投影，每次读取都用关系库中的摘要边界轮次校验，缓存丢失或过期时自动重建
+- **长期记忆**: `memory_item` 采用 `CANDIDATE → CONFIRMED` 审核门，MySQL 是事实源，向量库只是可选索引
+- **Graph 状态**: Spring AI Alibaba graph-core `1.1.2.3` 的 `MysqlSaver` 负责检查点序列化、持久化和人工审核恢复，并通过 `maxCachedThreads(0)` 关闭节点本地 latest cache；每个成功、失败、取消终态以及会话删除都会在同一业务事务中写入 Outbox，提交后重试调用框架 `release`；由于框架的 release 仅做逻辑释放，应用只补充保留期后的物理清理，不自建第二套检查点
+- **隔离键**: `conversationId` 是稳定会话，`threadId` 是单次 Graph 运行，`turnId` 是逻辑对话轮次
 - **模式切换**: `spring.ai.alibaba.data-agent.llm-service-type` 支持 `STREAM/BLOCK`
 
 #### 架构图
@@ -478,8 +495,24 @@ flowchart LR
   SSE --> Sink[Sinks Many]
   SSE --> GraphSvc[GraphServiceImpl]
   GraphSvc --> StreamCtx[StreamContext]
-  GraphSvc --> Ctx[MultiTurnContextManager]
+  GraphSvc --> Ctx[ConversationContextAssembler]
+  GraphSvc --> Turn[ConversationTurnService]
+  Turn --> TurnDB[(conversation_turn)]
+  Turn --> ChatMemory[Spring AI ChatMemory]
+  Turn --> Outbox[(memory_outbox)]
+  Outbox --> Worker[MemoryProjectionWorker]
+  Worker --> SummaryStore[Alibaba MemoryStore Summary Cache]
+  Worker --> Projection[Optional Vector Index]
+  Worker -. framework release .-> Checkpoint
+  Worker --> Retention[Released-row retention cleanup]
+  Client --> MemoryAPI[LongTermMemoryController]
+  MemoryAPI --> LongTerm[LongTermMemoryService]
+  LongTerm --> MemoryDB[(memory_item)]
+  LongTerm --> Outbox
+  Client -. delete .-> Lifecycle[MemoryLifecycleService]
+  Lifecycle --> Outbox
   GraphSvc --> Graph[CompiledGraph]
+  Graph --> Checkpoint[Alibaba MysqlSaver cache disabled]
   Graph --> LLM[LlmService Stream Block]
   Graph --> TextType[TextType Markers]
   TextType --> Sink
@@ -495,9 +528,9 @@ flowchart LR
   classDef control fill:#F3F4F6,stroke:#6B7280,stroke-width:1px,color:#1F2937;
 
   class Client client
-  class SSE,Sink api
-  class GraphSvc,Graph service
-  class StreamCtx,Ctx data
+  class SSE,Sink,MemoryAPI api
+  class GraphSvc,Graph,Worker,LongTerm,Lifecycle service
+  class StreamCtx,Ctx,TurnDB,ChatMemory,Outbox,SummaryStore,Projection,Checkpoint,MemoryDB data
   class LLM llm
   class TextType,Stop control
 ```
@@ -513,7 +546,8 @@ sequenceDiagram
   participant GS as GraphServiceImpl
   participant SC as StreamContext
   participant SK as Sinks Many
-  participant CTX as MultiTurnContextManager
+  participant CTX as ConversationContextAssembler
+  participant TURN as ConversationTurnService
   participant G as CompiledGraph
   participant L as LlmService
   participant T as TextType
@@ -521,7 +555,8 @@ sequenceDiagram
   C->>API: connect SSE and send query
   API->>GS: graphStreamProcess
   GS->>SC: create or get context
-  GS->>CTX: beginTurn
+  GS->>TURN: begin turn and run
+  GS->>CTX: load verified context
   GS->>G: fluxStream threadId
   G->>L: stream model tokens
   L-->>G: token chunks
@@ -531,7 +566,7 @@ sequenceDiagram
   API-->>C: stream output
   C-->>API: disconnect
   API->>GS: stopStreamProcessing
-  GS->>CTX: discardPending
+  GS->>TURN: mark CANCELLED
 ```
 
 ### 6. MCP 与多模型调度
@@ -609,20 +644,28 @@ sequenceDiagram
 
 - **管理端**: `AgentController` 支持生成、重置、删除与启用/禁用 API Key
 - **数据字段**: `agent.api_key` 与 `agent.api_key_enabled`
-- **调用方式**: 请求头 `X-API-Key`（需自行实现后端校验逻辑）
-- **注意**: 默认后端未对 `X-API-Key` 做鉴权拦截，生产需自行补充
+- **认证链**: `SecurityWebFilterChain → AgentApiKeyServerAuthenticationConverter → AgentApiKeyReactiveAuthenticationManager → AgentMapper/ApiKeyCredentialService`
+- **调用方式**: 请求头 `X-API-Key` 或 `Authorization: Bearer <key>`
+- **受保护端点**: Stream 查询/停止与会话删除在智能体启用 API Key 时要求凭证；长期记忆 `/api/agents/{agentId}/memories/**` 始终要求该智能体已启用 API Key 并提供凭证
+- **作用域来源**: 长期记忆和批量会话删除从路径解析 `agentId`，其他受保护请求从查询参数解析，避免用另一参数覆盖路径身份
+- **浏览器边界**: 内置页面的原生 `EventSource` 不能设置认证头；API Key 开启时应使用支持 Header 的外部 SSE 客户端，不能把密钥降级放入 URL
 
 #### 架构图
 
 ```mermaid
 flowchart LR
-  UI --> AgentAPI[AgentController]
+  Admin[Trusted management surface] --> AgentAPI[AgentController]
   AgentAPI --> AgentSvc[AgentService]
   AgentSvc --> AgentMapper[AgentMapper]
   AgentMapper --> AgentDB[(agent)]
-  UI --> GraphAPI[GraphController]
-  GraphAPI -.-> Auth[Optional Auth Interceptor]
-  Auth -.-> AgentSvc
+  Client[API client] --> Security[SecurityWebFilterChain]
+  Security --> Converter[ServerAuthenticationConverter]
+  Converter --> Manager[ReactiveAuthenticationManager]
+  Manager --> AgentMapper
+  Manager --> Credential[ApiKeyCredentialService]
+  Security --> GraphAPI[GraphController SSE Stop]
+  Security --> SessionAPI[Session delete]
+  Security --> MemoryAPI[LongTermMemoryController]
 
   classDef client fill:#FFF4E6,stroke:#D97706,stroke-width:1px,color:#1F2937;
   classDef api fill:#E0F2FE,stroke:#0284C7,stroke-width:1px,color:#1F2937;
@@ -630,11 +673,11 @@ flowchart LR
   classDef data fill:#FEF3C7,stroke:#F59E0B,stroke-width:1px,color:#1F2937;
   classDef control fill:#F3F4F6,stroke:#6B7280,stroke-width:1px,color:#1F2937;
 
-  class UI client
-  class AgentAPI,GraphAPI api
-  class AgentSvc,AgentMapper service
+  class Admin,Client client
+  class AgentAPI,GraphAPI,SessionAPI,MemoryAPI api
+  class AgentSvc,AgentMapper,Converter,Manager,Credential service
   class AgentDB data
-  class Auth control
+  class Security control
 ```
 
 #### 流程图
@@ -643,24 +686,21 @@ flowchart LR
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#E3F2FD", "primaryBorderColor": "#1E88E5", "primaryTextColor": "#1F2937", "lineColor": "#4B5563", "secondaryColor": "#E8F5E9", "tertiaryColor": "#FFF1D6", "actorBkg": "#F3F4F6", "actorBorder": "#9CA3AF", "actorTextColor": "#111827", "noteBkgColor": "#FFF8E1", "noteTextColor": "#1F2937"}}}%%
 sequenceDiagram
   autonumber
-  participant U as User
-  participant API as AgentController
-  participant S as AgentService
-  participant M as AgentMapper
+  participant C as API Client
+  participant SEC as SecurityWebFilterChain
+  participant CONV as AuthenticationConverter
+  participant AUTH as AuthenticationManager
   participant DB as agent
-  participant G as GraphController
-  participant Auth as Optional Auth Interceptor
+  participant API as Protected Controller
 
-  U->>API: 生成并启用 API Key
-  API->>S: generateApiKey
-  S->>M: update agent key
-  M->>DB: write api_key
-  U->>G: 调用业务接口并带 X-API-Key
-  opt custom auth enabled
-    G->>Auth: validate api key
-    Auth->>DB: check api_key_enabled
-  end
-  G-->>U: response
+  C->>SEC: request with X-API-Key or Bearer
+  SEC->>CONV: resolve agentId from path/query and extract credential
+  CONV->>AUTH: unauthenticated agent token
+  AUTH->>DB: load api_key_enabled and encoded key
+  AUTH->>AUTH: verify credential with PasswordEncoder
+  AUTH-->>SEC: authenticated agent principal
+  SEC->>API: continue with path-scoped request
+  API-->>C: response
 ```
 
 ### 8. Python 执行与结果回传

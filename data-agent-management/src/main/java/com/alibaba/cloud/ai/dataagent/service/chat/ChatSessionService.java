@@ -32,7 +32,7 @@ public interface ChatSessionService {
 	/**
 	 * Create a new session
 	 */
-	ChatSession createSession(Integer agentId, String title, Long userId);
+	ChatSession createSession(Integer agentId, String title);
 
 	/**
 	 * Find session by id.
@@ -62,6 +62,6 @@ public interface ChatSessionService {
 	/**
 	 * Delete a single session
 	 */
-	void deleteSession(String sessionId);
+	void deleteSession(String sessionId, Integer agentId);
 
 }

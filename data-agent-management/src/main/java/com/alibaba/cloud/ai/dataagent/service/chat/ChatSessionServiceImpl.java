@@ -16,11 +16,13 @@
 package com.alibaba.cloud.ai.dataagent.service.chat;
 
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
+import com.alibaba.cloud.ai.dataagent.mapper.AgentMapper;
 import com.alibaba.cloud.ai.dataagent.mapper.ChatSessionMapper;
+import com.alibaba.cloud.ai.dataagent.service.memory.lifecycle.MemoryLifecycleService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,7 +35,9 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
 	private final ChatSessionMapper chatSessionMapper;
 
-	private final ChatMemory chatMemory;
+	private final AgentMapper agentMapper;
+
+	private final MemoryLifecycleService memoryLifecycleService;
 
 	/**
 	 * Get session list by agent ID
@@ -52,10 +56,10 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 	 * Create a new session
 	 */
 	@Override
-	public ChatSession createSession(Integer agentId, String title, Long userId) {
+	public ChatSession createSession(Integer agentId, String title) {
 		String sessionId = UUID.randomUUID().toString();
 
-		ChatSession session = new ChatSession(sessionId, agentId, title != null ? title : "新会话", "active", userId);
+		ChatSession session = new ChatSession(sessionId, agentId, title != null ? title : "新会话", "active", null);
 		chatSessionMapper.insert(session);
 
 		log.info("Created new chat session: {} for agent: {}", sessionId, agentId);
@@ -66,11 +70,15 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 	 * Clear all sessions for an agent
 	 */
 	@Override
+	@Transactional
 	public void clearSessionsByAgentId(Integer agentId) {
+		if (agentId == null || agentMapper.lockById(agentId.longValue()) == null) {
+			throw new IllegalArgumentException("Agent not found: " + agentId);
+		}
 		List<ChatSession> sessions = chatSessionMapper.selectByAgentId(agentId);
+		sessions.forEach(session -> memoryLifecycleService.forgetConversation(session.getId(), agentId));
 		LocalDateTime now = LocalDateTime.now();
 		int updated = chatSessionMapper.softDeleteByAgentId(agentId, now);
-		sessions.forEach(session -> chatMemory.clear(session.getId()));
 		log.info("Cleared {} sessions for agent: {}", updated, agentId);
 	}
 
@@ -107,10 +115,13 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 	 * Delete a single session
 	 */
 	@Override
-	public void deleteSession(String sessionId) {
+	@Transactional
+	public void deleteSession(String sessionId, Integer agentId) {
+		memoryLifecycleService.forgetConversation(sessionId, agentId);
 		LocalDateTime now = LocalDateTime.now();
-		chatSessionMapper.softDeleteById(sessionId, now);
-		chatMemory.clear(sessionId);
+		if (chatSessionMapper.softDeleteById(sessionId, now) != 1) {
+			throw new IllegalStateException("Failed to delete conversation " + sessionId);
+		}
 		log.info("Deleted session: {}", sessionId);
 	}
 

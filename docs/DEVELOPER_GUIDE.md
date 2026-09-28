@@ -154,14 +154,115 @@ public class AgentVectorStoreService {
 | `spring.ai.alibaba.data-agent.max-sql-retry-count`     | SQL执行失败重试次数 | 10     |
 | `spring.ai.alibaba.data-agent.max-sql-optimize-count`  | SQL优化最多次数 | 10     |
 | `spring.ai.alibaba.data-agent.sql-score-threshold`     | SQL优化分数阈值 | 0.95   |
-| `spring.ai.alibaba.data-agent.maxturnhistory`          | 最多保留的对话轮数 | 5      |
-| `spring.ai.alibaba.data-agent.maxplanlength`           | 单次规划最大长度限制 | 2000   |
 | `spring.ai.alibaba.data-agent.max-columns-per-table`   | 每张表的最大预估列数 | 50     |
 | `spring.ai.alibaba.data-agent.fusion-strategy`         | 多路召回结果融合策略 | rrf    |
 | `spring.ai.alibaba.data-agent.enable-sql-result-chart` | 是否启用SQL执行结果图表判断 | true   |
 | `spring.ai.alibaba.data-agent.enrich-sql-result-timeout` | 执行SQL结果图表化超时时间，单位毫秒 | 3000   |
 
-### 2. 嵌入模型批处理策略 (Embedding Batch)
+### 2. 对话记忆
+
+配置前缀：`spring.ai.alibaba.data-agent.memory`
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `recent-turns` | Spring AI `ChatMemory` 保留的最近成功对话轮次数 | 3 |
+| `max-summary-length` | 可重建滚动摘要的最大字符数 | 4000 |
+| `summary-cache-max-entries` | 单节点保留的滚动摘要投影上限；超限淘汰最旧项 | 10000 |
+| `max-result-summary-length` | 单轮结果摘要最大字符数 | 2000 |
+| `max-context-length` | 单次请求注入的全部记忆上下文字符硬上限 | 16000 |
+| `long-term-top-k` | 每次注入的已确认长期记忆上限 | 5 |
+| `episodic-top-k` | 可信用户跨会话召回上限 | 3 |
+| `user-scope-enabled` | 个人记忆预留开关；当前版本缺少可信用户身份，设为 `true` 会拒绝启动 | false |
+| `vector-index-enabled` | 是否启用可选语义索引；MySQL 始终是事实源 | false |
+| `vector-similarity-threshold` | 记忆向量召回阈值 | 0.6 |
+| `outbox-batch-size` | 单批投影事件数量 | 20 |
+| `outbox-max-attempts` | 可重建投影进入死信前的最大尝试次数；删除、遗忘和 checkpoint 释放持续退避重试 | 5 |
+| `outbox-initial-delay-ms` | 应用启动后首次轮询 Outbox 的延迟（毫秒） | 10000 |
+| `outbox-poll-delay-ms` | 上一轮投影完成到下一轮轮询的固定延迟（毫秒） | 2000 |
+| `outbox-completed-retention-days` | 已成功投影事件的保留天数；失败和死信不会自动删除 | 7 |
+| `outbox-cleanup-batch-size` | 单次清理的已完成事件上限 | 1000 |
+| `outbox-cleanup-initial-delay-ms` | 应用启动后首次清理已完成事件的延迟（毫秒） | 60000 |
+| `outbox-cleanup-delay-ms` | 上一轮清理完成到下一轮清理的固定延迟（毫秒） | 3600000 |
+
+Graph 检查点配置前缀：`spring.ai.alibaba.data-agent.checkpoint`
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `type` | 框架 CheckpointSaver 类型：`mysql` 或 `memory` | mysql |
+
+`MysqlSaver.release()` 逻辑释放后的行会随对应的已完成 Outbox 事件一起保留，达到
+`memory.outbox-completed-retention-days` 后先按逻辑 thread 名物理删除所有 checkpoint 代次（包括与逻辑释放竞争而重建的行），再删除 Outbox 事件；单批上限复用
+`memory.outbox-cleanup-batch-size`。
+已发布 graph-core `1.1.2.3` 使用 `(thread_name, is_released)` 唯一索引；若跨节点写入在首次释放后
+重建 active 代次，下一次框架释放会与旧 released 代次冲突。Worker 只在框架释放失败且两种代次同时存在时
+删除旧 released 代次，然后重试框架 `release()`；正常 checkpoint 读写、恢复与释放语义仍由框架负责。
+
+删除、遗忘、记忆失效和 checkpoint 释放属于必须最终执行的事件，不受最大尝试次数限制。升级前若旧版
+Worker 已将这四类事件标记为 `DEAD`，新版 Worker 会先自动恢复为 `FAILED` 再继续退避重试；可重建投影的
+死信不会被自动恢复。
+
+记忆能力按“框架负责通用存储语义，应用负责业务真实性”分层：
+
+| 层次 | 实现 | 职责 |
+|------|------|------|
+| 最近消息窗口 | Spring AI `MessageWindowChatMemory` + `JdbcChatMemoryRepository` | 只保存已成功提交的用户/最终助手消息对；投影为空、损坏、不完整或未填满当前窗口时，只读回退到 `conversation_turn` 最近 N 轮 |
+| 滚动摘要 | Spring AI Alibaba `Store` + `MemoryStore` | 有界节点本地缓存可从成功轮次重建的摘要投影；每次读取用关系库摘要边界校验，缓存丢失、过期或跨节点不一致时自动重建 |
+| Graph 检查点 | Spring AI Alibaba graph-core `1.1.2.3` `MysqlSaver` | 保存和恢复 Graph 执行状态及人工审核中断点；`maxCachedThreads(0)` 关闭节点本地 latest cache，成功、失败、取消和会话删除提交后均由 Outbox 重试调用框架 `release`；框架逻辑释放后的行在对应 Outbox 事件保留期满后物理删除 |
+| 业务事实与审核 | `conversation_turn`、`turn_run`、`turn_artifact`、`memory_item`、`memory_outbox` | 执行审计、长期记忆审核、事务 outbox；不重复实现框架 ChatMemory/Checkpoint |
+| 语义索引 | Spring AI `VectorStore`（可选） | 加速长期记忆和历史轮次召回；可重建且不是事实源 |
+
+Spring AI JDBC ChatMemory 表由 `spring.ai.chat.memory.repository.jdbc.initialize-schema=always`
+交给框架初始化；Graph checkpoint 表由 `MysqlSaver` 的 `CreateOption.CREATE_IF_NOT_EXISTS`
+创建。业务迁移脚本只管理 DataAgent 自有事实表和补充字段，不复制这两套框架表结构。
+
+请求标识遵循固定生命周期：`conversationId` 在整个会话中保持稳定；新查询的 `threadId` 始终由服务端生成，
+而 `turnId` 只在 `conversationId` 对应当前智能体的有效持久化会话时生成。需要持久化记忆或人工审核恢复时，
+客户端应先创建会话并使用响应中的会话 ID；恢复同一次人工审核时，再把上一条 SSE 响应的 `threadId` 与
+`turnId` 原样传回。
+
+长期记忆 REST 接口：
+
+| 方法 | 路径 | 语义 |
+|------|------|------|
+| `GET` | `/api/agents/{agentId}/memories?status={status}` | 列出记忆；`status` 可选：`CANDIDATE`、`CONFIRMED`、`SUPERSEDED`、`INVALIDATED` |
+| `POST` | `/api/agents/{agentId}/memories` | 创建 `CANDIDATE`；必填 `scopeType`、`memoryKind`、`memoryKey`、JSON `value` |
+| `POST` | `/api/agents/{agentId}/memories/{memoryId}/confirm` | 确认候选并进入可召回状态；同作用域同键冲突按替换语义处理 |
+| `POST` | `/api/agents/{agentId}/memories/{memoryId}/invalidate` | 失效记忆并异步移除可选向量投影 |
+
+上述四个接口都要求目标智能体已启用 API Key，并携带 `X-API-Key` 或 Bearer 凭证。
+请求字段或 `supersedesId` 关系校验错误返回 `400`，错误凭证返回 `401`，跨智能体的记忆 ID 返回 `404`，
+状态或并发冲突返回 `409`。内置页面使用的原生 `EventSource` 不能设置认证头；API Key 开启后的流查询应使用
+支持 Header 的外部 SSE 客户端，不能把密钥放入 URL。
+
+当前不使用已发布 graph-core `1.1.2.3` 的 `DatabaseStore`：该版本写入仍固定使用 H2
+`MERGE ... KEY(...)`，与项目默认 MySQL 不兼容。待框架发布方言感知修复后，可替换 `MemoryStore`，
+不需要改变摘要服务或关系库事实源。
+
+已有 MySQL 环境升级时，需先执行版本化脚本
+`data-agent-management/src/main/resources/sql/migration/V20260729_01__create_durable_memory.sql`，再执行
+`data-agent-management/src/main/resources/sql/migration/V20260820_01__add_datasource_schema_revision.sql`；
+全新环境继续使用 `data-agent-management/src/main/resources/sql/schema.sql`。必需的记忆表或
+`datasource.schema_revision`、`datasource.schema_generation`、`memory_outbox.lease_token` 字段不存在时，
+应用会在启动时列出缺失项并失败，不会降级为旧记忆实现。
+部署前应先完成或取消旧版本中仍处于人工审核等待态的 Graph 执行：旧 checkpoint 没有对应的
+`conversation_turn`/`turn_run` 业务事实，无法安全推导租户、会话和执行归属，因此升级后不会被自动接管。
+升级后还需要为每个已有数据源重新执行一次 Schema 初始化，以生成稳定的 `schema_revision`。初始化开始时会先
+使旧 revision 失效，只有同一 generation 的全部 Schema 向量发布成功后才写入新 revision；初始化失败期间，
+依赖 Schema 的纠错和查询模式记忆会被安全地排除在召回结果之外。
+
+真实 MySQL 8.4 迁移、约束、跨实例发布锁和 generation fencing 回归可按仓库的 Failsafe
+`integration` Profile 运行：
+
+```bash
+./mvnw -pl data-agent-management -Pintegration \
+  -Dspotless.apply.skip=true \
+  -Dit.test=MysqlMemorySchemaPublicationIT \
+  test-compile failsafe:integration-test failsafe:verify
+```
+
+该 `*IT` 是显式集成测试，不会被默认的 `make verify` 自动执行。
+
+### 3. 嵌入模型批处理策略 (Embedding Batch)
 
 配置前缀: `spring.ai.alibaba.data-agent.embedding-batch`
 
@@ -172,7 +273,7 @@ public class AgentVectorStoreService {
 | `reserve-percentage` | 预留百分比 (用于缓冲空间) | 0.2 |
 | `max-text-count` | 每批次最大文本数量 (DashScope限制为10) | 10 |
 
-### 3. 向量库配置 (Vector Store)
+### 4. 向量库配置 (Vector Store)
 
 配置前缀: `spring.ai.alibaba.data-agent.vector-store`
 
@@ -352,17 +453,17 @@ export ELASTICSEARCH_URIS=http://127.0.0.1:9200
 }
 ```
 
-### 4. 文本切分配置 (Text Splitter)
+### 5. 文本切分配置 (Text Splitter)
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter`
 
-#### 4.1 全局配置
+#### 5.1 全局配置
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
 | `chunk-size` | 默认分块大小（基于token数量，所有策略共享） | 1000 |
 
-#### 4.2 TokenTextSplitter 配置 (token)
+#### 5.2 TokenTextSplitter 配置 (token)
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter.token`
 
@@ -375,7 +476,7 @@ export ELASTICSEARCH_URIS=http://127.0.0.1:9200
 | `max-num-chunks` | 最大分块数量 | 5000 |
 | `keep-separator` | 是否保留分隔符 | true |
 
-#### 4.3 RecursiveCharacterTextSplitter 配置 (recursive)
+#### 5.3 RecursiveCharacterTextSplitter 配置 (recursive)
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter.recursive`
 
@@ -386,7 +487,7 @@ export ELASTICSEARCH_URIS=http://127.0.0.1:9200
 | `chunk-overlap` | 重叠区域字符数（相邻分块之间的重叠字符数） | 200 |
 | `separators` | 自定义分隔符列表（数组格式，如果为 null 则使用默认分隔符列表） | null |
 
-#### 4.4 SentenceTextSplitter 配置 (sentence)
+#### 5.4 SentenceTextSplitter 配置 (sentence)
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter.sentence`
 
@@ -396,7 +497,7 @@ export ELASTICSEARCH_URIS=http://127.0.0.1:9200
 |--------|------|--------|
 | `sentence-overlap` | 句子重叠数量（保留前一个分块的最后 N 个句子） | 1 |
 
-#### 4.5 SemanticTextSplitter 配置 (semantic)
+#### 5.5 SemanticTextSplitter 配置 (semantic)
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter.semantic`
 
@@ -408,7 +509,7 @@ export ELASTICSEARCH_URIS=http://127.0.0.1:9200
 | `max-chunk-size` | 最大分块大小（字符数） | 1000 |
 | `similarity-threshold` | 语义相似度阈值（0-1之间，值越低越容易分块） | 0.5 |
 
-#### 4.6 ParagraphTextSplitter 配置 (paragraph)
+#### 5.6 ParagraphTextSplitter 配置 (paragraph)
 
 配置前缀: `spring.ai.alibaba.data-agent.text-splitter.paragraph`
 
@@ -419,7 +520,7 @@ export ELASTICSEARCH_URIS=http://127.0.0.1:9200
 | `paragraph-overlap-chars` | 段落重叠字符数（保留前一个分块的最后 N 个字符，而非段落数量） | 200 |
 
 
-### 5. 代码执行器配置 (Code Executor)
+### 6. 代码执行器配置 (Code Executor)
 
 配置前缀: `spring.ai.alibaba.data-agent.code-executor`
 
@@ -463,7 +564,7 @@ export ELASTICSEARCH_URIS=http://127.0.0.1:9200
 [高级功能 - Python 执行环境配置](ADVANCED_FEATURES.md#-python-执行环境配置)；实现边界见
 [SAA 1.1.2.2 Python 沙盒接入方案](superpowers/specs/2026-07-28-saa-python-sandbox-integration-design.md)。
 
-### 6. 文件存储配置 (File Storage)
+### 7. 文件存储配置 (File Storage)
 
 配置前缀: `spring.ai.alibaba.data-agent.file`
 
@@ -475,7 +576,7 @@ export ELASTICSEARCH_URIS=http://127.0.0.1:9200
 | `image-size` | 图片大小上限 (字节) | 2097152 (2MB) |
 | `path-prefix` | 对象存储路径前缀 | "" |
 
-### 7. 阿里云 OSS 配置 (OSS Storage)
+### 8. 阿里云 OSS 配置 (OSS Storage)
 
 配置前缀: `spring.ai.alibaba.data-agent.file.oss`
 
@@ -488,7 +589,7 @@ export ELASTICSEARCH_URIS=http://127.0.0.1:9200
 | `custom-domain` | 自定义域名 | - |
 
 
-### 8. 数据库初始化配置 (Database Initialization)
+### 9. 数据库初始化配置 (Database Initialization)
 
 配置前缀: `spring.sql.init`
 
@@ -498,13 +599,13 @@ export ELASTICSEARCH_URIS=http://127.0.0.1:9200
 | `schema-locations` | 表结构脚本路径 | classpath:sql/schema.sql | |
 | `data-locations` | 数据脚本路径 | classpath:sql/data.sql | |
 
-### 9. 模型依赖手动管理 (Manual Model Dependency)
+### 10. 模型依赖手动管理 (Manual Model Dependency)
 
 如果您选择不使用 Spring AI Alibaba Starter 而是手动引入 OpenAI 或其他厂商的 Starter：
 - 请确保移除默认的 Starter 依赖，避免冲突。
 - 您可能需要手动配置 `ChatClient`, `ChatModel` 和 `EmbeddingModel` 的 Bean。
 
-### 10. 报告资源配置 (Report Resources)
+### 11. 报告资源配置 (Report Resources)
 
 配置前缀: `spring.ai.alibaba.data-agent.report-template`
 
@@ -513,7 +614,7 @@ export ELASTICSEARCH_URIS=http://127.0.0.1:9200
 | `marked-url` | Marked.js 路径 (Markdown渲染库) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/marked/12.0.0/marked.min.js |
 | `echarts-url` | ECharts 路径 (图表库) | https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/echarts/5.5.0/echarts.min.js |
 
-### 11. Langfuse 可观测性配置 (Langfuse Observability)
+### 12. Langfuse 可观测性配置 (Langfuse Observability)
 
 配置前缀: `spring.ai.alibaba.data-agent.langfuse`
 

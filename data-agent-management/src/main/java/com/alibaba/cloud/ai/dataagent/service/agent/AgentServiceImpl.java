@@ -22,6 +22,7 @@ import com.alibaba.cloud.ai.dataagent.mapper.AgentMapper;
 import com.alibaba.cloud.ai.dataagent.security.ApiKeyCredentialService;
 import com.alibaba.cloud.ai.dataagent.service.file.FileStorageService;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeResourceManager;
+import com.alibaba.cloud.ai.dataagent.service.memory.lifecycle.MemoryLifecycleService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.util.ApiKeyUtil;
 import lombok.AllArgsConstructor;
@@ -52,6 +53,8 @@ public class AgentServiceImpl implements AgentService {
 	private final AgentKnowledgeMapper agentKnowledgeMapper;
 
 	private final AgentKnowledgeResourceManager agentKnowledgeResourceManager;
+
+	private final MemoryLifecycleService memoryLifecycleService;
 
 	@Override
 	public List<Agent> findAll() {
@@ -103,6 +106,7 @@ public class AgentServiceImpl implements AgentService {
 	@Transactional
 	public void deleteById(Long id) {
 		Agent existing = requireAgent(id);
+		memoryLifecycleService.forgetAgent(id.intValue());
 		List<AgentKnowledge> knowledgeRecords = agentKnowledgeMapper.selectByAgentIdIncludeDeleted(id.intValue());
 		for (AgentKnowledge knowledge : knowledgeRecords) {
 			if (!agentKnowledgeResourceManager.cleanupResources(knowledge)) {

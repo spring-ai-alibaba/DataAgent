@@ -56,11 +56,11 @@ spring:
 
 默认关闭自动初始化（`spring.sql.init.mode: never`）。
 
-> 关于如何调整初始化行为，请参考 [开发者指南 - 数据库初始化配置](DEVELOPER_GUIDE.md#8-数据库初始化配置-database-initialization)。
+> 关于如何调整初始化行为，请参考 [开发者指南 - 数据库初始化配置](DEVELOPER_GUIDE.md#9-数据库初始化配置-database-initialization)。
 
 ### 2.3 配置模型
 
-> 如果涉及手动管理模型依赖（非默认 Starter），请参考 [开发者指南 - 模型依赖手动管理](DEVELOPER_GUIDE.md#9-模型依赖手动管理-manual-model-dependency)。
+> 如果涉及手动管理模型依赖（非默认 Starter），请参考 [开发者指南 - 模型依赖手动管理](DEVELOPER_GUIDE.md#10-模型依赖手动管理-manual-model-dependency)。
 
 启动项目，点击模型配置，新增模型填写自己的apikey即可。
 
@@ -79,7 +79,7 @@ spring:
 
 ### 2.4 嵌入模型批处理策略配置
 
-> 详细配置参数请参考 [开发者指南 - 嵌入模型批处理策略](DEVELOPER_GUIDE.md#2-嵌入模型批处理策略-embedding-batch)。
+> 详细配置参数请参考 [开发者指南 - 嵌入模型批处理策略](DEVELOPER_GUIDE.md#3-嵌入模型批处理策略-embedding-batch)。
 
 ### 2.5 向量库配置
 
@@ -179,11 +179,11 @@ spring:
 
 #### 2.5.3 向量库配置参数
 
-> 详细配置参数请参考 [开发者指南 - 向量库配置](DEVELOPER_GUIDE.md#3-向量库配置-vector-store)。
+> 详细配置参数请参考 [开发者指南 - 向量库配置](DEVELOPER_GUIDE.md#4-向量库配置-vector-store)。
 
 ### 2.6 检索融合策略
 
-> 详细配置参数请参考 [开发者指南 - 向量库配置](DEVELOPER_GUIDE.md#3-向量库配置-vector-store)。
+> 详细配置参数请参考 [开发者指南 - 向量库配置](DEVELOPER_GUIDE.md#4-向量库配置-vector-store)。
 
 ### 2.7 替换vector-store的实现类
 
@@ -193,7 +193,7 @@ spring:
 
 ### 2.8 配置 Python 沙盒
 
-DataAgent 使用 Spring AI Alibaba `1.1.2.2` 的 Sandbox 运行生成的 Python 代码。每次
+DataAgent 使用 Spring AI Alibaba `1.1.2.3` 的 Sandbox 运行生成的 Python 代码。每次
 执行都会创建一个任务级容器，动态依赖安装、业务代码执行和容器清理都在该任务内完成。
 
 先确认 Docker 可用：

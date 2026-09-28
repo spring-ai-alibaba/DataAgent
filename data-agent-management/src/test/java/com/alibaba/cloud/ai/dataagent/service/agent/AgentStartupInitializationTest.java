@@ -25,6 +25,7 @@ import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigDataServi
 import com.alibaba.cloud.ai.dataagent.service.business.BusinessKnowledgeService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeService;
+import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -52,6 +53,9 @@ class AgentStartupInitializationTest {
 
 	@Mock
 	private AgentDatasourceService agentDatasourceService;
+
+	@Mock
+	private SchemaService schemaService;
 
 	@Mock
 	private BusinessKnowledgeService businessKnowledgeService;
@@ -84,8 +88,8 @@ class AgentStartupInitializationTest {
 		}).when(executorService).execute(any(Runnable.class));
 		when(agentService.findByStatus("published")).thenReturn(List.of());
 		initialization = new AgentStartupInitialization(agentService, agentVectorStoreService, agentDatasourceService,
-				businessKnowledgeService, agentKnowledgeService, businessKnowledgeMapper, agentKnowledgeMapper,
-				modelConfigDataService, executorService);
+				schemaService, businessKnowledgeService, agentKnowledgeService, businessKnowledgeMapper,
+				agentKnowledgeMapper, modelConfigDataService, executorService);
 	}
 
 	@Test
@@ -118,7 +122,8 @@ class AgentStartupInitializationTest {
 		datasource.setSelectTables(List.of("orders"));
 		when(agentService.findByStatus("published")).thenReturn(List.of(agent));
 		when(agentDatasourceService.getCurrentAgentDatasource(1L)).thenReturn(datasource);
-		when(agentVectorStoreService.hasTableDocuments(3, List.of("orders"))).thenReturn(true);
+		when(schemaService.getSchemaRevision(3)).thenReturn("schema-v1");
+		when(agentVectorStoreService.hasTableDocuments(3, List.of("orders"), "schema-v1")).thenReturn(true);
 		when(modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING)).thenReturn(null);
 
 		initialization.run(applicationArguments);
@@ -134,12 +139,31 @@ class AgentStartupInitializationTest {
 		datasource.setSelectTables(List.of("orders"));
 		when(agentService.findByStatus("published")).thenReturn(List.of(agent));
 		when(agentDatasourceService.getCurrentAgentDatasource(1L)).thenReturn(datasource);
-		when(agentVectorStoreService.hasTableDocuments(3, List.of("orders"))).thenReturn(false);
+		when(schemaService.getSchemaRevision(3)).thenReturn("schema-v1");
+		when(agentVectorStoreService.hasTableDocuments(3, List.of("orders"), "schema-v1")).thenReturn(false);
 		when(agentDatasourceService.initializeSchemaForAgentWithDatasource(1L, 3, List.of("orders"))).thenReturn(true);
 		when(modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING)).thenReturn(null);
 
 		initialization.run(applicationArguments);
 
+		verify(agentDatasourceService).initializeSchemaForAgentWithDatasource(1L, 3, List.of("orders"));
+	}
+
+	@Test
+	void run_legacyVectorsWithoutPublishedRevision_areReinitialized() {
+		Agent agent = Agent.builder().id(1L).name("published").status("published").build();
+		AgentDatasource datasource = new AgentDatasource();
+		datasource.setDatasourceId(3);
+		datasource.setSelectTables(List.of("orders"));
+		when(agentService.findByStatus("published")).thenReturn(List.of(agent));
+		when(agentDatasourceService.getCurrentAgentDatasource(1L)).thenReturn(datasource);
+		when(schemaService.getSchemaRevision(3)).thenReturn(null);
+		when(agentDatasourceService.initializeSchemaForAgentWithDatasource(1L, 3, List.of("orders"))).thenReturn(true);
+		when(modelConfigDataService.getActiveConfigByType(ModelType.EMBEDDING)).thenReturn(null);
+
+		initialization.run(applicationArguments);
+
+		verify(agentVectorStoreService, never()).hasTableDocuments(any(), any(), any());
 		verify(agentDatasourceService).initializeSchemaForAgentWithDatasource(1L, 3, List.of("orders"));
 	}
 

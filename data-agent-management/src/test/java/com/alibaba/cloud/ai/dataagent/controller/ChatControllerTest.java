@@ -67,19 +67,21 @@ class ChatControllerTest {
 			.title("New Session")
 			.status("active")
 			.build();
-		when(chatSessionService.createSession(1, "New Session", null)).thenReturn(session);
+		when(chatSessionService.createSession(1, "New Session")).thenReturn(session);
 
-		ResponseEntity<ChatSession> result = chatController.createSession(1, Map.of("title", "New Session"));
+		ResponseEntity<ChatSession> result = chatController.createSession(1,
+				Map.of("title", "New Session", "userId", 99));
 
 		assertEquals(200, result.getStatusCode().value());
 		assertNotNull(result.getBody());
 		assertEquals("uuid-1", result.getBody().getId());
+		verify(chatSessionService).createSession(1, "New Session");
 	}
 
 	@Test
 	void createSession_nullBody_createsWithNulls() {
 		ChatSession session = ChatSession.builder().id("uuid-2").agentId(1).build();
-		when(chatSessionService.createSession(1, null, null)).thenReturn(session);
+		when(chatSessionService.createSession(1, null)).thenReturn(session);
 
 		ResponseEntity<ChatSession> result = chatController.createSession(1, null);
 
@@ -102,20 +104,31 @@ class ChatControllerTest {
 
 	@Test
 	void deleteSession_existingId_returns200() {
-		doNothing().when(chatSessionService).deleteSession("uuid-1");
+		doNothing().when(chatSessionService).deleteSession("uuid-1", 7);
 
-		ResponseEntity<ApiResponse> result = chatController.deleteSession("uuid-1");
+		ResponseEntity<ApiResponse> result = chatController.deleteSession("uuid-1", 7);
 
 		assertEquals(200, result.getStatusCode().value());
 		assertTrue(result.getBody().isSuccess());
-		verify(chatSessionService).deleteSession("uuid-1");
+		verify(chatSessionService).deleteSession("uuid-1", 7);
+	}
+
+	@Test
+	void deleteSession_wrongOwner_returns404() {
+		doThrow(new IllegalArgumentException("Conversation not found")).when(chatSessionService)
+			.deleteSession("uuid-1", 8);
+
+		ResponseEntity<ApiResponse> result = chatController.deleteSession("uuid-1", 8);
+
+		assertEquals(404, result.getStatusCode().value());
+		assertFalse(result.getBody().isSuccess());
 	}
 
 	@Test
 	void deleteSession_serviceThrows_returns500() {
-		doThrow(new RuntimeException("db error")).when(chatSessionService).deleteSession("uuid-1");
+		doThrow(new RuntimeException("db error")).when(chatSessionService).deleteSession("uuid-1", 7);
 
-		ResponseEntity<ApiResponse> result = chatController.deleteSession("uuid-1");
+		ResponseEntity<ApiResponse> result = chatController.deleteSession("uuid-1", 7);
 
 		assertEquals(500, result.getStatusCode().value());
 		assertFalse(result.getBody().isSuccess());

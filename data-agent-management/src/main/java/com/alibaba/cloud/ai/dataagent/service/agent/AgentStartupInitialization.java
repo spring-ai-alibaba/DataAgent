@@ -25,6 +25,7 @@ import com.alibaba.cloud.ai.dataagent.service.aimodelconfig.ModelConfigDataServi
 import com.alibaba.cloud.ai.dataagent.service.business.BusinessKnowledgeService;
 import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
 import com.alibaba.cloud.ai.dataagent.service.knowledge.AgentKnowledgeService;
+import com.alibaba.cloud.ai.dataagent.service.schema.SchemaService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -48,6 +49,8 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 	private final AgentVectorStoreService agentVectorStoreService;
 
 	private final AgentDatasourceService agentDatasourceService;
+
+	private final SchemaService schemaService;
 
 	private final BusinessKnowledgeService businessKnowledgeService;
 
@@ -210,7 +213,9 @@ public class AgentStartupInitialization implements ApplicationRunner, Disposable
 
 	private boolean isAlreadyInitialized(Integer datasourceId, List<String> tableNames) {
 		try {
-			return agentVectorStoreService.hasTableDocuments(datasourceId, tableNames);
+			String schemaRevision = schemaService.getSchemaRevision(datasourceId);
+			return org.springframework.util.StringUtils.hasText(schemaRevision)
+					&& agentVectorStoreService.hasTableDocuments(datasourceId, tableNames, schemaRevision);
 		}
 		catch (Exception e) {
 			log.error("Failed to check schema vector initialization for datasource: {}, assuming not initialized",

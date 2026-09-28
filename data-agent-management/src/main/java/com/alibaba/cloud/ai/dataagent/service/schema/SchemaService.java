@@ -28,6 +28,8 @@ public interface SchemaService {
 
 	List<Document> getTableDocumentsByDatasource(Integer datasourceId, String query);
 
+	List<Document> getTableDocumentsByDatasource(Integer datasourceId, String query, String schemaRevision);
+
 	void extractDatabaseName(SchemaDTO schemaDTO, DbConfigBO dbConfig);
 
 	void buildSchemaFromDocuments(String agentId, List<Document> columnDocumentList, List<Document> tableDocuments,
@@ -36,5 +38,9 @@ public interface SchemaService {
 	List<Document> getTableDocuments(Integer datasourceId, List<String> tableNames);
 
 	List<Document> getColumnDocumentsByTableName(Integer datasourceId, List<String> tableNames);
+
+	List<Document> getColumnDocumentsByTableName(Integer datasourceId, List<String> tableNames, String schemaRevision);
+
+	String getSchemaRevision(Integer datasourceId);
 
 }

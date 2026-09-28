@@ -17,15 +17,20 @@ package com.alibaba.cloud.ai.dataagent.service.schema;
 
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.bo.schema.ForeignKeyInfoBO;
+import com.alibaba.cloud.ai.dataagent.bo.schema.TableInfoBO;
+import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
+import com.alibaba.cloud.ai.dataagent.dto.datasource.SchemaInitRequest;
 import com.alibaba.cloud.ai.dataagent.dto.schema.SchemaDTO;
 import com.alibaba.cloud.ai.dataagent.dto.schema.TableDTO;
+import com.alibaba.cloud.ai.dataagent.mapper.DatasourceMapper;
 import com.alibaba.cloud.ai.dataagent.properties.DataAgentProperties;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.AgentVectorStoreService;
 import com.alibaba.cloud.ai.dataagent.service.vectorstore.DynamicFilterService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -48,6 +53,9 @@ class SchemaServiceImplTest {
 	private AccessorFactory accessorFactory;
 
 	@Mock
+	private Accessor accessor;
+
+	@Mock
 	private TableMetadataService tableMetadataService;
 
 	@Mock
@@ -61,6 +69,12 @@ class SchemaServiceImplTest {
 	@Mock
 	private AgentVectorStoreService agentVectorStoreService;
 
+	@Mock
+	private DatasourceMapper datasourceMapper;
+
+	@Mock
+	private SchemaPublicationCoordinator schemaPublicationCoordinator;
+
 	private SchemaServiceImpl schemaService;
 
 	@BeforeEach
@@ -68,7 +82,8 @@ class SchemaServiceImplTest {
 		ExecutorService executor = Executors.newSingleThreadExecutor();
 		dataAgentProperties = new DataAgentProperties();
 		schemaService = new SchemaServiceImpl(executor, accessorFactory, tableMetadataService, batchingStrategy,
-				dynamicFilterService, dataAgentProperties, agentVectorStoreService);
+				dynamicFilterService, dataAgentProperties, agentVectorStoreService, datasourceMapper,
+				schemaPublicationCoordinator);
 	}
 
 	private Document createTableDoc(String name) {
@@ -77,7 +92,7 @@ class SchemaServiceImplTest {
 		meta.put("description", name + " description");
 		meta.put("foreignKey", "");
 		meta.put("datasourceId", "1");
-		meta.put("vectorType", "TABLE");
+		meta.put("vectorType", com.alibaba.cloud.ai.dataagent.constant.DocumentMetadataConstant.TABLE);
 		return new Document("table: " + name, meta);
 	}
 
@@ -89,6 +104,59 @@ class SchemaServiceImplTest {
 		meta.put("tableName", tableName);
 		meta.put("vectorType", "COLUMN");
 		return new Document("column: " + columnName, meta);
+	}
+
+	@Test
+	void schemaReplacementInvalidatesThenPublishesStableDatasourceRevision() throws Exception {
+		DbConfigBO config = new DbConfigBO();
+		SchemaInitRequest request = new SchemaInitRequest();
+		request.setDbConfig(config);
+		request.setTables(List.of("orders"));
+		request.setSchemaGeneration(7L);
+		TableInfoBO table = TableInfoBO.builder()
+			.name("orders")
+			.schema("public")
+			.primaryKeys(List.of("id"))
+			.columns(List.of())
+			.build();
+		when(accessorFactory.getAccessorByDbConfig(config)).thenReturn(accessor);
+		when(accessor.showForeignKeys(eq(config), any())).thenReturn(List.of());
+		when(accessor.fetchTables(eq(config), any())).thenReturn(List.of(table));
+		doAnswer(invocation -> {
+			invocation.<Runnable>getArgument(3).run();
+			return null;
+		}).when(schemaPublicationCoordinator).publish(anyInt(), anyLong(), anyString(), any(Runnable.class));
+		assertTrue(schemaService.schema(3, request));
+
+		InOrder order = inOrder(schemaPublicationCoordinator, accessorFactory);
+		order.verify(schemaPublicationCoordinator).invalidate(3, 7L);
+		order.verify(accessorFactory).getAccessorByDbConfig(config);
+		verify(schemaPublicationCoordinator).publish(eq(3), eq(7L), argThat(revision -> revision.length() == 64),
+				any());
+		verify(agentVectorStoreService).deleteDocumentsByMetadata(Map.of("datasourceId", "3", "vectorType", "column"));
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<Document>> documentsCaptor = ArgumentCaptor.forClass(List.class);
+		verify(agentVectorStoreService).replaceDocumentsByMetadata(
+				eq(Map.of("datasourceId", "3", "vectorType", "table")), documentsCaptor.capture());
+		assertTrue(documentsCaptor.getValue()
+			.stream()
+			.allMatch(document -> document.getMetadata().get("schemaRevision").toString().length() == 64));
+	}
+
+	@Test
+	void schemaExtractionFailureLeavesPreviousRevisionInvalidated() throws Exception {
+		DbConfigBO config = new DbConfigBO();
+		SchemaInitRequest request = new SchemaInitRequest();
+		request.setDbConfig(config);
+		request.setTables(List.of("orders"));
+		request.setSchemaGeneration(7L);
+		when(accessorFactory.getAccessorByDbConfig(config))
+			.thenThrow(new IllegalStateException("metadata unavailable"));
+
+		assertFalse(schemaService.schema(3, request));
+
+		verify(schemaPublicationCoordinator).invalidate(3, 7L);
+		verify(schemaPublicationCoordinator, never()).publish(anyInt(), anyLong(), anyString(), any(Runnable.class));
 	}
 
 	@Test
@@ -206,7 +274,7 @@ class SchemaServiceImplTest {
 		List<Document> expected = new ArrayList<>();
 		when(agentVectorStoreService.similaritySearch(anyString(), any(), anyInt(), anyDouble())).thenReturn(expected);
 
-		List<Document> result = schemaService.getTableDocumentsByDatasource(1, "test query");
+		List<Document> result = schemaService.getTableDocumentsByDatasource(1, "test query", "schema-v1");
 		ArgumentCaptor<Filter.Expression> filterCaptor = ArgumentCaptor.forClass(Filter.Expression.class);
 
 		assertSame(expected, result);
@@ -216,6 +284,8 @@ class SchemaServiceImplTest {
 		assertTrue(filter.contains("value=1"));
 		assertTrue(filter.contains("vectorType"));
 		assertTrue(filter.contains("value=table"));
+		assertTrue(filter.contains("schemaRevision"));
+		assertTrue(filter.contains("value=schema-v1"));
 	}
 
 	@Test

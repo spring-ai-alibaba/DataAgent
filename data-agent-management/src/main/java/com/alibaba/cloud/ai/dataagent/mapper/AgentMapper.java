@@ -33,6 +33,10 @@ public interface AgentMapper {
 			""")
 	Agent findById(Long id);
 
+	/** Serialize agent-wide destructive work with FK-backed session creation. */
+	@Select("SELECT id FROM agent WHERE id = #{id} FOR UPDATE")
+	Long lockById(@Param("id") Long id);
+
 	@Select("""
 			SELECT * FROM agent WHERE status = #{status} ORDER BY create_time DESC
 			""")

@@ -38,6 +38,9 @@ public interface DatasourceMapper {
 	@Select("SELECT * FROM datasource WHERE id = #{id}")
 	Datasource selectById(@Param("id") Integer id);
 
+	@Select("SELECT * FROM datasource WHERE id = #{id} FOR UPDATE")
+	Datasource selectByIdForUpdate(@Param("id") Integer id);
+
 	@Select("SELECT * FROM datasource ORDER BY create_time DESC")
 	List<Datasource> selectAll();
 
@@ -77,6 +80,19 @@ public interface DatasourceMapper {
 
 	@Update("UPDATE datasource SET test_status = #{testStatus} WHERE id = #{id}")
 	int updateTestStatusById(@Param("id") Integer id, @Param("testStatus") String testStatus);
+
+	@Select("SELECT schema_revision FROM datasource WHERE id = #{id}")
+	String selectSchemaRevision(@Param("id") Integer id);
+
+	@Select("SELECT schema_generation FROM datasource WHERE id = #{id}")
+	Long selectSchemaGeneration(@Param("id") Integer id);
+
+	@Update("""
+			UPDATE datasource
+			SET schema_generation = schema_generation + 1, schema_revision = NULL, update_time = NOW()
+			WHERE id = #{id}
+			""")
+	int advanceSchemaGeneration(@Param("id") Integer id);
 
 	/**
 	 * Query data source list by status

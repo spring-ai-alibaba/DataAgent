@@ -17,6 +17,7 @@ package com.alibaba.cloud.ai.dataagent.controller;
 
 import com.alibaba.cloud.ai.dataagent.exception.InternalServerException;
 import com.alibaba.cloud.ai.dataagent.exception.InvalidInputException;
+import com.alibaba.cloud.ai.dataagent.exception.MemoryConflictException;
 import com.alibaba.cloud.ai.dataagent.vo.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.server.ServerWebInputException;
 
 /**
  * 全局异常处理器 (WebFlux 版本)
@@ -57,6 +59,19 @@ public class GlobalExceptionHandler {
 			log.warn("Request failed with status {}: {}", e.getStatusCode(), message);
 		}
 		return ResponseEntity.status(e.getStatusCode()).body(ApiResponse.error(message));
+	}
+
+	@ExceptionHandler(MemoryConflictException.class)
+	public ResponseEntity<ApiResponse<Object>> handleMemoryConflictException(MemoryConflictException e) {
+		log.warn("Memory conflict: {}", e.getMessage());
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(e.getMessage()));
+	}
+
+	@ExceptionHandler({ IllegalArgumentException.class, ServerWebInputException.class })
+	@ResponseStatus(HttpStatus.BAD_REQUEST)
+	public ApiResponse<Object> handleBadRequest(Exception e) {
+		log.warn("Invalid request: {}", e.getMessage());
+		return ApiResponse.error(e.getMessage() == null ? "Invalid request" : e.getMessage());
 	}
 
 	@ExceptionHandler(Exception.class)

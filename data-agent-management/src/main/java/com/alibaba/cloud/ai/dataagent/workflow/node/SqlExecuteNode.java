@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.workflow.node;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.PLAN_CURRENT_STEP;
+import static com.alibaba.cloud.ai.dataagent.constant.Constant.DATASOURCE_ID;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.IS_ONLY_NL2SQL;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_EXECUTE_NODE_OUTPUT;
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.SQL_GENERATE_COUNT;
@@ -104,12 +105,17 @@ public class SqlExecuteNode implements NodeAction {
 			throw new IllegalStateException("Agent ID cannot be empty.");
 		}
 
-		Long agentId = Long.valueOf(agentIdStr);
+		Integer datasourceId = state.value(DATASOURCE_ID)
+			.map(value -> value instanceof Number number ? number.intValue() : Integer.valueOf(value.toString()))
+			.orElseThrow(() -> new IllegalStateException("Pinned datasource ID cannot be empty."));
+		String schemaRevision = state.value(Constant.SCHEMA_FINGERPRINT)
+			.map(Object::toString)
+			.filter(StringUtils::isNotBlank)
+			.orElseThrow(() -> new IllegalStateException("Pinned schema revision cannot be empty."));
+		DbConfigBO dbConfig = databaseUtil.getDatasourceDbConfig(datasourceId, schemaRevision);
+		Accessor dbAccessor = databaseUtil.getAccessor(dbConfig);
 
-		// Dynamically get the data source configuration for an agent
-		DbConfigBO dbConfig = databaseUtil.getAgentDbConfig(agentId);
-
-		return executeSqlQuery(state, currentStep, sqlQuery, dbConfig, agentId);
+		return executeSqlQuery(state, currentStep, sqlQuery, dbConfig, dbAccessor);
 	}
 
 	/**
@@ -123,18 +129,18 @@ public class SqlExecuteNode implements NodeAction {
 	 * @param currentStep The current step number in the execution plan
 	 * @param sqlQuery The SQL query to execute
 	 * @param dbConfig The database configuration to use for execution
-	 * @param agentId The agent ID
+	 * @param dbAccessor The accessor created from the same pinned datasource
+	 * configuration
 	 * @return Map containing the generator for streaming output
 	 */
 	@SuppressWarnings("unchecked")
 	private Map<String, Object> executeSqlQuery(OverAllState state, Integer currentStep, String sqlQuery,
-			DbConfigBO dbConfig, Long agentId) {
+			DbConfigBO dbConfig, Accessor dbAccessor) {
 		// Execute business logic first - actual SQL execution
 		DbQueryParameter dbQueryParameter = new DbQueryParameter();
 		dbQueryParameter.setSql(sqlQuery);
 		dbQueryParameter.setSchema(dbConfig.getSchema());
 
-		Accessor dbAccessor = databaseUtil.getAgentAccessor(agentId);
 		final Map<String, Object> result = new HashMap<>();
 
 		Flux<ChatResponse> startFlux = Flux.just(ChatResponseUtil.createResponse("开始执行SQL..."),

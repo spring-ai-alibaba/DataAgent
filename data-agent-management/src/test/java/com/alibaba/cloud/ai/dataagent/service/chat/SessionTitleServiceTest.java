@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.service.chat;
 
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
+import com.alibaba.cloud.ai.dataagent.mapper.ChatSessionMapper;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 
+import java.time.LocalDateTime;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,7 +42,7 @@ class SessionTitleServiceTest {
 	private SessionTitleService service;
 
 	@Mock
-	private ChatSessionService chatSessionService;
+	private ChatSessionMapper chatSessionMapper;
 
 	@Mock
 	private SessionEventPublisher sessionEventPublisher;
@@ -53,7 +55,7 @@ class SessionTitleServiceTest {
 	@BeforeEach
 	void setUp() {
 		executorService = Executors.newSingleThreadExecutor();
-		service = new SessionTitleService(chatSessionService, sessionEventPublisher, llmService, executorService);
+		service = new SessionTitleService(chatSessionMapper, sessionEventPublisher, llmService, executorService);
 	}
 
 	@Test
@@ -61,7 +63,7 @@ class SessionTitleServiceTest {
 		service.scheduleTitleGeneration("", "hello");
 		service.scheduleTitleGeneration(null, "hello");
 
-		verifyNoInteractions(chatSessionService);
+		verifyNoInteractions(chatSessionMapper);
 	}
 
 	@Test
@@ -69,37 +71,39 @@ class SessionTitleServiceTest {
 		service.scheduleTitleGeneration("session-1", "");
 		service.scheduleTitleGeneration("session-1", null);
 
-		verifyNoInteractions(chatSessionService);
+		verifyNoInteractions(chatSessionMapper);
 	}
 
 	@Test
 	void scheduleTitleGeneration_sessionNotFound_doesNotCallRename() throws Exception {
-		when(chatSessionService.findBySessionId("session-1")).thenReturn(null);
+		when(chatSessionMapper.selectBySessionId("session-1")).thenReturn(null);
 
 		service.scheduleTitleGeneration("session-1", "hello");
 		executorService.shutdown();
 		assertTrue(executorService.awaitTermination(5, TimeUnit.SECONDS), "the title task must actually finish");
 
-		verify(chatSessionService).findBySessionId("session-1");
-		verify(chatSessionService, never()).renameSession(anyString(), anyString());
+		verify(chatSessionMapper).selectBySessionId("session-1");
+		verify(chatSessionMapper, never()).updateTitle(anyString(), anyString(), any(LocalDateTime.class));
 	}
 
 	@Test
 	void scheduleTitleGeneration_sessionHasCustomTitle_skips() throws Exception {
 		ChatSession session = ChatSession.builder().id("session-1").agentId(1).title("Custom Title").build();
-		when(chatSessionService.findBySessionId("session-1")).thenReturn(session);
+		when(chatSessionMapper.selectBySessionId("session-1")).thenReturn(session);
 
 		service.scheduleTitleGeneration("session-1", "hello");
 		executorService.shutdown();
 		assertTrue(executorService.awaitTermination(5, TimeUnit.SECONDS), "the title task must actually finish");
 
-		verify(chatSessionService, never()).renameSession(anyString(), anyString());
+		verify(chatSessionMapper, never()).updateTitle(anyString(), anyString(), any(LocalDateTime.class));
 	}
 
 	@Test
 	void scheduleTitleGeneration_generatesAndPersistsTitle() throws Exception {
 		ChatSession session = ChatSession.builder().id("session-1").agentId(1).title("\u65b0\u4f1a\u8bdd").build();
-		when(chatSessionService.findBySessionId("session-1")).thenReturn(session);
+		when(chatSessionMapper.selectBySessionId("session-1")).thenReturn(session);
+		when(chatSessionMapper.updateTitle(eq("session-1"), eq("Generated Title"), any(LocalDateTime.class)))
+			.thenReturn(1);
 
 		Flux<ChatResponse> chatResponseFlux = Flux.empty();
 		when(llmService.call(anyString(), anyString())).thenReturn(chatResponseFlux);
@@ -109,7 +113,7 @@ class SessionTitleServiceTest {
 		executorService.shutdown();
 		assertTrue(executorService.awaitTermination(5, TimeUnit.SECONDS), "the title task must actually finish");
 
-		verify(chatSessionService).renameSession(eq("session-1"), eq("Generated Title"));
+		verify(chatSessionMapper).updateTitle(eq("session-1"), eq("Generated Title"), any(LocalDateTime.class));
 		verify(sessionEventPublisher).publishTitleUpdated(eq(1), eq("session-1"), eq("Generated Title"));
 	}
 
@@ -118,7 +122,7 @@ class SessionTitleServiceTest {
 		ChatSession session = ChatSession.builder().id("session-1").agentId(1).title("\u65b0\u4f1a\u8bdd").build();
 		CountDownLatch firstTaskStarted = new CountDownLatch(1);
 		CountDownLatch allowFirstTaskToFinish = new CountDownLatch(1);
-		when(chatSessionService.findBySessionId("session-1")).thenAnswer(invocation -> {
+		when(chatSessionMapper.selectBySessionId("session-1")).thenAnswer(invocation -> {
 			firstTaskStarted.countDown();
 			if (!allowFirstTaskToFinish.await(5, TimeUnit.SECONDS)) {
 				throw new IllegalStateException("timed out waiting to finish the first title task");
@@ -129,6 +133,7 @@ class SessionTitleServiceTest {
 		Flux<ChatResponse> chatResponseFlux = Flux.empty();
 		when(llmService.call(anyString(), anyString())).thenReturn(chatResponseFlux);
 		when(llmService.toStringFlux(chatResponseFlux)).thenReturn(Flux.just("Title"));
+		when(chatSessionMapper.updateTitle(eq("session-1"), eq("Title"), any(LocalDateTime.class))).thenReturn(1);
 
 		service.scheduleTitleGeneration("session-1", "hello");
 		try {
@@ -141,10 +146,26 @@ class SessionTitleServiceTest {
 		executorService.shutdown();
 		assertTrue(executorService.awaitTermination(5, TimeUnit.SECONDS), "the title task must actually finish");
 
-		verify(chatSessionService, times(1)).findBySessionId("session-1");
+		verify(chatSessionMapper, times(1)).selectBySessionId("session-1");
 		verify(llmService, times(1)).call(anyString(), anyString());
-		verify(chatSessionService, times(1)).renameSession("session-1", "Title");
+		verify(chatSessionMapper, times(1)).updateTitle(eq("session-1"), eq("Title"), any(LocalDateTime.class));
 		verify(sessionEventPublisher, times(1)).publishTitleUpdated(1, "session-1", "Title");
+	}
+
+	@Test
+	void deletedSessionDuringGenerationIsNotPublished() throws Exception {
+		ChatSession session = ChatSession.builder().id("session-1").agentId(1).title("\u65b0\u4f1a\u8bdd").build();
+		when(chatSessionMapper.selectBySessionId("session-1")).thenReturn(session);
+		Flux<ChatResponse> chatResponseFlux = Flux.empty();
+		when(llmService.call(anyString(), anyString())).thenReturn(chatResponseFlux);
+		when(llmService.toStringFlux(chatResponseFlux)).thenReturn(Flux.just("Title"));
+		when(chatSessionMapper.updateTitle(eq("session-1"), eq("Title"), any(LocalDateTime.class))).thenReturn(0);
+
+		service.scheduleTitleGeneration("session-1", "hello");
+		executorService.shutdown();
+		assertTrue(executorService.awaitTermination(5, TimeUnit.SECONDS), "the title task must actually finish");
+
+		verifyNoInteractions(sessionEventPublisher);
 	}
 
 }

@@ -24,6 +24,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 @Component
 public class AgentApiKeyServerAuthenticationConverter implements ServerAuthenticationConverter {
 
@@ -31,15 +34,29 @@ public class AgentApiKeyServerAuthenticationConverter implements ServerAuthentic
 
 	private static final String BEARER_PREFIX = "Bearer ";
 
+	private static final Pattern AGENT_MEMORY_PATH = Pattern.compile("^/api/agents/([^/]+)/memories(?:/.*)?$");
+
+	private static final Pattern AGENT_SESSIONS_PATH = Pattern.compile("^/api/agent/([^/]+)/sessions$");
+
 	@Override
 	public Mono<Authentication> convert(ServerWebExchange exchange) {
-		String agentId = exchange.getRequest().getQueryParams().getFirst("agentId");
+		Matcher memoryMatcher = AGENT_MEMORY_PATH.matcher(exchange.getRequest().getPath().value());
+		boolean credentialRequired = memoryMatcher.matches();
+		String agentId;
+		if (credentialRequired) {
+			agentId = memoryMatcher.group(1);
+		}
+		else {
+			Matcher sessionsMatcher = AGENT_SESSIONS_PATH.matcher(exchange.getRequest().getPath().value());
+			agentId = sessionsMatcher.matches() ? sessionsMatcher.group(1)
+					: exchange.getRequest().getQueryParams().getFirst("agentId");
+		}
 		if (!StringUtils.hasText(agentId)) {
 			return Mono.error(new BadCredentialsException("agentId is required"));
 		}
 		try {
-			return Mono
-				.just(AgentApiKeyAuthenticationToken.unauthenticated(Long.valueOf(agentId), extractApiKey(exchange)));
+			return Mono.just(AgentApiKeyAuthenticationToken.unauthenticated(Long.valueOf(agentId),
+					extractApiKey(exchange), credentialRequired));
 		}
 		catch (NumberFormatException ex) {
 			return Mono.error(new BadCredentialsException("Invalid agent API credentials", ex));

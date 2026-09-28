@@ -55,7 +55,8 @@ class SchemaVectorRecallIntegrationTest {
 		vectorStoreService = new AgentVectorStoreServiceImpl(vectorStore, Optional.empty(), properties,
 				new DynamicFilterService(null, null), new MetadataDocumentRetriever(new StandardEnvironment()));
 		executorService = Executors.newSingleThreadExecutor();
-		schemaService = new SchemaServiceImpl(executorService, null, null, null, null, properties, vectorStoreService);
+		schemaService = new SchemaServiceImpl(executorService, null, null, null, null, properties, vectorStoreService,
+				null, null);
 
 		vectorStoreService.addDocuments("7",
 				List.of(tableDocument("orders", "订单销售数据"), tableDocument("users", "用户注册信息")));
@@ -68,7 +69,7 @@ class SchemaVectorRecallIntegrationTest {
 
 	@Test
 	void schemaRecallUsesTheUserQueryInsteadOfAConstantProbe() {
-		List<Document> result = schemaService.getTableDocumentsByDatasource(7, "查询订单销售数据");
+		List<Document> result = schemaService.getTableDocumentsByDatasource(7, "查询订单销售数据", "schema-v1");
 
 		assertThat(result).extracting(document -> document.getMetadata().get(DocumentMetadataConstant.NAME))
 			.containsExactly("orders");
@@ -81,8 +82,10 @@ class SchemaVectorRecallIntegrationTest {
 	}
 
 	private Document tableDocument(String name, String text) {
-		return new Document(text, Map.of(Constant.DATASOURCE_ID, "7", DocumentMetadataConstant.VECTOR_TYPE,
-				DocumentMetadataConstant.TABLE, DocumentMetadataConstant.NAME, name));
+		return new Document(text,
+				Map.of(Constant.DATASOURCE_ID, "7", DocumentMetadataConstant.VECTOR_TYPE,
+						DocumentMetadataConstant.TABLE, DocumentMetadataConstant.NAME, name,
+						DocumentMetadataConstant.SCHEMA_REVISION, "schema-v1"));
 	}
 
 }

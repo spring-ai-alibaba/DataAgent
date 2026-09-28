@@ -18,42 +18,46 @@ package com.alibaba.cloud.ai.dataagent.util;
 import com.alibaba.cloud.ai.dataagent.bo.DbConfigBO;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.Accessor;
 import com.alibaba.cloud.ai.dataagent.connector.accessor.AccessorFactory;
-import com.alibaba.cloud.ai.dataagent.entity.AgentDatasource;
-import com.alibaba.cloud.ai.dataagent.service.datasource.AgentDatasourceService;
+import com.alibaba.cloud.ai.dataagent.entity.Datasource;
 import com.alibaba.cloud.ai.dataagent.service.datasource.DatasourceService;
 import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 /**
  * Utility class for processing database.
  */
-@Slf4j
 @Component
 @AllArgsConstructor
 public class DatabaseUtil {
 
 	private final AccessorFactory accessorFactory;
 
-	private final AgentDatasourceService agentDatasourceService;
-
 	private final DatasourceService datasourceService;
 
-	public DbConfigBO getAgentDbConfig(Long agentId) {
-		log.info("Getting datasource config for agent: {}", agentId);
-
-		// Get the enabled data source for the agent
-		AgentDatasource activeDatasource = agentDatasourceService.getCurrentAgentDatasource(agentId);
-		// Convert to DbConfig
-		DbConfigBO dbConfig = datasourceService.getDbConfig(activeDatasource.getDatasource());
-		log.info("Successfully created DbConfig for agent {}: schema={}, type={}", agentId, dbConfig.getSchema(),
-				dbConfig.getDialectType());
-
-		return dbConfig;
+	/**
+	 * Resolves one immutable connection snapshot only when it still belongs to the schema
+	 * revision captured by the graph. Reading the revision and connection fields from the
+	 * same datasource row prevents a mid-run connection update from combining old schema
+	 * documents with a new physical database.
+	 */
+	public DbConfigBO getDatasourceDbConfig(Integer datasourceId, String expectedSchemaRevision) {
+		if (StringUtils.isBlank(expectedSchemaRevision)) {
+			throw new IllegalStateException("Pinned schema revision cannot be empty for datasource " + datasourceId);
+		}
+		Datasource datasource = datasourceService.getDatasourceById(datasourceId);
+		if (datasource == null) {
+			throw new IllegalStateException("Datasource not found: " + datasourceId);
+		}
+		if (!expectedSchemaRevision.equals(datasource.getSchemaRevision())) {
+			throw new IllegalStateException(
+					"Datasource schema changed during graph execution; restart the query for datasource "
+							+ datasourceId);
+		}
+		return datasourceService.getDbConfig(datasource);
 	}
 
-	public Accessor getAgentAccessor(Long agentId) {
-		DbConfigBO dbConfig = getAgentDbConfig(agentId);
+	public Accessor getAccessor(DbConfigBO dbConfig) {
 		return accessorFactory.getAccessorByDbConfig(dbConfig);
 	}
 

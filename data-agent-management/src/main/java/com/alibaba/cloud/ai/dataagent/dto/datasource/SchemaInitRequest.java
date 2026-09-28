@@ -27,6 +27,8 @@ public class SchemaInitRequest implements Serializable {
 
 	private List<String> tables;
 
+	private Long schemaGeneration;
+
 	public DbConfigBO getDbConfig() {
 		return dbConfig;
 	}
@@ -43,9 +45,18 @@ public class SchemaInitRequest implements Serializable {
 		this.tables = tables;
 	}
 
+	public Long getSchemaGeneration() {
+		return schemaGeneration;
+	}
+
+	public void setSchemaGeneration(Long schemaGeneration) {
+		this.schemaGeneration = schemaGeneration;
+	}
+
 	@Override
 	public String toString() {
-		return "SchemaInitRequest{" + "dbConfig=" + dbConfig + ", tables=" + tables + '}';
+		return "SchemaInitRequest{" + "dbConfig=" + dbConfig + ", tables=" + tables + ", schemaGeneration="
+				+ schemaGeneration + '}';
 	}
 
 	@Override
@@ -55,12 +66,13 @@ public class SchemaInitRequest implements Serializable {
 		if (o == null || getClass() != o.getClass())
 			return false;
 		SchemaInitRequest that = (SchemaInitRequest) o;
-		return Objects.equals(dbConfig, that.dbConfig) && Objects.equals(tables, that.tables);
+		return Objects.equals(dbConfig, that.dbConfig) && Objects.equals(tables, that.tables)
+				&& Objects.equals(schemaGeneration, that.schemaGeneration);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(dbConfig, tables);
+		return Objects.hash(dbConfig, tables, schemaGeneration);
 	}
 
 }

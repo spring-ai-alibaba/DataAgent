@@ -48,6 +48,8 @@ import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.mysql.CreateOption;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.mysql.MysqlSaver;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
+import com.alibaba.cloud.ai.graph.store.Store;
+import com.alibaba.cloud.ai.graph.store.stores.MemoryStore;
 import com.knuddels.jtokkit.api.EncodingType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.BatchingStrategy;
@@ -78,6 +80,7 @@ import org.springframework.boot.web.client.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -153,8 +156,10 @@ public class DataAgentConfiguration implements DisposableBean {
 			HashMap<String, KeyStrategy> keyStrategyHashMap = new HashMap<>();
 			// User input
 			keyStrategyHashMap.put(INPUT_KEY, KeyStrategy.REPLACE);
-			// Agent ID
+			// Agent and datasource scope
 			keyStrategyHashMap.put(AGENT_ID, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(DATASOURCE_ID, KeyStrategy.REPLACE);
+			keyStrategyHashMap.put(SCHEMA_FINGERPRINT, KeyStrategy.REPLACE);
 			// Multi-turn context
 			keyStrategyHashMap.put(MULTI_TURN_CONTEXT, KeyStrategy.REPLACE);
 			// Intent recognition
@@ -306,6 +311,7 @@ public class DataAgentConfiguration implements DisposableBean {
 		return MysqlSaver.builder()
 			.dataSource(dataSource)
 			.stateSerializer(nl2sqlGraph.getStateSerializer())
+			.maxCachedThreads(0)
 			.createOption(CreateOption.CREATE_IF_NOT_EXISTS)
 			.build();
 	}
@@ -316,12 +322,32 @@ public class DataAgentConfiguration implements DisposableBean {
 		return MemorySaver.builder().build();
 	}
 
+	/**
+	 * Framework-owned cache for rebuildable exact-key projections. Durable conversation
+	 * truth remains in MySQL and read-side boundary checks rebuild a missing or stale
+	 * node-local projection. Semantic Top-K recall remains on Spring AI
+	 * {@link VectorStore}.
+	 */
+	@Bean("graphMemoryStore")
+	@ConditionalOnMissingBean(name = "graphMemoryStore")
+	public Store graphMemoryStore() {
+		return new MemoryStore();
+	}
+
+	@Bean("conversationSummaryStore")
+	@ConditionalOnMissingBean(name = "conversationSummaryStore")
+	public Store conversationSummaryStore() {
+		return new MemoryStore();
+	}
+
 	@Bean
 	public CompileConfig nl2sqlGraphCompileConfig(BaseCheckpointSaver checkpointSaver,
+			@Qualifier("graphMemoryStore") Store graphMemoryStore,
 			NodeTracingLifecycleListener nodeTracingLifecycleListener) {
 		SaverConfig saverConfig = SaverConfig.builder().register(checkpointSaver).build();
 		return CompileConfig.builder()
 			.saverConfig(saverConfig)
+			.store(graphMemoryStore)
 			.interruptBefore(HUMAN_FEEDBACK_NODE)
 			.withLifecycleListener(nodeTracingLifecycleListener)
 			.build();
@@ -330,7 +356,7 @@ public class DataAgentConfiguration implements DisposableBean {
 	@Bean
 	@ConditionalOnMissingBean(ChatMemory.class)
 	public ChatMemory chatMemory(ChatMemoryRepository chatMemoryRepository, DataAgentProperties properties) {
-		int maxMessages = Math.max(2, properties.getMaxturnhistory() * 2);
+		int maxMessages = Math.max(2, properties.resolveRecentTurns() * 2);
 		return MessageWindowChatMemory.builder()
 			.chatMemoryRepository(chatMemoryRepository)
 			.maxMessages(maxMessages)

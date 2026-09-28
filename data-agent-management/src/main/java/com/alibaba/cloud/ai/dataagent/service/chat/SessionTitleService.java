@@ -16,6 +16,7 @@
 package com.alibaba.cloud.ai.dataagent.service.chat;
 
 import com.alibaba.cloud.ai.dataagent.entity.ChatSession;
+import com.alibaba.cloud.ai.dataagent.mapper.ChatSessionMapper;
 import com.alibaba.cloud.ai.dataagent.service.llm.LlmService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,7 +42,7 @@ public class SessionTitleService {
 
 	private static final String DEFAULT_TITLE = "新会话";
 
-	private final ChatSessionService chatSessionService;
+	private final ChatSessionMapper chatSessionMapper;
 
 	private final SessionEventPublisher sessionEventPublisher;
 
@@ -64,7 +66,7 @@ public class SessionTitleService {
 
 	private void generateAndPersist(String sessionId, String userMessage) {
 		try {
-			ChatSession session = chatSessionService.findBySessionId(sessionId);
+			ChatSession session = chatSessionMapper.selectBySessionId(sessionId);
 			if (session == null) {
 				log.warn("Session {} not found when generating title", sessionId);
 				return;
@@ -84,7 +86,10 @@ public class SessionTitleService {
 				return;
 			}
 
-			chatSessionService.renameSession(sessionId, title);
+			if (chatSessionMapper.updateTitle(sessionId, title, LocalDateTime.now()) != 1) {
+				log.debug("Session {} was deleted while its title was being generated", sessionId);
+				return;
+			}
 			sessionEventPublisher.publishTitleUpdated(session.getAgentId(), sessionId, title);
 			log.info("Generated session title '{}' for session {}", title, sessionId);
 		}

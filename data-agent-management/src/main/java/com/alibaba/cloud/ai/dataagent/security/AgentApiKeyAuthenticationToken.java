@@ -26,21 +26,28 @@ final class AgentApiKeyAuthenticationToken extends AbstractAuthenticationToken {
 
 	private String apiKey;
 
+	private final boolean credentialRequired;
+
 	private AgentApiKeyAuthenticationToken(Long agentId, String apiKey,
-			Collection<? extends GrantedAuthority> authorities) {
+			Collection<? extends GrantedAuthority> authorities, boolean credentialRequired) {
 		super(authorities);
 		this.agentId = agentId;
 		this.apiKey = apiKey;
+		this.credentialRequired = credentialRequired;
 		setAuthenticated(!authorities.isEmpty());
 	}
 
-	static AgentApiKeyAuthenticationToken unauthenticated(Long agentId, String apiKey) {
-		return new AgentApiKeyAuthenticationToken(agentId, apiKey, java.util.List.of());
+	static AgentApiKeyAuthenticationToken unauthenticated(Long agentId, String apiKey, boolean credentialRequired) {
+		return new AgentApiKeyAuthenticationToken(agentId, apiKey, java.util.List.of(), credentialRequired);
 	}
 
 	static AgentApiKeyAuthenticationToken authenticated(Long agentId,
 			Collection<? extends GrantedAuthority> authorities) {
-		return new AgentApiKeyAuthenticationToken(agentId, null, authorities);
+		return new AgentApiKeyAuthenticationToken(agentId, null, authorities, false);
+	}
+
+	boolean isCredentialRequired() {
+		return credentialRequired;
 	}
 
 	@Override

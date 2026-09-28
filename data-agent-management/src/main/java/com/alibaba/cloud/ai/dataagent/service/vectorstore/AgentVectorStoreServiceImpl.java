@@ -28,11 +28,13 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.Filter;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.ai.vectorstore.filter.FilterExpressionTextParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.StandardEnvironment;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 
@@ -306,9 +308,21 @@ public class AgentVectorStoreServiceImpl implements AgentVectorStoreService {
 
 	@Override
 	public boolean hasTableDocuments(Integer datasourceId, List<String> tableNames) {
+		return hasTableDocuments(datasourceId, tableNames, null);
+	}
+
+	@Override
+	public boolean hasTableDocuments(Integer datasourceId, List<String> tableNames, String schemaRevision) {
 		Assert.notNull(datasourceId, "DatasourceId cannot be null.");
 		Assert.notEmpty(tableNames, "Table names cannot be empty.");
-		Filter.Expression filter = DynamicFilterService.buildFilterExpressionForSearchTables(datasourceId, tableNames);
+		Filter.Expression tableFilter = DynamicFilterService.buildFilterExpressionForSearchTables(datasourceId,
+				tableNames);
+		Filter.Expression filter = tableFilter;
+		if (StringUtils.hasText(schemaRevision)) {
+			FilterExpressionBuilder builder = new FilterExpressionBuilder();
+			filter = DynamicFilterService.combineWithAnd(
+					List.of(tableFilter, builder.eq(DocumentMetadataConstant.SCHEMA_REVISION, schemaRevision).build()));
+		}
 		List<Document> documents = getDocumentsOnlyByFilter(filter, tableNames.size() + 5);
 		Set<String> storedTableNames = documents.stream()
 			.map(document -> document.getMetadata().get(DocumentMetadataConstant.NAME))

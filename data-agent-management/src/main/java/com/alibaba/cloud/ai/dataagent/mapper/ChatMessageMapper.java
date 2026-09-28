@@ -29,7 +29,7 @@ public interface ChatMessageMapper {
 	@Select("""
 			SELECT * FROM chat_message
 			WHERE session_id = #{sessionId}
-			ORDER BY create_time ASC
+			ORDER BY create_time ASC, id ASC
 			""")
 	List<ChatMessage> selectBySessionId(@Param("sessionId") String sessionId);
 
@@ -41,6 +41,14 @@ public interface ChatMessageMapper {
 			WHERE id = #{id}
 			""")
 	ChatMessage selectById(@Param("id") Long id);
+
+	@Select("""
+			SELECT * FROM chat_message
+			WHERE session_id = #{sessionId}
+			ORDER BY create_time DESC, id DESC
+			LIMIT 1
+			""")
+	ChatMessage selectLatestBySessionId(@Param("sessionId") String sessionId);
 
 	/**
 	 * Query message count by session ID
@@ -58,7 +66,7 @@ public interface ChatMessageMapper {
 			SELECT * FROM chat_message
 			WHERE session_id = #{sessionId}
 			AND role = #{role}
-			ORDER BY create_time ASC
+			ORDER BY create_time ASC, id ASC
 			""")
 	List<ChatMessage> selectBySessionIdAndRole(@Param("sessionId") String sessionId, @Param("role") String role);
 
@@ -74,5 +82,11 @@ public interface ChatMessageMapper {
 			WHERE id = #{id}
 			""")
 	int deleteById(@Param("id") Long id);
+
+	@Delete("DELETE FROM chat_message WHERE session_id = #{sessionId}")
+	int deleteBySessionId(@Param("sessionId") String sessionId);
+
+	@Update("UPDATE chat_message SET metadata = #{metadata} WHERE id = #{id}")
+	int updateMetadata(@Param("id") Long id, @Param("metadata") String metadata);
 
 }

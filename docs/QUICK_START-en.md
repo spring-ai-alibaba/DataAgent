@@ -57,11 +57,11 @@ spring:
 
 Auto initialization is disabled by default (`spring.sql.init.mode: never`).
 
-> To change initialization behavior, see [Developer Guide - Database Initialization](DEVELOPER_GUIDE-en.md#8-database-initialization).
+> To change initialization behavior, see [Developer Guide - Database Initialization](DEVELOPER_GUIDE-en.md#9-database-initialization).
 
 ### 2.3 Configure Model
 
-> If you need to manually manage model dependencies (not using default Starter), please refer to [Developer Guide - Dependency Extension Configuration](DEVELOPER_GUIDE-en.md#9-dependency-extension).
+> If you need to manually manage model dependencies (not using default Starter), please refer to [Developer Guide - Dependency Extension Configuration](DEVELOPER_GUIDE-en.md#10-dependency-extension).
 
 Start the project, click on Model Configuration, add a new model and fill in your API key.
 
@@ -80,7 +80,7 @@ Start the project, click on Model Configuration, add a new model and fill in you
 
 ### 2.4 Embedding Model Batch Processing Strategy Configuration
 
-> For detailed configuration parameters, see [Developer Guide - Embedding Batch Configuration](DEVELOPER_GUIDE-en.md#2-embedding-batch-configuration).
+> For detailed configuration parameters, see [Developer Guide - Embedding Batch Configuration](DEVELOPER_GUIDE-en.md#3-embedding-batch-configuration).
 
 ### 2.5 Vector Store Configuration
 
@@ -180,11 +180,11 @@ Below is the ES schema structure. For other vector stores like Milvus, PG, etc.,
 
 #### 2.5.3 Vector Store Configuration Parameters
 
-> For detailed configuration parameters, see [Developer Guide - Vector Store Configuration](DEVELOPER_GUIDE-en.md#3-vector-store-configuration).
+> For detailed configuration parameters, see [Developer Guide - Vector Store Configuration](DEVELOPER_GUIDE-en.md#4-vector-store-configuration).
 
 ### 2.6 Retrieval Fusion Strategy
 
-> For detailed configuration parameters, see [Developer Guide - Vector Store Configuration](DEVELOPER_GUIDE-en.md#3-vector-store-configuration).
+> For detailed configuration parameters, see [Developer Guide - Vector Store Configuration](DEVELOPER_GUIDE-en.md#4-vector-store-configuration).
 
 ### 2.7 Replace Vector Store Implementation
 
@@ -194,7 +194,7 @@ Below is the ES schema structure. For other vector stores like Milvus, PG, etc.,
 
 ### 2.8 Configure the Python Sandbox
 
-DataAgent uses the Spring AI Alibaba `1.1.2.2` Sandbox to run generated Python code. Every
+DataAgent uses the Spring AI Alibaba `1.1.2.3` Sandbox to run generated Python code. Every
 execution gets a task-scoped container; dynamic dependency installation, code execution, and
 container cleanup all happen inside that task.
 
