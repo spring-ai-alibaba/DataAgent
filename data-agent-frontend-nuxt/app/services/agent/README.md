@@ -39,8 +39,6 @@ export interface Agent {
 	apiKey?: string | null;
 	/** 是否启用 API Key */
 	apiKeyEnabled?: number | boolean;
-	/** 提示词 (Prompt) */
-	prompt?: string;
 	/** 分类 */
 	category?: string;
 	/** 管理员 ID */

@@ -39,8 +39,6 @@ export interface Agent {
 	apiKey?: string | null;
 	/** 是否启用 API Key */
 	apiKeyEnabled?: number | boolean;
-	/** 提示词 (Prompt) */
-	prompt?: string;
 	/** 分类 */
 	category?: string;
 	/** 管理员 ID */
@@ -139,7 +137,6 @@ class AgentService {
 				description: agent.description,
 				avatar: agent.avatar,
 				status: agent.status,
-				prompt: agent.prompt,
 				category: agent.category,
 				tags: agent.tags,
 				humanReviewEnabled: agent.humanReviewEnabled ? 1 : 0,
