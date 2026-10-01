@@ -46,17 +46,27 @@ public interface SemanticModelMapper {
 	SemanticModel selectById(@Param("id") Long id);
 
 	/**
-	 * Search semantic models by keyword
+	 * Search semantic models by keyword (table/column/business fields). Optional agentId
+	 * scopes results to one agent.
 	 */
 	@Select("""
+			<script>
 			SELECT * FROM semantic_model
-			WHERE column_name LIKE CONCAT('%', #{keyword}, '%')
+			WHERE (
+			   table_name LIKE CONCAT('%', #{keyword}, '%')
+			   OR column_name LIKE CONCAT('%', #{keyword}, '%')
 			   OR business_name LIKE CONCAT('%', #{keyword}, '%')
 			   OR business_description LIKE CONCAT('%', #{keyword}, '%')
 			   OR synonyms LIKE CONCAT('%', #{keyword}, '%')
+			   OR column_comment LIKE CONCAT('%', #{keyword}, '%')
+			)
+			<if test="agentId != null">
+			  AND agent_id = #{agentId}
+			</if>
 			ORDER BY created_time DESC
+			</script>
 			""")
-	List<SemanticModel> searchByKeyword(@Param("keyword") String keyword);
+	List<SemanticModel> searchByKeyword(@Param("keyword") String keyword, @Param("agentId") Long agentId);
 
 	/**
 	 * Batch enable fields

@@ -45,6 +45,8 @@ public interface SemanticModelService {
 
 	List<SemanticModel> search(String keyword);
 
+	List<SemanticModel> search(String keyword, Long agentId);
+
 	void deleteSemanticModel(Long id);
 
 	void updateSemanticModel(Long id, SemanticModel semanticModel);

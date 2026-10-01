@@ -50,7 +50,7 @@ class SemanticModelControllerTest {
 	@Test
 	void list_withKeyword_callsSearch() {
 		SemanticModel model = SemanticModel.builder().id(1L).businessName("Revenue").build();
-		when(semanticModelService.search("Rev")).thenReturn(List.of(model));
+		when(semanticModelService.search("Rev", null)).thenReturn(List.of(model));
 
 		ApiResponse<List<SemanticModel>> result = controller.list("Rev", null);
 
@@ -80,12 +80,12 @@ class SemanticModelControllerTest {
 	}
 
 	@Test
-	void list_keywordPrioritizedOverAgentId() {
-		when(semanticModelService.search("test")).thenReturn(List.of());
+	void list_keywordWithAgentId_scopesSearchToAgent() {
+		when(semanticModelService.search("test", 1L)).thenReturn(List.of());
 
 		controller.list("test", 1L);
 
-		verify(semanticModelService).search("test");
+		verify(semanticModelService).search("test", 1L);
 		verify(semanticModelService, never()).getByAgentId(anyLong());
 	}
 

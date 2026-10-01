@@ -132,7 +132,12 @@ public class SemanticModelServiceImpl implements SemanticModelService {
 
 	@Override
 	public List<SemanticModel> search(String keyword) {
-		return semanticModelMapper.searchByKeyword(keyword);
+		return search(keyword, null);
+	}
+
+	@Override
+	public List<SemanticModel> search(String keyword, Long agentId) {
+		return semanticModelMapper.searchByKeyword(keyword, agentId);
 	}
 
 	@Override
