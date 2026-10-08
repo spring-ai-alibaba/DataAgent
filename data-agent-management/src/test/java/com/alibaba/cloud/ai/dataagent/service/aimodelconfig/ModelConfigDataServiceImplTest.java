@@ -64,7 +64,7 @@ class ModelConfigDataServiceImplTest {
 
 		verify(modelConfigMapper).deactivateOthers(ModelType.CHAT.getCode(), 1);
 		verify(modelConfigMapper).updateById(config);
-		assertTrue(config.getIsActive());
+		assertEquals(1, config.getIsActive());
 	}
 
 	@Test
@@ -261,7 +261,7 @@ class ModelConfigDataServiceImplTest {
 	@Test
 	void deleteConfig_isActive_throwsException() {
 		ModelConfig config = new ModelConfig();
-		config.setIsActive(true);
+		config.setIsActive(1);
 		when(modelConfigMapper.findById(1)).thenReturn(config);
 
 		assertThrowsExactly(RuntimeException.class, () -> service.deleteConfig(1));
@@ -270,7 +270,7 @@ class ModelConfigDataServiceImplTest {
 	@Test
 	void deleteConfig_success_softDeletes() {
 		ModelConfig config = new ModelConfig();
-		config.setIsActive(false);
+		config.setIsActive(0);
 		when(modelConfigMapper.findById(1)).thenReturn(config);
 		when(modelConfigMapper.updateById(config)).thenReturn(1);
 

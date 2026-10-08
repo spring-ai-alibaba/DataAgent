@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS `model_config` (
     `api_key` varchar(255) NOT NULL COMMENT 'API密钥',
     `model_name` varchar(255) NOT NULL COMMENT '模型名称',
     `temperature` decimal(10,2) unsigned DEFAULT '0.00' COMMENT '温度参数',
-    `is_active` tinyint(1) DEFAULT '0' COMMENT '是否激活',
+    `is_active` int(11) DEFAULT '0' COMMENT '是否激活',
     `max_tokens` int(11) DEFAULT '2000' COMMENT '输出响应最大令牌数',
     `model_type` varchar(20) NOT NULL DEFAULT 'CHAT' COMMENT '模型类型 (CHAT/EMBEDDING)',
     `completions_path` varchar(255) DEFAULT NULL COMMENT 'Chat模型专用。附加到 Base URL 的路径。例如OpenAi的/v1/chat/completions',
@@ -262,10 +262,21 @@ CREATE TABLE IF NOT EXISTS `model_config` (
     `updated_time` datetime DEFAULT NULL COMMENT '更新时间',
     `is_deleted` int(11) DEFAULT '0' COMMENT '0=未删除, 1=已删除',
     -- 新增 AI 代理配置字段（默认关闭以确保零侵入性）
-    `proxy_enabled` tinyint(1) DEFAULT '0' COMMENT '是否启用代理：0-禁用，1-启用',
+    `proxy_enabled` int(11) DEFAULT '0' COMMENT '是否启用代理：0-禁用，1-启用',
     `proxy_host` varchar(255) DEFAULT NULL COMMENT '代理主机地址',
     `proxy_port` int(11) DEFAULT NULL COMMENT '代理端口',
     `proxy_username` varchar(255) DEFAULT NULL COMMENT '代理用户名（可选）',
     `proxy_password` varchar(255) DEFAULT NULL COMMENT '代理密码（可选）',
     PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Migration (#540): convert model_config boolean flags from tinyint(1) to int(11).
+-- Idempotent & safe to re-run: on a fresh schema the columns are already int(11);
+-- on an existing schema (created before this change, where they were tinyint(1)) this
+-- converts them so the Java Integer mapping reads the correct values.
+-- Note: spring.sql.init.mode defaults to `never`, so this only executes when the app is
+-- started with DATA_AGENT_DATASOURCE_SQL_INIT=always. Existing deployments can also run it
+-- manually against the database once.
+ALTER TABLE `model_config`
+    MODIFY COLUMN `is_active` int(11) DEFAULT 0 COMMENT '是否激活',
+    MODIFY COLUMN `proxy_enabled` int(11) DEFAULT 0 COMMENT '是否启用代理：0-禁用，1-启用';

@@ -58,7 +58,7 @@ public class ModelConfigOpsService {
 		ModelConfig entity = modelConfigDataService.updateConfigInDb(dto);
 
 		// 2. 检查是否是激活状态
-		if (Boolean.TRUE.equals(entity.getIsActive())) {
+		if (entity.getIsActive() != null && entity.getIsActive() == 1) {
 			try {
 				// 3. 刷新内存模型
 				log.info("Detected update on active config [{}], refreshing memory...", entity.getModelType());

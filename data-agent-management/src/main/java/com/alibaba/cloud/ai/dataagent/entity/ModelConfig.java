@@ -38,7 +38,7 @@ public class ModelConfig {
 
 	private Double temperature;
 
-	private Boolean isActive = false;
+	private Integer isActive = 0;
 
 	private Integer maxTokens;
 
@@ -60,7 +60,7 @@ public class ModelConfig {
 	private Integer isDeleted;
 
 	// ai-proxy设置（默认关闭，使用直连）
-	private Boolean proxyEnabled;
+	private Integer proxyEnabled = 0;
 
 	private String proxyHost;
 

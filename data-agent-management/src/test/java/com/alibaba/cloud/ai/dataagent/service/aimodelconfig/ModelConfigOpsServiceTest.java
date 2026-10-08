@@ -55,7 +55,7 @@ class ModelConfigOpsServiceTest {
 	void testUpdateAndRefresh_activeChat() {
 		ModelConfigDTO dto = new ModelConfigDTO();
 		ModelConfig entity = new ModelConfig();
-		entity.setIsActive(true);
+		entity.setIsActive(1);
 		entity.setModelType(ModelType.CHAT);
 		when(modelConfigDataService.updateConfigInDb(dto)).thenReturn(entity);
 
@@ -68,7 +68,7 @@ class ModelConfigOpsServiceTest {
 	void testUpdateAndRefresh_activeEmbedding() {
 		ModelConfigDTO dto = new ModelConfigDTO();
 		ModelConfig entity = new ModelConfig();
-		entity.setIsActive(true);
+		entity.setIsActive(1);
 		entity.setModelType(ModelType.EMBEDDING);
 		when(modelConfigDataService.updateConfigInDb(dto)).thenReturn(entity);
 
@@ -81,7 +81,7 @@ class ModelConfigOpsServiceTest {
 	void testUpdateAndRefresh_inactive() {
 		ModelConfigDTO dto = new ModelConfigDTO();
 		ModelConfig entity = new ModelConfig();
-		entity.setIsActive(false);
+		entity.setIsActive(0);
 		when(modelConfigDataService.updateConfigInDb(dto)).thenReturn(entity);
 
 		service.updateAndRefresh(dto);

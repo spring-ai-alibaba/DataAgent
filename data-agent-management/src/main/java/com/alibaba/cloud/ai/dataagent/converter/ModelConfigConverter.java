@@ -40,12 +40,12 @@ public class ModelConfigConverter {
 			.modelName(entity.getModelName())
 			.temperature(entity.getTemperature())
 			.maxTokens(entity.getMaxTokens())
-			.isActive(entity.getIsActive())
+			.isActive(entity.getIsActive() != null && entity.getIsActive() == 1)
 			.apiKey(entity.getApiKey())
 			.modelType(entity.getModelType().getCode())
 			.completionsPath(entity.getCompletionsPath())
 			.embeddingsPath(entity.getEmbeddingsPath())
-			.proxyEnabled(entity.getProxyEnabled())
+			.proxyEnabled(entity.getProxyEnabled() != null && entity.getProxyEnabled() == 1)
 			.proxyHost(entity.getProxyHost())
 			.proxyPort(entity.getProxyPort())
 			.proxyUsername(entity.getProxyUsername())
@@ -84,13 +84,13 @@ public class ModelConfigConverter {
 		entity.setModelType(ModelType.fromCode(dto.getModelType()));
 		entity.setCompletionsPath(dto.getCompletionsPath());
 		entity.setEmbeddingsPath(dto.getEmbeddingsPath());
-		entity.setProxyEnabled(dto.getProxyEnabled());
+		entity.setProxyEnabled(dto.getProxyEnabled() != null && dto.getProxyEnabled() ? 1 : 0);
 		entity.setProxyHost(dto.getProxyHost());
 		entity.setProxyPort(dto.getProxyPort());
 		entity.setProxyUsername(dto.getProxyUsername());
 		entity.setProxyPassword(dto.getProxyPassword());
 		// 默认值处理
-		entity.setIsActive(false);
+		entity.setIsActive(0);
 		entity.setIsDeleted(0);
 		entity.setCreatedTime(LocalDateTime.now());
 		entity.setUpdatedTime(LocalDateTime.now());

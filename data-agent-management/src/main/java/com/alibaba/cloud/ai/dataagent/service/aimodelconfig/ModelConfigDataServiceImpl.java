@@ -54,7 +54,7 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		// 2. 启用当前配置
 		ModelConfig entity = modelConfigMapper.findById(id);
 		if (entity != null) {
-			entity.setIsActive(true);
+			entity.setIsActive(1);
 			entity.setUpdatedTime(LocalDateTime.now());
 			modelConfigMapper.updateById(entity);
 		}
@@ -122,7 +122,7 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		oldEntity.setCompletionsPath(dto.getCompletionsPath()); // 路径字段
 		oldEntity.setEmbeddingsPath(dto.getEmbeddingsPath()); // 路径字段
 		oldEntity.setUpdatedTime(LocalDateTime.now()); // 更新时间
-		oldEntity.setProxyEnabled(dto.getProxyEnabled());
+		oldEntity.setProxyEnabled(dto.getProxyEnabled() != null && dto.getProxyEnabled() ? 1 : 0);
 		oldEntity.setProxyHost(dto.getProxyHost());
 		oldEntity.setProxyPort(dto.getProxyPort());
 		oldEntity.setProxyUsername(dto.getProxyUsername());
@@ -145,7 +145,7 @@ public class ModelConfigDataServiceImpl implements ModelConfigDataService {
 		}
 
 		// 2. 如果是激活状态，禁止删除
-		if (Boolean.TRUE.equals(entity.getIsActive())) {
+		if (entity.getIsActive() != null && entity.getIsActive() == 1) {
 			throw new RuntimeException("该配置当前正在使用中，无法删除！请先激活其他配置，再进行删除操作。");
 		}
 

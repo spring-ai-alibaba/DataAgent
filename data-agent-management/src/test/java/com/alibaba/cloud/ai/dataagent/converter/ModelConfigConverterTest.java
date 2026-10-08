@@ -38,12 +38,12 @@ class ModelConfigConverterTest {
 		entity.setModelName("gpt-4");
 		entity.setTemperature(0.7);
 		entity.setMaxTokens(2000);
-		entity.setIsActive(true);
+		entity.setIsActive(1);
 		entity.setApiKey("sk-test");
 		entity.setModelType(ModelType.CHAT);
 		entity.setCompletionsPath("/v1/chat");
 		entity.setEmbeddingsPath("/v1/embeddings");
-		entity.setProxyEnabled(true);
+		entity.setProxyEnabled(1);
 		entity.setProxyHost("proxy.example.com");
 		entity.setProxyPort(8888);
 		entity.setProxyUsername("user");
@@ -103,11 +103,11 @@ class ModelConfigConverterTest {
 		assertEquals(ModelType.CHAT, entity.getModelType());
 		assertEquals("/custom/chat", entity.getCompletionsPath());
 		assertEquals("/custom/embed", entity.getEmbeddingsPath());
-		assertFalse(entity.getIsActive());
+		assertEquals(0, entity.getIsActive());
 		assertEquals(0, entity.getIsDeleted());
 		assertNotNull(entity.getCreatedTime());
 		assertNotNull(entity.getUpdatedTime());
-		assertFalse(entity.getProxyEnabled());
+		assertEquals(0, entity.getProxyEnabled());
 		assertEquals("proxy2.example.com", entity.getProxyHost());
 	}
 
