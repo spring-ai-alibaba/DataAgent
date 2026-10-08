@@ -269,3 +269,14 @@ CREATE TABLE IF NOT EXISTS `model_config` (
     `proxy_password` varchar(255) DEFAULT NULL COMMENT '代理密码（可选）',
     PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Migration (#540): convert model_config boolean flags from tinyint(1) to int(11).
+-- Idempotent & safe to re-run: on a fresh schema the columns are already int(11);
+-- on an existing schema (created before this change, where they were tinyint(1)) this
+-- converts them so the Java Integer mapping reads the correct values.
+-- Note: spring.sql.init.mode defaults to `never`, so this only executes when the app is
+-- started with DATA_AGENT_DATASOURCE_SQL_INIT=always. Existing deployments can also run it
+-- manually against the database once.
+ALTER TABLE `model_config`
+    MODIFY COLUMN `is_active` int(11) DEFAULT 0 COMMENT '是否激活',
+    MODIFY COLUMN `proxy_enabled` int(11) DEFAULT 0 COMMENT '是否启用代理：0-禁用，1-启用';
