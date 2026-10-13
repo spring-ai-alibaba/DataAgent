@@ -61,6 +61,24 @@ class SqlGenerateNodeTest {
 			}
 			""";
 
+	private static final String MULTI_STEP_PLAN_JSON = """
+			{
+			  "thought_process": "先查用户再查订单",
+			  "execution_plan": [
+			    {
+			      "step": 1,
+			      "tool_to_use": "sql_generate_node",
+			      "tool_parameters": {"instruction": "查询目标用户"}
+			    },
+			    {
+			      "step": 2,
+			      "tool_to_use": "sql_generate_node",
+			      "tool_parameters": {"instruction": "根据用户ID查询订单"}
+			    }
+			  ]
+			}
+			""";
+
 	private static final Map<String, Object> TEST_QUERY_ENHANCE;
 
 	private static final Map<String, Object> TEST_SCHEMA;
@@ -255,24 +273,7 @@ class SqlGenerateNodeTest {
 	@Test
 	void apply_laterStep_includesPreviousSqlResults() throws Exception {
 		OverAllState state = createTestState();
-		String multiStepPlan = """
-				{
-				  "thought_process": "先查用户再查订单",
-				  "execution_plan": [
-				    {
-				      "step": 1,
-				      "tool_to_use": "sql_generate_node",
-				      "tool_parameters": {"instruction": "查询目标用户"}
-				    },
-				    {
-				      "step": 2,
-				      "tool_to_use": "sql_generate_node",
-				      "tool_parameters": {"instruction": "根据用户ID查询订单"}
-				    }
-				  ]
-				}
-				""";
-		state.updateState(Map.of(SQL_GENERATE_COUNT, 0, PLANNER_NODE_OUTPUT, multiStepPlan, PLAN_CURRENT_STEP, 2,
+		state.updateState(Map.of(SQL_GENERATE_COUNT, 0, PLANNER_NODE_OUTPUT, MULTI_STEP_PLAN_JSON, PLAN_CURRENT_STEP, 2,
 				EVIDENCE, "test evidence", DB_DIALECT_TYPE, "mysql", QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE,
 				TABLE_RELATION_OUTPUT, TEST_SCHEMA, SQL_EXECUTE_NODE_OUTPUT,
 				Map.of("step_1", "{\"data\":[{\"passport_id\":\"P100\"}]}")));
@@ -381,6 +382,70 @@ class SqlGenerateNodeTest {
 		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
 		assertEquals("SELECT * FROM users", execution.finalResult().get(SQL_GENERATE_OUTPUT));
 		assertTrue(execution.streamedText().contains("SELECT * FROM users"));
+	}
+
+	@Test
+	void apply_executionRetryGeneratesDifferentSql_storesNewSqlInOutput() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		state.updateState(Map.of(SQL_REGENERATE_REASON, SqlRetryDto.sqlExecute("table not found"), SQL_GENERATE_OUTPUT,
+				"SELECT * FROM nonexistent_table"));
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		stubGeneratedSql("SELECT * FROM existing_table");
+
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals("SELECT * FROM existing_table", execution.finalResult().get(SQL_GENERATE_OUTPUT));
+	}
+
+	@Test
+	void apply_laterStepWithOversizedPreviousResults_truncatesHistory() throws Exception {
+		OverAllState state = createTestState();
+		String oversizedResult = "x".repeat(20_000);
+		state.updateState(Map.of(SQL_GENERATE_COUNT, 0, PLANNER_NODE_OUTPUT, MULTI_STEP_PLAN_JSON, PLAN_CURRENT_STEP, 2,
+				EVIDENCE, "test evidence", DB_DIALECT_TYPE, "mysql", QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE,
+				TABLE_RELATION_OUTPUT, TEST_SCHEMA, SQL_EXECUTE_NODE_OUTPUT, Map.of("step_1", oversizedResult)));
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM orders"));
+
+		sqlGenerateNode.apply(state);
+
+		ArgumentCaptor<SqlGenerationDTO> requestCaptor = ArgumentCaptor.forClass(SqlGenerationDTO.class);
+		verify(nl2SqlService).generateSql(requestCaptor.capture());
+		String previousResults = requestCaptor.getValue().getPreviousStepResults();
+		assertTrue(previousResults.contains("step_1"));
+		assertTrue(previousResults.contains("...(历史结果已截断)"));
+		assertTrue(previousResults.length() < 20_000);
+	}
+
+	@Test
+	void apply_laterStepWithBlankPreviousResults_skipsBlankStep() throws Exception {
+		OverAllState state = createTestState();
+		state.updateState(Map.of(SQL_GENERATE_COUNT, 0, PLANNER_NODE_OUTPUT, MULTI_STEP_PLAN_JSON, PLAN_CURRENT_STEP, 2,
+				EVIDENCE, "test evidence", DB_DIALECT_TYPE, "mysql", QUERY_ENHANCE_NODE_OUTPUT, TEST_QUERY_ENHANCE,
+				TABLE_RELATION_OUTPUT, TEST_SCHEMA, SQL_EXECUTE_NODE_OUTPUT, Map.of("step_1", "   ")));
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		when(nl2SqlService.generateSql(any())).thenReturn(Flux.just("SELECT * FROM orders"));
+
+		sqlGenerateNode.apply(state);
+
+		ArgumentCaptor<SqlGenerationDTO> requestCaptor = ArgumentCaptor.forClass(SqlGenerationDTO.class);
+		verify(nl2SqlService).generateSql(requestCaptor.capture());
+		assertEquals("无", requestCaptor.getValue().getPreviousStepResults());
+	}
+
+	@Test
+	void apply_executionRetrySameSqlWithMultipleTrailingSemicolons_stopsRetryLoop() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		state.updateState(Map.of(SQL_REGENERATE_REASON, SqlRetryDto.sqlExecute("same database error"),
+				SQL_GENERATE_OUTPUT, "SELECT * FROM users;;;"));
+
+		when(properties.getMaxSqlRetryCount()).thenReturn(10);
+		stubGeneratedSql("SELECT * FROM users");
+
+		NodeExecution execution = execute(sqlGenerateNode.apply(state), SQL_GENERATE_OUTPUT);
+		assertEquals(StateGraph.END, execution.finalResult().get(SQL_GENERATE_OUTPUT));
 	}
 
 }
