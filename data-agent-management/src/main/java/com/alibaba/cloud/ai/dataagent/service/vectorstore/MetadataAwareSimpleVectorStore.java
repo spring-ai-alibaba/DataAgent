@@ -18,28 +18,23 @@ package com.alibaba.cloud.ai.dataagent.service.vectorstore;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
+import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.filter.Filter;
-import org.springframework.ai.vectorstore.filter.converter.SimpleVectorStoreFilterExpressionConverter;
-import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Adds metadata deletion to Spring AI's in-memory fallback store.
+ * Adds metadata operations and numeric membership filtering to the in-memory store.
  *
  * <p>
  * {@link SimpleVectorStore} supports ID deletion but not filter deletion. Selecting IDs
  * through similarity search would invoke the embedding model for a delete operation. This
- * adapter keeps Spring AI's storage and lifecycle implementation while supplying the one
- * provider-specific operation that it does not expose.
+ * adapter keeps Spring AI's storage and lifecycle implementation and shares one compiled
+ * metadata predicate between exact retrieval and cosine similarity search.
  */
 public final class MetadataAwareSimpleVectorStore extends SimpleVectorStore {
-
-	private final SpelExpressionParser expressionParser = new SpelExpressionParser();
-
-	private final SimpleVectorStoreFilterExpressionConverter filterConverter = new SimpleVectorStoreFilterExpressionConverter();
 
 	public MetadataAwareSimpleVectorStore(EmbeddingModel embeddingModel) {
 		super(SimpleVectorStore.builder(embeddingModel));
@@ -56,18 +51,28 @@ public final class MetadataAwareSimpleVectorStore extends SimpleVectorStore {
 	}
 
 	public List<Document> findByFilter(Filter.Expression filterExpression, int limit) {
-		var expression = expressionParser.parseExpression(filterConverter.convertExpression(filterExpression));
-		return store.values().stream().filter(content -> {
-			StandardEvaluationContext context = new StandardEvaluationContext();
-			context.setVariable("metadata", content.getMetadata());
-			return Boolean.TRUE.equals(expression.getValue(context, Boolean.class));
-		})
+		var predicate = SimpleVectorStoreMetadataFilter.compile(filterExpression);
+		return store.values().stream().filter(content -> predicate.test(content.getMetadata()))
 			.limit(limit)
 			.map(content -> Document.builder()
 				.id(content.getId())
 				.text(content.getText())
 				.metadata(content.getMetadata())
 				.build())
+			.toList();
+	}
+
+	@Override
+	public List<Document> doSimilaritySearch(SearchRequest request) {
+		var predicate = SimpleVectorStoreMetadataFilter.compile(request.getFilterExpression());
+		float[] queryEmbedding = this.embeddingModel.embed(request.getQuery());
+		// Match SimpleVectorStore scoring, threshold and topK semantics; only filtering differs.
+		return store.values().stream()
+			.filter(content -> predicate.test(content.getMetadata()))
+			.map(content -> content.toDocument(EmbeddingMath.cosineSimilarity(queryEmbedding, content.getEmbedding())))
+			.filter(document -> document.getScore() >= request.getSimilarityThreshold())
+			.sorted(Comparator.comparing(Document::getScore).reversed())
+			.limit(request.getTopK())
 			.toList();
 	}
 
