@@ -75,6 +75,11 @@ public class PythonExecuteNode implements NodeAction {
 	public Map<String, Object> apply(OverAllState state) throws Exception {
 
 		try {
+			if (StateUtil.getObjectValue(state, PYTHON_FALLBACK_MODE, Boolean.class, false)) {
+				return createFallbackResult(state,
+						"Python代码修复结果与上一次失败代码相同，停止重试并采用降级策略继续处理。");
+			}
+
 			// Get context
 			String pythonCode = StateUtil.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT);
 			Map<String, String> executionResults = StateUtil.getObjectValue(state, SQL_EXECUTE_NODE_OUTPUT, Map.class,
@@ -95,25 +100,17 @@ public class PythonExecuteNode implements NodeAction {
 						+ taskResponse.stdErr() + "\nExceptionMsg: " + taskResponse.exceptionMsg();
 				log.error(errorMsg);
 
+				if (!taskResponse.executionSuccessButResultFailed()) {
+					log.error("Python sandbox infrastructure failed; skipping code regeneration to avoid retrying the same sandbox error");
+					return createFallbackResult(state,
+							"Python沙盒执行失败，停止代码重试并采用降级策略继续处理。");
+				}
+
 				// 检查是否超过最大重试次数
 				if (triesCount >= codeExecutorProperties.getPythonMaxTriesCount()) {
 					log.error("Python执行失败且已超过最大重试次数（已尝试次数：{}），启动降级兜底逻辑。错误信息: {}", triesCount, errorMsg);
-
-					String fallbackOutput = "{}";
-
-					Flux<ChatResponse> fallbackDisplayFlux = Flux.create(emitter -> {
-						emitter.next(ChatResponseUtil.createResponse("开始执行Python代码..."));
-						emitter.next(ChatResponseUtil.createResponse("Python代码执行失败已超过最大重试次数，采用降级策略继续处理。"));
-						emitter.complete();
-					});
-
-					Flux<GraphResponse<StreamingOutput>> fallbackGenerator = FluxUtil
-						.createStreamingGeneratorWithMessages(this.getClass(), state,
-								v -> Map.of(PYTHON_EXECUTE_NODE_OUTPUT, fallbackOutput, PYTHON_IS_SUCCESS, false,
-										PYTHON_FALLBACK_MODE, true),
-								fallbackDisplayFlux);
-
-					return Map.of(PYTHON_EXECUTE_NODE_OUTPUT, fallbackGenerator);
+					return createFallbackResult(state,
+							"Python代码执行失败已超过最大重试次数，采用降级策略继续处理。");
 				}
 
 				throw new RuntimeException(errorMsg);
@@ -169,6 +166,20 @@ public class PythonExecuteNode implements NodeAction {
 
 			return Map.of(PYTHON_EXECUTE_NODE_OUTPUT, generator);
 		}
+	}
+
+	private Map<String, Object> createFallbackResult(OverAllState state, String message) {
+		Flux<ChatResponse> fallbackDisplayFlux = Flux.create(emitter -> {
+			emitter.next(ChatResponseUtil.createResponse("开始执行Python代码..."));
+			emitter.next(ChatResponseUtil.createResponse(message));
+			emitter.complete();
+		});
+
+		Flux<GraphResponse<StreamingOutput>> fallbackGenerator = FluxUtil.createStreamingGeneratorWithMessages(this.getClass(),
+				state,
+				v -> Map.of(PYTHON_EXECUTE_NODE_OUTPUT, "{}", PYTHON_IS_SUCCESS, false, PYTHON_FALLBACK_MODE, true),
+				fallbackDisplayFlux);
+		return Map.of(PYTHON_EXECUTE_NODE_OUTPUT, fallbackGenerator);
 	}
 
 }

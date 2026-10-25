@@ -20,6 +20,7 @@ import static com.alibaba.cloud.ai.dataagent.support.GraphNodeTestSupport.execut
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -128,6 +129,23 @@ class PythonExecuteNodeTest {
 	}
 
 	@Test
+	void apply_sandboxInfrastructureFailure_entersFallbackWithoutRegeneratingCode() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		state.updateState(Map.of(PYTHON_TRIES_COUNT, 1));
+
+		when(pythonCodeExecutor.runTask(any()))
+			.thenReturn(PythonCodeExecutorService.TaskResponse.exception(
+					"Sandbox response does not contain the DataAgent result marker"));
+
+		NodeExecution execution = execute(pythonExecuteNode.apply(state), PYTHON_EXECUTE_NODE_OUTPUT);
+
+		assertEquals("{}", execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT));
+		assertEquals(false, execution.finalResult().get(PYTHON_IS_SUCCESS));
+		assertEquals(true, execution.finalResult().get(PYTHON_FALLBACK_MODE));
+	}
+
+	@Test
 	void apply_maxRetryExceeded_setsFallbackMode() throws Exception {
 		OverAllState state = createTestState();
 		setupBasicState(state);
@@ -140,6 +158,20 @@ class PythonExecuteNodeTest {
 		assertEquals("{}", execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT));
 		assertEquals(false, execution.finalResult().get(PYTHON_IS_SUCCESS));
 		assertEquals(true, execution.finalResult().get(PYTHON_FALLBACK_MODE));
+	}
+
+	@Test
+	void apply_fallbackMode_skipsSandboxExecution() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		state.updateState(Map.of(PYTHON_FALLBACK_MODE, true));
+
+		NodeExecution execution = execute(pythonExecuteNode.apply(state), PYTHON_EXECUTE_NODE_OUTPUT);
+
+		assertEquals("{}", execution.finalResult().get(PYTHON_EXECUTE_NODE_OUTPUT));
+		assertEquals(false, execution.finalResult().get(PYTHON_IS_SUCCESS));
+		assertEquals(true, execution.finalResult().get(PYTHON_FALLBACK_MODE));
+		verify(pythonCodeExecutor, never()).runTask(any());
 	}
 
 	@Test
