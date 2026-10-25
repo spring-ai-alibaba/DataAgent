@@ -38,8 +38,10 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.alibaba.cloud.ai.dataagent.constant.Constant.*;
 
@@ -105,6 +107,7 @@ public class PythonGenerateNode implements NodeAction {
 					</execution_error>
 					""", lastCode, lastError);
 		}
+		String previousCode = codeRunSuccess ? "" : StateUtil.getStringValue(state, PYTHON_GENERATE_NODE_OUTPUT, "");
 
 		ExecutionStep executionStep = PlanProcessUtil.getCurrentExecutionStep(state);
 
@@ -128,13 +131,34 @@ public class PythonGenerateNode implements NodeAction {
 							aiResponse.length() - TextType.PYTHON.getEndSign().length());
 					aiResponse = MarkdownParserUtil.extractRawText(aiResponse).stripTrailing();
 					log.debug("Python Generate Code: {}", aiResponse);
-					return Map.of(PYTHON_GENERATE_NODE_OUTPUT, aiResponse, PYTHON_TRIES_COUNT, triesCount + 1);
+					Map<String, Object> result = new HashMap<>();
+					result.put(PYTHON_GENERATE_NODE_OUTPUT, aiResponse);
+					result.put(PYTHON_TRIES_COUNT, triesCount + 1);
+					if (!previousCode.isBlank()
+							&& normalizePythonCode(previousCode).equals(normalizePythonCode(aiResponse))) {
+						log.warn("Regenerated Python code is unchanged after execution failure; stopping retry loop");
+						result.put(PYTHON_FALLBACK_MODE, true);
+					}
+					else {
+						// Clear a fallback flag left by a previous Python step before executing new code.
+						result.put(PYTHON_FALLBACK_MODE, false);
+					}
+					return result;
 				},
 				Flux.concat(Flux.just(ChatResponseUtil.createPureResponse(TextType.PYTHON.getStartSign())),
 						pythonGenerateFlux,
 						Flux.just(ChatResponseUtil.createPureResponse(TextType.PYTHON.getEndSign()))));
 
 		return Map.of(PYTHON_GENERATE_NODE_OUTPUT, generator);
+	}
+
+	private String normalizePythonCode(String code) {
+		return code.replace("\r\n", "\n")
+			.replace('\r', '\n')
+			.lines()
+			.map(String::stripTrailing)
+			.collect(Collectors.joining("\n"))
+			.strip();
 	}
 
 }

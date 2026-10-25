@@ -110,6 +110,7 @@ class PythonGenerateNodeTest {
 		state.registerKeyAndStrategy(PYTHON_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PYTHON_IS_SUCCESS, new ReplaceStrategy());
 		state.registerKeyAndStrategy(PYTHON_TRIES_COUNT, new ReplaceStrategy());
+		state.registerKeyAndStrategy(PYTHON_FALLBACK_MODE, new ReplaceStrategy());
 		state.registerKeyAndStrategy(TABLE_RELATION_OUTPUT, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_RESULT_LIST_MEMORY, new ReplaceStrategy());
 		state.registerKeyAndStrategy(SQL_EXECUTE_NODE_OUTPUT, new ReplaceStrategy());
@@ -185,6 +186,40 @@ class PythonGenerateNodeTest {
 		verify(llmService).call(anyString(), userPrompt.capture());
 		assertTrue(userPrompt.getValue().contains("import pandas\nprint(df)"));
 		assertTrue(userPrompt.getValue().contains("NameError: name 'df' is not defined"));
+	}
+
+	@Test
+	void apply_previousFailure_sameCode_stopsRetryAndEntersFallbackMode() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		state.updateState(Map.of(PYTHON_IS_SUCCESS, false,
+				PYTHON_GENERATE_NODE_OUTPUT, "print('same result')\r\n",
+				PYTHON_EXECUTE_NODE_OUTPUT, "NameError", PYTHON_TRIES_COUNT, 1));
+
+		when(llmService.call(anyString(), anyString()))
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("print('same result')\n")));
+
+		NodeExecution execution = execute(pythonGenerateNode.apply(state), PYTHON_GENERATE_NODE_OUTPUT);
+
+		assertEquals("print('same result')", execution.finalResult().get(PYTHON_GENERATE_NODE_OUTPUT));
+		assertEquals(2, execution.finalResult().get(PYTHON_TRIES_COUNT));
+		assertEquals(true, execution.finalResult().get(PYTHON_FALLBACK_MODE));
+	}
+
+	@Test
+	void apply_newCode_clearsFallbackMode() throws Exception {
+		OverAllState state = createTestState();
+		setupBasicState(state);
+		state.updateState(Map.of(PYTHON_IS_SUCCESS, false, PYTHON_FALLBACK_MODE, true,
+				PYTHON_GENERATE_NODE_OUTPUT, "print('old')", PYTHON_EXECUTE_NODE_OUTPUT, "NameError",
+				PYTHON_TRIES_COUNT, 1));
+
+		when(llmService.call(anyString(), anyString()))
+			.thenReturn(Flux.just(ChatResponseUtil.createPureResponse("print('fixed')")));
+
+		NodeExecution execution = execute(pythonGenerateNode.apply(state), PYTHON_GENERATE_NODE_OUTPUT);
+
+		assertEquals(false, execution.finalResult().get(PYTHON_FALLBACK_MODE));
 	}
 
 	@Test
