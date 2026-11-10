@@ -221,8 +221,6 @@ class ModelConfigOpsServiceTest {
 		assertEquals("RuntimeException", exception.getMessage());
 	}
 
-}
-
 	@Test
 	void parseErrorMessage_modelNotSupported_reportsUnsupportedModel() {
 		RuntimeException ex = new RuntimeException(
@@ -261,3 +259,4 @@ class ModelConfigOpsServiceTest {
 
 		assertTrue(result.contains("请求过多或余额不足"), "实际: " + result);
 	}
+}
