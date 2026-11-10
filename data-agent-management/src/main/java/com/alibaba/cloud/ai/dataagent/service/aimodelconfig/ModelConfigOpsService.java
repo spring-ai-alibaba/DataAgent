@@ -189,7 +189,7 @@ public class ModelConfigOpsService {
 	/**
 	 * 辅助方法：提取更友好的错误信息 Spring AI 抛出的异常有时候嵌套很深
 	 */
-	private String parseErrorMessage(Exception e) {
+	String parseErrorMessage(Exception e) {
 		String message = e.getMessage();
 		if (!StringUtils.hasText(message)) {
 			return e.getClass().getSimpleName();
@@ -197,6 +197,10 @@ public class ModelConfigOpsService {
 		// 如果是 401，通常是 Key 错
 		if (message.contains("401")) {
 			return "鉴权失败 (401)，请检查 API Key 是否正确。";
+		}
+		// 如果是模型不支持（如 OpenAI 兼容模式返回 404 + model_not_supported），不能误报为接口未找到
+		if (message.contains("model_not_supported") || message.toLowerCase().contains("unsupported model")) {
+			return "模型不支持 (model_not_supported)：请确认模型名称正确，且当前厂商/兼容模式支持该模型。";
 		}
 		// 如果是 404，通常是 BaseUrl 或 Path 错
 		if (message.contains("404")) {
